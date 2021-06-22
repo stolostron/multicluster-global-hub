@@ -35,6 +35,10 @@ The main repository for the Hub-of-Hubs.
  
 1.16
 
+### Kubernetes APIs
+
+We use [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) module, v0.6.0.
+
 ### Build
  
 * [Makefile](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/Makefile) 
