@@ -51,7 +51,7 @@ References:
 
 #### Errors and logging
 
-The errors should be wrapped using `fmt.Errorf("Some description: %w", err)`. The errors should only be logged once in the "main" method, such as `Reconcile`.
+ALl the errors should be wrapped before returning, using `fmt.Errorf("Some description: %w", err)`. The errors should only be logged once in the "main" method, such as `Reconcile`.
 
 References:
 * https://www.orsolabs.com/post/go-errors-and-logs/
