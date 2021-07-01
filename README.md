@@ -46,16 +46,15 @@ We use [controller-runtime](https://github.com/kubernetes-sigs/controller-runtim
 `Context.Background()` should be defined in the beginning of each "main" method, such as `Reconcile` and then passed to all the called methods.
 
 References:
-http://p.agnihotry.com/post/understanding_the_context_package_in_golang/
-https://blog.golang.org/context
+* http://p.agnihotry.com/post/understanding_the_context_package_in_golang/
+* https://blog.golang.org/context
 
 #### Errors and logging
 
 The errors should be wrapped using `fmt.Errorf("Some description: %w", err)`. The errors should only be logged once in the "main" method, such as `Reconcile`.
 
 References:
-https://www.orsolabs.com/post/go-errors-and-logs/
-
+* https://www.orsolabs.com/post/go-errors-and-logs/
 
 ### Build
  
