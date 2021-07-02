@@ -43,7 +43,7 @@ We use [controller-runtime](https://github.com/kubernetes-sigs/controller-runtim
 
 #### Context usage
 
-`Context.Background()` should be defined in the beginning of each "main" method, such as `Reconcile`, or of a method to be called as a go routine,  and then passed to all the called methods. 
+`Context.Background()` should be defined in the beginning of each "main" method, such as `Reconcile`, or of a method to be called as a go routine,  and then passed to all the called methods. The functions that handle timers/timeouts/cancel events must handle cancelling the context.
 
 References:
 * http://p.agnihotry.com/post/understanding_the_context_package_in_golang/
@@ -51,7 +51,7 @@ References:
 
 #### Errors and logging
 
-All the errors should be wrapped before returning, using `fmt.Errorf("Some description: %w", err)`. The errors should only be logged once in the "main" method, such as `Reconcile`.
+All the errors should be wrapped before returning, using `fmt.Errorf("Some description: %w", err)`. The errors should only be logged once in the "main" method, such as `Reconcile` or methods that do not return errors.
 
 References:
 * https://www.orsolabs.com/post/go-errors-and-logs/
@@ -68,12 +68,12 @@ using controller-runtime for other components (for example for DB synchronizers)
 
 [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) provides the following functionality in addition to managing controllers:
 
-    * Kubernetes client with caching
-    * start/stop `Runnables` (DB syncers implement the `Runnable` interface)
-    * signal handling
-    * leader election
-    * metrics
-    * healthz/ready checks
+   * Kubernetes client with caching
+   * start/stop [Runnables](https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.6.0/pkg/manager#Runnable).
+   * signal handling
+   * leader election
+   * metrics
+   * healthz/ready checks
 
 ### Build
  
@@ -91,5 +91,3 @@ using controller-runtime for other components (for example for DB synchronizers)
 
 * `go vet`
 * [golangci-lint](https://github.com/golangci/golangci-lint), the settings file is [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml).
-
- 
