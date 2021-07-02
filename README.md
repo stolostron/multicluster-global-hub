@@ -60,6 +60,21 @@ References:
 
 We should use go routines where possible. Note that the database concurrency is limited by the maximal number of database connections (about 100). The multiple connections to a database are handled by pgx connection pool.
 
+#### Using controller-runtime
+
+While using [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) for controllers seems to be an obvious choice, 
+using controller-runtime for other components (for example for DB synchronizers) is not. We try to use 
+[controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) as much as possible, even for running components that are not controllers.
+
+[controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) provides the following functionality in addition to managing controllers:
+
+    * Kubernetes client with caching
+    * start/stop `Runnables` (DB syncers implement the `Runnable` interface)
+    * signal handling
+    * leader election
+    * metrics
+    * healthz/ready checks
+
 ### Build
  
 * [Makefile](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/Makefile) 
