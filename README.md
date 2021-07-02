@@ -43,7 +43,7 @@ We use [controller-runtime](https://github.com/kubernetes-sigs/controller-runtim
 
 #### Context usage
 
-`Context.Background()` should be defined in the beginning of each "main" method, such as `Reconcile` and then passed to all the called methods.
+`Context.Background()` should be defined in the beginning of each "main" method, such as `Reconcile`, or of a method to be called as a go routine,  and then passed to all the called methods. 
 
 References:
 * http://p.agnihotry.com/post/understanding_the_context_package_in_golang/
@@ -51,10 +51,14 @@ References:
 
 #### Errors and logging
 
-ALl the errors should be wrapped before returning, using `fmt.Errorf("Some description: %w", err)`. The errors should only be logged once in the "main" method, such as `Reconcile`.
+All the errors should be wrapped before returning, using `fmt.Errorf("Some description: %w", err)`. The errors should only be logged once in the "main" method, such as `Reconcile`.
 
 References:
 * https://www.orsolabs.com/post/go-errors-and-logs/
+
+#### Concurrency
+
+We should use go routines where possible. Note that the database concurrency is limited by the maximal number of database connections (about 100). The multiple connections to a database are handled by pgx connection pool.
 
 ### Build
  
