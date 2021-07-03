@@ -74,6 +74,7 @@ using controller-runtime for other components (for example for DB synchronizers)
    * leader election
    * metrics
    * healthz/ready checks
+   * client-side event processing
 
 #### Events
 
