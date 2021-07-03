@@ -75,6 +75,14 @@ using controller-runtime for other components (for example for DB synchronizers)
    * metrics
    * healthz/ready checks
 
+#### Events
+
+In this POC we do not produce events.
+
+#### Metrics
+
+Currently, we do not publish any metrics.
+
 ### Build
  
 * [Makefile](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/Makefile) 
