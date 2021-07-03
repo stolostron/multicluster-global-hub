@@ -78,11 +78,11 @@ using controller-runtime for other components (for example for DB synchronizers)
 
 #### Events
 
-In this POC we do not produce events.
+Currently we do not produce events.
 
 #### Metrics
 
-Currently, we do not publish any metrics.
+Currently we do not publish any metrics.
 
 ### Build
  
