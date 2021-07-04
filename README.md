@@ -73,7 +73,7 @@ is not. We try to use [controller-runtime's Manager](https://pkg.go.dev/sigs.k8s
    * signal handling
    * leader election
    * metrics
-   * healthz/ready checks
+   * health/ready checks
    * client-side event processing
 
 See [an example of using controller-runtime Manager features](https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/cronjob-tutorial/testdata/project/main.go).
@@ -85,6 +85,10 @@ Currently we do not produce events.
 #### Metrics
 
 Currently we do not publish any metrics.
+
+#### Health/ready checks
+
+Currently we do not use health/ready checks.
 
 ### Build
  
