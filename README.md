@@ -60,13 +60,13 @@ References:
 
 We should use go routines where possible. Note that the database concurrency is limited by the maximal number of database connections (about 100). The multiple connections to a database are handled by pgx connection pool.
 
-#### Using controller-runtime
+#### Using controller-runtime Manager
 
-While using [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) for controllers seems to be an obvious choice, 
-using controller-runtime for other components (for example for DB synchronizers) is not. We try to use 
-[controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) as much as possible, even for running components that are not controllers.
+While using [controller-runtime Manager](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager) for controllers seems to be an obvious choice, 
+using [controller-runtime's Manager](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager) for other components (for example for DB synchronizers) 
+is not. We try to use [controller-runtime's Manager](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager) as much as possible, even for running components that are not controllers.
 
-[controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) provides the following functionality in addition to managing controllers:
+[controller-runtime's Manager](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager) provides the following functionality in addition to managing controllers:
 
    * Kubernetes client with caching
    * start/stop [Runnables](https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.6.0/pkg/manager#Runnable).
@@ -75,6 +75,8 @@ using controller-runtime for other components (for example for DB synchronizers)
    * metrics
    * healthz/ready checks
    * client-side event processing
+
+See [an example of using controller-runtime Manager features](https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/cronjob-tutorial/testdata/project/main.go).
 
 #### Events
 
