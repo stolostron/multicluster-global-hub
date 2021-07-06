@@ -110,3 +110,7 @@ Currently we do not use health/ready checks.
 
 * `go vet`
 * [golangci-lint](https://github.com/golangci/golangci-lint), the settings file is [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml).
+
+### Tests
+
+We did not implement any unit/e2e tests for this POC.
