@@ -78,6 +78,10 @@ is not. We try to use [controller-runtime's Manager](https://pkg.go.dev/sigs.k8s
 
 See [an example of using controller-runtime Manager features](https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/cronjob-tutorial/testdata/project/main.go).
 
+#### Running as singletons
+
+All the components are designed to run as singletons (a single active replica), since there is no load balancing between components. We use leader election of [controller-runtime's Manager](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager) to implement the singleton pattern.
+
 #### Events
 
 Currently we do not produce events.
