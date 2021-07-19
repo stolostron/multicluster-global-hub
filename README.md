@@ -4,6 +4,10 @@ The main repository for the Hub-of-Hubs.
 
 ![ArchitectureDiagram](images/ScalableHOHArchitecture.png)
 
+## Demo
+
+The [demo script](demo.md).
+
 ## Repositories
 
 ### Ansible playbooks to setup PostgreSQL
