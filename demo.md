@@ -11,6 +11,7 @@
 `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
 * Leaf hub components installed on `hub1` and `hub2`, hub-of-hubs spec and status sync controllers run on `hoh` cluster.
 * Tranport bridge and transport server-side run on `hoh` or elsewhere.
+* https://github.com/vadimeisenbergibm/governance-policy-propagator/tree/no_status_update is used as `governance-policy-propagator` on `hoh`.
 * The database can be accessed for querying/deleting
 
 ### Before the demo
