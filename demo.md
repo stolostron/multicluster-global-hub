@@ -184,3 +184,55 @@ controllers do not run.
     ---------------------------+----------------------------+--------------------------+-----------+---------
      2021-07-19 09:18:03.85269 | 2021-07-19 10:03:33.869731 | policy-podsecuritypolicy | myproject | t
     ```
+
+## Advanced points
+
+1. Show the schema of some tables:
+
+```
+hoh=> \d+ spec.policies;
+                                               Table "spec.policies"
+   Column   |            Type             | Collation | Nullable | Default | Storage  | Stats target | Description 
+------------+-----------------------------+-----------+----------+---------+----------+--------------+-------------
+ id         | uuid                        |           | not null |         | plain    |              | 
+ payload    | jsonb                       |           | not null |         | extended |              | 
+ created_at | timestamp without time zone |           | not null | now()   | plain    |              | 
+ updated_at | timestamp without time zone |           | not null | now()   | plain    |              | 
+ deleted    | boolean                     |           | not null | false   | plain    |              | 
+Indexes:
+    "policies_pkey" PRIMARY KEY, btree (id)
+Triggers:
+    move_to_history BEFORE INSERT ON spec.policies FOR EACH ROW EXECUTE PROCEDURE move_policies_to_history()
+    set_timestamp BEFORE UPDATE ON spec.policies FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp()
+
+hoh=> \d+ spec.placementrules;
+                                            Table "spec.placementrules"
+   Column   |            Type             | Collation | Nullable | Default | Storage  | Stats target | Description 
+------------+-----------------------------+-----------+----------+---------+----------+--------------+-------------
+ id         | uuid                        |           | not null |         | plain    |              | 
+ payload    | jsonb                       |           | not null |         | extended |              | 
+ created_at | timestamp without time zone |           | not null | now()   | plain    |              | 
+ updated_at | timestamp without time zone |           | not null | now()   | plain    |              | 
+ deleted    | boolean                     |           | not null | false   | plain    |              | 
+Indexes:
+    "placementrules_pkey" PRIMARY KEY, btree (id)
+Triggers:
+    move_to_history BEFORE INSERT ON spec.placementrules FOR EACH ROW EXECUTE PROCEDURE move_placementrules_to_history()
+    set_timestamp BEFORE UPDATE ON spec.placementrules FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp()
+
+hoh=> \d+ status.compliance;
+                                                             Table "status.compliance"
+      Column      |            Type             | Collation | Nullable |              Default              | Storage  | Stats target | Description 
+------------------+-----------------------------+-----------+----------+-----------------------------------+----------+--------------+-------------
+ policy_id        | uuid                        |           |          |                                   | plain    |              | 
+ cluster_name     | character varying(63)       |           | not null |                                   | extended |              | 
+ leaf_hub_name    | character varying(63)       |           | not null |                                   | extended |              | 
+ error            | status.error_type           |           | not null | 'none'::status.error_type         | plain    |              | 
+ compliance       | status.compliance_type      |           | not null | 'unknown'::status.compliance_type | plain    |              | 
+ enforcement      | spec.enforcement_type       |           | not null | 'unknown'::spec.enforcement_type  | plain    |              | 
+ created_at       | timestamp without time zone |           | not null | now()                             | plain    |              | 
+ updated_at       | timestamp without time zone |           | not null | now()                             | plain    |              | 
+ resource_version | text                        |           | not null | ''::text                          | extended |              | 
+Triggers:
+    set_timestamp BEFORE UPDATE ON status.compliance FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp()
+```
