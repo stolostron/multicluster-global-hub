@@ -29,8 +29,9 @@ The [demo script](demo.md).
 * [leaf-hub-spec-sync](https://github.com/open-cluster-management/leaf-hub-spec-sync)
 * [leaf-hub-status-sync](https://github.com/open-cluster-management/leaf-hub-status-sync)
 
-### Data type definitions
+### Data types definitions
 
+* [hub-of-hubs-crds](https://github.com/open-cluster-management/hub-of-hubs-crds)
 * [hub-of-hubs-data-types](https://github.com/open-cluster-management/hub-of-hubs-data-types)
 
 ## Development
