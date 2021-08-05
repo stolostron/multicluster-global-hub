@@ -40,15 +40,13 @@ The [demo script](demo.md).
  
 1.16
 
-### Kubernetes APIs
-
-We use [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) module, v0.6.0.
-
 ### Conventions
 
 #### Versioning
 
 We use [the go modules semantic versioning convention](https://blog.golang.org/publishing-go-modules#TOC_3.), the git tags of the form `vMAJOR.MINOR.PATCH`. The major version for this POC is `0`. The depending modules should specify the versions of the hub-of-hubs repositories explicitly, and not use pseudo-verisons (like `v0.0.0-20200610161514-939cead3902c`).
+
+The hub-of-hubs modules should use common versions of the dependencies. See [the list of the dependencies, and the versions to use in the POC](versions.md).
 
 #### Context usage
 
