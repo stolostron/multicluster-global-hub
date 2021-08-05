@@ -13,6 +13,7 @@
 * Tranport bridge and transport server-side run on `hoh` or elsewhere.
 * https://github.com/vadimeisenbergibm/governance-policy-propagator/tree/no_status_update is used as `governance-policy-propagator` on `hoh`.
 * The database can be accessed for querying/deleting
+* The [governance-policy-propagator](https://github.com/vadimeisenbergibm/governance-policy-propagator) that contains commit [c9f6db29f7718e6b3a7c97826df322071516bb32](https://github.com/open-cluster-management/governance-policy-propagator/commit/c9f6db29f7718e6b3a7c97826df322071516bb32) must be used on the leaf hubs. To use it with old versions of ACM, apply [PolicyAutomation CRD](https://raw.githubusercontent.com/open-cluster-management/hub-crds/main/crds/grc-chart/policy.open-cluster-management.io_policyautomations_crd.yaml). 
 
 ### Before the demo
 
