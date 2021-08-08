@@ -118,7 +118,7 @@ Currently we do not use health/ready checks.
 ### Linting
 
 * `go vet`
-* [golangci-lint](https://github.com/golangci/golangci-lint), the settings file is [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml).
+* [golangci-lint](https://github.com/golangci/golangci-lint), the settings file is [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml). ❗Remember to copy this settings file into your repo directory before linting.
 * [golint](https://github.com/golang/lint)
 
 ### Tests
