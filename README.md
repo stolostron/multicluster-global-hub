@@ -48,8 +48,6 @@ We use [the go modules semantic versioning convention](https://blog.golang.org/p
 
 The hub-of-hubs modules should use common versions of the dependencies. See [the list of the dependencies, and the versions to use in the POC](versions.md).
 
-The `replace` directive should be used as little as possible, with all the versions specified in the `require` directive.
-
 #### Context usage
 
 `Context.Background()` should be defined in the beginning of each "main" method, such as `Reconcile`, or of a method to be called as a go routine,  and then passed to all the called methods. The functions that handle timers/timeouts/cancel events must handle cancelling the context.
