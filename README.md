@@ -121,6 +121,8 @@ Currently we do not use health/ready checks.
 * [golangci-lint](https://github.com/golangci/golangci-lint), the settings file is [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml). ❗Remember to copy this settings file into your repo directory before linting.
 * [golint](https://github.com/golang/lint)
 
+ℹ️ If you see stale errors from [golangci-lint](https://github.com/golangci/golangci-lint), run `golangci-lint cache clean`.
+
 ### Tests
 
 We did not implement any unit/e2e tests for this POC.
