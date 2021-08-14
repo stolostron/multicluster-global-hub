@@ -19,6 +19,7 @@ kubectl delete secret hub-of-hubs-database-secret -n "$acm_namespace" --ignore-n
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/main/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" | \
 SYNC_SERVICE_PORT="" IMAGE="" envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/main/deploy/hub-of-hubs-status-transport-bridge.yaml.template" | SYNC_SERVICE_PORT="" IMAGE="" envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 
 kubectl delete secret hub-of-hubs-database-secret-transport-bridge-secret -n "$acm_namespace" --ignore-not-found
 
