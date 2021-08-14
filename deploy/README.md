@@ -31,7 +31,7 @@ python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPass
 ## Deploying Hub-of-hubs
 
 ```
-KUBECONFIG=$TOP_HUB ./deploy_hub_of_hubs.sh
+KUBECONFIG=$TOP_HUB_CONFIG ./deploy_hub_of_hubs.sh
 ```
 
 ## Undeploying Hub-of-hubs
