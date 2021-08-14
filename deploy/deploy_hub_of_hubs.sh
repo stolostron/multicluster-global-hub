@@ -11,6 +11,7 @@ sync_service_port=9689
 
 echo "using kubeconfig $KUBECONFIG"
 
+kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
 kubectl create configmap custom-repos --from-file=hub_of_hubs_custom_repos.json -n "$acm_namespace"
 kubectl annotate mch multiclusterhub  --overwrite mch-imageOverridesCM=custom-repos  -n "$acm_namespace"
 
