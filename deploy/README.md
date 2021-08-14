@@ -1,12 +1,14 @@
-# Deployment instructions for Hub-of-Hubs
+# Deployment instructions for Hub-of-Hubs PoC
+
+## Prerequisites
+
+1. Hub-of-Hubs ACM and Leaf Hub ACMs
+1. Hub-of-Hubs database
+1. Cloud (the Server side) Sync service running
+
+##  Set environment variables before deployment
 
 1.  Define the `KUBECONFIG` variable to hold the kubernetes configuration of Hub-of-Hubs
-
-1.  Define the REGISTRY environment variable, for example:
-
-    ```
-    export REGISTRY=docker.io/<your user name>
-    ```
 
 1.  Define the release tag variable for images:
 
@@ -26,10 +28,29 @@ python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPass
 
 1.  Define `SYNC_SERVICE_HOST` environment variable
 
-1.  Run:
+## Deploying Hub-of-hubs
 
-    ./deploy_hub_of_hubs.sh
+```
+KUBECONFIG=$TOP_HUB ./deploy_hub_of_hubs.sh
+```
 
+## Undeploying Hub-of-hubs
+
+```
+KUBECONFIG=$TOP_HUB ./undeploy_hub_of_hubs.sh
+```
+
+## Deploying a Leaf Hub
+
+```
+KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./deploy_leaf_hub.sh
+```
+
+## Undeploying a Leaf Hub
+
+```
+KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./undeploy_leaf_hub.sh
+```
 ## Linting
 
 **Prerequisite**: install the `shellcheck` tool (a Linter for shell):
