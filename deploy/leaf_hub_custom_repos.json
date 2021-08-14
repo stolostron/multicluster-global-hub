@@ -1,0 +1,8 @@
+[
+    {
+      "image-name": "governance-policy-propagator",
+      "image-tag": "b56cfe491b108f8f97377647ba08739204c72abf",
+      "image-remote": "vadimeisenbergibm",
+      "image-key": "governance_policy_propagator"
+    }
+]
