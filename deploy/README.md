@@ -24,6 +24,12 @@ Set the `DATABASE_URL` according to the PostgreSQL URL format: `postgres://YourU
 python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPassword'
 ```
 
+1.  Define `SYNC_SERVICE_HOST` environment variable
+
+1.  Run:
+
+    ./deploy_hub_of_hubs.sh
+
 ## Linting
 
 **Prerequisite**: install the `shellcheck` tool (a Linter for shell):
