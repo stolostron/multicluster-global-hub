@@ -26,5 +26,7 @@ kubectl delete secret hub-of-hubs-database-secret-transport-bridge-secret -n "$a
 # delete the HoH config CRD
 kubectl delete -f https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/main/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml --ignore-not-found
 
+kubectl delete namespace hoh-system
+
 kubectl annotate mch multiclusterhub  --overwrite mch-imageOverridesCM=  -n "$acm_namespace"
 kubectl delete configmap custom-repos -n "$acm_namespace"

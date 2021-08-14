@@ -18,6 +18,8 @@ kubectl annotate mch multiclusterhub  --overwrite mch-imageOverridesCM=custom-re
 # apply the HoH config CRD
 kubectl apply -f https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/main/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml
 
+kubectl create namespace hoh-system
+
 kubectl delete secret hub-of-hubs-database-secret -n "$acm_namespace" --ignore-not-found
 kubectl create secret generic hub-of-hubs-database-secret -n "$acm_namespace" --from-literal=url="$DATABASE_URL_HOH"
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-sync/$TAG/deploy/operator.yaml.template" | IMAGE_TAG=$TAG COMPONENT=hub-of-hubs-spec-sync envsubst | kubectl apply -f - -n "$acm_namespace"
