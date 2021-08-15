@@ -37,7 +37,7 @@ KUBECONFIG=$TOP_HUB_CONFIG ./deploy_hub_of_hubs.sh
 ## Undeploying Hub-of-hubs
 
 ```
-KUBECONFIG=$TOP_HUB ./undeploy_hub_of_hubs.sh
+KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
 ```
 
 ## Deploying a Leaf Hub
