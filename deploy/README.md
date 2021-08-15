@@ -40,6 +40,20 @@ KUBECONFIG=$TOP_HUB_CONFIG ./deploy_hub_of_hubs.sh
 KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
 ```
 
+## Deploying Edge Sync Service (ESS) on a Leaf Hub
+
+ESS is a one time deployment, no need to deploy it on version change of leaf hub components 
+
+```
+KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./deploy_leaf_hub_sync_service.sh
+```
+
+## Undeploying Edge Sync Service (ESS) from a Leaf Hub
+
+```
+KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./undeploy_leaf_hub_sync_service.sh
+```
+
 ## Deploying a Leaf Hub
 
 ```
@@ -51,6 +65,7 @@ KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./deploy_leaf_hub.sh
 ```
 KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./undeploy_leaf_hub.sh
 ```
+
 ## Linting
 
 **Prerequisite**: install the `shellcheck` tool (a Linter for shell):

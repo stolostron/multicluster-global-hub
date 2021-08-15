@@ -7,7 +7,6 @@ set -o errexit
 set -o nounset
 
 acm_namespace=open-cluster-management
-css_sync_service_port=9689
 ess_sync_service_listening_port=8090
 
 echo "using kubeconfig $KUBECONFIG"
@@ -19,8 +18,6 @@ kubectl annotate mch multiclusterhub  --overwrite mch-imageOverridesCM=custom-re
 # apply the HoH config CRD
 kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
 
-curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-sync-service/$TAG/ess/ess.yaml.template" | \
-    CSS_HOST="$SYNC_SERVICE_HOST" CSS_PORT="$css_sync_service_port" LISTENING_PORT="$ess_sync_service_listening_port" envsubst | kubectl apply -f -
 curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-spec-sync/$TAG/deploy/leaf-hub-spec-sync.yaml.template" | \
 	SYNC_SERVICE_PORT="$ess_sync_service_listening_port" IMAGE="nirrozenbaumibm/leaf-hub-spec-sync:latest" envsubst | kubectl apply -f - -n "$acm_namespace"
 curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-status-sync/$TAG/deploy/leaf-hub-status-sync.yaml.template" | \
