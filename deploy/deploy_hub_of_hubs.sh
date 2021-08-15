@@ -7,7 +7,7 @@ set -o errexit
 set -o nounset
 
 acm_namespace=open-cluster-management
-sync_service_port=9689
+css_sync_service_port=9689
 
 echo "using kubeconfig $KUBECONFIG"
 
@@ -31,6 +31,6 @@ kubectl delete secret hub-of-hubs-database-transport-bridge-secret -n "$acm_name
 kubectl create secret generic hub-of-hubs-database-transport-bridge-secret -n "$acm_namespace" --from-literal=url="$DATABASE_URL_TRANSPORT"
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" | \
-    SYNC_SERVICE_PORT="$sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-spec-transport-bridge:latest" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-spec-transport-bridge:latest" envsubst | kubectl apply -f - -n "$acm_namespace"
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" | \
-    SYNC_SERVICE_PORT="$sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-status-transport-bridge:latest" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-status-transport-bridge:latest" envsubst | kubectl apply -f - -n "$acm_namespace"

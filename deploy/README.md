@@ -18,15 +18,15 @@
 
 1.  Define the `DATABASE_URL_HOH` and `DATABASE_URL_TRANSPORT` variables for the HoH and Transport users
 
-Set the `DATABASE_URL` according to the PostgreSQL URL format: `postgres://YourUserName:YourURLEscapedPassword@YourHostname:5432/YourDatabaseName?sslmode=verify-full`.
+    Set the `DATABASE_URL` according to the PostgreSQL URL format: `postgres://YourUserName:YourURLEscapedPassword@YourHostname:5432/YourDatabaseName?sslmode=verify-full`.
 
-:exclamation: Remember to URL-escape the password, you can do it in bash:
+    :exclamation: Remember to URL-escape the password, you can do it in bash:
 
-```
-python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPassword'
-```
+    ```
+    python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPassword'
+    ```
 
-1.  Define `SYNC_SERVICE_HOST` environment variable
+1.  Define `SYNC_SERVICE_HOST` environment variable to hold the CSS host
 
 ## Deploying Hub-of-hubs
 
