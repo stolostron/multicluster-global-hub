@@ -20,9 +20,10 @@ The [demo script](demo.md).
 * [hub-of-hubs-spec-transport-bridge](https://github.com/open-cluster-management/hub-of-hubs-spec-transport-bridge)
 * [hub-of-hubs-status-transport-bridge](https://github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)
 
-### Transport
+### Transport options
 
 * [hub-of-hubs-sync-service](https://github.com/open-cluster-management/hub-of-hubs-sync-service)
+* [hub-of-hubs-kafka-transport](https://github.com/open-cluster-management/hub-of-hubs-kafka-transport)
 
 ### On-the-leaf-hub components
 
