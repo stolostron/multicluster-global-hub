@@ -111,7 +111,7 @@ Currently we do not use health/ready checks.
 ### Formatting
 
 * [GCI](https://github.com/daixiang0/gci) for ordering imports.
-* [gofumpt](https://github.com/mvdan/gofumpt) for formatting (a stricter tool than `go fmt`.
+* [gofumpt](https://github.com/mvdan/gofumpt) for formatting (a stricter tool than `go fmt`).
 * `go fmt`
 
 ### Linting
