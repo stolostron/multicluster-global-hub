@@ -18,7 +18,9 @@ kubectl annotate mch multiclusterhub  --overwrite mch-imageOverridesCM=custom-re
 # apply the HoH config CRD
 kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
 
-kubectl create namespace hoh-system
+# create namespace if not exists
+kubectl create namespace hoh-system --dry-run -o yaml | kubectl apply -f -
+
 # apply defauly HoH config CR
 kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system
 
