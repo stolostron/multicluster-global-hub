@@ -35,6 +35,10 @@ The [demo script](demo.md).
 * [hub-of-hubs-crds](https://github.com/open-cluster-management/hub-of-hubs-crds)
 * [hub-of-hubs-data-types](https://github.com/open-cluster-management/hub-of-hubs-data-types)
 
+## Deployment
+
+See [deployment scripts](deploy).
+
 ## Development
 
 ### Go version
