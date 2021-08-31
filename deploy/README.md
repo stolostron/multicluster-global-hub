@@ -13,7 +13,7 @@
 1.  Define the release tag variable for images:
 
     ```
-    export IMAGE_TAG=v0.1.0
+    export TAG=v0.1.0
     ```
 
 1.  Define the `DATABASE_URL_HOH` and `DATABASE_URL_TRANSPORT` variables for the HoH and Transport users
@@ -42,7 +42,7 @@ KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
 
 ## Deploying Edge Sync Service (ESS) on a Leaf Hub
 
-ESS is a one time deployment, no need to deploy it on version change of leaf hub components 
+ESS is a one time deployment, no need to deploy it on version change of leaf hub components
 
 ```
 KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./deploy_leaf_hub_sync_service.sh
