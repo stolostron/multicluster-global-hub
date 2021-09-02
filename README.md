@@ -1,5 +1,7 @@
 # Hub-of-Hubs
 
+[![License](https://img.shields.io/github/license/open-cluster-management/hub-of-hubs)](/LICENSE)
+
 The main repository for the Hub-of-Hubs.
 
 ![ArchitectureDiagram](images/ScalableHOHArchitecture.png)
