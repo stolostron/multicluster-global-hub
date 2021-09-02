@@ -21,7 +21,7 @@ kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-
 # create namespace if not exists
 kubectl create namespace hoh-system --dry-run -o yaml | kubectl apply -f -
 
-# apply defauly HoH config CR
+# apply default HoH config CR
 kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system
 
 kubectl delete secret hub-of-hubs-database-secret -n "$acm_namespace" --ignore-not-found
@@ -35,6 +35,6 @@ kubectl delete secret hub-of-hubs-database-transport-bridge-secret -n "$acm_name
 kubectl create secret generic hub-of-hubs-database-transport-bridge-secret -n "$acm_namespace" --from-literal=url="$DATABASE_URL_TRANSPORT"
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" | \
-    SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-spec-transport-bridge:latest" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" | \
-    SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-status-transport-bridge:latest" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
