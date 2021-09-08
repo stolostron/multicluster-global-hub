@@ -27,6 +27,7 @@
     ```
 
 1.  Define `SYNC_SERVICE_HOST` environment variable to hold the CSS host
+1.  Define `CSS_SYNC_SERVICE_PORT` environment variable to hold the CSS port, if not defined, default port `9689` is used.
 
 ## Deploying Hub-of-hubs
 
