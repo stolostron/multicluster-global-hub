@@ -63,12 +63,16 @@ References:
 * http://p.agnihotry.com/post/understanding_the_context_package_in_golang/
 * https://blog.golang.org/context
 
-#### Errors and logging
+#### Errors vs logging
 
 All the errors should be wrapped before returning, using `fmt.Errorf("Some description: %w", err)`. The errors should only be logged once in the "main" method, such as `Reconcile` or methods that do not return errors.
 
 References:
 * https://www.orsolabs.com/post/go-errors-and-logs/
+
+#### Logging
+
+We use controller-runtime logging and its [Logging conventions[(https://github.com/kubernetes-sigs/controller-runtime/blob/master/TMP-LOGGING.md).
 
 #### Concurrency
 
