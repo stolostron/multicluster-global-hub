@@ -72,7 +72,7 @@ References:
 
 #### Logging
 
-We use controller-runtime logging and its [Logging conventions](https://github.com/kubernetes-sigs/controller-runtime/blob/master/TMP-LOGGING.md).
+We use controller-runtime logging and its [Logging guidelines](https://github.com/kubernetes-sigs/controller-runtime/blob/master/TMP-LOGGING.md).
 
 #### Concurrency
 
