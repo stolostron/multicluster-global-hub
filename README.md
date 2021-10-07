@@ -139,3 +139,11 @@ Currently we do not use health/ready checks.
 ### Tests
 
 We did not implement any unit/e2e tests for this POC.
+
+### Simulation at high scale
+
+In order to simulate at high scale a leaf-hub-status-sync component must be replaced with leaf-hub-simulator:
+[leaf-hub-simulator](https://github.com/open-cluster-management/leaf-hub-status-sync/tree/leaf-hub-simulator)
+
+
+
