@@ -161,7 +161,7 @@ Before starting the simulation ensure the environment is "clean":
 1. stop leaf-hub-status-sync at LH - `kubectl scale deployment leaf-hub-status-sync -n open-cluster-management --replicas 0`
 1. clean database tables - `delete from status.managed_clusters`, `delete from status.compliance`
 1. clean sync service storage - you can use [edge-sync-service-client](https://github.com/open-horizon/edge-sync-service-client)
-1 start sync service at LH - `kubectl scale deployment sync-service-ess -n sync-service --replicas 1`
+1. start sync service at LH - `kubectl scale deployment sync-service-ess -n sync-service --replicas 1`
 1. start hoh-status-transport-bridge at HoH - `kubectl scale deployment hub-of-hubs-status-transport-bridge -n open-cluster-management --replicas 1`
 1. start leaf-hub-status-sync at LH - `kubectl scale deployment leaf-hub-status-sync -n open-cluster-management --replicas 1`
 
