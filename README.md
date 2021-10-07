@@ -152,7 +152,7 @@ The simulation uses following tools:
 * [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) - creates, deletes or keeps alive mock managed clusters (ManagedCluster CR).
 * [GRC simulator](https://github.com/open-cluster-management/grc-simulator) - patches policy (Policy CR) compliances.
 
-**Recommendation** install the above tools on separate VM and run them with "nohup" command (nohup <cmd> &) to ensure tols are running even when terminal to the VM is diconnected.
+**Recommendation:** install the above tools on separate VM and run them with "nohup" command (nohup <cmd> &) to ensure tols are running even when terminal to the VM is diconnected.
 
 Before starting the simulation ensure the environment is "clean":
 * stop sync service at LH - kubectl scale deployment sync-service-ess -n sync-service --replicas 0
