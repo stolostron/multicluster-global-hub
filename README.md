@@ -149,12 +149,23 @@ Please follow the instructions at [leaf-hub-simulator](https://github.com/open-c
 Pay attention on NUMBER_OF_SIMULATED_LEAF_HUBS environment variable - it defines number of **additional** (simulated) LHs. If the environment vairable is not provided or equal to 0 the simulator will behave as the original 'leaf-hub-statis-sync'.
 
 The simulation uses following tools:
-* [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) - creates, deletes or keeps alive mock managed clusters (MC CR).
+* [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) - creates, deletes or keeps alive mock managed clusters (ManagedCluster CR).
 * [GRC simulator](https://github.com/open-cluster-management/grc-simulator) - patches policy (Policy CR) compliances.
 
 **Recommendation** install the above tools on separate VM and run them with "nohup" command (nohup <cmd> &) to ensure tols are running even when terminal to the VM is diconnected.
 
-Before starting the simulation:
+Before starting the simulation ensure the environment is "clean":
+* stop sync service at LH - kubectl scale deployment sync-service-ess -n sync-service --replicas 0
+* stop hoh-status-transport-bridge at HoH - kubectl scale deployment hub-of-hubs-status-transport-bridge -n open-cluster-management --replicas 0
+* stop leaf-hub-status-sync at LH - kubectl scale deployment leaf-hub-status-sync -n open-cluster-management --replicas 0
+* clean database tables - delete from status.managed_clusters, delete from status.compliance
+* clean sync service storage - you can use [edge-sync-service-client](https://github.com/open-horizon/edge-sync-service-client)
+* start sync service at LH - kubectl scale deployment sync-service-ess -n sync-service --replicas 1
+* start hoh-status-transport-bridge at HoH - kubectl scale deployment hub-of-hubs-status-transport-bridge -n open-cluster-management --replicas 1
+* start leaf-hub-status-sync at LH - kubectl scale deployment leaf-hub-status-sync -n open-cluster-management --replicas 1
+ 
+Run CLC simulator whether in "create mock-cluster" mode - it will create mock managed clusters and will keep them alive in case they weren't created before or in "keep-alive" mode to back mock managed clusters back to 'Ready' status.<br />
+Once all managed clusters are ready you can run GRC simulator to patch policy compliance status periodically.
 
 
 
