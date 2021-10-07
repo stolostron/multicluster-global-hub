@@ -145,7 +145,7 @@ We did not implement any unit/e2e tests for this POC.
 In order to simulate at high scale a leaf-hub-status-sync component must be replaced with leaf-hub-simulator:
 [leaf-hub-simulator](https://github.com/open-cluster-management/leaf-hub-status-sync/tree/leaf-hub-simulator)
 
-Please follow the instructions at [leaf-hub-simulator](https://github.com/open-cluster-management/leaf-hub-status-sync/tree/leaf-hub-simulator) to deploy 'leaf-hub-status-sync' simulator.
+Please follow the instructions at [leaf-hub-simulator](https://github.com/open-cluster-management/leaf-hub-status-sync/tree/leaf-hub-simulator) to deploy 'leaf-hub-status-sync' simulator.<br />
 Pay attention on NUMBER_OF_SIMULATED_LEAF_HUBS environment variable - it defines number of **additional** (simulated) LHs. If the environment vairable is not provided or equal to 0 the simulator will behave as the original 'leaf-hub-statis-sync'.
 
 The simulation uses following tools:
