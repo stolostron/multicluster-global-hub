@@ -27,7 +27,7 @@ The [demo script](demo.md).
 * [hub-of-hubs-sync-service](https://github.com/open-cluster-management/hub-of-hubs-sync-service)
 * [hub-of-hubs-kafka-transport](https://github.com/open-cluster-management/hub-of-hubs-kafka-transport)
 
-##### Message Compression
+### Message Compression
 
 * [hub-of-hubs-message-compression](https://github.com/open-cluster-management/hub-of-hubs-message-compression)
 
