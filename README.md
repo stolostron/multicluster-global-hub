@@ -6,6 +6,10 @@ The main repository for the Hub-of-Hubs.
 
 ![ArchitectureDiagram](images/ScalableHOHArchitecture.png)
 
+Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
+
+## Getting Started
+
 ## Demo
 
 The [demo script](demo.md).
