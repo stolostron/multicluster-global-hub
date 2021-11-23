@@ -70,3 +70,16 @@ curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-n
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
+
+# deploy hub-of-hubs-console using its Helm chart. We could have used a helm chart repository, see https://harness.io/blog/helm-chart-repo,
+# but here we do it in a simple way, just by cloning the chart repo
+
+rm -rf hub-of-hubs-console-chart
+git clone https://github.com/open-cluster-management/hub-of-hubs-console-chart.git
+cd hub-of-hubs-console-chart
+kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
+kubectl delete appsub console-chart-sub  -n open-cluster-management --ignore-not-found
+cat stable/console-chart/values.yaml | sed "s/console: \"\"/console: vadimeisenbergibm\/console:$TAG/g" |
+    helm upgrade console-chart stable/console-chart -n open-cluster-management --install -f -
+cd ..
+rm -rf hub-of-hubs-console-chart

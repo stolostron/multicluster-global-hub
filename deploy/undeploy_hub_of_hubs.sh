@@ -10,6 +10,9 @@ acm_namespace=open-cluster-management
 
 echo "using kubeconfig $KUBECONFIG"
 
+helm uninstall console-chart -n open-cluster-management || true
+kubectl annotate mch multiclusterhub mch-pause=false -n "$acm_namespace" --overwrite
+
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 
