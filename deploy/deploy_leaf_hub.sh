@@ -14,6 +14,7 @@ echo "using kubeconfig $KUBECONFIG"
 # apply custom placement rule operator, appears in the ClusterServiceVersion
 kubectl get ClusterServiceVersion -n "$acm_namespace" -o yaml |
     sed '/kubectl.kubernetes.io\/last-applied-configuration: |/,+1d' |
+    grep -v resourceVersion |
     sed 's#registry.redhat.io/rhacm2/multicluster-operators-placementrule-rhel.*$#quay.io/open-cluster-management/multicluster-operators-placementrule:2.4.0-95e830fdea41382aa9d710b5cee83e6c3ae847ab#g' |
     kubectl apply -n "$acm_namespace" -f -
 
