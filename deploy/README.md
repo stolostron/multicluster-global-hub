@@ -35,6 +35,11 @@
 KUBECONFIG=$TOP_HUB_CONFIG ./deploy_hub_of_hubs.sh
 ```
 
+## Using Hub-of-Hubs UI
+
+In order to use the Hub-of-Hubs UI, you need to
+[configure RBAC role bindings for your users](https://github.com/open-cluster-management/hub-of-hubs-rbac/blob/main/README.md#update-role-bindings-or-role-definitions).
+
 ## Undeploying Hub-of-hubs
 
 ```

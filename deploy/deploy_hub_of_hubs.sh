@@ -52,3 +52,34 @@ curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-s
     SYNC_SERVICE_HOST="$css_sync_service_host" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
     SYNC_SERVICE_HOST="$css_sync_service_host" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/data.json" > data.json
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/role_bindings.yaml" > role_bindings.yaml
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/opa_authorization.rego" > opa_authorization.rego
+
+kubectl delete secret opa-data -n "$acm_namespace" --ignore-not-found
+kubectl create secret generic opa-data -n "$acm_namespace" --from-file=data.json --from-file=role_bindings.yaml --from-file=opa_authorization.rego
+
+rm -rf data.json role_bindings.yaml opa_authorization.rego
+
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/deploy/operator.yaml.template" |
+    REGISTRY=vadimeisenbergibm IMAGE_TAG=$TAG COMPONENT=hub-of-hubs-rbac envsubst | kubectl apply -f - -n "$acm_namespace"
+
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/operator.yaml.template" |
+    REGISTRY=vadimeisenbergibm IMAGE_TAG=$TAG COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
+
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
+    COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
+
+# deploy hub-of-hubs-console using its Helm chart. We could have used a helm chart repository, see https://harness.io/blog/helm-chart-repo,
+# but here we do it in a simple way, just by cloning the chart repo
+
+rm -rf hub-of-hubs-console-chart
+git clone https://github.com/open-cluster-management/hub-of-hubs-console-chart.git
+cd hub-of-hubs-console-chart
+kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
+kubectl delete appsub console-chart-sub  -n open-cluster-management --ignore-not-found
+cat stable/console-chart/values.yaml | sed "s/console: \"\"/console: vadimeisenbergibm\/console:$TAG/g" |
+    helm upgrade console-chart stable/console-chart -n open-cluster-management --install -f -
+cd ..
+rm -rf hub-of-hubs-console-chart

@@ -26,6 +26,19 @@ The [demo script](demo.md).
 * [hub-of-hubs-spec-transport-bridge](https://github.com/open-cluster-management/hub-of-hubs-spec-transport-bridge)
 * [hub-of-hubs-status-transport-bridge](https://github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)
 
+#### RBAC
+
+[hub-of-hubs-rbac](https://github.com/open-cluster-management/hub-of-hubs-rbac)
+
+#### Non-Kubernetes REST API
+
+[hub-of-hubs-nonk8s-api](https://github.com/open-cluster-management/hub-of-hubs-nonk8s-api)
+
+#### UI
+
+* [hub-of-hubs-console](https://github.com/open-cluster-management/hub-of-hubs-console)
+* [hub-of-hubs-console-chart](https://github.com/open-cluster-management/hub-of-hubs-console-chart)
+
 ### Transport options
 
 * [hub-of-hubs-sync-service](https://github.com/open-cluster-management/hub-of-hubs-sync-service)
