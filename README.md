@@ -28,11 +28,11 @@ The [demo script](demo.md).
 
 #### RBAC
 
-[hub-of-hubs-rbac](https://github.com/open-cluster-management/hub-of-hubs-rbac)
+* [hub-of-hubs-rbac](https://github.com/open-cluster-management/hub-of-hubs-rbac)
 
 #### Non-Kubernetes REST API
 
-[hub-of-hubs-nonk8s-api](https://github.com/open-cluster-management/hub-of-hubs-nonk8s-api)
+* [hub-of-hubs-nonk8s-api](https://github.com/open-cluster-management/hub-of-hubs-nonk8s-api)
 
 #### UI
 
