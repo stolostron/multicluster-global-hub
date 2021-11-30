@@ -6,8 +6,6 @@
 set -o errexit
 set -o nounset
 
-TAG=${TAG:="v0.1.0"}
-
 acm_namespace=open-cluster-management
 ess_sync_service_listening_port=8090
 

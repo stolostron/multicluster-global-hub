@@ -6,8 +6,6 @@
 set -o errexit
 set -o nounset
 
-TAG=${TAG:="v0.1.0"}
-
 pg_namespace="hoh-postgres"
 pgo_prefix="hoh-pguser-"
 process_user="${pgo_prefix}hoh-process-user"
@@ -20,7 +18,6 @@ database_url_hoh=${DATABASE_URL_HOH:=$pg_process_user_URI}
 database_url_transport=${DATABASE_URL_TRANSPORT:=$pg_transport_user_URI}
 
 acm_namespace=open-cluster-management
-css_sync_service_host=${CSS_SYNC_SERVICE_HOST:-my-postgres.com}
 css_sync_service_port=${CSS_SYNC_SERVICE_PORT:-9689}
 
 echo "using kubeconfig $KUBECONFIG"
@@ -49,9 +46,9 @@ kubectl delete secret hub-of-hubs-database-transport-bridge-secret -n "$acm_name
 kubectl create secret generic hub-of-hubs-database-transport-bridge-secret -n "$acm_namespace" --from-literal=url="$database_url_transport"
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
-    SYNC_SERVICE_HOST="$css_sync_service_host" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_HOST="$CSS_SYNC_SERVICE_HOST" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
-    SYNC_SERVICE_HOST="$css_sync_service_host" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_HOST="$CSS_SYNC_SERVICE_HOST" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/data.json" > data.json
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/role_bindings.yaml" > role_bindings.yaml
