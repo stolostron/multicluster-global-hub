@@ -6,7 +6,7 @@
 
 Hub-of-Hubs provides multi cluster management at very high scale.  
 It has been designed primarily to address the scale and performance requirements of edge use cases.  
-The Hub-of-Hubs utilizes multiple [standard ACM management hubs](https://www.redhat.com/en/technologies/management/advanced-cluster-management)
+The Hub-of-Hubs utilizes multiple standard [RHACM management hubs](https://www.redhat.com/en/technologies/management/advanced-cluster-management)
 to provide management capabilites, such as distributing compliance policies to managed clusters and monitoring 
 compliance status, or performing application and cluster lifecycle management operations at very large scale.  
 
