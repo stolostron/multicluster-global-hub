@@ -46,9 +46,9 @@ kubectl delete secret hub-of-hubs-database-transport-bridge-secret -n "$acm_name
 kubectl create secret generic hub-of-hubs-database-transport-bridge-secret -n "$acm_namespace" --from-literal=url="$database_url_transport"
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
-    SYNC_SERVICE_HOST="$CSS_SYNC_SERVICE_HOST" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_HOST="$CSS_SYNC_SERVICE_HOST" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
-    SYNC_SERVICE_HOST="$CSS_SYNC_SERVICE_HOST" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="nirrozenbaumibm/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_HOST="$CSS_SYNC_SERVICE_HOST" SYNC_SERVICE_PORT="$css_sync_service_port" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/data.json" > data.json
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/role_bindings.yaml" > role_bindings.yaml
