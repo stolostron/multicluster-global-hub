@@ -27,6 +27,6 @@ kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM=custom-rep
 kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-spec-sync/$TAG/deploy/leaf-hub-spec-sync.yaml.template" |
-    SYNC_SERVICE_PORT="$ess_sync_service_listening_port" IMAGE="nirrozenbaumibm/leaf-hub-spec-sync:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_PORT="$ess_sync_service_listening_port" IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-spec-sync:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-status-sync/$TAG/deploy/leaf-hub-status-sync.yaml.template" |
-    SYNC_SERVICE_PORT="$ess_sync_service_listening_port" IMAGE="nirrozenbaumibm/leaf-hub-status-sync:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+    SYNC_SERVICE_PORT="$ess_sync_service_listening_port" IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-status-sync:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
