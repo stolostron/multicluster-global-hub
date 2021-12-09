@@ -3,6 +3,17 @@
 ## Prerequisites
 
 1. Hub-of-Hubs ACM and Leaf Hub ACMs
+1. Hub-of-Hubs database
+1. Cloud (the Server side) Sync service running
+1. The following command line tools installed:
+    1. bash
+    1. git
+    1. helm
+    1. kubectl
+    1. curl
+    1. envsubst
+    1. sed
+    1. grep
 2. Hub-of-Hubs database
 3. Cloud (the Server side) Sync service running
 4. PGO image exists. See [How-to-do steps 1-5](https://github.com/open-cluster-management/hub-of-hubs-postgresql/tree/main/pgo#how-to-do)

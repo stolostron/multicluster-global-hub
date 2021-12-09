@@ -95,7 +95,7 @@ git clone https://github.com/open-cluster-management/hub-of-hubs-console-chart.g
 cd hub-of-hubs-console-chart
 kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
 kubectl delete appsub console-chart-sub  -n open-cluster-management --ignore-not-found
-cat stable/console-chart/values.yaml | sed "s/console: \"\"/console: quay.io/open-cluster-management-hub-of-hubs\/console:$TAG/g" |
+cat stable/console-chart/values.yaml | sed "s/console: \"\"/console: quay.io\/open-cluster-management-hub-of-hubs\/console:$TAG/g" |
     helm upgrade console-chart stable/console-chart -n open-cluster-management --install -f -
 cd ..
 rm -rf hub-of-hubs-console-chart
