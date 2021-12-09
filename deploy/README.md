@@ -5,6 +5,15 @@
 1. Hub-of-Hubs ACM and Leaf Hub ACMs
 1. Hub-of-Hubs database
 1. Cloud (the Server side) Sync service running
+1. The following command line tools installed:
+    1. bash
+    1. git
+    1. helm
+    1. kubectl
+    1. url
+    1. envsubst
+    1. sed
+    1. grep
 
 ##  Set environment variables before deployment
 
