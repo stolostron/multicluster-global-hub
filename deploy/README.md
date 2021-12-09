@@ -3,8 +3,9 @@
 ## Prerequisites
 
 1. Hub-of-Hubs ACM and Leaf Hub ACMs
-1. Hub-of-Hubs database
-1. Cloud (the Server side) Sync service running
+2. Hub-of-Hubs database
+3. Cloud (the Server side) Sync service running
+4. PGO image exists. See [How-to-do steps 1-5](https://github.com/open-cluster-management/hub-of-hubs-postgresql/tree/main/pgo#how-to-do)
 
 ##  Set environment variables before deployment
 
@@ -16,17 +17,7 @@
     export TAG=v0.1.0
     ```
 
-1.  Define the `DATABASE_URL_HOH` and `DATABASE_URL_TRANSPORT` variables for the HoH and Transport users
-
-    Set the `DATABASE_URL` according to the PostgreSQL URL format: `postgres://YourUserName:YourURLEscapedPassword@YourHostname:5432/YourDatabaseName?sslmode=verify-full&pool_max_conns=50`.
-
-    :exclamation: Remember to URL-escape the password, you can do it in bash:
-
-    ```
-    python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPassword'
-    ```
-
-1.  Define `SYNC_SERVICE_HOST` environment variable to hold the CSS host.
+1.  Define `CSS_SYNC_SERVICE_HOST` environment variable to hold the CSS host.
 
 1.  Define `CSS_SYNC_SERVICE_PORT` environment variable to hold the CSS port, if not defined, default port `9689` is used.
 
