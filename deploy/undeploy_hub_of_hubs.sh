@@ -49,7 +49,6 @@ kubectl delete namespace hoh-system --ignore-not-found
 # uninstall PGO
 rm -rf hub-of-hubs-postgresql
 git clone https://github.com/open-cluster-management/hub-of-hubs-postgresql
-cd hub-of-hubs-postgresql/pgo
-./setup.sh
-cd ../../
+kubectl delete -k ./hub-of-hubs-postgresql/pgo/high-availability --ignore-not-found=true
+kubectl delete -k ./hub-of-hubs-postgresql/pgo/install --ignore-not-found=true
 rm -rf hub-of-hubs-postgresql
