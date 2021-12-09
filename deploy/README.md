@@ -10,7 +10,7 @@
     1. git
     1. helm
     1. kubectl
-    1. url
+    1. curl
     1. envsubst
     1. sed
     1. grep
