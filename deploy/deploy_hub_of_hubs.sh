@@ -6,33 +6,27 @@
 set -o errexit
 set -o nounset
 
-# install PGO first
-rm -rf hub-of-hubs-postgresql
-git clone https://github.com/open-cluster-management/hub-of-hubs-postgresql
-cd hub-of-hubs-postgresql/pgo
-./setup.sh
-cd ../../
-rm -rf hub-of-hubs-postgresql
+# always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
+if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
+  rm -rf hub-of-hubs-postgresql
+  git clone https://github.com/open-cluster-management/hub-of-hubs-postgresql
+  cd hub-of-hubs-postgresql/pgo
+  ./setup.sh
+  cd ../../
+  rm -rf hub-of-hubs-postgresql
 
-pg_namespace="hoh-postgres"
-pgo_prefix="hoh-pguser-"
-process_user="${pgo_prefix}hoh-process-user"
-transport_user="${pgo_prefix}transport-bridge-user"
+  pg_namespace="hoh-postgres"
+  pgo_prefix="hoh-pguser-"
+  process_user="${pgo_prefix}hoh-process-user"
+  transport_user="${pgo_prefix}transport-bridge-user"
 
-pg_process_user_URI="$(kubectl get secrets -n "${pg_namespace}" "${process_user}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
-pg_transport_user_URI="$(kubectl get secrets -n "${pg_namespace}" "${transport_user}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
+  pg_process_user_URI="$(kubectl get secrets -n "${pg_namespace}" "${process_user}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
+  pg_transport_user_URI="$(kubectl get secrets -n "${pg_namespace}" "${transport_user}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
 
-# always check whether DATABASE_URL_HOH is set, if not - use pg_process_user_URI
-if [[ -z "${DATABASE_URL_HOH-}" ]]; then
   database_url_hoh=$pg_process_user_URI
-else
-  database_url_hoh=$DATABASE_URL_HOH
-fi
-
-# always check whether DATABASE_URL_TRANSPORT is set, if not - use pg_transport_user_URI
-if [[ -z "${DATABASE_URL_TRANSPORT-}" ]]; then
   database_url_transport=$pg_transport_user_URI
 else
+  database_url_hoh=$DATABASE_URL_HOH
   database_url_transport=$DATABASE_URL_TRANSPORT
 fi
 
