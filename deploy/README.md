@@ -3,7 +3,6 @@
 ## Prerequisites
 
 1. Hub-of-Hubs ACM and Leaf Hub ACMs
-1. Hub-of-Hubs database
 1. Cloud (the Server side) Sync service running
 1. The following command line tools installed:
     1. bash
@@ -14,6 +13,7 @@
     1. envsubst
     1. sed
     1. grep
+1. Cloud (the Server side) Sync service running
 
 ##  Set environment variables before deployment
 
@@ -25,17 +25,7 @@
     export TAG=v0.1.0
     ```
 
-1.  Define the `DATABASE_URL_HOH` and `DATABASE_URL_TRANSPORT` variables for the HoH and Transport users
-
-    Set the `DATABASE_URL` according to the PostgreSQL URL format: `postgres://YourUserName:YourURLEscapedPassword@YourHostname:5432/YourDatabaseName?sslmode=verify-full&pool_max_conns=50`.
-
-    :exclamation: Remember to URL-escape the password, you can do it in bash:
-
-    ```
-    python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPassword'
-    ```
-
-1.  Define `SYNC_SERVICE_HOST` environment variable to hold the CSS host.
+1.  Define `CSS_SYNC_SERVICE_HOST` environment variable to hold the CSS host.
 
 1.  Define `CSS_SYNC_SERVICE_PORT` environment variable to hold the CSS port, if not defined, default port `9689` is used.
 
