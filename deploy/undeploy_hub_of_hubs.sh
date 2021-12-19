@@ -37,6 +37,9 @@ curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-s
 
 kubectl delete secret hub-of-hubs-database-secret-transport-bridge-secret -n "$acm_namespace" --ignore-not-found
 
+# replace the existing HoH config to make sure no finalizer is found
+kubectl replace -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system
+
 # delete the HoH config CRD
 kubectl delete -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml" \
     --ignore-not-found
