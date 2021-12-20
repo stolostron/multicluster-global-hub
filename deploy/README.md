@@ -1,4 +1,4 @@
-# Deployment instructions for Hub-of-Hubs PoC
+# Deployment instructions for Hub-of-Hubs
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@
 
 ----
 
-## Hub-of-Hubs
+# Hub-of-Hubs
 
 ### Deploying Hub-of-hubs transport
 
@@ -74,7 +74,7 @@ KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
 
 ----
 
-## Leaf-Hub
+# Leaf-Hub
 
 ### Deploying Leaf-Hub transport
 
