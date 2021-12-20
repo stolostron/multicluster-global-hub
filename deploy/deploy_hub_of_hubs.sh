@@ -6,6 +6,8 @@
 set -o errexit
 set -o nounset
 
+echo "using kubeconfig $KUBECONFIG"
+
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
 if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
   rm -rf hub-of-hubs-postgresql
@@ -16,9 +18,8 @@ if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
   rm -rf hub-of-hubs-postgresql
 
   pg_namespace="hoh-postgres"
-  pgo_prefix="hoh-pguser-"
-  process_user="${pgo_prefix}hoh-process-user"
-  transport_user="${pgo_prefix}transport-bridge-user"
+  process_user="hoh-pguser-hoh-process-user"
+  transport_user="hoh-pguser-transport-bridge-user"
 
   pg_process_user_URI="$(kubectl get secrets -n "${pg_namespace}" "${process_user}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
   pg_transport_user_URI="$(kubectl get secrets -n "${pg_namespace}" "${transport_user}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
@@ -33,8 +34,6 @@ fi
 acm_namespace=open-cluster-management
 css_sync_service_port=${CSS_SYNC_SERVICE_PORT:-9689}
 
-echo "using kubeconfig $KUBECONFIG"
-
 kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
 kubectl create configmap custom-repos --from-file=hub_of_hubs_custom_repos.json -n "$acm_namespace"
 kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM=custom-repos -n "$acm_namespace"
@@ -43,7 +42,7 @@ kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM=custom-rep
 kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
 
 # create namespace if not exists
-kubectl create namespace hoh-system --dry-run -o yaml | kubectl apply -f -
+kubectl create namespace hoh-system --dry-run=client -o yaml | kubectl apply -f -
 
 # apply default HoH config CR
 kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system

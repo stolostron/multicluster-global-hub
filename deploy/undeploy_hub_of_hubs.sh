@@ -49,9 +49,12 @@ kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
 
 kubectl delete namespace hoh-system --ignore-not-found
 
+# delete kafka namespace if exists - this will also delete all living resources inside the kafka namespace
+kubectl delete namespace kafka --ignore-not-found
+
 # uninstall PGO
 rm -rf hub-of-hubs-postgresql
 git clone https://github.com/open-cluster-management/hub-of-hubs-postgresql
-kubectl delete -k ./hub-of-hubs-postgresql/pgo/high-availability --ignore-not-found=true
-kubectl delete -k ./hub-of-hubs-postgresql/pgo/install --ignore-not-found=true
+kubectl delete -k ./hub-of-hubs-postgresql/pgo/high-availability --ignore-not-found
+kubectl delete -k ./hub-of-hubs-postgresql/pgo/install --ignore-not-found
 rm -rf hub-of-hubs-postgresql
