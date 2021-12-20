@@ -96,7 +96,7 @@ get the appropriate variables:
     
 1.  Set the `KAFKA_SSL_CA` environment variable to hold the certificate content:
     ```
-    export `KAFKA_SSL_CA`=...
+    export KAFKA_SSL_CA=...
     ```
 
 #### Setting Sync-Service as transport  
