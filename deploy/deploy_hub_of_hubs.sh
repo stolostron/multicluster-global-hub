@@ -13,7 +13,7 @@ if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
   rm -rf hub-of-hubs-postgresql
   git clone https://github.com/open-cluster-management/hub-of-hubs-postgresql
   cd hub-of-hubs-postgresql/pgo
-  ./setup.sh
+  IMG=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG ./setup.sh
   cd ../../
   rm -rf hub-of-hubs-postgresql
 
