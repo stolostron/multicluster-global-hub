@@ -15,7 +15,7 @@
 
 ##  Set environment variables before deployment
 
-1.  Set the `KUBECONFIG` variable to hold the kubernetes configuration of Hub-of-Hubs.
+1.  Set the `TOP_HUB_CONFIG` variable to hold the file path for kubernetes configuration of Hub-of-Hubs.
 
 1.  Set the release tag variable for images:
     ```
