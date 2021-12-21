@@ -7,13 +7,13 @@ set -o errexit
 set -o nounset
 
 echo "using kubeconfig $KUBECONFIG"
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 function deploy_custom_repos() {
   acm_namespace=$1
 
   kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
-  kubectl create configmap custom-repos --from-file=${SCRIPT_DIR}/hub_of_hubs_custom_repos.json -n "$acm_namespace"
+  kubectl create configmap custom-repos --from-file=${script_dir}/hub_of_hubs_custom_repos.json -n "$acm_namespace"
   kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM=custom-repos -n "$acm_namespace"
 }
 
@@ -36,7 +36,7 @@ function deploy_transport() {
     export SYNC_SERVICE_HOST="$CSS_SYNC_SERVICE_HOST"
     export SYNC_SERVICE_PORT=${CSS_SYNC_SERVICE_PORT:-9689}
   else
-    source ${SCRIPT_DIR}/deploy_kafka.sh
+    source ${script_dir}/deploy_kafka.sh
   fi
 }
 
@@ -69,14 +69,14 @@ function deploy_hoh_controllers() {
 function deploy_rbac() {
   acm_namespace=$1
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/data.json" > ${SCRIPT_DIR}/data.json
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/role_bindings.yaml" > ${SCRIPT_DIR}/role_bindings.yaml
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/opa_authorization.rego" > ${SCRIPT_DIR}/opa_authorization.rego
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/data.json" > ${script_dir}/data.json
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/role_bindings.yaml" > ${script_dir}/role_bindings.yaml
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/opa_authorization.rego" > ${script_dir}/opa_authorization.rego
 
   kubectl delete secret opa-data -n "$acm_namespace" --ignore-not-found
-  kubectl create secret generic opa-data -n "$acm_namespace" --from-file=${SCRIPT_DIR}/data.json --from-file=${SCRIPT_DIR}/role_bindings.yaml --from-file=${SCRIPT_DIR}/opa_authorization.rego
+  kubectl create secret generic opa-data -n "$acm_namespace" --from-file=${script_dir}/data.json --from-file=${script_dir}/role_bindings.yaml --from-file=${script_dir}/opa_authorization.rego
 
-  rm -rf ${SCRIPT_DIR}/data.json ${SCRIPT_DIR}/role_bindings.yaml ${SCRIPT_DIR}/opa_authorization.rego
+  rm -rf ${script_dir}/data.json ${script_dir}/role_bindings.yaml ${script_dir}/opa_authorization.rego
 
   curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=$TAG COMPONENT=hub-of-hubs-rbac envsubst | kubectl apply -f - -n "$acm_namespace"
