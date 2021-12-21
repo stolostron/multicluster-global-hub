@@ -40,6 +40,12 @@ function deploy_hoh_resources() {
 
 function deploy_transport() {
   transport_type=${TRANSPORT_TYPE-kafka}
+  base64_command='base64 -w 0'
+
+  if [ "$(uname)" == "Darwin" ]; then
+      base64_command='base64'
+  fi
+
   if [ "${transport_type}" == "sync-service" ]; then
     # shellcheck source=deploy/deploy_leaf_hub_sync_servic.sh
     source "${script_dir}/deploy_leaf_hub_sync_service.sh"
@@ -47,7 +53,7 @@ function deploy_transport() {
   else
     bootstrapServers="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status.listeners[1].bootstrapServers})"
     export KAFKA_BOOTSTRAP_SERVERS=$bootstrapServers
-    certificate="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status.listeners[1].certificates[0]} | base64 -w 0)"
+    certificate="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status.listeners[1].certificates[0]} | $base64_command)"
     export KAFKA_SSL_CA=$certificate
   fi
 }
