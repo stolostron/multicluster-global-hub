@@ -8,10 +8,9 @@ set -o nounset
 
 echo "using kubeconfig $KUBECONFIG"
 script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+acm_namespace=open-cluster-management
 
 function deploy_custom_repos() {
-  acm_namespace=$1
-
   kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
   kubectl create configmap custom-repos --from-file=${script_dir}/hub_of_hubs_custom_repos.json -n "$acm_namespace"
   kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM=custom-repos -n "$acm_namespace"
@@ -19,7 +18,12 @@ function deploy_custom_repos() {
 
 function deploy_hoh_resources() {
   # apply the HoH config CRD
-  kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+  hoh_config_crd_exists=$(kubectl get crd configs.hub-of-hubs.open-cluster-management.io --ignore-not-found)
+  if [[ ! -z "$hoh_config_crd_exists" ]]; then # if exists replace with the requested tag
+    kubectl replace -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+  else
+    kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+  fi
 
   # create namespace if not exists
   kubectl create namespace hoh-system --dry-run=client -o yaml | kubectl apply -f -
@@ -36,14 +40,14 @@ function deploy_transport() {
     export SYNC_SERVICE_HOST="$CSS_SYNC_SERVICE_HOST"
     export SYNC_SERVICE_PORT=${CSS_SYNC_SERVICE_PORT:-9689}
   else
-    source ${script_dir}/deploy_kafka.sh
+    # shellcheck source=deploy/deploy_kafka.sh
+    source "${script_dir}/deploy_kafka.sh"
   fi
 }
 
 function deploy_hoh_controllers() {
-  acm_namespace=$1
-  database_url_hoh=$2
-  database_url_transport=$3
+  database_url_hoh=$1
+  database_url_transport=$2
 
   kubectl delete secret hub-of-hubs-database-secret -n "$acm_namespace" --ignore-not-found
   kubectl create secret generic hub-of-hubs-database-secret -n "$acm_namespace" --from-literal=url="$database_url_hoh"
@@ -67,8 +71,6 @@ function deploy_hoh_controllers() {
 }
 
 function deploy_rbac() {
-  acm_namespace=$1
-
   curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/data.json" > ${script_dir}/data.json
   curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/role_bindings.yaml" > ${script_dir}/role_bindings.yaml
   curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/opa_authorization.rego" > ${script_dir}/opa_authorization.rego
@@ -89,8 +91,6 @@ function deploy_rbac() {
 }
 
 function deploy_console_chart() {
-  acm_namespace=$1
-
   # deploy hub-of-hubs-console using its Helm chart. We could have used a helm chart repository,
   # see https://harness.io/blog/helm-chart-repo,
   # but here we do it in a simple way, just by cloning the chart repo
@@ -126,11 +126,9 @@ else
   database_url_transport=$DATABASE_URL_TRANSPORT
 fi
 
-acm_namespace=open-cluster-management
-
-deploy_custom_repos "$acm_namespace"
+deploy_custom_repos
 deploy_hoh_resources
 deploy_transport
-deploy_hoh_controllers "$acm_namespace" "$database_url_hoh" "$database_url_transport"
-deploy_rbac "$acm_namespace"
-deploy_console_chart "$acm_namespace"
+deploy_hoh_controllers "$database_url_hoh" "$database_url_transport"
+deploy_rbac
+deploy_console_chart
