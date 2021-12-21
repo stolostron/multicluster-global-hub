@@ -27,7 +27,7 @@
     export TRANSPORT_TYPE=kafka
     ``` 
     
-    1.  in case `sync-service` is set as transport, Set environment variable to hold the CSS host:
+    1.  If `sync-service` is set as transport, set environment variable to hold the CSS host:
         ```
         export CSS_SYNC_SERVICE_HOST=...
         ```
