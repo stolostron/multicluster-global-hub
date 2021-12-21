@@ -26,33 +26,14 @@
     ```
     export TRANSPORT_TYPE=kafka
     ``` 
-
+    
+    1.  in case `sync-service` is set as transport, Set environment variable to hold the CSS host:
+        ```
+        export CSS_SYNC_SERVICE_HOST=...
+        ```
 ----
 
 # Hub-of-Hubs
-
-### Deploying Hub-of-hubs transport
-
-#### Setting Kafka as transport
-1.  In order to deploy kafka, run the following command:
-    ```
-    KUBECONFIG=$TOP_HUB_CONFIG ./deploy_kafka.sh
-    ```
-    
-1.  Wait until kafka cluster is ready. 
-    This can be done by running watch command and waiting until status field is filled with information about 
-    bootstrap servers and certificates:
-    ```
-    watch kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status}
-    ```
-       
-#### Setting Sync-Service as transport  
-1.  Otherwise, if sync-service is used as transport, set the following environment variables:
-    
-    1.  Set environment variable to hold the CSS host:
-    ```
-    export CSS_SYNC_SERVICE_HOST=...
-    ```
 
 ### Deploying Hub-of-hubs
 
