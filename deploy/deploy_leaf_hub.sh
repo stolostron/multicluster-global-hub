@@ -12,13 +12,6 @@ script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 acm_namespace=open-cluster-management
 
 function deploy_custom_repos() {
-  # apply custom placement rule operator, appears in the ClusterServiceVersion
-  kubectl get ClusterServiceVersion -n "$acm_namespace" -o yaml |
-    sed '/kubectl.kubernetes.io\/last-applied-configuration: |/,+1d' |
-    grep -v resourceVersion |
-    sed 's#registry.redhat.io/rhacm2/multicluster-operators-placementrule-rhel.*$#quay.io/open-cluster-management/multicluster-operators-placementrule:2.4.0-95e830fdea41382aa9d710b5cee83e6c3ae847ab#g' |
-    kubectl apply -n "$acm_namespace" -f -
-
   # apply custom repos that do not appear in the ClusterServiceVersion
   kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
   kubectl create configmap custom-repos --from-file=${script_dir}/leaf_hub_custom_repos.json -n "$acm_namespace"
