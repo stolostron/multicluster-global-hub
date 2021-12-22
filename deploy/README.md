@@ -51,7 +51,6 @@ In order to use the Hub-of-Hubs UI, you need to
 
 ### Undeploying Hub-of-hubs
 
-This script will remove kafka as well.
 ```
 KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
 ```
