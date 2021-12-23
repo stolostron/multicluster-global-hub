@@ -98,9 +98,9 @@ function deploy_console_chart() {
   rm -rf hub-of-hubs-console-chart
   git clone https://github.com/open-cluster-management/hub-of-hubs-console-chart.git
   cd hub-of-hubs-console-chart
+  ocpingress=$(helm get values  -n open-cluster-management $(helm ls -n open-cluster-management | cut -d' ' -f1 | grep console-chart) | grep ocpingress | cut -d: -f2)
   kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
   kubectl delete appsub console-chart-sub  -n open-cluster-management --ignore-not-found
-  ocpingress=$(helm get values  -n open-cluster-management $(helm ls -n open-cluster-management | cut -d' ' -f1 | grep console-chart) | grep ocpingress | cut -d: -f2)
   cat stable/console-chart/values.yaml | sed "s/console: \"\"/console: quay.io\/open-cluster-management-hub-of-hubs\/console:$TAG/g" |
       sed "s/ocpingress: \"\"/ocpingress: $ocpingress/g" |
     helm upgrade console-chart stable/console-chart -n open-cluster-management --install -f -
