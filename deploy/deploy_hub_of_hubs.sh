@@ -14,6 +14,8 @@ function deploy_custom_repos() {
   kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
   kubectl create configmap custom-repos --from-file=${script_dir}/hub_of_hubs_custom_repos.json -n "$acm_namespace"
   kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM=custom-repos -n "$acm_namespace"
+  helm uninstall $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep grc) -n "$acm_namespace"
+  kubectl delete  pods -l name=multiclusterhub-operator -n "$acm_namespace"
 }
 
 function deploy_hoh_resources() {
