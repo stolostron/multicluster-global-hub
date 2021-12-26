@@ -13,9 +13,27 @@ acm_namespace=open-cluster-management
 function deploy_custom_repos() {
   kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
   kubectl create configmap custom-repos --from-file=${script_dir}/hub_of_hubs_custom_repos.json -n "$acm_namespace"
+
+  kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
+  helm uninstall $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep grc) -n "$acm_namespace" 2> /dev/null || true
+
+  while [[ $(kubectl get deployment -n open-cluster-management -l component=ocm-policy-propagator --output json | jq -j '.items | length') != "0" ]]
+  do
+      wait_interval=10
+      echo "waiting ${wait_interval} seconds for the policy propagator deployment to be deleted"
+      sleep "${wait_interval}"
+  done
+
   kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM=custom-repos -n "$acm_namespace"
-  helm uninstall $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep grc) -n "$acm_namespace"
+  kubectl annotate mch multiclusterhub mch-pause=false -n "$acm_namespace" --overwrite
   kubectl delete  pods -l name=multiclusterhub-operator -n "$acm_namespace"
+
+  while [[ $(kubectl get deployment -n open-cluster-management -l component=ocm-policy-propagator --output json | jq -j '.items | length') == "0" ]]
+  do
+      wait_interval=60
+      echo "waiting ${wait_interval} seconds for the policy propagator deployment to be created (it might take up to a couple of hours...)"
+      sleep "${wait_interval}"
+  done
 }
 
 function deploy_hoh_resources() {
