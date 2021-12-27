@@ -73,6 +73,15 @@ The [demo script](demo.md).
 * [hub-of-hubs-crds](https://github.com/open-cluster-management/hub-of-hubs-crds)
 * [hub-of-hubs-data-types](https://github.com/open-cluster-management/hub-of-hubs-data-types)
 
+### Custom repositories
+
+* Hub-of-Hubs
+  * https://github.com/vadimeisenbergibm/governance-policy-propagator/tree/no_status_update to prevent updating policy status by governance policy propagator
+* Leaf hubs
+  * For ACM 2.3: https://github.com/open-cluster-management/governance-policy-propagator/tree/b56cfe491b108f8f97377647ba08739204c72abf for this bug fix https://github.com/open-cluster-management/governance-policy-propagator/pull/79
+  * For ACM 2.3: quay.io/open-cluster-management/multicluster-operators-placementrule:2.4.0-95e830fdea41382aa9d710b5cee83e6c3ae847ab for this bug fix https://github.com/open-cluster-management/multicloud-operators-placementrule/pull/117
+
+
 ## Deployment
 
 See [deployment scripts](deploy).
