@@ -11,13 +11,6 @@ script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 acm_namespace=open-cluster-management
 
-function deploy_custom_repos() {
-  # apply custom repos that do not appear in the ClusterServiceVersion
-  kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
-  kubectl create configmap custom-repos --from-file=${script_dir}/leaf_hub_custom_repos.json -n "$acm_namespace"
-  kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM=custom-repos -n "$acm_namespace"
-}
-
 function deploy_hoh_resources() {
   # apply the HoH config CRD
   hoh_config_crd_exists=$(kubectl get crd configs.hub-of-hubs.open-cluster-management.io --ignore-not-found)
@@ -63,7 +56,6 @@ function deploy_lh_controllers() {
     IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-status-sync:$TAG" envsubst | kubectl apply -f -
 }
 
-deploy_custom_repos
 deploy_hoh_resources
 deploy_transport
 deploy_lh_controllers

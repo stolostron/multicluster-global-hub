@@ -60,12 +60,6 @@ KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
 
 # Leaf-Hub
 
-For ACM 2.3, `kubectl edit` the ClusterServiceVersion CR and replace appearances of `registry.redhat.io/rhacm2/multicluster-operators-placementrule-rhel8@sha256:93da260e360fc58d3171417cbfa4ed516cb860f4cda77f4b7de4c8330f18496d` image by `quay.io/open-cluster-management/multicluster-operators-placementrule:2.4.0-95e830fdea41382aa9d710b5cee83e6c3ae847ab`.
-
-```
-kubectl edit ClusterServiceVersion -n open-cluster-management
-```
-
 ## Deploying a Leaf Hub
 
 ```
