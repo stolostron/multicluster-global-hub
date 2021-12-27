@@ -57,6 +57,9 @@ kubectl delete namespace kafka --ignore-not-found
 # uninstall PGO
 rm -rf hub-of-hubs-postgresql
 git clone https://github.com/open-cluster-management/hub-of-hubs-postgresql
-kubectl delete -k ./hub-of-hubs-postgresql/pgo/high-availability --ignore-not-found
-kubectl delete -k ./hub-of-hubs-postgresql/pgo/install --ignore-not-found
+cd hub-of-hubs-postgresql
+git checkout $TAG
+kubectl delete -k ./pgo/high-availability --ignore-not-found
+kubectl delete -k ./pgo/install --ignore-not-found
+cd ..
 rm -rf hub-of-hubs-postgresql
