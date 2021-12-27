@@ -106,8 +106,8 @@ function deploy_helm_charts() {
   rm -rf grc-chart
   git clone https://github.com/open-cluster-management/grc-chart.git
   cd grc-chart
-  git fetch origin release-2.3
-  git checkout release-2.3
+  git fetch origin release-2.4
+  git checkout release-2.4
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep grc) -o yaml > values.yaml
   kubectl delete appsub grc-sub -n "$acm_namespace" --ignore-not-found
 
