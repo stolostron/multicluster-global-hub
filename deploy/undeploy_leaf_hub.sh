@@ -9,12 +9,9 @@ set -o nounset
 acm_namespace=open-cluster-management
 
 echo "using kubeconfig $KUBECONFIG"
-# descale then delete leaf-hub-spec-sync (deleting without de-scaling sometimes skips the graceful shutdown, leaving finalizers hanging)
-kubectl -n "$acm_namespace" scale deployment leaf-hub-spec-sync --replicas=0 --ignore-not-found
+# delete deployments before namespace (to remove finalizers first)
 curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-spec-sync/$TAG/deploy/leaf-hub-spec-sync.yaml.template" | \
     envsubst | kubectl delete -f - --ignore-not-found
-# descale then delete leaf-hub-status-sync
-kubectl -n "$acm_namespace" scale deployment leaf-hub-status-sync --replicas=0 --ignore-not-found
 curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-status-sync/$TAG/deploy/leaf-hub-status-sync.yaml.template" | \
     envsubst | kubectl delete -f - --ignore-not-found
     
