@@ -10,32 +10,6 @@ echo "using kubeconfig $KUBECONFIG"
 script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 acm_namespace=open-cluster-management
 
-function deploy_custom_repos() {
-  kubectl delete configmap custom-repos -n "$acm_namespace" --ignore-not-found
-  kubectl create configmap custom-repos --from-file=${script_dir}/hub_of_hubs_custom_repos.json -n "$acm_namespace"
-
-  kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
-  helm uninstall $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep grc) -n "$acm_namespace" 2> /dev/null || true
-
-  while [[ $(kubectl get deployment -n open-cluster-management -l component=ocm-policy-propagator --output json | jq -j '.items | length') != "0" ]]
-  do
-      wait_interval=10
-      echo "waiting ${wait_interval} seconds for the policy propagator deployment to be deleted"
-      sleep "${wait_interval}"
-  done
-
-  kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM=custom-repos -n "$acm_namespace"
-  kubectl annotate mch multiclusterhub mch-pause=false -n "$acm_namespace" --overwrite
-  kubectl delete  pods -l name=multiclusterhub-operator -n "$acm_namespace"
-
-  while [[ $(kubectl get deployment -n open-cluster-management -l component=ocm-policy-propagator --output json | jq -j '.items | length') == "0" ]]
-  do
-      wait_interval=60
-      echo "waiting ${wait_interval} seconds for the policy propagator deployment to be created (it might take up to a couple of hours...)"
-      sleep "${wait_interval}"
-  done
-}
-
 function deploy_hoh_resources() {
   # apply the HoH config CRD
   hoh_config_crd_exists=$(kubectl get crd configs.hub-of-hubs.open-cluster-management.io --ignore-not-found)
@@ -110,23 +84,37 @@ function deploy_rbac() {
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
 }
 
-function deploy_console_chart() {
-  # deploy hub-of-hubs-console using its Helm chart. We could have used a helm chart repository,
+function deploy_helm_charts() {
+  # deploy hub-of-hubs-console using its Helm chart.
+  #
+  # We could have used a helm chart repository,
   # see https://harness.io/blog/helm-chart-repo,
-  # but here we do it in a simple way, just by cloning the chart repo
+  # but here we do it in a simple way, just by cloning the chart repos
+  kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
 
   rm -rf hub-of-hubs-console-chart
   git clone https://github.com/open-cluster-management/hub-of-hubs-console-chart.git
   cd hub-of-hubs-console-chart
   git checkout $TAG
-  ocpingress=$(helm get values  -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep console-chart) | grep ocpingress | cut -d: -f2)
-  kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
+  helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep console-chart) -o yaml > values.yaml
   kubectl delete appsub console-chart-sub -n "$acm_namespace" --ignore-not-found
-  cat stable/console-chart/values.yaml | sed "s/console: \"\"/console: quay.io\/open-cluster-management-hub-of-hubs\/console:$TAG/g" |
-      sed "s/ocpingress: \"\"/ocpingress: $ocpingress/g" |
-    helm upgrade console-chart stable/console-chart -n "$acm_namespace" --install -f -
+  cat values.yaml | sed "s/    console:.*/    console: quay.io\/open-cluster-management-hub-of-hubs\/console:$TAG/g" |
+      helm upgrade console-chart stable/console-chart -n "$acm_namespace" --install -f -
   cd ..
   rm -rf hub-of-hubs-console-chart
+
+  rm -rf grc-chart
+  git clone https://github.com/open-cluster-management/grc-chart.git
+  cd grc-chart
+  git fetch origin release-2.3
+  git checkout release-2.3
+  helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep grc) -o yaml > values.yaml
+  kubectl delete appsub grc-sub -n "$acm_namespace" --ignore-not-found
+
+  cat values.yaml | sed "s/    governance_policy_propagator:.*/    governance_policy_propagator: quay.io\/open-cluster-management-hub-of-hubs\/governance-policy-propagator:no_status_update/g" |
+      helm upgrade grc stable/grc -n "$acm_namespace" --install -f -
+  cd ..
+  rm -rf grc-chart
 }
 
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
@@ -150,9 +138,8 @@ else
   database_url_transport=$DATABASE_URL_TRANSPORT
 fi
 
-deploy_custom_repos
 deploy_hoh_resources
 deploy_transport
 deploy_hoh_controllers "$database_url_hoh" "$database_url_transport"
 deploy_rbac
-deploy_console_chart
+deploy_helm_charts

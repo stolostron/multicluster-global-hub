@@ -1,8 +1,0 @@
-[
-    {
-      "image-name": "governance-policy-propagator",
-      "image-tag": "no_status_update",
-      "image-remote": "quay.io/open-cluster-management-hub-of-hubs",
-      "image-key": "governance_policy_propagator"
-    }
-]
