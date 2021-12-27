@@ -118,6 +118,7 @@ function deploy_console_chart() {
   rm -rf hub-of-hubs-console-chart
   git clone https://github.com/open-cluster-management/hub-of-hubs-console-chart.git
   cd hub-of-hubs-console-chart
+  git checkout $TAG
   ocpingress=$(helm get values  -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep console-chart) | grep ocpingress | cut -d: -f2)
   kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
   kubectl delete appsub console-chart-sub -n "$acm_namespace" --ignore-not-found
@@ -133,6 +134,7 @@ if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
   rm -rf hub-of-hubs-postgresql
   git clone https://github.com/open-cluster-management/hub-of-hubs-postgresql
   cd hub-of-hubs-postgresql/pgo
+  git checkout $TAG
   IMAGE=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG ./setup.sh
   cd ../../
   rm -rf hub-of-hubs-postgresql
