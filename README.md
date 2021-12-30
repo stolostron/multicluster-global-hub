@@ -85,8 +85,8 @@ See [deployment scripts](deploy).
 ## Development
 
 ### Go version
- 
-1.16
+
+1.17
 
 ### Conventions
 
