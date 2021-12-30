@@ -15,9 +15,9 @@ function deploy_hoh_resources() {
   # apply the HoH config CRD
   hoh_config_crd_exists=$(kubectl get crd configs.hub-of-hubs.open-cluster-management.io --ignore-not-found)
   if [[ ! -z "$hoh_config_crd_exists" ]]; then # if exists replace with the requested tag
-    kubectl replace -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+    kubectl replace -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/v0.2.0/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
   else
-    kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+    kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/v0.2.0/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
   fi
 
   # create namespace if not exists
@@ -50,10 +50,10 @@ function deploy_lh_controllers() {
     transport_type=kafka
   fi
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-spec-sync/$TAG/deploy/leaf-hub-spec-sync.yaml.template" |
-    IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-spec-sync:$TAG" envsubst | kubectl apply -f -
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-status-sync/$TAG/deploy/leaf-hub-status-sync.yaml.template" |
-    IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-status-sync:$TAG" envsubst | kubectl apply -f -
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-spec-sync/v0.2.0/deploy/leaf-hub-spec-sync.yaml.template" |
+    IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-spec-sync:v0.2.0" envsubst | kubectl apply -f -
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/leaf-hub-status-sync/v0.2.0/deploy/leaf-hub-status-sync.yaml.template" |
+    IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-status-sync:v0.2.0" envsubst | kubectl apply -f -
 }
 
 deploy_hoh_resources

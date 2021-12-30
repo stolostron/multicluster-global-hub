@@ -10,7 +10,7 @@ set -o nounset
 kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
 
 # deploy AMQ streams operator
-curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-kafka-transport/$TAG/deploy/amq_streams_operator.yaml" | kubectl apply -f -
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-kafka-transport/v0.2.0/deploy/amq_streams_operator.yaml" | kubectl apply -f -
 
 # wait until operator is ready
 operator_deployed=$(kubectl -n kafka get Deployment/amq-streams-cluster-operator-v1.7.3 --ignore-not-found)
@@ -22,7 +22,7 @@ done
 kubectl -n kafka wait --for=condition=Available Deployment/amq-streams-cluster-operator-v1.7.3 --timeout=600s
 
 # deploy Kafka cluster CR
-curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-kafka-transport/$TAG/deploy/kafka-cluster.yaml" | kubectl apply -f -
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-kafka-transport/v0.2.0/deploy/kafka-cluster.yaml" | kubectl apply -f -
 
 # wait until kafka cluster is ready
 cluster_is_ready=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found)
