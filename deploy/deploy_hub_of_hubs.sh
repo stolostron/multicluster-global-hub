@@ -65,22 +65,22 @@ function deploy_hoh_controllers() {
 }
 
 function deploy_rbac() {
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/v0.2.0/data.json" > ${script_dir}/data.json
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/v0.2.0/role_bindings.yaml" > ${script_dir}/role_bindings.yaml
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/v0.2.0/opa_authorization.rego" > ${script_dir}/opa_authorization.rego
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/data.json" > ${script_dir}/data.json
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/role_bindings.yaml" > ${script_dir}/role_bindings.yaml
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/opa_authorization.rego" > ${script_dir}/opa_authorization.rego
 
   kubectl delete secret opa-data -n "$acm_namespace" --ignore-not-found
   kubectl create secret generic opa-data -n "$acm_namespace" --from-file=${script_dir}/data.json --from-file=${script_dir}/role_bindings.yaml --from-file=${script_dir}/opa_authorization.rego
 
   rm -rf ${script_dir}/data.json ${script_dir}/role_bindings.yaml ${script_dir}/opa_authorization.rego
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/v0.2.0/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=v0.2.0 COMPONENT=hub-of-hubs-rbac envsubst | kubectl apply -f - -n "$acm_namespace"
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/deploy/operator.yaml.template" |
+    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-rbac envsubst | kubectl apply -f - -n "$acm_namespace"
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/v0.2.0/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=v0.2.0 COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/operator.yaml.template" |
+    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/v0.2.0/deploy/ingress.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
 }
 
@@ -95,10 +95,10 @@ function deploy_helm_charts() {
   rm -rf hub-of-hubs-console-chart
   git clone https://github.com/open-cluster-management/hub-of-hubs-console-chart.git
   cd hub-of-hubs-console-chart
-  git checkout v0.2.0
+  git checkout $TAG
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep console-chart) -o yaml > values.yaml
   kubectl delete appsub console-chart-sub -n "$acm_namespace" --ignore-not-found
-  cat values.yaml | sed "s/    console:.*/    console: quay.io\/open-cluster-management-hub-of-hubs\/console:v0.2.0/g" |
+  cat values.yaml | sed "s/    console:.*/    console: quay.io\/open-cluster-management-hub-of-hubs\/console:$TAG/g" |
       helm upgrade console-chart stable/console-chart -n "$acm_namespace" --install -f -
   cd ..
   rm -rf hub-of-hubs-console-chart

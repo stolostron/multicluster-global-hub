@@ -14,14 +14,14 @@ helm uninstall console-chart -n "$acm_namespace" 2> /dev/null || true
 helm uninstall grc -n "$acm_namespace" 2> /dev/null || true
 kubectl annotate mch multiclusterhub mch-pause=false -n "$acm_namespace" --overwrite
 
-curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/v0.2.0/deploy/ingress.yaml.template" |
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 
-curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/v0.2.0/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=v0.2.0 COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/operator.yaml.template" |
+    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 
-curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/v0.2.0/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=v0.2.0 COMPONENT=hub-of-hubs-rbac envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/deploy/operator.yaml.template" |
+    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-rbac envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 kubectl delete secret opa-data -n "$acm_namespace" --ignore-not-found
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-sync/$TAG/deploy/operator.yaml.template" |
