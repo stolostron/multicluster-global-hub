@@ -13,4 +13,4 @@
 | github.com/open-cluster-management/multicloud-operators-placementrule | v1.2.4-0-20210816-699e5      |
 | github.com/open-horizon/edge-sync-service-client                | v0.0.0-20190711093406-dc3a19905da2 |
 | github.com/open-horizon/edge-utilities                          | v0.0.0-20190711093331-0908b45a7152 |
-| github.com/open-cluster-management/hub-of-hubs-data-types/apis/config | v0.2.3                       |
+| github.com/open-cluster-management/hub-of-hubs-data-types/apis/config | v0.3.0                       |
