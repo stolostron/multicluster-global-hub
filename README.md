@@ -53,6 +53,8 @@ The [demo script](demo.md).
 
 * [hub-of-hubs-console](https://github.com/open-cluster-management/hub-of-hubs-console)
 * [hub-of-hubs-console-chart](https://github.com/open-cluster-management/hub-of-hubs-console-chart)
+* [hub-of-hubs-ui-components](https://github.com/open-cluster-management/hub-of-hubs-ui-components)
+* [hub-of-hubs-grc-ui](https://github.com/open-cluster-management/hub-of-hubs-grc-ui)
 
 ### Transport options
 
