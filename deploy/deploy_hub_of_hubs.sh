@@ -111,7 +111,9 @@ function deploy_helm_charts() {
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep grc) -o yaml > values.yaml
   kubectl delete appsub grc-sub -n "$acm_namespace" --ignore-not-found
 
-  cat values.yaml | sed "s/    governance_policy_propagator:.*/    governance_policy_propagator: quay.io\/open-cluster-management-hub-of-hubs\/governance-policy-propagator:no_status_update/g" |
+  cat values.yaml |
+      sed "s/    governance_policy_propagator:.*/    governance_policy_propagator: quay.io\/open-cluster-management-hub-of-hubs\/governance-policy-propagator:no_status_update/g" |
+      sed "s/    grc_ui:.*/    grc_ui: quay.io\/open-cluster-management-hub-of-hubs\/grc-ui:$TAG/g" |
       helm upgrade grc stable/grc -n "$acm_namespace" --install -f -
   cd ..
   rm -rf grc-chart
