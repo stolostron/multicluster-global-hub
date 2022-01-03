@@ -128,7 +128,7 @@ is not. We try to use [controller-runtime's Manager](https://pkg.go.dev/sigs.k8s
 [controller-runtime's Manager](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager) provides the following functionality in addition to managing controllers:
 
    * Kubernetes client with caching
-   * start/stop [Runnables](https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.6.0/pkg/manager#Runnable).
+   * start/stop [Runnables](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager#Runnable).
    * signal handling
    * leader election
    * metrics
