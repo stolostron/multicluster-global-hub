@@ -22,6 +22,7 @@ curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-n
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-rbac envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
+
 kubectl delete secret opa-data -n "$acm_namespace" --ignore-not-found
 
 curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-sync/$TAG/deploy/operator.yaml.template" |
@@ -31,9 +32,9 @@ curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-s
 
 kubectl delete secret hub-of-hubs-database-secret -n "$acm_namespace" --ignore-not-found
 
-curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/v0.2.0/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
     envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
-curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/v0.2.0/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
+curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
     envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 
 kubectl delete secret hub-of-hubs-database-secret-transport-bridge-secret -n "$acm_namespace" --ignore-not-found
@@ -42,9 +43,9 @@ kubectl delete secret hub-of-hubs-database-secret-transport-bridge-secret -n "$a
 hoh_config_crd_exists=$(kubectl get crd configs.hub-of-hubs.open-cluster-management.io --ignore-not-found)
 if [[ ! -z "$hoh_config_crd_exists" ]]; then
   # replace the existing HoH config to make sure no finalizer is found
-  kubectl replace -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/v0.2.0/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system
+  kubectl replace -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system
   # delete the HoH config CRD
-  kubectl delete -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/v0.2.0/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+  kubectl delete -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
 fi
 
 kubectl annotate mch multiclusterhub --overwrite mch-imageOverridesCM= -n "$acm_namespace"

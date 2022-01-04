@@ -14,16 +14,16 @@ function deploy_hoh_resources() {
   # apply the HoH config CRD
   hoh_config_crd_exists=$(kubectl get crd configs.hub-of-hubs.open-cluster-management.io --ignore-not-found)
   if [[ ! -z "$hoh_config_crd_exists" ]]; then # if exists replace with the requested tag
-    kubectl replace -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/v0.2.0/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+    kubectl replace -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
   else
-    kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/v0.2.0/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+    kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
   fi
 
   # create namespace if not exists
   kubectl create namespace hoh-system --dry-run=client -o yaml | kubectl apply -f -
 
   # apply default HoH config CR
-  kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/v0.2.0/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system
+  kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system
 }
 
 function deploy_transport() {
@@ -58,10 +58,10 @@ function deploy_hoh_controllers() {
     transport_type=kafka
   fi
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/v0.2.0/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
-    TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-spec-transport-bridge:v0.2.0" envsubst | kubectl apply -f - -n "$acm_namespace"
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/v0.2.0/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
-    TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-status-transport-bridge:v0.2.0" envsubst | kubectl apply -f - -n "$acm_namespace"
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
+    TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
+    TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 }
 
 function deploy_rbac() {
@@ -79,6 +79,7 @@ function deploy_rbac() {
 
   curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
+
 
   curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
