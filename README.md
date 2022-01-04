@@ -53,6 +53,8 @@ The [demo script](demo.md).
 
 * [hub-of-hubs-console](https://github.com/open-cluster-management/hub-of-hubs-console)
 * [hub-of-hubs-console-chart](https://github.com/open-cluster-management/hub-of-hubs-console-chart)
+* [hub-of-hubs-ui-components](https://github.com/open-cluster-management/hub-of-hubs-ui-components)
+* [hub-of-hubs-grc-ui](https://github.com/open-cluster-management/hub-of-hubs-grc-ui)
 
 ### Transport options
 
@@ -128,7 +130,7 @@ is not. We try to use [controller-runtime's Manager](https://pkg.go.dev/sigs.k8s
 [controller-runtime's Manager](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager) provides the following functionality in addition to managing controllers:
 
    * Kubernetes client with caching
-   * start/stop [Runnables](https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.6.0/pkg/manager#Runnable).
+   * start/stop [Runnables](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/manager#Runnable).
    * signal handling
    * leader election
    * metrics
@@ -168,7 +170,7 @@ Currently we do not use health/ready checks.
 ### Linting
 
 * `go vet`
-* [golangci-lint](https://github.com/golangci/golangci-lint), the settings file is [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml). 
+* [golangci-lint](https://github.com/golangci/golangci-lint), minimal version 1.43.0, the settings file is [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml).
 * [golint](https://github.com/golang/lint)
 
 ❗Remember to copy [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml) into your repo directory before linting.
