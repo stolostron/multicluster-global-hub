@@ -75,10 +75,11 @@ function deploy_rbac() {
   rm -rf ${script_dir}/data.json ${script_dir}/role_bindings.yaml ${script_dir}/opa_authorization.rego
 
   curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=$TAG COMPONENT=hub-of-hubs-rbac envsubst | kubectl apply -f - -n "$acm_namespace"
+    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-rbac envsubst | kubectl apply -f - -n "$acm_namespace"
 
   curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=$TAG COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
+    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
+
 
   curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
@@ -98,7 +99,9 @@ function deploy_helm_charts() {
   git checkout $TAG
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep console-chart) -o yaml > values.yaml
   kubectl delete appsub console-chart-sub -n "$acm_namespace" --ignore-not-found
-  cat values.yaml | sed "s/    console:.*/    console: quay.io\/open-cluster-management-hub-of-hubs\/console:$TAG/g" |
+  cat values.yaml |
+      yq e ".global.imageOverrides.console = \"quay.io/open-cluster-management-hub-of-hubs/console:$TAG\"" - |
+      yq e '.global.pullPolicy = "Always"' - |
       helm upgrade console-chart stable/console-chart -n "$acm_namespace" --install -f -
   cd ..
   rm -rf hub-of-hubs-console-chart
@@ -111,7 +114,10 @@ function deploy_helm_charts() {
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep grc) -o yaml > values.yaml
   kubectl delete appsub grc-sub -n "$acm_namespace" --ignore-not-found
 
-  cat values.yaml | sed "s/    governance_policy_propagator:.*/    governance_policy_propagator: quay.io\/open-cluster-management-hub-of-hubs\/governance-policy-propagator:no_status_update/g" |
+  cat values.yaml |
+      yq e ".global.imageOverrides.governance_policy_propagator = \"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:no_status_update\"" - |
+      yq e ".global.imageOverrides.grc_ui = \"quay.io/open-cluster-management-hub-of-hubs/grc-ui:$TAG\"" - |
+      yq e '.global.pullPolicy = "Always"' - |
       helm upgrade grc stable/grc -n "$acm_namespace" --install -f -
   cd ..
   rm -rf grc-chart
