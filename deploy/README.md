@@ -10,7 +10,6 @@
     1. kubectl
     1. curl
     1. envsubst
-    1. sed
     1. grep
     1. yq 4+
 
