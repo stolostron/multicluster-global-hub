@@ -12,6 +12,7 @@
     1. envsubst
     1. sed
     1. grep
+    1. yq 4+
 
 ##  Set environment variables before deployment
 
