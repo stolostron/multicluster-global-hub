@@ -98,7 +98,9 @@ function deploy_helm_charts() {
   git checkout $TAG
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep console-chart) -o yaml > values.yaml
   kubectl delete appsub console-chart-sub -n "$acm_namespace" --ignore-not-found
-  cat values.yaml | sed "s/    console:.*/    console: quay.io\/open-cluster-management-hub-of-hubs\/console:$TAG/g" |
+  cat values.yaml |
+      yq e ".global.imageOverrides.console = \"quay.io/open-cluster-management-hub-of-hubs/console:$TAG\"" - |
+      yq e '.global.pullPolicy = "Always"' - |
       helm upgrade console-chart stable/console-chart -n "$acm_namespace" --install -f -
   cd ..
   rm -rf hub-of-hubs-console-chart
@@ -112,8 +114,9 @@ function deploy_helm_charts() {
   kubectl delete appsub grc-sub -n "$acm_namespace" --ignore-not-found
 
   cat values.yaml |
-      sed "s/    governance_policy_propagator:.*/    governance_policy_propagator: quay.io\/open-cluster-management-hub-of-hubs\/governance-policy-propagator:no_status_update/g" |
-      sed "s/    grc_ui:.*/    grc_ui: quay.io\/open-cluster-management-hub-of-hubs\/grc-ui:$TAG/g" |
+      yq e ".global.imageOverrides.governance_policy_propagator = \"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:no_status_update\"" - |
+      yq e ".global.imageOverrides.grc_ui = \"quay.io/open-cluster-management-hub-of-hubs/grc-ui:$TAG\"" - |
+      yq e '.global.pullPolicy = "Always"' - |
       helm upgrade grc stable/grc -n "$acm_namespace" --install -f -
   cd ..
   rm -rf grc-chart
