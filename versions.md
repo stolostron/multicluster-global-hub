@@ -1,4 +1,4 @@
-# The go mod versions to use in the POC
+# The go mod versions that are used in hub of hubs components
 
 | Module                                                                | Version                            |
 | ----------------------------------------------------------------------|----------------------------------- |
