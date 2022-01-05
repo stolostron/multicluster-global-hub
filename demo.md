@@ -1,19 +1,16 @@
 # The Hub-of-Hubs demo script
 
+1. The user observes managed clusters in the Clusters view.
 1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by ACM UI or kubectl.
-1. The user observes policy compliance status in the UI of hub-of-hubs and of leaf hubs.
-1. The user observes managed clusters in the database.
+1. The user observes policy compliance status in the UI of hub-of-hubs and the UI of leaf hubs.
 
 ## Prequisites
 
 * Three clusters with ACM Hubs on them, `hoh` (the hub of hubs), `hub1` and `hub2`.
+* Hub-of-Hubs components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) on `hoh`, Leaf Hub components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) `hub1` and `hub2`.
 * Environment variables hold kubernetes configurations of the clusters,
 `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
-* Leaf hub components installed on `hub1` and `hub2`, hub-of-hubs spec and status sync controllers run on `hoh` cluster.
-* Tranport bridge and transport server-side run on `hoh` or elsewhere.
-* https://github.com/vadimeisenbergibm/governance-policy-propagator/tree/no_status_update is used as `governance-policy-propagator` on `hoh`.
-* The database can be accessed for querying/deleting
-* The [governance-policy-propagator](https://github.com/vadimeisenbergibm/governance-policy-propagator) that contains commit [c9f6db29f7718e6b3a7c97826df322071516bb32](https://github.com/open-cluster-management/governance-policy-propagator/commit/c9f6db29f7718e6b3a7c97826df322071516bb32) must be used on the leaf hubs. To use it with old versions of ACM, apply [PolicyAutomation CRD](https://raw.githubusercontent.com/open-cluster-management/hub-crds/main/crds/grc-chart/policy.open-cluster-management.io_policyautomations_crd.yaml). 
+
 
 ### Before the demo
 
