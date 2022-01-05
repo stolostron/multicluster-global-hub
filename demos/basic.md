@@ -10,6 +10,7 @@
 * Hub-of-Hubs components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) on `hoh`, Leaf Hub components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) `hub1` and `hub2`.
 * Environment variables hold kubernetes configurations of the clusters,
 `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
+* Some managed clusters created by/imported into both `hub1` and `hub2`.
 
 
 ## The demo script
