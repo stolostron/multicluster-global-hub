@@ -27,7 +27,7 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
 ## Demo
 
-The [demo script](demo.md).
+The [demo script](demos/basic.md).
 
 ## Repositories
 
