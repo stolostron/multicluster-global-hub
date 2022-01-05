@@ -17,10 +17,17 @@
 
 1.  Observe managed clusters in the UI of `hoh`, `hub1` and `hub2`. Note that the UI of `hoh` contains managed clusters of both `hub1` and `hub2`.
 
+1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd), and cannot be queried by `kubectl`:
+
+    ```
+    $ kubectl get managedcluster --kubeconfig $TOP_HUB_CONFIG
+    No resources found
+    ```
+    
 1.  Label some of the managed clusters of `hub1` and `hub2`, `environment=dev`, either by `kubectl` or in the UI of `hub1`/`hub2`.
 
     ```
-    kubectl label managedcluster <some-cluster> environment=dev --kubeconfig $HUB1_CONFIG
+    $ kubectl label managedcluster <some-cluster> environment=dev --kubeconfig $HUB1_CONFIG
     ```
 
 1.  Note that the new labels appear in the Cluster View of `hoh`.
