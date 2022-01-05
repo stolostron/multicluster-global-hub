@@ -11,14 +11,15 @@
 * Environment variables hold kubernetes configurations of the clusters,
 `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
 
+
 ## The demo script
 
-1.  Observe managed clusters in the UI of `hoh`, `hub1` and `hub2`. Notice that the UI of `hoh` contains managed clusters of both `hub1` and `hub2`.
+1.  Observe managed clusters in the UI of `hoh`, `hub1` and `hub2`. Note that the UI of `hoh` contains managed clusters of both `hub1` and `hub2`.
 
 1.  Create a policy, a placement rule and placement binding by `kubectl`:
 
     ```
-    $ kubectl apply -f policy-psp.yaml --kubeconfig $TOP_HUB_CONFIG -n myproject
+    $ kubectl apply -f policy-psp.yaml --kubeconfig $TOP_HUB_CONFIG
     policy.policy.open-cluster-management.io/policy-podsecuritypolicy created
     placementbinding.policy.open-cluster-management.io/binding-policy-podsecuritypolicy created
     placementrule.apps.open-cluster-management.io/placement-policy-podsecuritypolicy created
