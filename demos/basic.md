@@ -19,7 +19,7 @@
 1.  Create a policy, a placement rule and placement binding by `kubectl`:
 
     ```
-    $ kubectl apply -f policy-psp.yaml --kubeconfig $TOP_HUB_CONFIG
+    $ kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml --kubeconfig $TOP_HUB_CONFIG
     policy.policy.open-cluster-management.io/policy-podsecuritypolicy created
     placementbinding.policy.open-cluster-management.io/binding-policy-podsecuritypolicy created
     placementrule.apps.open-cluster-management.io/placement-policy-podsecuritypolicy created
