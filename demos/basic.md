@@ -1,4 +1,4 @@
-# The Hub-of-Hubs demo script
+# The Hub-of-Hubs basic demo script
 
 1. The user observes managed clusters in the Clusters view.
 1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by ACM UI or kubectl.
