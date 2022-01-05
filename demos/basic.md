@@ -11,9 +11,14 @@
 * Environment variables hold kubernetes configurations of the clusters,
 `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
 * Some managed clusters created by/imported into both `hub1` and `hub2`.
+* `kubeadmin` access to `hoh`. If you cannot login as `kubeadmin`, follow [these steps to add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions). 
 
 
 ## The demo script
+
+1.  Login into the console UI of `hoh` as the `kubeadmin` user. The Hub-of-Hubs UI has the same URL as the original ACM URL and it appears as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the cluster applications.
+     
+    If you cannot login as `kubeadmin`, follow [these steps to add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
 
 1.  Observe managed clusters in the UI of `hoh`, `hub1` and `hub2`. Note that the UI of `hoh` contains managed clusters of both `hub1` and `hub2`.
 
