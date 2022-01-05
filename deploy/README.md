@@ -22,7 +22,7 @@
 
 1.  Set the release tag variable for images:
     ```
-    export TAG=v0.2.0
+    export TAG=v0.3.0
     ```
     
 1.  Set the chosen transport. the options are either `kafka` or `sync-service`:
