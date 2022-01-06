@@ -7,6 +7,8 @@
 ## Prequisites
 
 * Three clusters with ACM Hubs on them, `hoh` (the _Hub of Hubs_), `hub1` and `hub2` (two _Leaf Hubs_).
+* Access to the ACM console of the three ACM hubs. The link to the ACM console should appear in the OpenShift console of the clusters, 
+as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the cluster applications. If it does not appear, run `oc get route -n open-cluster-management -o jsonpath='{.items[0].spec.host}'` to get the URL of the ACM console.
 * Hub-of-Hubs components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) on `hoh`, Leaf Hub components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) on `hub1` and `hub2`.
 * Environment variables hold kubernetes configurations of the clusters,
 `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
@@ -16,7 +18,7 @@
 
 ## The demo script
 
-1.  Login into the console UI of `hoh` as the `kubeadmin` user. The Hub-of-Hubs UI has the same URL as the original ACM URL and it appears as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the cluster applications.
+1.  Login into the console UI of `hoh` as the `kubeadmin` user. The Hub-of-Hubs UI has the same URL as the original ACM console URL.
      
     If you cannot login as `kubeadmin`, follow [these steps to add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
 
