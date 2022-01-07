@@ -5,7 +5,7 @@
 by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 3. The user observes policy compliance status in the UI of Hub of Hubs and in the UI of the hubs connected to the Hub-of-Hubs.
 
-## Prequisites
+## Prerequisites
 
 * Three clusters with ACM Hubs on them, `hoh` (the _Hub of Hubs_), `hub1` and `hub2` (two Hubs to connect to the Hub of Hubs).
 * Access to the ACM console of the three ACM hubs. The link to the ACM console should appear in the OpenShift console of the clusters,
