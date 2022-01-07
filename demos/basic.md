@@ -1,8 +1,9 @@
 # The Hub-of-Hubs basic demo script
 
-1. The user observes managed clusters in the Clusters view.
-1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by ACM UI or kubectl.
-1. The user observes policy compliance status in the UI of Hub of Hubs and the UI of the hubs connected to the Hub-of-Hubs.
+1. The user observes all the managed clusters of the connected hubs in the Clusters view of the Hub-of-Hubs UI.
+1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by Hub-of-Hubs UI or 
+by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
+3. The user observes policy compliance status in the UI of Hub of Hubs and in the UI of the hubs connected to the Hub-of-Hubs.
 
 ## Prequisites
 
