@@ -7,7 +7,7 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 
 ## Prerequisites
 
-1. Three clusters with ACM 2.4 Hubs on them, `hoh` (the _Hub of Hubs_), `hub1` and `hub2` (two Hubs to connect to the Hub of Hubs). The requirements for ACM 2.4 Hubs are specified [in ACM 2.4 documentation](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/install/installing#requirements-and-recommendations).
+1. Three clusters with ACM 2.4 Hubs on them, `hoh` (the _Hub of Hubs_), `hub1` and `hub2` (two Hubs to connect to the Hub of Hubs). The requirements for ACM 2.4 Hubs are specified [in ACM 2.4 documentation](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/install/installing#requirements-and-recommendations). The minimal ACM configuration is sufficient.
 1. Some managed clusters [imported into](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#importing-a-target-managed-cluster-to-the-hub-cluster) (or [created by](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#creating-a-cluster)) both `hub1` and `hub2`.
 1. Access to the ACM console of the three ACM hubs. The link to the ACM console should appear in the OpenShift console of the clusters,
 as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the cluster applications. If it does not appear, run `oc get route -n open-cluster-management -o jsonpath='{.items[0].spec.host}'` to get the URL of the ACM console.
