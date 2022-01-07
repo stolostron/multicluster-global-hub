@@ -34,7 +34,7 @@ The [demo script](demos/basic.md).
 ### Ansible playbooks to setup PostgreSQL
 * [hub-of-hubs-postgresql](https://github.com/open-cluster-management/hub-of-hubs-postgresql)
 
-### On-the-hub-of-hubs components
+### Hub-of-Hubs components
 
 * [hub-of-hubs-spec-sync](https://github.com/open-cluster-management/hub-of-hubs-spec-sync)
 * [hub-of-hubs-status-sync](https://github.com/open-cluster-management/hub-of-hubs-status-sync)
@@ -65,7 +65,7 @@ The [demo script](demos/basic.md).
 
 * [hub-of-hubs-message-compression](https://github.com/open-cluster-management/hub-of-hubs-message-compression)
 
-### On-the-leaf-hub components
+### Hub-of-Hubs-agent components
 
 * [leaf-hub-spec-sync](https://github.com/open-cluster-management/leaf-hub-spec-sync)
 * [leaf-hub-status-sync](https://github.com/open-cluster-management/leaf-hub-status-sync)

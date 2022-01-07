@@ -2,14 +2,14 @@
 
 1. The user observes managed clusters in the Clusters view.
 1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by ACM UI or kubectl.
-1. The user observes policy compliance status in the UI of hub-of-hubs and the UI of leaf hubs.
+1. The user observes policy compliance status in the UI of Hub of Hubs and the UI of the hubs connected to the Hub-of-Hubs.
 
 ## Prequisites
 
-* Three clusters with ACM Hubs on them, `hoh` (the _Hub of Hubs_), `hub1` and `hub2` (two _Leaf Hubs_).
+* Three clusters with ACM Hubs on them, `hoh` (the _Hub of Hubs_), `hub1` and `hub2` (two Hubs to connect to the Hub of Hubs).
 * Access to the ACM console of the three ACM hubs. The link to the ACM console should appear in the OpenShift console of the clusters,
 as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the cluster applications. If it does not appear, run `oc get route -n open-cluster-management -o jsonpath='{.items[0].spec.host}'` to get the URL of the ACM console.
-* Hub-of-Hubs components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) on `hoh`, Leaf Hub components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) on `hub1` and `hub2`.
+* Hub-of-Hubs components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) on `hoh`, Hub-of-Hubs-agent components [deployed](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) on `hub1` and `hub2`.
 * Environment variables hold kubernetes configurations of the clusters,
 `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
 * Some managed clusters imported into (or created by) both `hub1` and `hub2`.

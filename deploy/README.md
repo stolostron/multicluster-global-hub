@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-1. Hub-of-Hubs ACM and Leaf Hub ACMs
+1. ACM to serve as Hub-of-Hubs and ACM Hubs to connect to Hub-of-Hubs
 1. The following command line tools installed:
     1. bash
     1. git
@@ -58,18 +58,18 @@ KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
 
 ----
 
-# Leaf-Hub
+# Hubs to connect to Hub-of-Hubs
 
-## Deploying a Leaf Hub
-
-```
-KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./deploy_leaf_hub.sh
-```
-
-## Undeploying a Leaf Hub
+## Deploying a Hub-of-Hubs agent
 
 ```
-KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./undeploy_leaf_hub.sh
+KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./deploy_hub_of_hubs_agent.sh
+```
+
+## Undeploying a Hub-of-Hubs agent
+
+```
+KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./undeploy_hub_of_hubs_agent.sh
 ```
 
 ----

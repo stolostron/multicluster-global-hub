@@ -33,8 +33,8 @@ function deploy_transport() {
   fi
 
   if [ "${transport_type}" == "sync-service" ]; then
-    # shellcheck source=deploy/deploy_leaf_hub_sync_servic.sh
-    source "${script_dir}/deploy_leaf_hub_sync_service.sh"
+    # shellcheck source=deploy/deploy_hub_of_hubs_agent_sync_service.sh
+    source "${script_dir}/deploy_hub_of_hubs_agent_sync_service.sh"
     export SYNC_SERVICE_PORT=8090
   else
     bootstrapServers="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status.listeners[1].bootstrapServers})"
