@@ -1,19 +1,19 @@
-# Hub-of-Hubs
+# Hub of Hubs
 
 [![License](https://img.shields.io/github/license/open-cluster-management/hub-of-hubs)](/LICENSE)
 
 ----
 
-Hub-of-Hubs provides multi cluster management at very high scale.  
+Hub of Hubs provides multi cluster management at very high scale.  
 It has been designed primarily to address the scale and performance requirements of edge use cases.  
-The Hub-of-Hubs utilizes multiple standard [RHACM management hubs](https://www.redhat.com/en/technologies/management/advanced-cluster-management)
+The Hub of Hubs utilizes multiple standard [RHACM management hubs](https://www.redhat.com/en/technologies/management/advanced-cluster-management)
 to provide management capabilites, such as distributing compliance policies to managed clusters and monitoring 
 compliance status, or performing application and cluster lifecycle management operations at very large scale.  
 
-Hub-of-Hubs has been demonstrated to be able to manage one million managed clusters with hundreds of compliance 
+Hub of Hubs has been demonstrated to be able to manage one million managed clusters with hundreds of compliance 
 policies and/or applications applied to each managed cluster.  
 
-In addition to far edge cases, the Hub-of-Hubs is also applicable for global management of mostly autonomous 
+In addition to far edge cases, the Hub of Hubs is also applicable for global management of mostly autonomous 
 managers/hubs, acting as a central manager of various types of managers, and other use cases.  
 
 
@@ -77,7 +77,7 @@ The [demo script](demos/basic.md).
 
 ### Custom repositories
 
-* Hub-of-Hubs
+* Hub of Hubs
   * https://github.com/vadimeisenbergibm/governance-policy-propagator/tree/no_status_update to prevent updating policy status by governance policy propagator
 
 ## Deployment
