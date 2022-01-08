@@ -1,4 +1,4 @@
-# The Hub-of-Hubs basic demo script
+# The Hub-of-Hubs basic-demo script
 
 1. The user observes all the managed clusters of the connected hubs in the Clusters view of the Hub-of-Hubs Web console.
 1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by Hub-of-Hubs Web console or 
