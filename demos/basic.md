@@ -61,6 +61,6 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 
 1.  Observe changes of the compliance status in the Web console of `hoh` and `hub1`.
 
-1.  Change the remediation action in the Web console of `hoh` to `enforce`. Observe propagation of changes and the status.
+1.  Change the remediation action in the Web console of `hoh` to `enforce`. Observe propagation of the changes and the status.
 
 1.  Delete the policy in the Web console of `hoh`. Observe propagation of the deletion to `hub1` and `hub2`.
