@@ -3,11 +3,11 @@
 1. The user observes all the managed clusters of the connected hubs in the Clusters view of the Hub-of-Hubs Web console.
 1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by Hub-of-Hubs Web console or 
 by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
-1. The user observes policy compliance status in the Web console of Hub of Hubs and in the Web console of the hubs connected to the Hub-of-Hubs.
+1. The user observes policy compliance status in the Web console of Hub-of-Hubs and in the Web console of the hubs connected to the Hub-of-Hubs.
 
 ## Prerequisites
 
-1. Three clusters with ACM 2.4 Hubs on them, `hoh` (the _Hub of Hubs_), `hub1` and `hub2` (two Hubs to connect to the Hub of Hubs). The requirements for ACM 2.4 Hubs are specified [in ACM 2.4 documentation](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/install/installing#requirements-and-recommendations). The minimal configuration for ACM is sufficient for this demo.
+1. Three clusters with ACM 2.4 Hubs on them, `hoh` (the _Hub-of-Hubs_), `hub1` and `hub2` (two Hubs to connect to the Hub-of-Hubs). The requirements for ACM 2.4 Hubs are specified [in ACM 2.4 documentation](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/install/installing#requirements-and-recommendations). The minimal configuration for ACM is sufficient for this demo.
 1. Some managed clusters [imported into](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#importing-a-target-managed-cluster-to-the-hub-cluster) (or [created by](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#creating-a-cluster)) both `hub1` and `hub2`.
 1. Access to the ACM console of the three ACM hubs. The link to the ACM console should appear in the OpenShift console of the clusters,
 as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the cluster applications. If it does not appear, run `oc get route -n open-cluster-management -o jsonpath='{.items[0].spec.host}'` to get the URL of the ACM console.
@@ -15,7 +15,7 @@ as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the clust
 
 ## Setup
 
-1. [Deploy](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md)  Hub-of-Hubs components on `hoh`, and Hub-of-Hubs-agent components on `hub1` and `hub2`.
+1. Follow [these instructions](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) to deploy Hub-of-Hubs components on `hoh` first, then deploy Hub-of-Hubs-agent components on `hub1` and `hub2`.
 1. Define environment variables to hold kubernetes configurations of the clusters, `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
 1. If you do not have access to `hoh` as the `kubeadmin` user, follow [these steps to add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
 
@@ -34,7 +34,7 @@ as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the clust
     No resources found
     ```
 
-1.  Label some of the managed clusters of `hub1` and `hub2`, `env=production`, either by `kubectl` or in the Web console of `hub1`/`hub2`.
+1.  Label some of the managed clusters of `hub1` and `hub2` with `env=production`, either by `kubectl` or in the Web console of `hub1`/`hub2`.
 
     ```
     $ kubectl label managedcluster <some-cluster> env=production --kubeconfig $HUB1_CONFIG
@@ -42,7 +42,8 @@ as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the clust
 
 1.  Note that the new labels appear in the Cluster View of `hoh`.
 
-1.  Create a policy, a placement rule and placement binding by `kubectl`:
+1.  Create a policy, a placement rule and a placement binding by `kubectl` in `hoh` cluster, where the placement rule 
+    selects clusters with the label `env=production`:
 
     ```
     $ kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml --kubeconfig $TOP_HUB_CONFIG
@@ -52,7 +53,7 @@ as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the clust
     ```
 
 1.  Observe the policy in the Web console of `hoh`, `hub1` and `hub2`. Note that the managed clusters labeled `env=production` from both `hub1` and
-`hub2` appear in the `Cluster violiations` tab.
+`hub2` appear in the `Cluster violiations` tab of `hoh`.
 
 1.  Change compliance of one of the managed clusters of `hub1`. To make the managed cluster compliant, run:
 
@@ -60,7 +61,7 @@ as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the clust
     $ kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/psp.yaml --kubeconfig <a managed cluster config>
     ```
 
-1.  Observe changes in the compliance Web consolke of `hoh` and `hub1`.
+1.  Observe changes of the compliance status in the Web console of `hoh` and `hub1`.
 
 1.  Change the remediation action in the Web console of `hoh` to `enforce`. Observe propagation of changes and the status.
 
