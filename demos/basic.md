@@ -41,8 +41,7 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 
 1.  Note that the new labels appear in the Cluster View of `hoh`.
 
-1.  Create a policy, a placement rule and a placement binding by `kubectl` in `hoh` cluster, where the placement rule 
-    selects clusters with the label `env=production`:
+1.  Create a policy, a placement rule and a placement binding in `hoh` cluster by `kubectl`. The policy used in the instructions below is an [ACM pod security policy](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/governance/governance#pod-security-policy). The placement rule selects clusters with the `env=production` label.
 
     ```
     $ kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml --kubeconfig $TOP_HUB_CONFIG
