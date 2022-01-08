@@ -33,7 +33,7 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
     No resources found
     ```
 
-1.  Add the `env=production` label to some of the managed clusters of `hub1` and `hub2`, either by `kubectl` or in the Web console of `hub1`/`hub2`.
+1.  Add the `env=production` label to some of the managed clusters of `hub1` and `hub2`, either by `kubectl` or [in the Web console](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#managing-cluster-labels) of `hub1`/`hub2`.
 
     ```
     $ kubectl label managedcluster <some-cluster> env=production --kubeconfig $HUB1_CONFIG
