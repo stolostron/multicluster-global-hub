@@ -1,8 +1,8 @@
-# Deployment instructions for Hub-of-Hubs
+# Deployment instructions for Hub of Hubs
 
 ## Prerequisites
 
-1. ACM to serve as Hub-of-Hubs and ACM Hubs to connect to Hub-of-Hubs
+1. ACM to serve as Hub of Hubs and ACM Hubs to connect to Hub of Hubs
 1. The following command line tools installed:
     1. bash
     1. git
@@ -15,7 +15,7 @@
 
 ##  Set environment variables before deployment
 
-1.  Set the `TOP_HUB_CONFIG` variable to hold the file path for kubernetes configuration of Hub-of-Hubs:
+1.  Set the `TOP_HUB_CONFIG` variable to hold the file path for kubernetes configuration of Hub of Hubs:
     ```
     export TOP_HUB_CONFIG=...
     ```
@@ -36,21 +36,21 @@
         ```
 ----
 
-# Hub-of-Hubs
+# Hub of Hubs
 
-### Deploying Hub-of-hubs
+### Deploying Hub-of-hubs components
 
 ```
 KUBECONFIG=$TOP_HUB_CONFIG ./deploy_hub_of_hubs.sh
 ```
 
-### Using Hub-of-Hubs UI
+### Using Hub-of-Hubs Web Console
 
-The Hub-of-Hubs UI displayes managed clusters according to [Hub-of-Hubs RBAC](https://github.com/open-cluster-management/hub-of-hubs-rbac). By default,
+The Hub-of-Hubs Web console displayes managed clusters according to [Hub-of-Hubs RBAC](https://github.com/open-cluster-management/hub-of-hubs-rbac). By default,
 the `kube-admin` user is given `admin` role in Hub-of-Hubs RBAC. If you want to give other OpenShift users access to managed clusters, you need to
 [configure RBAC role bindings for your users](https://github.com/open-cluster-management/hub-of-hubs-rbac/blob/main/README.md#update-role-bindings-or-role-definitions).
 
-### Undeploying Hub-of-hubs
+### Undeploying Hub-of-hubs components
 
 ```
 KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
@@ -58,7 +58,7 @@ KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
 
 ----
 
-# Hubs to connect to Hub-of-Hubs
+# Hubs to connect to Hub of Hubs
 
 ## Deploying a Hub-of-Hubs agent
 
