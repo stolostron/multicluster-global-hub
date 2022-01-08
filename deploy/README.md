@@ -6,7 +6,7 @@
 1. The following command line tools installed:
     1. bash
     1. git
-    1. helm 3.2.0 or higher
+    1. helm 3.7+ or higher
     1. kubectl
     1. curl
     1. envsubst
