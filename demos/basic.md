@@ -15,9 +15,10 @@ as `Red Hat Advanced Cluster Management for Kubernetes` in the list of the clust
 
 ## Setup
 
-1. Follow [these instructions](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) to deploy Hub-of-Hubs components on `hoh` first, then deploy Hub-of-Hubs-agent components on `hub1` and `hub2`.
-1. Define environment variables to hold kubernetes configurations of the clusters, `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
-1. If you do not have access to `hoh` as the `kubeadmin` user, follow [these steps to add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
+1. [Deploy Hub-of-Hubs components](https://github.com/stolostron/hub-of-hubs/blob/main/deploy/README.md) on `hoh`.
+2. [Deploy Hub-of-Hubs-agent components](https://github.com/stolostron/hub-of-hubs/tree/main/deploy#deploying-a-hub-of-hubs-agent) on `hub1` and `hub2`.
+3. Define environment variables to hold kubernetes configurations of the clusters, `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
+4. If you do not have access to `hoh` as the `kubeadmin` user, follow [these steps to add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
 
 ## The demo script
 
