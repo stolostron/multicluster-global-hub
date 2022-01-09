@@ -63,9 +63,7 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
     placementrule.apps.open-cluster-management.io/placement-policy-podsecuritypolicy created
     ```
 
-1.  Observe the policy in the Web console of `hoh`, `hub1` and `hub2`. Note that the managed clusters labeled `env=production` from both `hub1` and
-`hub2` appear in the `Cluster violiations` tab of `hoh`.
-
+1.  Observe the policy in the Web console of `hoh`, `hub1` and `hub2`.
 
     The screenshot below shows `policy-podsecuritypolicy` in the Governance view of `hoh`, of `hub1` and of `hub2`.
     The policy is applied to two managed clusters of `hub1` and to three managed clusters of `hub2`.
@@ -75,6 +73,16 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
     In `hoh`, the policy is shown as applied to five clusters (in total) and it has three (in total) cluster violations.
 
     ![Screenshot of an example Hub-of-Hubs setup, Governance view](../images/demo_governance_view.png)
+
+1.  Click on the _Cluster violantions_ link in the Governance view of `hoh`, `hub1` and `hub2`.
+    Note that all the managed clusters labeled with `env=production` from both `hub1` and `hub2` appear in the Cluster violiations view of `hoh`.
+
+    The screenshot below shows the Cluster violations view of `hoh`, of `hub1` and of `hub2`. The managed clusters labeled with `env=production`, namely
+    `cluster0`, `cluster3`, `cluster7`, `cluster8` and `cluster9`, appear in the violations view of `hoh`. Clusters `cluster0`, `cluster8` and `cluster9`
+    appear as noncompliant in the Cluster violations view of `hoh`, and in the respective views of `hub1` and `hub2`.
+
+
+    ![Screenshot of an example Hub-of-Hubs setup, Governance view, Cluster violations](../images/demo_governance_view_cluster_violations.png)
 
 1.  Change compliance of one of the managed clusters of `hub1`. To make the managed cluster compliant, run:
 
