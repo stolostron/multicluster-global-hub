@@ -26,9 +26,10 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 
 1.  Observe managed clusters in the Web console of `hoh`, `hub1` and `hub2`. Note that the Web console of `hoh` contains managed clusters of both `hub1` and `hub2`.
 
-    The screenshot below shows an example setup. The Web console of `hub1` is in the bottom left quarter, `hub1` mmanages clusters `cluster0`-`cluster4`.
-    The Web console of `hub2` is in the bottom right quarter, `hub2` mmanages clusters `cluster5`-`cluster9`. The Web console of `hoh`, with a distinctive blue color design,
-    appears at the top half of the screen. It contains the clusters of both `hub1` and `hub2`, namely `cluster0`-`cluster9`.
+    The screenshot below shows an example setup. The Web console of `hub1` is at the bottom left quarter, `hub1` manages clusters `cluster0`-`cluster4`.
+    The Web console of `hub2` is at the bottom right quarter, `hub2` manages clusters `cluster5`-`cluster9`. 
+    The Web console of `hoh`, with a distinctive blue color design, appears at the top half of the screen. It contains the clusters of both `hub1` and `hub2`,
+    namely `cluster0`-`cluster9`.
 
     ![Screenshot of an example Hub-of-Hubs setuo](../images/demo_clusters_view.png)
 
