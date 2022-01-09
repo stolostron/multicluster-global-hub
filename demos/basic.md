@@ -24,7 +24,8 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 
     If you cannot login as `kubeadmin`, [add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
 
-1.  Observe managed clusters in the Web console of `hoh`, `hub1` and `hub2`. Note that the Web console of `hoh` contains managed clusters of both `hub1` and `hub2`.
+1.  Observe managed clusters in the Web console of `hoh`, of `hub1` and of `hub2`.
+    Note that the Web console of `hoh` contains managed clusters of both `hub1` and `hub2`.
 
     The screenshot below shows an example setup. The Web console of `hub1` is at the bottom left quarter, `hub1` manages clusters `cluster0`-`cluster4`.
     The Web console of `hub2` is at the bottom right quarter, `hub2` manages clusters `cluster5`-`cluster9`.
