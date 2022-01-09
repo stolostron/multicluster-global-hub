@@ -1,7 +1,7 @@
 # The Hub-of-Hubs basic-demo script
 
 1. The user observes all the managed clusters of the connected hubs in the Clusters view of the Hub-of-Hubs Web console.
-1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by Hub-of-Hubs Web console or 
+1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by Hub-of-Hubs Web console or
 by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 1. The user observes policy compliance status in the Web console of Hub of Hubs and in the Web console of the hubs connected to the Hub of Hubs.
 
@@ -25,6 +25,13 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
     If you cannot login as `kubeadmin`, [add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
 
 1.  Observe managed clusters in the Web console of `hoh`, `hub1` and `hub2`. Note that the Web console of `hoh` contains managed clusters of both `hub1` and `hub2`.
+
+    The screenshot below shows an example setup. The Web console of `hub1` is in the bottom left quarter, `hub1` mmanages clusters `cluster0`-`cluster4`.
+    The Web console of `hub2` is in the bottom right quarter, `hub2` mmanages clusters `cluster5`-`cluster9`. The Web console of `hoh`, with a distinctive blue color design,
+    appears at the top half of the screen. It contains the clusters of both `hub1` and `hub2`, namely `cluster0`-`cluster9`.
+
+    ![Screenshot of an example Hub-of-Hubs setuo](../images/demo_clusters_view.png)
+
 
 1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd), and cannot be queried by `kubectl`:
 
