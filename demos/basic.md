@@ -35,17 +35,17 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
     ![Screenshot of an example Hub-of-Hubs setup, Cluster view](../images/demo_cluster_view.png)
 
 
-1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd), and cannot be queried by `kubectl`:
+1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd), and cannot be queried by `oc`:
 
     ```
-    $ kubectl get managedcluster --kubeconfig $TOP_HUB_CONFIG
+    $ oc get managedcluster --kubeconfig $TOP_HUB_CONFIG
     No resources found
     ```
 
-1.  Add the `env=production` label to some of the managed clusters of `hub1` and `hub2`, either by `kubectl` or [in the Web console](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#managing-cluster-labels) of `hub1`/`hub2`.
+1.  Add the `env=production` label to some of the managed clusters of `hub1` and `hub2`, either by `oc` or [in the Web console](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#managing-cluster-labels) of `hub1`/`hub2`.
 
     ```
-    $ kubectl label managedcluster <some-cluster> env=production --kubeconfig $HUB1_CONFIG
+    $ oc label managedcluster <some-cluster> env=production --kubeconfig $HUB1_CONFIG
     ```
 
 1.  Note that the new labels appear in the Cluster View of `hoh`.
@@ -55,10 +55,10 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 
     ![Screenshot of an example Hub-of-Hubs setup, Cluster view with new labels](../images/demo_cluster_view_labels.png)
 
-1.  Create a policy, a placement rule and a placement binding in `hoh` cluster by `kubectl`. The policy used in the instructions below is an [ACM pod security policy](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/governance/governance#pod-security-policy). The placement rule selects clusters with the `env=production` label.
+1.  Create a policy, a placement rule and a placement binding in `hoh` cluster by `oc`. The policy used in the instructions below is an [ACM pod security policy](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/governance/governance#pod-security-policy). The placement rule selects clusters with the `env=production` label.
 
     ```
-    $ kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml --kubeconfig $TOP_HUB_CONFIG
+    $ oc apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml --kubeconfig $TOP_HUB_CONFIG
     policy.policy.open-cluster-management.io/policy-podsecuritypolicy created
     placementbinding.policy.open-cluster-management.io/binding-policy-podsecuritypolicy created
     placementrule.apps.open-cluster-management.io/placement-policy-podsecuritypolicy created
