@@ -27,11 +27,11 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 1.  Observe managed clusters in the Web console of `hoh`, `hub1` and `hub2`. Note that the Web console of `hoh` contains managed clusters of both `hub1` and `hub2`.
 
     The screenshot below shows an example setup. The Web console of `hub1` is at the bottom left quarter, `hub1` manages clusters `cluster0`-`cluster4`.
-    The Web console of `hub2` is at the bottom right quarter, `hub2` manages clusters `cluster5`-`cluster9`. 
+    The Web console of `hub2` is at the bottom right quarter, `hub2` manages clusters `cluster5`-`cluster9`.
     The Web console of `hoh`, with a distinctive blue color design, appears at the top half of the screen. It contains the clusters of both `hub1` and `hub2`,
     namely `cluster0`-`cluster9`.
 
-    ![Screenshot of an example Hub-of-Hubs setuo](../images/demo_clusters_view.png)
+    ![Screenshot of an example Hub-of-Hubs setuo](../images/demo_cluster_view.png)
 
 
 1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd), and cannot be queried by `kubectl`:
@@ -52,7 +52,7 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
     The screenshot below shows the previous example setup with labels `env=production` on clusters `cluster0`, `cluster3`, `cluster7`, `cluster8` and `cluster9`.
     The labels appear in the Cluster View of `hub1`, `hub2` and `hoh`.
 
-    ![Screenshot of an example Hub-of-Hubs setuo](../images/demo_clusters_view_labels.png)
+    ![Screenshot of an example Hub-of-Hubs setuo](../images/demo_cluster_view_labels.png)
 
 1.  Create a policy, a placement rule and a placement binding in `hoh` cluster by `kubectl`. The policy used in the instructions below is an [ACM pod security policy](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/governance/governance#pod-security-policy). The placement rule selects clusters with the `env=production` label.
 
