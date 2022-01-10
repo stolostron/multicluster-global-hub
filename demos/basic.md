@@ -101,3 +101,5 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
     ![Screenshot of an example Hub-of-Hubs setup, Governance view, Enforce remediation action](../images/demo_governance_view_enforce.png)
 
 1.  Delete the policy in the Web console of `hoh`. Observe propagation of the deletion to `hub1` and `hub2`.
+
+    ![Screenshot of an example Hub-of-Hubs setup, Governance view, policy deleted](../images/delete_policy.png)
