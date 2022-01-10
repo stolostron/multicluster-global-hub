@@ -95,4 +95,9 @@ by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
 
 1.  Change the remediation action in the Web console of `hoh` to `enforce`. Observe propagation of the changes and the status.
 
+    The screenshot below shows the policy in the Governance view of `hoh`, of `hub1` and of `hub2`. The remediation action is `enforce` in
+    all of the views, and there are no cluster violations.
+
+    ![Screenshot of an example Hub-of-Hubs setup, Governance view, Enforce remediation action](../images/demo_governance_view_enforce.png)
+
 1.  Delete the policy in the Web console of `hoh`. Observe propagation of the deletion to `hub1` and `hub2`.
