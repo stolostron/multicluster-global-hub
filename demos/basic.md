@@ -2,7 +2,7 @@
 
 1. The user observes all the managed clusters of the connected hubs in the Clusters view of the Hub-of-Hubs Web console.
 1. The user defines a policy, a placement rule and a placement rule binding in their namespace, by Hub-of-Hubs Web console or
-by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift clster.
+by CLI (`kubectl`, `oc`) of the Hub-of-Hubs OpenShift cluster.
 1. The user observes policy compliance status in the Web console of Hub of Hubs and in the Web console of the hubs connected to the Hub of Hubs.
 
 ## Prerequisites
