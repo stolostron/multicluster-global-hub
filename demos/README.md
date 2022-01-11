@@ -12,9 +12,9 @@ chmod u+x demo-magic.sh
 
 ## Demos
 
-1.  [Stacked Windows](stacked_windows)
+1.  [Single Desktop](single_desktop)
 
-    ![Hub-of-Hubs Stacked windows, Cluster view](../images/demo_cluster_view.png)
+    ![Hub-of-Hubs Single Desktop, Cluster view](../images/demo_cluster_view.png)
 
 1.  Multiple Desktops
 
