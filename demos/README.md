@@ -16,6 +16,10 @@ chmod u+x demo-magic.sh
 
     ![Hub-of-Hubs Single Desktop, Cluster view](../images/demo_cluster_view.png)
 
-1.  Multiple Desktops
+1.  [Multiple Desktops](multiple_desktops)
 
     ![Hub-of-Hubs Multiple Desktops](multiple_desktops/images/animation.gif)
+    
+1.  [Setup](setup)
+
+    Shows running setup scripts
