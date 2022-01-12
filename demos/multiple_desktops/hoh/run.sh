@@ -15,6 +15,7 @@ set -o nounset
 # hide the evidence
 clear
 
-pe 'kubectl get managedcluster -o=jsonpath="{.items}{\"\n\"}"'
+pe 'kubectl get managedcluster -o=jsonpath="{.items}"'
+echo ''
 
 pe 'kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml'
