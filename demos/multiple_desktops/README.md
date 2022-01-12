@@ -28,8 +28,8 @@ See [the common setup instructions for Hub-of-Hubs demos](../README.md#setup).
 
 [The script](script.md) to be used as a reference for the presenter or as a self-learning tutorial.
 
-To run the commands of the demo as as shell scripts, run the the `run.sh` shell scripts **in the directory that correspond to the users
-(`hoh`, `hub1` or `hub2)**.
+To run the commands of the demo as as shell scripts, run the the `run.sh` shell scripts 
+**in the directory that correspond to the users(`hoh`, `hub1` or `hub2`)** .
 The shell scripts use [demo-magic](https://github.com/paxtonhare/demo-magic),
 you need to press Enter to run commands one by one.
 The redirection of the standard error stream to `/dev/null` is required to suppress
