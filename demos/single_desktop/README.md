@@ -21,7 +21,7 @@ See [the common setup instructions for Hub-of-Hubs demos](../README.md#setup).
 
 ## The script
 
-[The script](script.md).
+[The script](script.md) to be used as a reference for the demonstrator or as a self-learning tutorial.
 
 To run the commands of the demo as as shell script, run the the shell script below **in this directory**.
 The shell script uses [demo-magic](https://github.com/paxtonhare/demo-magic),
