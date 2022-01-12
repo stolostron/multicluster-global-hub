@@ -15,6 +15,8 @@ set -o nounset
 # hide the evidence
 clear
 
+pe 'kubectl get managedclusters'
+
 pe 'kubectl label managedcluster cluster7 env=production'
 pe 'kubectl label managedcluster cluster8 env=production'
 pe 'kubectl label managedcluster cluster9 env=production'
