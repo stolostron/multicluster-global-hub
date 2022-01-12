@@ -23,7 +23,7 @@ See [the common setup instructions for Hub-of-Hubs demos](../README.md#setup).
 
 [The script](script.md).
 
-To run the commands of the demo as as shell script, run the the shell script below **in this directory**..
+To run the commands of the demo as as shell script, run the the shell script below **in this directory**.
 The shell script uses [demo-magic](https://github.com/paxtonhare/demo-magic),
 you need to press Enter to run commands one by one.
 The redirection of the standard error stream to `/dev/null` is required to suppress
