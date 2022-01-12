@@ -30,7 +30,7 @@
 
 1.  [Setup](setup)
 
-    Shows running setup scripts
+    Shows deploying Hub-of-Hubs components.
 
 ## Tips
 
