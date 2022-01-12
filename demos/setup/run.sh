@@ -9,7 +9,7 @@ set -o nounset
 ########################
 # include the magic
 ########################
-. ./demo-magic/demo-magic.sh
+. ../demo-magic.sh
 
 # hide the evidence
 clear
