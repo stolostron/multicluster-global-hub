@@ -55,7 +55,7 @@
 
     ![Screenshot of an example Hub-of-Hubs setup, Governance view](../../images/demo_governance_view.png)
 
-1.  Click on the _Cluster violantions_ link in the Governance view of `hoh`, `hub1` and `hub2`.
+1.  Click on the _Cluster violations_ link in the Governance view of `hoh`, `hub1` and `hub2`.
     Note that all the managed clusters labeled with `env=production` from both `hub1` and `hub2` appear in the Cluster violiations view of `hoh`.
 
     The screenshot below shows the Cluster violations view of `hoh`, of `hub1` and of `hub2`. The managed clusters labeled with `env=production`, namely
