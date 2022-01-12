@@ -31,3 +31,11 @@
 1.  [Setup](setup)
 
     Shows running setup scripts
+
+## Tips
+
+* To cancel the prompt message and set it to `$`, run `PS1=$ `.
+* To set the Terminal's title on macOS, go to `Shell` -> `Edit title`.
+* To set the Terminal's background on macOS, go to `Shell` -> `Edit background`.
+* [Working with multiple desktops on macOS](https://www.chriswrites.com/create-multiple-desktops-mission-control/).
+* To change the background of a desktop on macOS, right click -> `Change Desktop Background...`.
