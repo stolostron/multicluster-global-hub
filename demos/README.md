@@ -9,7 +9,7 @@
 ## Setup
 1.  Define environment variables to hold kubernetes configurations of the clusters, `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
 1.  Download [demo-magic shell script](https://github.com/paxtonhare/demo-magic) into this directory (_demos_).
-1.  Follow [the setup Hub-of-Hubs instructions](setup).
+1.  Follow [the instructions to setup Hub-of-Hubs components](setup).
 1.  If you do not have access to `hoh` as the `kubeadmin` user, [add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
 
     ```
