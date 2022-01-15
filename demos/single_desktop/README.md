@@ -2,7 +2,7 @@
 
 In this demo the presenter shows three ACM Web consoles arranged inside a single desktop (window). While it is a more convenient and a faster way to show how the directives and the status are propagated between the Hub of Hubs and the Hubs, the audience can be confused to think that the users of Hub-of-Hubs actually observe all the three Web consoles. In reality, the three Web consoles are observed by different users, who issue different CLI commands and perform different actions in UI. The presenter should stress this point to the audience. Alternatively, consider using the [multiple-desktops demo](../multiple_desktops), to demonstrate the separation of the UI and CLI of the different users.
 
-![Hub-of-Hubs Single Desktop, Cluster view](../../images/demo_cluster_view.png)
+![Hub-of-Hubs Single Desktop, Cluster view](images/cluster_view.png)
 
 # Description
 

@@ -22,7 +22,7 @@
 
 1.  [Single Desktop](single_desktop)
 
-    ![Hub-of-Hubs Single Desktop, Cluster view](../images/demo_cluster_view.png)
+    ![Hub-of-Hubs Single Desktop, Cluster view](single_desktop/images/cluster_view.png)
 
 1.  [Multiple Desktops](multiple_desktops)
 

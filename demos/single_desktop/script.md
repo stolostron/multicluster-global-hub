@@ -12,7 +12,7 @@
     The Web console of `hoh`, with a distinctive blue color design, appears at the top half of the screen. It contains the clusters of both `hub1` and `hub2`,
     namely `cluster0`-`cluster9`.
 
-    ![Screenshot of an example Hub-of-Hubs setup, Cluster view](../../images/demo_cluster_view.png)
+    ![Screenshot of an example Hub-of-Hubs setup, Cluster view](images/cluster_view.png)
 
 1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd), and cannot be queried by `kubectl`:
 
@@ -32,7 +32,7 @@
     The screenshot below shows the previous example setup with labels `env=production` on clusters `cluster0`, `cluster3`, `cluster7`, `cluster8` and `cluster9`.
     The labels appear in the Cluster View of `hub1`, `hub2` and `hoh`.
 
-    ![Screenshot of an example Hub-of-Hubs setup, Cluster view with new labels](../../images/demo_cluster_view_labels.png)
+    ![Screenshot of an example Hub-of-Hubs setup, Cluster view with new labels](images/cluster_view_labels.png)
 
 1.  Create a policy, a placement rule and a placement binding in `hoh` cluster by `kubectl`. The policy used in the instructions below is an [ACM pod security policy](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/governance/governance#pod-security-policy). The placement rule selects clusters with the `env=production` label.
 
@@ -52,7 +52,7 @@
     You can also observe in the Governance view of `hoh` aggregation of the cluster violations.
     In `hoh`, the policy is shown as applied to five clusters (in total) and it has three (in total) cluster violations.
 
-    ![Screenshot of an example Hub-of-Hubs setup, Governance view](../../images/demo_governance_view.png)
+    ![Screenshot of an example Hub-of-Hubs setup, Governance view](images/governance_view.png)
 
 1.  Click on the _Cluster violations_ link in the Governance view of `hoh`, `hub1` and `hub2`.
     Note that all the managed clusters labeled with `env=production` from both `hub1` and `hub2` appear in the Cluster
@@ -62,7 +62,7 @@
     `cluster0`, `cluster3`, `cluster7`, `cluster8` and `cluster9`, appear in the violations view of `hoh`. Clusters `cluster0`, `cluster8` and `cluster9`
     appear as noncompliant in the Cluster violations view of `hoh`, and in the respective views of `hub1` and `hub2`.
 
-    ![Screenshot of an example Hub-of-Hubs setup, Governance view, Cluster violations](../../images/demo_governance_view_cluster_violations.png)
+    ![Screenshot of an example Hub-of-Hubs setup, Governance view, Cluster violations](images/governance_view_cluster_violations.png)
 
 1.  Change compliance of one of the managed clusters of `hub1`. To make the managed cluster compliant, run:
 
@@ -77,8 +77,8 @@
     The screenshot below shows the policy in the Governance view of `hoh`, of `hub1` and of `hub2`. The remediation action is `enforce` in
     all the views, and there are no cluster violations.
 
-    ![Screenshot of an example Hub-of-Hubs setup, Governance view, Enforce remediation action](../../images/demo_governance_view_enforce.png)
+    ![Screenshot of an example Hub-of-Hubs setup, Governance view, Enforce remediation action](images/governance_view_enforce.png)
 
 1.  Delete the policy in the Web console of `hoh`. Observe propagation of the deletion to `hub1` and `hub2`.
 
-    ![Screenshot of an example Hub-of-Hubs setup, Governance view, policy deleted](../../images/delete_policy.png)
+    ![Screenshot of an example Hub-of-Hubs setup, Governance view, policy deleted](images/delete_policy.png)
