@@ -31,6 +31,12 @@
 
     ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view](images/hoh.png)
 
+1.  Browse the Web console of Hub of Hubs. Note that currently it has only three views, namely `Welcome`, `Clusters` and
+    `Governance`. Also note that the Cluster view has neither tabs nor buttons to create or import a cluster.
+    The cluster table does not have actions to detach a cluster or to edit cluster labels.
+
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Welcome view](images/hoh_welcome.png)
+
 1.  Add the `env=production` label to some of the managed clusters of `hub1` and `hub2`, either by `kubectl` or
     [in the Web console](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#managing-cluster-labels) of `hub1`/`hub2`.
 
