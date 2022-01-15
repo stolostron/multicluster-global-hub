@@ -21,6 +21,8 @@
 
     If you cannot login as `kubeadmin`, [add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
 
+    Note that as a user of Hub of Hubs, you can observe the managed clusters of both `hub1` and `hub2`.
+
 1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd),
     and cannot be queried by `kubectl`:
 
