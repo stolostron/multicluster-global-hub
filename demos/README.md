@@ -9,7 +9,7 @@
 ## Setup
 1.  Define environment variables to hold kubernetes configurations of the clusters, `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
 1.  Download [demo-magic shell script](https://github.com/paxtonhare/demo-magic) into this directory (_demos_).
-    
+
     ```
     curl -s https://raw.githubusercontent.com/paxtonhare/demo-magic/master/demo-magic.sh -o demo-magic.sh
     chmod u+x demo-magic.sh
@@ -34,7 +34,8 @@
 
 ## Tips
 
-* To cancel the prompt message and set it to `$`, run `PS1=$ `.
+* To cancel the prompt message and set it to `$`, run `export PS1=$ `.
+* To prevent SSH changing the Terminal title on macOS, run `export PROMPT_COMMAND=""` in the ssh-ed machine.
 * To set the Terminal's title on macOS, go to `Shell` -> `Edit title`.
 * To set the Terminal's background on macOS, go to `Shell` -> `Edit background`.
 * [Working with multiple desktops on macOS](https://www.chriswrites.com/create-multiple-desktops-mission-control/).
