@@ -23,8 +23,8 @@
 
     Note that as a user of Hub of Hubs, you can observe the managed clusters of both `hub1` and `hub2`.
 
-1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd),
-    and cannot be queried by `kubectl`:
+1.  Note that the managed clusters on the Hub-of-Hubs cluster are not represented by Kubernetes Custom Resources
+    (not stored in etcd), and cannot be queried by `kubectl`:
 
     ```
     $ kubectl get managedcluster
@@ -97,7 +97,7 @@
     placementrule.apps.open-cluster-management.io/placement-policy-podsecuritypolicy created
     ```
 
-1.  Observe the policy in the Web console of `hoh`, `hub1` and `hub2`.
+1.  Observe the policy in the Web console of Hub of Hubs, `hub1` and `hub2`.
 
     ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view](images/hoh_policy.png)
 
@@ -105,8 +105,8 @@
 
     ![Screenshot of the desktop of the hub2 user, Governance view](images/hub2_policy.png)
 
-1.  Click on the _Cluster violantions_ link in the Governance view of `hoh`, `hub1` and `hub2`.
-    Note that all the managed clusters labeled with `env=production` from both `hub1` and `hub2` appear in the Cluster violiations view of `hoh`.
+1.  Click on the _Cluster violantions_ link in the Governance view of Hub of Hubs, `hub1` and `hub2`.
+    Note that all the managed clusters labeled with `env=production` from both `hub1` and `hub2` appear in the Cluster violiations view of Hub of Hubs.
 
 1.  Change compliance of one of the managed clusters of `hub1`. To make the managed cluster compliant, run:
 
@@ -114,8 +114,8 @@
     $ kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/psp.yaml --kubeconfig <a managed cluster config>
     ```
 
-1.  Observe changes of the compliance status in the Web console of `hoh` and `hub1`.
+1.  Observe changes of the compliance status in the Web console of Hub of Hubs and `hub1`.
 
-1.  Change the remediation action in the Web console of `hoh` to `enforce`. Observe propagation of the changes and the status.
+1.  Change the remediation action in the Web console of Hub of Hubs to `enforce`. Observe propagation of the changes and the status.
 
-1.  Delete the policy in the Web console of `hoh`. Observe propagation of the deletion to `hub1` and `hub2`.
+1.  Delete the policy in the Web console of Hub of Hubs. Observe propagation of the deletion to `hub1` and `hub2`.
