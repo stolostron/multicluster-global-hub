@@ -129,6 +129,13 @@
 
     ![Screenshot of the desktop of the Hub-of-Hubs user, cluster9 made compliant](images/hoh_cluster9_made_compliant.png)
 
-1.  Change the remediation action in the Web console of Hub of Hubs to `enforce`. Observe propagation of the changes and the status.
+1.  Change the remediation action in the Web console of Hub of Hubs to `enforce`.
+    Observe propagation of the changes and the status in the Governance view of Hub of Hubs, `hub1` and `hub2`.
+
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view with enforce action](images/hoh_enforce_policy.png)
+
+    ![Screenshot of the desktop of the hub1 user, Governance view with enforce action](images/hub1_enforce_policy.png)
+
+    ![Screenshot of the desktop of the hub2 user, Governance view with enforce action](images/hub2_enforce_policy.png)
 
 1.  Delete the policy in the Web console of Hub of Hubs. Observe propagation of the deletion to `hub1` and `hub2`.
