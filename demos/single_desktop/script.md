@@ -14,7 +14,6 @@
 
     ![Screenshot of an example Hub-of-Hubs setup, Cluster view](../../images/demo_cluster_view.png)
 
-
 1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd), and cannot be queried by `kubectl`:
 
     ```
@@ -61,7 +60,6 @@
     The screenshot below shows the Cluster violations view of `hoh`, of `hub1` and of `hub2`. The managed clusters labeled with `env=production`, namely
     `cluster0`, `cluster3`, `cluster7`, `cluster8` and `cluster9`, appear in the violations view of `hoh`. Clusters `cluster0`, `cluster8` and `cluster9`
     appear as noncompliant in the Cluster violations view of `hoh`, and in the respective views of `hub1` and `hub2`.
-
 
     ![Screenshot of an example Hub-of-Hubs setup, Governance view, Cluster violations](../../images/demo_governance_view_cluster_violations.png)
 
