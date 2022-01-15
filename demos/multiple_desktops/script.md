@@ -40,18 +40,31 @@
 
     ![Screenshot of the desktop of the Hub-of-Hubs user, Welcome view](images/hoh_welcome.png)
 
-1.  Add the `env=production` label to some of the managed clusters of `hub1` and `hub2`, either by `kubectl` or
-    [in the Web console](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#managing-cluster-labels) of `hub1`/`hub2`.
+1.  As a user of `hub1`, add the `env=production` label to `cluster0` and `cluster3`, either by `kubectl`
+    or
+    [in the Web console](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#managing-cluster-labels)
+    of `hub1`.
 
     ```
-    $ kubectl label managedcluster <some-cluster> env=production --kubeconfig $HUB1_CONFIG
+    kubectl label managedcluster cluster0 env=production
+    kubectl label managedcluster cluster3 env=production
     ```
 
-1.  Note that the new labels appear in the Cluster View of `hoh`.
+    ![Screenshot of the desktop of the hub1 user, Cluster view with labels](images/hub1_labels.png)
 
-    The screenshot below shows the previous example setup with labels `env=production` on clusters `cluster0`, `cluster3`, `cluster7`, `cluster8` and `cluster9`.
-    The labels appear in the Cluster View of `hub1`, `hub2` and `hoh`.
+1.  As a user of `hub2`, add the `env=production` label to `cluster7`, `cluster8` and `cluster9`.
 
+    ```
+    kubectl label managedcluster cluster7 env=production
+    kubectl label managedcluster cluster8 env=production
+    kubectl label managedcluster cluster9 env=production
+    ```
+
+    ![Screenshot of the desktop of the hub2 user, Cluster view with labels](images/hub2_labels.png)
+
+1.  Note that the new labels appear in the Cluster View of Hub of Hubs.
+
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view with labels](images/hoh_labels.png)
 
 1.  Create a policy, a placement rule and a placement binding in `hoh` cluster by `kubectl`. The policy used in the instructions below is an [ACM pod security policy](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/governance/governance#pod-security-policy). The placement rule selects clusters with the `env=production` label.
 
