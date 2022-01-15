@@ -77,10 +77,21 @@
 
     ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view with no policies](images/hoh_no_policies.png)
 
-1.  Create a policy, a placement rule and a placement binding in `hoh` cluster by `kubectl`. The policy used in the instructions below is an [ACM pod security policy](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/governance/governance#pod-security-policy). The placement rule selects clusters with the `env=production` label.
+1.  Observe
+    [the YAML of the policy, placement rule and placement binding](https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml )
+    you will apply in the next step as a Hub-of-Hubs user.
+
+    Note that the ACM CRs (`Policy`, `PlacementRule` and `PlacementBinding`) are used for Hub of Hubs AS IS.
+    The ACM policy in the YAML is an [ACM pod security policy](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/governance/governance#pod-security-policy).
+    The placement rule selects clusters with the `env=production` label.
+
+    Note that the placement rule does not specify the ACM hubs, only the labels of the managed clusters. The ACM hubs
+    are transparent to Hub-of-Hubs users, they are not represented in the Hub-of-Hubs Web console.
+
+1.  As a Hub-of-Hubs user, create a policy, a placement rule and a placement binding by `kubectl`.
 
     ```
-    $ kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml --kubeconfig $TOP_HUB_CONFIG
+    $ kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml
     policy.policy.open-cluster-management.io/policy-podsecuritypolicy created
     placementbinding.policy.open-cluster-management.io/binding-policy-podsecuritypolicy created
     placementrule.apps.open-cluster-management.io/placement-policy-podsecuritypolicy created
