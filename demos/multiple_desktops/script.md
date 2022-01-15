@@ -107,7 +107,14 @@
 
 1.  Click on the _Cluster violations_ link in the Governance view of `hub1`, `hub2` and Hub of Hubs.
     Note that all the managed clusters labeled with `env=production` from both `hub1` and `hub2` appear in the Cluster
-    violations view of Hub of Hubs.
+    violations view of Hub of Hubs. The Web console of Hub-of-Hubs shows aggregation of violations in all the
+    managed clusters.
+
+    ![Screenshot of the desktop of the hub1 user, Cluster violations view](images/hub1_cluster_violations.png)
+
+    ![Screenshot of the desktop of the hub2 user, Cluster violations view](images/hub2_cluster_violations.png)
+
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster violations view](images/hoh_cluster_violations.png)
 
 1.  Change compliance of one of the managed clusters of `hub1`. To make the managed cluster compliant, run:
 
