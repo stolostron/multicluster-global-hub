@@ -105,7 +105,7 @@
 
     ![Screenshot of the desktop of the hub2 user, Governance view](images/hub2_policy.png)
 
-1.  Click on the _Cluster violations_ link in the Governance view of Hub of Hubs, `hub1` and `hub2`.
+1.  Click on the _Cluster violations_ link in the Governance view of `hub1`, `hub2` and Hub of Hubs.
     Note that all the managed clusters labeled with `env=production` from both `hub1` and `hub2` appear in the Cluster
     violations view of Hub of Hubs.
 
