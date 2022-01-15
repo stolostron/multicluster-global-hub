@@ -68,6 +68,15 @@
 
     ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view with labels](images/hoh_labels.png)
 
+1.  In the following steps you will apply a policy to managed clusters as a Hub-of-Hubs user. Verify in the
+    Governance view of Hub-of-Hubs, `hub1` and `hub2` that currently no policies are defined.
+
+    ![Screenshot of the desktop of the hub1 user, Governance view with no policies](images/hub1_no_policies.png)
+
+    ![Screenshot of the desktop of the hub2 user, Governance view with no policies](images/hub2_no_policies.png)
+
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view with no policies](images/hoh_no_policies.png)
+
 1.  Create a policy, a placement rule and a placement binding in `hoh` cluster by `kubectl`. The policy used in the instructions below is an [ACM pod security policy](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/governance/governance#pod-security-policy). The placement rule selects clusters with the `env=production` label.
 
     ```
