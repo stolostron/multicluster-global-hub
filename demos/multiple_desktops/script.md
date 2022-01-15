@@ -116,13 +116,13 @@
 
     ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster violations view](images/hoh_cluster_violations.png)
 
-1.  Change compliance of one of the managed clusters of `hub1`. To make the managed cluster compliant, run:
+1.  Change compliance of one of the managed clusters of `hub2`. To make the managed cluster compliant, run:
 
     ```
-    $ kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/psp.yaml --kubeconfig <a managed cluster config>
+    kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/psp.yaml --kubeconfig <a managed cluster config>
     ```
 
-1.  Observe changes of the compliance status in the Web console of Hub of Hubs and `hub1`.
+1.  Observe changes of the compliance status in the Web consoles of `hub2` and of Hub of Hubs.
 
 1.  Change the remediation action in the Web console of Hub of Hubs to `enforce`. Observe propagation of the changes and the status.
 
