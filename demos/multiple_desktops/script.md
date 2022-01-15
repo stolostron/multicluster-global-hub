@@ -11,11 +11,11 @@
 
     You should see clusters `cluster0` to `cluster4` returned.
 
-    ![Screenshot of the desktop of the hub1 user, Cluster view](images/hub1.png)
+    ![Screenshot of the desktop of the hub1 user, Cluster view](images/hub1_desktop.png)
 
 1.  Perform the previous two steps as the user of `hub2`.
 
-    ![Screenshot of the desktop of the hub2 user, Cluster view](images/hub2.png)
+    ![Screenshot of the desktop of the hub2 user, Cluster view](images/hub2_desktop.png)
 
 1.  Login into the Web console of Hub of Hubs as the `kubeadmin` user. The Hub-of-Hubs Web console has the same URL as the original [ACM Web console URL](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/web_console/web-console#accessing-your-console).
 
@@ -31,7 +31,7 @@
     No resources found
     ```
 
-    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view](images/hoh.png)
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view](images/hoh_desktop.png)
 
 1.  Browse the Web console of Hub of Hubs. Note that the Web console of Hub of Hubs has a distinct color from the
     Web console of ACM Hubs. Also note that it has `Hub-of-Hubs,Experimental` in its title.
