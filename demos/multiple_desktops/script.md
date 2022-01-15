@@ -11,11 +11,11 @@
 
     You should see clusters `cluster0` to `cluster4` returned.
 
-    ![Screenshot of the desktop of the hub1 user, Cluster view](images/hub1_desktop.png)
+    ![Screenshot of the desktop of the hub1 user, Cluster view](images/hub1/desktop.png)
 
 1.  Perform the previous two steps as the user of `hub2`.
 
-    ![Screenshot of the desktop of the hub2 user, Cluster view](images/hub2_desktop.png)
+    ![Screenshot of the desktop of the hub2 user, Cluster view](images/hub2/desktop.png)
 
 1.  Login into the Web console of Hub of Hubs as the `kubeadmin` user. The Hub-of-Hubs Web console has the same URL as the original [ACM Web console URL](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/web_console/web-console#accessing-your-console).
 
@@ -31,7 +31,7 @@
     No resources found
     ```
 
-    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view](images/hoh_desktop.png)
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view](images/hoh/desktop.png)
 
 1.  Browse the Web console of Hub of Hubs. Note that the Web console of Hub of Hubs has a distinct color from the
     Web console of ACM Hubs. Also note that it has `Hub-of-Hubs,Experimental` in its title.
@@ -40,7 +40,7 @@
     `Governance`. Also note that the Cluster view has neither tabs nor buttons to create or import a cluster.
     The cluster table does not have actions to detach a cluster or to edit cluster labels.
 
-    ![Screenshot of the desktop of the Hub-of-Hubs user, Welcome view](images/hoh_welcome.png)
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Welcome view](images/hoh/welcome.png)
 
 1.  As a user of `hub1`, add the `env=production` label to `cluster0` and `cluster3`, either by `kubectl`
     or
@@ -52,7 +52,7 @@
     kubectl label managedcluster cluster3 env=production
     ```
 
-    ![Screenshot of the desktop of the hub1 user, Cluster view with labels](images/hub1_labels.png)
+    ![Screenshot of the desktop of the hub1 user, Cluster view with labels](images/hub1/labels.png)
 
 1.  As a user of `hub2`, add the `env=production` label to `cluster7`, `cluster8` and `cluster9`.
 
@@ -62,20 +62,20 @@
     kubectl label managedcluster cluster9 env=production
     ```
 
-    ![Screenshot of the desktop of the hub2 user, Cluster view with labels](images/hub2_labels.png)
+    ![Screenshot of the desktop of the hub2 user, Cluster view with labels](images/hub2/labels.png)
 
 1.  Note that the new labels appear in the Cluster View of Hub of Hubs.
 
-    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view with labels](images/hoh_labels.png)
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view with labels](images/hoh/labels.png)
 
 1.  In the following steps you will apply a policy to managed clusters as a Hub-of-Hubs user. Verify in the
     Governance view of Hub-of-Hubs, `hub1` and `hub2` that currently no policies are defined.
 
-    ![Screenshot of the desktop of the hub1 user, Governance view with no policies](images/hub1_no_policies.png)
+    ![Screenshot of the desktop of the hub1 user, Governance view with no policies](images/hub1/no_policies.png)
 
-    ![Screenshot of the desktop of the hub2 user, Governance view with no policies](images/hub2_no_policies.png)
+    ![Screenshot of the desktop of the hub2 user, Governance view with no policies](images/hub2/no_policies.png)
 
-    ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view with no policies](images/hoh_no_policies.png)
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view with no policies](images/hoh/no_policies.png)
 
 1.  Observe
     [the YAML of the policy, placement rule and placement binding](https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/policy-psp.yaml )
@@ -99,22 +99,22 @@
 
 1.  Observe the policy in the Web console of Hub of Hubs, `hub1` and `hub2`.
 
-    ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view](images/hoh_policy.png)
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view](images/hoh/policy.png)
 
-    ![Screenshot of the desktop of the hub1 user, Governance view](images/hub1_policy.png)
+    ![Screenshot of the desktop of the hub1 user, Governance view](images/hub1/policy.png)
 
-    ![Screenshot of the desktop of the hub2 user, Governance view](images/hub2_policy.png)
+    ![Screenshot of the desktop of the hub2 user, Governance view](images/hub2/policy.png)
 
 1.  Click on the _Cluster violations_ link in the Governance view of `hub1`, `hub2` and Hub of Hubs.
     Note that all the managed clusters labeled with `env=production` from both `hub1` and `hub2` appear in the Cluster
     violations view of Hub of Hubs. The Web console of Hub-of-Hubs shows aggregation of violations in all the
     managed clusters.
 
-    ![Screenshot of the desktop of the hub1 user, Cluster violations view](images/hub1_cluster_violations.png)
+    ![Screenshot of the desktop of the hub1 user, Cluster violations view](images/hub1/cluster_violations.png)
 
-    ![Screenshot of the desktop of the hub2 user, Cluster violations view](images/hub2_cluster_violations.png)
+    ![Screenshot of the desktop of the hub2 user, Cluster violations view](images/hub2/cluster_violations.png)
 
-    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster violations view](images/hoh_cluster_violations.png)
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster violations view](images/hoh/cluster_violations.png)
 
 1.  Change compliance of one of the managed clusters of `hub2`. To make the managed cluster compliant, run:
 
@@ -125,17 +125,17 @@
 1.  Observe changes of the compliance status in the Web consoles of `hub2` and of Hub of Hubs. The screenshots below
     show `cluster9` made compliant.
 
-    ![Screenshot of the desktop of the hub2 user, make cluster9 compliant](images/hub2_make_cluster9_compliant.png)
+    ![Screenshot of the desktop of the hub2 user, make cluster9 compliant](images/hub2/make_cluster9_compliant.png)
 
-    ![Screenshot of the desktop of the Hub-of-Hubs user, cluster9 made compliant](images/hoh_cluster9_made_compliant.png)
+    ![Screenshot of the desktop of the Hub-of-Hubs user, cluster9 made compliant](images/hoh/cluster9_made_compliant.png)
 
 1.  Change the remediation action in the Web console of Hub of Hubs to `enforce`.
     Observe propagation of the changes and the status in the Governance view of Hub of Hubs, `hub1` and `hub2`.
 
-    ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view with enforce action](images/hoh_enforce_policy.png)
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view with enforce action](images/hoh/enforce_policy.png)
 
-    ![Screenshot of the desktop of the hub1 user, Governance view with enforce action](images/hub1_enforce_policy.png)
+    ![Screenshot of the desktop of the hub1 user, Governance view with enforce action](images/hub1/enforce_policy.png)
 
-    ![Screenshot of the desktop of the hub2 user, Governance view with enforce action](images/hub2_enforce_policy.png)
+    ![Screenshot of the desktop of the hub2 user, Governance view with enforce action](images/hub2/enforce_policy.png)
 
 1.  Delete the policy in the Web console of Hub of Hubs. Observe propagation of the deletion to `hub1` and `hub2`.
