@@ -31,7 +31,10 @@
 
     ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view](images/hoh.png)
 
-1.  Browse the Web console of Hub of Hubs. Note that currently it has only three views, namely `Welcome`, `Clusters` and
+1.  Browse the Web console of Hub of Hubs. Note that the Web console of Hub of Hubs has a distinct color from the
+    Web console of ACM Hubs. Also note that it has `Hub-of-Hubs,Experimental` in its title.
+
+    Currently the Web console of Hub of Hubs has only three views, namely `Welcome`, `Clusters` and
     `Governance`. Also note that the Cluster view has neither tabs nor buttons to create or import a cluster.
     The cluster table does not have actions to detach a cluster or to edit cluster labels.
 
