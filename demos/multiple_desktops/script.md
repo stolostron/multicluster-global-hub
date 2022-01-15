@@ -122,7 +122,12 @@
     kubectl apply -f https://raw.githubusercontent.com/stolostron/hub-of-hubs/main/demos/psp.yaml --kubeconfig <a managed cluster config>
     ```
 
-1.  Observe changes of the compliance status in the Web consoles of `hub2` and of Hub of Hubs.
+1.  Observe changes of the compliance status in the Web consoles of `hub2` and of Hub of Hubs. The screenshots below
+    show `cluster9` made compliant.
+
+    ![Screenshot of the desktop of the hub2 user, make cluster9 compliant](images/hub2_make_cluster9_compliant.png)
+
+    ![Screenshot of the desktop of the Hub-of-Hubs user, cluster9 made compliant](images/hoh_cluster9_made_compliant.png)
 
 1.  Change the remediation action in the Web console of Hub of Hubs to `enforce`. Observe propagation of the changes and the status.
 
