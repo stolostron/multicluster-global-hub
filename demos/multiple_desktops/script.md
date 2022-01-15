@@ -99,6 +99,12 @@
 
 1.  Observe the policy in the Web console of `hoh`, `hub1` and `hub2`.
 
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Governance view](images/hoh_policy.png)
+
+    ![Screenshot of the desktop of the hub1 user, Governance view](images/hub1_policy.png)
+
+    ![Screenshot of the desktop of the hub2 user, Governance view](images/hub2_policy.png)
+
 1.  Click on the _Cluster violantions_ link in the Governance view of `hoh`, `hub1` and `hub2`.
     Note that all the managed clusters labeled with `env=production` from both `hub1` and `hub2` appear in the Cluster violiations view of `hoh`.
 
