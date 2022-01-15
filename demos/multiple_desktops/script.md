@@ -1,21 +1,38 @@
 # The Hub-of-Hubs multiple-desktop basic-demo script
 
-1.  Login into the Web console of `hoh` as the `kubeadmin` user. The Hub-of-Hubs Web console has the same URL as the original [ACM Web console URL](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/web_console/web-console#accessing-your-console).
+1.  Login into the Web console of `hub1`. As the `hub1` user, observe managed clusters `cluster0` to `cluster4` in the
+    Cluster view.
+
+1.  In the terminal of the `hub1` user, run:
+
+    ```
+    kubectl get managedcluster
+    ```
+
+    You should see clusters `cluster0` to `cluster4` returned.
+
+    ![Screenshot of the desktop of the hub1 user, Cluster view](images/hub1.png)
+
+1.  Perform the previous two steps as the user of `hub2`.
+
+    ![Screenshot of the desktop of the hub2 user, Cluster view](images/hub2.png)
+
+1.  Login into the Web console of Hub of Hubs as the `kubeadmin` user. The Hub-of-Hubs Web console has the same URL as the original [ACM Web console URL](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/web_console/web-console#accessing-your-console).
 
     If you cannot login as `kubeadmin`, [add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
 
-1.  Observe managed clusters in the Web console of `hoh`, of `hub1` and of `hub2`.
-    Note that the Web console of `hoh` contains managed clusters of both `hub1` and `hub2`.
-
-
-1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd), and cannot be queried by `kubectl`:
+1.  Note that the managed clusters on `hoh` are not represented by Kubernetes Custom Resources (not stored in etcd),
+    and cannot be queried by `kubectl`:
 
     ```
-    $ kubectl get managedcluster --kubeconfig $TOP_HUB_CONFIG
+    $ kubectl get managedcluster
     No resources found
     ```
 
-1.  Add the `env=production` label to some of the managed clusters of `hub1` and `hub2`, either by `kubectl` or [in the Web console](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#managing-cluster-labels) of `hub1`/`hub2`.
+    ![Screenshot of the desktop of the Hub-of-Hubs user, Cluster view](images/hoh.png)
+
+1.  Add the `env=production` label to some of the managed clusters of `hub1` and `hub2`, either by `kubectl` or
+    [in the Web console](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/clusters/managing-your-clusters#managing-cluster-labels) of `hub1`/`hub2`.
 
     ```
     $ kubectl label managedcluster <some-cluster> env=production --kubeconfig $HUB1_CONFIG
