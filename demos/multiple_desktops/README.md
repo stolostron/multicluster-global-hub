@@ -1,11 +1,12 @@
 # Multiple-Desktops Hub-of-Hubs demo
 
-In this demo the presenter uses three different desktops to show the point of view of three different users: of the Hub-of-Hubs user,
-and of the users of two Hubs connected to the Hubs of Hubs.
+In this demo the presenter uses three different desktops to show the point of view of three different users:
+of the Hub-of-Hubs user, and of the users of two Hubs connected to the Hubs of Hubs.
 The presenter opens a browser window with ACM Web console and a terminal to issue CLI commands, in each of the desktops.
-The `KUBECONFIG` of each terminal should point to the respective OpenShift Cluster. The presenter might set different backgrounds to
-the desktops and the terminals, and put a note designating the user of the desktop. During the demo, the presenter should switch between
-the desktop and describe the user he/she is currently representing.
+The `KUBECONFIG` of each terminal should point to the respective OpenShift Cluster.
+The presenter might set different backgrounds to the desktops and the terminals, and put a note designating the user of
+the desktop.
+During the demo, the presenter should switch between the desktop and describe the user he/she is currently representing.
 
 ![Hub-of-Hubs Multiple Desktop, Cluster view](images/animation.gif)
 
@@ -27,8 +28,11 @@ See [the common setup instructions for Hub-of-Hubs demos](../README.md#setup).
 ## The script
 
 [The script](script.md) to be used as a reference for the presenter or as a self-learning tutorial.
+The script assumes that `hub1` manages clusters named `cluster0`, `cluster1`,
+`cluster2`, `cluster3` and `cluster4`.
+`hub2` manages clusters named `cluster5`, `cluster6`, `cluster7`, `cluster8` and `cluster9`.
 
-To run the commands of the demo as as shell scripts, run the the `run.sh` shell scripts 
+To run the commands of the demo as shell scripts, run the `run.sh` shell scripts
 **in the directories that correspond to the users(`hoh`, `hub1` or `hub2`)** .
 The shell scripts use [demo-magic](https://github.com/paxtonhare/demo-magic),
 you need to press Enter to run commands one by one.
