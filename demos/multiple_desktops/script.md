@@ -1,5 +1,14 @@
 # The Hub-of-Hubs multiple-desktop basic-demo script
 
+The following figure shows the setup of this demo. ACM Hub `hub1` manages clusters named
+ `cluster0`, `cluster1`, `cluster2`, `cluster3` and `cluster4`.
+The ACM Hub `hub2` manages clusters named `cluster5`, `cluster6`, `cluster7`, `cluster8` and `cluster9`.
+Hub-of-Hubs provides federated view on all the managed clusters and allows to apply a policy to the managed clusters of
+both `hub1` and `hub2`. Hub-of-Hubs-agent components are installed on `hub1` and `hub2` to provide the Hub-of-Hubs
+functionality.
+
+![Screenshot of an example Hub-of-Hubs setup](../demo_setup.png)
+
 1.  Login into the Web console of `hub1`. As the `hub1` user, observe managed clusters `cluster0` to `cluster4` in the
     Cluster view.
 

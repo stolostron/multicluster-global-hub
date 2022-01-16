@@ -28,9 +28,6 @@ See [the common setup instructions for Hub-of-Hubs demos](../README.md#setup).
 ## The script
 
 [The script](script.md) to be used as a reference for the presenter or as a self-learning tutorial.
-The script assumes that `hub1` manages clusters named `cluster0`, `cluster1`,
-`cluster2`, `cluster3` and `cluster4`.
-`hub2` manages clusters named `cluster5`, `cluster6`, `cluster7`, `cluster8` and `cluster9`.
 
 To run the commands of the demo as shell scripts, run the `run.sh` shell scripts
 **in the directories that correspond to the users(`hoh`, `hub1` or `hub2`)** .

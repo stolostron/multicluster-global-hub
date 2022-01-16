@@ -1,5 +1,14 @@
 # The Hub-of-Hubs single-desktop basic-demo script
 
+The following figure shows the setup used in the screenshots of this demo. ACM Hub `hub1` manages clusters named
+ `cluster0`, `cluster1`, `cluster2`, `cluster3` and `cluster4`.
+The ACM Hub `hub2` manages clusters named `cluster5`, `cluster6`, `cluster7`, `cluster8` and `cluster9`.
+Hub-of-Hubs provides federated view on all the managed clusters and allows to apply a policy to the managed clusters of
+both `hub1` and `hub2`. Hub-of-Hubs-agent components are installed on `hub1` and `hub2` to provide the Hub-of-Hubs
+functionality.
+
+![Screenshot of an example Hub-of-Hubs setup](../demo_setup.png)
+
 1.  Login into the Web console of `hoh` as the `kubeadmin` user. The Hub-of-Hubs Web console has the same URL as the original [ACM Web console URL](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/web_console/web-console#accessing-your-console).
 
     If you cannot login as `kubeadmin`, [add an alternative user as the admin to Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac#update-role-bindings-or-role-definitions).
