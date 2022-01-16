@@ -14,7 +14,7 @@ set -o nounset
 # hide the evidence
 clear
 
-cd ../deploy
+cd ../../deploy
 
 pe 'KUBECONFIG=$TOP_HUB_CONFIG ./deploy_hub_of_hubs.sh'
 pe 'KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./deploy_hub_of_hubs_agent.sh'
