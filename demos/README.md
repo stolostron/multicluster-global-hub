@@ -30,7 +30,7 @@
 
 1.  [Setup](setup)
 
-    Shows deploying Hub-of-Hubs components.
+    ![Hub-of-Hubs setup](setup/animation.gif)
 
 ## Tips
 
