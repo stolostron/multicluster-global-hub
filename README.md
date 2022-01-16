@@ -22,9 +22,9 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
 ## Getting Started
 
-## Demo
+## Demos
 
-The [demo script](demos/basic.md).
+The [demos](demos).
 
 ## Repositories
 
