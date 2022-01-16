@@ -7,7 +7,7 @@
 1. [Access to the ACM Web console](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/web_console/web-console#accessing-your-console) of the three ACM hubs.
 
 ## Setup
-1.  Define environment variables to hold kubernetes configurations of the clusters, `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
+1.  Define environment variables to hold Kubernetes configurations of the clusters, `TOP_HUB_CONFIG`, `HUB1_CONFIG` and `HUB2_CONFIG`.
 1.  Download [demo-magic shell script](https://github.com/paxtonhare/demo-magic) into this directory (_demos_).
 
     ```
