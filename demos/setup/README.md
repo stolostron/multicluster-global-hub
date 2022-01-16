@@ -1,5 +1,7 @@
 # Setup instructions and demo
 
+![Hub-of-Hubs setup](animation.gif)
+
 ## Prerequisites
 
 See [the common prerequisites for Hub-of-Hubs demos](../README.md#prerequisites).
