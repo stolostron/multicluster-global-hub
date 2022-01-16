@@ -20,13 +20,13 @@
 
 ## Demos
 
-1.  [Single Desktop](single_desktop)
-
-    ![Hub-of-Hubs Single Desktop, Cluster view](single_desktop/images/cluster_view.png)
-
 1.  [Multiple Desktops](multiple_desktops)
 
     ![Hub-of-Hubs Multiple Desktops](multiple_desktops/images/animation.gif)
+    
+1.  [Single Desktop](single_desktop)
+
+    ![Hub-of-Hubs Single Desktop, Cluster view](single_desktop/images/cluster_view.png)
 
 1.  [Setup](setup)
 
