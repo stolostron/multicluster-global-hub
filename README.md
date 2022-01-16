@@ -11,7 +11,7 @@ to provide cluster-management capabilities, such as applying compliance policies
 compliance status, or managing application and cluster lifecycle, while addressing the scale and performance
 requirements of edge use cases.
 
-Our [simulations](simulation.md) showed that Hub of Hubs is able to manage one million clusters with hundreds of
+Our [simulations](simulation.md) showed that a Hub of Hubs is able to manage one million clusters with hundreds of
 policies and/or applications applied to each cluster.
 
 ![ArchitectureDiagram](images/ScalableHOHArchitecture.png)
