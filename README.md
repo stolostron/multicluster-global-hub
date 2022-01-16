@@ -4,18 +4,15 @@
 
 ----
 
-Hub of Hubs provides multi cluster management at very high scale.  
-It has been designed primarily to address the scale and performance requirements of edge use cases.  
-The Hub of Hubs utilizes multiple standard [RHACM management hubs](https://www.redhat.com/en/technologies/management/advanced-cluster-management)
-to provide management capabilites, such as distributing compliance policies to managed clusters and monitoring 
-compliance status, or performing application and cluster lifecycle management operations at very large scale.  
+Hub of Hubs provides multi-cluster management at very high scale (10,000 - 1,000,000 clusters).
 
-Hub of Hubs has been demonstrated to be able to manage one million managed clusters with hundreds of compliance 
-policies and/or applications applied to each managed cluster.  
+Hub of Hubs utilizes several standard [RHACM hub clusters](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/about/welcome-to-red-hat-advanced-cluster-management-for-kubernetes#hub-cluster)
+to provide cluster-management capabilities, such as applying compliance policies to managed clusters and monitoring
+compliance status, or managing application and cluster lifecycle, while addressing the scale and performance
+requirements of edge use cases.
 
-In addition to far edge cases, the Hub of Hubs is also applicable for global management of mostly autonomous 
-managers/hubs, acting as a central manager of various types of managers, and other use cases.  
-
+Our measurements showed that Hub of Hubs is able to manage one million clusters with hundreds of
+policies and/or applications applied to each cluster.
 
 ![ArchitectureDiagram](images/ScalableHOHArchitecture.png)
 
