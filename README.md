@@ -4,7 +4,7 @@
 
 ----
 
-Hub of Hubs provides multi-cluster management at very high scale (10,000 - 1,000,000 clusters).
+Hub of Hubs provides multi-cluster management at very high scale.
 
 Hub of Hubs utilizes several standard [RHACM hub clusters](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/about/welcome-to-red-hat-advanced-cluster-management-for-kubernetes#hub-cluster)
 to provide cluster-management capabilities, such as applying compliance policies to managed clusters and monitoring
