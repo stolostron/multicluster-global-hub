@@ -40,3 +40,4 @@
 * To set the Terminal's background on macOS, go to `Shell` -> `Edit background`.
 * [Working with multiple desktops on macOS](https://www.chriswrites.com/create-multiple-desktops-mission-control/).
 * To change the background of a desktop on macOS, right click -> `Change Desktop Background...`.
+* To create a .gif file, convert .mov to .mp4 (using iMovie for example), and **then** [convert it to .gif](https://medium.com/@patdugan/converting-a-mov-to-a-gif-6bb055e54230). 
