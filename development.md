@@ -71,9 +71,9 @@ Currently we do not use health/ready checks.
 
 ## Build
 
-* [Makefile](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/Makefile)
-* [Dockerfile](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/build/Dockerfile)
-* [build scripts](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/tree/main/build/scripts)
+* [Makefile](https://github.com/stolostron/hub-of-hubs-spec-sync/blob/main/Makefile)
+* [Dockerfile](https://github.com/stolostron/hub-of-hubs-spec-sync/blob/main/build/Dockerfile)
+* [build scripts](https://github.com/stolostron/hub-of-hubs-spec-sync/tree/main/build/scripts)
 
 ## Formatting
 
@@ -84,10 +84,10 @@ Currently we do not use health/ready checks.
 ## Linting
 
 * `go vet`
-* [golangci-lint](https://github.com/golangci/golangci-lint), minimal version 1.43.0, the settings file is [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml).
+* [golangci-lint](https://github.com/golangci/golangci-lint), minimal version 1.43.0, the settings file is [.golangci.yaml](https://github.com/stolostron/hub-of-hubs-spec-sync/blob/main/.golangci.yaml).
 * [golint](https://github.com/golang/lint)
 
-❗Remember to copy [.golangci.yaml](https://github.com/open-cluster-management/hub-of-hubs-spec-sync/blob/main/.golangci.yaml) into your repo directory before linting.
+❗Remember to copy [.golangci.yaml](https://github.com/stolostron/hub-of-hubs-spec-sync/blob/main/.golangci.yaml) into your repo directory before linting.
 
 ℹ️ If you want to specify something as false-positive, use the [//nolint](https://golangci-lint.run/usage/false-positives/) comment.
 

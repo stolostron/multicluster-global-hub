@@ -42,9 +42,9 @@ KUBECONFIG=$TOP_HUB_CONFIG ./deploy_hub_of_hubs.sh
 
 ### Using Hub-of-Hubs Web Console
 
-The Hub-of-Hubs Web console displayes managed clusters according to [Hub-of-Hubs RBAC](https://github.com/open-cluster-management/hub-of-hubs-rbac). By default,
+The Hub-of-Hubs Web console displayes managed clusters according to [Hub-of-Hubs RBAC](https://github.com/stolostron/hub-of-hubs-rbac). By default,
 the `kube-admin` user is given `admin` role in Hub-of-Hubs RBAC. If you want to give other OpenShift users access to managed clusters, you need to
-[configure RBAC role bindings for your users](https://github.com/open-cluster-management/hub-of-hubs-rbac/blob/main/README.md#update-role-bindings-or-role-definitions).
+[configure RBAC role bindings for your users](https://github.com/stolostron/hub-of-hubs-rbac/blob/main/README.md#update-role-bindings-or-role-definitions).
 
 ### Undeploying Hub-of-hubs components
 
