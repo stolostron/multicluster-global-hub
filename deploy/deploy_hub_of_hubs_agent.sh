@@ -29,23 +29,23 @@ function deploy_transport() {
   if [ "$(uname)" == "Darwin" ]; then
       base64_command='base64'
   fi
-
+  # for kafka, no need to deploy anything in the agent
   if [ "${transport_type}" == "sync-service" ]; then
     # shellcheck source=deploy/deploy_hub_of_hubs_agent_sync_service.sh
     source "${script_dir}/deploy_hub_of_hubs_agent_sync_service.sh"
-    export SYNC_SERVICE_PORT=8090
-  else
-    bootstrapServers="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status.listeners[1].bootstrapServers})"
-    export KAFKA_BOOTSTRAP_SERVERS=$bootstrapServers
-    certificate="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status.listeners[1].certificates[0]} | $base64_command)"
-    export KAFKA_SSL_CA=$certificate
   fi
 }
 
 function deploy_lh_controllers() {
   transport_type=${TRANSPORT_TYPE-kafka}
-  if [ "${transport_type}" != "sync-service" ]; then
+  if [ "${transport_type}" == "sync-service" ]; then
+    export SYNC_SERVICE_PORT=8090
+  else
     transport_type=kafka
+    bootstrapServers="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status.listeners[1].bootstrapServers})"
+    export KAFKA_BOOTSTRAP_SERVERS=$bootstrapServers
+    certificate="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status.listeners[1].certificates[0]} | $base64_command)"
+    export KAFKA_SSL_CA=$certificate
   fi
 
   curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-spec-sync/$TAG/deploy/leaf-hub-spec-sync.yaml.template" |

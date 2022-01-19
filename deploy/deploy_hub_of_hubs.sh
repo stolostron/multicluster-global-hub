@@ -30,9 +30,8 @@ function deploy_transport() {
   ## if TRANSPORT_TYPE is sync service, set sync service env vars, otherwise any other value will result in kafka being selected as transport
   transport_type=${TRANSPORT_TYPE-kafka}
   if [ "${transport_type}" == "sync-service" ]; then
-    # TODO deploy sync service in cluster
-    export SYNC_SERVICE_HOST="$CSS_SYNC_SERVICE_HOST"
-    export SYNC_SERVICE_PORT=${CSS_SYNC_SERVICE_PORT:-9689}
+    # shellcheck source=deploy/deploy_hub_of_hubs_sync_service.sh
+    source "${script_dir}/deploy_hub_of_hubs_sync_service.sh"
   else
     # shellcheck source=deploy/deploy_kafka.sh
     source "${script_dir}/deploy_kafka.sh"
@@ -54,7 +53,11 @@ function deploy_hoh_controllers() {
   kubectl create secret generic hub-of-hubs-database-transport-bridge-secret -n "$acm_namespace" --from-literal=url="$database_url_transport"
 
   transport_type=${TRANSPORT_TYPE-kafka}
-  if [ "${transport_type}" != "sync-service" ]; then
+  if [ "${transport_type}" == "sync-service" ]; then
+    # export the sync service env vars to be used in hoh controllers
+    export SYNC_SERVICE_HOST=${CSS_SYNC_SERVICE_HOST:-sync-service-css.sync-service.svc.cluster.local}
+    export SYNC_SERVICE_PORT=${CSS_SYNC_SERVICE_PORT:-9689}
+  else
     transport_type=kafka
   fi
 

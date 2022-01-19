@@ -56,6 +56,9 @@ kubectl delete namespace hoh-system --ignore-not-found
 # delete kafka namespace if exists - this will also delete all living resources inside the kafka namespace
 kubectl delete namespace kafka --ignore-not-found
 
+# delete sync-service namespace if exists - this will also delete all living resources inside the sync-service namespace
+kubectl delete namespace sync-service --ignore-not-found
+
 # uninstall PGO
 rm -rf hub-of-hubs-postgresql
 git clone https://github.com/stolostron/hub-of-hubs-postgresql

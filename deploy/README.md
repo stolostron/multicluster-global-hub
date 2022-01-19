@@ -29,11 +29,7 @@
     ```
     export TRANSPORT_TYPE=kafka
     ``` 
-    
-    1.  If `sync-service` is set as transport, set environment variable to hold the CSS host:
-        ```
-        export CSS_SYNC_SERVICE_HOST=...
-        ```
+
 ----
 
 # Hub of Hubs
