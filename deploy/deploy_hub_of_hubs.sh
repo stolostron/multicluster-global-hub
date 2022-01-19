@@ -14,16 +14,16 @@ function deploy_hoh_resources() {
   # apply the HoH config CRD
   hoh_config_crd_exists=$(kubectl get crd configs.hub-of-hubs.open-cluster-management.io --ignore-not-found)
   if [[ ! -z "$hoh_config_crd_exists" ]]; then # if exists replace with the requested tag
-    kubectl replace -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+    kubectl replace -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
   else
-    kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+    kubectl apply -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
   fi
 
   # create namespace if not exists
   kubectl create namespace hoh-system --dry-run=client -o yaml | kubectl apply -f -
 
   # apply default HoH config CR
-  kubectl apply -f "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-crds/$TAG/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system
+  kubectl apply -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-crds/$TAG/cr-examples/hub-of-hubs.open-cluster-management.io_config_cr.yaml" -n hoh-system
 }
 
 function deploy_transport() {
@@ -45,9 +45,9 @@ function deploy_hoh_controllers() {
 
   kubectl delete secret hub-of-hubs-database-secret -n "$acm_namespace" --ignore-not-found
   kubectl create secret generic hub-of-hubs-database-secret -n "$acm_namespace" --from-literal=url="$database_url_hoh"
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-sync/$TAG/deploy/operator.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-spec-sync/$TAG/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=$TAG COMPONENT=hub-of-hubs-spec-sync envsubst | kubectl apply -f - -n "$acm_namespace"
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-sync/$TAG/deploy/operator.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-sync/$TAG/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG=$TAG COMPONENT=hub-of-hubs-status-sync envsubst | kubectl apply -f - -n "$acm_namespace"
 
   kubectl delete secret hub-of-hubs-database-transport-bridge-secret -n "$acm_namespace" --ignore-not-found
@@ -58,30 +58,30 @@ function deploy_hoh_controllers() {
     transport_type=kafka
   fi
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
     TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
     TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 }
 
 function deploy_rbac() {
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/data.json" > ${script_dir}/data.json
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/role_bindings.yaml" > ${script_dir}/role_bindings.yaml
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/opa_authorization.rego" > ${script_dir}/opa_authorization.rego
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-rbac/$TAG/data.json" > ${script_dir}/data.json
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-rbac/$TAG/role_bindings.yaml" > ${script_dir}/role_bindings.yaml
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-rbac/$TAG/opa_authorization.rego" > ${script_dir}/opa_authorization.rego
 
   kubectl delete secret opa-data -n "$acm_namespace" --ignore-not-found
   kubectl create secret generic opa-data -n "$acm_namespace" --from-file=${script_dir}/data.json --from-file=${script_dir}/role_bindings.yaml --from-file=${script_dir}/opa_authorization.rego
 
   rm -rf ${script_dir}/data.json ${script_dir}/role_bindings.yaml ${script_dir}/opa_authorization.rego
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-rbac/$TAG/deploy/operator.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-rbac/$TAG/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-rbac envsubst | kubectl apply -f - -n "$acm_namespace"
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/operator.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$TAG/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
 
 
-  curl -s "https://raw.githubusercontent.com/open-cluster-management/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
 }
 
@@ -94,7 +94,7 @@ function deploy_helm_charts() {
   kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
 
   rm -rf hub-of-hubs-console-chart
-  git clone https://github.com/open-cluster-management/hub-of-hubs-console-chart.git
+  git clone https://github.com/stolostron/hub-of-hubs-console-chart.git
   cd hub-of-hubs-console-chart
   git checkout $TAG
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep console-chart) -o yaml > values.yaml
@@ -107,7 +107,7 @@ function deploy_helm_charts() {
   rm -rf hub-of-hubs-console-chart
 
   rm -rf grc-chart
-  git clone https://github.com/open-cluster-management/grc-chart.git
+  git clone https://github.com/stolostron/grc-chart.git
   cd grc-chart
   git fetch origin release-2.4
   git checkout release-2.4
@@ -126,7 +126,7 @@ function deploy_helm_charts() {
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
 if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
   rm -rf hub-of-hubs-postgresql
-  git clone https://github.com/open-cluster-management/hub-of-hubs-postgresql
+  git clone https://github.com/stolostron/hub-of-hubs-postgresql
   cd hub-of-hubs-postgresql/pgo
   git checkout $TAG
   IMAGE=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG ./setup.sh
