@@ -24,16 +24,11 @@ function deploy_hoh_resources() {
 
 function deploy_transport() {
   transport_type=${TRANSPORT_TYPE-kafka}
-  base64_command='base64 -w 0'
-
-  if [ "$(uname)" == "Darwin" ]; then
-      base64_command='base64'
-  fi
   # for kafka, no need to deploy anything in the agent
   if [ "${transport_type}" == "sync-service" ]; then
     syncServiceCssHost="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n sync-service get route sync-service-css -o jsonpath={.status.ingress[0].host})"
     export CSS_SYNC_SERVICE_HOST=$syncServiceCssHost
-    export CSS_SYNC_SERVICE_PORT=80
+    export CSS_SYNC_SERVICE_PORT=80 # route of sync service css is exposed on port 80
     # shellcheck source=deploy/deploy_hub_of_hubs_agent_sync_service.sh
     source "${script_dir}/deploy_hub_of_hubs_agent_sync_service.sh"
   fi
@@ -44,6 +39,11 @@ function deploy_lh_controllers() {
   if [ "${transport_type}" == "sync-service" ]; then
     export SYNC_SERVICE_PORT=8090
   else
+    base64_command='base64 -w 0'
+
+    if [ "$(uname)" == "Darwin" ]; then
+      base64_command='base64'
+    fi
     transport_type=kafka
     bootstrapServers="$(KUBECONFIG=$TOP_HUB_CONFIG kubectl -n kafka get Kafka kafka-brokers-cluster -o jsonpath={.status.listeners[1].bootstrapServers})"
     export KAFKA_BOOTSTRAP_SERVERS=$bootstrapServers
