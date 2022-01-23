@@ -19,7 +19,7 @@
 | github.com/open-policy-agent/opa                                      | v0.33.0                            |
 | go.uber.org/zap                                                       | v1.19.0                            |
 | github.com/deckarep/golang-set                                        | v1.7.1                             |
-| github.com/stolostron/hub-of-hubs-data-types                          | v0.3.0                             |
-| github.com/stolostron/hub-of-hubs-data-types/apis/config              | v0.3.0                             |
-| github.com/stolostron/hub-of-hubs-kafka-transport                     | v0.3.0                             |
-| github.com/stolostron/hub-of-hubs-message-compression                 | v0.3.0                             |
+| github.com/stolostron/hub-of-hubs-data-types                          | v0.3.1                             |
+| github.com/stolostron/hub-of-hubs-data-types/apis/config              | v0.3.1                             |
+| github.com/stolostron/hub-of-hubs-kafka-transport                     | v0.3.1                             |
+| github.com/stolostron/hub-of-hubs-message-compression                 | v0.3.1                             |
