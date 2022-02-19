@@ -81,7 +81,7 @@ function deploy_rbac() {
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-rbac envsubst | kubectl apply -f - -n "$acm_namespace"
 
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$TAG/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
+    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="label-management" COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
 
 
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$TAG/deploy/ingress.yaml.template" |
@@ -103,7 +103,7 @@ function deploy_helm_charts() {
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep console-chart) -o yaml > values.yaml
   kubectl delete appsub console-chart-sub -n "$acm_namespace" --ignore-not-found
   cat values.yaml |
-      yq e ".global.imageOverrides.console = \"quay.io/open-cluster-management-hub-of-hubs/console:$TAG\"" - |
+      yq e ".global.imageOverrides.console = \"quay.io/open-cluster-management-hub-of-hubs/console:label-management\"" - |
       yq e '.global.pullPolicy = "Always"' - |
       helm upgrade console-chart stable/console-chart -n "$acm_namespace" --install -f -
   cd ..
@@ -132,7 +132,7 @@ if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
   git clone https://github.com/stolostron/hub-of-hubs-postgresql
   cd hub-of-hubs-postgresql/pgo
   git checkout $TAG
-  IMAGE=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG ./setup.sh
+  IMAGE=quay.io/maroonayoub/postgresql-ansible:label-management ./setup.sh
   cd ../../
   rm -rf hub-of-hubs-postgresql
 
