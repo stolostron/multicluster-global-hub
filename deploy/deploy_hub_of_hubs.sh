@@ -62,7 +62,7 @@ function deploy_hoh_controllers() {
   fi
 
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
-    TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+    TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/maroonayoub/hub-of-hubs-spec-transport-bridge:label-management" envsubst | kubectl apply -f - -n "$acm_namespace"
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
     TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 }

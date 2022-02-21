@@ -11,7 +11,7 @@ acm_namespace=open-cluster-management
 echo "using kubeconfig $KUBECONFIG"
 kubectl delete namespace hoh-system --ignore-not-found
 
-curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-spec-sync/$TAG/deploy/leaf-hub-spec-sync.yaml.template" | \
+curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-spec-sync/label-management/deploy/leaf-hub-spec-sync.yaml.template" | \
     envsubst | kubectl delete -f - --ignore-not-found
 curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-status-sync/$TAG/deploy/leaf-hub-status-sync.yaml.template" | \
     envsubst | kubectl delete -f - --ignore-not-found

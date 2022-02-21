@@ -51,8 +51,8 @@ function deploy_lh_controllers() {
     export KAFKA_SSL_CA=$certificate
   fi
 
-  curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-spec-sync/$TAG/deploy/leaf-hub-spec-sync.yaml.template" |
-    IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-spec-sync:$TAG" envsubst | kubectl apply -f -
+  curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-spec-sync/label-management/deploy/leaf-hub-spec-sync.yaml.template" |
+    IMAGE="quay.io/maroonayoub/leaf-hub-spec-sync:label-management" envsubst | kubectl apply -f -
   curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-status-sync/$TAG/deploy/leaf-hub-status-sync.yaml.template" |
     IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-status-sync:$TAG" envsubst | kubectl apply -f -
 }
