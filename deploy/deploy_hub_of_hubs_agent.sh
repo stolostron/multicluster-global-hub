@@ -52,7 +52,7 @@ function deploy_lh_controllers() {
   fi
 
   curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-spec-sync/$TAG/deploy/leaf-hub-spec-sync.yaml.template" |
-    IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-spec-sync:$TAG" envsubst | kubectl apply -f -
+    ENFORCE_HOH_RBAC="true" IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-spec-sync:$TAG" envsubst | kubectl apply -f -
   curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-status-sync/$TAG/deploy/leaf-hub-status-sync.yaml.template" |
     IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-status-sync:$TAG" envsubst | kubectl apply -f -
 }
