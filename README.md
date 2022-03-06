@@ -48,6 +48,8 @@ See [deployment scripts](deploy).
 
 #### UI
 
+See [package diagram](ui_packages.md).
+
 * [hub-of-hubs-console](https://github.com/stolostron/hub-of-hubs-console)
 * [hub-of-hubs-console-chart](https://github.com/stolostron/hub-of-hubs-console-chart)
 * [hub-of-hubs-ui-components](https://github.com/stolostron/hub-of-hubs-ui-components)
