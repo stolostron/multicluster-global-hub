@@ -1,1 +1,1 @@
-![UI packages](images/ui_packages.svg)
+![UI packages](diagrams/ui_packages.svg)

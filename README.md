@@ -14,7 +14,7 @@ requirements of edge use cases.
 Our [simulations](simulation.md) showed that a Hub of Hubs is able to manage one million clusters with hundreds of
 policies and/or applications applied to each cluster.
 
-![ArchitectureDiagram](images/ScalableHOHArchitecture.png)
+![ArchitectureDiagram](diagrams/ScalableHOHArchitecture.png)
 
 ----
 
