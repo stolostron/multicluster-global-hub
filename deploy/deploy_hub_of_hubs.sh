@@ -35,10 +35,10 @@ function deploy_transport() {
   transport_type=${TRANSPORT_TYPE-kafka}
   if [ "${transport_type}" == "sync-service" ]; then
     # shellcheck source=deploy/deploy_hub_of_hubs_sync_service.sh
-    source "${script_dir}/deploy_hub_of_hubs_sync_service.sh"
+    branch=${branch} source "${script_dir}/deploy_hub_of_hubs_sync_service.sh"
   else
     # shellcheck source=deploy/deploy_kafka.sh
-    source "${script_dir}/deploy_kafka.sh"
+    branch=${branch} source "${script_dir}/deploy_kafka.sh"
   fi
 }
 
@@ -69,6 +69,24 @@ function deploy_hoh_controllers() {
     TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-spec-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-transport-bridge/$branch/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
     TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
+
+  # deploy hub cluster controller
+  rm -rf hub-cluster-controller
+  git clone https://github.com/stolostron/hub-cluster-controller.git
+  cd hub-cluster-controller
+  git checkout $branch
+  kubectl apply -k ./deploy
+  cd ..
+  rm -rf hub-cluster-controller
+
+  # deploy hub-of-hubs addon controller
+  rm -rf hub-of-hubs-addon
+  git clone https://github.com/stolostron/hub-of-hubs-addon.git
+  cd hub-of-hubs-addon
+  git checkout $branch
+  kubectl apply -k ./deploy
+  cd ..
+  rm -rf hub-cluster-controller
 }
 
 function deploy_rbac() {
@@ -90,21 +108,6 @@ function deploy_rbac() {
 
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$branch/deploy/ingress.yaml.template" |
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
-
-  # deploy hub cluster controller
-  rm -rf hub-cluster-controller
-  git clone https://github.com/stolostron/hub-cluster-controller.git
-  cd hub-cluster-controller
-  git checkout $branch
-  kubectl apply -k deploy
-
-  # deploy hub-of-hubs addon controller
-  rm -rf hub-of-hubs-addon
-  git clone https://github.com/stolostron/hub-of-hubs-addon.git
-  cd hub-of-hubs-addon
-  git checkout $branch
-  kubectl apply -k deploy
-
 }
 
 function deploy_helm_charts() {
