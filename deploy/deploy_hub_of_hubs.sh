@@ -84,6 +84,9 @@ function deploy_hoh_controllers() {
   git clone https://github.com/stolostron/hub-of-hubs-addon.git
   cd hub-of-hubs-addon
   git checkout $branch
+  # set HUB_OF_HUBS_VERSION with $TAG
+  mv ./deploy/deployment.yaml ./deploy/deployment.yaml.tmpl
+  envsubst < ./deploy/deployment.yaml.tmpl > ./deploy/deployment.yaml
   kubectl apply -k ./deploy
   cd ..
   rm -rf hub-cluster-controller
