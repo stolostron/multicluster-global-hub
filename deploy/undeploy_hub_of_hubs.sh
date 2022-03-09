@@ -89,4 +89,4 @@ cd hub-of-hubs-addon
 git checkout $branch
 kubectl delete -k ./deploy --ignore-not-found
 cd ..
-rm -rf hub-cluster-controller
+rm -rf hub-of-hubs-addon

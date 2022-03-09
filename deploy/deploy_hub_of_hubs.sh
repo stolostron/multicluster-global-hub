@@ -89,7 +89,7 @@ function deploy_hoh_controllers() {
   envsubst < ./deploy/deployment.yaml.tmpl > ./deploy/deployment.yaml
   kubectl apply -k ./deploy
   cd ..
-  rm -rf hub-cluster-controller
+  rm -rf hub-of-hubs-addon
 }
 
 function deploy_rbac() {
