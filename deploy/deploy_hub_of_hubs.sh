@@ -153,15 +153,15 @@ function deploy_helm_charts() {
   deploy_component "grc-chart" "release-2.4" deploy_grc_chart_action
 }
 
+function deploy_hub_of_hubs_postgresql_action() {
+  cd ./pgo
+  IMAGE=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG ./setup.sh
+  cd ..
+}
+
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
 if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
-  rm -rf hub-of-hubs-postgresql
-  git clone https://github.com/stolostron/hub-of-hubs-postgresql
-  cd hub-of-hubs-postgresql/pgo
-  git checkout $branch
-  IMAGE=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG ./setup.sh
-  cd ../../
-  rm -rf hub-of-hubs-postgresql
+  deploy_component "hub-of-hubs-postgresql" "$branch" deploy_hub_of_hubs_postgresql_action
 
   pg_namespace="hoh-postgres"
   process_user="hoh-pguser-hoh-process-user"
