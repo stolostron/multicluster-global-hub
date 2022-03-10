@@ -71,25 +71,30 @@ function deploy_hoh_controllers() {
     TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 
   # deploy hub cluster controller
-  rm -rf hub-cluster-controller
-  git clone https://github.com/stolostron/hub-cluster-controller.git
-  cd hub-cluster-controller
-  git checkout $branch
-  kubectl apply -k ./deploy
-  cd ..
-  rm -rf hub-cluster-controller
+  deploy_component "hub-cluster-controller" "$branch" "kubectl apply -k ./deploy"
 
-  # deploy hub-of-hubs addon controller
-  rm -rf hub-of-hubs-addon
-  git clone https://github.com/stolostron/hub-of-hubs-addon.git
-  cd hub-of-hubs-addon
-  git checkout $branch
-  # set HUB_OF_HUBS_VERSION with $TAG
+  # deploy hub of hubs addon controller
+  deploy_component "hub-of-hubs-addon" "$branch" deploy_hub_of_hubs_addon_action
+}
+
+function deploy_hub_of_hubs_addon_action() {
   mv ./deploy/deployment.yaml ./deploy/deployment.yaml.tmpl
   envsubst < ./deploy/deployment.yaml.tmpl > ./deploy/deployment.yaml
   kubectl apply -k ./deploy
+}
+
+function deploy_component() {
+  # deploy component
+  # before: checkout code
+  rm -rf $1
+  git clone https://github.com/stolostron/$1.git
+  cd $1
+  git checkout $2
+  # action
+  $3
+  # after
   cd ..
-  rm -rf hub-of-hubs-addon
+  rm -rf $1
 }
 
 function deploy_rbac() {

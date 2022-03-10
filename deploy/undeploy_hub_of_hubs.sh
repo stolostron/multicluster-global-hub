@@ -12,6 +12,16 @@ if [ $TAG == "latest" ]; then
   branch="main"
 fi
 
+function uninstall_component() {
+    rm -rf $1
+    git clone https://github.com/stolostron/$1.git
+    cd $1
+    git checkout $2
+    $3
+    cd ..
+    rm -rf $1
+}
+
 acm_namespace=open-cluster-management
 
 helm uninstall console-chart -n "$acm_namespace" 2> /dev/null || true
@@ -64,29 +74,10 @@ kubectl delete namespace kafka --ignore-not-found
 kubectl delete namespace sync-service --ignore-not-found
 
 # uninstall PGO
-rm -rf hub-of-hubs-postgresql
-git clone https://github.com/stolostron/hub-of-hubs-postgresql
-cd hub-of-hubs-postgresql
-git checkout $branch
-kubectl delete -k ./pgo/high-availability --ignore-not-found
-kubectl delete -k ./pgo/install --ignore-not-found
-cd ..
-rm -rf hub-of-hubs-postgresql
+uninstall_component "hub-of-hubs-postgresql" "$branch" "kubectl delete -k ./pgo/install -k ./pgo/high-availability --ignore-not-found"
 
 # uninstall hub cluster controller
-rm -rf hub-cluster-controller
-git clone https://github.com/stolostron/hub-cluster-controller.git
-cd hub-cluster-controller
-git checkout $branch
-kubectl delete -k ./deploy --ignore-not-found
-cd ..
-rm -rf hub-cluster-controller
+uninstall_component "hub-cluster-controller" "$branch" "kubectl delete -k ./deploy --ignore-not-found"
 
 # uninstall hub-of-hubs addon controller
-rm -rf hub-of-hubs-addon
-git clone https://github.com/stolostron/hub-of-hubs-addon.git
-cd hub-of-hubs-addon
-git checkout $branch
-kubectl delete -k ./deploy --ignore-not-found
-cd ..
-rm -rf hub-of-hubs-addon
+uninstall_component "hub-of-hubs-addon" "$branch" "kubectl delete -k ./deploy --ignore-not-found"
