@@ -118,32 +118,16 @@ function deploy_rbac() {
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
 }
 
-function deploy_helm_charts() {
-  # deploy hub-of-hubs-console using its Helm chart.
-  #
-  # We could have used a helm chart repository,
-  # see https://harness.io/blog/helm-chart-repo,
-  # but here we do it in a simple way, just by cloning the chart repos
-  kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
-
-  rm -rf hub-of-hubs-console-chart
-  git clone https://github.com/stolostron/hub-of-hubs-console-chart.git
-  cd hub-of-hubs-console-chart
-  git checkout $branch
+function deploy_hub_of_hubs_console_chart_action() {
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep console-chart) -o yaml > values.yaml
   kubectl delete appsub console-chart-sub -n "$acm_namespace" --ignore-not-found
   cat values.yaml |
       yq e ".global.imageOverrides.console = \"quay.io/open-cluster-management-hub-of-hubs/console:$TAG\"" - |
       yq e '.global.pullPolicy = "Always"' - |
       helm upgrade console-chart stable/console-chart -n "$acm_namespace" --install -f -
-  cd ..
-  rm -rf hub-of-hubs-console-chart
+}
 
-  rm -rf grc-chart
-  git clone https://github.com/stolostron/grc-chart.git
-  cd grc-chart
-  git fetch origin release-2.4
-  git checkout release-2.4
+function deploy_grc_chart_action() {
   helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep grc) -o yaml > values.yaml
   kubectl delete appsub grc-sub -n "$acm_namespace" --ignore-not-found
 
@@ -152,8 +136,21 @@ function deploy_helm_charts() {
       yq e ".global.imageOverrides.grc_ui = \"quay.io/open-cluster-management-hub-of-hubs/grc-ui:$TAG\"" - |
       yq e '.global.pullPolicy = "Always"' - |
       helm upgrade grc stable/grc -n "$acm_namespace" --install -f -
-  cd ..
-  rm -rf grc-chart
+}
+
+function deploy_helm_charts() {
+  # deploy hub-of-hubs-console using its Helm chart.
+  #
+  # We could have used a helm chart repository,
+  # see https://harness.io/blog/helm-chart-repo,
+  # but here we do it in a simple way, just by cloning the chart repos
+  kubectl annotate mch multiclusterhub mch-pause=true -n "$acm_namespace" --overwrite
+
+  # deploy hub-of-hubs-console-chart
+  deploy_component "hub-of-hubs-console-chart" "$branch" deploy_hub_of_hubs_console_chart_action
+
+  # deploy grc-chart
+  deploy_component "grc-chart" "release-2.4" deploy_grc_chart_action
 }
 
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
