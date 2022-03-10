@@ -8,14 +8,18 @@ set -o nounset
 
 echo "using kubeconfig $KUBECONFIG"
 script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+branch=$TAG
+if [ $TAG == "latest" ]; then
+  branch="main"
+fi
 
 function deploy_hoh_resources() {
   # apply the HoH config CRD
   hoh_config_crd_exists=$(kubectl get crd configs.hub-of-hubs.open-cluster-management.io --ignore-not-found)
   if [[ ! -z "$hoh_config_crd_exists" ]]; then # if exists replace with the requested tag
-    kubectl replace -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+    kubectl replace -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-crds/$branch/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
   else
-    kubectl apply -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-crds/$TAG/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
+    kubectl apply -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-crds/$branch/crds/hub-of-hubs.open-cluster-management.io_config_crd.yaml"
   fi
 
   # create namespace if not exists
@@ -30,7 +34,7 @@ function deploy_transport() {
     export CSS_SYNC_SERVICE_HOST=$syncServiceCssHost
     export CSS_SYNC_SERVICE_PORT=80 # route of sync service css is exposed on port 80
     # shellcheck source=deploy/deploy_hub_of_hubs_agent_sync_service.sh
-    source "${script_dir}/deploy_hub_of_hubs_agent_sync_service.sh"
+    branch=${branch} source "${script_dir}/deploy_hub_of_hubs_agent_sync_service.sh"
   fi
 }
 
@@ -51,10 +55,10 @@ function deploy_lh_controllers() {
     export KAFKA_SSL_CA=$certificate
   fi
 
-  curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-spec-sync/$TAG/deploy/leaf-hub-spec-sync.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-spec-sync/$branch/deploy/leaf-hub-spec-sync.yaml.template" |
     ENFORCE_HOH_RBAC="true" IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-spec-sync:$TAG" envsubst | kubectl apply -f -
   curl -s "https://raw.githubusercontent.com/stolostron/leaf-hub-status-sync/$TAG/deploy/leaf-hub-status-sync.yaml.template" |
-    IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-status-sync:$TAG" envsubst | kubectl apply -f -
+    IMAGE="quay.io/open-cluster-management-hub-of-hubs/leaf-hub-status-sync:$branch" envsubst | kubectl apply -f -
 }
 
 deploy_hoh_resources
