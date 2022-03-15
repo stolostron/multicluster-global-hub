@@ -13,13 +13,13 @@ kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-kafka-transport/$branch/deploy/amq_streams_operator.yaml" | kubectl apply -f -
 
 # wait until operator is ready
-operator_deployed=$(kubectl -n kafka get Deployment/amq-streams-cluster-operator-v1.7.3 --ignore-not-found)
+operator_deployed=$(kubectl -n kafka get Deployment/amq-streams-cluster-operator-v1.8.4 --ignore-not-found)
 while [ -z "$operator_deployed" ]; do
     echo "Waiting for AMQ streams operator to become available"
     sleep 10
-    operator_deployed=$(kubectl -n kafka get Deployment/amq-streams-cluster-operator-v1.7.3 --ignore-not-found)
+    operator_deployed=$(kubectl -n kafka get Deployment/amq-streams-cluster-operator-v1.8.4 --ignore-not-found)
 done
-kubectl -n kafka wait --for=condition=Available Deployment/amq-streams-cluster-operator-v1.7.3 --timeout=600s
+kubectl -n kafka wait --for=condition=Available Deployment/amq-streams-cluster-operator-v1.8.4 --timeout=600s
 
 # deploy Kafka cluster CR
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-kafka-transport/$branch/deploy/kafka-cluster.yaml" | kubectl apply -f -
