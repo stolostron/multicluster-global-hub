@@ -71,7 +71,7 @@ function deploy_hoh_controllers() {
     TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 
   # deploy hub cluster controller
-  deploy_component "hub-cluster-controller" "$branch" "kubectl apply -k ./deploy"
+  deploy_component "hub-cluster-controller" "$branch" "kubectl apply -n $acm_namespace -k ./deploy"
 
   # deploy hub of hubs addon controller
   deploy_component "hub-of-hubs-addon" "$branch" deploy_hub_of_hubs_addon_action
@@ -80,7 +80,7 @@ function deploy_hoh_controllers() {
 function deploy_hub_of_hubs_addon_action() {
   mv ./deploy/deployment.yaml ./deploy/deployment.yaml.tmpl
   envsubst < ./deploy/deployment.yaml.tmpl > ./deploy/deployment.yaml
-  kubectl apply -k ./deploy
+  kubectl apply -n "$acm_namespace" -k ./deploy
 }
 
 function deploy_component() {
