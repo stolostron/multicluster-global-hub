@@ -36,6 +36,8 @@ curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-spec-transport
     envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
     envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
+curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-nonk8s-gitops.yaml.template" |
+    envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 
 kubectl delete secret hub-of-hubs-database-secret-transport-bridge-secret -n "$acm_namespace" --ignore-not-found
 
