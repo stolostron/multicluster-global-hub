@@ -46,6 +46,10 @@ See [deployment scripts](deploy).
 
 * [hub-of-hubs-nonk8s-api](https://github.com/stolostron/hub-of-hubs-nonk8s-api)
 
+#### Non-Kubernetes GitOps
+
+* [hub-of-hubs-nonk8s-gitops](https://github.com/stolostron/hub-of-hubs-nonk8s-gitops)
+
 #### UI
 
 * [hub-of-hubs-console](https://github.com/stolostron/hub-of-hubs-console)
