@@ -35,16 +35,9 @@
 # Hub of Hubs
 
 ### Deploying Hub-of-hubs components
-1.  Set the `GITOPS_NODE_HOSTNAME` to the hostname of a node (e.g., `ip-10-0-171-109`) to run GitOps component, subscriptions operator and
-    their shared PersistentStorage on.
-    ```
-    export GITOPS_NODE_HOSTNAME=...
-    ``` 
-
-1.  Deploy:
-    ```
-    KUBECONFIG=$TOP_HUB_CONFIG ./deploy_hub_of_hubs.sh
-    ```
+```
+KUBECONFIG=$TOP_HUB_CONFIG ./deploy_hub_of_hubs.sh
+```
 
 ### Using Hub-of-Hubs Web Console
 

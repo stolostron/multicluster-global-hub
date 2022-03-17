@@ -136,8 +136,9 @@ function deploy_gitops() {
     echo "PersistentVolume hoh-gitops-pv already exists and is immutable. Delete manually to before deployment if needed"
   else
     # if doesnt exist then deploy PV and PVC
+    node_hostname=$(kubectl get node --selector='!node-role.kubernetes.io/master' -o=jsonpath='{.items[0].metadata.labels.kubernetes\.io\/hostname}')
     curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-gitops-pv.yaml" |
-      envsubst | kubectl apply -f - -n "$acm_namespace"
+      GITOPS_NODE_HOSTNAME=$node_hostname envsubst | kubectl apply -f - -n "$acm_namespace"
   fi
   # deploy customized Subscription CRD
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/customized-subscriptions-operator/apps.open-cluster-management.io_subscriptions_crd_v1.yaml" |
