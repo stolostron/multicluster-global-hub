@@ -133,10 +133,10 @@ function deploy_gitops() {
   pv_and_pvc_exist=$(kubectl -n "$acm_namespace" get persistentvolume hoh-gitops-pv --ignore-not-found)
   if [[ ! -z "$pv_and_pvc_exist" ]]; then
     # if exists, do not change
-    echo "PersistentVolume hoh-gitops-pv already exists and is immutable. Delete manually to before deployment if needed"
+    echo "PersistentVolume hoh-gitops-pv already exists and is immutable."
   else
     # if doesnt exist then deploy PV and PVC
-    node_hostname=$(kubectl get node --selector='!node-role.kubernetes.io/master' -o=jsonpath='{.items[0].metadata.labels.kubernetes\.io\/hostname}')
+    node_hostname=$(kubectl get node --selector='node-role.kubernetes.io/worker' -o=jsonpath='{.items[0].metadata.labels.kubernetes\.io\/hostname}')
     curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-gitops-pv.yaml" |
       GITOPS_NODE_HOSTNAME=$node_hostname envsubst | kubectl apply -f - -n "$acm_namespace"
   fi

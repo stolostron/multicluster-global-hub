@@ -30,14 +30,28 @@ curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-spec-sync/$TAG
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-sync/$TAG/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-status-sync envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 
+# --- undeploy gitops
+# delete subscriptions ns
+kubectl delete namespace hoh-subscriptions --ignore-not-found
+# delete gitops component
+curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-nonk8s-gitops.yaml.template" |
+    envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
+# revert subscriptions operators deployments (in ACM for K8s operator):
+kubectl -n open-cluster-management patch ClusterServiceVersion \
+   advanced-cluster-management.v2.4.2 --type=merge --patch \
+   "$(curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/customized-subscriptions-operator/revert-operators-subscriptions-deployments-patch.yaml")"
+# delete PV and PVC
+curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-gitops-pv.yaml" |
+      kubectl delete -f - -n "$acm_namespace"
+# ---
+
 kubectl delete secret hub-of-hubs-database-secret -n "$acm_namespace" --ignore-not-found
 
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-spec-transport-bridge/$TAG/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
     envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-transport-bridge/$TAG/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
     envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
-curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-nonk8s-gitops.yaml.template" |
-    envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
+
 
 kubectl delete secret hub-of-hubs-database-secret-transport-bridge-secret -n "$acm_namespace" --ignore-not-found
 
