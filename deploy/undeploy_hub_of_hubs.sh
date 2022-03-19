@@ -36,6 +36,8 @@ kubectl delete namespace hoh-subscriptions --ignore-not-found
 # delete gitops component
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/hub-of-hubs-gitops.yaml.template" |
     envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
+# undo security-context permission
+oc adm policy remove-scc-from-user privileged -z hub-of-hubs-gitops -n open-cluster-management
 # revert subscriptions operators deployments (in ACM for K8s operator):
 kubectl -n open-cluster-management patch ClusterServiceVersion \
    advanced-cluster-management.v2.4.2 --type=merge --patch \

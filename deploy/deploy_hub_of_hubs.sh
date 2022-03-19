@@ -151,6 +151,7 @@ function deploy_gitops() {
    "$(curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/customized-subscriptions-operator/operators-subscriptions-deployments-patch.yaml" |
         MODIFIED_OPERATOR_IMAGE=$modified_operator_image envsubst)"
   # deploy hoh gitops
+  oc adm policy add-scc-to-user privileged -z hub-of-hubs-gitops -n open-cluster-management
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/hub-of-hubs-gitops.yaml.template" |
       IMAGE=$hoh_gitops_image envsubst | kubectl apply -f - -n "$acm_namespace"
 }
