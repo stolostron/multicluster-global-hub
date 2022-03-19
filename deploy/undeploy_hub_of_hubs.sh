@@ -34,14 +34,14 @@ curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-sync/$T
 # delete subscriptions ns
 kubectl delete namespace hoh-subscriptions --ignore-not-found
 # delete gitops component
-curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-nonk8s-gitops.yaml.template" |
+curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/hub-of-hubs-gitops.yaml.template" |
     envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 # revert subscriptions operators deployments (in ACM for K8s operator):
 kubectl -n open-cluster-management patch ClusterServiceVersion \
    advanced-cluster-management.v2.4.2 --type=merge --patch \
-   "$(curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/customized-subscriptions-operator/revert-operators-subscriptions-deployments-patch.yaml")"
+   "$(curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/customized-subscriptions-operator/revert-operators-subscriptions-deployments-patch.yaml")"
 # delete PV and PVC
-curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-gitops-pv.yaml" |
+curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/hub-of-hubs-gitops-pv.yaml" |
       kubectl delete -f - -n "$acm_namespace"
 # ---
 

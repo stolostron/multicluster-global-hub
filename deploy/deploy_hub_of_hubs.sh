@@ -128,7 +128,7 @@ function deploy_helm_charts() {
 
 function deploy_gitops() {
   modified_operator_image='quay.io/maroonayoub/multicloud-operators-subscription@sha256:1c57e1e77ea3c929c7176681d5b64eca43354bbaf00aeb7f7ddb01d3c6d15ad0'
-  nonk8s_gitops_image='quay.io/maroonayoub/hub-of-hubs-nonk8s-gitops:latest'
+  hoh_gitops_image='quay.io/maroonayoub/hub-of-hubs-gitops:latest'
 
   pv_and_pvc_exist=$(kubectl -n "$acm_namespace" get persistentvolume hoh-gitops-pv --ignore-not-found)
   if [[ ! -z "$pv_and_pvc_exist" ]]; then
@@ -137,22 +137,22 @@ function deploy_gitops() {
   else
     # if doesnt exist then deploy PV and PVC
     node_hostname=$(kubectl get node --selector='node-role.kubernetes.io/worker' -o=jsonpath='{.items[0].metadata.labels.kubernetes\.io\/hostname}')
-    curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-gitops-pv.yaml" |
+    curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/hub-of-hubs-gitops-pv.yaml" |
       GITOPS_NODE_HOSTNAME=$node_hostname envsubst | kubectl apply -f - -n "$acm_namespace"
   fi
   # deploy customized Subscription CRD
-  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/customized-subscriptions-operator/apps.open-cluster-management.io_subscriptions_crd_v1.yaml" |
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/customized-subscriptions-operator/apps.open-cluster-management.io_subscriptions_crd_v1.yaml" |
     kubectl -n "$acm_namespace" apply -f -
   # create ns for subscriptions
   kubectl create namespace hoh-subscriptions --dry-run=client -o yaml | kubectl apply -f -
   # patch ACM for K8s operator to deploy modified operators
   kubectl -n open-cluster-management patch ClusterServiceVersion \
    advanced-cluster-management.v2.4.2 --type=merge --patch \
-   "$(curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/customized-subscriptions-operator/operators-subscriptions-deployments-patch.yaml" |
+   "$(curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/customized-subscriptions-operator/operators-subscriptions-deployments-patch.yaml" |
         MODIFIED_OPERATOR_IMAGE=$modified_operator_image envsubst)"
-  # deploy nonk8s gitops
-  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-gitops/main/deploy/hub-of-hubs-nonk8s-gitops.yaml.template" |
-      IMAGE=$nonk8s_gitops_image envsubst | kubectl apply -f - -n "$acm_namespace"
+  # deploy hoh gitops
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-gitops/main/deploy/hub-of-hubs-gitops.yaml.template" |
+      IMAGE=$hoh_gitops_image envsubst | kubectl apply -f - -n "$acm_namespace"
 }
 
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
