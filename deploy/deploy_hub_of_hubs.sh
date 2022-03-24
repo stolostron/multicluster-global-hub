@@ -71,13 +71,19 @@ function deploy_hoh_controllers() {
     TRANSPORT_TYPE="${transport_type}" IMAGE="quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-status-transport-bridge:$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 
   # deploy hub cluster controller
-  deploy_component "hub-cluster-controller" "$branch" "kubectl apply -n $acm_namespace -k ./deploy"
+  deploy_component "hub-cluster-controller" "$branch" deploy_hub_cluster_controller_action
 
   # deploy hub of hubs addon controller
   deploy_component "hub-of-hubs-addon" "$branch" deploy_hub_of_hubs_addon_action
 }
 
 function deploy_hub_of_hubs_addon_action() {
+  mv ./deploy/deployment.yaml ./deploy/deployment.yaml.tmpl
+  envsubst < ./deploy/deployment.yaml.tmpl > ./deploy/deployment.yaml
+  kubectl apply -n "$acm_namespace" -k ./deploy
+}
+
+function deploy_hub_cluster_controller_action() {
   mv ./deploy/deployment.yaml ./deploy/deployment.yaml.tmpl
   envsubst < ./deploy/deployment.yaml.tmpl > ./deploy/deployment.yaml
   kubectl apply -n "$acm_namespace" -k ./deploy
@@ -132,8 +138,9 @@ function deploy_grc_chart_action() {
   kubectl delete appsub grc-sub -n "$acm_namespace" --ignore-not-found
 
   cat values.yaml |
-      yq e ".global.imageOverrides.governance_policy_propagator = \"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:no_status_update\"" - |
+      yq e ".global.imageOverrides.governance_policy_propagator = \"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:hub-of-hubs\"" - |
       yq e ".global.imageOverrides.grc_ui = \"quay.io/open-cluster-management-hub-of-hubs/grc-ui:$TAG\"" - |
+      yq e ".global.imageOverrides.grc_ui_api = \"quay.io/stolostron/grc-ui-api:2.4.3-SNAPSHOT-2022-03-21-21-19-21\"" - |
       yq e '.global.pullPolicy = "Always"' - |
       helm upgrade grc stable/grc -n "$acm_namespace" --install -f -
 }
@@ -150,7 +157,7 @@ function deploy_helm_charts() {
   deploy_component "hub-of-hubs-console-chart" "$branch" deploy_hub_of_hubs_console_chart_action
 
   # deploy grc-chart
-  deploy_component "grc-chart" "release-2.4" deploy_grc_chart_action
+  deploy_component "hub-of-hubs-grc-chart" "$branch" deploy_grc_chart_action
 }
 
 function deploy_hub_of_hubs_postgresql_action() {
