@@ -55,6 +55,10 @@ See [package diagram](ui_packages.md).
 * [hub-of-hubs-ui-components](https://github.com/stolostron/hub-of-hubs-ui-components)
 * [hub-of-hubs-grc-ui](https://github.com/stolostron/hub-of-hubs-grc-ui)
 
+### CLI
+
+* [hub-of-hubs-cli-plugins](https://github.com/stolostron/hub-of-hubs-cli-plugins)
+
 ### Transport options
 
 * [hub-of-hubs-sync-service](https://github.com/stolostron/hub-of-hubs-sync-service)
