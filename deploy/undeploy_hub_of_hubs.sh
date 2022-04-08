@@ -24,6 +24,13 @@ function uninstall_component() {
 
 acm_namespace=open-cluster-management
 
+# remove the hub-of-hubs dashboards if deployed
+kubectl delete -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-observability/main/dashboards/acm-leaf-hubs-overview.yaml" -n open-cluster-management-observability --ignore-not-found
+obs_enabled=$(kubectl get clustermanagementaddon observability-controller --ignore-not-found)
+if [[ ! -z "${obs_enabled}" ]]; then
+    kubectl annotate clustermanagementaddon observability-controller console.open-cluster-management.io/launch-link="/grafana/d/2b679d600f3b9e7676a7c5ac3643d448/acm-clusters-overview" --overwrite
+fi
+
 helm uninstall console-chart -n "$acm_namespace" 2> /dev/null || true
 helm uninstall grc -n "$acm_namespace" 2> /dev/null || true
 kubectl annotate mch multiclusterhub mch-pause=false -n "$acm_namespace" --overwrite
