@@ -14,6 +14,18 @@ if [ $TAG == "latest" ]; then
   branch="main"
 fi
 
+mco_exists=$(kubectl get multiclusterobservabilities --ignore-not-found)
+if [[ -z "$mco_exists" ]]; then
+  read -p "Observability service is not enabled, you may miss some of the observability function if contunue the hub-of-hubs installation. Do you want to continue? [y/n] " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Nn]$ ]]
+  then
+    # exit the hub-of-hubs installation
+    echo "exiting the hub-of-hubs installation..."
+    exit 1
+  fi
+fi
+
 function deploy_hoh_resources() {
   # apply the HoH config CRD
   hoh_config_crd_exists=$(kubectl get crd configs.hub-of-hubs.open-cluster-management.io --ignore-not-found)
@@ -154,6 +166,12 @@ function deploy_helm_charts() {
   deploy_component "hub-of-hubs-grc-chart" "$branch" deploy_grc_chart_action
 }
 
+function deploy_observability() {
+  # enable observability and apply the observability dashboard and metrics allowlist for hub-of-hubs
+  kubectl apply -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-observability/main/dashboards/acm-leaf-hubs-overview.yaml" -n open-cluster-management-observability
+  kubectl annotate clustermanagementaddon observability-controller console.open-cluster-management.io/launch-link="/grafana/d/5b1d81e527cbbbe2fa708c859ac9d7c2/acm-leaf-hubs-overview" --overwrite
+}
+
 function deploy_hub_of_hubs_postgresql_action() {
   cd ./pgo
   IMAGE=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG ./setup.sh
@@ -180,3 +198,4 @@ deploy_transport
 deploy_hoh_controllers "$database_url_hoh" "$database_url_transport"
 deploy_rbac
 deploy_helm_charts
+deploy_observability
