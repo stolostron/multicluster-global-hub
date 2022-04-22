@@ -16,7 +16,7 @@ fi
 
 mco_exists=$(kubectl get multiclusterobservabilities --ignore-not-found)
 if [[ -z "$mco_exists" ]]; then
-  read -p "Observability service is not enabled, you may miss some of the observability function if contunue the hub-of-hubs installation. Do you want to continue? [y/n] " -n 1 -r
+  read -p "Observability service is not enabled, you may miss some of the observability function if contiunue the hub-of-hubs installation. Do you want to continue? [y/n] " -n 1 -r
   echo
   if [[ $REPLY =~ ^[Nn]$ ]]
   then
@@ -167,9 +167,12 @@ function deploy_helm_charts() {
 }
 
 function deploy_observability() {
-  # enable observability and apply the observability dashboard and metrics allowlist for hub-of-hubs
-  kubectl apply -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-observability/main/dashboards/acm-leaf-hubs-overview.yaml" -n open-cluster-management-observability
-  kubectl annotate clustermanagementaddon observability-controller console.open-cluster-management.io/launch-link="/grafana/d/5b1d81e527cbbbe2fa708c859ac9d7c2/acm-leaf-hubs-overview" --overwrite
+  mco_exists=$(kubectl get multiclusterobservabilities --ignore-not-found)
+  if [[ ! -z "$mco_exists" ]]; then
+    # enable observability and apply the observability dashboard and metrics allowlist for hub-of-hubs
+    kubectl apply -f "https://raw.githubusercontent.com/stolostron/hub-of-hubs-observability/main/dashboards/acm-leaf-hubs-overview.yaml" -n open-cluster-management-observability
+    kubectl annotate clustermanagementaddon observability-controller console.open-cluster-management.io/launch-link="/grafana/d/5b1d81e527cbbbe2fa708c859ac9d7c2/acm-leaf-hubs-overview" --overwrite
+  fi
 }
 
 function deploy_hub_of_hubs_postgresql_action() {
