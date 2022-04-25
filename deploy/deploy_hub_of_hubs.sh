@@ -140,10 +140,7 @@ function deploy_grc_chart_action() {
 }
 
 function deploy_application_chart_action() {
-  helm get values -a -n "$acm_namespace" $(helm ls -n "$acm_namespace" | cut -d' ' -f1 | grep application-chart) -o yaml > values.yaml
-  kubectl delete appsub application-chart-sub -n "$acm_namespace" --ignore-not-found
-
-  cat values.yaml |
+  echo "" |
       yq e ".global.imageOverrides.application_ui = \"quay.io/open-cluster-management-hub-of-hubs/application-ui:$TAG\"" - |
       yq e ".global.imageOverrides.console_api = \"quay.io/stolostron/console-api:2.4.3-SNAPSHOT-2022-04-07-03-58-40\"" - |
       yq e '.global.pullPolicy = "Always"' - |

@@ -26,6 +26,7 @@ acm_namespace=open-cluster-management
 
 helm uninstall console-chart -n "$acm_namespace" 2> /dev/null || true
 helm uninstall grc -n "$acm_namespace" 2> /dev/null || true
+helm uninstall application-chart -n "$acm_namespace" 2> /dev/null || true
 kubectl annotate mch multiclusterhub mch-pause=false -n "$acm_namespace" --overwrite
 
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$branch/deploy/ingress.yaml.template" |
