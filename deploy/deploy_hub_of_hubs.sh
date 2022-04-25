@@ -144,7 +144,7 @@ function deploy_application_chart_action() {
   kubectl delete appsub application-chart-sub -n "$acm_namespace" --ignore-not-found
 
   cat values.yaml |
-      yq e ".global.imageOverrides.application_ui = \"quay.io/stolostron/application-ui:2.4.3-SNAPSHOT-2022-04-07-03-58-40\"" - |
+      yq e ".global.imageOverrides.application_ui = \"quay.io/open-cluster-management-hub-of-hubs/application-ui:$TAG\"" - |
       yq e ".global.imageOverrides.console_api = \"quay.io/stolostron/console-api:2.4.3-SNAPSHOT-2022-04-07-03-58-40\"" - |
       yq e '.global.pullPolicy = "Always"' - |
       helm upgrade application-chart stable/application-chart -n "$acm_namespace" --install -f -
