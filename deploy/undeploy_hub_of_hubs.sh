@@ -27,6 +27,11 @@ acm_namespace=open-cluster-management
 helm uninstall console-chart -n "$acm_namespace" 2> /dev/null || true
 helm uninstall grc -n "$acm_namespace" 2> /dev/null || true
 helm uninstall application-chart -n "$acm_namespace" 2> /dev/null || true
+
+sub_image=`kubectl get deploy multiclusterhub-operator -ojsonpath='{.spec.template.spec.containers[0].env[?(@.name=="OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION")].value}'`
+# revert the multicloud-operators-subscription image
+kubectl patch `kubectl get csv -oname` --type='json' -p='[{"op": "replace", "path": "/spec/install/spec/deployments/3/spec/template/spec/containers/0/image", "value":'"$sub_image"'}]'
+
 kubectl annotate mch multiclusterhub mch-pause=false -n "$acm_namespace" --overwrite
 
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$branch/deploy/ingress.yaml.template" |
