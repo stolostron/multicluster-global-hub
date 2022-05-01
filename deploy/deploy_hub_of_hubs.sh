@@ -43,7 +43,7 @@ function deploy_hoh_resources() {
 }
 
 function deploy_transport() {
-  ## if TRANSPORT_TYPE is sync service, set sync service env vars, otherwise any other value will result in kafka being selected as transport
+  ## if TRANSPORT_TYPE is sync service, set sync service. otherwise, any other value will result in kafka being selected as transport
   transport_type=${TRANSPORT_TYPE-kafka}
   if [ "${transport_type}" == "sync-service" ]; then
     # shellcheck source=deploy/deploy_hub_of_hubs_sync_service.sh
