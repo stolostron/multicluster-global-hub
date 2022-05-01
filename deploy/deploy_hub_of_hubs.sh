@@ -93,6 +93,7 @@ function deploy_components_with_environment_variables_action() {
   mv ./deploy/deployment.yaml ./deploy/deployment.yaml.tmpl
   envsubst < ./deploy/deployment.yaml.tmpl > ./deploy/deployment.yaml
   kubectl apply -n "$acm_namespace" -k ./deploy
+  rm ./deploy/deployment.yaml.tmpl
 }
 
 function deploy_component() {
