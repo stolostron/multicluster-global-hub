@@ -152,6 +152,14 @@ function deploy_grc_chart_action() {
       helm upgrade grc stable/grc -n "$acm_namespace" --install -f -
 }
 
+function deploy_application_chart_action() {
+  echo "" |
+      yq e ".global.imageOverrides.application_ui = \"quay.io/open-cluster-management-hub-of-hubs/application-ui:$TAG\"" - |
+      yq e ".global.imageOverrides.console_api = \"quay.io/stolostron/console-api:2.4.3-SNAPSHOT-2022-04-07-03-58-40\"" - |
+      yq e '.global.pullPolicy = "Always"' - |
+      helm upgrade application-chart stable/application-chart -n "$acm_namespace" --install -f -
+}
+
 function deploy_helm_charts() {
   # deploy hub-of-hubs-console using its Helm chart.
   #
@@ -165,6 +173,12 @@ function deploy_helm_charts() {
 
   # deploy grc-chart
   deploy_component "hub-of-hubs-grc-chart" "$branch" deploy_grc_chart_action
+
+  # deploy application-chart
+  deploy_component "application-chart" "$branch" deploy_application_chart_action
+
+  # patch the multicloud-operators-subscription image
+  kubectl patch `kubectl get csv -oname` --type='json' -p='[{"op": "replace", "path": "/spec/install/spec/deployments/3/spec/template/spec/containers/0/image", "value":"quay.io/open-cluster-management-hub-of-hubs/multicloud-operators-subscription:hub-of-hubs"}]'
 }
 
 function deploy_observability() {
