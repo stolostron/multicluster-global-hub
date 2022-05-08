@@ -52,6 +52,12 @@ curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-rbac/$branch/d
 
 kubectl delete secret opa-data -n "$acm_namespace" --ignore-not-found
 
+# revert changes done to mutating webhook configuration in deploy script
+kubectl get mutatingwebhookconfiguration ocm-mutating-webhook -o json \
+| jq 'del(.webhooks[0].rules[] | select(.apiGroups == ["policy.open-cluster-management.io"]) )' \
+| jq 'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.generation, .metadata.creationTimestamp)' \
+| kubectl apply -f -
+
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-spec-sync/$branch/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-spec-sync envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-sync/$branch/deploy/operator.yaml.template" |
