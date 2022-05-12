@@ -129,6 +129,12 @@ function deploy_rbac() {
 
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$branch/deploy/ingress.yaml.template" |
     COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl apply -f - -n "$acm_namespace"
+
+  # update mutating webhook configuration to inject identity to policies + placementbidnings
+  kubectl get mutatingwebhookconfiguration ocm-mutating-webhook -o json \
+  | jq --argjson rules_patch '{"apiGroups": ["policy.open-cluster-management.io"], "apiVersions": ["v1"], "operations": ["CREATE"], "resources": ["policies", "placementbindings"], "scope": "*"}' '.webhooks[0].rules += [$rules_patch]' \
+  | jq 'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.generation, .metadata.creationTimestamp)' \
+  | kubectl apply -f -
 }
 
 function deploy_hub_of_hubs_console_chart_action() {
