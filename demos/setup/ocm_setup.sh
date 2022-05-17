@@ -259,7 +259,20 @@ function initPolicy() {
       echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
     fi
 
-    if [[ "${componentCount}" == 4 ]]; then
+    COMPONENT="config-policy-controller"
+    # Apply the config-policy-controller CRD
+    kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
+    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}")
+    if [[ ${comp} == "" ]]; then
+      # Deploy the controller
+      kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
+      kubectl set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managed}"
+    elif [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
+      (( componentCount = componentCount + 1 ))
+      echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
+    fi
+
+    if [[ "${componentCount}" == 5 ]]; then
       echo -e "Policy: ${hub} -> ${managed} Success! \n $(kubectl get pods -n "${MANAGED_NAMESPACE}")"
       break;
     fi 
