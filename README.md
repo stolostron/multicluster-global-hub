@@ -29,22 +29,24 @@ See [deployment scripts](deploy).
 ## Repositories
 
 ### Ansible playbooks to setup PostgreSQL
+
 * [hub-of-hubs-postgresql](https://github.com/stolostron/hub-of-hubs-postgresql)
 
 ### Hub-of-Hubs components
 
-* [hub-of-hubs-spec-sync](https://github.com/stolostron/hub-of-hubs-spec-sync)
-* [hub-of-hubs-status-sync](https://github.com/stolostron/hub-of-hubs-status-sync)
-* [hub-of-hubs-spec-transport-bridge](https://github.com/stolostron/hub-of-hubs-spec-transport-bridge)
-* [hub-of-hubs-status-transport-bridge](https://github.com/stolostron/hub-of-hubs-status-transport-bridge)
+* [hub-of-hub-manager](https://github.com/stolostron/hub-of-hubs-manager)
+
+Note: [hub-of-hub-manager](https://github.com/stolostron/hub-of-hubs-manager) is an all-in-one repository that contains the following components in hub of hubs:
+
+  - [hub-of-hubs-spec-sync](https://github.com/stolostron/hub-of-hubs-spec-sync)
+  - [hub-of-hubs-status-sync](https://github.com/stolostron/hub-of-hubs-status-sync)
+  - [hub-of-hubs-spec-transport-bridge](https://github.com/stolostron/hub-of-hubs-spec-transport-bridge)
+  - [hub-of-hubs-status-transport-bridge](https://github.com/stolostron/hub-of-hubs-status-transport-bridge)
+  - [hub-of-hubs-nonk8s-api](https://github.com/stolostron/hub-of-hubs-nonk8s-api)
 
 #### RBAC
 
 * [hub-of-hubs-rbac](https://github.com/stolostron/hub-of-hubs-rbac)
-
-#### Non-Kubernetes REST API
-
-* [hub-of-hubs-nonk8s-api](https://github.com/stolostron/hub-of-hubs-nonk8s-api)
 
 #### UI
 
@@ -69,6 +71,10 @@ See [package diagram](ui_packages.md).
 * [hub-of-hubs-message-compression](https://github.com/stolostron/hub-of-hubs-message-compression)
 
 ### Hub-of-Hubs-agent components
+
+* [hub-of-hub-agent](https://github.com/stolostron/hub-of-hubs-agent)
+
+Note: [hub-of-hub-agent](https://github.com/stolostron/hub-of-hubs-agent) is an all-in-one repository that contains the following components in leaf hubs:
 
 * [leaf-hub-spec-sync](https://github.com/stolostron/leaf-hub-spec-sync)
 * [leaf-hub-status-sync](https://github.com/stolostron/leaf-hub-status-sync)
