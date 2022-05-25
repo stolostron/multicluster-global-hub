@@ -41,12 +41,6 @@ kubectl patch `kubectl get csv -oname` --type='json' -p='[{"op": "replace", "pat
 
 kubectl annotate mch multiclusterhub mch-pause=false -n "$acm_namespace" --overwrite
 
-curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$branch/deploy/ingress.yaml.template" |
-    COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
-
-curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-nonk8s-api/$branch/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-nonk8s-api envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
-
 curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-rbac/$branch/deploy/operator.yaml.template" |
     REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-rbac envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 
@@ -58,18 +52,10 @@ kubectl get mutatingwebhookconfiguration ocm-mutating-webhook -o json \
 | jq 'del(.metadata.managedFields, .metadata.resourceVersion, .metadata.generation, .metadata.creationTimestamp)' \
 | kubectl apply -f -
 
-curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-spec-sync/$branch/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-spec-sync envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
-curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-sync/$branch/deploy/operator.yaml.template" |
-    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" COMPONENT=hub-of-hubs-status-sync envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
+curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-manager/main/deploy/operator.yaml.template" |
+    REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
 
 kubectl delete secret hub-of-hubs-database-secret -n "$acm_namespace" --ignore-not-found
-
-curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-spec-transport-bridge/$branch/deploy/hub-of-hubs-spec-transport-bridge.yaml.template" |
-    envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
-curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-status-transport-bridge/$branch/deploy/hub-of-hubs-status-transport-bridge.yaml.template" |
-    envsubst | kubectl delete -f - -n "$acm_namespace" --ignore-not-found
-
 kubectl delete secret hub-of-hubs-database-secret-transport-bridge-secret -n "$acm_namespace" --ignore-not-found
 
 # remove HoH config resources in case it exists
