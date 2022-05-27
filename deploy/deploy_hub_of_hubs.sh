@@ -177,7 +177,7 @@ function deploy_helm_charts() {
   deploy_component "application-chart" "$branch" deploy_application_chart_action
 
   # patch the multicloud-operators-subscription image
-  kubectl patch `kubectl get csv -oname` --type='json' -p='[{"op": "replace", "path": "/spec/install/spec/deployments/3/spec/template/spec/containers/0/image", "value":"quay.io/open-cluster-management-hub-of-hubs/multicloud-operators-subscription:hub-of-hubs"}]'
+  kubectl patch `kubectl get csv -oname -n "$acm_namespace"` --type='json' -p='[{"op": "replace", "path": "/spec/install/spec/deployments/3/spec/template/spec/containers/0/image", "value":"quay.io/open-cluster-management-hub-of-hubs/multicloud-operators-subscription:hub-of-hubs"}]' -n "$acm_namespace"
 }
 
 function deploy_observability() {
