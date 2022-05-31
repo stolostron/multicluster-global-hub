@@ -59,6 +59,8 @@ function initCluster() {
     sleep 5
     (( SECOND = SECOND + 5 ))
   done
+  # enable the applications.app.k8s.io
+  kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml
 }
 
 # initCluster
