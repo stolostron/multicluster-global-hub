@@ -22,7 +22,7 @@
 
 1.  Set the release tag variable for images:
     ```
-    export TAG=v0.3.1
+    export TAG=latest
     ```
     
 1.  Set the chosen transport. the options are either `kafka` or `sync-service`:
@@ -50,24 +50,6 @@ the `kube-admin` user is given `admin` role in Hub-of-Hubs RBAC. If you want to 
 
 ```
 KUBECONFIG=$TOP_HUB_CONFIG ./undeploy_hub_of_hubs.sh
-```
-
-----
-
-# Hubs to connect to Hub of Hubs
-
-This step is an optional step. the Hub-of-Hubs agent can be deployed automatically if the Hubs are the managed clusters of the Hub of Hubs.
-
-## Deploying a Hub-of-Hubs agent
-
-```
-KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./deploy_hub_of_hubs_agent.sh
-```
-
-## Undeploying a Hub-of-Hubs agent
-
-```
-KUBECONFIG=$HUB1_CONFIG LH_ID=hub1 ./undeploy_hub_of_hubs_agent.sh
 ```
 
 ----
