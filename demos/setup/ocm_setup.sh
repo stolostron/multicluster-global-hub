@@ -59,6 +59,13 @@ function initCluster() {
     sleep 5
     (( SECOND = SECOND + 5 ))
   done
+  # enable the applications.app.k8s.io
+  kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml
+  # enable the route.openshift.io
+  kubectl create ns openshift-ingress 
+  kubectl apply -f https://raw.githubusercontent.com/openshift/router/master/deploy/route_crd.yaml
+  kubectl apply -f https://raw.githubusercontent.com/openshift/router/master/deploy/router.yaml
+  kubectl apply -f https://raw.githubusercontent.com/openshift/router/master/deploy/router_rbac.yaml
 }
 
 # initCluster
