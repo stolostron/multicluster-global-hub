@@ -46,7 +46,7 @@ hover $! "export KUBECONFIG=${CONFIG_DIR}/kubeconfig"
 
 function initCluster() {
   clusterName=$1
-  kind create cluster --name "${clusterName}"
+  kind create cluster --name "${clusterName}" --image kindest/node:v1.23.4
   SECOND=0
   while [[ $(kind get clusters | grep "^${clusterName}$") != "${clusterName}" ]]; do
     if [[ $SECOND -gt 12000 ]]; then
@@ -54,7 +54,7 @@ function initCluster() {
       exit 1
     fi
     if [[ $((SECOND % 20)) == 0 ]]; then
-      kind create cluster --name "${clusterName}"
+      kind create cluster --name "${clusterName}" --image kindest/node:v1.23.4
     fi
     sleep 5
     (( SECOND = SECOND + 5 ))
