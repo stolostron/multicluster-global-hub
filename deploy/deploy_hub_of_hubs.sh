@@ -178,6 +178,26 @@ function deploy_helm_charts() {
 
   # patch the multicloud-operators-subscription image
   kubectl patch `kubectl get csv -oname -n "$acm_namespace"` --type='json' -p='[{"op": "replace", "path": "/spec/install/spec/deployments/3/spec/template/spec/containers/0/image", "value":"quay.io/open-cluster-management-hub-of-hubs/multicloud-operators-subscription:hub-of-hubs"}]' -n "$acm_namespace"
+
+  # patch mce to replace the placement image
+  cat <<EOF | kubectl apply -n multicluster-engine -f -
+apiVersion: v1
+data:
+  manifest.json: |-
+    [
+      {
+        "image-name": "placement",
+        "image-remote": "quay.io/open-cluster-management-hub-of-hubs",
+        "image-digest": "sha256:b7293b436dc00506b370762fb4eb352e7c6cc5413d135fc03c93ed311e7ed4c4",
+        "image-key": "placement"
+      }
+    ]
+kind: ConfigMap
+metadata:
+  name: my-config
+EOF
+
+  kubectl annotate mce multiclusterengine --overwrite imageOverridesCM=my-config
 }
 
 function deploy_observability() {
