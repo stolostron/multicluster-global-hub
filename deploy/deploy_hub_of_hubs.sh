@@ -73,7 +73,7 @@ function deploy_hoh_controllers() {
     transport_type=kafka
   fi
 
-  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-manager/main/deploy/operator.yaml.template" |
+  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-manager/$branch/deploy/operator.yaml.template" |
     TRANSPORT_TYPE="${transport_type}" REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 
   # deploy hub cluster controller
@@ -174,7 +174,7 @@ function deploy_helm_charts() {
   deploy_component "hub-of-hubs-grc-chart" "$branch" deploy_grc_chart_action
 
   # deploy application-chart
-  deploy_component "application-chart" "$branch" deploy_application_chart_action
+  deploy_component "application-chart" main deploy_application_chart_action # use main branch of appliation-chart in version v0.4.0. in previous version this line doesn't exist
 
   # patch the multicloud-operators-subscription image
   kubectl patch `kubectl get csv -oname -n "$acm_namespace"` --type='json' -p='[{"op": "replace", "path": "/spec/install/spec/deployments/3/spec/template/spec/containers/0/image", "value":"quay.io/open-cluster-management-hub-of-hubs/multicloud-operators-subscription:hub-of-hubs"}]' -n "$acm_namespace"
