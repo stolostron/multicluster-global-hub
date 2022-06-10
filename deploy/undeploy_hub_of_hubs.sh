@@ -86,3 +86,7 @@ uninstall_component "hub-cluster-controller" "$branch" "kubectl delete -k ./depl
 
 # uninstall hub-of-hubs addon controller
 uninstall_component "hub-of-hubs-addon" "$branch" "kubectl delete -k ./deploy --ignore-not-found"
+
+# reset the origin image for placement
+kubectl annotate mce multiclusterengine imageOverridesCM- --overwrite
+kubectl delete configmap my-config -n multicluster-engine --ignore-not-found
