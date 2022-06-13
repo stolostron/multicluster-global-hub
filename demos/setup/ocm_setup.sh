@@ -18,7 +18,7 @@ MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-2}
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
-LOG=${CONFIG_DIR}/setup.log
+LOG=${CONFIG_DIR}/setup_ocm.log
 
 if [ ! -d "${CONFIG_DIR}" ];then
   mkdir "${CONFIG_DIR}"
@@ -30,7 +30,7 @@ fi
 
 function hover() {
   local pid=$1; message=${2:-Processing!}; delay=0.2
-  echo "$pid" > "${CONFIG_DIR}/pid"
+  echo "$pid" > "${CONFIG_DIR}/pid_ocm"
   signs=(🙉 🙈 🙊)
   while ( kill -0 "$pid" 2>/dev/null ); do
     index="${RANDOM} % ${#signs[@]}"
@@ -39,9 +39,9 @@ function hover() {
   printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message} Done! "; sleep ${delay}
 }
 
-export KUBECONFIG="${CONFIG_DIR}/kubeconfig"
+KUBECONFIG=${KUBECONFIG:-CONFIG_DIR/kubeconfig_ocm}
 sleep 1 &
-hover $! "export KUBECONFIG=${CONFIG_DIR}/kubeconfig"
+hover $! "export KUBECONFIG=${KUBECONFIG}"
 
 
 function initCluster() {
@@ -200,7 +200,7 @@ function initPolicy() {
     # Deploy the policy framework hub controllers
     kubectl config use-context "${hub}"
     HUB_NAMESPACE="open-cluster-management"
-    HUB_KUBECONFIG=${CONFIG_DIR}/${hub}_kubeconfig
+    HUB_KUBECONFIG="${CONFIG_DIR}/kubeconfig_${hub}"
     
     kind get kubeconfig --name "${kindHub}" --internal > "${HUB_KUBECONFIG}"
 
@@ -297,4 +297,4 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   done
 done
 
-printf "%s\033[0;32m%s\n\033[0m " "[Access the Clusters]: " "export KUBECONFIG=${CONFIG_DIR}/kubeconfig"
+printf "%s\033[0;32m%s\n\033[0m " "[Access the Clusters]: " "export KUBECONFIG=${KUBECONFIG}"
