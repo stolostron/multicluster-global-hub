@@ -164,7 +164,7 @@ func (r *genericSpecToDBReconciler) cleanInstance(instance client.Object) client
 	instance.SetFinalizers(nil)
 	instance.SetGeneration(0)
 	instance.SetOwnerReferences(nil)
-	//instance.SetClusterName("")
+	// instance.SetClusterName("")
 
 	delete(instance.GetAnnotations(), "kubectl.kubernetes.io/last-applied-configuration")
 

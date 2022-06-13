@@ -1,6 +1,9 @@
 # Copyright (c) 2022 Red Hat, Inc.
 # Copyright Contributors to the Open Cluster Management project
 
+REGISTRY ?= quay.io/stolostron
+IMAGE_TAG ?= latest
+
 .PHONY: vendor			##download all third party libraries and puts them inside vendor directory
 vendor:
 	@go mod vendor
@@ -16,10 +19,11 @@ push-operator-image:
 	cd operator && make push-image
 
 build-manager-image: vendor
-	cd manager && make build-image
+	cd manager && make
+	docker build -t ${REGISTRY}/hub-of-hubs-manager:${IMAGE_TAG} . -f manager/Dockerfile
 
 push-manager-image:
-	cd manager && make push-image
+	docker push ${REGISTRY}/hub-of-hubs-manager:${IMAGE_TAG}
 
 build-agent-image: vendor
 	cd agent && make build-image

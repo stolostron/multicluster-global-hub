@@ -6,18 +6,9 @@
 #   - all (default) - formats the code, runs liners, downloads vendor libs, and builds executable
 #   - fmt - formats the code
 #   - lint - runs code analysis tools
-#   - vendor - download all third party libraries and puts them inside vendor directory
-#   - clean-vendor - removes third party libraries from vendor directory
 #   - build - builds the binary
-#   - build-images - builds docker image locally for running the components using docker
-#   - push-images - pushes the local docker image to docker registry
 #   - clean - cleans the build directories
 #   - clean-all - superset of 'clean' that also removes vendor dir
-
-COMPONENT := $(shell basename $(shell pwd))
-REGISTRY ?= quay.io/stolostron
-IMAGE_TAG ?= latest
-IMAGE := ${REGISTRY}/hub-of-hubs-${COMPONENT}:${IMAGE_TAG}
 
 .PHONY: all				##formats the code, runs liners, downloads vendor libs, and builds executable
 all: fmt lint build
@@ -45,15 +36,7 @@ manifests: controller-gen
 
 .PHONY: build			##builds the binary
 build:
-	@go build -o bin/${COMPONENT} cmd/manager/main.go
-
-.PHONY: build-image			##builds docker image locally for running the components using docker
-build-image: all
-	docker build -t ${IMAGE} --build-arg COMPONENT=${COMPONENT} -f Dockerfile .
-
-.PHONY: push-image			##pushes the local docker image to docker registry
-push-image: build-image
-	@docker push ${IMAGE}
+	@go build -o bin/manager ./cmd/manager/main.go
 
 .PHONY: clean			##cleans the build directories
 clean:

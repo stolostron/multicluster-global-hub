@@ -7,8 +7,8 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
-	kafkaconsumer "github.com/stolostron/hub-of-hubs-kafka-transport/kafka-client/kafka-consumer"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
+	kafkaconsumer "github.com/stolostron/hub-of-hubs/pkg/kafka/kafka-consumer"
 )
 
 // newCommitter returns a new instance of committer.

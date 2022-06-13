@@ -7,10 +7,10 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs-kafka-transport/headers"
-	kafkaproducer "github.com/stolostron/hub-of-hubs-kafka-transport/kafka-client/kafka-producer"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/transport"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
+	"github.com/stolostron/hub-of-hubs/pkg/kafka/headers"
+	kafkaproducer "github.com/stolostron/hub-of-hubs/pkg/kafka/kafka-producer"
 )
 
 const (
@@ -52,7 +52,7 @@ func NewProducer(compressor compressor.Compressor, bootstrapServer string, produ
 	}, nil
 }
 
-// Producer abstracts hub-of-hubs-kafka-transport kafka-producer's generic usage.
+// Producer abstracts hub-of-hubs/pkg/kafka kafka-producer's generic usage.
 type Producer struct {
 	log           logr.Logger
 	kafkaProducer *kafkaproducer.KafkaProducer

@@ -9,15 +9,15 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs-kafka-transport/headers"
-	kafkaconsumer "github.com/stolostron/hub-of-hubs-kafka-transport/kafka-client/kafka-consumer"
 	helper "github.com/stolostron/hub-of-hubs/agent/pkg/helper"
 	bundle "github.com/stolostron/hub-of-hubs/agent/pkg/spec/bundle"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/transport"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
+	"github.com/stolostron/hub-of-hubs/pkg/kafka/headers"
+	kafkaconsumer "github.com/stolostron/hub-of-hubs/pkg/kafka/kafka-consumer"
 )
 
-// Consumer abstracts hub-of-hubs-kafka-transport kafka-consumer's generic usage.
+// Consumer abstracts hub-of-hubs/pkg/kafka kafka-consumer's generic usage.
 type KafkaComsumer struct {
 	log            logr.Logger
 	leafHubName    string

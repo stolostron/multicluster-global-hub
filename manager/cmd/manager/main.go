@@ -15,6 +15,12 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/scheme"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db/postgresql"
@@ -33,11 +39,6 @@ import (
 	statuskafka "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/kafka"
 	statussyncservice "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/syncservice"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 const (

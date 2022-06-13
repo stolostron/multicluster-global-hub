@@ -25,8 +25,8 @@ FROM go-env AS builder
 
 ARG COMPONENT
 WORKDIR /workspace/${COMPONENT}
-COPY go.mod go.mod
-COPY go.sum go.sum
+COPY ../go.mod go.mod
+COPY ../go.sum go.sum
 
 RUN go mod download
 

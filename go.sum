@@ -1344,8 +1344,8 @@ github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980/go.mod h
 github.com/stoewer/go-strcase v1.2.0/go.mod h1:IBiWB2sKIp3wVVQ3Y035++gc+knqhUQag1KpM8ahLw8=
 github.com/stolostron/hub-of-hubs-e2e v0.0.0-20220602015742-276d6439bd7f h1:/l8np+UWQ0eAYla/SxGd+okKDz8L30RBiisXVf4XkeY=
 github.com/stolostron/hub-of-hubs-e2e v0.0.0-20220602015742-276d6439bd7f/go.mod h1:T2qzzG7QakpQEosI7R4j0sqz6QIPIBh+9aZjzc2QFTU=
-github.com/stolostron/hub-of-hubs-kafka-transport v0.4.0 h1:4/VeHt3Ifupd4p6NMBwuaIzYh14qW16IVKsb/DF/65k=
-github.com/stolostron/hub-of-hubs-kafka-transport v0.4.0/go.mod h1:ORmbTRxjnHnO+389b0DZsem6qNJcSvj1Lo2JGBMwma8=
+github.com/stolostron/hub-of-hubs/pkg/kafka v0.4.0 h1:4/VeHt3Ifupd4p6NMBwuaIzYh14qW16IVKsb/DF/65k=
+github.com/stolostron/hub-of-hubs/pkg/kafka v0.4.0/go.mod h1:ORmbTRxjnHnO+389b0DZsem6qNJcSvj1Lo2JGBMwma8=
 github.com/stretchr/objx v0.0.0-20180129172003-8a3f7159479f/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

@@ -7,7 +7,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
-	kafkaclient "github.com/stolostron/hub-of-hubs-kafka-transport/kafka-client"
+	kafkaclient "github.com/stolostron/hub-of-hubs/pkg/kafka"
 )
 
 const (

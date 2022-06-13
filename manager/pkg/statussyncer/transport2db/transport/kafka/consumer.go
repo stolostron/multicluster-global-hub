@@ -11,12 +11,12 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs-kafka-transport/headers"
-	kafkaconsumer "github.com/stolostron/hub-of-hubs-kafka-transport/kafka-client/kafka-consumer"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statistics"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
+	"github.com/stolostron/hub-of-hubs/pkg/kafka/headers"
+	kafkaconsumer "github.com/stolostron/hub-of-hubs/pkg/kafka/kafka-consumer"
 )
 
 const (
@@ -82,7 +82,7 @@ func NewConsumer(committerInterval time.Duration, bootstrapServer string, consum
 	}, nil
 }
 
-// Consumer abstracts hub-of-hubs-kafka-transport kafka-consumer's generic usage.
+// Consumer abstracts hub-of-hubs/pkg/kafka kafka-consumer's generic usage.
 type Consumer struct {
 	log               logr.Logger
 	kafkaConsumer     *kafkaconsumer.KafkaConsumer
