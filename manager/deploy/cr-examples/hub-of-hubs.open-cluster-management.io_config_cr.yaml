@@ -1,0 +1,13 @@
+apiVersion: hub-of-hubs.open-cluster-management.io/v1
+kind: Config
+metadata:
+  name: hub-of-hubs-config
+  labels:
+    name: hub-of-hubs-config
+spec:
+  aggregationLevel: full
+  heartbeatIntervals:
+    hohInSeconds: 60
+    leafHubInSeconds: 60
+  enableLocalPolicies: true
+
