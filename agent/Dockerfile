@@ -1,59 +1,29 @@
-# Stage 0: Install golang binaries on the base image
 # Copyright Contributors to the Open Cluster Management project
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS go-env
+# Stage 1: build the target binaries
+FROM registry.ci.openshift.org/stolostron/builder:go1.17-linux AS builder
 
-# gcc for C
-RUN microdnf install -y gcc make && rm -rf /var/lib/apt/lists/*
-# tar and gzip for unpacking golang
-RUN microdnf install tar gzip
-#install golang binaries
-ENV GOLANG_VERSION 1.17.5
-ENV GOLANG_DOWNLOAD_URL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz
+WORKDIR /workspace
 
-RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
-  && tar -C /usr/local -xzf golang.tar.gz \
-  && rm golang.tar.gz
+COPY go.mod go.sum ./
+COPY ./agent/ ./agent/
+COPY ./pkg/ ./pkg/
 
-RUN microdnf clean all
-
-#add to PATH variable
-ENV PATH /usr/local/go/bin:$PATH
-
-# Stage 1: Use image builder to build the target binaries
-FROM go-env AS builder
-
-ARG COMPONENT
-WORKDIR /workspace/${COMPONENT}
-COPY ../go.mod go.mod
-COPY ../go.sum go.sum
-
-RUN go mod download
-
-COPY Makefile Makefile
-COPY cmd/ cmd/
-COPY pkg/ pkg/
-RUN make build
+RUN go build -o bin/agent ./agent/cmd/agent/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
-ARG COMPONENT
 ENV USER_UID=1001
-ENV USER_NAME=${COMPONENT}
+ENV USER_NAME=agent
 
 # install operator binary
-COPY --from=builder /workspace/${COMPONENT}/bin/${COMPONENT} /usr/local/bin/manager
+COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
 
 COPY scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
 
 RUN microdnf update && \
-  microdnf clean all
-
-# allow user to fully control the /opt/kafka directory (for transport certificates)
-RUN mkdir /opt/kafka
-RUN chown ${USER_UID}:0 /opt/kafka
-RUN chmod 0775 /opt/kafka
+    microdnf clean all
 
 USER ${USER_UID}
-ENTRYPOINT ["/usr/local/bin/manager"]
+ENTRYPOINT ["/usr/local/bin/agent"]

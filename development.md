@@ -71,9 +71,8 @@ Currently we do not use health/ready checks.
 
 ## Build
 
-* [Makefile](https://github.com/stolostron/hub-of-hubs-spec-sync/blob/main/Makefile)
-* [Dockerfile](https://github.com/stolostron/hub-of-hubs-spec-sync/blob/main/build/Dockerfile)
-* [build scripts](https://github.com/stolostron/hub-of-hubs-spec-sync/tree/main/build/scripts)
+* [Makefile](https://github.com/stolostron/hub-of-hubs/blob/main/Makefile)
+* [Dockerfile](https://github.com/stolostron/hub-of-hubs/blob/main/manager/Dockerfile)
 
 ## Formatting
 
