@@ -19,7 +19,7 @@ ENV USER_NAME=agent
 # install operator binary
 COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
 
-COPY scripts/user_setup /usr/local/scripts/user_setup
+COPY ./agent/scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
 
 RUN microdnf update && \

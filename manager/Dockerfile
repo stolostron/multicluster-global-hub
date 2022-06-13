@@ -19,7 +19,7 @@ ENV USER_NAME=manager
 # install operator binary
 COPY --from=builder /workspace/bin/manager /usr/local/bin/manager
 
-COPY scripts/user_setup /usr/local/scripts/user_setup
+COPY ./manager/scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
 
 RUN microdnf update && \
