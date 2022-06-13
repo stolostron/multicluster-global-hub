@@ -13,10 +13,11 @@ clean-vendor:
 	-@rm -rf vendor
 
 build-operator-image: vendor
-	cd operator && make build-image
+	cd operator && make
+	docker build -t ${REGISTRY}/hub-of-hubs-operator:${IMAGE_TAG} . -f operator/Dockerfile
 
 push-operator-image:
-	cd operator && make push-image
+	docker push ${REGISTRY}/hub-of-hubs-operator:${IMAGE_TAG}
 
 build-manager-image: vendor
 	cd manager && make
@@ -26,10 +27,11 @@ push-manager-image:
 	docker push ${REGISTRY}/hub-of-hubs-manager:${IMAGE_TAG}
 
 build-agent-image: vendor
-	cd agent && make build-image
+	cd agent && make
+	docker build -t ${REGISTRY}/hub-of-hubs-agent:${IMAGE_TAG} . -f agent/Dockerfile
 
 push-agent-image:
-	cd agent && make push-image
+	docker push ${REGISTRY}/hub-of-hubs-agent:${IMAGE_TAG}
 
 .PHONY: unit-tests
 unit-tests: unit-tests-operator unit-tests-manager unit-tests-agent
