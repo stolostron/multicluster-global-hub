@@ -6,14 +6,15 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/bundle"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller/rbac"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller/workers"
 	consumer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/consumer"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // genericBundleSyncer syncs objects spec from received bundles.

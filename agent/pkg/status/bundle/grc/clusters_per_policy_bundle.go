@@ -3,9 +3,10 @@ package grc
 import (
 	"sync"
 
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
 	bundlepkg "github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/hub-of-hubs/pkg/bundle/status"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.

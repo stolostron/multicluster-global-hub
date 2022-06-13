@@ -5,9 +5,10 @@ import (
 	"sync"
 
 	set "github.com/deckarep/golang-set"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
 	bundlepkg "github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/hub-of-hubs/pkg/bundle/status"
-	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
 const unknownComplianceStatus = "unknown"

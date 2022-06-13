@@ -3,10 +3,11 @@ package grc
 import (
 	"sync"
 
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
 	bundlepkg "github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/hub-of-hubs/pkg/bundle/status"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.

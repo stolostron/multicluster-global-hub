@@ -3,8 +3,9 @@ package bundle
 import (
 	"sync"
 
-	statusbundle "github.com/stolostron/hub-of-hubs/pkg/bundle/status"
 	"k8s.io/apimachinery/pkg/types"
+
+	statusbundle "github.com/stolostron/hub-of-hubs/pkg/bundle/status"
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.

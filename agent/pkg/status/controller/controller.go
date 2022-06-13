@@ -6,6 +6,8 @@ package controller
 import (
 	"fmt"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/apps"
 	configCtrl "github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/config"
@@ -18,7 +20,6 @@ import (
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
 	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // AddControllers adds all the controllers to the Manager.

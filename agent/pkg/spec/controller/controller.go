@@ -3,13 +3,14 @@ package controller
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	clustersv1 "open-cluster-management.io/api/cluster/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller/syncers"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller/workers"
 	consumer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/consumer"
-	"k8s.io/apimachinery/pkg/runtime"
-	clustersv1 "open-cluster-management.io/api/cluster/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // AddToScheme adds only resources that have to be fetched.

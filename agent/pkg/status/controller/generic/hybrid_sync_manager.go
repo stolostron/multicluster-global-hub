@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
 	statusbundle "github.com/stolostron/hub-of-hubs/pkg/bundle/status"

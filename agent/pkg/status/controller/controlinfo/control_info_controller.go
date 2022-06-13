@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle/controlinfo"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
 	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (

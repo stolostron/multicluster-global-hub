@@ -6,9 +6,10 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller/rbac"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller/rbac"
 )
 
 // Workpool pool that creates all k8s workers and the assigns k8s jobs to available workers.

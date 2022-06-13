@@ -9,15 +9,16 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
-	producer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle"
+	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
+	producer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
+	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
 const REQUEUE_PERIOD = 5 * time.Second
