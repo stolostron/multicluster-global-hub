@@ -67,7 +67,7 @@ function initMicroshiftCluster() {
 
 function initLeafHubCluster() {
   if [[ $(kubectl config get-contexts | grep "${LEAF_HUB_NAME}") == "" ]]; then
-    wget -O - https://github.com/stolostron/hub-of-hubs/blob/release-2.6/cicd-scripts/ocm_setup.sh | bash
+    wget -O - https://github.com/stolostron/hub-of-hubs/blob/main/cicd-scripts/ocm_setup.sh | bash
   fi
 }
 

@@ -18,6 +18,6 @@ docker stop acm-hub-of-hubs
 docker volume prune -f 
 docker rmi quay.io/microshift/microshift-aio:latest
 
-wget -O - https://github.com/stolostron/hub-of-hubs/blob/release-2.6/cicd-scripts/ocm_clean.sh | bash
+wget -O - https://github.com/stolostron/hub-of-hubs/blob/main/cicd-scripts/ocm_clean.sh | bash
 
 rm -rf $CONFIG_DIR
