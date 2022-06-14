@@ -11,6 +11,7 @@
 
 HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-1}
 MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-2}
+KUBECONFIG=${KUBECONFIG:-CONFIG_DIR/kubeconfig_ocm}
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
@@ -18,14 +19,14 @@ if [ ! -d "${CONFIG_DIR}" ];then
   mkdir "${CONFIG_DIR}"
 fi
 
-touch "$CONFIG_DIR/pid"
+touch "$CONFIG_DIR/pid_ocm"
 while read -r line; do
   if [[ $line != "" ]]; then
     kill -9 "${line}" >/dev/null 2>&1
   fi
-done <"${CONFIG_DIR}/pid"
+done <"${CONFIG_DIR}/pid_ocm"
 
-rm "${CONFIG_DIR}/pid" >/dev/null 2>&1
+rm "${CONFIG_DIR}/pid_ocm" >/dev/null 2>&1
 
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   kind delete cluster --name "hub${i}"
