@@ -10,6 +10,10 @@ CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
 LOG=${CONFIG_DIR}/setup_hoh.log
 
+if [ ! -d "${CONFIG_DIR}" ];then
+  mkdir "${CONFIG_DIR}"
+fi
+
 KUBECONFIG=${CONFIG_DIR}/kubeconfig
 
 LEAF_HUB_NAME="kind-hub1"
@@ -63,7 +67,7 @@ function initMicroshiftCluster() {
 
 function initLeafHubCluster() {
   if [[ $(kubectl config get-contexts | grep "${LEAF_HUB_NAME}") == "" ]]; then
-    wget -O - https://github.com/stolostron/hub-of-hubs/blob/release-2.5/demos/setup/ocm_setup.sh | bash
+    wget -O - https://github.com/stolostron/hub-of-hubs/blob/release-2.6/cicd-scripts/ocm_setup.sh | bash
   fi
 }
 
