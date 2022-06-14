@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-intervals
+  namespace: hoh-system
+data:
+  managed_clusters: "5s"
+  policies: "5s"
+  control_info: "60m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hub-of-hubs/agent
+  namespace: open-cluster-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: hub-of-hubs/agent
+  template:
+    metadata:
+      labels:
+        name: hub-of-hubs/agent
+    spec:
+      serviceAccountName: hub-of-hubs/agent
+      containers:
+        - name: hub-of-hubs/agent
+          image: ${REGISTRY}/hub-of-hubs/agent:${IMAGE_TAG}
+          args:
+            - '--zap-devel=true'
+            - --pod-namespace=$(POD_NAMESPACE)
+            - --leaf-hub-name=${LEAF_HUB_NAME}
+            - --kafka-bootstrap-server=${KAFKA_BOOTSTRAP_SERVER}
+            - --kafka-ssl-ca=${KAFKA_SSL_CA}
+          imagePullPolicy: Always
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                 apiVersion: v1
+                 fieldPath: metadata.namespace
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                 apiVersion: v1
+                 fieldPath: metadata.namespace

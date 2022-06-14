@@ -1,0 +1,211 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hub-of-hubs/agent
+  namespace: open-cluster-management
+---
+
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hub-of-hubs/agent-spec
+rules:
+- apiGroups:
+  - "policy.open-cluster-management.io"
+  - "apps.open-cluster-management.io"
+  - "hub-of-hubs.open-cluster-management.io"
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - deletecollection
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - placements
+  - managedclustersets
+  - managedclustersetbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - deletecollection
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - managedclustersets/join
+  - managedclustersets/bind
+  verbs:
+  - create
+  - delete
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - managedclusters
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - pods
+  - configmaps
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - users
+  - groups
+  - serviceaccounts
+  verbs:
+  - impersonate
+- apiGroups:
+  - "app.k8s.io"
+  resources:
+  - applications
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - deletecollection
+---
+
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hub-of-hubs/agent-spec
+subjects:
+- kind: ServiceAccount
+  name: hub-of-hubs/agent
+  namespace: open-cluster-management
+roleRef:
+  kind: ClusterRole
+  name: hub-of-hubs/agent-spec
+  apiGroup: rbac.authorization.k8s.io
+---
+
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hub-of-hubs/agent-status
+subjects:
+- kind: ServiceAccount
+  name: hub-of-hubs/agent
+  namespace: open-cluster-management
+roleRef:
+  kind: ClusterRole
+  name: hub-of-hubs/agent-status
+  apiGroup: rbac.authorization.k8s.io
+---
+
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hub-of-hubs/agent-status
+rules:
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - managedclusters
+  - managedclusters/finalizers
+  - placementdecisions
+  - placementdecisions/finalizers
+  - placements
+  - placements/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - policy.open-cluster-management.io
+  resources:
+  - policies
+  - policies/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - hub-of-hubs.open-cluster-management.io
+  resources:
+  - configs
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - namespaces
+  - configmaps
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.open-cluster-management.io
+  resources:
+  - placementrules
+  - placementrules/finalizers
+  - subscriptionstatuses
+  - subscriptionstatuses/finalizers
+  - subscriptionreports
+  - subscriptionreports/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+  - delete
+

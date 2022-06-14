@@ -1,5 +1,0 @@
-# emacs backup files
-*~
-
-# ignore 'hub-of-hubs-postgresql' repository folder which is downloaded during deploy
-hub-of-hubs-postgresql/

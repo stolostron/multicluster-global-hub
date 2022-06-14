@@ -64,7 +64,7 @@ See [package diagram](ui_packages.md).
 ### Transport options
 
 * [hub-of-hubs-sync-service](https://github.com/stolostron/hub-of-hubs-sync-service)
-* [hub-of-hubs-kafka-transport](https://github.com/stolostron/hub-of-hubs-kafka-transport)
+* [hub-of-hubs/pkg/kafka](https://github.com/stolostron/hub-of-hubs/pkg/kafka)
 
 ### Message Compression
 
