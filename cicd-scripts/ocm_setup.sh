@@ -12,7 +12,6 @@
 #  the ocm_setup.sh script must be located under the same directory as the ocm_clean.sh 
 #
 
-
 HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-1}
 MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-2}
 
@@ -134,8 +133,8 @@ done
 
 # init application-lifecycle
 function initApp() {
-  hub="kind-${1}"
-  managed="kind-${2}"
+  hub="$1"
+  managed="$2"
   SECOND=0
   while true; do
     if [ $SECOND -gt 12000 ]; then
@@ -169,8 +168,8 @@ function initApp() {
       echo -e "Application ${managed} \n $managedSubAvailable"
       break
     else
-      sleep 10
-      (( SECOND = SECOND + 10 ))
+      sleep 5
+      (( SECOND = SECOND + 5 ))
     fi
   done
 }
@@ -179,15 +178,15 @@ function initApp() {
 # init app
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
-    initApp "hub${i}" "hub${i}-cluster${j}" >> "${LOG}" 2>&1 &
+    initApp "kind-hub${i}" "kind-hub${i}-cluster${j}" >> "${LOG}" 2>&1 &
     hover $! "Application hub${i}-cluster${j}" 
   done
 done
 
 function initPolicy() {
-  hub="kind-${1}"
-  kindHub="${1}"
-  managed="kind-${2}"
+  hub="$1"
+  managed="$2"
+  HUB_KUBECONFIG="$3"
   SECOND=0
   while true; do
     if [ $SECOND -gt 12000 ]; then
@@ -200,9 +199,6 @@ function initPolicy() {
     # Deploy the policy framework hub controllers
     kubectl config use-context "${hub}"
     HUB_NAMESPACE="open-cluster-management"
-    HUB_KUBECONFIG=${CONFIG_DIR}/${hub}_kubeconfig
-    
-    kind get kubeconfig --name "${kindHub}" --internal > "${HUB_KUBECONFIG}"
 
     policyPropagator=$(kubectl get pods -n "${HUB_NAMESPACE}" --context "${hub}" --ignore-not-found | grep "governance-policy-propagator")
     if [[ ${policyPropagator} == "" ]]; then 
@@ -222,8 +218,9 @@ function initPolicy() {
 
     # Deploy the synchronization components to the managed cluster(s)
     kubectl config use-context "${managed}" 
-    export MANAGED_NAMESPACE="open-cluster-management-agent-addon"
-    export GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io"
+    MANAGED_NAMESPACE="open-cluster-management-agent-addon"
+    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io"
+
     ## Create the namespace for the synchronization components
     kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
 
@@ -231,8 +228,10 @@ function initPolicy() {
     if [[ $(kubectl get secret --context "${managed}" --ignore-not-found | grep "hub-kubeconfig") == "" ]]; then 
       kubectl -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
     fi
+
     ## Apply the policy CRD
     kubectl apply -f ${GIT_PATH}/governance-policy-propagator/main/deploy/crds/policy.open-cluster-management.io_policies.yaml 
+
     ## Set the managed cluster name and create the namespace
     kubectl create ns "${managed}" --dry-run=client -o yaml | kubectl apply -f -
 
@@ -291,8 +290,10 @@ function initPolicy() {
 
 # init policy
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
+  HUB_KUBECONFIG=${CONFIG_DIR}/hub${i}_kubeconfig
+  kind get kubeconfig --name "hub${i}" --internal > "$HUB_KUBECONFIG"
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
-    initPolicy "hub${i}" "hub${i}-cluster${j}" >> "${LOG}" 2>&1 &
+    initPolicy "kind-hub${i}" "kind-hub${i}-cluster${j}" "$HUB_KUBECONFIG" >> "${LOG}" 2>&1 &
     hover $! "Policy hub${i}-cluster${j}" 
   done
 done

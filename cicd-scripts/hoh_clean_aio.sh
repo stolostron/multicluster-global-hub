@@ -16,8 +16,8 @@ rm "${CONFIG_DIR}/pid_hoh" >/dev/null 2>&1
 
 docker stop acm-hub-of-hubs
 docker volume prune -f 
-docker rmi quay.io/microshift/microshift-aio:latest
+docker rmi quay.io/microshift/microshift-aio:4.8.0-0.microshift-2022-04-20-182108
 
-wget -O - https://github.com/stolostron/hub-of-hubs/blob/main/cicd-scripts/ocm_clean.sh | bash
+bash ${CURRENT_DIR}/ocm_clean.sh
 
 rm -rf $CONFIG_DIR
