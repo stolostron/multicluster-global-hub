@@ -23,3 +23,5 @@ bin
 .vscode
 
 demos/setup/config/
+
+cicd-scripts/config

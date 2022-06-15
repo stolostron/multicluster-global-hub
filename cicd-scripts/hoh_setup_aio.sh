@@ -6,9 +6,11 @@
 #  kubectl client
 #  clusteradm client: MacOS M1 needs to install clusteradm in advance
 
-source ./ocm_setup.sh
-
+ROOT_DIR="$(cd "$(dirname "$0")/.." ; pwd -P)"
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
+
+source ${CURRENT_DIR}/common.sh
+
 CONFIG_DIR=${CURRENT_DIR}/config
 LOG=${CONFIG_DIR}/setup_hoh.log
 
@@ -44,6 +46,7 @@ function hover() {
   printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message} Done! "; sleep ${delay}
 }
 
+export KUBECONFIG=${KUBECONFIG}
 sleep 1 &
 hover $! "export KUBECONFIG=${KUBECONFIG}"
 
@@ -150,3 +153,9 @@ initPolicy $CTX_HUB $CTX_MANAGED $HUB_KUBECONFIG >> "${LOG}" 2>&1 &
 hover $! "HoH Policy $CTX_HUB - $CTX_MANAGED" 
 
 printf "%s\033[0;32m%s\n\033[0m " "[Access the Clusters]: " "export KUBECONFIG=$KUBECONFIG"
+
+
+
+
+
+

@@ -7,16 +7,13 @@ fmt:
 	@go fmt ./pkg/...
 	@gofumpt -w ./pkg/
 
-.PHONY: check
-check: fmt
-	@../cicd-scripts/check-variables.sh
 
-connection label policy app : fmt check
-	@../cicd-scripts/run-tests.sh -f $@ -v $(verbose)
+connection label policy app : fmt
+	@../cicd-scripts/run-e2e-tests.sh -f $@ -v $(verbose)
 
 .PHONY: all
-all: fmt check
-	@../cicd-scripts/run-tests.sh -f "connection && label && policy && app" -v $(verbose)
+all: fmt
+	@../cicd-scripts/run-e2e-tests.sh -f "connection && label && policy && app" -v $(verbose)
 
 .PHONY: vendor			
 vendor:
