@@ -36,11 +36,11 @@ hover $! "export KUBECONFIG=${KUBECONFIG}" "${PID}"
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   initKinDCluster "hub${i}" >> "${LOG}" 2>&1 & 
   hover $! "Create KinD Cluster hub${i}" "${PID}"
-  enableRouter "kind-hub${i}" "${CURRENT_DIR}/router/" >> "$LOG" 2>&1
+  enableRouter "kind-hub${i}" >> "$LOG" 2>&1
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     initKinDCluster "hub${i}-cluster${j}" >> "${LOG}" 2>&1 & 
     hover $! "Create KinD Cluster hub${i}-cluster${j}" "${PID}"
-    enableRouter "kind-hub${i}-cluster${j}" "${CURRENT_DIR}/router/" >> "$LOG" 2>&1
+    enableRouter "kind-hub${i}-cluster${j}" >> "$LOG" 2>&1
   done
 done
 

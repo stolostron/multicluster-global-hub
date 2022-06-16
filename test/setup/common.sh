@@ -116,13 +116,9 @@ enableServiceCA() {
 enableRouter() {
   kubectl config use-context "$1"
   kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
-  # kubectl apply -f "$2"
-  kubectl create ns openshift-ingress 
-  kubectl apply -f https://raw.githubusercontent.com/openshift/router/master/deploy/route_crd.yaml
-  sleep 2
-  kubectl apply -f https://raw.githubusercontent.com/openshift/router/master/deploy/router.yaml
-  sleep 2
-  kubectl apply -f https://raw.githubusercontent.com/openshift/router/master/deploy/router_rbac.yaml
+  kubectl apply -f https://raw.githubusercontent.com/openshift/router/release-4.12/deploy/route_crd.yaml
+  kubectl apply -f https://raw.githubusercontent.com/openshift/router/release-4.12/deploy/router.yaml
+  kubectl apply -f https://raw.githubusercontent.com/openshift/router/release-4.12/deploy/router_rbac.yaml
 }
 
 # init application-lifecycle
@@ -273,5 +269,21 @@ function initPolicy() {
 
     sleep 5
     (( SECOND = SECOND + 5 ))
+  done
+}
+
+# deploy olm
+function addOperatorLifecycleManager() {
+  CTX_HUB="$1"
+  kubectl config use-context "$CTX_HUB"
+  kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/crds.yaml
+  kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/olm.yaml
+  olmMessage=$(kubectl get csv -n olm --ignore-not-found | grep "packageserver" | awk '{print $5}' | grep "Succeeded") 
+  while [[ -z "$olmMessage" ]]; do
+    echo "Waiting for OLM to become available"
+    kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/crds.yaml
+    kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/olm.yaml
+    sleep 20
+    olmMessage=$(kubectl get csv -n olm --ignore-not-found | grep "packageserver" | awk '{print $5}' | grep "Succeeded")
   done
 }

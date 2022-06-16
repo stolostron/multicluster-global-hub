@@ -27,7 +27,7 @@ hover $! "KUBECONFIG=${KUBECONFIG}" "$PID"
 # init hub-of-hubs cluster
 initKinDCluster "$HUB_OF_HUB_NAME" >> "${LOG}" 2>&1 & 
 hover $! "HoH Create KinD Cluster $HUB_OF_HUB_NAME" "$PID"
-enableRouter "kind-$HUB_OF_HUB_NAME" "${CURRENT_DIR}/router/" >> "$LOG" 2>&1
+enableRouter "kind-$HUB_OF_HUB_NAME" >> "$LOG" 2>&1
 enableServiceCA "kind-$HUB_OF_HUB_NAME" "${CURRENT_DIR}/service-ca/" >> "$LOG" 2>&1
 
 # init leaf hub cluster
@@ -51,5 +51,8 @@ HUB_KUBECONFIG=${CONFIG_DIR}/kubeconfig_${CTX_HUB}
 kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HUB_KUBECONFIG"
 initPolicy $CTX_HUB $CTX_MANAGED $HUB_KUBECONFIG >> "${LOG}" 2>&1 &
 hover $! "HoH Policy $CTX_HUB - $CTX_MANAGED" "$PID"
+
+addOperatorLifecycleManager "$CTX_HUB" >> "${LOG}" 2>&1 &
+hover $! "HoH OLM $CTX_HUB" "$PID"
 
 printf "%s\033[0;32m%s\n\033[0m" "[Access the Clusters]: " "export KUBECONFIG=$KUBECONFIG"
