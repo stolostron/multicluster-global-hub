@@ -20,7 +20,11 @@ policies and/or applications applied to each cluster.
 
 ## Getting started
 
-The [demos](demos).
+1. [Hub-of-Hubs Installation](https://www.veed.io/view/2e326359-4888-475d-adb8-920195b2f91e)
+![Hub-of-Hubs Installation](./demos/installation.gif)
+2. [Hub-of-Hubs Demos](https://www.veed.io/view/167b2506-9531-4f68-a14f-a9ee6ef8342f)
+![Hub-of-Hubs Demo](./demos/demo.gif)
+
 
 ## Deployment
 
