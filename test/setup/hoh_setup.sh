@@ -27,8 +27,9 @@ hover $! "KUBECONFIG=${KUBECONFIG}" "$PID"
 # init hub-of-hubs cluster
 initKinDCluster "$HUB_OF_HUB_NAME" >> "${LOG}" 2>&1 & 
 hover $! "HoH Create KinD Cluster $HUB_OF_HUB_NAME" "$PID"
+enableCRDs "kind-$HUB_OF_HUB_NAME" "${CURRENT_DIR}/crds/" >> "$LOG" 2>&1
 enableRouter "kind-$HUB_OF_HUB_NAME" >> "$LOG" 2>&1
-enableServiceCA "kind-$HUB_OF_HUB_NAME" "${CURRENT_DIR}/service-ca/" >> "$LOG" 2>&1
+enableServiceCA "kind-$HUB_OF_HUB_NAME" >> "$LOG" 2>&1
 
 # init leaf hub cluster
 bash ${CURRENT_DIR}/ocm_setup.sh >> $LOG 2>&1 &

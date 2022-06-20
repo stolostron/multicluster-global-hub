@@ -100,25 +100,38 @@ function initManaged() {
       break
     elif [[ "${hubManagedCluster}" != "" && $(echo "${hubManagedCluster}" | awk '{print $2}') == "false" ]]; then
       kubectl patch managedcluster "${managed}" -p='{"spec":{"hubAcceptsClient":true}}' --type=merge --context "${hub}"
-    else
-      sleep 5
-      (( SECOND = SECOND + 5 ))
     fi
+    sleep 5
+    (( SECOND = SECOND + 5 ))
   done
+}
+
+enableCRDs() {
+  kubectl config use-context "$1"
+  kubectl apply -f "$2"
 }
 
 enableServiceCA() {
   kubectl config use-context "$1"
   kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
-  kubectl apply -f "$2"
+  GIT_PATH="https://github.com/openshift/service-ca-operator/blob/release-4.12"
+  kubectl apply -f $GIT_PATH/manifests/00_roles.yaml
+  kubectl apply -f $GIT_PATH/manifests/01_namespace.yaml
+  kubectl apply -f $GIT_PATH/manifests/02_service.yaml
+  kubectl apply -f $GIT_PATH/manifests/03_cm.yaml
+  kubectl apply -f $GIT_PATH/manifests/03_operator.cr.yaml
+  kubectl apply -f $GIT_PATH/manifests/04_sa.yaml
+  kubectl apply -f $GIT_PATH/manifests/05_deploy.yaml
+  kubectl apply -f $GIT_PATH/manifests/07_clusteroperator.yaml
 }
 
 enableRouter() {
   kubectl config use-context "$1"
   kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
-  kubectl apply -f https://raw.githubusercontent.com/openshift/router/release-4.12/deploy/route_crd.yaml
-  kubectl apply -f https://raw.githubusercontent.com/openshift/router/release-4.12/deploy/router.yaml
-  kubectl apply -f https://raw.githubusercontent.com/openshift/router/release-4.12/deploy/router_rbac.yaml
+  GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
+  kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
+  kubectl apply -f $GIT_PATH/deploy/router.yaml
+  kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
 }
 
 # init application-lifecycle
@@ -267,8 +280,8 @@ function initPolicy() {
       break;
     fi 
 
-    sleep 5
-    (( SECOND = SECOND + 5 ))
+    sleep 10
+    (( SECOND = SECOND + 10 ))
   done
 }
 
@@ -276,14 +289,13 @@ function initPolicy() {
 function addOperatorLifecycleManager() {
   CTX_HUB="$1"
   kubectl config use-context "$CTX_HUB"
-  kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/crds.yaml
-  kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/olm.yaml
+  kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/release-4.7/deploy/upstream/quickstart/crds.yaml
+  kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/release-4.7/deploy/upstream/quickstart/olm.yaml
   olmMessage=$(kubectl get csv -n olm --ignore-not-found | grep "packageserver" | awk '{print $5}' | grep "Succeeded") 
+  SECOND=0
   while [[ -z "$olmMessage" ]]; do
     echo "Waiting for OLM to become available"
-    kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/crds.yaml
-    kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/olm.yaml
-    sleep 20
+    sleep 10
     olmMessage=$(kubectl get csv -n olm --ignore-not-found | grep "packageserver" | awk '{print $5}' | grep "Succeeded")
   done
 }
