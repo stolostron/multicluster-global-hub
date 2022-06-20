@@ -21,3 +21,8 @@ vendor/
 bin
 
 .vscode
+
+
+demos/setup/config/
+
+test/setup/config/
