@@ -20,8 +20,9 @@ policies and/or applications applied to each cluster.
 
 ## Getting started
 
-<iframe src="https://www.veed.io/embed/167b2506-9531-4f68-a14f-a9ee6ef8342f" width="744" height="504" frameborder="0" title="Veed Recording - 20 June 2022" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
-<iframe src="https://www.veed.io/embed/2e326359-4888-475d-adb8-920195b2f91e" width="744" height="504" frameborder="0" title="Veed Recording - 20 June 2022" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+![Hub-of-Hubs Installation](./demos/installation.gif)
+![Hub-of-Hubs Demo](./demos/demo.gif)
+
 
 ## Deployment
 
