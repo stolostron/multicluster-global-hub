@@ -1,24 +1,17 @@
 #!/bin/bash
 #
 # PREREQUISITE:
-#  Docker
-#  KinD v0.12.0  https://kind.sigs.k8s.io/docs/user/quick-start/ 
-#  kubectl client
-#  clusteradm client: MacOS M1 needs to install clusteradm in advance
+#  Docker KinD kubectl clusteradm 
 # PARAMETERS:
 #  ENV HUB_CLUSTER_NUM
 #  ENV MANAGED_CLUSTER_NUM
-# NOTE:
-#  the ocm_setup.sh script must be located under the same directory as the ocm_clean.sh 
-#
 
 HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-1}
 MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-2}
 
-ROOT_DIR=$(cd "$(dirname "$0")/../.." ; pwd -P)
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
-LOG=${CONFIG_DIR}/ocm_setup.log
+LOG=${CONFIG_DIR}/leafhub_setup.log
 PID=${CONFIG_DIR}/pid
 
 source ${CURRENT_DIR}/common.sh
