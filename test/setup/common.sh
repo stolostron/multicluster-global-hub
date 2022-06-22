@@ -1,5 +1,4 @@
 
-
 function checkEnv() {
   name="$1"
   value="$2"
@@ -56,12 +55,10 @@ function checkKind() {
 
 function initKinDCluster() {
   clusterName=$1
-  while [[ $(kind get clusters | grep "^${clusterName}$") != "${clusterName}" ]]; do
-    kind create cluster --name "$clusterName" --image kindest/node:v1.23.4 --wait 40s
-  done
-  # enable the applications.app.k8s.io
-  kubectl config use-context "kind-${clusterName}"
-  kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml
+  image="kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae" # or kindest/node:v1.23.4 
+  if [[ $(kind get clusters | grep "^${clusterName}$") != "${clusterName}" ]]; then
+    kind create cluster --name "$clusterName" --image "$image" --wait 100s                              
+  fi
 }
 
 function initHub() {
@@ -106,25 +103,6 @@ function initManaged() {
   done
 }
 
-enableCRDs() {
-  kubectl config use-context "$1"
-  kubectl apply -f "$2"
-}
-
-enableServiceCA() {
-  kubectl config use-context "$1"
-  kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
-  GIT_PATH="https://github.com/openshift/service-ca-operator/blob/release-4.12"
-  kubectl apply -f $GIT_PATH/manifests/00_roles.yaml
-  kubectl apply -f $GIT_PATH/manifests/01_namespace.yaml
-  kubectl apply -f $GIT_PATH/manifests/02_service.yaml
-  kubectl apply -f $GIT_PATH/manifests/03_cm.yaml
-  kubectl apply -f $GIT_PATH/manifests/03_operator.cr.yaml
-  kubectl apply -f $GIT_PATH/manifests/04_sa.yaml
-  kubectl apply -f $GIT_PATH/manifests/05_deploy.yaml
-  kubectl apply -f $GIT_PATH/manifests/07_clusteroperator.yaml
-}
-
 enableRouter() {
   kubectl config use-context "$1"
   kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
@@ -139,9 +117,13 @@ function initApp() {
   hub="$1"
   managed="$2"
   echo "init application: $1 - $2"
+  # enable the applications.app.k8s.io
+  kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml --context "${hub}"
+  kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml --context "${managed}"
+
   SECOND=0
   while true; do
-    if [ $SECOND -gt 12000 ]; then
+    if [ $SECOND -gt 600 ]; then
       echo "Timeout waiting for ${hub} + ${managed}."
       exit 1
     fi
@@ -150,6 +132,7 @@ function initApp() {
     kubectl config use-context "${hub}"
     hubSubOperator=$(kubectl -n open-cluster-management get deploy multicluster-operators-subscription --context "${hub}" --ignore-not-found)
     if [[ "${hubSubOperator}" == "" ]]; then 
+      echo "$hub install hub-addon application-manager"
       clusteradm install hub-addon --names application-manager
       sleep 2
     fi
@@ -157,6 +140,7 @@ function initApp() {
     # create ocm-agent-addon namespace on the managed cluster
     managedAgentAddonNS=$(kubectl get ns --context "${managed}" --ignore-not-found | grep "open-cluster-management-agent-addon")
     if [[ "${managedAgentAddonNS}" == "" ]]; then
+      echo "create namespace open-cluster-management-agent-addon on ${managed}"
       kubectl create ns open-cluster-management-agent-addon --context "${managed}"
     fi
 
@@ -164,19 +148,19 @@ function initApp() {
     hubManagedClusterAddon=$(kubectl -n "${managed}" get managedclusteraddon --context "${hub}" --ignore-not-found | grep application-manager)
     if [[ "${hubManagedClusterAddon}" == "" ]]; then
       kubectl config use-context "${hub}"
+      echo "deploy the the subscription add-on to the managed cluster: $hub - $managed"
       clusteradm addon enable --name application-manager --cluster "${managed}"
     fi 
 
     managedSubAvailable=$(kubectl -n open-cluster-management-agent-addon get deploy --context "${managed}" --ignore-not-found | grep "application-manager")
     if [[ "${managedSubAvailable}" != "" && $(echo "${managedSubAvailable}" | awk '{print $4}') -gt 0 ]]; then
-      echo "Application ${managed} \n $managedSubAvailable"
+      echo "Application installed $hub - ${managed}: $managedSubAvailable"
       break
     else
       sleep 5
       (( SECOND = SECOND + 5 ))
     fi
   done
-  echo "finished application-lifecycle"
 }
 
 function initPolicy() {
@@ -186,7 +170,7 @@ function initPolicy() {
   HUB_KUBECONFIG="$3"
   SECOND=0
   while true; do
-    if [ $SECOND -gt 12000 ]; then
+    if [ $SECOND -gt 1200 ]; then
       echo "Timeout waiting for ${hub} + ${managed}."
       exit 1
     fi
@@ -202,7 +186,7 @@ function initPolicy() {
       kubectl create ns ${HUB_NAMESPACE} > /dev/null 2>&1
       GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/main/deploy"
       ## Apply the CRDs
-      kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
+      kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml 
       kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml 
       kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
       kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
@@ -285,17 +269,14 @@ function initPolicy() {
   done
 }
 
-# deploy olm
-function addOperatorLifecycleManager() {
-  CTX_HUB="$1"
-  kubectl config use-context "$CTX_HUB"
-  kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/release-4.7/deploy/upstream/quickstart/crds.yaml
-  kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/release-4.7/deploy/upstream/quickstart/olm.yaml
-  olmMessage=$(kubectl get csv -n olm --ignore-not-found | grep "packageserver" | awk '{print $5}' | grep "Succeeded") 
-  SECOND=0
-  while [[ -z "$olmMessage" ]]; do
-    echo "Waiting for OLM to become available"
-    sleep 10
-    olmMessage=$(kubectl get csv -n olm --ignore-not-found | grep "packageserver" | awk '{print $5}' | grep "Succeeded")
-  done
+enableCRDs() {
+  kubectl config use-context "$1"
+  kubectl apply -f "$2"
+}
+
+enableServiceCA() {
+  kubectl config use-context "$1"
+  kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f "$2"
+  echo "Enabled Service CA"
 }
