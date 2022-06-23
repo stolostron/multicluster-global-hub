@@ -1,13 +1,24 @@
 #!/bin/bash
 # Source this script to enable the postgres in hub-of-hubs. DATABASE_URL_HOH and DATABASE_URL_HOH could be used to init hub-of-hubs
 
-function installPostgres() {
-  currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+function enablePostgresOperator() {
+  POSTGRES_OPERATOR=${POSTGRES_OPERATOR:-"pgo"}
+  # ensure the pgo operator crd and other stuff is deleted first to start its deployment from scratch
+  kubectl delete -k ${currentDir}/postgres-operator --ignore-not-found=true 2>/dev/null
+  # install the pgo operator to postgres-operator
+  kubectl apply -k ${currentDir}/postgres-operator
+  kubectl -n postgres-operator wait --for=condition=Available Deployment/$POSTGRES_OPERATOR --timeout=1000s
+  echo "$POSTGRES_OPERATOR is ready!"
+}
+
+function deployPostgresCluster() {
   namespace="hoh-postgres"
   userSecrets=("hoh-pguser-hoh-process-user" "hoh-pguser-postgres" "hoh-pguser-transport-bridge-user")
 
-  # ensure the pgo operator crd and other stuff is deleted first to start its deployment from scratch
-  kubectl delete -k ${currentDir}/install --ignore-not-found=true 2>/dev/null
+  # ensure the pgo operator is deleted first to start its deployment from scratch
+  kubectl delete -k ${currentDir}/postgres-cluster --ignore-not-found=true 2>/dev/null
 
   # ensure all the user secrets are deleted
   for secret in ${userSecrets[@]}
@@ -20,8 +31,7 @@ function installPostgres() {
     done
   done
 
-  # install the pgo operator to postgres-operator
-  kubectl apply -k ${currentDir}/install
+  kubectl apply -k ${currentDir}/postgres-cluster
 
   # ensure all the user secrets are created
   for secret in ${userSecrets[@]}
@@ -33,19 +43,13 @@ function installPostgres() {
       sleep 10
     done
   done
-
-  kubectl delete -f ${currentDir}/postgres-job.yaml --ignore-not-found=true
-
-  IMAGE=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG 
-  envsubst < ${currentDir}/postgres-job.yaml | kubectl apply -f -
-
-  kubectl wait --for=condition=complete job/postgres-init -n $namespace --timeout=300s
-  kubectl logs $(kubectl get pods --field-selector status.phase=Succeeded  --selector=job-name=postgres-init -n $namespace  --output=jsonpath='{.items[*].metadata.name}') -n $namespace
 }
+
 
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
 if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
-  installPostgres
+  enablePostgresOperator
+  deployPostgresCluster
 
   namespace="hoh-postgres"
   processUser="hoh-pguser-hoh-process-user"
