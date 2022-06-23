@@ -1,5 +1,7 @@
+#!/bin/bash
+# Source this script to enable the kafka cluster for hub-of-hubs. The olm component must be install before exec this script.
 
-# Source this script to enable the kafka cluster for hub-of-hubs. The olm component must be install before exec the script.
+KAFKA_OPERATOR=${KAFKA_OPERATOR:-"strimzi-cluster-operator-v0.23.0"}
 
 function deployKafka() {
   # create namespace if not exists
@@ -10,16 +12,16 @@ function deployKafka() {
   kubectl apply -f ${currentDir}/kafka-operator.yaml
     
   # wait until operator is ready
-  operatorDeployed=$(kubectl -n kafka get Deployment/strimzi-cluster-operator-v0.23.0 --ignore-not-found)
+  operatorDeployed=$(kubectl -n kafka get Deployment/$KAFKA_OPERATOR --ignore-not-found)
   while [ -z "$operatorDeployed" ]; do
       echo "Waiting for strimzi-cluster-operator to become available"
       sleep 10
-      operatorDeployed=$(kubectl -n kafka get Deployment/strimzi-cluster-operator-v0.23.0 --ignore-not-found)
+      operatorDeployed=$(kubectl -n kafka get Deployment/$KAFKA_OPERATOR --ignore-not-found)
   done
-  kubectl -n kafka wait --for=condition=Available Deployment/strimzi-cluster-operator-v0.23.0 --timeout=600s
+  kubectl -n kafka wait --for=condition=Available Deployment/$KAFKA_OPERATOR --timeout=600s
 
   # deploy Kafka cluster CR
-  curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-kafka-transport/$branch/deploy/kafka-cluster.yaml" | kubectl apply -f -
+  kubectl apply -f ${currentDir}/kafka-cluster.yaml
   clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found)
   while [ -z "$clusterIsReady" ]; do
     echo "Waiting for kafka cluster to become available"
