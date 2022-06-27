@@ -38,7 +38,7 @@ const (
 	METRICS_PORT               = 9435
 	TRANSPORT_TYPE_KAFKA       = "kafka"
 	TRANSPORT_TYPE_SYNC_SVC    = "sync-service"
-	LEADER_ELECTION_ID         = "hub-of-hubs/agent-lock"
+	LEADER_ELECTION_ID         = "hub-of-hubs-agent-lock"
 	HOH_LOCAL_NAMESPACE        = "hoh-local"
 	INCARNATION_CONFIG_MAP_KEY = "incarnation"
 	BASE10                     = 10
