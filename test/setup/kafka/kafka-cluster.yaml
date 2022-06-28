@@ -25,9 +25,12 @@ spec:
         configuration:
           useServiceDnsDomain: true
       - name: external
-        port: 9093
-        type: route
-        tls: true
+        port: 9095
+        type: nodeport
+        tls: false
+        configuration:
+          bootstrap: 
+            nodePort: 30095
     config:
       auto.create.topics.enable: "false"
       offsets.topic.replication.factor: 2
@@ -51,31 +54,3 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
----
-
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: spec
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: kafka-brokers-cluster
-spec:
-  partitions: 1
-  replicas: 2
-  config:
-    cleanup.policy: compact
----
-
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: status
-  namespace: kafka
-  labels:
-    strimzi.io/cluster: kafka-brokers-cluster
-spec:
-  partitions: 1
-  replicas: 2
-  config:
-    cleanup.policy: compact
