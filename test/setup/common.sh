@@ -15,14 +15,15 @@ function checkDir() {
 }
 
 function hover() {
-  local pid=$1; message=${2:-Processing!}; pid_log=${3:-"./config/pid"}; delay=0.2
-  echo "$pid" > "$pid_log"
+  local pid=$1; message=${2:-Processing!}; delay=0.2
+  currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  echo "$pid" > "${currentDir}/config/pid"
   signs=(🙉 🙈 🙊)
   while ( kill -0 "$pid" 2>/dev/null ); do
     index="${RANDOM} % ${#signs[@]}"
     printf "\e[38;5;$((RANDOM%257))m%s\r\e[0m" "[$(date '+%H:%M:%S')]  ${signs[${index}]}  ${message} ..."; sleep ${delay}
   done
-  printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message} Done! "; sleep ${delay}
+  printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message}"; sleep ${delay}
 }
 
 function checkKubectl() {
@@ -57,7 +58,8 @@ function initKinDCluster() {
   clusterName=$1
   image="kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae" # or kindest/node:v1.23.4 
   if [[ $(kind get clusters | grep "^${clusterName}$") != "${clusterName}" ]]; then
-    kind create cluster --name "$clusterName" --image "$image" --wait 100s                              
+    [ ! -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image")  
+    [ -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image" --config $2)                      
   fi
 }
 
@@ -101,15 +103,6 @@ function initManaged() {
     sleep 5
     (( SECOND = SECOND + 5 ))
   done
-}
-
-enableRouter() {
-  kubectl config use-context "$1"
-  kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
-  GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
-  kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
-  kubectl apply -f $GIT_PATH/deploy/router.yaml
-  kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
 }
 
 # init application-lifecycle
@@ -269,14 +262,59 @@ function initPolicy() {
   done
 }
 
-enableCRDs() {
+function enableDependencyResources() {
   kubectl config use-context "$1"
-  kubectl apply -f "$2"
+  # crd
+  currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  kubectl apply -f ${currentDir}/crds
+
+  # router
+  kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
+  GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
+  kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
+  kubectl apply -f $GIT_PATH/deploy/router.yaml
+  kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
+
+  # service ca
+  kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f ${currentDir}/service-ca
 }
 
-enableServiceCA() {
+# deploy olm
+function enableOLM() {
   kubectl config use-context "$1"
-  kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
-  kubectl apply -f "$2"
-  echo "Enabled Service CA"
+  NS=olm
+  csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+  if [[ "$csvPhase" == "Succeeded" ]]; then
+    echo "OLM is already installed in ${NS} namespace. Exiting..."
+    exit 1
+  fi
+  
+  GIT_PATH="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.21.2"
+  kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
+  kubectl wait --for=condition=Established -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
+  sleep 10
+  kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
+
+  retries=60
+  until [[ $retries == 0 ]]; do
+    csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+    if [[ "$csvPhase" == "Succeeded" ]]; then
+      break
+    fi
+    kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
+    kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
+    echo "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
+    echo "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
+    sleep 20
+    retries=$((retries - 1))
+
+  done
+  kubectl rollout status -w deployment/packageserver --namespace="${NS}" 
+
+  if [ $retries == 0 ]; then
+    echo "CSV \"packageserver\" failed to reach phase succeeded"
+    exit 1
+  fi
+  echo "CSV \"packageserver\" install succeeded"
 }

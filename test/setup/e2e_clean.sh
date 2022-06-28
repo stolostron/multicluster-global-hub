@@ -31,10 +31,6 @@ while read -r line; do
   fi
 done <"${PID}"
 
-ps -ef |grep "setup" |grep -v grep |awk '{print $2}' | xargs kill -9
-
-rm "${PID}" >/dev/null 2>&1
-
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   kind delete cluster --name "hub${i}"
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
@@ -42,6 +38,9 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   done
 done
 kind delete cluster --name "$HUB_OF_HUB_NAME"
+rm "${PID}" >/dev/null 2>&1
 rm -rf "$CONFIG_DIR"
+ps -ef |grep "setup" |grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1
+
 
 
