@@ -112,7 +112,7 @@ func parseFlags() (*hohManagerConfig, error) {
 	pflag.StringVar(&managerConfig.transportCommonConfig.transportType, "transport-type", "kafka", "The transport type, 'kafka' or 'sync-service'.")
 	pflag.StringVar(&managerConfig.transportCommonConfig.msgCompressionType, "transport-message-compression-type", "gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
 	pflag.DurationVar(&managerConfig.transportCommonConfig.committerInterval, "transport-committer-interval", 40*time.Second, "The committer interval for transport layer.")
-	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bookstrap-server", "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
+	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bookstrap-server", "kafka-brokers-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092", "The bootstrap server for kafka.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerID, "kakfa-producer-id", "hub-of-hubs", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerTopic, "kakfa-producer-topic", "spec", "Topic for the kafka producer.")
 	pflag.IntVar(&managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 940, "The limit for kafka message size in KB.")

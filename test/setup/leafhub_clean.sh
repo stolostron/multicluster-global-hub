@@ -20,13 +20,12 @@ while read -r line; do
   fi
 done <"$PID"
 
-rm "$PID" >/dev/null 2>&1
-ps -ef |grep "setup" |grep -v grep |awk '{print $2}' | xargs kill -9
-
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   kind delete cluster --name "hub${i}"
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     kind delete cluster --name "hub${i}-cluster${j}"
   done
 done
+rm "$PID" >/dev/null 2>&1
+ps -ef |grep "setup" |grep -v grep |awk '{print $2}' | xargs kill -9
 rm -rf "$CONFIG_DIR"

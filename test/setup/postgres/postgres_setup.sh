@@ -45,16 +45,9 @@ function deployPostgresCluster() {
   done
 }
 
-
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
-if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
+if [ -z "${DATABASE_URL_HOH-}" ] || [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
   enablePostgresOperator
   deployPostgresCluster
-
-  namespace="hoh-postgres"
-  processUser="hoh-pguser-hoh-process-user"
-  transportUser="hoh-pguser-transport-bridge-user"
-
-  DATABASE_URL_HOH="$(kubectl get secrets -n "${namespace}" "${processUser}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
-  DATABASE_URL_TRANSPORT="$(kubectl get secrets -n "${namespace}" "${transportUser}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
 fi
+

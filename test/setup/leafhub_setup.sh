@@ -11,8 +11,7 @@ MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-2}
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
-LOG=${CONFIG_DIR}/leafhub_setup.log
-PID=${CONFIG_DIR}/pid
+LOG=${LOG:-$CONFIG_DIR/leafhub_setup.log}
 
 source ${CURRENT_DIR}/common.sh
 
@@ -23,16 +22,16 @@ checkClusteradm
 
 KUBECONFIG=${KUBECONFIG:-CONFIG_DIR/kubeconfig}
 sleep 1 &
-hover $! "export KUBECONFIG=${KUBECONFIG}" "${PID}"
+hover $! "  Leaf Hub: export KUBECONFIG=${KUBECONFIG}" 
 
 # initCluster
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   initKinDCluster "hub${i}" >> "${LOG}" 2>&1 & 
-  hover $! "Create KinD Cluster hub${i}" "${PID}"
+  hover $! "  Create KinD Cluster hub${i}" 
   enableRouter "kind-hub${i}" >> "$LOG" 2>&1
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     initKinDCluster "hub${i}-cluster${j}" >> "${LOG}" 2>&1 & 
-    hover $! "Create KinD Cluster hub${i}-cluster${j}" "${PID}"
+    hover $! "  Create KinD Cluster hub${i}-cluster${j}" 
     enableRouter "kind-hub${i}-cluster${j}" >> "$LOG" 2>&1
   done
 done
@@ -40,10 +39,10 @@ done
 # init ocm
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   initHub "kind-hub${i}" "${CONFIG_DIR}/kind-hub${i}" >> "${LOG}" 2>&1 &
-  hover $! "OCM init hub kind-hub${i}" "${PID}"
+  hover $! "  OCM init hub kind-hub${i}" 
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     initManaged "kind-hub${i}" "kind-hub${i}-cluster${j}" "${CONFIG_DIR}/kind-hub${i}" >> "${LOG}" 2>&1 &
-    hover $! "OCM join managed kind-hub${i}-cluster${j}" "${PID}"
+    hover $! "  OCM join managed kind-hub${i}-cluster${j}" 
   done
 done
 
@@ -51,7 +50,7 @@ done
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     initApp "kind-hub${i}" "kind-hub${i}-cluster${j}" >> "${LOG}" 2>&1 &
-    hover $! "Application hub${i}-cluster${j}" "${PID}"
+    hover $! "  Application hub${i}-cluster${j}" 
   done
 done
 
@@ -61,8 +60,6 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   kind get kubeconfig --name "hub${i}" --internal > "$HUB_KUBECONFIG"
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     initPolicy "kind-hub${i}" "kind-hub${i}-cluster${j}" "$HUB_KUBECONFIG" >> "${LOG}" 2>&1 &
-    hover $! "Policy hub${i}-cluster${j}" "${PID}"
+    hover $! "  Policy hub${i}-cluster${j}" 
   done
 done
-
-printf "%s\033[0;32m%s\n\033[0m " "[Access the Clusters]: " "export KUBECONFIG=${KUBECONFIG}"
