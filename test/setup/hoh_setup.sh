@@ -22,7 +22,7 @@ function deployConfigResources() {
 
   # apply default HoH config CR
   isCrReady=$(kubectl get configs.hub-of-hubs.open-cluster-management.io hub-of-hubs-config -n hoh-system --ignore-not-found)
-  while [[ ! -z "$isCrReady" ]]; do
+  while [[ -z "$isCrReady" ]]; do
     sleep 5
     kubectl apply -f ${configDir}/cr.yaml
     isCrReady=$(kubectl get configs.hub-of-hubs.open-cluster-management.io hub-of-hubs-config -n hoh-system --ignore-not-found)
@@ -62,7 +62,7 @@ function deployController() {
   echo "created hub-of-hubs-manager"
 
   # skip hub cluster controller on the test
-  export ENFORCE_HOH_RBAC=${TRANSPORT_TYPE:-"false"}
+  export ENFORCE_HOH_RBAC=${ENFORCE_HOH_RBAC:-"false"}
   CONTAINER_ID=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' hub-of-hubs-control-plane)
   export KAFKA_BOOTSTRAP_SERVER="${CONTAINER_ID}/30095"
   envsubst < ${currentDir}/hoh/hub-of-hubs-addon.yaml | kubectl apply -f - -n "$namespace"
@@ -120,7 +120,7 @@ function updateAppAndPolicyImages() {
   # update the cluster-manager palacement image
   kubectl apply -f ${currentDir}/hoh/hub-of-hubs-cluster-manager.yaml
  
-  echo "HoH images is updated"
+  echo "HoH images is updated!"
 }
 
 deployConfigResources
