@@ -1,0 +1,294 @@
+apiVersion: work.open-cluster-management.io/v1
+kind: ManifestWork
+metadata:
+  labels:
+    open-cluster-management.io/addon-name: governance-policy-framework
+  name: addon-governance-policy-framework-deploy-hosted
+  namespace: hypermgt
+spec:
+  workload:
+    manifests:
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        labels:
+          app: governance-policy-framework
+          chart: governance-policy-framework-2.2.0
+          heritage: Helm
+          release: governance-policy-framework
+        name: governance-policy-framework-hosted
+        namespace: klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: governance-policy-framework
+            release: governance-policy-framework
+        strategy: {}
+        template:
+          metadata:
+            annotations:
+              target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+            creationTimestamp: null
+            labels:
+              app: governance-policy-framework
+              chart: governance-policy-framework-2.2.0
+              heritage: Helm
+              release: governance-policy-framework
+          spec:
+            affinity: {}
+            containers:
+            - args:
+              - --kubeconfig=/spoke/config/kubeconfig
+              - --hub-cluster-configfile=/var/run/klusterlet/kubeconfig
+              - --health-probe-bind-address=:8081
+              - --log-encoder=console
+              - --log-level=0
+              - --v=-1
+              command:
+              - governance-policy-spec-sync
+              env:
+              - name: WATCH_NAMESPACE
+                value: ${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+              - name: POD_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+              - name: OPERATOR_NAME
+                value: governance-policy-spec-sync
+              - name: HTTP_PROXY
+              - name: HTTPS_PROXY
+              - name: NO_PROXY
+              image: quay.io/stolostron/governance-policy-spec-sync@sha256:df06c007669d0cef748cc6085fa487a026bd9ae90002657cc019313b5d3ea072
+              imagePullPolicy: IfNotPresent
+              livenessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /healthz
+                  port: 8081
+                periodSeconds: 10
+              name: spec-sync
+              readinessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /readyz
+                  port: 8081
+                periodSeconds: 10
+              resources:
+                limits:
+                  memory: 256Mi
+                requests:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                  - ALL
+                privileged: false
+                readOnlyRootFilesystem: true
+              volumeMounts:
+              - mountPath: /var/run/klusterlet
+                name: klusterlet-config
+              - mountPath: /spoke/config
+                name: spoke-kubeconfig-secret
+                readOnly: true
+            - args:
+              - --enable-lease=true
+              - --managed-cluster-configfile=/spoke/config/kubeconfig
+              - --hub-cluster-configfile=/var/run/klusterlet/kubeconfig
+              - --health-probe-bind-address=:8082
+              - --log-encoder=console
+              - --log-level=0
+              - --v=-1
+              command:
+              - governance-policy-status-sync
+              env:
+              - name: WATCH_NAMESPACE
+                value: ${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+              - name: POD_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+              - name: OPERATOR_NAME
+                value: governance-policy-status-sync
+              - name: HTTP_PROXY
+              - name: HTTPS_PROXY
+              - name: NO_PROXY
+              image: quay.io/morvencao/governance-policy-status-sync:latest
+              imagePullPolicy: Always
+              livenessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /healthz
+                  port: 8082
+                periodSeconds: 10
+              name: status-sync
+              readinessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /readyz
+                  port: 8082
+                periodSeconds: 10
+              resources:
+                limits:
+                  memory: 256Mi
+                requests:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                  - ALL
+                privileged: false
+                readOnlyRootFilesystem: true
+              volumeMounts:
+              - mountPath: /var/run/klusterlet
+                name: klusterlet-config
+              - mountPath: /spoke/config
+                name: spoke-kubeconfig-secret
+                readOnly: true
+            - args:
+              - --kubeconfig=/spoke/config/kubeconfig
+              - --log-encoder=console
+              - --log-level=0
+              - --v=-1
+              command:
+              - governance-policy-template-sync
+              env:
+              - name: WATCH_NAMESPACE
+                value: ${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+              - name: POD_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+              - name: OPERATOR_NAME
+                value: governance-policy-template-sync
+              - name: HTTP_PROXY
+              - name: HTTPS_PROXY
+              - name: NO_PROXY
+              image: quay.io/stolostron/governance-policy-template-sync@sha256:2f7982eb544ba67139739105697b0c912c1904027639b8f5230332ad71cafab1
+              imagePullPolicy: IfNotPresent
+              name: template-sync
+              resources:
+                limits:
+                  memory: 256Mi
+                requests:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                  - ALL
+                privileged: false
+                readOnlyRootFilesystem: true
+              volumeMounts:
+              - mountPath: /spoke/config
+                name: spoke-kubeconfig-secret
+                readOnly: true
+            imagePullSecrets:
+            - name: open-cluster-management-image-pull-credentials
+            securityContext:
+              runAsNonRoot: true
+            serviceAccountName: governance-policy-framework-sa
+            tolerations:
+            - effect: NoSchedule
+              key: dedicated
+              operator: Equal
+              value: infra
+            - effect: NoSchedule
+              key: node-role.kubernetes.io/infra
+              operator: Exists
+            volumes:
+            - name: klusterlet-config
+              secret:
+                secretName: governance-policy-framework-hub-kubeconfig
+            - name: spoke-kubeconfig-secret
+              secret:
+                defaultMode: 420
+                secretName: external-managed-kubeconfig
+      status: {}
+    - apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        labels:
+          app: governance-policy-framework
+          chart: governance-policy-framework-2.2.0
+          heritage: Helm
+          release: governance-policy-framework
+        name: governance-policy-framework-leader
+        namespace: klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+      rules:
+      - apiGroups:
+        - ""
+        resources:
+        - pods
+        verbs:
+        - get
+        - list
+        - watch
+        - create
+        - update
+        - patch
+        - delete
+    #   rules:
+    #   - apiGroups:
+    #     - ""
+    #     resources:
+    #     - configmaps
+    #     verbs:
+    #     - get
+    #     - list
+    #     - watch
+    #     - create
+    #     - update
+    #     - patch
+    #     - delete
+    #   - apiGroups:
+    #     - coordination.k8s.io
+    #     resources:
+    #     - leases
+    #     verbs:
+    #     - get
+    #     - list
+    #     - watch
+    #     - create
+    #     - update
+    #     - patch
+    #     - delete
+    #   - apiGroups:
+    #     - ""
+    #     resources:
+    #     - events
+    #     verbs:
+    #     - create
+    #     - patch
+    - apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        labels:
+          app: governance-policy-framework
+          chart: governance-policy-framework-2.2.0
+          heritage: Helm
+          release: governance-policy-framework
+        name: governance-policy-framework-leader
+        namespace: klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: Role
+        name: governance-policy-framework-leader
+      subjects:
+      - kind: ServiceAccount
+        name: governance-policy-framework-sa
+        namespace: klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+    - apiVersion: v1
+      imagePullSecrets:
+      - name: open-cluster-management-image-pull-credentials
+      kind: ServiceAccount
+      metadata:
+        labels:
+          app: governance-policy-framework
+          chart: governance-policy-framework-2.2.0
+          heritage: Helm
+          release: governance-policy-framework
+        name: governance-policy-framework-sa
+        namespace: klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
