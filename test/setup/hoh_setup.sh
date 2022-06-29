@@ -62,10 +62,20 @@ function deployController() {
   echo "created hub-of-hubs-manager"
 
   # skip hub cluster controller on the test
+
+  # deploy hub-of-hubs-addon component with environment variables
   export ENFORCE_HOH_RBAC=${ENFORCE_HOH_RBAC:-"false"}
-  CONTAINER_ID=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' hub-of-hubs-control-plane)
-  export KAFKA_BOOTSTRAP_SERVER="${CONTAINER_ID}/30095"
-  envsubst < ${currentDir}/hoh/hub-of-hubs-addon.yaml | kubectl apply -f - -n "$namespace"
+  component="hub-of-hubs-addon"
+  rm -rf $component
+  git clone https://github.com/stolostron/$component.git
+  cd $component
+  git checkout $branch
+  mv ./deploy/deployment.yaml ./deploy/deployment.yaml.tmpl
+  envsubst < ./deploy/deployment.yaml.tmpl > ./deploy/deployment.yaml
+  kubectl apply -n "$namespace" -k ./deploy
+  rm ./deploy/deployment.yaml.tmpl
+  cd ..
+  rm -rf $component
   kubectl wait deployment -n "$namespace" hub-of-hubs-addon-controller --for condition=Available=True --timeout=600s
   echo "created hub-of-hubs-addon"
 
@@ -118,7 +128,7 @@ function patchImages() {
   kubectl patch deployment multicluster-operators-placementrule -n open-cluster-management -p '{"spec":{"template":{"spec":{"containers":[{"name":"multicluster-operators-placementrule","image":"quay.io/open-cluster-management-hub-of-hubs/multicloud-operators-subscription:hub-of-hubs"}]}}}}'
 
   # update the cluster-manager palacement image
-  kubectl apply -f ${currentDir}/hoh/hub-of-hubs-cluster-manager.yaml
+  kubectl patch clustermanager cluster-manager --type merge -p '{"spec":{"placementImagePullSpec":"quay.io/open-cluster-management-hub-of-hubs/placement:hub-of-hubs@sha256:b7293b436dc00506b370762fb4eb352e7c6cc5413d135fc03c93ed311e7ed4c4"}}'
  
   echo "HoH images is updated!"
 }

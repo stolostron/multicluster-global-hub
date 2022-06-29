@@ -16,10 +16,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-
 	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/scheme"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db/postgresql"
@@ -38,6 +34,9 @@ import (
 	statuskafka "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/kafka"
 	statussyncservice "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/syncservice"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 const (
@@ -112,7 +111,7 @@ func parseFlags() (*hohManagerConfig, error) {
 	pflag.StringVar(&managerConfig.transportCommonConfig.transportType, "transport-type", "kafka", "The transport type, 'kafka' or 'sync-service'.")
 	pflag.StringVar(&managerConfig.transportCommonConfig.msgCompressionType, "transport-message-compression-type", "gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
 	pflag.DurationVar(&managerConfig.transportCommonConfig.committerInterval, "transport-committer-interval", 40*time.Second, "The committer interval for transport layer.")
-	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bookstrap-server", "kafka-brokers-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092", "The bootstrap server for kafka.")
+	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bookstrap-server", "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerID, "kakfa-producer-id", "hub-of-hubs", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerTopic, "kakfa-producer-topic", "spec", "Topic for the kafka producer.")
 	pflag.IntVar(&managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 940, "The limit for kafka message size in KB.")

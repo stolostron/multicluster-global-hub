@@ -60,7 +60,46 @@ spec:
         - name: certs
           secret:
             secretName: hub-of-hubs-manager-certs
+# --- use the ingress + clusterIp service for production
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: hub-of-hubs-manager
+#   labels:
+#     name: hub-of-hubs-manager
+#     service: hub-of-hubs-manager
+#   annotations:
+#     service.beta.openshift.io/serving-cert-secret-name: hub-of-hubs-manager-certs
+# spec:
+#   ports:
+#   - port: 8080
+#     name: http
+#   selector:
+#     name: hub-of-hubs-manager
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   annotations:
+#     ingress.open-cluster-management.io/auth-type: access-token
+#     ingress.open-cluster-management.io/secure-backends: "true"
+#     kubernetes.io/ingress.class: ingress-open-cluster-management
+#   name: hub-of-hubs-manager
+#   labels:
+#     name: hub-of-hubs-manager
+# spec:
+#   rules:
+#   - http:
+#       paths:
+#       - backend:
+#           service:
+#             name: hub-of-hubs-manager
+#             port:
+#               number: 8080
+#         path: /multicloud/hub-of-hubs-nonk8s-api
+#         pathType: ImplementationSpecific
 ---
+# use the nodeport service for test 
 apiVersion: v1
 kind: Service
 metadata:
@@ -71,33 +110,14 @@ metadata:
   annotations:
     service.beta.openshift.io/serving-cert-secret-name: hub-of-hubs-manager-certs
 spec:
+  type: NodePort
   ports:
-  - port: 8080
+  - nodePort: 30080
+    port: 8080
     name: http
+    protocol: TCP
   selector:
     name: hub-of-hubs-manager
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  annotations:
-    ingress.open-cluster-management.io/auth-type: access-token
-    ingress.open-cluster-management.io/secure-backends: "true"
-    kubernetes.io/ingress.class: ingress-open-cluster-management
-  name: hub-of-hubs-manager
-  labels:
-    name: hub-of-hubs-manager
-spec:
-  rules:
-  - http:
-      paths:
-      - backend:
-          service:
-            name: hub-of-hubs-manager
-            port:
-              number: 8080
-        path: /multicloud/hub-of-hubs-nonk8s-api
-        pathType: ImplementationSpecific
 ---
 apiVersion: v1
 kind: ConfigMap
