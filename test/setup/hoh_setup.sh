@@ -57,7 +57,7 @@ function deployController() {
   export TRANSPORT_TYPE=${TRANSPORT_TYPE:-"kafka"}
   export REGISTRY=quay.io/open-cluster-management-hub-of-hubs
   export IMAGE_TAG="$TAG"
-  envsubst < ${currentDir}/hoh/hub-of-hubs-operator.yaml | kubectl apply -f - -n "$namespace"
+  envsubst < ${currentDir}/hoh/hub-of-hubs-manager.yaml | kubectl apply -f - -n "$namespace"
   kubectl wait deployment -n "$namespace" hub-of-hubs-manager --for condition=Available=True --timeout=600s
   echo "created hub-of-hubs-manager"
 
@@ -109,7 +109,7 @@ function deployRbac() {
   echo "HoH rbac is ready!"
 }
 
-function updateAppAndPolicyImages() {
+function patchImages() {
 
   # update policy image
   kubectl patch deployment governance-policy-propagator -n open-cluster-management -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:hub-of-hubs"}]}}}}'
@@ -132,4 +132,4 @@ echo "export DATABASE_URL_HOH=$DATABASE_URL_HOH"
 echo "export DATABASE_URL_TRANSPORT=$DATABASE_URL_TRANSPORT"
 deployRbac
 deployController
-updateAppAndPolicyImages
+patchImages
