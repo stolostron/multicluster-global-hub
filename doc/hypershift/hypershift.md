@@ -10,9 +10,9 @@ This guide is used to enable leaf hub from HyperShift hosted cluster w/ zero wor
 ### Get Started
 
 1. Follow the [guide](https://github.com/stolostron/hub-of-hubs/tree/release-2.5/deploy) to install HoH to ACM hub cluster.
-3. In the HoH console, import the second cluster as leaf hub (with name "hypermgt") in which hypershift operator will be running.
-4. Follow the [guide](./hypershift-install.md) enable hypershift-addon in HoH and create hosted cluster w/ zero worker node (it will be auto imported as managed cluster).
-5. Enable the ACM addons(policy and application) for the hypershift hosted cluster running in hosted mode:
+2. In the HoH console, import the second cluster as leaf hub (with name "hypermgt") in which hypershift operator will be running.
+3. Follow the [guide](./hypershift-install.md) enable hypershift-addon in HoH and create hosted cluster w/ zero worker node (it will be auto imported as managed cluster).
+4. Enable the ACM addons(policy and application) for the hypershift hosted cluster running in hosted mode:
 
 ```bash
 export HYPERSHIFT_MANAGED_CLUSTER_NAME=$(oc get managedcluster -l hub-of-hubs.open-cluster-management.io/created-by-hypershift=true -o jsonpath='{.items[0].metadata.name}')
@@ -35,4 +35,4 @@ oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n klusterlet
 oc --kubeconfig=<kubeconfig-path-to-hypershift-hosted-cluster> create ns klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
 ```
 
-7. Follow the [guide](./import-cluster-to-hypershift-leafhub.md) to import a managed cluster to the HyperShift leaf hub.
+5. Follow the [guide](./import-cluster-to-hypershift-leafhub.md) to import a managed cluster to the HyperShift leaf hub.

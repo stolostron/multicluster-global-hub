@@ -1,14 +1,12 @@
 ## Import a Managed Cluster to the Hypershift Hosted Leaf Hub
 
-1. Set the `KUBECONFIG` env:
+1. Set the `KUBECONFIG` environment to access the hypershift hosted cluster:
 
 ```bash
-export KUBECONFIG=/tmp/hypershift-cluster-1-admin-kubeconfig
-oc cluster-info
-oc get node
+export KUBECONFIG=<path-to-hypershift-hosted-cluster-kubeconfig>
 ```
 
-2. Set the managed cluster name and create managedcluster CR:
+2. Set the managed cluster name and create managedcluster CR in hypershift hosted cluster:
 
 ```bash
 export MANAGED_CLUSTER_NAME=mc1
@@ -71,10 +69,7 @@ metadata:
   name: config-policy-controller
 spec:
   installNamespace: open-cluster-management-agent-addon
-EOF
-
-
-cat << EOF | oc apply -n ${MANAGED_CLUSTER_NAME} -f -
+---
 apiVersion: addon.open-cluster-management.io/v1alpha1
 kind: ManagedClusterAddOn
 metadata:
@@ -84,7 +79,7 @@ spec:
 EOF
 ```
 
-9. Check addon status in managedcluster:
+9. Check addon status in managed cluster:
 
 ```bash
 # oc --kubeconfig=<path-to-managedcluster-kubeconfig> -n open-cluster-management-agent-addon get pod
