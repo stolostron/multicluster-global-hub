@@ -1,0 +1,111 @@
+apiVersion: work.open-cluster-management.io/v1
+kind: ManifestWork
+metadata:
+  labels:
+    open-cluster-management.io/addon-name: application-manager
+  name: addon-application-${HYPERSHIFT_MANAGED_CLUSTER_NAME}-hosted
+  namespace: hypermgt
+spec:
+  workload:
+    manifests:
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        labels:
+          component: application-manager
+        name: application-manager
+        namespace: klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+      spec:
+        replicas: 1
+        revisionHistoryLimit: 2
+        selector:
+          matchLabels:
+            component: application-manager
+        strategy: {}
+        template:
+          metadata:
+            annotations:
+              target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+            creationTimestamp: null
+            labels:
+              component: application-manager
+          spec:
+            containers:
+            - args:
+              - --alsologtostderr
+              - --cluster-name=${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+              - --kubeconfig=/spoke/config/kubeconfig
+              - --hub-cluster-configfile=/var/run/klusterlet/kubeconfig
+              command:
+              - /usr/local/bin/multicluster-operators-subscription
+              env:
+              - name: WATCH_NAMESPACE
+              - name: POD_NAME
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.name
+              - name: OPERATOR_NAME
+                value: subscription-controller
+              image: quay.io/stolostron/multicluster-operators-subscription@sha256:26416a7b202988264fbf662e0bb4a404ba9e1416972f3682128c5a4477fd2135
+              imagePullPolicy: IfNotPresent
+              livenessProbe:
+                exec:
+                  command:
+                  - ls
+                initialDelaySeconds: 15
+                periodSeconds: 15
+              name: subscription-controller
+              readinessProbe:
+                exec:
+                  command:
+                  - ls
+                initialDelaySeconds: 15
+                periodSeconds: 15
+              resources:
+                limits:
+                  memory: 2Gi
+                requests:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                  - ALL
+                privileged: false
+                readOnlyRootFilesystem: false
+                runAsNonRoot: true
+                runAsUser: 1000
+              volumeMounts:
+              - mountPath: /var/run/klusterlet
+                name: klusterlet-config
+              - mountPath: /spoke/config
+                name: spoke-kubeconfig-secret
+                readOnly: true
+            imagePullSecrets:
+            - name: open-cluster-management-image-pull-credentials
+            serviceAccountName: application-manager
+            tolerations:
+            - effect: NoSchedule
+              key: dedicated
+              operator: Equal
+              value: infra
+            - effect: NoSchedule
+              key: node-role.kubernetes.io/infra
+              operator: Exists
+            volumes:
+            - name: klusterlet-config
+              secret:
+                secretName: application-manager-hub-kubeconfig
+            - name: spoke-kubeconfig-secret
+              secret:
+                defaultMode: 420
+                secretName: external-managed-kubeconfig
+      status: {}
+    - apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        labels:
+          component: application-manager
+        name: application-manager
+        namespace: klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
