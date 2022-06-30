@@ -14,7 +14,7 @@ function enablePostgresOperator() {
 }
 
 function deployPostgresCluster() {
-  namespace="hoh-postgres"
+  pgnamespace="hoh-postgres"
   userSecrets=("hoh-pguser-hoh-process-user" "hoh-pguser-postgres" "hoh-pguser-transport-bridge-user")
 
   # ensure the pgo operator is deleted first to start its deployment from scratch
@@ -23,10 +23,10 @@ function deployPostgresCluster() {
   # ensure all the user secrets are deleted
   for secret in ${userSecrets[@]}
   do
-    matched=$(kubectl get secret $secret -n $namespace --ignore-not-found=true)
+    matched=$(kubectl get secret $secret -n $pgnamespace --ignore-not-found=true)
     while [ ! -z "$matched" ]; do
-      echo "Waiting for secret $secret to be deleted from namespace $namespace"
-      matched=$(kubectl get secret $secret -n $namespace --ignore-not-found=true)
+      echo "Waiting for secret $secret to be deleted from pgnamespace $pgnamespace"
+      matched=$(kubectl get secret $secret -n $pgnamespace --ignore-not-found=true)
       sleep 10
     done
   done
@@ -36,25 +36,18 @@ function deployPostgresCluster() {
   # ensure all the user secrets are created
   for secret in ${userSecrets[@]}
   do
-    matched=$(kubectl get secret $secret -n $namespace --ignore-not-found=true)
+    matched=$(kubectl get secret $secret -n $pgnamespace --ignore-not-found=true)
     while [ -z "$matched" ]; do
-      echo "Waiting for secret $secret to be created in namespace $namespace"
-      matched=$(kubectl get secret $secret -n $namespace --ignore-not-found=true)
+      echo "Waiting for secret $secret to be created in pgnamespace $pgnamespace"
+      matched=$(kubectl get secret $secret -n $pgnamespace --ignore-not-found=true)
       sleep 10
     done
   done
 }
 
-
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
-if [ -z "${DATABASE_URL_HOH-}" ] && [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
+if [ -z "${DATABASE_URL_HOH-}" ] || [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
   enablePostgresOperator
   deployPostgresCluster
-
-  namespace="hoh-postgres"
-  processUser="hoh-pguser-hoh-process-user"
-  transportUser="hoh-pguser-transport-bridge-user"
-
-  DATABASE_URL_HOH="$(kubectl get secrets -n "${namespace}" "${processUser}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
-  DATABASE_URL_TRANSPORT="$(kubectl get secrets -n "${namespace}" "${transportUser}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
 fi
+

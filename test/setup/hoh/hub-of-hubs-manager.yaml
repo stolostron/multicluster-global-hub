@@ -1,0 +1,350 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hub-of-hubs-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: hub-of-hubs-manager
+  template:
+    metadata:
+      labels:
+        name: hub-of-hubs-manager
+    spec:
+      serviceAccountName: hub-of-hubs-manager
+      containers:
+        - name: hub-of-hubs-manager
+          image: ${REGISTRY}/hub-of-hubs-manager:${IMAGE_TAG}
+          imagePullPolicy: Always
+          args:
+            - --zap-devel=true
+            - --manager-namespace=$(POD_NAMESPACE)
+            - --watch-namespace=$(WATCH_NAMESPACE)
+            - --transport-type=${TRANSPORT_TYPE}
+            - --process-database-url=$(PROCESS_DATABASE_URL)
+            - --transport-bridge-database-url=$(TRANSPORT_BRIDGE_DATABASE_URL)
+            - --authorization-cabundle-path=/hub-of-hubs-rbac-ca/service-ca.crt
+            - --cluster-api-cabundle-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            - --server-certificate-path=/certs/tls.crt
+            - --server-key-path=/certs/tls.key
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                 apiVersion: v1
+                 fieldPath: metadata.namespace
+            - name: WATCH_NAMESPACE
+            - name: PROCESS_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hub-of-hubs-database-secret
+                  key: url
+            - name: TRANSPORT_BRIDGE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hub-of-hubs-database-transport-bridge-secret
+                  key: url
+          volumeMounts:
+            - readOnly: true
+              mountPath: /hub-of-hubs-rbac-ca
+              name: hub-of-hubs-rbac-ca
+            - readOnly: true
+              mountPath: /certs
+              name: certs
+      volumes:
+        - name: hub-of-hubs-rbac-ca
+          configMap:
+            name: hub-of-hubs-rbac-ca-bundle
+        - name: certs
+          secret:
+            secretName: hub-of-hubs-manager-certs
+# --- use the ingress + clusterIp service for production
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: hub-of-hubs-manager
+#   labels:
+#     name: hub-of-hubs-manager
+#     service: hub-of-hubs-manager
+#   annotations:
+#     service.beta.openshift.io/serving-cert-secret-name: hub-of-hubs-manager-certs
+# spec:
+#   ports:
+#   - port: 8080
+#     name: http
+#   selector:
+#     name: hub-of-hubs-manager
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   annotations:
+#     ingress.open-cluster-management.io/auth-type: access-token
+#     ingress.open-cluster-management.io/secure-backends: "true"
+#     kubernetes.io/ingress.class: ingress-open-cluster-management
+#   name: hub-of-hubs-manager
+#   labels:
+#     name: hub-of-hubs-manager
+# spec:
+#   rules:
+#   - http:
+#       paths:
+#       - backend:
+#           service:
+#             name: hub-of-hubs-manager
+#             port:
+#               number: 8080
+#         path: /multicloud/hub-of-hubs-nonk8s-api
+#         pathType: ImplementationSpecific
+---
+# use the nodeport service for test 
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-of-hubs-manager
+  labels:
+    name: hub-of-hubs-manager
+    service: hub-of-hubs-manager
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: hub-of-hubs-manager-certs
+spec:
+  type: NodePort
+  ports:
+  - nodePort: 30080
+    port: 8080
+    name: http
+    protocol: TCP
+  selector:
+    name: hub-of-hubs-manager
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-of-hubs-manager-ca-bundle
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+  labels:
+    service: hub-of-hubs-manager
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hub-of-hubs-manager
+subjects:
+- kind: ServiceAccount
+  name: hub-of-hubs-manager
+  namespace: open-cluster-management
+roleRef:
+  kind: ClusterRole
+  name: hub-of-hubs-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hub-of-hubs-manager
+rules:
+- apiGroups:
+  - "policy.open-cluster-management.io"
+  resources:
+  - policies
+  - policies/status
+  - policies/finalizers
+  - placementbindings
+  - placementbindings/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - "apps.open-cluster-management.io"
+  resources:
+  - placementrules
+  - placementrules/status
+  - subscriptionstatuses
+  - subscriptionstatuses/status
+  - subscriptionreports
+  - subscriptionreports/status
+  - subscriptions/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - "cluster.open-cluster-management.io"
+  resources:
+  - placements
+  - placements/finalizers
+  - placements/status
+  - placementdecisions
+  - placementdecisions/status
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - configmaps
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - "cluster.open-cluster-management.io"
+  resources:
+  - managedclustersets
+  - managedclustersets/finalizers
+  - managedclustersetbindings
+  - managedclustersetbindings/finalizers
+  - placements
+  - placements/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - "apps.open-cluster-management.io"
+  resources:
+  - placementrules
+  - placementrules/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - "hub-of-hubs.open-cluster-management.io"
+  resources:
+  - configs
+  - configs/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update # for finalizer
+- apiGroups:
+  - "apps.open-cluster-management.io"
+  resources:
+  - subscriptions
+  - channels
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - "app.k8s.io"
+  resources:
+  - applications
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - "apiextensions.k8s.io"
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hub-of-hubs-manager
+subjects:
+- kind: ServiceAccount
+  name: hub-of-hubs-manager
+roleRef:
+  kind: Role
+  name: hub-of-hubs-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hub-of-hubs-manager
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - services/finalizers
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - apps
+  resourceNames:
+  - hub-of-hubs-manager
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - "coordination.k8s.io"
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+  - delete
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hub-of-hubs-manager

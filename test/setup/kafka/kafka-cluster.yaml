@@ -27,7 +27,7 @@ spec:
       - name: external
         port: 9095
         type: nodeport
-        tls: false
+        tls: true
         configuration:
           bootstrap: 
             nodePort: 30095
