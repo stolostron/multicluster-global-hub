@@ -43,6 +43,15 @@ function deployPostgresCluster() {
       sleep 10
     done
   done
+
+  # patch the postgres stateful
+  stss=$(kubectl get statefulset -n $pgnamespace -o jsonpath={.items..metadata.name})
+  for sts in ${stss}; do
+    kubectl patch statefulset ${sts} -n $pgnamespace -p '{"spec":{"template":{"spec":{"securityContext":{"fsGroup":26}}}}}'
+  done
+
+  # delete all pods to recreate in case the pod won't be restarted when the statefulset is patched
+  oc delete pod -n $pgnamespace --all --ignore-not-found=true 2>/dev/null
 }
 
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
