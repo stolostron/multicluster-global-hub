@@ -77,16 +77,18 @@ function initHub() {
 function initManaged() {
   hub="$1"
   managed="$2"
-  hubInitFile="$3"
+
+  currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  joinCommand="${currentDir}/config/join-${hub}"
   if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}") == "" ]]; then
     kubectl config use-context "${managed}"
-    clusteradm get token --context "${hub}" | grep "clusteradm" > "$hubInitFile"
+    clusteradm get token --context "${hub}" | grep "clusteradm" > "$joinCommand"
     if [[ $hub =~ "kind" ]]; then
-      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$hubInitFile" > "${hubInitFile}-named"
-      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$hubInitFile" | bash
+      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" > "${joinCommand}-named"
+      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" | bash
     else
-      sed -e "s;<cluster_name>;${managed};" "$hubInitFile" > "${hubInitFile}-named"
-      sed -e "s;<cluster_name>;${managed};" "$hubInitFile" | bash
+      sed -e "s;<cluster_name>;${managed};" "$joinCommand" > "${joinCommand}-named"
+      sed -e "s;<cluster_name>;${managed};" "$joinCommand" | bash
     fi
   fi
     
@@ -98,6 +100,7 @@ function initManaged() {
     fi
 
     kubectl config use-context "${hub}"
+    hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}")
     while [[ "${hubManagedCsr}" != "" && "${hubManagedCsr}" =~ "Pending" ]]; do
       echo "accepting ${hub} + ${managed} csr"
       clusteradm accept --clusters "${managed}" --context "${hub}"
