@@ -63,6 +63,30 @@ function initKinDCluster() {
   fi
 }
 
+function initMicroShift() {
+  portMappings=$2
+  portMappingArray=(${portMappings//;/ })
+  portMappingFlag=""
+  for portMap in "${portMappingArray[@]}"; do
+    portMappingFlag="${portMappingFlag} -p ${portMap}"
+  done
+  docker run -d --rm --name $1 --privileged -v $1-data:/var/lib ${portMappingFlag} quay.io/microshift/microshift-aio:latest
+}
+
+function getMicroShiftKubeConfig() {
+  containerIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $1)
+
+  # wait until the kubeconfig is copied to target file successfully
+  until docker cp $1:/var/lib/microshift/resources/kubeadmin/kubeconfig $2 > /dev/null 2>&1
+  do
+    sleep 10
+  done
+
+  sed -i "s/microshift/${1}/" $2
+  sed -i "s/: user/: ${1}/" $2
+  sed -i "s/127.0.0.1/${containerIP}/" $2
+}
+
 function initHub() {
   hubCtx="$1"
   hubInitFile="$2"
