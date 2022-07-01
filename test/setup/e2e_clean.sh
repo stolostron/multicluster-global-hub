@@ -18,7 +18,7 @@ checkClusteradm
 LEAF_HUB_NAME="hub1"
 HUB_OF_HUB_NAME="hub-of-hubs"
 
-CTX_HUB="kind-hub-of-hubs"
+CTX_HUB="microshift"
 CTX_MANAGED="kind-hub1"
 
 # kubeconfig
@@ -37,7 +37,9 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
     kind delete cluster --name "hub${i}-cluster${j}"
   done
 done
-kind delete cluster --name "$HUB_OF_HUB_NAME"
+docker stop "$HUB_OF_HUB_NAME"
+docker volume prune -f 
+
 rm "${PID}" >/dev/null 2>&1
 rm -rf "$CONFIG_DIR"
 ps -ef |grep "setup" |grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1
