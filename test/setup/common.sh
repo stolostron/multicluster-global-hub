@@ -136,7 +136,7 @@ function initApp() {
     # deploy the subscription operators to the hub cluster
     kubectl config use-context "${hub}"
     hubSubOperator=$(kubectl -n open-cluster-management get deploy multicluster-operators-subscription --context "${hub}" --ignore-not-found)
-    if [[ "${hubSubOperator}" == "" ]]; then 
+    if [[ -z "${hubSubOperator}" ]]; then 
       echo "$hub install hub-addon application-manager"
       clusteradm install hub-addon --names application-manager
       sleep 2
@@ -144,24 +144,28 @@ function initApp() {
 
     # create ocm-agent-addon namespace on the managed cluster
     managedAgentAddonNS=$(kubectl get ns --context "${managed}" --ignore-not-found | grep "open-cluster-management-agent-addon")
-    if [[ "${managedAgentAddonNS}" == "" ]]; then
+    if [[ -z "${managedAgentAddonNS}" ]]; then
       echo "create namespace open-cluster-management-agent-addon on ${managed}"
       kubectl create ns open-cluster-management-agent-addon --context "${managed}"
     fi
 
-    # deploy the the subscription add-on to the managed cluster
-    hubManagedClusterAddon=$(kubectl -n "${managed}" get managedclusteraddon --context "${hub}" --ignore-not-found | grep application-manager)
-    if [[ "${hubManagedClusterAddon}" == "" ]]; then
-      kubectl config use-context "${hub}"
-      echo "deploy the the subscription add-on to the managed cluster: $hub - $managed"
-      clusteradm addon enable --name application-manager --cluster "${managed}"
-    fi 
+    # echo "deploy managedclusteraddon application-manager context: ${hub} and namespace: ${managed}"
+    # hubManagedClusterAddon=$(kubectl -n "${managed}" get managedclusteraddon --context "${hub}" --ignore-not-found | grep application-manager)
+    # if [[ "${hubManagedClusterAddon}" == "" ]]; then
+    #   kubectl config use-context "${hub}"
+    #   echo "deploy the the subscription add-on to the managed cluster: $hub - $managed"
+    #   clusteradm addon enable --name application-manager --cluster "${managed}"
+    # fi 
 
+    echo "check the application-manager is available on context: ${managed} "
     managedSubAvailable=$(kubectl -n open-cluster-management-agent-addon get deploy --context "${managed}" --ignore-not-found | grep "application-manager")
     if [[ "${managedSubAvailable}" != "" && $(echo "${managedSubAvailable}" | awk '{print $4}') -gt 0 ]]; then
       echo "Application installed $hub - ${managed}: $managedSubAvailable"
       break
     else
+      echo "deploying the the subscription add-on to the managed cluster: $managed"
+      kubectl config use-context "${hub}"
+      clusteradm addon enable --name application-manager --cluster "${managed}"
       sleep 5
       (( SECOND = SECOND + 5 ))
     fi
@@ -343,8 +347,6 @@ function enableOLM() {
 function connectMicroshift() {
   invokeContainerName=$1
   microshiftContainerName=$2
-  invokeContainerName="hub1-control-plane"
-  microshiftContainerName="hub-of-hubs"
   invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $invokeContainerName)
   microshiftContainerNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $microshiftContainerName)
   if [[ "$invokeNetwork" =~ "$microshiftContainerNetwork" ]]; then
