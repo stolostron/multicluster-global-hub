@@ -59,15 +59,19 @@ function initKinDCluster() {
   image="kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae" # or kindest/node:v1.23.4 
   if [[ $(kind get clusters | grep "^${clusterName}$") != "${clusterName}" ]]; then
     [ ! -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image")  
-    [ -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image" --config $2)                      
+    [ -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image" --config $2) 
+    sleep 2
+    currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    kubectl config view --context="kind-${clusterName}" --minify --flatten > ${currentDir}/config/kubeconfig-${clusterName}
   fi
 }
 
 function initHub() {
-  hubCtx="$1"
-  hubInitFile="$2"
-  kubectl config use-context "$hubCtx"
-  clusteradm init --wait --context "$hubCtx" > $hubInitFile
+  kubectl config use-context "$1"
+  clusteradm init --wait --context "$1"
+  kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=600s
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=600s
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=600s
 }
 
 function initManaged() {
@@ -77,7 +81,13 @@ function initManaged() {
   if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}") == "" ]]; then
     kubectl config use-context "${managed}"
     clusteradm get token --context "${hub}" | grep "clusteradm" > "$hubInitFile"
-    sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$hubInitFile" | bash
+    if [[ $hub =~ "kind" ]]; then
+      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$hubInitFile" > "${hubInitFile}-named"
+      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$hubInitFile" | bash
+    else
+      sed -e "s;<cluster_name>;${managed};" "$hubInitFile" > "${hubInitFile}-named"
+      sed -e "s;<cluster_name>;${managed};" "$hubInitFile" | bash
+    fi
   fi
     
   SECOND=0
@@ -88,10 +98,12 @@ function initManaged() {
     fi
 
     kubectl config use-context "${hub}"
-    hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}")
-    if [[ "${hubManagedCsr}" != "" && $(echo "${hubManagedCsr}" | awk '{print $6}')  =~ "Pending" ]]; then 
+    while [[ "${hubManagedCsr}" != "" && "${hubManagedCsr}" =~ "Pending" ]]; do
+      echo "accepting ${hub} + ${managed} csr"
       clusteradm accept --clusters "${managed}" --context "${hub}"
-    fi
+      sleep 5
+      hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}")
+    done
 
     hubManagedCluster=$(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}")
     if [[ "${hubManagedCluster}" != "" && $(echo "${hubManagedCluster}" | awk '{print $2}') == "true" ]]; then
@@ -262,22 +274,31 @@ function initPolicy() {
   done
 }
 
+enableRouter() {
+  kubectl config use-context "$1"
+  kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
+  GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
+  kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
+  kubectl apply -f $GIT_PATH/deploy/router.yaml
+  kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
+}
+
 function enableDependencyResources() {
   kubectl config use-context "$1"
   # crd
   currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   kubectl apply -f ${currentDir}/crds
 
-  # router
-  kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
-  GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
-  kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
-  kubectl apply -f $GIT_PATH/deploy/router.yaml
-  kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
+  # # router: the microshift has the router resources - will be deprecated later
+  # kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
+  # GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
+  # kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
+  # kubectl apply -f $GIT_PATH/deploy/router.yaml
+  # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
 
-  # service ca
-  kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
-  kubectl apply -f ${currentDir}/service-ca
+  # # service ca: the microshift has the service ca resources - will be deprecated later
+  # kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
+  # kubectl apply -f ${currentDir}/service-ca
 }
 
 # deploy olm
@@ -317,4 +338,19 @@ function enableOLM() {
     exit 1
   fi
   echo "CSV \"packageserver\" install succeeded"
+}
+
+function connectMicroshift() {
+  invokeContainerName=$1
+  microshiftContainerName=$2
+  invokeContainerName="hub1-control-plane"
+  microshiftContainerName="hub-of-hubs"
+  invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $invokeContainerName)
+  microshiftContainerNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $microshiftContainerName)
+  if [[ "$invokeNetwork" =~ "$microshiftContainerNetwork" ]]; then
+    echo "Microshift is already connected to ${targetContainerName}"
+    exit 1
+  else 
+    docker network connect $microshiftContainerNetwork $invokeContainerName
+  fi
 }
