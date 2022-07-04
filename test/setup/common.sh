@@ -353,7 +353,7 @@ function connectMicroshift() {
   invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $invokeContainerName)
   microshiftContainerNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $microshiftContainerName)
   if [[ "$invokeNetwork" =~ "$microshiftContainerNetwork" ]]; then
-    echo "Microshift is already connected to ${targetContainerName}"
+    echo "Microshift network is already connected to ${invokeNetwork}"
     exit 1
   else 
     docker network connect $microshiftContainerNetwork $invokeContainerName
