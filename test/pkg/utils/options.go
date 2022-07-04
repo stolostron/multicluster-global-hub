@@ -1,7 +1,5 @@
 package utils
 
-const HUB_OF_HUB_CLUSTER_NAME = "hub-of-hub-cluster"
-
 type OptionsContainer struct {
 	Options Options `yaml:"options"`
 }
@@ -16,10 +14,10 @@ type Options struct {
 type HOHCluster struct {
 	Name           string `yaml:"name,omitempty"`
 	Namespace      string `yaml:"namespace,omitempty"`
-	BaseDomain     string `yaml:"baseDomain,omitempty"`
+	ApiServer     string `yaml:"apiServer,omitempty"`
 	KubeConfig     string `yaml:"kubeconfig,omitempty"`
 	KubeContext    string `yaml:"kubecontext,omitempty"`
-	MasterURL      string `yaml:"masterURL,omitempty"`
+	Nonk8sApiServer      string `yaml:"nonk8sApiServer,omitempty"`
 	DatabaseSecret string `yaml:"databaseSecret,omitempty"`
 }
 

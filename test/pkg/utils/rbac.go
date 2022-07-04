@@ -57,7 +57,7 @@ func CreateTestingRBAC(opt Options) error {
 
 func FetchBearerToken(opt Options) (string, error) {
 	config, err := LoadConfig(
-		opt.HubCluster.MasterURL,
+		opt.HubCluster.ApiServer,
 		opt.HubCluster.KubeConfig,
 		opt.HubCluster.KubeContext)
 	if err != nil {

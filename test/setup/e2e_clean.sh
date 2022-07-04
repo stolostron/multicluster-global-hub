@@ -31,15 +31,15 @@ while read -r line; do
   fi
 done <"${PID}"
 
+docker stop "$HUB_OF_HUB_NAME"
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   kind delete cluster --name "hub${i}"
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     kind delete cluster --name "hub${i}-cluster${j}"
   done
 done
-docker stop "$HUB_OF_HUB_NAME"
-docker volume rm -f "hub-data"
 
+docker volume rm -f "hub-data"
 rm "${PID}" >/dev/null 2>&1
 rm -rf "$CONFIG_DIR"
 ps -ef |grep "setup" |grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1

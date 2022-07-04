@@ -3,7 +3,6 @@ package tests
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -62,8 +61,6 @@ func initVars() {
 	if testOptions.HubCluster.KubeConfig == "" {
 		testOptions.HubCluster.KubeConfig = os.Getenv("KUBECONFIG")
 	}
-	Expect(testOptions.HubCluster.BaseDomain).NotTo(BeEmpty(), "The `baseDomain` is required.")
-	testOptions.HubCluster.MasterURL = fmt.Sprintf("https://api.%s:6443", testOptions.HubCluster.BaseDomain)
 
 	s, _ := json.MarshalIndent(testOptionsContainer, "", "  ")
 	klog.V(6).Infof("OptionsContainer %s", s)
