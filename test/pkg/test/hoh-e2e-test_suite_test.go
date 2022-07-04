@@ -3,6 +3,7 @@ package tests
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -40,6 +41,20 @@ var _ = BeforeSuite(func() {
 	clients = utils.NewTestClient(testOptionsContainer.Options)
 	err := utils.CreateTestingRBAC(testOptionsContainer.Options)
 	Expect(err).ShouldNot(HaveOccurred())
+	// Check the bearer token is ready
+	Eventually(func() error {
+		token, err := utils.FetchBearerToken(testOptions)
+		if err != nil {
+			return err
+		}
+		if len(token) > 0 {
+			klog.V(6).Info(fmt.Sprintf("Bearer token is ready: %s", token))
+			return nil
+		} else {
+			return fmt.Errorf("token is empty")
+		}
+	}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
+	
 })
 
 var _ = AfterSuite(func() {

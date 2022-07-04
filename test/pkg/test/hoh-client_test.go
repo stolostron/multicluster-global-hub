@@ -17,9 +17,9 @@ import (
 	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 )
 
-var _ = Describe("Client", Label("connection"), func() {
+var _ = Describe("Check all the clients could connect to the HoH servers", Label("connection"), func() {
 
-	It("kubeclient", func() {
+	It("connect to the apiserver with kubernetes interface", func() {
 		hubClient := clients.KubeClient()
 		deployClient := hubClient.AppsV1().Deployments(testOptions.HubCluster.Namespace)
 		deployList, err := deployClient.List(context.TODO(), metav1.ListOptions{Limit: 2})
@@ -27,7 +27,7 @@ var _ = Describe("Client", Label("connection"), func() {
 		Expect(len(deployList.Items) > 0).To(BeTrue())
 	})
 
-	It("kubeclient dynamic", func() {
+	It("connect to the apiserver with dynamic interface", func() {
 		dynamicClient := clients.KubeDynamicClient()
 		hohConfigGVR := utils.NewHoHConfigGVR()
 		configList, err := dynamicClient.Resource(hohConfigGVR).Namespace("hoh-system").List(context.TODO(), metav1.ListOptions{})
@@ -35,7 +35,7 @@ var _ = Describe("Client", Label("connection"), func() {
 		Expect(len(configList.Items) > 0).To(BeTrue())
 	})
 
-	It("non-k8s-api", func() {
+	It("connect to the nonk8s-server with specific user", func() {
 		token, err := utils.FetchBearerToken(testOptions)
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(len(token) > 0).Should(BeTrue())
