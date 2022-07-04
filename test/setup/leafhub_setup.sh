@@ -41,7 +41,7 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   initHub "kind-hub${i}" "${CONFIG_DIR}/kind-hub${i}" >> "${LOG}" 2>&1 &
   hover $! "  OCM init hub kind-hub${i}" 
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
-    initManaged "kind-hub${i}" "kind-hub${i}-cluster${j}" "${CONFIG_DIR}/kind-hub${i}" >> "${LOG}" 2>&1 &
+    initManaged "kind-hub${i}" "kind-hub${i}-cluster${j}" >> "${LOG}" 2>&1 &
     hover $! "  OCM join managed kind-hub${i}-cluster${j}" 
   done
 done

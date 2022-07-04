@@ -59,7 +59,10 @@ function initKinDCluster() {
   image="kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae" # or kindest/node:v1.23.4 
   if [[ $(kind get clusters | grep "^${clusterName}$") != "${clusterName}" ]]; then
     [ ! -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image")  
-    [ -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image" --config $2)                      
+    [ -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image" --config $2) 
+    sleep 2
+    currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    kubectl config view --context="kind-${clusterName}" --minify --flatten > ${currentDir}/config/kubeconfig-${clusterName}
   fi
 }
 
@@ -88,20 +91,29 @@ function getMicroShiftKubeConfig() {
 }
 
 function initHub() {
-  hubCtx="$1"
-  hubInitFile="$2"
-  kubectl config use-context "$hubCtx"
-  clusteradm init --wait --context "$hubCtx" > $hubInitFile
+  kubectl config use-context "$1"
+  clusteradm init --wait --context "$1"
+  kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=600s
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=600s
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=600s
 }
 
 function initManaged() {
   hub="$1"
   managed="$2"
-  hubInitFile="$3"
+
+  currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  joinCommand="${currentDir}/config/join-${hub}"
   if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}") == "" ]]; then
     kubectl config use-context "${managed}"
-    clusteradm get token --context "${hub}" | grep "clusteradm" > "$hubInitFile"
-    sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$hubInitFile" | bash
+    clusteradm get token --context "${hub}" | grep "clusteradm" > "$joinCommand"
+    if [[ $hub =~ "kind" ]]; then
+      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" > "${joinCommand}-named"
+      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" | bash
+    else
+      sed -e "s;<cluster_name>;${managed};" "$joinCommand" > "${joinCommand}-named"
+      sed -e "s;<cluster_name>;${managed};" "$joinCommand" | bash
+    fi
   fi
     
   SECOND=0
@@ -113,9 +125,12 @@ function initManaged() {
 
     kubectl config use-context "${hub}"
     hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}")
-    if [[ "${hubManagedCsr}" != "" && $(echo "${hubManagedCsr}" | awk '{print $6}')  =~ "Pending" ]]; then 
+    while [[ "${hubManagedCsr}" != "" && "${hubManagedCsr}" =~ "Pending" ]]; do
+      echo "accepting ${hub} + ${managed} csr"
       clusteradm accept --clusters "${managed}" --context "${hub}"
-    fi
+      sleep 5
+      hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}")
+    done
 
     hubManagedCluster=$(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}")
     if [[ "${hubManagedCluster}" != "" && $(echo "${hubManagedCluster}" | awk '{print $2}') == "true" ]]; then
@@ -148,7 +163,7 @@ function initApp() {
     # deploy the subscription operators to the hub cluster
     kubectl config use-context "${hub}"
     hubSubOperator=$(kubectl -n open-cluster-management get deploy multicluster-operators-subscription --context "${hub}" --ignore-not-found)
-    if [[ "${hubSubOperator}" == "" ]]; then 
+    if [[ -z "${hubSubOperator}" ]]; then 
       echo "$hub install hub-addon application-manager"
       clusteradm install hub-addon --names application-manager
       sleep 2
@@ -156,24 +171,28 @@ function initApp() {
 
     # create ocm-agent-addon namespace on the managed cluster
     managedAgentAddonNS=$(kubectl get ns --context "${managed}" --ignore-not-found | grep "open-cluster-management-agent-addon")
-    if [[ "${managedAgentAddonNS}" == "" ]]; then
+    if [[ -z "${managedAgentAddonNS}" ]]; then
       echo "create namespace open-cluster-management-agent-addon on ${managed}"
       kubectl create ns open-cluster-management-agent-addon --context "${managed}"
     fi
 
-    # deploy the the subscription add-on to the managed cluster
-    hubManagedClusterAddon=$(kubectl -n "${managed}" get managedclusteraddon --context "${hub}" --ignore-not-found | grep application-manager)
-    if [[ "${hubManagedClusterAddon}" == "" ]]; then
-      kubectl config use-context "${hub}"
-      echo "deploy the the subscription add-on to the managed cluster: $hub - $managed"
-      clusteradm addon enable --name application-manager --cluster "${managed}"
-    fi 
+    # echo "deploy managedclusteraddon application-manager context: ${hub} and namespace: ${managed}"
+    # hubManagedClusterAddon=$(kubectl -n "${managed}" get managedclusteraddon --context "${hub}" --ignore-not-found | grep application-manager)
+    # if [[ "${hubManagedClusterAddon}" == "" ]]; then
+    #   kubectl config use-context "${hub}"
+    #   echo "deploy the the subscription add-on to the managed cluster: $hub - $managed"
+    #   clusteradm addon enable --name application-manager --cluster "${managed}"
+    # fi 
 
+    echo "check the application-manager is available on context: ${managed} "
     managedSubAvailable=$(kubectl -n open-cluster-management-agent-addon get deploy --context "${managed}" --ignore-not-found | grep "application-manager")
     if [[ "${managedSubAvailable}" != "" && $(echo "${managedSubAvailable}" | awk '{print $4}') -gt 0 ]]; then
       echo "Application installed $hub - ${managed}: $managedSubAvailable"
       break
     else
+      echo "deploying the the subscription add-on to the managed cluster: $managed"
+      kubectl config use-context "${hub}"
+      clusteradm addon enable --name application-manager --cluster "${managed}"
       sleep 5
       (( SECOND = SECOND + 5 ))
     fi
@@ -286,22 +305,31 @@ function initPolicy() {
   done
 }
 
+enableRouter() {
+  kubectl config use-context "$1"
+  kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
+  GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
+  kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
+  kubectl apply -f $GIT_PATH/deploy/router.yaml
+  kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
+}
+
 function enableDependencyResources() {
   kubectl config use-context "$1"
   # crd
   currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   kubectl apply -f ${currentDir}/crds
 
-  # router
-  kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
-  GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
-  kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
-  kubectl apply -f $GIT_PATH/deploy/router.yaml
-  kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
+  # # router: the microshift has the router resources - will be deprecated later
+  # kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
+  # GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
+  # kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
+  # kubectl apply -f $GIT_PATH/deploy/router.yaml
+  # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
 
-  # service ca
-  kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
-  kubectl apply -f ${currentDir}/service-ca
+  # # service ca: the microshift has the service ca resources - will be deprecated later
+  # kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
+  # kubectl apply -f ${currentDir}/service-ca
 }
 
 # deploy olm
@@ -341,4 +369,17 @@ function enableOLM() {
     exit 1
   fi
   echo "CSV \"packageserver\" install succeeded"
+}
+
+function connectMicroshift() {
+  invokeContainerName=$1
+  microshiftContainerName=$2
+  invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $invokeContainerName)
+  microshiftContainerNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $microshiftContainerName)
+  if [[ "$invokeNetwork" =~ "$microshiftContainerNetwork" ]]; then
+    echo "Microshift network is already connected to ${invokeNetwork}"
+    exit 1
+  else 
+    docker network connect $microshiftContainerNetwork $invokeContainerName
+  fi
 }
