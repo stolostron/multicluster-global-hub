@@ -38,7 +38,7 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   done
 done
 docker stop "$HUB_OF_HUB_NAME"
-docker volume prune -f 
+docker volume rm -f "hub-data"
 
 rm "${PID}" >/dev/null 2>&1
 rm -rf "$CONFIG_DIR"
