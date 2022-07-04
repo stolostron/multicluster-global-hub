@@ -35,6 +35,13 @@ var _ = Describe("Check all the clients could connect to the HoH servers", Label
 		Expect(len(configList.Items) > 0).To(BeTrue())
 	})
 
+	It("check whether the cluster is running properly", func() {
+		hubClient := clients.KubeClient()
+		healthy, err := hubClient.Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(context.TODO())
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(string(healthy)).To(Equal("ok"))
+	})
+
 	It("connect to the nonk8s-server with specific user", func() {
 		token, err := utils.FetchBearerToken(testOptions)
 		Expect(err).ShouldNot(HaveOccurred())
