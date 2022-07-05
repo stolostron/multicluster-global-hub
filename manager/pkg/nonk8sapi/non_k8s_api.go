@@ -94,8 +94,9 @@ func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig 
 	err = mgr.Add(&nonK8sApiServer{
 		log: ctrl.Log.WithName("non-k8s-api-server"),
 		svr: &http.Server{
-			Addr:    ":8080",
-			Handler: router,
+			Addr:              ":8080",
+			Handler:           router,
+			ReadHeaderTimeout: time.Minute * 1,
 		},
 		certificateFile: nonK8sAPIServerConfig.ServerCertificatePath,
 		keyFile:         nonK8sAPIServerConfig.ServerKeyPath,
