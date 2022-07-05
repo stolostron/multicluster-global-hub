@@ -2,20 +2,23 @@ package tests
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+
 	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 )
 
-var _ = Describe("label", Ordered, func() {
+var _ = Describe("Check the managed cluster from HoH manager", Label("cluster"), Ordered, func() {
 	var token string
 	var httpClient *http.Client
-	var managedClusterName string
-
+	
 	BeforeAll(func() {
 		By("Get token for the non-k8s-api")
 		initToken, err := utils.FetchBearerToken(testOptions)
@@ -28,57 +31,26 @@ var _ = Describe("label", Ordered, func() {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
-
-		By("Get a managed cluster name")
-		managedClusters := getManagedCluster(httpClient, token)
-		managedClusterName = managedClusters[0].Name
 	})
 
-	It("add the label to the managed cluster", func() {
-		patches := []patch{
-			{
-				Op:    "add", // or remove
-				Path:  "/metadata/labels/" + CLUSTER_LABEL_KEY,
-				Value: CLUSTER_LABEL_VALUE,
-			},
-		}
-		updateClusterLabel(httpClient, patches, token, managedClusterName)
+	It("list all the managed cluster", func() {
+		managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
+		req, err := http.NewRequest("GET", managedClusterUrl, nil)
+		Expect(err).ShouldNot(HaveOccurred())
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+		
+		By("Get response of the api")
+		resp, err := httpClient.Do(req)
+		Expect(err).ShouldNot(HaveOccurred())
+		defer resp.Body.Close()
 
-		By("Check the label is added")
-		Eventually(func() error {
-			managedClusters := getManagedCluster(httpClient, token)
-			for _, cluster := range managedClusters {
-				if val, ok := cluster.Labels[CLUSTER_LABEL_KEY]; ok {
-					if val == CLUSTER_LABEL_VALUE {
-						return nil
-					}
-				}
-			}
-			return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-		}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
-	})
+		By("Parse response to managed cluster")
+		body, err := ioutil.ReadAll(resp.Body)
+		Expect(err).ShouldNot(HaveOccurred())
 
-	It("remove the label from the maanaged cluster", func() {
-		patches := []patch{
-			{
-				Op:    "remove",
-				Path:  "/metadata/labels/" + CLUSTER_LABEL_KEY,
-				Value: CLUSTER_LABEL_VALUE,
-			},
-		}
-		updateClusterLabel(httpClient, patches, token, managedClusterName)
-
-		By("Check the label is deleted")
-		Eventually(func() error {
-			managedClusters := getManagedCluster(httpClient, token)
-			for _, cluster := range managedClusters {
-				if val, ok := cluster.Labels[CLUSTER_LABEL_KEY]; ok {
-					if val == CLUSTER_LABEL_VALUE {
-						return fmt.Errorf("the label %s: %s should not be exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-					}
-				}
-			}
-			return nil
-		}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
+		By("Return parsed managedcluster")
+		var managedClusters []clusterv1.ManagedCluster
+		json.Unmarshal(body, &managedClusters)
+		Expect(len(managedClusters)).Should(BeNumerically(">", 0), "should get the managed cluster")
 	})
 })
