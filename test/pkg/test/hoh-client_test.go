@@ -11,14 +11,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
+
+	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 )
 
-var _ = Describe("Client", Label("connection"), func() {
+var _ = Describe("Check all the clients could connect to the HoH servers", Label("connection"), func() {
 
-	It("kubeclient", func() {
+	It("connect to the apiserver with kubernetes interface", func() {
 		hubClient := clients.KubeClient()
 		deployClient := hubClient.AppsV1().Deployments(testOptions.HubCluster.Namespace)
 		deployList, err := deployClient.List(context.TODO(), metav1.ListOptions{Limit: 2})
@@ -26,18 +27,22 @@ var _ = Describe("Client", Label("connection"), func() {
 		Expect(len(deployList.Items) > 0).To(BeTrue())
 	})
 
-	It("kubeclient dynamic", func() {
+	It("connect to the apiserver with dynamic interface", func() {
 		dynamicClient := clients.KubeDynamicClient()
-		routeGvr := utils.NewRouteGVR()
-		routeList, err := dynamicClient.Resource(routeGvr).Namespace(testOptions.HubCluster.Namespace).List(context.TODO(), metav1.ListOptions{})
+		hohConfigGVR := utils.NewHoHConfigGVR()
+		configList, err := dynamicClient.Resource(hohConfigGVR).Namespace("hoh-system").List(context.TODO(), metav1.ListOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
-		Expect(len(routeList.Items) > 0).To(BeTrue())
-		routeBytes, err := json.MarshalIndent(routeList, "", "  ")
-		Expect(err).ShouldNot(HaveOccurred())
-		klog.V(6).Info(string(routeBytes))
+		Expect(len(configList.Items) > 0).To(BeTrue())
 	})
 
-	It("non-k8s-api", func() {
+	It("check whether the cluster is running properly", func() {
+		hubClient := clients.KubeClient()
+		healthy, err := hubClient.Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(context.TODO())
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(string(healthy)).To(Equal("ok"))
+	})
+
+	It("connect to the nonk8s-server with specific user", func() {
 		token, err := utils.FetchBearerToken(testOptions)
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(len(token) > 0).Should(BeTrue())
@@ -46,7 +51,8 @@ var _ = Describe("Client", Label("connection"), func() {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		client := &http.Client{Timeout: time.Second * 10, Transport: tr}
-		identityUrl := testOptions.HubCluster.MasterURL + "/apis/user.openshift.io/v1/users/~"
+
+		identityUrl := testOptions.HubCluster.ApiServer + "/apis/user.openshift.io/v1/users/~"
 
 		req, err := http.NewRequest("GET", identityUrl, nil)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -61,6 +67,9 @@ var _ = Describe("Client", Label("connection"), func() {
 
 		var result map[string]interface{}
 		json.Unmarshal(body, &result)
-		Expect(result["metadata"].(map[string]interface{})["name"]).To(BeElementOf("kube:admin"))
+		userRes, _ := json.MarshalIndent(result, "", "  ")
+		klog.V(6).Info(fmt.Sprintf("The Test User Infomation: %s", userRes))
+		users := [2]string{"kube:admin", "system:masters"}
+		Expect(users).To(ContainElement(result["metadata"].(map[string]interface{})["name"].(string)))
 	})
 })

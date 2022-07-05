@@ -24,6 +24,7 @@ type Client interface {
 	KubeDynamicClient() dynamic.Interface
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
+	HubClusterName() string
 }
 
 type client struct {
@@ -66,7 +67,7 @@ func (c *client) KubeDynamicClient() dynamic.Interface {
 }
 
 func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
-	if HUB_OF_HUB_CLUSTER_NAME == clusterName {
+	if c.options.HubCluster.Name == clusterName {
 		args = append(args, "--kubeconfig", c.options.HubCluster.KubeConfig)
 		args = append(args, "--context", c.options.HubCluster.KubeContext)
 		output, err := exec.Command("kubectl", args...).CombinedOutput()
@@ -122,7 +123,7 @@ func (c *client) GetPgPool() *pgxpool.Pool {
 
 func (c *client) RestConfig(clusterName string) (*rest.Config, error) {
 	if c.options.HubCluster.Name == clusterName {
-		return LoadConfig(c.options.HubCluster.MasterURL, c.options.HubCluster.KubeConfig, c.options.HubCluster.KubeContext)
+		return LoadConfig(c.options.HubCluster.ApiServer, c.options.HubCluster.KubeConfig, c.options.HubCluster.KubeContext)
 	}
 	for _, cluster := range c.options.ManagedClusters {
 		if cluster.Name == clusterName {
@@ -162,4 +163,9 @@ func LoadConfig(url, kubeconfig, context string) (*rest.Config, error) {
 	}
 
 	return nil, fmt.Errorf("could not create a valid kubeconfig")
+}
+
+
+func (c *client) HubClusterName() string {
+	return c.options.HubCluster.Name
 }

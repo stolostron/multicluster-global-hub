@@ -26,6 +26,14 @@ func NewPolicyGVR() schema.GroupVersionResource {
 	}
 }
 
+func NewHoHConfigGVR() schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    "hub-of-hubs.open-cluster-management.io",
+		Version:  "v1",
+		Resource: "configs",
+	}
+}
+
 func NewPlacementRule() schema.GroupVersionResource {
 	return schema.GroupVersionResource{Group: "apps.open-cluster-management.io", Version: "v1", Resource: "placementrules"}
 }

@@ -57,7 +57,7 @@ func CreateTestingRBAC(opt Options) error {
 
 func FetchBearerToken(opt Options) (string, error) {
 	config, err := LoadConfig(
-		opt.HubCluster.MasterURL,
+		opt.HubCluster.ApiServer,
 		opt.HubCluster.KubeConfig,
 		opt.HubCluster.KubeContext)
 	if err != nil {
@@ -81,7 +81,7 @@ func FetchBearerToken(opt Options) (string, error) {
 			if saExists && !createByExists && sa == SERVICE_ACCOUNT_NAME {
 				data := secret.Data
 				if token, ok := data["token"]; ok {
-					klog.V(5).Infof("token from secret: %s %s", secret.Namespace, &secret.Name)
+					klog.V(6).Infof("token from secret: %s %s", secret.Namespace, secret.Name)
 					return string(token), nil
 				}
 			}
