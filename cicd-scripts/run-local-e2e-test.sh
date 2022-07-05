@@ -78,4 +78,4 @@ done
 verbose=${verbose:=5}
 
 ginkgo --label-filter="$filter" --output-dir="${ROOT_DIR}/test/resources/result" --json-report=report.json \
---junit-report=report.xml -trace -v  ${ROOT_DIR}/test/pkg/test -- -options=$OPTIONS_FILE -v="$verbose"
+--junit-report=report.xml ${ROOT_DIR}/test/pkg/test -- -options=$OPTIONS_FILE -v="$verbose"
