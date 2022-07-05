@@ -1,6 +1,8 @@
 # Copyright (c) 2022 Red Hat, Inc.
 # Copyright Contributors to the Open Cluster Management project
 
+-include /opt/build-harness/Makefile.prow
+
 REGISTRY ?= quay.io/stolostron
 IMAGE_TAG ?= latest
 
@@ -34,7 +36,7 @@ push-agent-image:
 	docker push ${REGISTRY}/hub-of-hubs-agent:${IMAGE_TAG}
 
 .PHONY: unit-tests
-unit-tests: unit-tests-operator unit-tests-manager unit-tests-agent
+unit-tests: unit-tests-manager unit-tests-agent
 
 unit-tests-operator:
 	go test `go list ./operator/... | grep -v test`
