@@ -43,13 +43,14 @@ var _ = Describe("Updating cluster label from HoH manager", Label("label"), Orde
 
 		By("Get a managed cluster name")
 		managedClusters := getManagedCluster(httpClient, token)
+		Expect(len(managedClusters)).Should(BeNumerically(">", 0), "should get the managed cluster")
 		managedClusterName = managedClusters[0].Name
 		Expect(len(managedClusterName)).Should(BeNumerically(">", 0))
 	})
 
-	It("get the cluster label before adding", func() {
+	AfterEach(func() {
+		By("Print result after updating the cluster label")
 		managedClusters := getManagedCluster(httpClient, token)
-		Expect(len(managedClusters)).Should(BeNumerically(">", 0), "should get the managed cluster")
 		printClusterLabel(managedClusters)
 	})
 
@@ -75,10 +76,6 @@ var _ = Describe("Updating cluster label from HoH manager", Label("label"), Orde
 			}
 			return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
 		}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
-
-		By("Print result after adding the label")
-		managedClusters := getManagedCluster(httpClient, token)
-		printClusterLabel(managedClusters)
 	})
 
 	It("remove the label from the maanaged cluster", func() {
@@ -104,9 +101,6 @@ var _ = Describe("Updating cluster label from HoH manager", Label("label"), Orde
 			return nil
 		}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
 
-		By("Print result after removing the label")
-		managedClusters := getManagedCluster(httpClient, token)
-		printClusterLabel(managedClusters)
 	})
 })
 
