@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,12 +11,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 )
 
 const (
@@ -26,8 +28,7 @@ const (
 	APP_SUB_NAMESPACE = "pacman"
 )
 
-var _ = Describe("application", Label("app"), Ordered, func() {
-
+var _ = Describe("Deploy the application to the managed cluster", Label("app"), Ordered, func() {
 	var token string
 	var httpClient *http.Client
 	var managedClusterName1 string
@@ -54,7 +55,7 @@ var _ = Describe("application", Label("app"), Ordered, func() {
 		managedClusterName2 = managedClusters[1].Name
 
 		By("Get the appsubreport client")
-		cfg, err := clients.RestConfig(utils.HUB_OF_HUB_CLUSTER_NAME)
+		cfg, err := clients.RestConfig(clients.HubClusterName())
 		Expect(err).ShouldNot(HaveOccurred())
 		scheme := runtime.NewScheme()
 		appsv1alpha1.AddToScheme(scheme)
@@ -62,7 +63,8 @@ var _ = Describe("application", Label("app"), Ordered, func() {
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
-	It("add label to the managedcluster1", func() {
+	It(fmt.Sprintf("add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName1), func() {
+		By("Add label to the managedcluster1")
 		patches := []patch{
 			{
 				Op:    "add",
@@ -71,6 +73,7 @@ var _ = Describe("application", Label("app"), Ordered, func() {
 			},
 		}
 		updateClusterLabel(httpClient, patches, token, managedClusterName1)
+
 		By("Check the label is added")
 		Eventually(func() error {
 			managedClusters := getManagedCluster(httpClient, token)
@@ -83,11 +86,15 @@ var _ = Describe("application", Label("app"), Ordered, func() {
 			}
 			return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
 		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Print result after adding the label")
+		managedClusters := getManagedCluster(httpClient, token)
+		printClusterLabel(managedClusters)
 	})
 
-	It("create the application/subscription", func() {
+	It("deploy the application/subscription", func() {
 		By("Apply the appsub to labeled cluster")
-		_, err := clients.Kubectl(utils.HUB_OF_HUB_CLUSTER_NAME, "apply", "-f", APP_SUB_YAML)
+		_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", APP_SUB_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Check the appsub is applied to the cluster")
@@ -96,7 +103,7 @@ var _ = Describe("application", Label("app"), Ordered, func() {
 		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("scale the application/subscription by label", func() {
+	It(fmt.Sprintf("Add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName2), func() {
 		By("Add the lablel to managedcluster2")
 		patches := []patch{
 			{
@@ -113,6 +120,9 @@ var _ = Describe("application", Label("app"), Ordered, func() {
 			for _, cluster := range managedClusters {
 				if val, ok := cluster.Labels[APP_LABEL_KEY]; ok {
 					if val == APP_LABEL_VALUE && cluster.Name == managedClusterName2 {
+						By("Print result after adding the label")
+						managedClusters := getManagedCluster(httpClient, token)
+						printClusterLabel(managedClusters)
 						return nil
 					}
 				}
@@ -160,7 +170,7 @@ var _ = Describe("application", Label("app"), Ordered, func() {
 		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Remove the appsub resource")
-		_, err := clients.Kubectl(utils.HUB_OF_HUB_CLUSTER_NAME, "delete", "-f", APP_SUB_YAML)
+		_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", APP_SUB_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 })
@@ -179,14 +189,17 @@ func checkAppsubreport(appClient client.Client, expectDeployNum, expectClusterNu
 	if err != nil {
 		return err
 	}
-	klog.V(5).Info("# cluster: ", clusterNum)
-	// TODO if deployNum == expectDeployNum && clusterNum == expectClusterNum {
+	if clusterNum != expectClusterNum {
+		return fmt.Errorf("deployedClusterNum(%d) != exepectedClusterNum(%d)", clusterNum, expectClusterNum)
+	}
 	if deployNum == expectDeployNum {
 		if expectClusterNum == 0 && expectDeployNum == 0 {
 			return nil
 		}
 		for _, res := range appsubreport.Results {
 			if res.Result == "deployed" && res.Source == expectClusterName {
+				appsubreportStr, _ := json.MarshalIndent(appsubreport, "", "  ")
+				klog.V(5).Info("Appsubreport: ", string(appsubreportStr))
 				return nil
 			}
 		}
