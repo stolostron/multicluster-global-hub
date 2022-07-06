@@ -165,6 +165,46 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("policy"
 		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
+	It("remove managedcluster1 policy by deleting label", func() {
+		By("remove the label from the managedclusterName1")
+		patches := []patch{
+			{
+				Op:    "remove",
+				Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
+				Value: POLICY_LABEL_VALUE,
+			},
+		}
+		updateClusterLabel(httpClient, patches, token, managedClusterName1)
+
+		By("Check the label is removed from the managedclusterName1")
+		Eventually(func() error {
+			managedClusters := getManagedCluster(httpClient, token)
+			for _, cluster := range managedClusters {
+				if cluster.Name == managedClusterName1 { 
+					if val, ok := cluster.Labels[POLICY_LABEL_KEY]; ok && val == POLICY_LABEL_VALUE {
+						return fmt.Errorf("the label %s: %s has't removed from the cluster %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, cluster.Name)
+					}
+				}
+			}
+			printClusterLabel(managedClusters)
+			return nil
+		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Check the policy is removed from the managedclusterName1")
+		Eventually(func() error {
+			transportedPolicies := listTransportedPolicies(token, httpClient)
+			for _, policyInfo := range transportedPolicies {
+				if policyInfo.ClusterName == managedClusterName1 {
+					return fmt.Errorf("the cluster %s policy(%s: %s)should be removed", managedClusterName1, policyInfo.ErrorInfo, policyInfo.Compliance)
+				}
+			}
+			policyStr, _ := json.MarshalIndent(transportedPolicies, "", "  ")
+			klog.V(5).Info(fmt.Printf("remove policy from managedcluster1: %s", string(policyStr)))
+			return nil
+		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+
+	})
+
 	AfterAll(func() {
 
 		By("Delete the enforced policy")
