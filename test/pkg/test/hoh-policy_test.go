@@ -10,8 +10,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 	"k8s.io/klog"
+
+	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 )
 
 const (
@@ -22,7 +23,7 @@ const (
 	POLICY_LABEL_VALUE = "test"
 )
 
-var _ = Describe("policy", Ordered, Label("policy"), func() {
+var _ = Describe("Apply policy to the managed clusters", Ordered, Label("policy"), func() {
 	var token string
 	var httpClient *http.Client
 	var managedClusterName1 string
@@ -63,18 +64,20 @@ var _ = Describe("policy", Ordered, Label("policy"), func() {
 			for _, cluster := range managedClusters {
 				if val, ok := cluster.Labels[POLICY_LABEL_KEY]; ok {
 					if val == POLICY_LABEL_VALUE && cluster.Name == managedClusterName1 {
+						By("Print the result after adding the label")
+						managedClusters := getManagedCluster(httpClient, token)
+						printClusterLabel(managedClusters)
 						return nil
 					}
 				}
 			}
 			err := fmt.Errorf("the label %s: %s is not exist", POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
-			klog.V(5).Info(err)
 			return err
 		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("create a inform policy for the labeled cluster", func() {
-		_, err := clients.Kubectl(utils.HUB_OF_HUB_CLUSTER_NAME, "apply", "-f", INFORM_POLICY_YAML)
+		_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", INFORM_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
@@ -82,6 +85,8 @@ var _ = Describe("policy", Ordered, Label("policy"), func() {
 			for _, policyInfo := range transportedPolicies {
 				if policyInfo.ClusterName == managedClusterName1 {
 					if policyInfo.ErrorInfo == "none" && policyInfo.Compliance == "non_compliant" {
+						policyStr, _ := json.MarshalIndent(transportedPolicies, "", "  ")
+						klog.V(5).Info(fmt.Printf("Inform policy[ %s -> %s ]: %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, string(policyStr)))
 						return nil
 					} else {
 						err := fmt.Errorf("the cluster %s with [error] 'none' -> %s and [compliance] 'non_compliant' ->  %s ",
@@ -96,7 +101,7 @@ var _ = Describe("policy", Ordered, Label("policy"), func() {
 	})
 
 	It("enforce the inform policy", func() {
-		_, err := clients.Kubectl(utils.HUB_OF_HUB_CLUSTER_NAME, "apply", "-f", ENFORCE_POLICY_YAML)
+		_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", ENFORCE_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
@@ -104,6 +109,8 @@ var _ = Describe("policy", Ordered, Label("policy"), func() {
 			for _, policyInfo := range transportedPolicies {
 				if policyInfo.ClusterName == managedClusterName1 {
 					if policyInfo.ErrorInfo == "none" && policyInfo.Compliance == "compliant" {
+						policyStr, _ := json.MarshalIndent(transportedPolicies, "", "  ")
+						klog.V(5).Info(fmt.Printf("Enforce policy[ %s -> %s ]: %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, string(policyStr)))
 						return nil
 					} else {
 						return fmt.Errorf("the cluster %s with policy error Information %s and compliacne %s",
@@ -115,7 +122,7 @@ var _ = Describe("policy", Ordered, Label("policy"), func() {
 		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("add the label for anohter managedcluster to vertify the placement", func() {
+	It("add the label for anothter managedcluster to vertify the placement", func() {
 		patches := []patch{
 			{
 				Op:    "add", // or remove
@@ -132,6 +139,9 @@ var _ = Describe("policy", Ordered, Label("policy"), func() {
 			for _, cluster := range managedClusters {
 				if val, ok := cluster.Labels[POLICY_LABEL_KEY]; ok {
 					if val == POLICY_LABEL_VALUE && cluster.Name == managedClusterName2 {
+						By("Print the result after adding the label")
+						managedClusters := getManagedCluster(httpClient, token)
+						printClusterLabel(managedClusters)
 						return nil
 					}
 				}
@@ -145,6 +155,8 @@ var _ = Describe("policy", Ordered, Label("policy"), func() {
 			for _, policyInfo := range transportedPolicies {
 				if policyInfo.ClusterName == managedClusterName2 {
 					if policyInfo.ErrorInfo == "none" && policyInfo.Compliance == "compliant" {
+						policyStr, _ := json.MarshalIndent(transportedPolicies, "", "  ")
+						klog.V(5).Info(fmt.Printf("scale the enforced policy[ %s -> %s ]: %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, string(policyStr)))
 						return nil
 					} else {
 						return fmt.Errorf("the cluster %s with policy error Information %s and compliacne %s",
@@ -157,7 +169,7 @@ var _ = Describe("policy", Ordered, Label("policy"), func() {
 	})
 
 	AfterAll(func() {
-		_, err := clients.Kubectl(utils.HUB_OF_HUB_CLUSTER_NAME, "delete", "-f", ENFORCE_POLICY_YAML)
+		_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", ENFORCE_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		deleteInfo, err := clients.Kubectl(managedClusterName1, "delete", "LimitRange", "container-mem-limit-range")
@@ -202,7 +214,7 @@ type policyStatus struct {
 }
 
 func listTransportedPolicies(token string, httpClient *http.Client) []policyStatus {
-	policyStatusUrl := fmt.Sprintf("https://multicloud-console.apps.%s./multicloud/hub-of-hubs-nonk8s-api/policiesstatus", testOptions.HubCluster.BaseDomain)
+	policyStatusUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/policiesstatus", testOptions.HubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", policyStatusUrl, nil)
 	Expect(err).ShouldNot(HaveOccurred())
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
