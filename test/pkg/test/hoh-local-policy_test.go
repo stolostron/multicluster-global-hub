@@ -8,6 +8,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+
+	// "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,7 +30,7 @@ const (
 	LOCAL_POLICY_LABEL_KEY   = "local-policy"
 	LOCAL_POLICY_LABEL_VALUE = "test"
 	LOCAL_POLICY_NAME = "policy-limitrange"
-	LOCAL_POLICY_NAMESPACE = "kind-hub1"
+	LOCAL_POLICY_NAMESPACE = "local-policy-namespace"
 )
 
 var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("local-policy"), func() {
@@ -36,6 +39,12 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("l
 
 	BeforeAll(func() {
 		leafHubName = clients.LeafHubClusterName()
+		localPolicyNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: LOCAL_POLICY_NAMESPACE}}
+		clients.KubeClient().CoreV1().Namespaces().Create(context.TODO(), localPolicyNamespace, metav1.CreateOptions{})
+		Eventually(func() error {
+			_, err := clients.KubeClient().CoreV1().Namespaces().Get(context.TODO(), LOCAL_POLICY_NAMESPACE, metav1.GetOptions{})
+			return err
+		}, 5 * time.Second, 1 * time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("deploy inform policy to the leaf hub", func() {
@@ -77,7 +86,10 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("l
 			var policy policiesv1.Policy
 			err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructedContent, &policy)
 			Expect(err).ShouldNot(HaveOccurred())
-			if policy.Status.ComplianceState == "NonCompliant" {
+			if len(policy.Status.Status) <=0 {
+				return fmt.Errorf("inform local policy status is not ready")
+			}
+			if (policy.Status.Status[0].ClusterName == leafHubName) && (policy.Status.Status[0].ComplianceState == "NonCompliant") {
 				policyStatusStr, _ := json.MarshalIndent(policy.Status, "", "  ")
 				klog.V(5).Info(fmt.Sprintf("local PolicyStatus: %s", policyStatusStr))
 				return nil
@@ -99,7 +111,10 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("l
 			var policy policiesv1.Policy
 			err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructedContent, &policy)
 			Expect(err).ShouldNot(HaveOccurred())
-			if policy.Status.ComplianceState == "Compliant" {
+			if len(policy.Status.Status) <=0 {
+				return fmt.Errorf("enforce local policy status is not ready")
+			}
+			if (policy.Status.Status[0].ClusterName == leafHubName) && (policy.Status.Status[0].ComplianceState == "Compliant") {
 				policyStatusStr, _ := json.MarshalIndent(policy.Status, "", "  ")
 				klog.V(5).Info(fmt.Sprintf("local PolicyStatus: %s", policyStatusStr))
 				return nil
@@ -124,7 +139,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("l
 			_, err = clients.KubeDynamicClient().Resource(utils.NewPolicyGVR()).Namespace(LOCAL_POLICY_NAMESPACE).Get(context.TODO(), LOCAL_POLICY_NAME, metav1.GetOptions{})
 			Expect(err).Should(HaveOccurred())
 			if errors.IsNotFound(err) {
-				klog.V(5).Info(fmt.Sprintf("local policy(%s) is deleted from leafhub(%s)", LOCAL_POLICY_NAME, leafHubName))
+				klog.V(5).Info(fmt.Sprintf("local policy(%s) is deleted from namespace(%s)!", LOCAL_POLICY_NAME, LOCAL_POLICY_NAMESPACE))
 				return nil
 			}
 			return fmt.Errorf("local policy is not deleted")

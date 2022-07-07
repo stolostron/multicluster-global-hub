@@ -2,11 +2,13 @@ apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:
   name: policy-limitrange
-  namespace: kind-hub1
+  namespace: local-policy-namespace
   annotations:
     policy.open-cluster-management.io/standards: NIST-CSF
     policy.open-cluster-management.io/categories: PR.IP Information Protection Processes and Procedures
     policy.open-cluster-management.io/controls: PR.IP-1 Baseline Configuration
+  labels:
+    hub-of-hubs.open-cluster-management.io/local-resource: ''
 spec:
   remediationAction: inform
   disabled: false
@@ -43,7 +45,9 @@ apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding
 metadata:
   name: binding-policy-limitrange
-  namespace: kind-hub1
+  namespace: local-policy-namespace
+  labels:
+    hub-of-hubs.open-cluster-management.io/local-resource: ''
 placementRef:
   name: placement-policy-limitrange
   kind: PlacementRule
@@ -57,7 +61,9 @@ apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
   name: placement-policy-limitrange
-  namespace: kind-hub1
+  namespace: local-policy-namespace
+  labels:
+    hub-of-hubs.open-cluster-management.io/local-resource: ''
 spec:
   clusterConditions:
     - status: 'True'
@@ -67,4 +73,4 @@ spec:
       - key: local-policy
         operator: In
         values:
-          - test
+          - 'test'
