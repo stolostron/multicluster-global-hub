@@ -64,7 +64,7 @@ spec:
       type: ManagedClusterConditionAvailable
   clusterSelector:
     matchExpressions:
-      - key: policy
+      - key: global-policy
         operator: In
         values:
           - test
