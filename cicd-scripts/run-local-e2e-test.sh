@@ -3,7 +3,7 @@ set -eu
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." ; pwd -P)"
 CONFIG_DIR="${ROOT_DIR}/test/resources/kubeconfig"
-OPTIONS_FILE="${ROOT_DIR}/test/resources/options-kind.yaml"
+OPTIONS_FILE="${ROOT_DIR}/test/resources/options-local.yaml"
 
 HUB_OF_HUB_NAME="hub-of-hubs" # the container name
 HUB_OF_HUB_CTX="microshift"
