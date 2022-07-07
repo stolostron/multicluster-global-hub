@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	CLUSTER_LABEL_KEY   = "test"
-	CLUSTER_LABEL_VALUE = "label"
+	CLUSTER_LABEL_KEY   = "label"
+	CLUSTER_LABEL_VALUE = "test"
 )
 
 var _ = Describe("Updating cluster label from HoH manager", Label("label"), Ordered, func() {
