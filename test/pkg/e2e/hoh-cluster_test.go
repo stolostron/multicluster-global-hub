@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -10,12 +11,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 )
 
-var _ = Describe("Check the managed cluster from HoH manager", Label("cluster"), Ordered, func() {
+var _ = Describe("Check the managed cluster from HoH manager", Label("e2e-tests-cluster"), Ordered, func() {
 	var token string
 	var httpClient *http.Client
 	
@@ -52,5 +54,10 @@ var _ = Describe("Check the managed cluster from HoH manager", Label("cluster"),
 		var managedClusters []clusterv1.ManagedCluster
 		json.Unmarshal(body, &managedClusters)
 		Expect(len(managedClusters)).Should(BeNumerically(">", 0), "should get the managed cluster")
+
+		By("Print managedcluster")
+		var out bytes.Buffer
+    _ = json.Indent(&out, body, "", "  ")
+		klog.V(6).Infof("managedClusters: %s", out.String())
 	})
 })

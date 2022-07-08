@@ -18,16 +18,22 @@ function deployPostgresCluster() {
   userSecrets=("hoh-pguser-hoh-process-user" "hoh-pguser-postgres" "hoh-pguser-transport-bridge-user")
 
   # ensure the pgo operator is deleted first to start its deployment from scratch
-  kubectl delete -k ${currentDir}/postgres-cluster --ignore-not-found=true 2>/dev/null
+  kubectl delete -k ${currentDir}/postgres-cluster --ignore-not-found=true
 
   # ensure all the user secrets are deleted
   for secret in ${userSecrets[@]}
   do
     matched=$(kubectl get secret $secret -n $pgnamespace --ignore-not-found=true)
+    SECOND=0
     while [ ! -z "$matched" ]; do
+      if [ $SECOND -gt 300 ]; then
+        echo "Timeout waiting for deleting $secret"
+        exit 1
+      fi
       echo "Waiting for secret $secret to be deleted from pgnamespace $pgnamespace"
       matched=$(kubectl get secret $secret -n $pgnamespace --ignore-not-found=true)
-      sleep 10
+      sleep 5
+      (( SECOND = SECOND + 5 ))
     done
   done
 
@@ -37,10 +43,16 @@ function deployPostgresCluster() {
   for secret in ${userSecrets[@]}
   do
     matched=$(kubectl get secret $secret -n $pgnamespace --ignore-not-found=true)
+    SECOND=0
     while [ -z "$matched" ]; do
+      if [ $SECOND -gt 300 ]; then
+        echo "Timeout waiting for creating $secret"
+        exit 1
+      fi
       echo "Waiting for secret $secret to be created in pgnamespace $pgnamespace"
       matched=$(kubectl get secret $secret -n $pgnamespace --ignore-not-found=true)
-      sleep 10
+      sleep 5
+      (( SECOND = SECOND + 5 ))
     done
   done
 
@@ -51,7 +63,7 @@ function deployPostgresCluster() {
   done
 
   # delete all pods to recreate in case the pod won't be restarted when the statefulset is patched
-  oc delete pod -n $pgnamespace --all --ignore-not-found=true 2>/dev/null
+  kubectl delete pod -n $pgnamespace --all --ignore-not-found=true 2>/dev/null
 }
 
 # always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets

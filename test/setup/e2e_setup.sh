@@ -1,9 +1,11 @@
 #!/bin/bash
 
+set -o errexit
+set -o nounset
+
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
-export LOG=${CONFIG_DIR}/e2e_setup.log
-rm $LOG > /dev/null 2>&1
+export LOG=${LOG:-$CONFIG_DIR/e2e_setup.log}
 
 source ${CURRENT_DIR}/common.sh
 
@@ -20,6 +22,7 @@ checkClusteradm
 
 # setup kubeconfig
 export KUBECONFIG=${CONFIG_DIR}/kubeconfig
+echo "export KUBECONFIG=$KUBECONFIG" > ${LOG}
 sleep 1 &
 hover $! "KUBECONFIG=${KUBECONFIG}"
 
@@ -30,9 +33,6 @@ hover $! "1 Prepare top hub cluster $HUB_OF_HUB_NAME"
 # enable olm
 enableOLM $CTX_HUB >> "$LOG" 2>&1 &
 hover $! "  Enable OLM for $CTX_HUB"
-
-# enableDependencyResources "kind-$HUB_OF_HUB_NAME" >> "$LOG" 2>&1 &
-# hover $! "  Prepare top hub cluster dependency resources"
 
 # init leafhub 
 hover $! "2 Prepare leaf hub cluster $LEAF_HUB_NAME"
@@ -57,7 +57,7 @@ kubectl config view --context=${CTX_HUB} --minify --flatten > ${HUB_KUBECONFIG}
 initPolicy $CTX_HUB $CTX_MANAGED $HUB_KUBECONFIG >> "$LOG" 2>&1 &
 hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED" 
 
-kubectl config use-context $CTX_HUB >> "$LOG" 2>&1 &
+kubectl config use-context $CTX_HUB >> "$LOG"
 
 # install kafka
 source ${CURRENT_DIR}/kafka/kafka_setup.sh >> "$LOG" 2>&1 &

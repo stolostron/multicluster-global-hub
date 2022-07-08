@@ -3,7 +3,7 @@
 clusterName=$1
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "currentDir: $currentDir"
-if [[ -z "$(docker ps | grep "${clusterName}")" ]]; then
+if [[ -z "$(docker ps | grep "${clusterName}" || true)" ]]; then
   echo "Creating microshift cluster ${clusterName}..."
   docker run -d --rm --name $clusterName --privileged -v hub-data:/var/lib -p 127.0.0.1:6443:6443 -p 127.0.0.1:30095:9095 -p 127.0.0.1:30080:8080 quay.io/microshift/microshift-aio:latest
   until docker cp $clusterName:/var/lib/microshift/resources/kubeadmin/kubeconfig $currentDir/../config/kubeconfig-microshift > /dev/null 2>&1
@@ -14,15 +14,27 @@ if [[ -z "$(docker ps | grep "${clusterName}")" ]]; then
   echo "containerIp=$(docker inspect -f '{{.NetworkSettings.IPAddress}}' $clusterName)"
   containerIp=$(docker inspect -f '{{.NetworkSettings.IPAddress}}' $clusterName)
   sed "s;127.0.0.1;${containerIp};g" $currentDir/../config/kubeconfig-microshift > $KUBECONFIG
+  sleep 10
 fi 
-
+kubectl config use-context "microshift"
+SECOND=0
 while [[ -z $(kubectl get deploy router-default -n openshift-ingress --ignore-not-found) ]]; do
+  if [ $SECOND -gt 300 ]; then
+    echo "Timeout waiting for deploying router-default $secret"
+    exit 1
+  fi
   echo "Waiting for router-default to be created..."
   sleep 5;
+  (( SECOND = SECOND + 5 ))
 done;
 while [[ -z $(kubectl get deploy service-ca -n openshift-service-ca --ignore-not-found) ]]; do
+  if [ $SECOND -gt 600 ]; then
+    echo "Timeout waiting for deploying router-default $secret"
+    exit 1
+  fi
   echo "Waiting for router-default to be created..."
   sleep 5;
+  (( SECOND = SECOND + 5 ))
 done;
-kubectl wait deployment -n openshift-ingress router-default --for condition=Available=True --timeout=600s
-kubectl wait deployment -n openshift-service-ca service-ca --for condition=Available=True --timeout=600s
+kubectl wait deployment -n openshift-ingress router-default --for condition=Available=True --timeout=200s
+kubectl wait deployment -n openshift-service-ca service-ca --for condition=Available=True --timeout=200s

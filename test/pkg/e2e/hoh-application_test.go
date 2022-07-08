@@ -28,7 +28,7 @@ const (
 	APP_SUB_NAMESPACE = "pacman"
 )
 
-var _ = Describe("Deploy the application to the managed cluster", Label("app"), Ordered, func() {
+var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tests-app"), Ordered, func() {
 	var token string
 	var httpClient *http.Client
 	var managedClusterName1 string

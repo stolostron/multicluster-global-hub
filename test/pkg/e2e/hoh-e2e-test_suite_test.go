@@ -11,9 +11,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog"
+
+	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 )
 
 var (

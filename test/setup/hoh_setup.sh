@@ -6,6 +6,7 @@ echo "using kubeconfig $KUBECONFIG"
 
 namespace=open-cluster-management
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+TAG=${TAG:-"latest"}
 branch=$TAG
 if [ $TAG == "latest" ]; then
   branch="main"

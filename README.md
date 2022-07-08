@@ -100,3 +100,30 @@ See [simulation at high scale](./simulation.md).
 ### Contributing
 
 Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
+
+## Running E2E tests locally
+
+You can build a local hub-of-hubs environment with 1 Microshift cluster and 3 KinD clusters in 1 VM. Then running all the e2e test cases to verify the functions.
+
+### Setup a local environment
+
+All you need to do is running the command `make e2e-setup-start`, Then you will have a minimal hub-of-hubs environment. It should be noted that after running the command, it will take some time to set up the whole environment, and finally the value of `KUBECONFIG` will be printed on your terminal. You can use that to access your local hub-of-hubs clusters.
+
+### Runnig the E2E test cases
+
+You can type `make $COMPONENT` to run the corresponding E2E test, all possible values of `COMPONENT` are listed below:
+
+- `e2e-tests-connection`: Test connnection to the api-server and nonk8s-server
+- `e2e-tests-cluster`: Test whether the managed cluster is synced to the HoH server
+- `e2e-tests-label`: Test whether labels can be added or removed from a managed cluster
+- `e2e-tests-policy`: Test whether the global policy applied to the managed cluster can be deployed, scaled and deleted
+- `e2e-tests-local-policy` Test whether the local policy applied to the leaf hub can be deployed or deleted
+- `e2e-tests-app` Test whether the application can be applied, scaled, scheduled and deleted
+- `e2e-tests-all`: Test if all the E2E cases work properly
+
+### Clean up the local E2E environment
+
+```
+make e2e-setup-clean
+```
+

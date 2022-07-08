@@ -23,7 +23,7 @@ const (
 	CLUSTER_LABEL_VALUE = "test"
 )
 
-var _ = Describe("Updating cluster label from HoH manager", Label("label"), Ordered, func() {
+var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-label"), Ordered, func() {
 	var token string
 	var httpClient *http.Client
 	var managedClusterName string
