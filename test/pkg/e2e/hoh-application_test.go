@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -99,7 +100,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		By("Check the appsub is applied to the cluster")
 		Eventually(func() error {
-			return checkAppsubreport(appClient, 1, 1, managedClusterName1)
+			return checkAppsubreport(appClient, 1, []string{managedClusterName1})
 		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
@@ -132,15 +133,8 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		By("Check the appsub apply to the clusters")
 		Eventually(func() error {
-			err := checkAppsubreport(appClient, 2, 2, managedClusterName1)
-			if err != nil {
-				return err
-			}
-			err = checkAppsubreport(appClient, 2, 2, managedClusterName2)
-			if err != nil {
-				return err
-			}
-			return nil
+			err := checkAppsubreport(appClient, 2, []string{ managedClusterName1, managedClusterName2 })
+			return err
 		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
@@ -175,7 +169,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 	})
 })
 
-func checkAppsubreport(appClient client.Client, expectDeployNum, expectClusterNum int, expectClusterName string) error {
+func checkAppsubreport(appClient client.Client, expectDeployNum int, expectClusterNames []string) error {
 	appsubreport := &appsv1alpha1.SubscriptionReport{}
 	err := appClient.Get(context.TODO(), types.NamespacedName{Namespace: APP_SUB_NAMESPACE, Name: APP_SUB_NAME}, appsubreport)
 	if err != nil {
@@ -189,21 +183,25 @@ func checkAppsubreport(appClient client.Client, expectDeployNum, expectClusterNu
 	if err != nil {
 		return err
 	}
-	if clusterNum != expectClusterNum {
-		return fmt.Errorf("deployedClusterNum(%d) != exepectedClusterNum(%d)", clusterNum, expectClusterNum)
-	}
-	if deployNum == expectDeployNum {
-		if expectClusterNum == 0 && expectDeployNum == 0 {
-			return nil
-		}
-		for _, res := range appsubreport.Results {
-			if res.Result == "deployed" && res.Source == expectClusterName {
-				appsubreportStr, _ := json.MarshalIndent(appsubreport, "", "  ")
-				klog.V(5).Info("Appsubreport: ", string(appsubreportStr))
-				return nil
+	if deployNum == expectDeployNum && clusterNum >= len(expectClusterNames) {
+		matchedClusterNum := 0
+		for _, expectClusterName := range expectClusterNames {
+			for _, res := range appsubreport.Results {
+				if res.Result == "deployed" && res.Source == expectClusterName {
+					matchedClusterNum++
+				}
 			}
+		}
+		if matchedClusterNum == len(expectClusterNames) {
+			report := &appsv1alpha1.SubscriptionReport{
+				Summary: appsubreport.Summary,
+				Results: appsubreport.Results,
+			}
+			appsubreportStr, _ := json.MarshalIndent(report, "", "  ")
+			klog.V(5).Info("Appsubreport: ", string(appsubreportStr))
+			return nil
 		}
 		return fmt.Errorf("deploy results isn't correct %v", appsubreport.Results)
 	}
-	return fmt.Errorf("the appsub %s: %s hasn't deplyed to the cluster: %s", APP_SUB_NAMESPACE, APP_SUB_NAME, expectClusterName)
+	return fmt.Errorf("the appsub %s: %s hasn't deplyed to the cluster: %s", APP_SUB_NAMESPACE, APP_SUB_NAME, strings.Join(expectClusterNames, ","))
 }
