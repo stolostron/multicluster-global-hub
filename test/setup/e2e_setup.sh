@@ -6,6 +6,7 @@ set -o nounset
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
 export LOG=${LOG:-$CONFIG_DIR/e2e_setup.log}
+export TAG=${TAG:-"latest"}
 
 source ${CURRENT_DIR}/common.sh
 
@@ -71,4 +72,5 @@ hover $! "5 Install postgres cluster"
 source ${CURRENT_DIR}/hoh_setup.sh >> "$LOG" 2>&1 &
 hover $! "6 Deploy hub-of-hubs with $TAG" 
 
+export KUBECONFIG=$KUBECONFIG
 printf "%s\033[0;32m%s\n\033[0m" "[Access the Clusters]: " "export KUBECONFIG=$KUBECONFIG"
