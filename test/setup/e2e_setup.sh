@@ -53,7 +53,7 @@ hover $! "  Joining $CTX_HUB - $CTX_MANAGED"
 initApp $CTX_HUB $CTX_MANAGED >> "$LOG" 2>&1 &
 hover $! "  Enable application $CTX_HUB - $CTX_MANAGED" 
 
-HUB_KUBECONFIG=${CONFIG_DIR}/kubeconfig_hub_${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HUB_KUBECONFIG"
+HUB_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HUB_KUBECONFIG"
 kubectl config view --context=${CTX_HUB} --minify --flatten > ${HUB_KUBECONFIG}
 initPolicy $CTX_HUB $CTX_MANAGED $HUB_KUBECONFIG >> "$LOG" 2>&1 &
 hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED" 
