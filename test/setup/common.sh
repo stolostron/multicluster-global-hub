@@ -57,10 +57,8 @@ function checkKind() {
 function initKinDCluster() {
   clusterName=$1
   image="kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae" # or kindest/node:v1.23.4 
-  if [[ $(kind get clusters | grep "^${clusterName}$") != "${clusterName}" ]]; then
-    [ ! -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image")  
-    [ -n "$2" ] && (kind create cluster --name "$clusterName" --image "$image" --config $2) 
-    sleep 2
+  if [[ $(kind get clusters | grep "^${clusterName}$" || true) != "${clusterName}" ]]; then
+    kind create cluster --name "$clusterName" --image "$image" --wait 1m
     currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     kubectl config view --context="kind-${clusterName}" --minify --flatten > ${currentDir}/config/kubeconfig-${clusterName}
   fi
@@ -91,11 +89,12 @@ function getMicroShiftKubeConfig() {
 }
 
 function initHub() {
+  echo "Initializing Hub $1 ..."
   kubectl config use-context "$1"
-  clusteradm init --wait --context "$1"
-  kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=600s
-  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=600s
-  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=600s
+  clusteradm init --wait --context "$1" > /dev/null 2>&1
+  kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s
 }
 
 function initManaged() {
@@ -104,7 +103,7 @@ function initManaged() {
 
   currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   joinCommand="${currentDir}/config/join-${hub}"
-  if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}") == "" ]]; then
+  if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}" || true) == "" ]]; then
     kubectl config use-context "${managed}"
     clusteradm get token --context "${hub}" | grep "clusteradm" > "$joinCommand"
     if [[ $hub =~ "kind" ]]; then
@@ -118,25 +117,27 @@ function initManaged() {
     
   SECOND=0
   while true; do
-    if [ $SECOND -gt 12000 ]; then
+    if [ $SECOND -gt 300 ]; then
       echo "Timeout waiting for ${hub} + ${managed}."
       exit 1
     fi
 
     kubectl config use-context "${hub}"
-    hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}")
+    hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}" || true)
     while [[ "${hubManagedCsr}" != "" && "${hubManagedCsr}" =~ "Pending" ]]; do
       echo "accepting ${hub} + ${managed} csr"
       clusteradm accept --clusters "${managed}" --context "${hub}"
       sleep 5
-      hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}")
+      (( SECOND = SECOND + 5 ))
+      hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}" || true)
     done
 
-    hubManagedCluster=$(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}")
+    hubManagedCluster=$(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}" || true)
     if [[ "${hubManagedCluster}" != "" && $(echo "${hubManagedCluster}" | awk '{print $2}') == "true" ]]; then
       echo "Cluster ${managed}: ${hubManagedCluster}"
       break
     elif [[ "${hubManagedCluster}" != "" && $(echo "${hubManagedCluster}" | awk '{print $2}') == "false" ]]; then
+      echo "Cluster ${managed}: ${hubManagedCluster}"
       kubectl patch managedcluster "${managed}" -p='{"spec":{"hubAcceptsClient":true}}' --type=merge --context "${hub}"
     fi
     sleep 5
@@ -155,7 +156,7 @@ function initApp() {
 
   SECOND=0
   while true; do
-    if [ $SECOND -gt 600 ]; then
+    if [ $SECOND -gt 300 ]; then
       echo "Timeout waiting for ${hub} + ${managed}."
       exit 1
     fi
@@ -170,27 +171,19 @@ function initApp() {
     fi
 
     # create ocm-agent-addon namespace on the managed cluster
-    managedAgentAddonNS=$(kubectl get ns --context "${managed}" --ignore-not-found | grep "open-cluster-management-agent-addon")
+    managedAgentAddonNS=$(kubectl get ns --context "${managed}" --ignore-not-found | grep "open-cluster-management-agent-addon" || true)
     if [[ -z "${managedAgentAddonNS}" ]]; then
       echo "create namespace open-cluster-management-agent-addon on ${managed}"
       kubectl create ns open-cluster-management-agent-addon --context "${managed}"
     fi
 
-    # echo "deploy managedclusteraddon application-manager context: ${hub} and namespace: ${managed}"
-    # hubManagedClusterAddon=$(kubectl -n "${managed}" get managedclusteraddon --context "${hub}" --ignore-not-found | grep application-manager)
-    # if [[ "${hubManagedClusterAddon}" == "" ]]; then
-    #   kubectl config use-context "${hub}"
-    #   echo "deploy the the subscription add-on to the managed cluster: $hub - $managed"
-    #   clusteradm addon enable --name application-manager --cluster "${managed}"
-    # fi 
-
     echo "check the application-manager is available on context: ${managed} "
-    managedSubAvailable=$(kubectl -n open-cluster-management-agent-addon get deploy --context "${managed}" --ignore-not-found | grep "application-manager")
+    managedSubAvailable=$(kubectl -n open-cluster-management-agent-addon get deploy --context "${managed}" --ignore-not-found | grep "application-manager" || true)
     if [[ "${managedSubAvailable}" != "" && $(echo "${managedSubAvailable}" | awk '{print $4}') -gt 0 ]]; then
       echo "Application installed $hub - ${managed}: $managedSubAvailable"
       break
     else
-      echo "deploying the the subscription add-on to the managed cluster: $managed"
+      echo "Deploying the the subscription add-on to the managed cluster: $managed"
       kubectl config use-context "${hub}"
       clusteradm addon enable --name application-manager --cluster "${managed}"
       sleep 5
@@ -206,7 +199,7 @@ function initPolicy() {
   HUB_KUBECONFIG="$3"
   SECOND=0
   while true; do
-    if [ $SECOND -gt 1200 ]; then
+    if [ $SECOND -gt 400 ]; then
       echo "Timeout waiting for ${hub} + ${managed}."
       exit 1
     fi
@@ -217,9 +210,9 @@ function initPolicy() {
     kubectl config use-context "${hub}"
     HUB_NAMESPACE="open-cluster-management"
 
-    policyPropagator=$(kubectl get pods -n "${HUB_NAMESPACE}" --context "${hub}" --ignore-not-found | grep "governance-policy-propagator")
+    policyPropagator=$(kubectl get pods -n "${HUB_NAMESPACE}" --context "${hub}" --ignore-not-found | grep "governance-policy-propagator" || true)
     if [[ ${policyPropagator} == "" ]]; then 
-      kubectl create ns ${HUB_NAMESPACE} > /dev/null 2>&1
+      kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
       GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/main/deploy"
       ## Apply the CRDs
       kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml 
@@ -242,7 +235,7 @@ function initPolicy() {
     kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
 
     ## Create the secret to authenticate with the hub
-    if [[ $(kubectl get secret --context "${managed}" --ignore-not-found | grep "hub-kubeconfig") == "" ]]; then 
+    if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "${managed}" --ignore-not-found) == "" ]]; then 
       kubectl -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
     fi
 
@@ -253,7 +246,7 @@ function initPolicy() {
     kubectl create ns "${managed}" --dry-run=client -o yaml | kubectl apply -f -
 
     COMPONENT="governance-policy-spec-sync"
-    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}")
+    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
     if [[ ${comp} == "" ]]; then 
       kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}" 
       kubectl set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managed}" 
@@ -263,7 +256,7 @@ function initPolicy() {
     fi
 
     COMPONENT="governance-policy-status-sync"
-    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}")
+    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
     if [[ ${comp} == "" ]]; then 
       kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
       kubectl set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managed}"
@@ -273,7 +266,7 @@ function initPolicy() {
     fi
 
     COMPONENT="governance-policy-template-sync"
-    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}")
+    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
     if [[ ${comp} == "" ]]; then 
       kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}" 
       kubectl set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managed}"
@@ -285,7 +278,7 @@ function initPolicy() {
     COMPONENT="config-policy-controller"
     # Apply the config-policy-controller CRD
     kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
-    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}")
+    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
     if [[ ${comp} == "" ]]; then
       # Deploy the controller
       kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
@@ -348,7 +341,7 @@ function enableOLM() {
   sleep 10
   kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
 
-  retries=60
+  retries=30
   until [[ $retries == 0 ]]; do
     csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
     if [[ "$csvPhase" == "Succeeded" ]]; then
@@ -358,9 +351,8 @@ function enableOLM() {
     kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
     echo "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
     echo "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
-    sleep 20
+    sleep 10
     retries=$((retries - 1))
-
   done
   kubectl rollout status -w deployment/packageserver --namespace="${NS}" 
 

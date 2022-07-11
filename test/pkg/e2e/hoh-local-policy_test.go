@@ -10,15 +10,12 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 
-	// "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-
-	// clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 )
@@ -33,7 +30,7 @@ const (
 	LOCAL_POLICY_NAMESPACE = "local-policy-namespace"
 )
 
-var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("local-policy"), func() {
+var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e2e-tests-local-policy"), func() {
 
 	var leafHubName string
 

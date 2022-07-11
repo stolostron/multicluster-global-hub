@@ -3,10 +3,10 @@ set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." ; pwd -P)"
 CONFIG_DIR="${ROOT_DIR}/test/resources/kubeconfig"
-OPTIONS_FILE="${ROOT_DIR}/test/resources/options-local.yaml"
+OPTIONS_FILE="${ROOT_DIR}/test/resources/options-ocp.yaml"
 
 HUB_OF_HUB_NAME="hub-of-hubs" # the container name
-HUB_OF_HUB_CTX="microshift"
+#HUB_OF_HUB_CTX=""
 
 # KinD cluster, the context with prefix 'kind-'
 LEAF_HUB_NAME="hub1"
@@ -18,24 +18,25 @@ if [ ! -d "$CONFIG_DIR" ];then
 fi
 
 # hub cluster
-hub_kubeconfig="${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}"
-kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "$HUB_OF_HUB_CTX" > ${hub_kubeconfig}
+hub_kubeconfig="${ROOTDIR}/resources/kubeconfig/kubeconfig-ocp-$HUB_OF_HUB_NAME"
+kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context ${HUB_OF_HUB_CTX} > ${hub_kubeconfig}
 hub_kubecontext=$(kubectl config current-context --kubeconfig ${hub_kubeconfig})
 hub_api_server=$(kubectl config view -o jsonpath="{.clusters[0].cluster.server}" --kubeconfig ${hub_kubeconfig} --context "$HUB_OF_HUB_CTX")
-# curl -k -H "Authorization: Bearer ..." https://172.17.0.2:30080/multicloud/hub-of-hubs-nonk8s-api/managedclusters
 
-container_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${HUB_OF_HUB_NAME})
-hub_nonk8s_api_server="https://${container_node_ip}:30080" 
+hub_app_domain=$(kubectl -n openshift-ingress-operator get ingresscontrollers default -ojsonpath='{.status.domain}'  --kubeconfig ${KUBECONFIG} --context ${CONTEXT})
+hub_base_domain="${hub_app_domain#apps.}"
+hub_nonk8s_api_server="https://multicloud-console.apps.${hub_base_domain}"
+
 hub_namespace="open-cluster-management"
 hub_database_secret="hub-of-hubs-database-secret"
 
 # imported managedcluster1
-managed1_kubeconfig="${CONFIG_DIR}/kubeconfig-${MANAGED1_NAME}"
+managed1_kubeconfig="${CONFIG_DIR}/kubeconfig-ocp-${MANAGED1_NAME}"
 kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$MANAGED1_NAME" > ${managed1_kubeconfig}
 managed1_kubecontext=$(kubectl config current-context --kubeconfig ${managed1_kubeconfig})
 
 # imported managedcluster2
-managed2_kubeconfig="${CONFIG_DIR}/kubeconfig-${MANAGED2_NAME}"
+managed2_kubeconfig="${CONFIG_DIR}/kubeconfig-ocp-${MANAGED2_NAME}"
 kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$MANAGED2_NAME" > ${managed2_kubeconfig}
 managed2_kubecontext=$(kubectl config current-context --kubeconfig ${managed2_kubeconfig})
 
@@ -94,4 +95,3 @@ else
   ginkgo --label-filter="$filter" --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
   --junit-report=report.xml ${ROOT_DIR}/test/pkg/e2e -- -options=$OPTIONS_FILE -v="$verbose"
 fi
-

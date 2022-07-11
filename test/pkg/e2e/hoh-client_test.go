@@ -17,7 +17,7 @@ import (
 	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
 )
 
-var _ = Describe("Check all the clients could connect to the HoH servers", Label("connection"), func() {
+var _ = Describe("Check all the clients could connect to the HoH servers", Label("e2e-tests-connection"), func() {
 
 	It("connect to the apiserver with kubernetes interface", func() {
 		hubClient := clients.KubeClient()

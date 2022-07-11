@@ -23,7 +23,7 @@ const (
 	POLICY_LABEL_VALUE = "test"
 )
 
-var _ = Describe("Apply policy to the managed clusters", Ordered, Label("policy"), func() {
+var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
 	var token string
 	var httpClient *http.Client
 	var managedClusterName1 string
