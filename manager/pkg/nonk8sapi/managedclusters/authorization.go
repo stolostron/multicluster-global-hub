@@ -408,9 +408,9 @@ func getTermValue(term map[string]interface{}) (interface{}, error) {
 }
 
 func createClient(authorizationCABundle []byte) (*http.Client, error) {
+	/* #nosec G402*/
 	tlsConfig := &tls.Config{
 		//nolint:gosec
-		// #nosec
 		InsecureSkipVerify: true,
 	}
 
