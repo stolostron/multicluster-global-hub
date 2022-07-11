@@ -101,15 +101,21 @@ See [simulation at high scale](./simulation.md).
 
 Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
-## Running E2E tests locally
+## Run E2E tests locally
 
 You can build a local hub-of-hubs environment with 1 Microshift cluster and 3 KinD clusters in 1 VM. Then running all the e2e test cases to verify the functions.
+
+### Prerequisites
+- KinD with version 0.12.0+
+- Docker Engine with 20.10.17+
+- kubectl CLI
+- [clusteradm CLI](https://github.com/open-cluster-management-io/clusteradm)
 
 ### Setup a local environment
 
 All you need to do is running the command `make e2e-setup-start`, Then you will have a minimal hub-of-hubs environment. It should be noted that after running the command, it will take some time to set up the whole environment, and finally the value of `KUBECONFIG` will be printed on your terminal. You can use that to access your local hub-of-hubs clusters.
 
-### Runnig the E2E test cases
+### Run the E2E test cases
 
 You can type `make $COMPONENT` to run the corresponding E2E test, all possible values of `COMPONENT` are listed below:
 
