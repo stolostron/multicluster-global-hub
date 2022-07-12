@@ -103,7 +103,7 @@ export HYPERSHIFT_MGMT_CLUSTER=hypermgt
 
 5. Create HyperShift hosted cluster and enable it as leaf hub.
 
-    - Refer to the [guide](./hypershift-aws) for HyperShift management cluster and hosted cluster provisioned on AWS
-    - Refer to the [guide](./hypershift-bm) for HyperShift management cluster and hosted cluster provisioned on bare metal
+    - Refer to the [guide](./hypershift-aws.md) for HyperShift management cluster and hosted cluster provisioned on AWS
+    - Refer to the [guide](./hypershift-bm.md) for HyperShift management cluster and hosted cluster provisioned on bare metal
 
 6. Import a managed cluster to the HyperShift leaf hub by following the [guide](./hypershift-leafhub-import-cluster.md).
