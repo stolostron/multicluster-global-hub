@@ -129,12 +129,12 @@ oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-a
 6. Enable the ACM addons(policy and application in hosted mode) for the hypershift hosted cluster:
 
 ```bash
-envsubst < ./managedclusteraddon-application.yaml | oc apply -f -
+envsubst < ./manifests/managedclusteraddon-application.yaml | oc apply -f -
 oc -n ${HYPERSHIFT_MGMT_CLUSTER} patch manifestwork ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-hosted-klusterlet --type=json \
     -p='[{"op":"replace","path":"/spec/workload/manifests/1/spec/registrationImagePullSpec","value":"quay.io/morvencao/registration:latest"}]'
-envsubst < ./manifestwork-policy-framework.yaml | oc apply -f -
-envsubst < ./manifestwork-config-policy-controller.yaml | oc apply -f -
-envsubst < ./manifestwork-application-manager.yaml | oc apply -f -
+envsubst < ./manifests/manifestwork-policy-framework.yaml | oc apply -f -
+envsubst < ./manifests/manifestwork-config-policy-controller.yaml | oc apply -f -
+envsubst < ./manifests/manifestwork-application-manager.yaml | oc apply -f -
 ```
 
   _Note:_ The application addon in HyperShift management cluster fails to start due to permission issue, the workaround is logging into the HyperShift management cluster and executing the following command:
