@@ -58,3 +58,6 @@ e2e-tests-all:
 
 e2e-tests-connection e2e-tests-cluster e2e-tests-label e2e-tests-app e2e-tests-policy e2e-tests-local-policy:
 	./cicd-scripts/run-local-e2e-test.sh -f $@ -v $(verbose)
+
+e2e-prow-tests:
+	./cicd-scripts/run-prow-e2e-test.sh

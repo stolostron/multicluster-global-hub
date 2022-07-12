@@ -22,7 +22,7 @@ checkKubectl
 checkClusteradm
 
 # setup kubeconfig
-export KUBECONFIG=${CONFIG_DIR}/kubeconfig
+export KUBECONFIG=${KUBECONFIG:-CONFIG_DIR/kubeconfig}
 echo "export KUBECONFIG=$KUBECONFIG" > ${LOG}
 sleep 1 &
 hover $! "KUBECONFIG=${KUBECONFIG}"
@@ -31,11 +31,21 @@ hover $! "KUBECONFIG=${KUBECONFIG}"
 source ${CURRENT_DIR}/microshift/microshift_setup.sh "$HUB_OF_HUB_NAME" >> "$LOG" 2>&1 &
 hover $! "1 Prepare top hub cluster $HUB_OF_HUB_NAME"
 
+# isolate the hub kubeconfig
+HUB_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HUB_KUBECONFIG"
+kubectl config view --context=${CTX_HUB} --minify --flatten > ${HUB_KUBECONFIG}
+
 # enable olm
 enableOLM $CTX_HUB >> "$LOG" 2>&1 &
 hover $! "  Enable OLM for $CTX_HUB"
 
+# install some component in microshift in detached mode
+bash ${CURRENT_DIR}/postgres/postgres_setup.sh $HUB_KUBECONFIG >> "$LOG" 2>&1 &
+bash ${CURRENT_DIR}/kafka/kafka_setup.sh $HUB_KUBECONFIG >> "$LOG" 2>&1 &
+initHub $CTX_HUB >> $LOG 2>&1 &
+
 # init leafhub 
+sleep 1 &
 hover $! "2 Prepare leaf hub cluster $LEAF_HUB_NAME"
 source ${CURRENT_DIR}/leafhub_setup.sh 
 
@@ -53,19 +63,17 @@ hover $! "  Joining $CTX_HUB - $CTX_MANAGED"
 initApp $CTX_HUB $CTX_MANAGED >> "$LOG" 2>&1 &
 hover $! "  Enable application $CTX_HUB - $CTX_MANAGED" 
 
-HUB_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HUB_KUBECONFIG"
-kubectl config view --context=${CTX_HUB} --minify --flatten > ${HUB_KUBECONFIG}
 initPolicy $CTX_HUB $CTX_MANAGED $HUB_KUBECONFIG >> "$LOG" 2>&1 &
 hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED" 
 
 kubectl config use-context $CTX_HUB >> "$LOG"
 
 # install kafka
-source ${CURRENT_DIR}/kafka/kafka_setup.sh >> "$LOG" 2>&1 &
+bash ${CURRENT_DIR}/kafka/kafka_setup.sh $KUBECONFIG >> "$LOG" 2>&1 &
 hover $! "4 Install kafka cluster" 
 
 # install postgres
-source ${CURRENT_DIR}/postgres/postgres_setup.sh >> "$LOG" 2>&1 &
+bash ${CURRENT_DIR}/postgres/postgres_setup.sh $KUBECONFIG >> "$LOG" 2>&1 &
 hover $! "5 Install postgres cluster" 
 
 # deploy hoh

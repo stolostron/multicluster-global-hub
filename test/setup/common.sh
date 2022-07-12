@@ -90,11 +90,10 @@ function getMicroShiftKubeConfig() {
 
 function initHub() {
   echo "Initializing Hub $1 ..."
-  kubectl config use-context "$1"
   clusteradm init --wait --context "$1" > /dev/null 2>&1
-  kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s
-  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s
-  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s
+  kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1" 
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1" 
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s  --context "$1"
 }
 
 function initManaged() {

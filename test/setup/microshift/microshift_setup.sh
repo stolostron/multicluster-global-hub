@@ -27,14 +27,4 @@ while [[ -z $(kubectl get deploy router-default -n openshift-ingress --ignore-no
   sleep 5;
   (( SECOND = SECOND + 5 ))
 done;
-while [[ -z $(kubectl get deploy service-ca -n openshift-service-ca --ignore-not-found) ]]; do
-  if [ $SECOND -gt 600 ]; then
-    echo "Timeout waiting for deploying router-default $secret"
-    exit 1
-  fi
-  echo "Waiting for router-default to be created..."
-  sleep 5;
-  (( SECOND = SECOND + 5 ))
-done;
 kubectl wait deployment -n openshift-ingress router-default --for condition=Available=True --timeout=200s
-kubectl wait deployment -n openshift-service-ca service-ca --for condition=Available=True --timeout=200s
