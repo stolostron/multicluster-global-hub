@@ -4,7 +4,7 @@ metadata:
   labels:
     open-cluster-management.io/addon-name: config-policy-controller
   name: addon-config-policy-controller-deploy-hosted
-  namespace: hypermgt
+  namespace: ${HYPERSHIFT_MGMT_CLUSTER}
 spec:
   workload:
     manifests:
