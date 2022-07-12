@@ -1,20 +1,10 @@
 #!/bin/bash
 # Source this script to enable the kafka cluster for hub-of-hubs. The olm component must be install before exec this script.
-
+KUBECONFIG=${1:-$KUBECONFIG}
 function deployKafka() {
   # while the namespace is not ready, wait for it
   echo "Creating kafka namespace"
   kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
-  # SECOND=0
-  # while [[ -z "$(kubectl get namespace kafka --ignore-not-found=true)" ]]; do
-  #   if [ $SECOND -gt 300 ]; then
-  #     echo "Timeout waiting for namespace kafka"
-  #     exit 1
-  #   fi
-    
-  #   sleep 5
-  #   (( SECOND = SECOND + 5 ))
-  # done
 
   # install community kafka operator
   KAFKA_OPERATOR=${KAFKA_OPERATOR:-"strimzi-cluster-operator-v0.23.0"}
@@ -25,7 +15,7 @@ function deployKafka() {
   operatorDeployed=$(kubectl -n kafka get Deployment/$KAFKA_OPERATOR --ignore-not-found)
   SECOND=0
   while [ -z "$operatorDeployed" ]; do
-    if [ $SECOND -gt 400 ]; then
+    if [ $SECOND -gt 600 ]; then
       echo "Timeout waiting for deploying strimzi-cluster-operator $operatorDeployed"
       exit 1
     fi
@@ -41,7 +31,7 @@ function deployKafka() {
   clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found)
   SECOND=0
   while [ -z "$clusterIsReady" ]; do
-    if [ $SECOND -gt 400 ]; then
+    if [ $SECOND -gt 600 ]; then
       echo "Timeout waiting for deploying strimzi-cluster-operator $operatorDeployed"
       exit 1
     fi

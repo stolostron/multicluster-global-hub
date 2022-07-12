@@ -87,11 +87,26 @@ done
 
 verbose=${verbose:=5}
 
+if command -v ginkgo &> /dev/null; then
+    GINKGO_CMD=ginkgo
+else
+    # just for prow vm
+    go install github.com/onsi/ginkgo/ginkgo@latest
+    GINKGO_CMD="$(go env GOPATH)/bin/ginkgo"
+fi
+go mod vendor
+
 if [ -z "$filter" ]; then
-  ginkgo --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
+  ${GINKGO_CMD} --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
   --junit-report=report.xml ${ROOT_DIR}/test/pkg/e2e -- -options=$OPTIONS_FILE -v="$verbose"
 else
-  ginkgo --label-filter="$filter" --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
+  ${GINKGO_CMD} --label-filter="$filter" --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
   --junit-report=report.xml ${ROOT_DIR}/test/pkg/e2e -- -options=$OPTIONS_FILE -v="$verbose"
 fi
 
+cat ${ROOT_DIR}/test/resources/report/report.xml | grep failures=\"0\" | grep errors=\"0\" > /dev/null
+if [ $? -ne 0 ]; then
+    echo "Cannot pass all test cases."
+    cat ${ROOT_DIR}/test/resources/report/report.xml
+    exit 1
+fi

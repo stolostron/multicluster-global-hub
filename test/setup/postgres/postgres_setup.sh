@@ -1,7 +1,10 @@
 #!/bin/bash
-# Source this script to enable the postgres in hub-of-hubs. DATABASE_URL_HOH and DATABASE_URL_HOH could be used to init hub-of-hubs
+
+KUBECONFIG=${1:-$KUBECONFIG}
 
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+setupDir="$(cd "$(dirname "$0")/.." ; pwd -P)"
+pgIsReady=${setupDir}/config/postgres_is_ready
 
 function enablePostgresOperator() {
   POSTGRES_OPERATOR=${POSTGRES_OPERATOR:-"pgo"}
@@ -64,11 +67,14 @@ function deployPostgresCluster() {
 
   # delete all pods to recreate in case the pod won't be restarted when the statefulset is patched
   kubectl delete pod -n $pgnamespace --all --ignore-not-found=true 2>/dev/null
+  
+  touch $pgIsReady
+  echo "Postgres is ready!"
 }
 
-# always check whether DATABASE_URL_HOH and DATABASE_URL_TRANSPORT are set, if not - install PGO and use its secrets
-if [ -z "${DATABASE_URL_HOH-}" ] || [ -z "${DATABASE_URL_TRANSPORT-}" ]; then
+if [[ -f $pgIsReady ]]; then
+  echo "Postgres is already ready"
+else
   enablePostgresOperator
   deployPostgresCluster
 fi
-
