@@ -44,13 +44,14 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 		}, 5 * time.Second, 1 * time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("deploy inform policy to the leaf hub", func() {
+	It("add local policy label to leaf hub", func() {
 
-		By("Add local policy label to the leaf hub")
+		By("Get the leaf hub cluster label")
 		dynamicClient := clients.KubeDynamicClient()
 		unstructedObj, err := dynamicClient.Resource(utils.NewManagedClustersGVR()).Get(context.TODO(), leafHubName, metav1.GetOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
+		By("add the local policy label to leaf hub cluster")
 		labelMap := unstructedObj.GetLabels()
 		labelMap[LOCAL_POLICY_LABEL_KEY] = LOCAL_POLICY_LABEL_VALUE
 		unstructedObj.SetLabels(labelMap)
@@ -58,7 +59,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 		_, err = dynamicClient.Resource(utils.NewManagedClustersGVR()).Update(context.TODO(), unstructedObj, metav1.UpdateOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
-		By("Check the local policy label is added to the leaf hub")
+		By("verify the local policy label is added to leaf hub cluster")	
 		Eventually(func() error {
 			unstructedObj, err := dynamicClient.Resource(utils.NewManagedClustersGVR()).Get(context.TODO(), leafHubName, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -69,6 +70,9 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 			}
 			return fmt.Errorf("local policy label not found")
 		}, 1 * 60 * time.Second).ShouldNot(HaveOccurred())
+	})
+
+	It("deploy inform policy to the cluster with local policy label", func() {
 
 		By("Deploy the Inform policy to the leaf hub")
 		output, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", LOCAL_INFORM_POLICY_YAML)
@@ -91,11 +95,13 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 				klog.V(5).Info(fmt.Sprintf("local PolicyStatus: %s", policyStatusStr))
 				return nil
 			}
+			policyStatusStr, _ := json.MarshalIndent(policy.Status, "", "  ")
+			klog.V(5).Info(fmt.Sprintf("local PolicyStatus: %s", policyStatusStr))
 			return fmt.Errorf("local policy is not NonCompliant")
-		}, 1 * 60 * time.Second, 5 * time.Second).ShouldNot(HaveOccurred())
+		}, 5 * 60 * time.Second, 5 * time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("deploy enforce policy to the leaf hub", func() {
+	It("enforce the inform policy", func() {
 		output, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", LOCAL_ENFORCE_POLICY_YAML)
 		klog.V(5).Info(fmt.Sprintf("apply enforce local policy: %s", output))
 		Expect(err).ShouldNot(HaveOccurred())
