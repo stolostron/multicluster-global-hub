@@ -4,7 +4,7 @@ metadata:
   labels:
     open-cluster-management.io/addon-name: application-manager
   name: addon-application-${HYPERSHIFT_MANAGED_CLUSTER_NAME}-hosted
-  namespace: hypermgt
+  namespace: ${HYPERSHIFT_MGMT_CLUSTER}
 spec:
   workload:
     manifests:
