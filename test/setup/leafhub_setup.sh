@@ -22,7 +22,7 @@ checkKind
 checkKubectl
 checkClusteradm
 
-KUBECONFIG=${KUBECONFIG:-CONFIG_DIR/kubeconfig}
+KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}
 sleep 1 &
 hover $! "  Leaf Hub: export KUBECONFIG=${KUBECONFIG}" 
 

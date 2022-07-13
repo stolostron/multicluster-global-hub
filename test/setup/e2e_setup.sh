@@ -22,7 +22,7 @@ checkKubectl
 checkClusteradm
 
 # setup kubeconfig
-export KUBECONFIG=${KUBECONFIG:-CONFIG_DIR/kubeconfig}
+export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}
 echo "export KUBECONFIG=$KUBECONFIG" > ${LOG}
 sleep 1 &
 hover $! "KUBECONFIG=${KUBECONFIG}"
