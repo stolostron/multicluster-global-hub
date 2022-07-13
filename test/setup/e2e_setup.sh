@@ -23,12 +23,12 @@ checkClusteradm
 
 # setup kubeconfig
 export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}
-echo "export KUBECONFIG=$KUBECONFIG" > ${LOG}
+echo "export KUBECONFIG=$KUBECONFIG" > $LOG
 sleep 1 &
 hover $! "KUBECONFIG=${KUBECONFIG}"
 
 # init hoh 
-source ${CURRENT_DIR}/microshift/microshift_setup.sh "$HUB_OF_HUB_NAME" >> "$LOG" 2>&1 &
+source ${CURRENT_DIR}/microshift/microshift_setup.sh "$HUB_OF_HUB_NAME" 2>&1 >> $LOG &
 hover $! "1 Prepare top hub cluster $HUB_OF_HUB_NAME"
 
 # isolate the hub kubeconfig
@@ -36,13 +36,13 @@ HOH_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --n
 kubectl config view --context=${CTX_HUB} --minify --flatten > ${HOH_KUBECONFIG}
 
 # enable olm
-enableOLM $CTX_HUB >> "$LOG" 2>&1 &
+enableOLM $CTX_HUB 2>&1 >> $LOG &
 hover $! "  Enable OLM for $CTX_HUB"
 
 # install some component in microshift in detached mode
-bash ${CURRENT_DIR}/postgres/postgres_setup.sh $HOH_KUBECONFIG >> "$LOG" 2>&1 &
-bash ${CURRENT_DIR}/kafka/kafka_setup.sh $HOH_KUBECONFIG >> "$LOG" 2>&1 &
-initHub $CTX_HUB >> $LOG 2>&1 &
+bash ${CURRENT_DIR}/postgres/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
+bash ${CURRENT_DIR}/kafka/kafka_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
+initHub $CTX_HUB 2>&1 >> $LOG &
 
 # init leafhub 
 sleep 1 &
@@ -50,34 +50,34 @@ hover $! "2 Prepare leaf hub cluster $LEAF_HUB_NAME"
 source ${CURRENT_DIR}/leafhub_setup.sh 
 
 # joining lh to hoh
-initHub $CTX_HUB >> $LOG 2>&1 &
+initHub $CTX_HUB 2>&1 >> $LOG &
 hover $! "3 Initing HoH OCM $HUB_OF_HUB_NAME" 
 
 # check connection
-connectMicroshift "${LEAF_HUB_NAME}-control-plane" "${HUB_OF_HUB_NAME}" >> "$LOG" 2>&1 &
+connectMicroshift "${LEAF_HUB_NAME}-control-plane" "${HUB_OF_HUB_NAME}" 2>&1 >> $LOG &
 hover $! "  Check connection: $LEAF_HUB_NAME -> $HUB_OF_HUB_NAME" 
 
-initManaged $CTX_HUB $CTX_MANAGED >> $LOG 2>&1 &
+initManaged $CTX_HUB $CTX_MANAGED 2>&1 >> $LOG &
 hover $! "  Joining $CTX_HUB - $CTX_MANAGED" 
 
-initApp $CTX_HUB $CTX_MANAGED >> "$LOG" 2>&1 &
+initApp $CTX_HUB $CTX_MANAGED 2>&1 >> $LOG &
 hover $! "  Enable application $CTX_HUB - $CTX_MANAGED" 
 
-initPolicy $CTX_HUB $CTX_MANAGED $HOH_KUBECONFIG >> "$LOG" 2>&1 &
+initPolicy $CTX_HUB $CTX_MANAGED $HOH_KUBECONFIG 2>&1 >> $LOG &
 hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED" 
 
-kubectl config use-context $CTX_HUB >> "$LOG"
+kubectl config use-context $CTX_HUB >> $LOG
 
 # install kafka
-bash ${CURRENT_DIR}/kafka/kafka_setup.sh $KUBECONFIG >> "$LOG" 2>&1 &
+bash ${CURRENT_DIR}/kafka/kafka_setup.sh $KUBECONFIG 2>&1 >> $LOG &
 hover $! "4 Install kafka cluster" 
 
 # install postgres
-bash ${CURRENT_DIR}/postgres/postgres_setup.sh $KUBECONFIG >> "$LOG" 2>&1 &
+bash ${CURRENT_DIR}/postgres/postgres_setup.sh $KUBECONFIG 2>&1 >> $LOG &
 hover $! "5 Install postgres cluster" 
 
 # deploy hoh
-source ${CURRENT_DIR}/hoh_setup.sh >> "$LOG" 2>&1 &
+source ${CURRENT_DIR}/hoh_setup.sh 2>&1 >> $LOG &
 hover $! "6 Deploy hub-of-hubs with $TAG" 
 
 export KUBECONFIG=$KUBECONFIG

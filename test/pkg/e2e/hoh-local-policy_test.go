@@ -96,9 +96,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 				return nil
 			}
 			policyStatusStr, _ := json.MarshalIndent(policy.Status, "", "  ")
-			klog.V(5).Info(fmt.Sprintf("local PolicyStatus: %s", policyStatusStr))
-			return fmt.Errorf("local policy is not NonCompliant")
-		}, 5 * 60 * time.Second, 5 * time.Second).ShouldNot(HaveOccurred())
+			return fmt.Errorf(fmt.Sprintf("local policy is not NonCompliant with policyStatus: %s", policyStatusStr))
+		}, 1 * 60 * time.Second, 5 * time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("enforce the inform policy", func() {

@@ -17,6 +17,11 @@ if [ ! -d "$CONFIG_DIR" ];then
   mkdir -p "$CONFIG_DIR"
 fi
 
+if [ ! -f "$KUBECONFIG" ];then
+  KUBECONFIG=${ROOT_DIR}/test/setup/config/kubeconfig
+  echo "using default KUBECONFIG = $KUBECONFIG"
+fi
+
 # hub cluster
 hub_kubeconfig="${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}"
 kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "$HUB_OF_HUB_CTX" > ${hub_kubeconfig}
@@ -88,19 +93,28 @@ done
 verbose=${verbose:=5}
 
 if command -v ginkgo &> /dev/null; then
+  echo "install go version 1.7 or higher"
+  wget https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz
+  tar -C /usr/local/ -xvf go1.17.7.linux-amd64.tar.gz
+  export GOROOT=/usr/local/go 
+fi
+echo "go version: $go_version"
+
+if command -v ginkgo &> /dev/null; then
     GINKGO_CMD=ginkgo
 else
     # just for prow vm
-    go install github.com/onsi/ginkgo/ginkgo@latest
+    go install github.com/onsi/ginkgo/v2/ginkgo@latest
+    go get github.com/onsi/gomega/...
     GINKGO_CMD="$(go env GOPATH)/bin/ginkgo"
 fi
-go mod vendor
+echo "ginkgo version: $($GINKGO_CMD version)"
 
-if [ -z "$filter" ]; then
+if [ -z "${filter}" ]; then
   ${GINKGO_CMD} --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
   --junit-report=report.xml ${ROOT_DIR}/test/pkg/e2e -- -options=$OPTIONS_FILE -v="$verbose"
 else
-  ${GINKGO_CMD} --label-filter="$filter" --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
+  ${GINKGO_CMD} --label-filter=${filter} --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
   --junit-report=report.xml ${ROOT_DIR}/test/pkg/e2e -- -options=$OPTIONS_FILE -v="$verbose"
 fi
 

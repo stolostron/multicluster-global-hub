@@ -28,22 +28,22 @@ hover $! "  Leaf Hub: export KUBECONFIG=${KUBECONFIG}"
 
 # initCluster
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
-  initKinDCluster "hub${i}" >> "${LOG}" 2>&1 & 
+  initKinDCluster "hub${i}" 2>&1 >> $LOG & 
   hover $! "  Create KinD Cluster hub${i}" 
-  enableRouter "kind-hub${i}" >> "$LOG" 2>&1
+  enableRouter "kind-hub${i}" 2>&1 >> $LOG
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
-    initKinDCluster "hub${i}-cluster${j}" >> "${LOG}" 2>&1 & 
+    initKinDCluster "hub${i}-cluster${j}" 2>&1 >> $LOG & 
     hover $! "  Create KinD Cluster hub${i}-cluster${j}" 
-    enableRouter "kind-hub${i}-cluster${j}" >> "$LOG" 2>&1
+    enableRouter "kind-hub${i}-cluster${j}" 2>&1 >> $LOG
   done
 done
 
 # init ocm
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
-  initHub "kind-hub${i}" "${CONFIG_DIR}/kind-hub${i}" >> "${LOG}" 2>&1 &
+  initHub "kind-hub${i}" "${CONFIG_DIR}/kind-hub${i}" 2>&1 >> $LOG &
   hover $! "  OCM init hub kind-hub${i}" 
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
-    initManaged "kind-hub${i}" "kind-hub${i}-cluster${j}" >> "${LOG}" 2>&1 &
+    initManaged "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> $LOG &
     hover $! "  OCM join managed kind-hub${i}-cluster${j}" 
   done
 done
@@ -51,17 +51,17 @@ done
 # init app
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
-    initApp "kind-hub${i}" "kind-hub${i}-cluster${j}" >> "${LOG}" 2>&1 &
+    initApp "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> $LOG &
     hover $! "  Application hub${i}-cluster${j}" 
   done
 done
 
 # init policy
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
-  HUB_KUBECONFIG=${CONFIG_DIR}/kubeconfig_kind-hub${i}
+  HUB_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-hub${i}
   kind get kubeconfig --name "hub${i}" --internal > "$HUB_KUBECONFIG"
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
-    initPolicy "kind-hub${i}" "kind-hub${i}-cluster${j}" "$HUB_KUBECONFIG" >> "${LOG}" 2>&1 &
+    initPolicy "kind-hub${i}" "kind-hub${i}-cluster${j}" "$HUB_KUBECONFIG" 2>&1 >> $LOG &
     hover $! "  Policy hub${i}-cluster${j}" 
   done
 done

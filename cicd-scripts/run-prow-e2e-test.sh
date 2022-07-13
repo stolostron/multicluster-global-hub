@@ -10,9 +10,12 @@ HOST="ec2-user@${IP}"
 OPT=(-q -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -i "${KEY}")
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." ; pwd -P)"
-echo "export KUBECONFIG=$KUBECONFIG" > ${ROOT_DIR}/test/resources/env.list
-echo "export LOG=$LOG" >> ${ROOT_DIR}/test/resources/env.list
+HOST_DIR="/tmp/hub-of-hubs"
+echo "export LOG_MODE=DEBUG" >> ${ROOT_DIR}/test/resources/env.list
+echo "ROOT_DIR=${ROOT_DIR}"
 
-ssh "${OPT[@]}" "$HOST" sudo yum install gcc git -y
-scp "${OPT[@]}" -r ../hub-of-hubs "$HOST:/tmp/hub-of-hubs"
-ssh "${OPT[@]}" "$HOST" "cd /tmp/hub-of-hubs && srouce /tmp/hub-of-hubs/test/resources/env.list && make e2e-setup-start && make e2e-tests-all"
+ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget  -y 
+ssh "${OPT[@]}" "$HOST" sudo rm /usr/local/go -y          # remove old go with version 1.16
+scp "${OPT[@]}" -r ../hub-of-hubs "$HOST:$HOST_DIR"
+ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-setup-start && make e2e-tests-all"
+
