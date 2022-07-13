@@ -37,7 +37,7 @@ EOF
 export HYPERSHIFT_MGMT_CLUSTER=hypermgt
 export HYPERSHIFT_HOSTING_NAMESPACE=clusters
 export HYPERSHIFT_DEPLOYMENT_NAME=<hypershiftdeployment-name>
-export OPENSHIFT_RELEASE_IMAGE=quay.io/openshift-release-dev/ocp-release:4.11.0-fc.3-x86_64
+export OPENSHIFT_RELEASE_IMAGE=quay.io/openshift-release-dev/ocp-release:4.10.15-x86_64
 export OPENSHIFT_BASE_DOMAIN=example.com
 ```
 
@@ -55,8 +55,8 @@ metadata:
   name: ${HYPERSHIFT_DEPLOYMENT_NAME}
   namespace: ${OPENSHIFT_PULL_SECRET_NAMESPACE}
 spec:
-  hostingCluster: ${HOSTING_CLUSTER}
-  hostingNamespace: ${HOSTING_NAMESPACE}
+  hostingCluster: ${HYPERSHIFT_MGMT_CLUSTER}
+  hostingNamespace: ${HYPERSHIFT_HOSTING_NAMESPACE}
   hostedClusterSpec:
     infraID: ${HYPERSHIFT_DEPLOYMENT_NAME}
     platform:
@@ -120,8 +120,8 @@ oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-a
   _Note_: If the worker node of the HyperShift management cluster doesn't have external IPs, then the HyperShift hosted cluster created in the following steps can not be accessed from external, but can be accessed from internal for local dev/test. Add a new DNS entry `<ip-of-local-machine> api.${HYPERSHIFT_DEPLOYMENT_NAME}.${OPENSHIFT_BASE_DOMAIN}` to `/etc/hosts` of the local machine and then execute the following commands to porward the traffic to kube-apiserver service.
 
   ```bash
-  API_SERVICE_NODEPORT=$(oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n ${HOSTING_CLUSTER}-${HYPERSHIFT_DEPLOYMENT_NAME} get svc/kube-apiserver -o jsonpath='{.spec.ports[?(@.port==6443)].nodePort}')
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> port-forward svc/kube-apiserver ${API_SERVICE_NODEPORT}:6443 --address <ip-of-local-machine> &  # port-forward kube-apiserver service
+  API_SERVICE_NODEPORT=$(oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} get svc/kube-apiserver -o jsonpath='{.spec.ports[?(@.port==6443)].nodePort}')
+  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} port-forward svc/kube-apiserver ${API_SERVICE_NODEPORT}:6443 --address <ip-of-local-machine> &  # port-forward kube-apiserver service
   ```
 
   _Note_: If you want to import a managed cluster to the HyperShift hosted cluster without external access, you have to make sure the managed cluster can access the local machine that executes the commands above.

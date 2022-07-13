@@ -44,7 +44,7 @@ oc create secret generic ${CLOUD_PROVIDER_SECRET_NAME} \
 export HYPERSHIFT_MGMT_CLUSTER=hypermgt
 export HYPERSHIFT_HOSTING_NAMESPACE=clusters
 export HYPERSHIFT_DEPLOYMENT_NAME=<hypershiftdeployment-name>
-export OPENSHIFT_RELEASE_IMAGE=quay.io/openshift-release-dev/ocp-release:4.11.0-fc.3-x86_64
+export OPENSHIFT_RELEASE_IMAGE=quay.io/openshift-release-dev/ocp-release:4.10.15-x86_64
 ```
 
 2. Create `HypershiftDeployment` resource to provision AWS hosted cluster:
