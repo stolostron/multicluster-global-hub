@@ -76,6 +76,9 @@ function deploy_hoh_controllers() {
   curl -s "https://raw.githubusercontent.com/stolostron/hub-of-hubs-manager/$branch/deploy/operator.yaml.template" |
     TRANSPORT_TYPE="${transport_type}" REGISTRY=quay.io/open-cluster-management-hub-of-hubs IMAGE_TAG="$TAG" envsubst | kubectl apply -f - -n "$acm_namespace"
 
+  # deploy hub-of-hub-repo
+  deploy_component "hub-of-hubs-repo" "$branch" deploy_components_with_environment_variables_action
+
   # deploy hub cluster controller
   deploy_component "hub-cluster-controller" "$branch" deploy_components_with_environment_variables_action
 
