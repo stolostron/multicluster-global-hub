@@ -7,6 +7,7 @@ CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
 export LOG=${LOG:-$CONFIG_DIR/e2e_setup.log}
 export TAG=${TAG:-"latest"}
+export LOG_MODE=${LOG_MODE:-INFO}
 
 source ${CURRENT_DIR}/common.sh
 
