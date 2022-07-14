@@ -114,44 +114,29 @@ oc wait --for=condition=ManagedClusterConditionAvailable managedcluster/${HYPERS
 5. Get kubeconfig for the HyperShift hosted cluster:
 
 ```bash
-oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d > <kubeconfig-path-to-hypershift-hosted-cluster>
+export HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-hosted-cluster>
+```
+
+```bash
+oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d > ${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG}
 ```
 
   _Note_: If the worker node of the HyperShift management cluster doesn't have external IPs, then the HyperShift hosted cluster created in the following steps can not be accessed from external, but can be accessed from internal for local dev/test. Add a new DNS entry `<ip-of-local-machine> api.${HYPERSHIFT_DEPLOYMENT_NAME}.${OPENSHIFT_BASE_DOMAIN}` to `/etc/hosts` of the local machine and then execute the following commands to porward the traffic to kube-apiserver service.
 
   ```bash
-  API_SERVICE_NODEPORT=$(oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} get svc/kube-apiserver -o jsonpath='{.spec.ports[?(@.port==6443)].nodePort}')
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} port-forward svc/kube-apiserver ${API_SERVICE_NODEPORT}:6443 --address <ip-of-local-machine> &  # port-forward kube-apiserver service
+  export LOCAL_MACHINE_IP=<IP-for-local-machine>
+  export HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-management-cluster> # set the kubeconfig path for the hypershift management cluster
+  ```
+  ```bash
+  API_SERVICE_NODEPORT=$(oc --kubeconfig=${HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG} -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} get svc/kube-apiserver -o jsonpath='{.spec.ports[?(@.port==6443)].nodePort}')
+  oc --kubeconfig=${HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG} -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} port-forward svc/kube-apiserver ${API_SERVICE_NODEPORT}:6443 --address=${LOCAL_MACHINE_IP} &
   ```
 
   _Note_: If you want to import a managed cluster to the HyperShift hosted cluster without external access, you have to make sure the managed cluster can access the local machine that executes the commands above.
 
-6. Enable the ACM addons(policy and application in hosted mode) for the hypershift hosted cluster:
+6. Apply the ACM Hub CRDs to the hypershift hosted cluster(workaround because application addon doesn't support hosted mode currently):
 
 ```bash
-envsubst < ./manifests/managedclusteraddon-application.yaml | oc apply -f -
-oc -n ${HYPERSHIFT_MGMT_CLUSTER} patch manifestwork ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-hosted-klusterlet --type=json \
-    -p='[{"op":"replace","path":"/spec/workload/manifests/1/spec/registrationImagePullSpec","value":"quay.io/morvencao/registration:latest"}]'
-envsubst < ./manifests/manifestwork-policy-framework.yaml | oc apply -f -
-envsubst < ./manifests/manifestwork-config-policy-controller.yaml | oc apply -f -
-envsubst < ./manifests/manifestwork-application-manager.yaml | oc apply -f -
-```
-
-  _Note:_ The application addon in HyperShift management cluster fails to start due to permission issue, the workaround is logging into the HyperShift management cluster and executing the following command:
-
-  ```bash
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> adm policy add-scc-to-user \
-    anyuid system:serviceaccount:klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}:application-manager
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME} \
-    delete rs -l component=application-manager
-  # create namespace in hypershift hosted cluster for leader election
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-hosted-cluster> create ns klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
-  ```
-
-7. Check the ACM addons(policy and application) are available:
-
-```bash
-oc wait --for=condition=Available managedclusteraddon/application-manager -n ${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
-oc wait --for=condition=Available managedclusteraddon/config-policy-controller -n ${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
-oc wait --for=condition=Available managedclusteraddon/governance-policy-framework -n ${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
+git clone https://github.com/stolostron/hub-of-hubs-repo.git && cd hub-of-hubs-repo
+oc --kubeconfig=${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG} apply -f charts/acm-hub/templates
 ```

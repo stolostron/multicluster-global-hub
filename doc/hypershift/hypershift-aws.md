@@ -90,35 +90,16 @@ oc wait --for=condition=ManagedClusterConditionAvailable managedcluster/${HYPERS
 4. Get kubeconfig for the HyperShift hosted cluster:
 
 ```bash
-oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d > <kubeconfig-path-to-hypershift-hosted-cluster>
+export HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-hosted-cluster>
 ```
 
-5. Enable the ACM addons(policy and application in hosted mode) for the hypershift hosted cluster:
-
 ```bash
-envsubst < ./manifests/managedclusteraddon-application.yaml | oc apply -f -
-oc -n ${HYPERSHIFT_MGMT_CLUSTER} patch manifestwork ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-hosted-klusterlet --type=json \
-    -p='[{"op":"replace","path":"/spec/workload/manifests/1/spec/registrationImagePullSpec","value":"quay.io/morvencao/registration:latest"}]'
-envsubst < ./manifests/manifestwork-policy-framework.yaml | oc apply -f -
-envsubst < ./manifests/manifestwork-config-policy-controller.yaml | oc apply -f -
-envsubst < ./manifests/manifestwork-application-manager.yaml | oc apply -f -
+oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d > ${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG}
 ```
 
-  _Note:_ The application addon in HyperShift management cluster fails to start due to permission issue, the workaround is logging into the HyperShift management cluster and executing the following command:
-
-  ```bash
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> adm policy add-scc-to-user \
-    anyuid system:serviceaccount:klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}:application-manager
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME} \
-    delete rs -l component=application-manager
-  # create namespace in hypershift hosted cluster for leader election
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-hosted-cluster> create ns klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
-  ```
-
-6. Check the ACM addons(policy and application) are available:
+5. Apply the ACM Hub CRDs to the hypershift hosted cluster(workaround because application addon doesn't support hosted mode currently):
 
 ```bash
-oc wait --for=condition=Available managedclusteraddon/application-manager -n ${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
-oc wait --for=condition=Available managedclusteraddon/config-policy-controller -n ${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
-oc wait --for=condition=Available managedclusteraddon/governance-policy-framework -n ${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
+git clone https://github.com/stolostron/hub-of-hubs-repo.git && cd hub-of-hubs-repo
+oc --kubeconfig=${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG} apply -f charts/acm-hub/templates
 ```
