@@ -3,7 +3,7 @@ kind: ManifestWork
 metadata:
   labels:
     open-cluster-management.io/addon-name: config-policy-controller
-  name: addon-config-policy-controller-deploy-hosted
+  name: addon-config-policy-controller-${HYPERSHIFT_MANAGED_CLUSTER_NAME}-hosted
   namespace: ${HYPERSHIFT_MGMT_CLUSTER}
 spec:
   workload:

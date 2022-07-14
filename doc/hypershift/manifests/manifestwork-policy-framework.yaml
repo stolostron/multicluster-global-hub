@@ -3,7 +3,7 @@ kind: ManifestWork
 metadata:
   labels:
     open-cluster-management.io/addon-name: governance-policy-framework
-  name: addon-governance-policy-framework-deploy-hosted
+  name: addon-governance-policy-framework-${HYPERSHIFT_MANAGED_CLUSTER_NAME}-hosted
   namespace: ${HYPERSHIFT_MGMT_CLUSTER}
 spec:
   workload:
