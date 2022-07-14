@@ -22,7 +22,7 @@ function hover() {
   while ( kill -0 "$pid" 2>/dev/null ); do
     index="${RANDOM} % ${#signs[@]}"
     if [[ $LOG_MODE == "DEBUG" ]]; then
-      tail -n 1 $LOG; sleep ${delay}
+      tail -n 1 $LOG; sleep 1
     else
       printf "\e[38;5;$((RANDOM%257))m%s\r\e[0m" "[$(date '+%H:%M:%S')]  ${signs[${index}]}  ${message} ..."; sleep ${delay}
     fi
