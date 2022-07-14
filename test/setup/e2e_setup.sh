@@ -11,16 +11,16 @@ export LOG_MODE=${LOG_MODE:-INFO}
 
 source ${CURRENT_DIR}/common.sh
 
-LEAF_HUB_NAME="hub1"
-HUB_OF_HUB_NAME="hub-of-hubs"
-CTX_HUB="microshift" #"kind-hub-of-hubs"
-CTX_MANAGED="kind-hub1"
-
 # check the prerequisites helm and envsubst
 checkDir ${CONFIG_DIR}
 checkKind
 checkKubectl
 checkClusteradm
+
+LEAF_HUB_NAME="hub1"
+HUB_OF_HUB_NAME="hub-of-hubs"
+CTX_HUB="microshift" #"kind-hub-of-hubs"
+CTX_MANAGED="kind-hub1"
 
 # setup kubeconfig
 export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}
