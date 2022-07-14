@@ -92,14 +92,6 @@ done
 
 verbose=${verbose:=5}
 
-if command -v go &> /dev/null; then
-  echo "install go version 1.7 or higher"
-  wget https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz
-  tar -C /usr/local/ -xvf go1.17.7.linux-amd64.tar.gz
-  export GOROOT=/usr/local/go 
-fi
-echo "go version: $(go version)"
-
 if command -v ginkgo &> /dev/null; then
     GINKGO_CMD=ginkgo
 else
