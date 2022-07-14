@@ -32,16 +32,16 @@ source ${CURRENT_DIR}/microshift/microshift_setup.sh "$HUB_OF_HUB_NAME" >> "$LOG
 hover $! "1 Prepare top hub cluster $HUB_OF_HUB_NAME"
 
 # isolate the hub kubeconfig
-HUB_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HUB_KUBECONFIG"
-kubectl config view --context=${CTX_HUB} --minify --flatten > ${HUB_KUBECONFIG}
+HOH_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HOH_KUBECONFIG"
+kubectl config view --context=${CTX_HUB} --minify --flatten > ${HOH_KUBECONFIG}
 
 # enable olm
 enableOLM $CTX_HUB >> "$LOG" 2>&1 &
 hover $! "  Enable OLM for $CTX_HUB"
 
 # install some component in microshift in detached mode
-bash ${CURRENT_DIR}/postgres/postgres_setup.sh $HUB_KUBECONFIG >> "$LOG" 2>&1 &
-bash ${CURRENT_DIR}/kafka/kafka_setup.sh $HUB_KUBECONFIG >> "$LOG" 2>&1 &
+bash ${CURRENT_DIR}/postgres/postgres_setup.sh $HOH_KUBECONFIG >> "$LOG" 2>&1 &
+bash ${CURRENT_DIR}/kafka/kafka_setup.sh $HOH_KUBECONFIG >> "$LOG" 2>&1 &
 initHub $CTX_HUB >> $LOG 2>&1 &
 
 # init leafhub 
@@ -63,7 +63,7 @@ hover $! "  Joining $CTX_HUB - $CTX_MANAGED"
 initApp $CTX_HUB $CTX_MANAGED >> "$LOG" 2>&1 &
 hover $! "  Enable application $CTX_HUB - $CTX_MANAGED" 
 
-initPolicy $CTX_HUB $CTX_MANAGED $HUB_KUBECONFIG >> "$LOG" 2>&1 &
+initPolicy $CTX_HUB $CTX_MANAGED $HOH_KUBECONFIG >> "$LOG" 2>&1 &
 hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED" 
 
 kubectl config use-context $CTX_HUB >> "$LOG"
