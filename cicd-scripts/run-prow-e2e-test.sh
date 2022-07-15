@@ -19,7 +19,10 @@ scp "${OPT[@]}" -r ../hub-of-hubs "$HOST:$HOST_DIR"
 echo "install dependencies"
 ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget  -y 
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && sudo make e2e-setup-dependencies"
+
+sleep 5000
+
 echo "setup e2e environment"
-ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && make e2e-setup-start"
+ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-setup-start"
 echo "runn e2e tests"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-tests-all"

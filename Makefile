@@ -54,7 +54,7 @@ unit-tests-agent:
 e2e-setup-dependencies:
 	./test/setup/e2e_dependencies.sh
 
-e2e-setup-start: 
+e2e-setup-start: e2e-setup-dependencies
 	./test/setup/e2e_setup.sh
 
 e2e-setup-clean:

@@ -5,12 +5,12 @@ binDir="/usr/bin"
 function checkGolang() {
   if ! command -v go >/dev/null 2>&1; then
     wget https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz
-    tar -C /usr/local/ -xvf go1.17.7.linux-amd64.tar.gz >/dev/null 2>&1
+    sudo tar -C /usr/local/ -xvf go1.17.7.linux-amd64.tar.gz >/dev/null 2>&1
   fi
   if [[ $(go version) < "go version go1.17" ]]; then
     echo "go version is less than 1.17, update to 1.17"
     sudo rm -rf /usr/local/go
-    sudo wget https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz
+    wget https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz
     sudo tar -C /usr/local/ -xvf go1.17.7.linux-amd64.tar.gz >/dev/null 2>&1
   fi
   echo "go version: $(go version)"
@@ -44,10 +44,15 @@ function checkClusteradm() {
 
 function checkKind() {
   if ! command -v kind >/dev/null 2>&1; then 
-    echo "This script will install kind (https://kind.sigs.k8s.io/) on your machine."
-    curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/v0.12.0/kind-$(uname)-amd64"
-    chmod +x ./kind-amd64
-    sudo mv ./kind-amd64 ${binDir}/kind
+    curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.14.0/kind-linux-amd64 
+    chmod +x ./kind
+    sudo mv ./kind ${binDir}/kind
+  fi
+  if [[ $(kind version |awk '{print $2}') < "v0.12.0" ]]; then
+    sudo rm -rf $(which kind)
+    curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.14.0/kind-linux-amd64 
+    chmod +x ./kind
+    sudo mv ./kind ${binDir}/kind
   fi
   echo "kind version: $(kind version)"
 }
@@ -56,12 +61,36 @@ function checkGinkgo() {
   if ! command -v ginkgo >/dev/null 2>&1; then 
     go install github.com/onsi/ginkgo/v2/ginkgo@latest
     go get github.com/onsi/gomega/...
-    mv /root/go/bin/ginkgo $binDir         # move ginkgo to the bin path
+    sudo mv $(go env GOPATH)/bin/ginkgo ${binDir}/ginkgo
   fi 
   echo "ginkgo version: $(ginkgo version)"
 }
 
+function installDocker() {
+  sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+  sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  sleep 5
+  sudo systemctl start docker
+  sleep 2
+  sudo systemctl enable docker
+  sleep 2
+}
+
+function checkDocker() {
+  if ! command -v docker >/dev/null 2>&1; then 
+    installDocker
+  fi
+  if [ $(docker version --format '{{.Client.Version}}' | sed -e 's/\.//g') -lt 201017 ]; then
+    # upgrade
+    echo "remove old version of docker $(docker version --format '{{.Client.Version}}')"
+    sudo yum remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-selinux  docker-engine-selinux docker-engine 
+    installDocker
+  fi
+  echo "docker version: $(docker version --format '{{.Client.Version}}')"
+}
 checkGolang
+checkDocker
 checkKind
 checkKubectl
 checkClusteradm
