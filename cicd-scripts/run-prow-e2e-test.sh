@@ -27,9 +27,9 @@ ssh "${OPT[@]}" "$HOST" sudo wget https://github.com/open-cluster-management-io/
 ssh "${OPT[@]}" "$HOST" sudo tar -C /usr/local/bin -xvf clusteradm_linux_amd64.tar.gz
 ssh "${OPT[@]}" "$HOST" export "PATH=${PATH}:/usr/local/bin"
 ssh "${OPT[@]}" "$HOST" echo "PATH=$PATH"
-
 echo "clusteradm help: $(clusteradm help)" 
 
 scp "${OPT[@]}" -r ../hub-of-hubs "$HOST:$HOST_DIR"
+sleep 3600
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-setup-start && make e2e-tests-all"
 
