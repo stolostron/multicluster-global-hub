@@ -92,21 +92,11 @@ done
 
 verbose=${verbose:=5}
 
-if command -v ginkgo &> /dev/null; then
-    GINKGO_CMD=ginkgo
-else
-    # just for prow vm
-    go install github.com/onsi/ginkgo/v2/ginkgo@latest
-    go get github.com/onsi/gomega/...
-    GINKGO_CMD="$(go env GOPATH)/bin/ginkgo"
-fi
-echo "ginkgo version: $($GINKGO_CMD version)"
-
 if [ -z "${filter}" ]; then
-  ${GINKGO_CMD} --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
+  ginkgo --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
   --junit-report=report.xml ${ROOT_DIR}/test/pkg/e2e -- -options=$OPTIONS_FILE -v="$verbose"
 else
-  ${GINKGO_CMD} --label-filter=${filter} --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
+  ginkgo --label-filter=${filter} --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
   --junit-report=report.xml ${ROOT_DIR}/test/pkg/e2e -- -options=$OPTIONS_FILE -v="$verbose"
 fi
 

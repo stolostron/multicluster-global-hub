@@ -10,12 +10,7 @@ export TAG=${TAG:-"latest"}
 export LOG_MODE=${LOG_MODE:-INFO}
 
 source ${CURRENT_DIR}/common.sh
-
-# check the prerequisites helm and envsubst
 checkDir ${CONFIG_DIR}
-checkKind
-checkKubectl
-checkClusteradm
 
 LEAF_HUB_NAME="hub1"
 HUB_OF_HUB_NAME="hub-of-hubs"

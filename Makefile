@@ -51,7 +51,10 @@ unit-tests-manager:
 unit-tests-agent:
 	go test `go list ./agent/... | grep -v test`
 
-e2e-setup-start:
+e2e-setup-dependencies:
+	./test/setup/e2e_dependencies.sh
+
+e2e-setup-start: 
 	./test/setup/e2e_setup.sh
 
 e2e-setup-clean:
@@ -63,5 +66,5 @@ e2e-tests-all: tidy
 e2e-tests-connection e2e-tests-cluster e2e-tests-label e2e-tests-app e2e-tests-policy e2e-tests-local-policy: tidy
 	./cicd-scripts/run-local-e2e-test.sh -f $@ -v $(VERBOSE)
 
-e2e-prow-tests:
+e2e-prow-tests: 
 	./cicd-scripts/run-prow-e2e-test.sh
