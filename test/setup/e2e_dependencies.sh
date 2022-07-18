@@ -70,11 +70,14 @@ function installDocker() {
   sudo yum install -y yum-utils device-mapper-persistent-data lvm2
   sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
   sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-  sleep 5
-  sudo systemctl start docker
-  sleep 2
-  sudo systemctl enable docker
-  sleep 2
+
+  while ! sudo systemctl is-active docker; do
+    # sudo systemctl start docker
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sleep 1
+    echo "waiting for docker to start"
+  done
 }
 
 function checkDocker() {
@@ -89,8 +92,36 @@ function checkDocker() {
   fi
   echo "docker version: $(docker version --format '{{.Client.Version}}')"
 }
+
+function checkVolume() {
+  if [[ $(df -h | grep -v Size | awk '{print $2}' | sed -e 's/G//g' | awk 'BEGIN{ max = 0 } {if ($1 > max) max = $1; fi} END{print max}') -lt 80 ]]; then
+    maxSize=$(lsblk | awk '{print $1,$4}' | grep -v Size | grep -v M | sed -e 's/G//g' | awk 'BEGIN{ max = 0 } {if ($2 > max) max = $2; fi} END{print max}')
+    mountName=$(lsblk | grep "$maxSize"G | awk '{print $1}')
+    echo "mounting /dev/${mountName}: ${maxSize}"
+    sudo mkfs -t xfs /dev/${mountName}        
+    sudo mkdir /data/docker                    
+    sudo mount /dev/${mountName} /data/docker  
+
+    sudo systemctl stop docker.socket
+    sudo systemctl stop docker
+    sudo systemctl stop containerd
+    sudo mv /var/lib/docker /data/docker
+    sudo sed -i "s/ExecStart=\/usr\/bin\/dockerd\ -H/ExecStart=\/usr\/bin\/dockerd\ -g\ \/data\/docker\ -H/g" /lib/systemd/system/docker.service
+
+    while ! sudo systemctl is-active docker; do
+      # sudo systemctl start docker
+      sudo systemctl start docker
+      sudo systemctl enable docker
+      sleep 1
+      echo "waiting for docker to start"
+    done
+  fi
+  echo "docker root dir: $(docker info -f '{{ .DockerRootDir}}')"
+}
+
 checkGolang
 checkDocker
+checkVolume
 checkKind
 checkKubectl
 checkClusteradm
