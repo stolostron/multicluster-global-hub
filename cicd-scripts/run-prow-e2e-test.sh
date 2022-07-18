@@ -20,8 +20,6 @@ echo "install dependencies"
 ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget  -y 
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && sudo make e2e-setup-dependencies"
 
-sleep 10000
-
 echo "setup e2e environment"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-setup-start"
 echo "runn e2e tests"

@@ -104,8 +104,9 @@ function checkVolume() {
 
     sudo mv /var/lib/docker /data/docker
     sudo sed -i "s/ExecStart=\/usr\/bin\/dockerd\ -H/ExecStart=\/usr\/bin\/dockerd\ -g\ \/data\/docker\ -H/g" /lib/systemd/system/docker.service
-
-    # sudo systemctl start docker
+    sleep 2
+    
+    sudo systemctl daemon-reload
     sudo systemctl start docker
     sudo systemctl enable docker
   fi
