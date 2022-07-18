@@ -101,10 +101,13 @@ function checkVolume() {
     sudo mkfs -t xfs /dev/${mountName}        
     sudo mkdir /data/docker                    
     sudo mount /dev/${mountName} /data/docker  
-
-    sudo systemctl stop docker.socket
-    sudo systemctl stop docker
-    sudo systemctl stop containerd
+    while sudo systemctl is-active docker; do
+      sudo systemctl stop docker.socket
+      sudo systemctl stop docker
+      sudo systemctl stop containerd
+      sleep 1
+      echo "waiting for docker to stop"
+    done
     sudo mv /var/lib/docker /data/docker
     sudo sed -i "s/ExecStart=\/usr\/bin\/dockerd\ -H/ExecStart=\/usr\/bin\/dockerd\ -g\ \/data\/docker\ -H/g" /lib/systemd/system/docker.service
 

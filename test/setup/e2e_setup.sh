@@ -73,7 +73,7 @@ bash ${CURRENT_DIR}/postgres/postgres_setup.sh $KUBECONFIG 2>&1 >> $LOG &
 hover $! "5 Install postgres cluster" 
 
 # deploy hoh
-source ${CURRENT_DIR}/hoh_setup.sh 2>&1 >> $LOG &
+source ${CURRENT_DIR}/hoh_setup.sh >> $LOG 2>&1 &
 hover $! "6 Deploy hub-of-hubs with $TAG" 
 
 export KUBECONFIG=$KUBECONFIG
