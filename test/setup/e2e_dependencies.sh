@@ -71,13 +71,9 @@ function installDocker() {
   sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
   sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-  while ! sudo systemctl is-active docker; do
-    # sudo systemctl start docker
-    sudo systemctl start docker
-    sudo systemctl enable docker
-    sleep 1
-    echo "waiting for docker to start"
-  done
+  sleep 5
+  sudo systemctl start docker
+  sudo systemctl enable docker
 }
 
 function checkDocker() {
@@ -99,25 +95,19 @@ function checkVolume() {
     mountName=$(lsblk | grep "$maxSize"G | awk '{print $1}')
     echo "mounting /dev/${mountName}: ${maxSize}"
     sudo mkfs -t xfs /dev/${mountName}        
-    sudo mkdir /data/docker                    
+    sudo mkdir -p /data/docker                    
     sudo mount /dev/${mountName} /data/docker  
-    while sudo systemctl is-active docker; do
-      sudo systemctl stop docker.socket
-      sudo systemctl stop docker
-      sudo systemctl stop containerd
-      sleep 1
-      echo "waiting for docker to stop"
-    done
+
+    sudo systemctl stop docker.socket
+    sudo systemctl stop docker
+    sudo systemctl stop containerd
+
     sudo mv /var/lib/docker /data/docker
     sudo sed -i "s/ExecStart=\/usr\/bin\/dockerd\ -H/ExecStart=\/usr\/bin\/dockerd\ -g\ \/data\/docker\ -H/g" /lib/systemd/system/docker.service
 
-    while ! sudo systemctl is-active docker; do
-      # sudo systemctl start docker
-      sudo systemctl start docker
-      sudo systemctl enable docker
-      sleep 1
-      echo "waiting for docker to start"
-    done
+    # sudo systemctl start docker
+    sudo systemctl start docker
+    sudo systemctl enable docker
   fi
   echo "docker root dir: $(docker info -f '{{ .DockerRootDir}}')"
 }
