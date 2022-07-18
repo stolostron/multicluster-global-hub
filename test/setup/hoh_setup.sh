@@ -107,6 +107,7 @@ function deployRbac() {
   export COMPONENT=hub-of-hubs-rbac
   envsubst < ${currentDir}/hoh/hub-of-hubs-rbac/operator.yaml | kubectl apply -f - -n "$namespace"
   kubectl wait deployment -n "$namespace" "$COMPONENT" --for condition=Available=True --timeout=600s
+  kubectl scale deployment "$COMPONENT" -n "$namespace" --replicas=1
   echo "created rbac operator"
 
   # update mutating webhook configuration to inject identity to policies + placementbidnings

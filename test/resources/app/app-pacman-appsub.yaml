@@ -22,8 +22,6 @@ kind: Application
 metadata:
   annotations:
     apps.open-cluster-management.io/deployables: ''
-  finalizers:
-    - hub-of-hubs.open-cluster-management.io/resource-cleanup
   name: pacman-test
   namespace: pacman
 spec:
@@ -45,8 +43,6 @@ metadata:
     apps.open-cluster-management.io/git-branch: main
     apps.open-cluster-management.io/git-path: pacman
     apps.open-cluster-management.io/reconcile-option: merge
-  finalizers:
-    - hub-of-hubs.open-cluster-management.io/resource-cleanup
   labels:
     app: pacman
     app.kubernetes.io/part-of: pacman
@@ -64,8 +60,6 @@ apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
   annotations: {}
-  finalizers:
-    - hub-of-hubs.open-cluster-management.io/resource-cleanup
   labels:
     app: pacman
   name: pacman-placement
