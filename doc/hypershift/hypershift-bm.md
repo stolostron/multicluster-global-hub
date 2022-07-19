@@ -36,9 +36,9 @@ EOF
 ```bash
 export HYPERSHIFT_MGMT_CLUSTER=hypermgt
 export HYPERSHIFT_HOSTING_NAMESPACE=clusters
-export HYPERSHIFT_DEPLOYMENT_NAME=<hypershiftdeployment-name>
 export OPENSHIFT_RELEASE_IMAGE=quay.io/openshift-release-dev/ocp-release:4.10.15-x86_64
 export OPENSHIFT_BASE_DOMAIN=example.com
+export HYPERSHIFT_DEPLOYMENT_NAME=<hypershiftdeployment-name>
 ```
 
 2. Following the [guide](https://hypershift-docs.netlify.app/how-to/none/create-none-cluster/#requisites) to configure the DNS for the HyperShift hosted cluster on bare metal.
@@ -111,32 +111,21 @@ export HYPERSHIFT_MANAGED_CLUSTER_NAME=$(oc get managedcluster | grep ${HYPERSHI
 oc wait --for=condition=ManagedClusterConditionAvailable managedcluster/${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
 ```
 
-5. Get kubeconfig for the HyperShift hosted cluster:
+5. Retrieve kubeconfig for the HyperShift hosted cluster:
 
 ```bash
-export HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-hosted-cluster>
+oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d
 ```
 
-```bash
-oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d > ${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG}
-```
-
-  _Note_: If the worker node of the HyperShift management cluster doesn't have external IPs, then the HyperShift hosted cluster created in the following steps can not be accessed from external, but can be accessed from internal for local dev/test. Add a new DNS entry `<ip-of-local-machine> api.${HYPERSHIFT_DEPLOYMENT_NAME}.${OPENSHIFT_BASE_DOMAIN}` to `/etc/hosts` of the local machine and then execute the following commands to porward the traffic to kube-apiserver service.
+  _Note_: If the worker node of the HyperShift management cluster doesn't have external IPs, then the HyperShift hosted cluster created in the following steps can not be accessed from external, but can be accessed from internal for dev/test. Add a new DNS entry `<ip-of-local-machine> api.${HYPERSHIFT_DEPLOYMENT_NAME}.${OPENSHIFT_BASE_DOMAIN}` to `/etc/hosts` of the local machine and then execute the following commands to forward the local traffic to kube-apiserver service.
 
   ```bash
   export LOCAL_MACHINE_IP=<IP-for-local-machine>
-  export HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-management-cluster> # set the kubeconfig path for the hypershift management cluster
+  export HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-management-cluster>
   ```
   ```bash
   API_SERVICE_NODEPORT=$(oc --kubeconfig=${HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG} -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} get svc/kube-apiserver -o jsonpath='{.spec.ports[?(@.port==6443)].nodePort}')
-  oc --kubeconfig=${HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG} -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} port-forward svc/kube-apiserver ${API_SERVICE_NODEPORT}:6443 --address=${LOCAL_MACHINE_IP} &
+  oc --kubeconfig=${HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG} -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} port-forward svc/kube-apiserver ${API_SERVICE_NODEPORT}:6443 --address=${LOCAL_MACHINE_IP}
   ```
 
-  _Note_: If you want to import a managed cluster to the HyperShift hosted cluster without external access, you have to make sure the managed cluster can access the local machine that executes the commands above.
-
-6. Apply the ACM Hub CRDs to the hypershift hosted cluster(workaround because application addon doesn't support hosted mode currently):
-
-```bash
-git clone https://github.com/stolostron/hub-of-hubs-repo.git && cd hub-of-hubs-repo
-oc --kubeconfig=${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG} apply -f charts/acm-hub/templates
-```
+  _Note_: If you want to import a managed cluster to the HyperShift hosted cluster without external access, you have to make sure the managed cluster can access the local machine.

@@ -9,7 +9,6 @@ This document is used to provision HyperShift hosted cluster on AWS platform wit
 ```bash
 export AWS_ACCESS_KEY_ID=<aws-access-key-id>
 export AWS_SECRET_ACCESS_KEY=<aws-secret-access-key>
-export INFRA_REGION=<cloud-provider-region>
 export BASE_DOMAIN=<aws-domain>
 export OPENSHIFT_PULL_SECRET_FILE=<openshift-pull-secret-file>
 export SSH_PRIVATE_KEY_FILE=<ssh-private-key-file>
@@ -43,8 +42,9 @@ oc create secret generic ${CLOUD_PROVIDER_SECRET_NAME} \
 ```bash
 export HYPERSHIFT_MGMT_CLUSTER=hypermgt
 export HYPERSHIFT_HOSTING_NAMESPACE=clusters
-export HYPERSHIFT_DEPLOYMENT_NAME=<hypershiftdeployment-name>
 export OPENSHIFT_RELEASE_IMAGE=quay.io/openshift-release-dev/ocp-release:4.10.15-x86_64
+export INFRA_REGION=<cloud-provider-region>
+export HYPERSHIFT_DEPLOYMENT_NAME=<hypershiftdeployment-name>
 ```
 
 2. Create `HypershiftDeployment` resource to provision AWS hosted cluster:
@@ -87,19 +87,8 @@ export HYPERSHIFT_MANAGED_CLUSTER_NAME=$(oc get managedcluster | grep ${HYPERSHI
 oc wait --for=condition=ManagedClusterConditionAvailable managedcluster/${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
 ```
 
-4. Get kubeconfig for the HyperShift hosted cluster:
+4. Retrieve kubeconfig for the HyperShift hosted cluster:
 
 ```bash
-export HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-hosted-cluster>
-```
-
-```bash
-oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d > ${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG}
-```
-
-5. Apply the ACM Hub CRDs to the hypershift hosted cluster(workaround because application addon doesn't support hosted mode currently):
-
-```bash
-git clone https://github.com/stolostron/hub-of-hubs-repo.git && cd hub-of-hubs-repo
-oc --kubeconfig=${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG} apply -f charts/acm-hub/templates
+oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d
 ```
