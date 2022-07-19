@@ -24,7 +24,7 @@ var (
 )
 
 func init() {
-	pflag.StringVar(&hubVersion, "hub-version", "2.6.0", "ACM hub version for the current leaf hub.")
+	pflag.StringVar(&hubVersion, "hub-version", "", "ACM hub version for the current leaf hub.")
 	pflag.StringVar(&kubeconfig, "kubeconfig", "", "kubeconfig for the connected cluster.")
 	pflag.Parse()
 }
@@ -58,6 +58,12 @@ func doMain() int {
 	dyn, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		log.Error(err, "failed to create dynamic client")
+		return 1
+	}
+
+	// check hubversion
+	if hubVersion == "" {
+		log.Error(err, "empty hub version!")
 		return 1
 	}
 
