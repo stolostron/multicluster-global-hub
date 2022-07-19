@@ -10,6 +10,7 @@ COPY ./agent/ ./agent/
 COPY ./pkg/ ./pkg/
 
 RUN go build -o bin/agent ./agent/cmd/agent/main.go
+RUN go build -o bin/applier ./agent/cmd/applier/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
@@ -18,6 +19,7 @@ ENV USER_NAME=agent
 
 # install operator binary
 COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
+COPY --from=builder /workspace/bin/applier /usr/local/bin/applier
 
 COPY ./agent/scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
