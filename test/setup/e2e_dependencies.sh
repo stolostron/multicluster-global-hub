@@ -4,14 +4,14 @@ binDir="/usr/bin"
 
 function checkGolang() {
   if ! command -v go >/dev/null 2>&1; then
-    wget https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz
-    sudo tar -C /usr/local/ -xvf go1.17.7.linux-amd64.tar.gz >/dev/null 2>&1
+    wget https://dl.google.com/go/go1.18.4.linux-amd64.tar.gz
+    sudo tar -C /usr/local/ -xvf go1.18.4.linux-amd64.tar.gz >/dev/null 2>&1
   fi
-  if [[ $(go version) < "go version go1.17" ]]; then
-    echo "go version is less than 1.17, update to 1.17"
+  if [[ $(go version) < "go version go1.18" ]]; then
+    echo "go version is less than 1.18, update to 1.18"
     sudo rm -rf /usr/local/go
-    wget https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz
-    sudo tar -C /usr/local/ -xvf go1.17.7.linux-amd64.tar.gz >/dev/null 2>&1
+    wget https://dl.google.com/go/go1.18.4.linux-amd64.tar.gz
+    sudo tar -C /usr/local/ -xvf go1.18.4.linux-amd64.tar.gz >/dev/null 2>&1
   fi
   echo "go version: $(go version)"
 }
