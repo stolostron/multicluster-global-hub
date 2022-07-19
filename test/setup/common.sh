@@ -15,13 +15,17 @@ function checkDir() {
 }
 
 function hover() {
-  local pid=$1; message=${2:-Processing!}; delay=0.2
+  local pid=$1; message=${2:-Processing!}; delay=0.4
   currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   echo "$pid" > "${currentDir}/config/pid"
   signs=(🙉 🙈 🙊)
   while ( kill -0 "$pid" 2>/dev/null ); do
     index="${RANDOM} % ${#signs[@]}"
-    printf "\e[38;5;$((RANDOM%257))m%s\r\e[0m" "[$(date '+%H:%M:%S')]  ${signs[${index}]}  ${message} ..."; sleep ${delay}
+    if [[ $LOG_MODE == "DEBUG" ]]; then
+      tail -n 1 $LOG; sleep 1
+    else
+      printf "\e[38;5;$((RANDOM%257))m%s\r\e[0m" "[$(date '+%H:%M:%S')]  ${signs[${index}]}  ${message} ..."; sleep ${delay}
+    fi
   done
   printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message}"; sleep ${delay}
 }

@@ -17,6 +17,11 @@ if [ ! -d "$CONFIG_DIR" ];then
   mkdir -p "$CONFIG_DIR"
 fi
 
+if [ ! -f "$KUBECONFIG" ];then
+  KUBECONFIG=${ROOT_DIR}/test/setup/config/kubeconfig
+  echo "using default KUBECONFIG = $KUBECONFIG"
+fi
+
 # hub cluster
 hub_kubeconfig="${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}"
 kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "$HUB_OF_HUB_CTX" > ${hub_kubeconfig}
@@ -87,20 +92,11 @@ done
 
 verbose=${verbose:=5}
 
-if command -v ginkgo &> /dev/null; then
-    GINKGO_CMD=ginkgo
-else
-    # just for prow vm
-    go install github.com/onsi/ginkgo/ginkgo@latest
-    GINKGO_CMD="$(go env GOPATH)/bin/ginkgo"
-fi
-go mod vendor
-
-if [ -z "$filter" ]; then
-  ${GINKGO_CMD} --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
+if [ -z "${filter}" ]; then
+  ginkgo --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
   --junit-report=report.xml ${ROOT_DIR}/test/pkg/e2e -- -options=$OPTIONS_FILE -v="$verbose"
 else
-  ${GINKGO_CMD} --label-filter="$filter" --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
+  ginkgo --label-filter=${filter} --output-dir="${ROOT_DIR}/test/resources/report" --json-report=report.json \
   --junit-report=report.xml ${ROOT_DIR}/test/pkg/e2e -- -options=$OPTIONS_FILE -v="$verbose"
 fi
 

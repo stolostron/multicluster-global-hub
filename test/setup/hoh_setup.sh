@@ -92,7 +92,7 @@ function initPostgres() {
   kubectl delete -f ${currentDir}/hoh/hub-of-hubs-postgres-job.yaml --ignore-not-found=true
   export IMAGE=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG
   envsubst < ${currentDir}/hoh/hub-of-hubs-postgres-job.yaml | kubectl apply -f -
-  kubectl wait --for=condition=complete job/postgres-init -n $pgNamespace --timeout=600s
+  kubectl wait --for=condition=complete job/postgres-init -n $pgNamespace --timeout=800s
   kubectl logs $(kubectl get pods --field-selector status.phase=Succeeded  --selector=job-name=postgres-init -n $pgNamespace  --output=jsonpath='{.items[*].metadata.name}') -n $pgNamespace
 }
 

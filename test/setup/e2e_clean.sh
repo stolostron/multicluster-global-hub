@@ -12,8 +12,6 @@ source ${CURRENT_DIR}/common.sh
 
 checkDir ${CONFIG_DIR}
 checkKind
-checkKubectl
-checkClusteradm
 
 LEAF_HUB_NAME="hub1"
 HUB_OF_HUB_NAME="hub-of-hubs"
@@ -43,6 +41,3 @@ docker volume rm -f "hub-data"
 rm "${PID}" >/dev/null 2>&1
 rm -rf "$CONFIG_DIR"
 ps -ef |grep "setup" |grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1
-
-
-
