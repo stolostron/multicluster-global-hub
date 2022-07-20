@@ -1,15 +1,22 @@
 # !/bin/bash
 
-set -o nounset
+set -euo pipefail
 
-echo "using kubeconfig $KUBECONFIG"
-
-namespace=open-cluster-management
-currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 branch=$TAG
 if [ $TAG == "latest" ]; then
   branch="main"
 fi
+export OPENSHIFT_CI=${OPENSHIFT_CI:-"false"}
+export HUB_OF_HUBS_MANAGER_IMAGE_REF=${HUB_OF_HUBS_MANAGER_IMAGE_REF:-"quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-manager:$TAG"}
+export HUB_OF_HUBS_AGENT_IMAGE_REF=${HUB_OF_HUBS_AGENT_IMAGE_REF:-"quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-agent:$TAG"}
+
+echo "KUBECONFIG $KUBECONFIG"
+echo "OPENSHIFT_CI: $OPENSHIFT_CI"
+echo "HUB_OF_HUBS_MANAGER_IMAGE_REF $HUB_OF_HUBS_MANAGER_IMAGE_REF"
+echo "HUB_OF_HUBS_AGENT_IMAGE_REF $HUB_OF_HUBS_AGENT_IMAGE_REF"
+
+namespace=open-cluster-management
+currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function deployConfigResources() {
   # apply the HoH config CRD
@@ -55,8 +62,6 @@ function deployController() {
   echo "created database secrets"
 
   export TRANSPORT_TYPE=${TRANSPORT_TYPE:-"kafka"}
-  export REGISTRY=quay.io/open-cluster-management-hub-of-hubs
-  export IMAGE_TAG="$TAG"
   envsubst < ${currentDir}/hoh/hub-of-hubs-manager.yaml | kubectl apply -f - -n "$namespace"
   kubectl wait deployment -n "$namespace" hub-of-hubs-manager --for condition=Available=True --timeout=600s
   echo "created hub-of-hubs-manager"

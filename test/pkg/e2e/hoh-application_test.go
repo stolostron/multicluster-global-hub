@@ -86,7 +86,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
-		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+		}, 2*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Print result after adding the label")
 		managedClusters := getManagedCluster(httpClient, token)
@@ -101,7 +101,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		By("Check the appsub is applied to the cluster")
 		Eventually(func() error {
 			return checkAppsubreport(appClient, 1, []string{managedClusterName1})
-		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+		}, 2*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It(fmt.Sprintf("Add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName2), func() {
@@ -129,13 +129,13 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
-		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+		}, 2*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Check the appsub apply to the clusters")
 		Eventually(func() error {
 			err := checkAppsubreport(appClient, 2, []string{ managedClusterName1, managedClusterName2 })
 			return err
-		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+		}, 2*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	AfterAll(func() {
@@ -161,7 +161,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				}
 			}
 			return nil
-		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+		}, 2*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Remove the appsub resource")
 		_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", APP_SUB_YAML)
