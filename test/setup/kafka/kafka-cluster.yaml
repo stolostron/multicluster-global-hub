@@ -44,7 +44,7 @@ spec:
     storage:
       type: ephemeral
   zookeeper:
-    replicas: 3
+    replicas: 1
     logging:
       type: inline
       loggers:

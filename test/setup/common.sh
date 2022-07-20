@@ -116,6 +116,8 @@ function initManaged() {
       sed -e "s;<cluster_name>;${managed};" "$joinCommand" > "${joinCommand}-named"
       sed -e "s;<cluster_name>;${managed};" "$joinCommand" | bash
     fi
+    sleep 2
+    kubectl scale deployment klusterlet -n open-cluster-management --replicas=1
   fi
     
   SECOND=0
@@ -306,8 +308,10 @@ enableRouter() {
   kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
   GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
   kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
-  kubectl apply -f $GIT_PATH/deploy/router.yaml
-  kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
+  # pacman application depends on route crd, but we do not need to have route pod running in the cluster
+  # kubectl apply -f $GIT_PATH/deploy/router.yaml
+  # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
+  kubectl
 }
 
 function enableDependencyResources() {
