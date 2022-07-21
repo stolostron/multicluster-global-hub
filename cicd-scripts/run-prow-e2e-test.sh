@@ -16,6 +16,7 @@ echo "export LOG_MODE=DEBUG" >> ${ROOT_DIR}/test/resources/env.list
 echo "export HUB_OF_HUBS_MANAGER_IMAGE_REF=$HUB_OF_HUBS_MANAGER_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
 echo "export HUB_OF_HUBS_AGENT_IMAGE_REF=$HUB_OF_HUBS_AGENT_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
 echo "export OPENSHIFT_CI=$OPENSHIFT_CI" >> ${ROOT_DIR}/test/resources/env.list
+echo "export VERBOSE=6" >> ${ROOT_DIR}/test/resources/env.list
 
 echo "install dependencies"
 ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget  -y 

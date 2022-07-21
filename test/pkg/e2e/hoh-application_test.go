@@ -203,5 +203,7 @@ func checkAppsubreport(appClient client.Client, expectDeployNum int, expectClust
 		}
 		return fmt.Errorf("deploy results isn't correct %v", appsubreport.Results)
 	}
+	appsubreportStr, _ := json.MarshalIndent(appsubreport, "", "  ")
+	klog.V(6).Info("Appsubreport: ", string(appsubreportStr))
 	return fmt.Errorf("the appsub %s: %s hasn't deplyed to the cluster: %s", APP_SUB_NAMESPACE, APP_SUB_NAME, strings.Join(expectClusterNames, ","))
 }
