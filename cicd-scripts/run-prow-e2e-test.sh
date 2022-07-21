@@ -23,6 +23,8 @@ scp "${OPT[@]}" -r ../hub-of-hubs "$HOST:$HOST_DIR"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && sudo make e2e-setup-dependencies"
 echo "setup e2e environment"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-setup-start"
+
 sleep 1800
+
 echo "runn e2e tests"
-ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-tests-all"
+ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make make e2e-tests-all"
