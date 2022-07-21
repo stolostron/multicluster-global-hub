@@ -36,9 +36,9 @@ EOF
 ```bash
 export HYPERSHIFT_MGMT_CLUSTER=hypermgt
 export HYPERSHIFT_HOSTING_NAMESPACE=clusters
-export HYPERSHIFT_DEPLOYMENT_NAME=<hypershiftdeployment-name>
 export OPENSHIFT_RELEASE_IMAGE=quay.io/openshift-release-dev/ocp-release:4.10.15-x86_64
 export OPENSHIFT_BASE_DOMAIN=example.com
+export HYPERSHIFT_DEPLOYMENT_NAME=<hypershiftdeployment-name>
 ```
 
 2. Following the [guide](https://hypershift-docs.netlify.app/how-to/none/create-none-cluster/#requisites) to configure the DNS for the HyperShift hosted cluster on bare metal.
@@ -111,47 +111,21 @@ export HYPERSHIFT_MANAGED_CLUSTER_NAME=$(oc get managedcluster | grep ${HYPERSHI
 oc wait --for=condition=ManagedClusterConditionAvailable managedcluster/${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
 ```
 
-5. Get kubeconfig for the HyperShift hosted cluster:
+5. Retrieve kubeconfig for the HyperShift hosted cluster:
 
 ```bash
-oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d > <kubeconfig-path-to-hypershift-hosted-cluster>
+oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d
 ```
 
-  _Note_: If the worker node of the HyperShift management cluster doesn't have external IPs, then the HyperShift hosted cluster created in the following steps can not be accessed from external, but can be accessed from internal for local dev/test. Add a new DNS entry `<ip-of-local-machine> api.${HYPERSHIFT_DEPLOYMENT_NAME}.${OPENSHIFT_BASE_DOMAIN}` to `/etc/hosts` of the local machine and then execute the following commands to porward the traffic to kube-apiserver service.
+  _Note_: If the worker node of the HyperShift management cluster doesn't have external IPs, then the HyperShift hosted cluster created in the following steps can not be accessed from external, but can be accessed from internal for dev/test. Add a new DNS entry `<ip-of-local-machine> api.${HYPERSHIFT_DEPLOYMENT_NAME}.${OPENSHIFT_BASE_DOMAIN}` to `/etc/hosts` of the local machine and then execute the following commands to forward the local traffic to kube-apiserver service.
 
   ```bash
-  API_SERVICE_NODEPORT=$(oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} get svc/kube-apiserver -o jsonpath='{.spec.ports[?(@.port==6443)].nodePort}')
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} port-forward svc/kube-apiserver ${API_SERVICE_NODEPORT}:6443 --address <ip-of-local-machine> &  # port-forward kube-apiserver service
+  export LOCAL_MACHINE_IP=<IP-for-local-machine>
+  export HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-management-cluster>
   ```
-
-  _Note_: If you want to import a managed cluster to the HyperShift hosted cluster without external access, you have to make sure the managed cluster can access the local machine that executes the commands above.
-
-6. Enable the ACM addons(policy and application in hosted mode) for the hypershift hosted cluster:
-
-```bash
-envsubst < ./manifests/managedclusteraddon-application.yaml | oc apply -f -
-oc -n ${HYPERSHIFT_MGMT_CLUSTER} patch manifestwork ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-hosted-klusterlet --type=json \
-    -p='[{"op":"replace","path":"/spec/workload/manifests/1/spec/registrationImagePullSpec","value":"quay.io/morvencao/registration:latest"}]'
-envsubst < ./manifests/manifestwork-policy-framework.yaml | oc apply -f -
-envsubst < ./manifests/manifestwork-config-policy-controller.yaml | oc apply -f -
-envsubst < ./manifests/manifestwork-application-manager.yaml | oc apply -f -
-```
-
-  _Note:_ The application addon in HyperShift management cluster fails to start due to permission issue, the workaround is logging into the HyperShift management cluster and executing the following command:
-
   ```bash
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> adm policy add-scc-to-user \
-    anyuid system:serviceaccount:klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}:application-manager
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-management-cluster> -n klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME} \
-    delete rs -l component=application-manager
-  # create namespace in hypershift hosted cluster for leader election
-  oc --kubeconfig=<kubeconfig-path-to-hypershift-hosted-cluster> create ns klusterlet-${HYPERSHIFT_MANAGED_CLUSTER_NAME}
+  API_SERVICE_NODEPORT=$(oc --kubeconfig=${HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG} -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} get svc/kube-apiserver -o jsonpath='{.spec.ports[?(@.port==6443)].nodePort}')
+  oc --kubeconfig=${HYPERSHIFT_MGMT_CLUSTER_KUBECONFIG} -n ${HYPERSHIFT_HOSTING_NAMESPACE}-${HYPERSHIFT_DEPLOYMENT_NAME} port-forward svc/kube-apiserver ${API_SERVICE_NODEPORT}:6443 --address=${LOCAL_MACHINE_IP}
   ```
 
-7. Check the ACM addons(policy and application) are available:
-
-```bash
-oc wait --for=condition=Available managedclusteraddon/application-manager -n ${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
-oc wait --for=condition=Available managedclusteraddon/config-policy-controller -n ${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
-oc wait --for=condition=Available managedclusteraddon/governance-policy-framework -n ${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
-```
+  _Note_: If you want to import a managed cluster to the HyperShift hosted cluster without external access, you have to make sure the managed cluster can access the local machine.
