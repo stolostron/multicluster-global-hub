@@ -3,6 +3,7 @@
 binDir="/usr/bin"
 
 function checkGolang() {
+  export PATH=$PATH:/usr/local/go/bin
   if ! command -v go >/dev/null 2>&1; then
     wget https://dl.google.com/go/go1.18.4.linux-amd64.tar.gz >/dev/null 2>&1
     sudo tar -C /usr/local/ -xvf go1.18.4.linux-amd64.tar.gz >/dev/null 2>&1
