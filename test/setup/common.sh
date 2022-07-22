@@ -311,7 +311,6 @@ enableRouter() {
   # pacman application depends on route crd, but we do not need to have route pod running in the cluster
   # kubectl apply -f $GIT_PATH/deploy/router.yaml
   # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
-  kubectl
 }
 
 function enableDependencyResources() {

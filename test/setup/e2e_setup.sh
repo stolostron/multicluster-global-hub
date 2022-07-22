@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -o errexit
-set -o nounset
+set -euo pipefail
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
