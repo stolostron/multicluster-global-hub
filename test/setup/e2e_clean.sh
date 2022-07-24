@@ -20,7 +20,7 @@ CTX_HUB="microshift"
 CTX_MANAGED="kind-hub1"
 
 # kubeconfig
-KUBECONFIG=${CONFIG_DIR}/kubeconfig
+KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}
 
 touch "$PID"
 while read -r line; do
