@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
+	"github.com/stolostron/hub-of-hubs/agent/pkg/controllers"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/bundle"
 	specController "github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller"
@@ -88,6 +89,11 @@ func doMain() int {
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		log.Error(err, "manager exited non-zero")
+		return 1
+	}
+
+	if err := controllers.PostStart(mgr); err != nil {
+		log.Error(err, "failed to exec postStart")
 		return 1
 	}
 
@@ -186,6 +192,10 @@ func createManager(consumer consumer.Consumer, producer producer.Producer, envir
 
 	if err := statusController.AddControllers(mgr, producer, *environmentManager, incarnation); err != nil {
 		return nil, fmt.Errorf("failed to add status syncer: %w", err)
+	}
+
+	if err := controllers.AddControllers(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
 	return mgr, nil

@@ -5,6 +5,7 @@
 
 REGISTRY ?= quay.io/stolostron
 IMAGE_TAG ?= latest
+TMP_BIN ?= /tmp/cr-tests-bin
 
 .PHONY: vendor			##download all third party libraries and puts them inside vendor directory
 vendor:
@@ -42,13 +43,17 @@ push-agent-image:
 .PHONY: unit-tests
 unit-tests: unit-tests-manager unit-tests-agent
 
+setup_envtest:
+	GOBIN=${TMP_BIN} go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	export KUBEBUILDER_ASSETS=`${TMP_BIN}/setup-envtest use --use-env -p path`
+
 unit-tests-operator:
 	go test `go list ./operator/... | grep -v test`
 
 unit-tests-manager:
 	go test `go list ./manager/... | grep -v test`
 
-unit-tests-agent:
+unit-tests-agent: setup_envtest
 	go test `go list ./agent/... | grep -v test`
 
 e2e-setup-dependencies:
