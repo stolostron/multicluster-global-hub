@@ -46,32 +46,9 @@ func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Log
 	for _, pm := range packageManifestList.Items {
 		if pm.Name == constants.ACMPackageManifestName {
 			log.Info("found ACM PackageManifest")
-			acmDefaultChannel := pm.Status.DefaultChannel
-			acmCurrentCSV := ""
-			ACMImages := map[string]string{}
-			for _, channel := range pm.Status.Channels {
-				if channel.Name == acmDefaultChannel {
-					acmCurrentCSV = channel.CurrentCSV
-					acmRelatedImages := channel.CurrentCSVDesc.RelatedImages
-					for _, img := range acmRelatedImages {
-						var imgStrs []string
-						if strings.Contains(img, "@") {
-							imgStrs = strings.Split(img, "@")
-						} else if strings.Contains(img, ":") {
-							imgStrs = strings.Split(img, ":")
-						} else {
-							return nil, fmt.Errorf("invalid image format: %s in packagemanifest", img)
-						}
-						if len(imgStrs) != 2 {
-							return nil, fmt.Errorf("invalid image format: %s in packagemanifest", img)
-						}
-						imgNameStrs := strings.Split(imgStrs[0], "/")
-						imageName := imgNameStrs[len(imgNameStrs)-1]
-						imageKey := strings.TrimSuffix(imageName, "-rhel8")
-						ACMImages[imageKey] = img
-					}
-					break
-				}
+			acmDefaultChannel, acmCurrentCSV, ACMImages, err := getSinglePackageManifestConfig(pm)
+			if err != nil {
+				return nil, err
 			}
 
 			packageManifestInstance.ACMDefaultChannel = acmDefaultChannel
@@ -80,32 +57,9 @@ func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Log
 		}
 		if pm.Name == constants.MCEPackageManifestName {
 			log.Info("found MCE PackageManifest")
-			mceDefaultChannel := pm.Status.DefaultChannel
-			mceCurrentCSV := ""
-			MCEImages := map[string]string{}
-			for _, channel := range pm.Status.Channels {
-				if channel.Name == mceDefaultChannel {
-					mceCurrentCSV = channel.CurrentCSV
-					mceRelatedImages := channel.CurrentCSVDesc.RelatedImages
-					for _, img := range mceRelatedImages {
-						var imgStrs []string
-						if strings.Contains(img, "@") {
-							imgStrs = strings.Split(img, "@")
-						} else if strings.Contains(img, ":") {
-							imgStrs = strings.Split(img, ":")
-						} else {
-							return nil, fmt.Errorf("invalid image format: %s in packagemanifest", img)
-						}
-						if len(imgStrs) != 2 {
-							return nil, fmt.Errorf("invalid image format: %s in packagemanifest", img)
-						}
-						imgNameStrs := strings.Split(imgStrs[0], "/")
-						imageName := imgNameStrs[len(imgNameStrs)-1]
-						imageKey := strings.TrimSuffix(imageName, "-rhel8")
-						MCEImages[imageKey] = img
-					}
-					break
-				}
+			mceDefaultChannel, mceCurrentCSV, MCEImages, err := getSinglePackageManifestConfig(pm)
+			if err != nil {
+				return nil, err
 			}
 
 			packageManifestInstance.MCEDefaultChannel = mceDefaultChannel
@@ -115,4 +69,36 @@ func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Log
 	}
 
 	return packageManifestInstance, nil
+}
+
+func getSinglePackageManifestConfig(pm operatorsv1.PackageManifest) (string, string, map[string]string, error) {
+	defaultChannel := pm.Status.DefaultChannel
+	currentCSV := ""
+	images := map[string]string{}
+	for _, channel := range pm.Status.Channels {
+		if channel.Name == defaultChannel {
+			currentCSV = channel.CurrentCSV
+			relatedImages := channel.CurrentCSVDesc.RelatedImages
+			for _, img := range relatedImages {
+				var imgStrs []string
+				if strings.Contains(img, "@") {
+					imgStrs = strings.Split(img, "@")
+				} else if strings.Contains(img, ":") {
+					imgStrs = strings.Split(img, ":")
+				} else {
+					return "", "", images, fmt.Errorf("invalid image format: %s in packagemanifest", img)
+				}
+				if len(imgStrs) != 2 {
+					return "", "", images, fmt.Errorf("invalid image format: %s in packagemanifest", img)
+				}
+				imgNameStrs := strings.Split(imgStrs[0], "/")
+				imageName := imgNameStrs[len(imgNameStrs)-1]
+				imageKey := strings.TrimSuffix(imageName, "-rhel8")
+				images[imageKey] = img
+			}
+			break
+		}
+	}
+
+	return defaultChannel, currentCSV, images, nil
 }

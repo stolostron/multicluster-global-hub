@@ -72,10 +72,9 @@ func (r *HoHRenderer) RenderWithFilter(component, filter string, getConfigValues
 			}
 			if len(b) != 0 {
 				object, _, err := r.decoder.Decode(b, nil, nil)
-				if err != nil {
-					if runtime.IsMissingKind(err) {
-						continue
-					}
+				if err != nil && runtime.IsMissingKind(err) {
+					continue
+				} else if err != nil {
 					return unstructuredObjs, err
 				}
 

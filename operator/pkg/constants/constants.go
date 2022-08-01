@@ -19,6 +19,7 @@ package constants
 const (
 	HOHDefaultNamespace = "open-cluster-management"
 	HoHOperatorCRName   = "hoh"
+	LocalClusterName    = "local-cluster"
 )
 
 const (

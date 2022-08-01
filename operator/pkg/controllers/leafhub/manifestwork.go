@@ -40,6 +40,7 @@ import (
 	"github.com/go-logr/logr"
 	operatorv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	hubofhubsv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/hubofhubs/v1alpha1"
+	"github.com/stolostron/hub-of-hubs/operator/pkg/config"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
 	workv1 "open-cluster-management.io/api/work/v1"
 )
@@ -114,7 +115,8 @@ func init() {
 }
 
 // applyHubSubWork creates or updates the subscription manifestwork for leafhub cluster
-func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, hohConfigName, managedClusterName string, pm *packageManifestConfig) (*workv1.ManifestWork, error) {
+func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, hohConfigName, managedClusterName string,
+	pm *packageManifestConfig) (*workv1.ManifestWork, error) {
 	desiredHubSubWork, err := buildHubSubWork(ctx, c, log, hohConfigName, managedClusterName, pm)
 	if err != nil {
 		return nil, err
@@ -163,7 +165,8 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, hohC
 }
 
 // buildHubSubWork creates hub subscription manifestwork
-func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, hohConfigName, managedClusterName string, pm *packageManifestConfig) (*workv1.ManifestWork, error) {
+func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, hohConfigName, managedClusterName string,
+	pm *packageManifestConfig) (*workv1.ManifestWork, error) {
 	tpl, err := parseNonHypershiftTemplates(nonHypershiftManifestFS)
 	if err != nil {
 		return nil, err
@@ -184,7 +187,9 @@ func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, hohC
 	}
 
 	var buf bytes.Buffer
-	tpl.ExecuteTemplate(&buf, "manifests/nonhypershift/subscription", hubSubConfigValues)
+	if err = tpl.ExecuteTemplate(&buf, "manifests/nonhypershift/subscription", hubSubConfigValues); err != nil {
+		return nil, err
+	}
 	// log.Info("templates for subscription objects", buf.String())
 
 	subManifests := []workv1.Manifest{}
@@ -298,7 +303,8 @@ func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, hohC
 }
 
 // buildHubMCHWork creates hub MCH manifestwork
-func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, hohConfigName, managedClusterName string) (*workv1.ManifestWork, error) {
+func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, hohConfigName,
+	managedClusterName string) (*workv1.ManifestWork, error) {
 	tpl, err := parseNonHypershiftTemplates(nonHypershiftManifestFS)
 	if err != nil {
 		return nil, err
@@ -311,8 +317,10 @@ func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, hohC
 	}
 
 	var buf bytes.Buffer
-	tpl.ExecuteTemplate(&buf, "manifests/nonhypershift/mch", hubMCHConfigValues)
-	log.Info("render templates for mch objects", "templates", buf.String())
+	if err = tpl.ExecuteTemplate(&buf, "manifests/nonhypershift/mch", hubMCHConfigValues); err != nil {
+		return nil, err
+	}
+	// log.Info("render templates for mch objects", "templates", buf.String())
 
 	mchManifests := []workv1.Manifest{}
 	yamlReader := yaml.NewYAMLReader(bufio.NewReader(&buf))
@@ -426,13 +434,8 @@ func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, hohC
 	return hubMCHWork, nil
 }
 
-// applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
-func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logger, pm *packageManifestConfig, hohConfigName, managedClusterName, hostingClusterName, hostingNamespace, hostedClusterName, channelClusterIP string) (*workv1.ManifestWork, error) {
-	if pm == nil || pm.ACMCurrentCSV == "" {
-		return nil, fmt.Errorf("empty packagemanifest")
-	}
-
-	hypershiftHubConfigValues := HypershiftHubConfigValues{
+func getDefaultHypershiftHubConfigValues() HypershiftHubConfigValues {
+	return HypershiftHubConfigValues{
 		ACM: ACMImageEntry{
 			CertPolicyController:              "cert-policy-controller",
 			IAMPolicyController:               "iam-policy-controller",
@@ -453,12 +456,19 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			Placement:                      "placement",
 		},
 	}
+}
 
-	acmImages := pm.ACMImages
-	mceImages := pm.MCEImages
+// applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
+func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logger, hohConfigName, managedClusterName,
+	channelClusterIP string, pm *packageManifestConfig, hcConfig *config.HostedClusterConfig) (*workv1.ManifestWork, error) {
+	if pm == nil || pm.ACMCurrentCSV == "" {
+		return nil, fmt.Errorf("empty packagemanifest")
+	}
 
-	acmDefaultImageRegistry := constants.DefaultACMUpstreamImageRegistry
-	mceDefaultImageRegistry := constants.DefaultMCEUpstreamImageRegistry
+	hypershiftHubConfigValues := getDefaultHypershiftHubConfigValues()
+	acmImages, mceImages := pm.ACMImages, pm.MCEImages
+	acmDefaultImageRegistry, mceDefaultImageRegistry := constants.DefaultACMUpstreamImageRegistry, constants.DefaultMCEUpstreamImageRegistry
+
 	if snapshot == "" {
 		acmDefaultImageRegistry = constants.DefaultACMDownStreamImageRegistry
 		// handle special case for governance-policy-addon-controller image
@@ -473,7 +483,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 		return nil, err
 	}
 
-	hypershiftHostedClusterName := fmt.Sprintf("%s-%s", hostingNamespace, hostedClusterName)
+	hypershiftHostedClusterName := fmt.Sprintf("%s-%s", hcConfig.HostingNamespace, hcConfig.HostedClusterName)
 	latestACMVersion := strings.TrimPrefix(pm.ACMCurrentCSV, "advanced-cluster-management.v")
 	latestACMVersionParts := strings.Split(latestACMVersion, ".")
 	if len(latestACMVersionParts) < 2 {
@@ -494,30 +504,14 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 
 	// apply manifestwork on hypershift hosted cluster
 	var buf1 bytes.Buffer
-	tpl.ExecuteTemplate(&buf1, "manifests/hypershift/hub/hosted", hypershiftHubConfigValues)
+	if err := tpl.ExecuteTemplate(&buf1, "manifests/hypershift/hub/hosted", hypershiftHubConfigValues); err != nil {
+		return nil, err
+	}
 	// log.Info("render templates for objects on hosted cluster", "templates", buf1.String())
 
-	hostedHubManifests := []workv1.Manifest{}
-	yamlReader1 := yaml.NewYAMLReader(bufio.NewReader(&buf1))
-	for {
-		b, err := yamlReader1.Read()
-		if err == io.EOF {
-			buf1.Reset()
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		if len(b) != 0 {
-			rawJSON, err := yaml.ToJSON(b)
-			if err != nil {
-				return nil, err
-			}
-			if string(rawJSON) != "null" {
-				// log.Info("raw JSON object for hosted hub", "json", rawJSON)
-				hostedHubManifests = append(hostedHubManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
-			}
-		}
+	hostedHubManifests, err := generateWorkManifestsFromBuffer(&buf1)
+	if err != nil {
+		return nil, err
 	}
 
 	imagePullSecret, err := generatePullSecret(ctx, c, hypershiftHostedClusterName)
@@ -552,30 +546,14 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 
 	// manifestwork on hypershift hosting cluster
 	var buf2 bytes.Buffer
-	tpl.ExecuteTemplate(&buf2, "manifests/hypershift/hub/hosting", hypershiftHubConfigValues)
+	if err = tpl.ExecuteTemplate(&buf2, "manifests/hypershift/hub/hosting", hypershiftHubConfigValues); err != nil {
+		return nil, err
+	}
 	// log.Info("render templates for objects on hosting cluster", "templates", buf1.String())
 
-	hostingHubManifests := []workv1.Manifest{}
-	yamlReader2 := yaml.NewYAMLReader(bufio.NewReader(&buf2))
-	for {
-		b, err := yamlReader2.Read()
-		if err == io.EOF {
-			buf2.Reset()
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		if len(b) != 0 {
-			rawJSON, err := yaml.ToJSON(b)
-			if err != nil {
-				return nil, err
-			}
-			if string(rawJSON) != "null" {
-				// log.Info("raw JSON object for object on hosting cluster", "json", rawJSON)
-				hostingHubManifests = append(hostingHubManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
-			}
-		}
+	hostingHubManifests, err := generateWorkManifestsFromBuffer(&buf2)
+	if err != nil {
+		return nil, err
 	}
 
 	if imagePullSecret != nil {
@@ -585,37 +563,18 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	hostingHubWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingHubWorkSuffix),
-			Namespace: hostingClusterName,
+			Namespace: hcConfig.HostingClusterName,
 			Labels: map[string]string{
 				constants.HoHOperatorOwnerLabelKey: hohConfigName,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
-			Workload: workv1.ManifestsTemplate{
-				Manifests: hostingHubManifests,
-			},
-			DeleteOption: &workv1.DeleteOption{
-				PropagationPolicy: workv1.DeletePropagationPolicyTypeOrphan,
-			},
+			Workload:     workv1.ManifestsTemplate{Manifests: hostingHubManifests},
+			DeleteOption: &workv1.DeleteOption{PropagationPolicy: workv1.DeletePropagationPolicyTypeOrphan},
 			ManifestConfigs: []workv1.ManifestConfigOption{
 				{
-					ResourceIdentifier: workv1.ResourceIdentifier{
-						Group:     "",
-						Resource:  "services",
-						Name:      "channels-apps-open-cluster-management-webhook-svc",
-						Namespace: hypershiftHostedClusterName,
-					},
-					FeedbackRules: []workv1.FeedbackRule{
-						{
-							Type: workv1.JSONPathsType,
-							JsonPaths: []workv1.JsonPath{
-								{
-									Name: "clusterIP",
-									Path: ".spec.clusterIP",
-								},
-							},
-						},
-					},
+					ResourceIdentifier: workv1.ResourceIdentifier{Group: "", Resource: "services", Name: "channels-apps-open-cluster-management-webhook-svc", Namespace: hypershiftHostedClusterName},
+					FeedbackRules:      []workv1.FeedbackRule{{Type: workv1.JSONPathsType, JsonPaths: []workv1.JsonPath{{Name: "clusterIP", Path: ".spec.clusterIP"}}}},
 				},
 			},
 		},
@@ -624,8 +583,37 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	return applyManifestWork(ctx, c, log, hostingHubWork)
 }
 
+// generateWorkManifestsFromBuffer builds the resource manifests from given buffer
+func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, error) {
+	workManifests := []workv1.Manifest{}
+	yamlReader := yaml.NewYAMLReader(bufio.NewReader(buf))
+	for {
+		b, err := yamlReader.Read()
+		if err == io.EOF {
+			buf.Reset()
+			break
+		}
+		if err != nil {
+			return workManifests, err
+		}
+		if len(b) != 0 {
+			rawJSON, err := yaml.ToJSON(b)
+			if err != nil {
+				return workManifests, err
+			}
+			if string(rawJSON) != "null" {
+				// log.Info("raw JSON object for object on hosting cluster", "json", rawJSON)
+				workManifests = append(workManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
+			}
+		}
+	}
+
+	return workManifests, nil
+}
+
 // applyHoHAgentWork creates or updates hub-of-hubs-agent manifestwork
-func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config, managedClusterName string) error {
+func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config,
+	managedClusterName string) error {
 	hohVersion := "latest"
 	if os.Getenv("HUB_OF_HUBS_VERSION") != "" {
 		hohVersion = os.Getenv("HUB_OF_HUBS_VERSION")
@@ -652,7 +640,9 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, ho
 	}
 
 	var buf bytes.Buffer
-	tpl.ExecuteTemplate(&buf, "manifests/nonhypershift/agent", agentConfigValues)
+	if err = tpl.ExecuteTemplate(&buf, "manifests/nonhypershift/agent", agentConfigValues); err != nil {
+		return err
+	}
 	// log.Info("templates for agent objects", buf.String())
 
 	agentManifests := []workv1.Manifest{}
@@ -698,7 +688,8 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, ho
 }
 
 // applyHoHAgentHypershiftWork creates or updates hub-of-hubs-agent manifestwork
-func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config, hohConfigName, managedClusterName, hostingClusterName, hostingNamespace, hostedClusterName string) error {
+func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.Logger,
+	hohConfig *hubofhubsv1alpha1.Config, managedClusterName string, hcConfig *config.HostedClusterConfig) error {
 	hohVersion := "latest"
 	if os.Getenv("HUB_OF_HUBS_VERSION") != "" {
 		hohVersion = os.Getenv("HUB_OF_HUBS_VERSION")
@@ -717,7 +708,7 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 		LeadHubID:              managedClusterName,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCA:                kafkaCA,
-		HostedClusterNamespace: fmt.Sprintf("%s-%s", hostingNamespace, hostedClusterName),
+		HostedClusterNamespace: fmt.Sprintf("%s-%s", hcConfig.HostingNamespace, hcConfig.HostedClusterName),
 	}
 
 	tpl, err := parseAgentHypershiftTemplates(hypershiftAgentManifestFS)
@@ -726,7 +717,9 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 	}
 
 	var buf1 bytes.Buffer
-	tpl.ExecuteTemplate(&buf1, "manifests/hypershift/agent/hosted", agentConfigValues)
+	if err = tpl.ExecuteTemplate(&buf1, "manifests/hypershift/agent/hosted", agentConfigValues); err != nil {
+		return err
+	}
 	// log.Info("templates for agent hosted objects", buf.String())
 
 	agentHostedManifests := []workv1.Manifest{}
@@ -757,7 +750,7 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostedAgentWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: hohConfigName,
+				constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -772,7 +765,9 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 	}
 
 	var buf2 bytes.Buffer
-	tpl.ExecuteTemplate(&buf2, "manifests/hypershift/agent/hosting", agentConfigValues)
+	if err = tpl.ExecuteTemplate(&buf2, "manifests/hypershift/agent/hosting", agentConfigValues); err != nil {
+		return err
+	}
 	// log.Info("templates for agent hosting objects", buf.String())
 
 	agentHostingManifests := []workv1.Manifest{}
@@ -801,9 +796,9 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 	agentHostingWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingAgentWorkSuffix),
-			Namespace: hostingClusterName,
+			Namespace: hcConfig.HostingClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: hohConfigName,
+				constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
