@@ -1,0 +1,50 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: hub-of-hubs-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: Config is the Schema for the configs API
+      displayName: Config
+      kind: Config
+      name: configs.hubofhubs.open-cluster-management.io
+      version: v1alpha1
+  description: hub-of-hubs-operator defines the configuration for the hub-of-hubs
+    installation with one custom resource.
+  displayName: hub-of-hubs-operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - hub-of-hubs
+  - multiple-hubs
+  links:
+  - name: Hub Of Hubs Operator
+    url: https://github.com/stolostron/hub-of-hubs
+  maintainers:
+  - email: acm-contact@redhat.com
+    name: acm-contact
+  maturity: alpha
+  provider:
+    name: Red Hat, Inc
+    url: https://github.com/stolostron/hub-of-hubs
+  version: 0.0.1

@@ -1,0 +1,53 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: kafka-brokers-cluster
+  namespace: kafka
+spec:
+  kafka:
+    replicas: 3
+    version: 2.7.0
+    logging:
+      type: inline
+      loggers:
+        kafka.root.logger.level: "INFO"
+    readinessProbe:
+      initialDelaySeconds: 15
+      timeoutSeconds: 5
+    livenessProbe:
+      initialDelaySeconds: 15
+      timeoutSeconds: 5
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+        configuration:
+          useServiceDnsDomain: true
+      - name: external
+        port: 9093
+        type: route
+        tls: true
+    config:
+      auto.create.topics.enable: "false"
+      offsets.topic.replication.factor: 2
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      log.message.format.version: 2.7
+      inter.broker.protocol.version: 2.7
+      ssl.cipher.suites: "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+      ssl.enabled.protocols: "TLSv1.2"
+      ssl.protocol: "TLSv1.2"
+    storage:
+      type: ephemeral
+  zookeeper:
+    replicas: 3
+    logging:
+      type: inline
+      loggers:
+        zookeeper.root.logger: "INFO"
+    storage:
+      type: ephemeral
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}

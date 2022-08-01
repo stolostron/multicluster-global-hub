@@ -1,0 +1,14 @@
+# The configMap is used to set/unset HA configuration
+# To set HA:
+#   1. Use DisableAutofail: "false" or omit it
+#   2. Define at least 2 replicas in "instances" and "proxy" sections of the above PostgresCluster CR
+# To unset HA:
+#   1. Use DisableAutofail: "true"
+#   2. Define 1 replica in "instances" and "proxy" sections of the above PostgresCluster CR
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgo-config
+  namespace: hoh-postgres
+data:
+  DisableAutofail: "true"

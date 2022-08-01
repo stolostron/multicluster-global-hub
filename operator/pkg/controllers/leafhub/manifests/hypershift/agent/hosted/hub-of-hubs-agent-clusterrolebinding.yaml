@@ -1,0 +1,12 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hub-of-hubs-agent
+subjects:
+- kind: ServiceAccount
+  name: hub-of-hubs-agent
+  namespace: open-cluster-management
+roleRef:
+  kind: ClusterRole
+  name: hub-of-hubs-agent
+  apiGroup: rbac.authorization.k8s.io

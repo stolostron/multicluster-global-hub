@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hub-of-hubs-agent
+  namespace: {{.HostedClusterNamespace}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: hub-of-hubs-agent
+  template:
+    metadata:
+      labels:
+        name: hub-of-hubs-agent
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: hub-of-hubs-agent
+          image: {{.HoHAgentImageRef}}
+          args:
+            - --kubeconfig=/var/run/secrets/hypershift/kubeconfig
+            - '--zap-devel=true'
+            - --pod-namespace=$(POD_NAMESPACE)
+            - --leaf-hub-name={{.LeadHubID}}
+            - --enforce-hoh-rbac=false
+            - --transport-type=kafka
+            - --kafka-bootstrap-server={{.KafkaBootstrapServer}}
+            - --kafka-ssl-ca={{.KafkaCA}}
+          imagePullPolicy: Always
+          env:
+            # - name: KUBECONFIG
+            #   value: /var/run/secrets/hypershift/kubeconfig
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                 apiVersion: v1
+                 fieldPath: metadata.namespace
+            - name: WATCH_NAMESPACE
+              value: "open-cluster-management"
+              # valueFrom:
+              #   fieldRef:
+              #    apiVersion: v1
+              #    fieldPath: metadata.namespace
+          volumeMounts:
+          - mountPath: /var/run/secrets/hypershift
+            name: kubeconfig
+            readOnly: true
+      volumes:
+      - name: kubeconfig
+        secret:
+          defaultMode: 420
+          secretName: service-network-admin-kubeconfig

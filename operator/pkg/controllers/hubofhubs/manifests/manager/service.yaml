@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-of-hubs-manager
+  namespace: open-cluster-management
+  labels:
+    name: hub-of-hubs-manager
+    service: hub-of-hubs-manager
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: hub-of-hubs-manager-certs
+spec:
+  ports:
+  - port: 8080
+    name: http
+  selector:
+    name: hub-of-hubs-manager

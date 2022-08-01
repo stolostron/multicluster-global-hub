@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-init
+  namespace: hoh-postgres
+spec:
+  template:
+    spec:
+      containers:
+      - name: initial-db
+        env:
+          - name: ANSIBLE_PYTHON_INTERPRETER
+            value: "/usr/local/bin/python"
+          - name: DB_LOGIN_HOST
+            valueFrom:
+              secretKeyRef:
+                name: hoh-pguser-postgres
+                key: host
+          - name: DB_LOGIN_USER
+            valueFrom:
+              secretKeyRef:
+                name: hoh-pguser-postgres
+                key: user
+          - name: DB_LOGIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: hoh-pguser-postgres
+                key: password
+        image: {{.Registry}}/postgresql-ansible:{{.ImageTag}}
+        imagePullPolicy: Always
+        command: ["/bin/bash", "-c", "ansible-playbook create_tables.yaml -i production -l local"]
+      restartPolicy: Never
+  backoffLimit: 3

@@ -1,0 +1,20 @@
+domain: open-cluster-management.io
+layout:
+- go.kubebuilder.io/v3
+multigroup: true
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: hub-of-hubs-operator
+repo: github.com/stolostron/hub-of-hubs-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: open-cluster-management.io
+  group: hubofhubs
+  kind: Config
+  path: github.com/stolostron/hub-of-hubs-operator/apis/hubofhubs/v1alpha1
+  version: v1alpha1
+version: "3"

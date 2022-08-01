@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    ingress.open-cluster-management.io/auth-type: access-token
+    ingress.open-cluster-management.io/secure-backends: "true"
+    kubernetes.io/ingress.class: ingress-open-cluster-management
+  name: hub-of-hubs-manager
+  namespace: open-cluster-management
+  labels:
+    name: hub-of-hubs-manager
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: hub-of-hubs-manager
+            port:
+              number: 8080
+        path: /multicloud/hub-of-hubs-nonk8s-api
+        pathType: ImplementationSpecific

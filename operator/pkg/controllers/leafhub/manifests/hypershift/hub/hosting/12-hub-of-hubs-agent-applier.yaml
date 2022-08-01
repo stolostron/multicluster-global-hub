@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hoh-of-hubs-agent-applier
+  namespace: {{ .HostedClusterName }}
+spec:
+  template:
+    metadata:
+      labels:
+        name: hub-of-hubs-agent-applier
+    spec:
+      containers:
+      - name: applier
+        image: quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-agent:{{ .HoHAgentVersion }}
+        imagePullPolicy: Always
+        command: ["/usr/local/bin/applier"]
+        args:
+        - --hub-version={{ .HubVersion }}
+        - --kubeconfig=/var/run/secrets/hypershift/kubeconfig
+        volumeMounts:
+        - mountPath: /var/run/secrets/hypershift
+          name: kubeconfig
+          readOnly: true
+      volumes:
+      - name: kubeconfig
+        secret:
+          defaultMode: 420
+          secretName: service-network-admin-kubeconfig
+      restartPolicy: OnFailure
+
