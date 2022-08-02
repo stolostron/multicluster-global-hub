@@ -26,8 +26,8 @@ const (
 
 	LOCAL_POLICY_LABEL_KEY   = "local-policy"
 	LOCAL_POLICY_LABEL_VALUE = "test"
-	LOCAL_POLICY_NAME = "policy-limitrange"
-	LOCAL_POLICY_NAMESPACE = "local-policy-namespace"
+	LOCAL_POLICY_NAME        = "policy-limitrange"
+	LOCAL_POLICY_NAMESPACE   = "local-policy-namespace"
 )
 
 var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e2e-tests-local-policy"), func() {
@@ -41,7 +41,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 		Eventually(func() error {
 			_, err := clients.KubeClient().CoreV1().Namespaces().Get(context.TODO(), LOCAL_POLICY_NAMESPACE, metav1.GetOptions{})
 			return err
-		}, 5 * time.Second, 1 * time.Second).ShouldNot(HaveOccurred())
+		}, 5*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("add local policy label to leaf hub", func() {
@@ -59,7 +59,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 		_, err = dynamicClient.Resource(utils.NewManagedClustersGVR()).Update(context.TODO(), unstructedObj, metav1.UpdateOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
-		By("verify the local policy label is added to leaf hub cluster")	
+		By("verify the local policy label is added to leaf hub cluster")
 		Eventually(func() error {
 			unstructedObj, err := dynamicClient.Resource(utils.NewManagedClustersGVR()).Get(context.TODO(), leafHubName, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -69,7 +69,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 				return nil
 			}
 			return fmt.Errorf("local policy label not found")
-		}, 1 * 60 * time.Second).ShouldNot(HaveOccurred())
+		}, 1*60*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("deploy inform policy to the cluster with local policy label", func() {
@@ -87,7 +87,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 			var policy policiesv1.Policy
 			err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructedContent, &policy)
 			Expect(err).ShouldNot(HaveOccurred())
-			if len(policy.Status.Status) <=0 {
+			if len(policy.Status.Status) <= 0 {
 				return fmt.Errorf("inform local policy status is not ready")
 			}
 			if (policy.Status.Status[0].ClusterName == leafHubName) && (policy.Status.Status[0].ComplianceState == "NonCompliant") {
@@ -97,7 +97,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 			}
 			policyStatusStr, _ := json.MarshalIndent(policy.Status, "", "  ")
 			return fmt.Errorf(fmt.Sprintf("local policy is not NonCompliant with policyStatus: %s", policyStatusStr))
-		}, 1 * 60 * time.Second, 5 * time.Second).ShouldNot(HaveOccurred())
+		}, 1*60*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("enforce the inform policy", func() {
@@ -113,7 +113,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 			var policy policiesv1.Policy
 			err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructedContent, &policy)
 			Expect(err).ShouldNot(HaveOccurred())
-			if len(policy.Status.Status) <=0 {
+			if len(policy.Status.Status) <= 0 {
 				return fmt.Errorf("enforce local policy status is not ready")
 			}
 			if (policy.Status.Status[0].ClusterName == leafHubName) && (policy.Status.Status[0].ComplianceState == "Compliant") {
@@ -122,7 +122,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 				return nil
 			}
 			return fmt.Errorf("local policy is not Compliant")
-		}, 1 * 60 * time.Second, 5 * time.Second).ShouldNot(HaveOccurred())
+		}, 1*60*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	AfterAll(func() {
@@ -145,7 +145,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered, Label("e
 				return nil
 			}
 			return fmt.Errorf("local policy is not deleted")
-		}, 1 * 60 * time.Second, 5 * time.Second).ShouldNot(HaveOccurred())
+		}, 1*60*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
 
 	})
 })

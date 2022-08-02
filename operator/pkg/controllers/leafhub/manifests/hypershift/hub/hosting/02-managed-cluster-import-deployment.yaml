@@ -1,0 +1,58 @@
+# Copyright Contributors to the Open Cluster Management project
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: managedcluster-import-controller
+  namespace: {{.HostedClusterName}}
+  labels:
+    app: managedcluster-import-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: managedcluster-import-controller
+  template:
+    metadata:
+      labels:
+        name: managedcluster-import-controller
+    spec:
+      serviceAccountName: default
+      containers:
+      - name: managedcluster-import-controller
+        image: {{.MCE.ManagedClusterImportController | getMCEImage}}
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /var/run/secrets/hypershift
+          name: kubeconfig
+          readOnly: true
+        env:
+        - name: KUBECONFIG
+          value: "/var/run/secrets/hypershift/kubeconfig"
+        - name: WATCH_NAMESPACE
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: "managedcluster-import-controller"
+        - name: REGISTRATION_OPERATOR_IMAGE
+          value: {{.MCE.RegistrationOperator | getMCEImage}}
+        - name: REGISTRATION_IMAGE
+          value: {{.MCE.Registration | getMCEImage}}
+        - name: WORK_IMAGE
+          value: {{.MCE.Work | getMCEImage}}
+        - name: DEFAULT_IMAGE_REGISTRY
+          value: {{.MCE.DefaultImageRegistry}}
+        - name: DEFAULT_IMAGE_PULL_SECRET
+          value: {{.ImagePullSecret}}
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+      volumes:
+      - name: kubeconfig
+        secret:
+          defaultMode: 420
+          secretName: service-network-admin-kubeconfig

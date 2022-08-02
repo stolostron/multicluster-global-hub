@@ -20,7 +20,7 @@ import (
 var _ = Describe("Check the managed cluster from HoH manager", Label("e2e-tests-cluster"), Ordered, func() {
 	var token string
 	var httpClient *http.Client
-	
+
 	BeforeAll(func() {
 		By("Get token for the non-k8s-api")
 		initToken, err := utils.FetchBearerToken(testOptions)
@@ -41,7 +41,7 @@ var _ = Describe("Check the managed cluster from HoH manager", Label("e2e-tests-
 		req, err := http.NewRequest("GET", managedClusterUrl, nil)
 		Expect(err).ShouldNot(HaveOccurred())
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-		
+
 		By("Get response of the api")
 		resp, err := httpClient.Do(req)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -58,7 +58,7 @@ var _ = Describe("Check the managed cluster from HoH manager", Label("e2e-tests-
 
 		By("Print managedcluster")
 		var out bytes.Buffer
-    _ = json.Indent(&out, body, "", "  ")
+		_ = json.Indent(&out, body, "", "  ")
 		klog.V(6).Infof("managedClusters: %s", out.String())
 	})
 })

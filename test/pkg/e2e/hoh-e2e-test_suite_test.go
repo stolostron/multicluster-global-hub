@@ -55,7 +55,7 @@ var _ = BeforeSuite(func() {
 			return fmt.Errorf("token is empty")
 		}
 	}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
-	
+
 })
 
 var _ = AfterSuite(func() {

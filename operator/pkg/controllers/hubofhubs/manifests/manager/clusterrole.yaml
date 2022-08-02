@@ -1,0 +1,128 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hub-of-hubs-manager
+  labels:
+    name: hub-of-hubs-manager
+rules:
+- apiGroups:
+  - "policy.open-cluster-management.io"
+  resources:
+  - policies
+  - policies/status
+  - policies/finalizers
+  - placementbindings
+  - placementbindings/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - "apps.open-cluster-management.io"
+  resources:
+  - placementrules
+  - placementrules/status
+  - subscriptionstatuses
+  - subscriptionstatuses/status
+  - subscriptionreports
+  - subscriptionreports/status
+  - subscriptions/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - "cluster.open-cluster-management.io"
+  resources:
+  - placements
+  - placements/finalizers
+  - placements/status
+  - placementdecisions
+  - placementdecisions/status
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - configmaps
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - "cluster.open-cluster-management.io"
+  resources:
+  - managedclustersets
+  - managedclustersets/finalizers
+  - managedclustersetbindings
+  - managedclustersetbindings/finalizers
+  - placements
+  - placements/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - "apps.open-cluster-management.io"
+  resources:
+  - placementrules
+  - placementrules/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - "hub-of-hubs.open-cluster-management.io"
+  resources:
+  - configs
+  - configs/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update # for finalizer
+- apiGroups:
+  - "apps.open-cluster-management.io"
+  resources:
+  - subscriptions
+  - channels
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - "app.k8s.io"
+  resources:
+  - applications
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - "apiextensions.k8s.io"
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get

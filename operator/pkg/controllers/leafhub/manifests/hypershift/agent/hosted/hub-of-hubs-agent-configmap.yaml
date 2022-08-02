@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-intervals
+  namespace: hoh-system
+data:
+  managed_clusters: "5s"
+  policies: "5s"
+  control_info: "60m"

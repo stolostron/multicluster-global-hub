@@ -166,7 +166,6 @@ func LoadConfig(url, kubeconfig, context string) (*rest.Config, error) {
 	return nil, fmt.Errorf("could not create a valid kubeconfig")
 }
 
-
 func (c *client) HubClusterName() string {
 	return c.options.HubCluster.Name
 }

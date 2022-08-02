@@ -127,7 +127,7 @@ func getManagedCluster(client *http.Client, token string) []clusterv1.ManagedClu
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	Expect(err).ShouldNot(HaveOccurred())
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	
+
 	By("Get response of the api")
 	resp, err := client.Do(req)
 	Expect(err).ShouldNot(HaveOccurred())

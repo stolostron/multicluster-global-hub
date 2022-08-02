@@ -1,0 +1,26 @@
+# oc edit validatingwebhookconfiguration  channels.apps.open.cluster.management.webhook.validator
+# set port=9443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: channels-apps-open-cluster-management-webhook-svc
+  namespace: {{.HostedClusterName}}
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+  sessionAffinity: None
+  type: ClusterIP
+---
+# CHANNEL_CLUSTER_IP is the cluster ip for the channel pod running on the hosting cluster
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: channels-apps-open-cluster-management-webhook-svc
+  namespace: {{.HostedClusterName}}
+subsets:
+  - addresses:
+      - ip: {{.ChannelClusterIP}}
+    ports:
+      - port: 443

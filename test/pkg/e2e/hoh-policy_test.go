@@ -180,7 +180,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		Eventually(func() error {
 			managedClusters := getManagedCluster(httpClient, token)
 			for _, cluster := range managedClusters {
-				if cluster.Name == managedClusterName1 { 
+				if cluster.Name == managedClusterName1 {
 					if val, ok := cluster.Labels[POLICY_LABEL_KEY]; ok && val == POLICY_LABEL_VALUE {
 						return fmt.Errorf("the label %s: %s has't removed from the cluster %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, cluster.Name)
 					}
@@ -247,7 +247,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		Eventually(func() error {
 			managedClusters := getManagedCluster(httpClient, token)
 			for _, cluster := range managedClusters {
-				if cluster.Name == managedClusterName2 { 
+				if cluster.Name == managedClusterName2 {
 					if val, ok := cluster.Labels[POLICY_LABEL_KEY]; ok && val == POLICY_LABEL_VALUE {
 						return fmt.Errorf("the label %s: %s has't removed from the cluster %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, cluster.Name)
 					}
