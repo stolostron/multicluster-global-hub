@@ -139,67 +139,11 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// TODO(yanmxa): init DB and transport here
+
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer := renderer.NewHoHRenderer(fs)
 	hohDeployer := deployer.NewHoHDeployer(r.Client)
-
-	// dbObjects, err := hohRenderer.Render("manifests/database", func(component string) (interface{}, error) {
-	// 	dbConfig := struct {
-	// 		Registry string
-	// 		ImageTag string
-	// 	}{
-	// 		Registry: "quay.io/open-cluster-management-hub-of-hubs",
-	// 		ImageTag: "latest",
-	// 	}
-
-	// 	return dbConfig, err
-	// })
-	// if err != nil {
-	// 	return ctrl.Result{}, err
-	// }
-
-	// var dbInitJobObj runtime.Object
-	// for _, obj := range dbObjects {
-	// 	if obj.GetObjectKind().GroupVersionKind().Kind == "Job" {
-	// 		dbInitJobObj = obj
-	// 		continue
-	// 	}
-
-	// 	log.Info("Creating or updating object", "object", obj)
-	// 	err := hohDeployer.Deploy(obj)
-	// 	if err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
-
-	// // create or updating the database initialization job
-	// log.Info("Creating or updating object", "object", dbInitJobObj)
-	// if err = hohDeployer.Deploy(dbInitJobObj); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
-
-	// transportObjects, err := hohRenderer.Render("manifests/transport", func(component string) (interface{}, error) {
-	// 	dbConfig := struct {
-	// 		Registry string
-	// 		ImageTag string
-	// 	}{
-	// 		Registry: "quay.io/open-cluster-management-hub-of-hubs",
-	// 		ImageTag: "latest",
-	// 	}
-
-	// 	return dbConfig, err
-	// })
-	// if err != nil {
-	// 	return ctrl.Result{}, err
-	// }
-
-	// for _, obj := range transportObjects {
-	// 	log.Info("Creating or updating object", "object", obj)
-	// 	err := hohDeployer.Deploy(obj)
-	// 	if err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
 
 	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", func(component string) (interface{}, error) {
 		hohRBACConfig := struct {
