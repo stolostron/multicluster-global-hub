@@ -5,9 +5,6 @@ metadata:
   namespace: {{ .HostedClusterName }}
 spec:
   template:
-    metadata:
-      labels:
-        name: hub-of-hubs-agent-applier
     spec:
       containers:
       - name: applier

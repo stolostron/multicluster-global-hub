@@ -534,9 +534,9 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			Workload: workv1.ManifestsTemplate{
 				Manifests: hostedHubManifests,
 			},
-			DeleteOption: &workv1.DeleteOption{
-				PropagationPolicy: workv1.DeletePropagationPolicyTypeOrphan,
-			},
+			// DeleteOption: &workv1.DeleteOption{
+			// 	PropagationPolicy: workv1.DeletePropagationPolicyTypeOrphan,
+			// },
 		},
 	}
 
@@ -569,8 +569,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
-			Workload:     workv1.ManifestsTemplate{Manifests: hostingHubManifests},
-			DeleteOption: &workv1.DeleteOption{PropagationPolicy: workv1.DeletePropagationPolicyTypeOrphan},
+			Workload: workv1.ManifestsTemplate{Manifests: hostingHubManifests},
+			// DeleteOption: &workv1.DeleteOption{PropagationPolicy: workv1.DeletePropagationPolicyTypeOrphan},
 			ManifestConfigs: []workv1.ManifestConfigOption{
 				{
 					ResourceIdentifier: workv1.ResourceIdentifier{Group: "", Resource: "services", Name: "channels-apps-open-cluster-management-webhook-svc", Namespace: hypershiftHostedClusterName},
