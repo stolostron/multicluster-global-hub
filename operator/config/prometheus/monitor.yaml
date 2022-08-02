@@ -6,7 +6,7 @@ metadata:
   labels:
     name: hub-of-hubs-operator
   name: hub-of-hubs-operator-metrics-monitor
-  namespace: system
+  namespace: open-cluster-management
 spec:
   endpoints:
     - path: /metrics

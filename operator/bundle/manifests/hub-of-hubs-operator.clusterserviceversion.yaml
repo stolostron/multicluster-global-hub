@@ -8,7 +8,7 @@ metadata:
           "apiVersion": "hubofhubs.open-cluster-management.io/v1alpha1",
           "kind": "Config",
           "metadata": {
-            "name": "config-sample"
+            "name": "config"
           },
           "spec": {
             "kafka": {
@@ -45,6 +45,127 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - policy.open-cluster-management.io
+          resources:
+          - policies
+          - policies/status
+          - policies/finalizers
+          - placementbindings
+          - placementbindings/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - patch
+        - apiGroups:
+          - apps.open-cluster-management.io
+          resources:
+          - placementrules
+          - placementrules/status
+          - subscriptionstatuses
+          - subscriptionstatuses/status
+          - subscriptionreports
+          - subscriptionreports/status
+          - subscriptions/finalizers
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - cluster.open-cluster-management.io
+          resources:
+          - placements
+          - placements/finalizers
+          - placements/status
+          - placementdecisions
+          - placementdecisions/status
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - configmaps
+          - events
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - cluster.open-cluster-management.io
+          resources:
+          - managedclustersets
+          - managedclustersets/finalizers
+          - managedclustersetbindings
+          - managedclustersetbindings/finalizers
+          - placements
+          - placements/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+        - apiGroups:
+          - apps.open-cluster-management.io
+          resources:
+          - placementrules
+          - placementrules/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+        - apiGroups:
+          - hub-of-hubs.open-cluster-management.io
+          resources:
+          - configs
+          - configs/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+        - apiGroups:
+          - apps.open-cluster-management.io
+          resources:
+          - subscriptions
+          - channels
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+        - apiGroups:
+          - app.k8s.io
+          resources:
+          - applications
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+        - apiGroups:
           - ""
           resources:
           - configmaps
@@ -57,6 +178,17 @@ spec:
           - ""
           resources:
           - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
           verbs:
           - create
           - delete
@@ -86,6 +218,8 @@ spec:
           - hypershiftdeployments
           verbs:
           - get
+          - list
+          - watch
         - apiGroups:
           - cluster.open-cluster-management.io
           resources:
@@ -144,6 +278,8 @@ spec:
           - packagemanifests
           verbs:
           - get
+          - list
+          - watch
         - apiGroups:
           - rbac.authorization.k8s.io
           resources:
@@ -152,6 +288,7 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
         - apiGroups:
           - rbac.authorization.k8s.io
@@ -161,6 +298,7 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
         - apiGroups:
           - rbac.authorization.k8s.io
@@ -185,8 +323,12 @@ spec:
           resources:
           - manifestworks
           verbs:
+          - create
+          - delete
           - get
           - list
+          - patch
+          - update
           - watch
         serviceAccountName: hub-of-hubs-operator
       deployments:

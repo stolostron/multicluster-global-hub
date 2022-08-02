@@ -9,4 +9,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: hub-of-hubs-operator
-  namespace: system
+  namespace: open-cluster-management

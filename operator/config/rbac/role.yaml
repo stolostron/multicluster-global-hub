@@ -22,6 +22,17 @@ rules:
   - create
   - delete
   - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
   - update
 - apiGroups:
   - ""
@@ -47,6 +58,8 @@ rules:
   - hypershiftdeployments
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
@@ -105,6 +118,8 @@ rules:
   - packagemanifests
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -113,6 +128,7 @@ rules:
   - create
   - delete
   - get
+  - list
   - update
 - apiGroups:
   - rbac.authorization.k8s.io
@@ -122,6 +138,7 @@ rules:
   - create
   - delete
   - get
+  - list
   - update
 - apiGroups:
   - rbac.authorization.k8s.io
@@ -146,6 +163,10 @@ rules:
   resources:
   - manifestworks
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch

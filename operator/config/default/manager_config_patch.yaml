@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hub-of-hubs-operator
-  namespace: system
+  namespace: open-cluster-management
 spec:
   template:
     spec:

@@ -4,7 +4,7 @@ metadata:
   labels:
     name: hub-of-hubs-operator
   name: hub-of-hubs-operator-metrics-service
-  namespace: system
+  namespace: open-cluster-management
 spec:
   ports:
   - name: https

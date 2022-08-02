@@ -1,7 +1,7 @@
 apiVersion: hubofhubs.open-cluster-management.io/v1alpha1
 kind: Config
 metadata:
-  name: config-sample
+  name: config
 spec:
   kafka:
     name: kafka-secret

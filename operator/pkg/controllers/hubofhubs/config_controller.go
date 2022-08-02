@@ -63,7 +63,8 @@ type ConfigReconciler struct {
 //+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;create;update;delete
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;create;update;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;create;update;delete
@@ -71,8 +72,8 @@ type ConfigReconciler struct {
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;create;update;delete
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;create;update;delete
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;create;update;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
