@@ -18,16 +18,25 @@ package constants
 
 const (
 	HOHDefaultNamespace = "open-cluster-management"
-	HoHOperatorCRName   = "hoh"
 	LocalClusterName    = "local-cluster"
 )
 
 const (
 	LeafHubClusterDisabledLabelKey = "hoh"
-	LeafHubClusterDisabledLabelval = "disabled"
+	LeafHubClusterDisabledLabelVal = "disabled"
 	LeafHubClusterAnnotationKey    = "hub-of-hubs.open-cluster-management.io/managed-by-hoh"
 	HoHOperatorOwnerLabelKey       = "hub-of-hubs.open-cluster-management.io/managed-by"
 	HoHOperatorFinalizer           = "hub-of-hubs.open-cluster-management.io/res-cleanup"
+)
+
+const (
+	HoHClustermanagementAddonName               = "hub-of-hubs-controller"
+	HoHClustermanagementAddonDisplayName        = "Hub of Hubs Controller"
+	HoHClustermanagementAddonDescription        = "Hub of Hubs Controller manages hub-of-hubs components."
+	HoHManagedClusterAddonName                  = "hub-of-hubs-controller"
+	HoHManagedClusterAddonDisplayName           = "Hub of Hubs Controller"
+	HoHManagedClusterAddonDescription           = "Hub of Hubs Controller manages hub-of-hubs components."
+	HoHManagedClusterAddonInstallationNamespace = "open-cluster-management"
 )
 
 const (

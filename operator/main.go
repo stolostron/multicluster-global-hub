@@ -35,6 +35,7 @@ import (
 	hubofhubsv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/hubofhubs/v1alpha1"
 	hubofhubscontrollers "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/hubofhubs"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	//+kubebuilder:scaffold:imports
@@ -50,6 +51,7 @@ func init() {
 	utilruntime.Must(operatorsv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(workv1.AddToScheme(scheme))
+	utilruntime.Must(addonv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(hypershiftdeploymentv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(hubofhubsv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
