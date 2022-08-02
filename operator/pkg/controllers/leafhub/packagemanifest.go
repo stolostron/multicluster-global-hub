@@ -36,8 +36,9 @@ type packageManifestConfig struct {
 	MCEImages         map[string]string
 }
 
+var packageManifestConfigInstance = &packageManifestConfig{}
+
 func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Logger) (*packageManifestConfig, error) {
-	packageManifestInstance := &packageManifestConfig{}
 	packageManifestList := &operatorsv1.PackageManifestList{}
 	if err := c.List(ctx, packageManifestList, client.MatchingLabels{"catalog": constants.ACMSubscriptionPublicSource}); err != nil {
 		return nil, err
@@ -51,9 +52,9 @@ func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Log
 				return nil, err
 			}
 
-			packageManifestInstance.ACMDefaultChannel = acmDefaultChannel
-			packageManifestInstance.ACMCurrentCSV = acmCurrentCSV
-			packageManifestInstance.ACMImages = ACMImages
+			packageManifestConfigInstance.ACMDefaultChannel = acmDefaultChannel
+			packageManifestConfigInstance.ACMCurrentCSV = acmCurrentCSV
+			packageManifestConfigInstance.ACMImages = ACMImages
 		}
 		if pm.Name == constants.MCEPackageManifestName {
 			log.Info("found MCE PackageManifest")
@@ -62,13 +63,13 @@ func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Log
 				return nil, err
 			}
 
-			packageManifestInstance.MCEDefaultChannel = mceDefaultChannel
-			packageManifestInstance.MCECurrentCSV = mceCurrentCSV
-			packageManifestInstance.MCEImages = MCEImages
+			packageManifestConfigInstance.MCEDefaultChannel = mceDefaultChannel
+			packageManifestConfigInstance.MCECurrentCSV = mceCurrentCSV
+			packageManifestConfigInstance.MCEImages = MCEImages
 		}
 	}
 
-	return packageManifestInstance, nil
+	return packageManifestConfigInstance, nil
 }
 
 func getSinglePackageManifestConfig(pm operatorsv1.PackageManifest) (string, string, map[string]string, error) {
