@@ -37,6 +37,7 @@ var _ = Describe("Check the managed cluster from HoH manager", Label("e2e-tests-
 
 	It("list all the managed cluster", func() {
 		managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
+		klog.V(6).Infof("managedClusterUrl: %s", managedClusterUrl)
 		req, err := http.NewRequest("GET", managedClusterUrl, nil)
 		Expect(err).ShouldNot(HaveOccurred())
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))

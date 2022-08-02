@@ -101,8 +101,15 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		Expect(err).ShouldNot(HaveOccurred(), msg)
 
 		By("Check the appsub is applied to the cluster")
+		seconds := 0
 		Eventually(func() error {
-			return checkAppsubreport(appClient, 1, []string{managedClusterName1})
+			seconds += 5
+			if seconds > 40 {
+				seconds = 0
+				return checkAppsubreport(appClient, 1, []string{managedClusterName1}, true)
+			} else {
+				return checkAppsubreport(appClient, 1, []string{managedClusterName1}, false)
+			}
 		}, 12*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
@@ -134,9 +141,15 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		}, 12*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Check the appsub apply to the clusters")
+		seconds := 0
 		Eventually(func() error {
-			err := checkAppsubreport(appClient, 2, []string{ managedClusterName1, managedClusterName2 })
-			return err
+			seconds += 5
+			if seconds > 40 {
+				seconds = 0
+				return checkAppsubreport(appClient, 2, []string{ managedClusterName1, managedClusterName2 }, true)
+			} else {
+				return checkAppsubreport(appClient, 2, []string{ managedClusterName1, managedClusterName2 }, false)
+			}
 		}, 12*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
@@ -171,7 +184,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 	})
 })
 
-func checkAppsubreport(appClient client.Client, expectDeployNum int, expectClusterNames []string) error {
+func checkAppsubreport(appClient client.Client, expectDeployNum int, expectClusterNames []string, retry bool) error {
 	appsubreport := &appsv1alpha1.SubscriptionReport{}
 	err := appClient.Get(context.TODO(), types.NamespacedName{Namespace: APP_SUB_NAMESPACE, Name: APP_SUB_NAME}, appsubreport)
 	if err != nil {
@@ -207,5 +220,11 @@ func checkAppsubreport(appClient client.Client, expectDeployNum int, expectClust
 	}
 	appsubreportStr, _ := json.MarshalIndent(appsubreport, "", "  ")
 	klog.V(6).Info("Appsubreport: ", string(appsubreportStr))
+	if retry {
+		msg, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", APP_SUB_YAML)
+		Expect(err).ShouldNot(HaveOccurred(), msg)
+		msg, err = clients.Kubectl(clients.HubClusterName(), "apply", "-f", APP_SUB_YAML)
+		Expect(err).ShouldNot(HaveOccurred(), msg)
+	}
 	return fmt.Errorf("the appsub %s: %s hasn't deplyed to the cluster: %s", APP_SUB_NAMESPACE, APP_SUB_NAME, strings.Join(expectClusterNames, ","))
 }
