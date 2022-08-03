@@ -3,6 +3,7 @@ package localplacement
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,7 +14,6 @@ import (
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/generic"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
@@ -23,7 +23,7 @@ const (
 
 // AddLocalPlacementRulesController adds a new local placement rules controller.
 func AddLocalPlacementRulesController(mgr ctrl.Manager, transport producer.Producer, leafHubName string,
-	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals,
+	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	createObjFunc := func() bundle.Object { return &placementrulesv1.PlacementRule{} }
 
@@ -33,7 +33,7 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, transport producer.Produ
 		generic.NewBundleCollectionEntry(localPlacementRuleTransportKey,
 			bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPlacementRule),
 			func() bool { // bundle predicate
-				return hubOfHubsConfig.Spec.EnableLocalPolicies
+				return hubOfHubsConfig.Data["enableLocalPolicies"] == "true"
 			}),
 	}
 	// controller predicate

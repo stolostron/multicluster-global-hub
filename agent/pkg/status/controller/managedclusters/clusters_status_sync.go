@@ -3,6 +3,7 @@ package managedclusters
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	clusterV1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/generic"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
 	producer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
@@ -23,7 +23,7 @@ const (
 // mgr, pro, env.LeafHubID, incarnation, config, syncIntervals
 // AddClustersStatusController adds managed clusters status controller to the manager.
 func AddClustersStatusController(mgr ctrl.Manager, producer producer.Producer, leafHubName string,
-	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervals *syncintervals.SyncIntervals,
+	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervals *syncintervals.SyncIntervals,
 ) error {
 	createObjFunction := func() bundle.Object { return &clusterV1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, constants.ManagedClustersMsgKey)
@@ -36,8 +36,8 @@ func AddClustersStatusController(mgr ctrl.Manager, producer producer.Producer, l
 	}
 
 	predicateFunc := func() bool { // bundle predicate
-		return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full ||
-			hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal
+		return hubOfHubsConfig.Data["aggregationLevel"] == "full" ||
+			hubOfHubsConfig.Data["aggregationLevel"] == "minimal"
 		// at this point send all managed clusters even if aggregation level is minimal
 	}
 

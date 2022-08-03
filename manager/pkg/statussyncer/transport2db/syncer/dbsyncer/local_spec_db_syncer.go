@@ -10,14 +10,14 @@ import (
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/helpers"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/bundle/status"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // NewLocalSpecDBSyncer creates a new instance of LocalSpecDBSyncer.
-func NewLocalSpecDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
+func NewLocalSpecDBSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
 	dbSyncer := &LocalSpecDBSyncer{
 		log:                                     log,
 		config:                                  config,
@@ -33,7 +33,7 @@ func NewLocalSpecDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 // LocalSpecDBSyncer implements local objects spec db sync business logic.
 type LocalSpecDBSyncer struct {
 	log                                     logr.Logger
-	config                                  *configv1.Config
+	config                                  *corev1.ConfigMap
 	createLocalPolicySpecBundleFunc         bundle.CreateBundleFunction
 	createLocalPlacementRulesSpecBundleFunc bundle.CreateBundleFunction
 }
@@ -41,7 +41,7 @@ type LocalSpecDBSyncer struct {
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	predicate := func() bool {
-		return syncer.config.Spec.EnableLocalPolicies
+		return syncer.config.Data["enableLocalPolicies"] == "true"
 	}
 
 	transportInstance.Register(&transport.BundleRegistration{

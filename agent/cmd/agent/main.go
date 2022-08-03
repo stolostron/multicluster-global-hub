@@ -30,7 +30,6 @@ import (
 	statusController "github.com/stolostron/hub-of-hubs/agent/pkg/status/controller"
 	consumer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/consumer"
 	producer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
 )
 
@@ -203,7 +202,7 @@ func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
 	}
 
 	schemeBuilders := []*scheme.Builder{
-		policiesV1.SchemeBuilder, configv1.SchemeBuilder, placementRulesV1.SchemeBuilder, appsV1alpha1.SchemeBuilder,
+		policiesV1.SchemeBuilder, placementRulesV1.SchemeBuilder, appsV1alpha1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {

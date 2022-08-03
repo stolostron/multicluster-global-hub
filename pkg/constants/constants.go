@@ -3,6 +3,7 @@ package constants
 const (
 	// HohSystemNamespace - Hub of Hubs dedicated namespace.
 	HohSystemNamespace = "hoh-system"
+	HoHConfigName      = "hub-of-hubs-config"
 
 	// OriginOwnerReferenceAnnotation - Origin owner reference annotation.
 	OriginOwnerReferenceAnnotation = "hub-of-hubs.open-cluster-management.io/originOwnerReferenceUid"

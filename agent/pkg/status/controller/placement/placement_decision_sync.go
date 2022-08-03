@@ -3,6 +3,7 @@ package placement
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/generic"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
@@ -20,7 +20,7 @@ const (
 
 // AddPlacementDecisionsController adds placement-decision controller to the manager.
 func AddPlacementDecisionsController(mgr ctrl.Manager, transport producer.Producer, leafHubName string,
-	incarnation uint64, _ *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals,
+	incarnation uint64, _ *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	createObjFunction := func() bundle.Object { return &clustersv1beta1.PlacementDecision{} }
 

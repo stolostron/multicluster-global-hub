@@ -6,7 +6,6 @@ package scheme
 import (
 	"fmt"
 
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -53,7 +52,7 @@ func AddToScheme(scheme *runtime.Scheme) error {
 
 func getSchemeBuilders() []*scheme.Builder {
 	return []*scheme.Builder{
-		configv1.SchemeBuilder, policyv1.SchemeBuilder, placementrulev1.SchemeBuilder,
+		policyv1.SchemeBuilder, placementrulev1.SchemeBuilder,
 		appsv1.SchemeBuilder, appsv1alpha1.SchemeBuilder, channelv1.SchemeBuilder,
 		subscriptionv1.SchemeBuilder, applicationv1beta1.SchemeBuilder,
 	}

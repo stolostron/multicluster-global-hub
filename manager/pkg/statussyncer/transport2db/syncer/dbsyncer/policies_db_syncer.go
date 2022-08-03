@@ -12,13 +12,13 @@ import (
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/helpers"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/bundle/status"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
-func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
+func NewPoliciesDBSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
 	dbSyncer := &PoliciesDBSyncer{
 		log:                                           log,
 		config:                                        config,
@@ -38,7 +38,7 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 // PoliciesDBSyncer implements policies db sync business logic.
 type PoliciesDBSyncer struct {
 	log                                           logr.Logger
-	config                                        *configv1.Config
+	config                                        *corev1.ConfigMap
 	createClustersPerPolicyBundleFunc             bundle.CreateBundleFunction
 	createCompleteComplianceStatusBundleFunc      bundle.CreateBundleFunction
 	createDeltaComplianceStatusBundleFunc         bundle.CreateBundleFunction
@@ -49,9 +49,9 @@ type PoliciesDBSyncer struct {
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
-	fullStatusPredicate := func() bool { return syncer.config.Spec.AggregationLevel == configv1.Full }
-	minimalStatusPredicate := func() bool { return syncer.config.Spec.AggregationLevel == configv1.Minimal }
-	localPredicate := func() bool { return fullStatusPredicate() && syncer.config.Spec.EnableLocalPolicies }
+	fullStatusPredicate := func() bool { return syncer.config.Data["aggregationLevel"] == "full" }
+	minimalStatusPredicate := func() bool { return syncer.config.Data["aggregationLevel"] == "minimal" }
+	localPredicate := func() bool { return fullStatusPredicate() && syncer.config.Data["enableLocalPolicies"] == "true" }
 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            constants.ClustersPerPolicyMsgKey,
