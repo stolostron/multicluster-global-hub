@@ -19,7 +19,7 @@ spec:
       serviceAccountName: hub-of-hubs-rbac
       containers:
         - name: hub-of-hubs-rbac
-          image: {{.Registry}}/hub-of-hubs-rbac:{{.ImageTag}}
+          image: {{.Image}}
           imagePullPolicy: Always
           args:
           - "/data/opa_authorization.rego"

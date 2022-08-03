@@ -18,7 +18,7 @@ spec:
       serviceAccountName: hub-of-hubs-manager
       containers:
         - name: hub-of-hubs-manager
-          image: {{.Registry}}/hub-of-hubs-manager:{{.ImageTag}}
+          image: {{.Image}}
           imagePullPolicy: Always
           args:
             - --zap-devel=true

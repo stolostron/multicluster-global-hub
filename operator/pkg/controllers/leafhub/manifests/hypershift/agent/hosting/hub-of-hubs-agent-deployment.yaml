@@ -16,7 +16,7 @@ spec:
       serviceAccountName: default
       containers:
         - name: hub-of-hubs-agent
-          image: {{.HoHAgentImageRef}}
+          image: {{.HoHAgentImage}}
           args:
             - --kubeconfig=/var/run/secrets/hypershift/kubeconfig
             - '--zap-devel=true'

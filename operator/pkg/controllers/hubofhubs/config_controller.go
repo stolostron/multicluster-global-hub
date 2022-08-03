@@ -146,13 +146,12 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	hohRenderer := renderer.NewHoHRenderer(fs)
 	hohDeployer := deployer.NewHoHDeployer(r.Client)
 
+	annotations := hohConfig.GetAnnotations()
 	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", func(component string) (interface{}, error) {
 		hohRBACConfig := struct {
-			Registry string
-			ImageTag string
+			Image string
 		}{
-			Registry: "quay.io/open-cluster-management-hub-of-hubs",
-			ImageTag: "latest",
+			Image: config.GetImage(annotations, "hub_of_hubs_rbac"),
 		}
 
 		return hohRBACConfig, err
@@ -183,11 +182,9 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", func(component string) (interface{}, error) {
 		managerConfig := struct {
-			Registry string
-			ImageTag string
+			Image string
 		}{
-			Registry: "quay.io/open-cluster-management-hub-of-hubs",
-			ImageTag: "latest",
+			Image: config.GetImage(annotations, "hub_of_hubs_manager"),
 		}
 
 		return managerConfig, err

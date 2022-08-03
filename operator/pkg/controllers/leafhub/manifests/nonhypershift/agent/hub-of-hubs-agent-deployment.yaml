@@ -16,7 +16,7 @@ spec:
       serviceAccountName: hub-of-hubs-agent
       containers:
         - name: hub-of-hubs-agent
-          image: {{.HoHAgentImageRef}}
+          image: {{.HoHAgentImage}}
           args:
             - '--zap-devel=true'
             - --pod-namespace=$(POD_NAMESPACE)
