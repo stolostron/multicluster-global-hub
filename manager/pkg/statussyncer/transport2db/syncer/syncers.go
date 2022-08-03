@@ -56,8 +56,7 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerP
 }
 
 func addConfigController(mgr ctrl.Manager) (*corev1.ConfigMap, error) {
-	config := &corev1.ConfigMap{}
-	config.Data["aggregationLevel"] = "full" // default value is full until the config is read from the CR
+	config := &corev1.ConfigMap{Data: map[string]string{"aggregationLevel": "full"}} // default value is full until the config is read from the CR
 
 	if err := configctl.AddConfigController(mgr,
 		ctrl.Log.WithName("hub-of-hubs-config"),

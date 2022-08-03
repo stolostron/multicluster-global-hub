@@ -26,11 +26,11 @@ func NewPolicyGVR() schema.GroupVersionResource {
 	}
 }
 
-func NewHoHConfigGVR() schema.GroupVersionResource {
+func NewHoHConfigMapGVR() schema.GroupVersionResource {
 	return schema.GroupVersionResource{
-		Group:    "hub-of-hubs.open-cluster-management.io",
+		Group:    "",
 		Version:  "v1",
-		Resource: "configs",
+		Resource: "configmaps",
 	}
 }
 
