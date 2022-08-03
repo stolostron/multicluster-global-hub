@@ -57,6 +57,8 @@ type ConfigSpec struct {
 
 // ConfigStatus defines the observed state of Config
 type ConfigStatus struct {
+	// ConfigStatus defines the observed state of Config
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -69,4 +71,12 @@ type ConfigList struct {
 
 func init() {
 	SchemeBuilder.Register(&Config{}, &ConfigList{})
+}
+
+func (config *Config) GetConditions() []metav1.Condition {
+	return config.Status.Conditions
+}
+
+func (config *Config) SetConditions(conditions []metav1.Condition) {
+	config.Status.Conditions = conditions
 }
