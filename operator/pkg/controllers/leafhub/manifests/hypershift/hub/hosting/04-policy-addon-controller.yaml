@@ -12,6 +12,7 @@ metadata:
   labels:
     app: governance-policy-addon-controller
   name: policy-addon-ctrl-leader-election-role
+  namespace: {{.HostedClusterName}}
 rules:
 - apiGroups:
   - ""
@@ -318,6 +319,7 @@ metadata:
   labels:
     app: governance-policy-addon-controller
   name: policy-addon-ctrl-manager-config
+  namespace: {{.HostedClusterName}}
 ---
 apiVersion: apps/v1
 kind: Deployment
