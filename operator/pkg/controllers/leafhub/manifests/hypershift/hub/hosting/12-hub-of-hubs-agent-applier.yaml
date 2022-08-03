@@ -2,17 +2,17 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: hoh-of-hubs-agent-applier
-  namespace: {{ .HostedClusterName }}
+  namespace: {{.HostedClusterName}}
 spec:
   template:
     spec:
       containers:
       - name: applier
-        image: quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-agent:{{ .HoHAgentVersion }}
+        image: {{.HoHAgentImage}}
         imagePullPolicy: Always
         command: ["/usr/local/bin/applier"]
         args:
-        - --hub-version={{ .HubVersion }}
+        - --hub-version={{.HubVersion}}
         - --kubeconfig=/var/run/secrets/hypershift/kubeconfig
         volumeMounts:
         - mountPath: /var/run/secrets/hypershift

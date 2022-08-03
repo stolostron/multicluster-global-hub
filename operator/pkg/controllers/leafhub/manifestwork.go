@@ -78,7 +78,7 @@ type MCEImageEntry struct {
 
 type HypershiftHubConfigValues struct {
 	HubVersion        string
-	HoHAgentVersion   string
+	HoHAgentImage     string
 	HostedClusterName string
 	ImagePullSecret   string
 	ChannelClusterIP  string
@@ -87,31 +87,22 @@ type HypershiftHubConfigValues struct {
 }
 
 type HoHAgentConfigValues struct {
-	HoHAgentImageRef       string
+	HoHAgentImage          string
 	LeadHubID              string
 	KafkaBootstrapServer   string
 	KafkaCA                string
 	HostedClusterNamespace string // for hypershift case
 }
 
-var podNamespace, hohVersion, snapshot, mceSnapshot, imagePullSecretName string
+var podNamespace, imagePullSecretName string
 
 func init() {
-	// for test develop version
-	snapshot, _ = os.LookupEnv("SNAPSHOT")
-	mceSnapshot, _ = os.LookupEnv("MCE_SNAPSHOT")
-	hohVersion, _ = os.LookupEnv("HUB_OF_HUBS_VERSION")
-	if hohVersion == "" {
-		hohVersion = "latest"
-	}
 	podNamespace, _ = os.LookupEnv("POD_NAMESPACE")
 	if podNamespace == "" {
 		podNamespace = constants.HOHDefaultNamespace
 	}
-	imagePullSecretName, _ = os.LookupEnv("IMAGE_PULL_SECRET")
-	if imagePullSecretName == "" {
-		imagePullSecretName = "multiclusterhub-operator-pull-secret"
-	}
+
+	imagePullSecretName = "multiclusterhub-operator-pull-secret"
 }
 
 // applyHubSubWork creates or updates the subscription manifestwork for leafhub cluster
@@ -459,7 +450,7 @@ func getDefaultHypershiftHubConfigValues() HypershiftHubConfigValues {
 }
 
 // applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
-func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logger, hohConfigName, managedClusterName,
+func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config, managedClusterName,
 	channelClusterIP string, pm *packageManifestConfig, hcConfig *config.HostedClusterConfig) (*workv1.ManifestWork, error) {
 	if pm == nil || pm.ACMCurrentCSV == "" {
 		return nil, fmt.Errorf("empty packagemanifest")
@@ -469,16 +460,18 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	acmImages, mceImages := pm.ACMImages, pm.MCEImages
 	acmDefaultImageRegistry, mceDefaultImageRegistry := constants.DefaultACMUpstreamImageRegistry, constants.DefaultMCEUpstreamImageRegistry
 
-	if snapshot == "" {
+	acmSnapshot, ok := hohConfig.GetAnnotations()[constants.HoHHubACMSnapShotKey]
+	if !ok || acmSnapshot == "" {
 		acmDefaultImageRegistry = constants.DefaultACMDownStreamImageRegistry
 		// handle special case for governance-policy-addon-controller image
 		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController = "acm-governance-policy-addon-controller"
 	}
-	if mceSnapshot == "" {
+	mceSnapshot, ok := hohConfig.GetAnnotations()[constants.HoHHubMCESnapShotKey]
+	if !ok || mceSnapshot == "" {
 		mceDefaultImageRegistry = constants.DefaultMCEDownStreamImageRegistry
 	}
 
-	tpl, err := parseHubHypershiftTemplates(hypershiftHubManifestFS, snapshot, mceSnapshot, acmDefaultImageRegistry, mceDefaultImageRegistry, acmImages, mceImages)
+	tpl, err := parseHubHypershiftTemplates(hypershiftHubManifestFS, acmSnapshot, mceSnapshot, acmDefaultImageRegistry, mceDefaultImageRegistry, acmImages, mceImages)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +484,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	}
 	latestACMVersionM := strings.Join(latestACMVersionParts[:2], ".")
 	hypershiftHubConfigValues.HubVersion = latestACMVersionM
-	hypershiftHubConfigValues.HoHAgentVersion = hohVersion
+	hypershiftHubConfigValues.HoHAgentImage = config.GetImage(hohConfig.GetAnnotations(), "hub_of_hubs_agent")
 	hypershiftHubConfigValues.HostedClusterName = hypershiftHostedClusterName
 	hypershiftHubConfigValues.ImagePullSecret = imagePullSecretName
 	hypershiftHubConfigValues.MCE.DefaultImageRegistry = mceDefaultImageRegistry
@@ -527,7 +520,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostedHubWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: hohConfigName,
+				constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -565,7 +558,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingHubWorkSuffix),
 			Namespace: hcConfig.HostingClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: hohConfigName,
+				constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -614,21 +607,13 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 // applyHoHAgentWork creates or updates hub-of-hubs-agent manifestwork
 func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config,
 	managedClusterName string) error {
-	hohVersion := "latest"
-	if os.Getenv("HUB_OF_HUBS_VERSION") != "" {
-		hohVersion = os.Getenv("HUB_OF_HUBS_VERSION")
-	}
-	agentImageRef := fmt.Sprintf("quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-agent:%s", hohVersion)
-	if os.Getenv("HUB_OF_HUBS_AGENT_IMAGE_REF") != "" {
-		agentImageRef = os.Getenv("HUB_OF_HUBS_AGENT_IMAGE_REF")
-	}
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, c, log, hohConfig)
 	if err != nil {
 		return err
 	}
 
 	agentConfigValues := &HoHAgentConfigValues{
-		HoHAgentImageRef:     agentImageRef,
+		HoHAgentImage:        config.GetImage(hohConfig.GetAnnotations(), "hub_of_hubs_agent"),
 		LeadHubID:            managedClusterName,
 		KafkaBootstrapServer: kafkaBootstrapServer,
 		KafkaCA:              kafkaCA,
@@ -690,21 +675,13 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, ho
 // applyHoHAgentHypershiftWork creates or updates hub-of-hubs-agent manifestwork
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.Logger,
 	hohConfig *hubofhubsv1alpha1.Config, managedClusterName string, hcConfig *config.HostedClusterConfig) error {
-	hohVersion := "latest"
-	if os.Getenv("HUB_OF_HUBS_VERSION") != "" {
-		hohVersion = os.Getenv("HUB_OF_HUBS_VERSION")
-	}
-	agentImageRef := fmt.Sprintf("quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-agent:%s", hohVersion)
-	if os.Getenv("HUB_OF_HUBS_AGENT_IMAGE_REF") != "" {
-		agentImageRef = os.Getenv("HUB_OF_HUBS_AGENT_IMAGE_REF")
-	}
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, c, log, hohConfig)
 	if err != nil {
 		return err
 	}
 
 	agentConfigValues := &HoHAgentConfigValues{
-		HoHAgentImageRef:       agentImageRef,
+		HoHAgentImage:          config.GetImage(hohConfig.GetAnnotations(), "hub_of_hubs_agent"),
 		LeadHubID:              managedClusterName,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCA:                kafkaCA,
@@ -889,9 +866,10 @@ func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClust
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
 func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config) (string, string, error) {
-	kafkaBootstrapServer := os.Getenv("KAFKA_BOOTSTRAP_SERVER")
-	if kafkaBootstrapServer != "" {
-		log.Info("Kafka bootstrap server", "server", kafkaBootstrapServer, "certificate", "")
+	// for local dev/test
+	kafkaBootstrapServer, ok := hohConfig.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
+	if ok && kafkaBootstrapServer != "" {
+		log.Info("Kafka bootstrap server from annotation", "server", kafkaBootstrapServer, "certificate", "")
 		return kafkaBootstrapServer, "", nil
 	}
 

@@ -64,3 +64,12 @@ const (
 	DefaultACMDownStreamImageRegistry = "registry.redhat.io/rhacm2"
 	DefaultMCEDownStreamImageRegistry = "registry.redhat.io/multicluster-engine"
 )
+
+const (
+	HoHDefaultImageRepository  = "quay.io/stolostron"
+	HoHImageRepoAnnotationKey  = "hoh-image-repository"
+	HoHImageTagAnnotationKey   = "hoh-image-tag"
+	HoHHubACMSnapShotKey       = "hoh-hub-ACM-snapshot"
+	HoHHubMCESnapShotKey       = "hoh-hub-MCE-snapshot"
+	HoHKafkaBootstrapServerKey = "hoh-kafka-bootstrap-server"
+)

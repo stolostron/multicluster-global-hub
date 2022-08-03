@@ -329,7 +329,7 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 		Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingHubWorkSuffix),
 	}, hubMgtWork); err != nil {
 		if errors.IsNotFound(err) {
-			_, err := applyHubHypershiftWorks(ctx, r.Client, log, hohConfig.GetName(), managedClusterName, "", pm, hcConfig)
+			_, err := applyHubHypershiftWorks(ctx, r.Client, log, hohConfig, managedClusterName, "", pm, hcConfig)
 			return err
 		} else {
 			return err
@@ -343,7 +343,7 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 	}
 
 	log.Info("got clusterIP for channel service", "ClusterIP", channelServiceIP)
-	if _, err := applyHubHypershiftWorks(ctx, r.Client, log, hohConfig.GetName(), managedClusterName, channelServiceIP, pm, hcConfig); err != nil {
+	if _, err := applyHubHypershiftWorks(ctx, r.Client, log, hohConfig, managedClusterName, channelServiceIP, pm, hcConfig); err != nil {
 		return err
 	}
 
