@@ -81,6 +81,8 @@ type LeafHubReconciler struct {
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;watch
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=hypershiftdeployments,verbs=get;list;watch
 //+kubebuilder:rbac:groups=work.open-cluster-management.io,resources=manifestworks,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=managedclusteraddons,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -114,6 +116,11 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			// Error reading the object - requeue the request.
 			return ctrl.Result{}, err
 		}
+	}
+
+	// if hoh config is terminating, also set prune all flag to true
+	if hohConfig.GetDeletionTimestamp() != nil {
+		shouldPruneAll = true
 	}
 
 	// if namespace of the reconcile request is empty, then the reconcile request is
@@ -210,12 +217,16 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 		// the managed cluster is deleting, we should not re-apply the manifestwork
 		// wait for managedcluster-import-controller to clean up the manifestwork
 		if hostingClusterName == "" { // for non-hypershift hosted leaf hub
-			err := removePostponeDeleteAnnotationFromHubSubWork(ctx, r.Client, managedClusterName)
-			return ctrl.Result{}, err
+			if err := removePostponeDeleteAnnotationFromHubSubWork(ctx, r.Client, managedClusterName); err != nil {
+				return ctrl.Result{}, err
+			}
 		} else { // for hypershift hosted leaf hub, remove the corresponding manifestwork from hypershift hosting cluster
-			err := removeLeafHubHostingWork(ctx, r.Client, managedClusterName, hostingClusterName)
-			return ctrl.Result{}, err
+			if err := removeLeafHubHostingWork(ctx, r.Client, managedClusterName, hostingClusterName); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
+		// delete managedclusteraddon for the managedcluster
+		return ctrl.Result{}, deleteManagedClusterAddon(ctx, r.Client, log, managedClusterName, hohConfig.GetName())
 	}
 
 	pm, err := getPackageManifestConfig(ctx, r.Client, log)
@@ -223,36 +234,49 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 	if pm == nil || pm.ACMDefaultChannel == "" || pm.ACMCurrentCSV == "" {
-		log.Info("PackageManifest for ACM is not ready yet")
+		log.Info("PackageManifest for ACM is not ready")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	if hostingClusterName == "" { // for non-hypershift hosted leaf hub
-		return r.reconcileNonHostedLeafHub(ctx, log, managedClusterName, hohConfig, pm)
+		if err := r.reconcileNonHostedLeafHub(ctx, log, managedClusterName, hohConfig, pm); err != nil {
+			return ctrl.Result{}, err
+		}
 	} else { // for hypershift hosted leaf hub
-		return r.reconcileHostedLeafHub(ctx, log, managedClusterName, hohConfig, pm, hcConfig)
+		if pm.MCEDefaultChannel == "" || pm.MCECurrentCSV == "" {
+			log.Info("PackageManifests for MCE are not ready")
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+
+		if err := r.reconcileHostedLeafHub(ctx, log, managedClusterName, hohConfig, pm, hcConfig); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
+
+	// apply ManagedClusterAddons
+	return ctrl.Result{}, applyManagedClusterAddon(ctx, r.Client, log, managedClusterName, hohConfig.GetName())
 }
 
 // reconcileNonHostedLeafHub reconciles the normal leafhub, which is not running hosted mode
 func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log logr.Logger, managedClusterName string,
-	hohConfig *hubofhubsv1alpha1.Config, pm *packageManifestConfig) (ctrl.Result, error) {
+	hohConfig *hubofhubsv1alpha1.Config, pm *packageManifestConfig) error {
 	hubSubWork, err := applyHubSubWork(ctx, r.Client, log, hohConfig.GetName(), managedClusterName, pm)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	// if the csv PHASE is Succeeded, then create mch manifestwork to install Hub
 	if isSubReady, _ := findStatusFeedbackValueFromWork(hubSubWork, "Subscription", "state", "AtLatestKnown", log); !isSubReady {
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	log.Info("hub subscription is ready, applying hub MCH manifestwork")
 	// TODO: fetch user defined mch from annotation
 	hubMCHWork, err := applyHubMCHWork(ctx, r.Client, log, hohConfig.GetName(), managedClusterName)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
+
 	log.Info("checking status feedback value from hub mch manifestwork before applying hub-of-hubs-agent manifestwork")
 	mchIsReadyNum := 0
 	// if the MCH is Running, then create hoh agent manifestwork to install HoH agent
@@ -286,21 +310,16 @@ func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log l
 	}
 	if mchIsReadyNum != 2 {
 		log.Info("hub MCH is not ready, won't apply the hub-of-hubs-agent manifestwork")
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		return nil
 	}
 
 	// apply the hub-of-hubs-agent manifestwork
-	return ctrl.Result{}, applyHoHAgentWork(ctx, r.Client, log, hohConfig, managedClusterName)
+	return applyHoHAgentWork(ctx, r.Client, log, hohConfig, managedClusterName)
 }
 
 // reconcileHostedLeafHub reconciles the hoh config change
 func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr.Logger, managedClusterName string,
-	hohConfig *hubofhubsv1alpha1.Config, pm *packageManifestConfig, hcConfig *config.HostedClusterConfig) (ctrl.Result, error) {
-	if pm == nil || pm.ACMDefaultChannel == "" || pm.ACMCurrentCSV == "" || pm.MCEDefaultChannel == "" || pm.MCECurrentCSV == "" {
-		log.Info("PackageManifests for ACM and MCE are not ready yet")
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
+	hohConfig *hubofhubsv1alpha1.Config, pm *packageManifestConfig, hcConfig *config.HostedClusterConfig) error {
 	// check the manifestwork for hosted hub before apply it, be careful about the order
 	// don't call applyHubHypershiftWorks wil different channelClusterIP in one reconcile loop
 	hubMgtWork := &workv1.ManifestWork{}
@@ -310,49 +329,63 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 	}, hubMgtWork); err != nil {
 		if errors.IsNotFound(err) {
 			_, err := applyHubHypershiftWorks(ctx, r.Client, log, hohConfig.GetName(), managedClusterName, "", pm, hcConfig)
-			return ctrl.Result{}, err
+			return err
 		} else {
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
 	isChannelServiceReady, channelServiceIP := findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
 	if !isChannelServiceReady {
-		return ctrl.Result{}, nil
+		log.Info("channel service is not ready, won't apply the hub-of-hubs-agent manifestwork")
+		return nil
 	}
 
-	log.Info("Got clusterIP for channel service", "ClusterIP", channelServiceIP)
+	log.Info("got clusterIP for channel service", "ClusterIP", channelServiceIP)
 	if _, err := applyHubHypershiftWorks(ctx, r.Client, log, hohConfig.GetName(), managedClusterName, channelServiceIP, pm, hcConfig); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	// apply the hub-of-hubs-agent manifestwork
-	return ctrl.Result{}, applyHoHAgentHypershiftWork(ctx, r.Client, log, hohConfig, managedClusterName, hcConfig)
+	return applyHoHAgentHypershiftWork(ctx, r.Client, log, hohConfig, managedClusterName, hcConfig)
 }
 
 // reconcileHoHConfig reconciles the hoh config change
 func (r *LeafHubReconciler) reconcileHoHConfig(ctx context.Context, req ctrl.Request, hohConfig *hubofhubsv1alpha1.Config, toPruneAll bool, log logr.Logger) (ctrl.Result, error) {
 	// handle hoh config deleting
-	if hohConfig.GetDeletionTimestamp() != nil {
+	if toPruneAll {
 		log.Info("hoh config is terminating, delete manifests for leafhubs...")
 		// remove the leafhub components
 		for leafhub := range leafhubs.clusters {
-			err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{}, client.InNamespace(leafhub),
-				client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: hohConfig.GetName()}))
-			if err != nil {
+			if err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{}, client.InNamespace(leafhub),
+				client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: hohConfig.GetName()})); err != nil {
+				return ctrl.Result{}, err
+			}
+			// delete managedclusteraddon
+			if err := deleteManagedClusterAddon(ctx, r.Client, log, leafhub, hohConfig.GetName()); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 
 		// also handle case of local-cluster as hypershift hosting cluster
-		err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{}, client.InNamespace(constants.LocalClusterName),
-			client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: hohConfig.GetName()}))
-		if err != nil {
+		if err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{}, client.InNamespace(constants.LocalClusterName),
+			client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: hohConfig.GetName()})); err != nil {
 			return ctrl.Result{}, err
 		}
+
+		// delete ClusterManagementAddon
+		if err := deleteClusterManagementAddon(ctx, r.Client, log, hohConfig.GetName()); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
 	}
 
 	// TODO: handle hoh config change here
+
+	if err := applyClusterManagementAddon(ctx, r.Client, log, hohConfig.GetName()); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -363,7 +396,7 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		CreateFunc: func(e event.CreateEvent) bool {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
-				e.Object.GetLabels()[constants.LeafHubClusterDisabledLabelKey] != constants.LeafHubClusterDisabledLabelval &&
+				e.Object.GetLabels()[constants.LeafHubClusterDisabledLabelKey] != constants.LeafHubClusterDisabledLabelVal &&
 				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions, "ManagedClusterConditionAvailable") {
 				leafhubs.append(e.Object.GetName())
 				return true
@@ -373,7 +406,7 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			if e.ObjectNew.GetLabels()["vendor"] == "OpenShift" &&
 				e.ObjectNew.GetName() != constants.LocalClusterName &&
-				e.ObjectNew.GetLabels()[constants.LeafHubClusterDisabledLabelKey] != constants.LeafHubClusterDisabledLabelval &&
+				e.ObjectNew.GetLabels()[constants.LeafHubClusterDisabledLabelKey] != constants.LeafHubClusterDisabledLabelVal &&
 				meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions, "ManagedClusterConditionAvailable") {
 				if e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
 					if e.ObjectNew.GetDeletionTimestamp() == nil {
@@ -389,7 +422,7 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
-				e.Object.GetLabels()[constants.LeafHubClusterDisabledLabelKey] != constants.LeafHubClusterDisabledLabelval &&
+				e.Object.GetLabels()[constants.LeafHubClusterDisabledLabelKey] != constants.LeafHubClusterDisabledLabelVal &&
 				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions, "ManagedClusterConditionAvailable") {
 				leafhubs.delete(e.Object.GetName())
 				return true
@@ -424,8 +457,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
 				// && !reflect.DeepEqual(e.ObjectNew.(*workv1.ManifestWork).Spec.Workload.Manifests,
 				// 	e.ObjectOld.(*workv1.ManifestWork).Spec.Workload.Manifests) {
-				if e.ObjectNew.GetName() == e.ObjectNew.GetNamespace()+constants.HOHHubSubscriptionWorkSuffix ||
-					e.ObjectNew.GetName() == e.ObjectNew.GetNamespace()+constants.HoHHubMCHWorkSuffix ||
+				if e.ObjectNew.GetName() == fmt.Sprintf("%s-%s", e.ObjectNew.GetNamespace(), constants.HOHHubSubscriptionWorkSuffix) ||
+					e.ObjectNew.GetName() == fmt.Sprintf("%s-%s", e.ObjectNew.GetNamespace(), constants.HoHHubMCHWorkSuffix) ||
 					strings.Contains(e.ObjectNew.GetName(), constants.HoHHostingHubWorkSuffix) {
 					return true
 				}

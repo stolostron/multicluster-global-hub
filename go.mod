@@ -9,7 +9,6 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-logr/logr v1.2.3
 	github.com/jackc/pgx/v4 v4.16.1
-	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232
@@ -94,7 +93,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 // indirect
 	github.com/openshift/hypershift v0.0.0-20220719064944-685115caee6b // indirect
 	github.com/operator-framework/operator-registry v1.17.5 // indirect
@@ -125,7 +123,6 @@ require (
 	google.golang.org/grpc v1.46.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 	k8s.io/apiserver v0.24.2 // indirect
 	k8s.io/component-base v0.24.2 // indirect
