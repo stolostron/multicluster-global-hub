@@ -70,7 +70,10 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 		return nil
 	})
 	if err != nil {
-		reconciler.setConditionDatabaseInit(ctx, config, CONDITION_STATUS_FALSE)
+		conditionError := reconciler.setConditionDatabaseInit(ctx, config, CONDITION_STATUS_FALSE)
+		if conditionError != nil {
+			return fmt.Errorf("failed to set condition(%s): %w", CONDITION_STATUS_FALSE, conditionError)
+		}
 		return fmt.Errorf("failed to walk database directory: %w", err)
 	}
 
@@ -92,12 +95,18 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 	postgreSecret.Data[TRANSPORT_URI_KEY] = []byte(transportURI)
 	err = reconciler.Client.Update(ctx, postgreSecret)
 	if err != nil {
-		reconciler.setConditionDatabaseInit(ctx, config, CONDITION_STATUS_FALSE)
+		conditionError := reconciler.setConditionDatabaseInit(ctx, config, CONDITION_STATUS_FALSE)
+		if conditionError != nil {
+			return fmt.Errorf("failed to set condition(%s): %w", CONDITION_STATUS_FALSE, conditionError)
+		}
 		return fmt.Errorf("failed to update postgres secret: %w", err)
 	}
 
 	log.Info("Database initialized")
-	reconciler.setConditionDatabaseInit(ctx, config, CONDITION_STATUS_TRUE)
+	err = reconciler.setConditionDatabaseInit(ctx, config, CONDITION_STATUS_TRUE)
+	if err != nil {
+		return fmt.Errorf("failed to set condition(%s): %w", CONDITION_STATUS_TRUE, err)
+	}
 	return nil
 }
 

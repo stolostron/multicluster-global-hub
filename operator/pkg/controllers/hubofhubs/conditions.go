@@ -51,7 +51,10 @@ func (reconcile *ConfigReconciler) setConditionDatabaseInit(ctx context.Context,
 	} else {
 		currentStatus := reconcile.getConditionStatus(ctx, config, CONDITION_TYPE_DATABASE_INIT)
 		if currentStatus != status {
-			reconcile.deleteCondition(ctx, config, CONDITION_TYPE_DATABASE_INIT, CONDITION_REASON_DATABASE_INIT)
+			err := reconcile.deleteCondition(ctx, config, CONDITION_TYPE_DATABASE_INIT, CONDITION_REASON_DATABASE_INIT)
+			if err != nil {
+				return err
+			}
 			return AppendCondition(ctx, reconcile.Client, config, CONDITION_TYPE_DATABASE_INIT, status,
 				CONDITION_REASON_DATABASE_INIT, CONDITION_MESSAGE_DATABASE_INIT)
 		}
