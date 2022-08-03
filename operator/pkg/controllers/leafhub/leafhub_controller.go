@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -381,10 +382,27 @@ func (r *LeafHubReconciler) reconcileHoHConfig(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	// TODO: handle hoh config change here
-
 	if err := applyClusterManagementAddon(ctx, r.Client, log, hohConfig.GetName()); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	errors := []error{}
+	// handle hoh config change here
+	for leafhub := range leafhubs.clusters {
+		newReq := ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name: leafhub,
+			},
+		}
+
+		// trigger reconcile for each leafhub
+		if _, err := r.reconcileLeafHub(ctx, newReq, hohConfig, false, log); err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	if len(errors) > 0 {
+		return ctrl.Result{}, utilerrors.NewAggregate(errors)
 	}
 
 	return ctrl.Result{}, nil
