@@ -19,6 +19,7 @@ package hubofhubs
 import (
 	"context"
 	"embed"
+	"encoding/base64"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -115,32 +116,6 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	// try to start leafhub controller if it is not running
-	if !isLeafHubControllerRunnning {
-		if err := (&leafhubscontroller.LeafHubReconciler{
-			Client: r.Client,
-			Scheme: r.Scheme,
-		}).SetupWithManager(r.Manager); err != nil {
-			log.Error(err, "unable to create controller", "controller", "LeafHub")
-			return ctrl.Result{}, err
-		}
-		log.Info("leafhub controller is started")
-		isLeafHubControllerRunnning = true
-	}
-
-	// // try to start packagemanifest controller if it is not running
-	// if !isPackageManifestControllerRunnning {
-	// 	if err := (&pmcontroller.PackageManifestReconciler{
-	// 		Client: r.Client,
-	// 		Scheme: r.Scheme,
-	// 	}).SetupWithManager(r.Manager); err != nil {
-	// 		log.Error(err, "unable to create controller", "controller", "PackageManifest")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// 	log.Info("packagemanifest controller is started")
-	// 	isPackageManifestControllerRunnning = true
-	// }
-
 	// handle gc
 	isTerminating, err := r.initFinalization(ctx, hohConfig, log)
 	if err != nil {
@@ -202,11 +177,23 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
+	// retrieve bootstrapserver and CA of kafka from secret
+	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, r.Client, log, hohConfig)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", func(component string) (interface{}, error) {
 		managerConfig := struct {
-			Image string
+			Image                string
+			DBSecret             string
+			KafkaCA              string
+			KafkaBootstrapServer string
 		}{
-			Image: config.GetImage(annotations, "hub_of_hubs_manager"),
+			Image:                config.GetImage(annotations, "hub_of_hubs_manager"),
+			DBSecret:             hohConfig.Spec.PostgreSQL.Name,
+			KafkaCA:              kafkaCA,
+			KafkaBootstrapServer: kafkaBootstrapServer,
 		}
 
 		return managerConfig, err
@@ -234,6 +221,32 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, err
 		}
 	}
+
+	// try to start leafhub controller if it is not running
+	if !isLeafHubControllerRunnning {
+		if err := (&leafhubscontroller.LeafHubReconciler{
+			Client: r.Client,
+			Scheme: r.Scheme,
+		}).SetupWithManager(r.Manager); err != nil {
+			log.Error(err, "unable to create controller", "controller", "LeafHub")
+			return ctrl.Result{}, err
+		}
+		log.Info("leafhub controller is started")
+		isLeafHubControllerRunnning = true
+	}
+
+	// // try to start packagemanifest controller if it is not running
+	// if !isPackageManifestControllerRunnning {
+	// 	if err := (&pmcontroller.PackageManifestReconciler{
+	// 		Client: r.Client,
+	// 		Scheme: r.Scheme,
+	// 	}).SetupWithManager(r.Manager); err != nil {
+	// 		log.Error(err, "unable to create controller", "controller", "PackageManifest")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// 	log.Info("packagemanifest controller is started")
+	// 	isPackageManifestControllerRunnning = true
+	// }
 
 	return ctrl.Result{}, nil
 }
@@ -430,4 +443,24 @@ func (r *ConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hubofhubsv1alpha1.Config{}, builder.WithPredicates(hohConfigPred)).
 		Complete(r)
+}
+
+// getKafkaConfig retrieves kafka server and CA from kafka secret
+func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config) (string, string, error) {
+	// for local dev/test
+	kafkaBootstrapServer, ok := hohConfig.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
+	if ok && kafkaBootstrapServer != "" {
+		log.Info("Kafka bootstrap server from annotation", "server", kafkaBootstrapServer, "certificate", "")
+		return kafkaBootstrapServer, "", nil
+	}
+
+	kafkaSecret := &corev1.Secret{}
+	if err := c.Get(ctx, types.NamespacedName{
+		Namespace: constants.HOHDefaultNamespace,
+		Name:      hohConfig.Spec.Kafka.Name,
+	}, kafkaSecret); err != nil {
+		return "", "", err
+	}
+
+	return string(kafkaSecret.Data["bootstrap_server"]), base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
 }

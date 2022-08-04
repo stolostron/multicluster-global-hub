@@ -15,6 +15,7 @@ import (
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
+	kafkaclient "github.com/stolostron/hub-of-hubs/pkg/kafka"
 	"github.com/stolostron/hub-of-hubs/pkg/kafka/headers"
 	kafkaconsumer "github.com/stolostron/hub-of-hubs/pkg/kafka/kafka-consumer"
 )
@@ -32,15 +33,21 @@ type KafkaConsumerConfig struct {
 }
 
 // NewConsumer creates a new instance of Consumer.
-func NewConsumer(committerInterval time.Duration, bootstrapServer string, consumerConfig *KafkaConsumerConfig, conflationManager *conflator.ConflationManager, statistics *statistics.Statistics,
+func NewConsumer(committerInterval time.Duration, bootstrapServer, SslCa string, consumerConfig *KafkaConsumerConfig, conflationManager *conflator.ConflationManager, statistics *statistics.Statistics,
 	log logr.Logger,
 ) (*Consumer, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
-		"bootstrap.servers":  bootstrapServer,
-		"client.id":          consumerConfig.ConsumerID,
-		"group.id":           consumerConfig.ConsumerID,
-		"auto.offset.reset":  "earliest",
-		"enable.auto.commit": "false",
+		"bootstrap.servers":       bootstrapServer,
+		"client.id":               consumerConfig.ConsumerID,
+		"group.id":                consumerConfig.ConsumerID,
+		"auto.offset.reset":       "earliest",
+		"enable.auto.commit":      "false",
+		"socket.keepalive.enable": "true",
+		"log.connection.close":    "false", // silence spontaneous disconnection logs, kafka recovers by itself.
+	}
+
+	if err := loadSslToConfigMap(SslCa, kafkaConfigMap); err != nil {
+		return nil, err
 	}
 
 	msgChan := make(chan *kafka.Message)
@@ -80,6 +87,26 @@ func NewConsumer(committerInterval time.Duration, bootstrapServer string, consum
 		ctx:                    ctx,
 		cancelFunc:             cancelFunc,
 	}, nil
+}
+
+// loadSslToConfigMap loads the given kafka CA to kafka Configmap
+func loadSslToConfigMap(SslCa string, kafkaConfigMap *kafka.ConfigMap) error {
+	// sslBase64EncodedCertificate
+	if SslCa != "" {
+		certFileLocation, err := kafkaclient.SetCertificate(&SslCa)
+		if err != nil {
+			return fmt.Errorf("failed to SetCertificate - %w", err)
+		}
+
+		if err = kafkaConfigMap.SetKey("security.protocol", "ssl"); err != nil {
+			return fmt.Errorf("failed to SetKey security.protocol - %w", err)
+		}
+
+		if err = kafkaConfigMap.SetKey("ssl.ca.location", certFileLocation); err != nil {
+			return fmt.Errorf("failed to SetKey ssl.ca.location - %w", err)
+		}
+	}
+	return nil
 }
 
 // Consumer abstracts hub-of-hubs/pkg/kafka kafka-consumer's generic usage.

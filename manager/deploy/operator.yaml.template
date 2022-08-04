@@ -39,13 +39,13 @@ spec:
             - name: PROCESS_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: hub-of-hubs-database-secret
-                  key: url
+                  name: postgresql-secret
+                  key: process_uri
             - name: TRANSPORT_BRIDGE_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: hub-of-hubs-database-transport-bridge-secret
-                  key: url
+                  name: postgresql-secret
+                  key: transport_uri
           volumeMounts:
             - readOnly: true
               mountPath: /hub-of-hubs-rbac-ca
