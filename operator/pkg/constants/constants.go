@@ -18,6 +18,8 @@ package constants
 
 const (
 	HOHDefaultNamespace = "open-cluster-management"
+	HOHSystemNamespace  = "hoh-system"
+	HOHConfigName       = "hub-of-hubs-config"
 	LocalClusterName    = "local-cluster"
 )
 
