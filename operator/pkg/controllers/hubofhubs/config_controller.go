@@ -19,9 +19,13 @@ package hubofhubs
 import (
 	"context"
 	"embed"
+	"strconv"
 
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,8 +54,6 @@ var fs embed.FS
 
 var isLeafHubControllerRunnning = false
 
-const NAMESPACE = "open-cluster-management"
-
 // var isPackageManifestControllerRunnning = false
 
 // ConfigReconciler reconciles a Config object
@@ -65,6 +67,7 @@ type ConfigReconciler struct {
 //+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs/finalizers,verbs=update
 
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
@@ -150,7 +153,13 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// init DB and transport here
-	err = r.reconcileDatabase(ctx, hohConfig, types.NamespacedName{Name: hohConfig.Spec.PostgreSQL.Name, Namespace: NAMESPACE})
+	err = r.reconcileDatabase(ctx, hohConfig, types.NamespacedName{Name: hohConfig.Spec.PostgreSQL.Name, Namespace: constants.HOHDefaultNamespace})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// reconcile hoh-system namespace and hub-of-hubs configuration
+	err = r.reconcileHoHResources(ctx, hohConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -238,6 +247,12 @@ func (r *ConfigReconciler) initFinalization(ctx context.Context, hohConfig *hubo
 			return false, err
 		}
 
+		// clean up hoh-system namespace and hub-of-hubs configuration
+		if err := r.pruneHoHResources(ctx, hohConfig); err != nil {
+			log.Error(err, "failed to remove hub-of-hubs resources")
+			return false, err
+		}
+
 		hohConfig.SetFinalizers(utils.Remove(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer))
 		err := r.Client.Update(context.TODO(), hohConfig)
 		if err != nil {
@@ -274,8 +289,7 @@ func (r *ConfigReconciler) pruneGlobalResources(ctx context.Context, hohConfig *
 		return err
 	}
 	for idx := range clusterRoleList.Items {
-		err := r.Client.Delete(ctx, &clusterRoleList.Items[idx], &client.DeleteOptions{})
-		if err != nil {
+		if err := r.Client.Delete(ctx, &clusterRoleList.Items[idx], &client.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -286,10 +300,112 @@ func (r *ConfigReconciler) pruneGlobalResources(ctx context.Context, hohConfig *
 		return err
 	}
 	for idx := range clusterRoleBindingList.Items {
-		err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx], &client.DeleteOptions{})
-		if err != nil {
+		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx], &client.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// reconcileHoHResources tries to create hoh resources if they don't exist
+func (r *ConfigReconciler) reconcileHoHResources(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config) error {
+	if err := r.Client.Get(ctx,
+		types.NamespacedName{
+			Name: constants.HOHSystemNamespace,
+		}, &corev1.Namespace{}); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.Client.Create(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: constants.HOHSystemNamespace,
+					Labels: map[string]string{
+						constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
+					},
+				},
+			}); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	// hoh configmap
+	hohConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: constants.HOHSystemNamespace,
+			Name:      constants.HOHConfigName,
+			Labels: map[string]string{
+				constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
+			},
+		},
+		Data: map[string]string{
+			"aggregationLevel":    string(hohConfig.Spec.AggregationLevel),
+			"enableLocalPolicies": strconv.FormatBool(hohConfig.Spec.EnableLocalPolicies),
+		},
+	}
+
+	existingHoHConfigMap := &corev1.ConfigMap{}
+	if err := r.Client.Get(ctx,
+		types.NamespacedName{
+			Namespace: constants.HOHSystemNamespace,
+			Name:      constants.HOHConfigName,
+		}, existingHoHConfigMap); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.Client.Create(ctx, hohConfigMap); err != nil {
+				return err
+			}
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	if !equality.Semantic.DeepDerivative(hohConfigMap.Data, existingHoHConfigMap.Data) ||
+		!equality.Semantic.DeepDerivative(hohConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
+		hohConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
+		if err := r.Client.Update(ctx, hohConfigMap); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	return nil
+}
+
+// pruneHoHResources tries to delete hoh resources
+func (r *ConfigReconciler) pruneHoHResources(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config) error {
+	// hoh configmap
+	existingHoHConfigMap := &corev1.ConfigMap{}
+	if err := r.Client.Get(ctx,
+		types.NamespacedName{
+			Namespace: constants.HOHSystemNamespace,
+			Name:      constants.HOHConfigName,
+		}, existingHoHConfigMap); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	// clean the finalizers added by hub-of-hubs-manager
+	existingHoHConfigMap.SetFinalizers([]string{})
+	if err := r.Client.Update(ctx, existingHoHConfigMap); err != nil {
+		return err
+	}
+
+	if err := r.Client.Delete(ctx, existingHoHConfigMap); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	hohSystemNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.HOHSystemNamespace,
+			Labels: map[string]string{
+				constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
+			},
+		},
+	}
+
+	if err := r.Client.Delete(ctx, hohSystemNamespace); err != nil && !errors.IsNotFound(err) {
+		return err
 	}
 
 	return nil

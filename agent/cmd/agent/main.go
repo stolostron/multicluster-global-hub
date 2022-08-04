@@ -12,7 +12,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	v1 "k8s.io/api/core/v1"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiRuntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	clustersV1 "open-cluster-management.io/api/cluster/v1"
@@ -271,7 +271,7 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 
 func createIncarnationConfigMap(incarnation uint64) *v1.ConfigMap {
 	return &v1.ConfigMap{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: HOH_LOCAL_NAMESPACE,
 			Name:      INCARNATION_CONFIG_MAP_KEY,
 		},

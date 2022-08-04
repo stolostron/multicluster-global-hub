@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -88,7 +88,7 @@ func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
 func (c *client) GetPgPool() *pgxpool.Pool {
 	clientSet := c.KubeClient()
 	secretClient := clientSet.CoreV1().Secrets(c.options.HubCluster.Namespace)
-	secret, err := secretClient.Get(context.TODO(), c.options.HubCluster.DatabaseSecret, metaV1.GetOptions{})
+	secret, err := secretClient.Get(context.TODO(), c.options.HubCluster.DatabaseSecret, metav1.GetOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -105,7 +105,7 @@ func (c *client) GetPgPool() *pgxpool.Pool {
 	klog.V(5).Info("pg service: ", pgService, " pg port: ", pgPort)
 
 	dynamicClientSet := c.KubeDynamicClient()
-	pgbounder, err := dynamicClientSet.Resource(NewRouteGVR()).Namespace("hoh-postgres").Get(context.TODO(), "hoh-pgbouncer", metaV1.GetOptions{})
+	pgbounder, err := dynamicClientSet.Resource(NewRouteGVR()).Namespace("hoh-postgres").Get(context.TODO(), "hoh-pgbouncer", metav1.GetOptions{})
 	if err != nil {
 		panic(err)
 	}
