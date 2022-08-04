@@ -38,6 +38,7 @@ import (
 	"github.com/stolostron/hub-of-hubs/operator/pkg/config"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
 	leafhubscontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/leafhub"
+
 	// pmcontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/packagemanifest"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/deployer"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/renderer"
@@ -48,6 +49,8 @@ import (
 var fs embed.FS
 
 var isLeafHubControllerRunnning = false
+
+const NAMESPACE = "open-cluster-management"
 
 // var isPackageManifestControllerRunnning = false
 
@@ -103,6 +106,12 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	err = r.setConditionResourceFound(ctx, hohConfig)
+	if err != nil {
+		log.Error(err, "Failed to set condition resource found")
+		return ctrl.Result{}, err
+	}
+
 	// try to start leafhub controller if it is not running
 	if !isLeafHubControllerRunnning {
 		if err := (&leafhubscontroller.LeafHubReconciler{
@@ -140,7 +149,11 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	// TODO(yanmxa): init DB and transport here
+	// init DB and transport here
+	err = r.reconcileDatabase(ctx, hohConfig, types.NamespacedName{Name: hohConfig.Spec.PostgreSQL.Name, Namespace: NAMESPACE})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer := renderer.NewHoHRenderer(fs)
