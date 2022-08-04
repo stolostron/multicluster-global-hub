@@ -3,6 +3,7 @@ package placement
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	placementrulesV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,7 +14,6 @@ import (
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/generic"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 
 // AddPlacementRulesController adds placement-rule controller to the manager.
 func AddPlacementRulesController(mgr ctrl.Manager, transport producer.Producer, leafHubName string,
-	incarnation uint64, _ *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals,
+	incarnation uint64, _ *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	createObjFunction := func() bundle.Object { return &placementrulesV1.PlacementRule{} }
 

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,14 +16,13 @@ import (
 
 const (
 	requeuePeriodSeconds = 5
-	configName           = "hub-of-hubs-config"
 )
 
 // AddConfigController creates a new instance of config controller and adds it to the manager.
-func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *configv1.Config) error {
+func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *corev1.ConfigMap) error {
 	if err := mgr.GetAPIReader().Get(context.Background(), client.ObjectKey{
 		Namespace: constants.HohSystemNamespace,
-		Name:      configName,
+		Name:      constants.HoHConfigName,
 	}, config); err != nil {
 		return fmt.Errorf("failed to read config - %w", err)
 	}
@@ -35,11 +34,11 @@ func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *configv1.Con
 	}
 
 	configPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == constants.HohSystemNamespace && object.GetName() == configName
+		return object.GetNamespace() == constants.HohSystemNamespace && object.GetName() == constants.HoHConfigName
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&configv1.Config{}).
+		For(&corev1.ConfigMap{}).
 		WithEventFilter(configPredicate).
 		Complete(hubOfHubsConfigCtrl); err != nil {
 		return fmt.Errorf("failed to add config controller to manager - %w", err)
@@ -51,7 +50,7 @@ func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *configv1.Con
 type hubOfHubsConfigController struct {
 	client client.Client
 	log    logr.Logger
-	config *configv1.Config
+	config *corev1.ConfigMap
 }
 
 func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {

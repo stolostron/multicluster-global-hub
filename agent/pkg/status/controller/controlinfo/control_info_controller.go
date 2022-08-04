@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle/controlinfo"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
@@ -32,7 +32,7 @@ type LeafHubControlInfoController struct {
 
 // AddControlInfoController creates a new instance of control info controller and adds it to the manager.
 func AddControlInfoController(mgr ctrl.Manager, transport producer.Producer, leafHubName string, incarnation uint64,
-	_ *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals,
+	_ *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, constants.ControlInfoMsgKey)
 

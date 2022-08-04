@@ -9,7 +9,7 @@ import (
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -55,9 +55,8 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerP
 	return nil
 }
 
-func addConfigController(mgr ctrl.Manager) (*configv1.Config, error) {
-	config := &configv1.Config{}
-	config.Spec.AggregationLevel = configv1.Full // default value is full until the config is read from the CR
+func addConfigController(mgr ctrl.Manager) (*corev1.ConfigMap, error) {
+	config := &corev1.ConfigMap{Data: map[string]string{"aggregationLevel": "full"}} // default value is full until the config is read from the CR
 
 	if err := configctl.AddConfigController(mgr,
 		ctrl.Log.WithName("hub-of-hubs-config"),

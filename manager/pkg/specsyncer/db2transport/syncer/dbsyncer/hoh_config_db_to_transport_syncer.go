@@ -9,7 +9,7 @@ import (
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/transport"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -23,7 +23,7 @@ const (
 func AddHoHConfigDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj transport.Transport,
 	specSyncInterval time.Duration,
 ) error {
-	createObjFunc := func() metav1.Object { return &configv1.Config{} }
+	createObjFunc := func() metav1.Object { return &corev1.ConfigMap{} }
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{

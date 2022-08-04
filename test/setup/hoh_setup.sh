@@ -21,19 +21,9 @@ currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 function deployConfigResources() {
   # apply the HoH config CRD
   configDir=${currentDir}/hoh/hub-of-hubs-config
-  kubectl apply -f "${configDir}/crd.yaml"
-  kubectl wait --for=condition=Established -f "${configDir}/crd.yaml"
-
   # create namespace if not exists
   kubectl create namespace hoh-system --dry-run=client -o yaml | kubectl apply -f -
-
-  # apply default HoH config CR
-  isCrReady=$(kubectl get configs.hub-of-hubs.open-cluster-management.io hub-of-hubs-config -n hoh-system --ignore-not-found)
-  while [[ -z "$isCrReady" ]]; do
-    sleep 5
-    kubectl apply -f ${configDir}/cr.yaml
-    isCrReady=$(kubectl get configs.hub-of-hubs.open-cluster-management.io hub-of-hubs-config -n hoh-system --ignore-not-found)
-  done
+  kubectl apply -f ${configDir}/hoh-config.yaml
   echo "HoH config resource is ready!"
 }
 

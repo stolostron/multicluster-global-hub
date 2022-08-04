@@ -29,10 +29,10 @@ var _ = Describe("Check all the clients could connect to the HoH servers", Label
 
 	It("connect to the apiserver with dynamic interface", func() {
 		dynamicClient := clients.KubeDynamicClient()
-		hohConfigGVR := utils.NewHoHConfigGVR()
-		configList, err := dynamicClient.Resource(hohConfigGVR).Namespace("hoh-system").List(context.TODO(), metav1.ListOptions{})
+		hohConfigMapGVR := utils.NewHoHConfigMapGVR()
+		configMapList, err := dynamicClient.Resource(hohConfigMapGVR).Namespace("hoh-system").List(context.TODO(), metav1.ListOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
-		Expect(len(configList.Items) > 0).To(BeTrue())
+		Expect(len(configMapList.Items) > 0).To(BeTrue())
 	})
 
 	It("check whether the cluster is running properly", func() {

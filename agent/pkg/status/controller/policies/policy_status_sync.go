@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	policiesV1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,7 +16,6 @@ import (
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/generic"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
@@ -26,7 +26,7 @@ const (
 
 // AddPoliciesStatusController adds policies status controller to the manager.
 func AddPoliciesStatusController(mgr ctrl.Manager, producer producer.Producer, env helper.ConfigManager,
-	incarnation uint64, hubOfHubsConfig *configv1.Config, syncIntervalsData *syncintervals.SyncIntervals,
+	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	bundleCollection, err := createBundleCollection(producer, env, incarnation, hubOfHubsConfig)
 	if err != nil {
@@ -53,7 +53,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, producer producer.Producer, e
 }
 
 func createBundleCollection(pro producer.Producer, env helper.ConfigManager, incarnation uint64,
-	hubOfHubsConfig *configv1.Config,
+	hubOfHubsConfig *corev1.ConfigMap,
 ) ([]*generic.BundleCollectionEntry, error) {
 	deltaSentCountSwitchFactor := env.StatusDeltaCountSwitchFactor
 	leafHubName := env.LeafHubName
@@ -66,8 +66,8 @@ func createBundleCollection(pro producer.Producer, env helper.ConfigManager, inc
 	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
 	minimalComplianceStatusBundle := grc.NewMinimalComplianceStatusBundle(leafHubName, incarnation)
 
-	fullStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Full }
-	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Spec.AggregationLevel == configv1.Minimal }
+	fullStatusPredicate := func() bool { return hubOfHubsConfig.Data["aggregationLevel"] == "full" }
+	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Data["aggregationLevel"] == "minimal" }
 
 	// apply a hybrid sync manager on the (full aggregation) compliance bundles
 	completeComplianceStatusBundleCollectionEntry, deltaComplianceStatusBundleCollectionEntry,

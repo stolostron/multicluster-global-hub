@@ -146,9 +146,9 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			seconds += 5
 			if seconds > 40 {
 				seconds = 0
-				return checkAppsubreport(appClient, 2, []string{ managedClusterName1, managedClusterName2 }, true)
+				return checkAppsubreport(appClient, 2, []string{managedClusterName1, managedClusterName2}, true)
 			} else {
-				return checkAppsubreport(appClient, 2, []string{ managedClusterName1, managedClusterName2 }, false)
+				return checkAppsubreport(appClient, 2, []string{managedClusterName1, managedClusterName2}, false)
 			}
 		}, 12*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-of-hubs-config
+  namespace: hoh-system
+  labels:
+    name: hub-of-hubs-config
+data:
+  aggregationLevel: "full"
+  enableLocalPolicies: "true"

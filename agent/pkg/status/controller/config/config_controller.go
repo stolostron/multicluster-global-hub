@@ -6,44 +6,43 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
 const (
-	configLogName = "hub-of-hubs-config"
 	RequeuePeriod = 5 * time.Second
 )
 
 type hubOfHubsConfigController struct {
 	client       client.Client
 	log          logr.Logger
-	configObject *configv1.Config
+	configObject *corev1.ConfigMap
 }
 
 // AddConfigController creates a new instance of config controller and adds it to the manager.
-func AddConfigController(mgr ctrl.Manager, configObject *configv1.Config) error {
+func AddConfigController(mgr ctrl.Manager, configObject *corev1.ConfigMap) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
 		client:       mgr.GetClient(),
-		log:          ctrl.Log.WithName(configLogName),
+		log:          ctrl.Log.WithName("hub-of-hubs-config"),
 		configObject: configObject,
 	}
 
 	hohNamespacePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == constants.HohSystemNamespace
+		return object.GetNamespace() == constants.HohSystemNamespace && object.GetName() == constants.HoHConfigName
 	})
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&configv1.Config{}).
+		For(&corev1.ConfigMap{}).
 		WithEventFilter(predicate.And(hohNamespacePredicate, ownerRefAnnotationPredicate)).
 		Complete(hubOfHubsConfigCtrl); err != nil {
 		return fmt.Errorf("failed to add hub of hubs config controller to the manager - %w", err)

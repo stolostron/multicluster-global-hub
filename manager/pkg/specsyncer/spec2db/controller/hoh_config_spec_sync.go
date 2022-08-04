@@ -6,23 +6,21 @@ package controller
 import (
 	"fmt"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
-	configv1 "github.com/stolostron/hub-of-hubs/pkg/apis/config/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-)
 
-const (
-	hohSystemNamespace = "hoh-system"
+	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
 func AddHubOfHubsConfigController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&configv1.Config{}).
+		For(&corev1.ConfigMap{}).
 		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
-			return object.GetNamespace() == hohSystemNamespace
+			return object.GetNamespace() == constants.HohSystemNamespace && object.GetName() == constants.HoHConfigName
 		})).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
@@ -30,7 +28,7 @@ func AddHubOfHubsConfigController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			log:            ctrl.Log.WithName("hoh-configs-spec-syncer"),
 			tableName:      "configs",
 			finalizerName:  hohCleanupFinalizer,
-			createInstance: func() client.Object { return &configv1.Config{} },
+			createInstance: func() client.Object { return &corev1.ConfigMap{} },
 			cleanStatus:    cleanConfigStatus,
 			areEqual:       areConfigsEqual,
 		}); err != nil {
@@ -41,24 +39,22 @@ func AddHubOfHubsConfigController(mgr ctrl.Manager, specDB db.SpecDB) error {
 }
 
 func cleanConfigStatus(instance client.Object) {
-	config, ok := instance.(*configv1.Config)
+	_, ok := instance.(*corev1.ConfigMap)
 
 	if !ok {
-		panic("wrong instance passed to cleanConfigStatus: not configv1.Config")
+		panic("wrong instance passed to cleanConfigStatus: not corev1.ConfigMap")
 	}
-
-	config.Status = configv1.ConfigStatus{}
 }
 
 func areConfigsEqual(instance1, instance2 client.Object) bool {
-	config1, ok1 := instance1.(*configv1.Config)
-	config2, ok2 := instance2.(*configv1.Config)
+	config1, ok1 := instance1.(*corev1.ConfigMap)
+	config2, ok2 := instance2.(*corev1.ConfigMap)
 
 	if !ok1 || !ok2 {
 		return false
 	}
 
-	specMatch := equality.Semantic.DeepEqual(config1.Spec, config2.Spec)
+	specMatch := equality.Semantic.DeepEqual(config1.Data, config2.Data)
 	annotationsMatch := equality.Semantic.DeepEqual(instance1.GetAnnotations(), instance2.GetAnnotations())
 	labelsMatch := equality.Semantic.DeepEqual(instance1.GetLabels(), instance2.GetLabels())
 
