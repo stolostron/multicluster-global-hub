@@ -25,6 +25,8 @@ spec:
             - --manager-namespace=$(POD_NAMESPACE)
             - --watch-namespace=$(WATCH_NAMESPACE)
             - --transport-type=kafka
+            - --kafka-bootstrap-server={{.KafkaBootstrapServer}}
+            - --kafka-ssl-ca={{.KafkaCA}}
             - --process-database-url=$(PROCESS_DATABASE_URL)
             - --transport-bridge-database-url=$(TRANSPORT_BRIDGE_DATABASE_URL)
             - --authorization-cabundle-path=/hub-of-hubs-rbac-ca/service-ca.crt
@@ -41,13 +43,13 @@ spec:
             - name: PROCESS_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: hub-of-hubs-database-secret
-                  key: url
+                  name: {{.DBSecret}}
+                  key: process_uri
             - name: TRANSPORT_BRIDGE_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: hub-of-hubs-database-transport-bridge-secret
-                  key: url
+                  name: {{.DBSecret}}
+                  key: transport_uri
           volumeMounts:
             - readOnly: true
               mountPath: /hub-of-hubs-rbac-ca

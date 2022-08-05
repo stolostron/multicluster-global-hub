@@ -16,10 +16,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-
 	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/scheme"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db/postgresql"
@@ -38,6 +34,9 @@ import (
 	statuskafka "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/kafka"
 	statussyncservice "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/syncservice"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 const (
@@ -84,6 +83,7 @@ type transportCommonConfig struct {
 
 type kafkaConfig struct {
 	bootstrapServer string
+	SslCa           string
 	producerConfig  *speckafka.KafkaProducerConfig
 	consumerConfig  *statuskafka.KafkaConsumerConfig
 }
@@ -112,7 +112,8 @@ func parseFlags() (*hohManagerConfig, error) {
 	pflag.StringVar(&managerConfig.transportCommonConfig.transportType, "transport-type", "kafka", "The transport type, 'kafka' or 'sync-service'.")
 	pflag.StringVar(&managerConfig.transportCommonConfig.msgCompressionType, "transport-message-compression-type", "gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
 	pflag.DurationVar(&managerConfig.transportCommonConfig.committerInterval, "transport-committer-interval", 40*time.Second, "The committer interval for transport layer.")
-	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bookstrap-server", "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
+	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bootstrap-server", "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
+	pflag.StringVar(&managerConfig.kafkaConfig.SslCa, "kafka-ssl-ca", "", "The CA for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerID, "kakfa-producer-id", "hub-of-hubs", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerTopic, "kakfa-producer-topic", "spec", "Topic for the kafka producer.")
 	pflag.IntVar(&managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
@@ -185,7 +186,7 @@ func requireInitialDependencyChecks(transportType string) bool {
 }
 
 // function to choose spec transport type based on env var.
-func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer string, kafkaProducerConfig *speckafka.KafkaProducerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig) (spectransport.Transport, error) {
+func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer, kafkaCA string, kafkaProducerConfig *speckafka.KafkaProducerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig) (spectransport.Transport, error) {
 	msgCompressor, err := compressor.NewCompressor(compressor.CompressionType(transportCommonConfig.msgCompressionType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create message-compressor: %w", err)
@@ -193,7 +194,7 @@ func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstr
 
 	switch transportCommonConfig.transportType {
 	case kafkaTransportTypeName:
-		kafkaProducer, err := speckafka.NewProducer(msgCompressor, kafkaBootstrapServer, kafkaProducerConfig, ctrl.Log.WithName("kafka-producer"))
+		kafkaProducer, err := speckafka.NewProducer(msgCompressor, kafkaBootstrapServer, kafkaCA, kafkaProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
@@ -213,12 +214,12 @@ func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstr
 }
 
 // function to choose status transport type based on env var.
-func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer string, kafkaConsumerConfig *statuskafka.KafkaConsumerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig, conflationMgr *conflator.ConflationManager,
+func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer, kafkaCA string, kafkaConsumerConfig *statuskafka.KafkaConsumerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig, conflationMgr *conflator.ConflationManager,
 	statistics *statistics.Statistics,
 ) (statustransport.Transport, error) {
 	switch transportCommonConfig.transportType {
 	case kafkaTransportTypeName:
-		kafkaConsumer, err := statuskafka.NewConsumer(transportCommonConfig.committerInterval, kafkaBootstrapServer, kafkaConsumerConfig, conflationMgr, statistics, ctrl.Log.WithName("kafka-consumer"))
+		kafkaConsumer, err := statuskafka.NewConsumer(transportCommonConfig.committerInterval, kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig, conflationMgr, statistics, ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
@@ -352,7 +353,7 @@ func doMain() int {
 		requireInitialDependencyChecks, stats) // manage all Conflation Units
 
 	// status transport layer initialization
-	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig, managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.consumerConfig, managerConfig.syncServiceConfig, conflationManager, stats)
+	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig, managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa, managerConfig.kafkaConfig.consumerConfig, managerConfig.syncServiceConfig, conflationManager, stats)
 	if err != nil {
 		log.Error(err, "initialization error", "failed to initialize", "status transport")
 		return 1
@@ -362,7 +363,7 @@ func doMain() int {
 	defer statusTransportObj.Stop()
 
 	// spec transport layer initialization
-	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig, managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.producerConfig, managerConfig.syncServiceConfig)
+	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig, managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa, managerConfig.kafkaConfig.producerConfig, managerConfig.syncServiceConfig)
 	if err != nil {
 		log.Error(err, "initialization error", "failed to initialize", "spec transport")
 		return 1
