@@ -4,18 +4,6 @@ metadata:
   name: hub-of-hubs-agent
 rules:
 - apiGroups:
-  - "hub-of-hubs.open-cluster-management.io"
-  resources:
-  - configs
-  verbs:
-  - get
-  - create
-  - delete
-  - list
-  - watch
-  - update
-  - patch
-- apiGroups:
   - "app.k8s.io"
   resources:
   - applications

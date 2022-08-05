@@ -131,16 +131,6 @@ spec:
           - watch
           - update
         - apiGroups:
-          - hub-of-hubs.open-cluster-management.io
-          resources:
-          - configs
-          - configs/finalizers
-          verbs:
-          - get
-          - list
-          - watch
-          - update
-        - apiGroups:
           - apps.open-cluster-management.io
           resources:
           - subscriptions
