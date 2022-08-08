@@ -47,6 +47,7 @@ const (
 	leaderElectionLockName             = "hub-of-hubs-lock"
 	initializationFailMsg              = "initialization error"
 	initializationFailKey              = "failed to initialize"
+	transportType                      = "transport-type"
 )
 
 var (
@@ -118,7 +119,7 @@ func parseFlags() (*hohManagerConfig, error) {
 		"The URL of database server for the process user.")
 	pflag.StringVar(&managerConfig.databaseConfig.transportBridgeDatabaseURL,
 		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
-	pflag.StringVar(&managerConfig.transportCommonConfig.transportType, "transport-type", "kafka",
+	pflag.StringVar(&managerConfig.transportCommonConfig.transportType, transportType, "kafka",
 		"The transport type, 'kafka' or 'sync-service'.")
 	pflag.StringVar(&managerConfig.transportCommonConfig.msgCompressionType, "transport-message-compression-type",
 		"gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
@@ -242,7 +243,7 @@ func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstr
 
 		return syncService, nil
 	default:
-		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errFlagParameterIllegalValue, "transport-type",
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errFlagParameterIllegalValue, transportType,
 			transportCommonConfig.transportType)
 	}
 }
@@ -271,7 +272,7 @@ func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBoots
 
 		return syncService, nil
 	default:
-		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errFlagParameterIllegalValue, "transport-type",
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errFlagParameterIllegalValue, transportType,
 			transportCommonConfig.transportType)
 	}
 }
