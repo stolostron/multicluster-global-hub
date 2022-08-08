@@ -91,6 +91,7 @@ rules:
   - cluster.open-cluster-management.io
   resources:
   - hypershiftdeployments
+  - managedclusters
   verbs:
   - get
   - list
@@ -98,11 +99,23 @@ rules:
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
-  - managedclusters
+  - managedclustersetbindings
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - managedclustersets/join
+  - managedclustersets/bind
+  verbs:
+  - create
+  - delete
 - apiGroups:
   - hubofhubs.open-cluster-management.io
   resources:

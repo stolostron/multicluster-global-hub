@@ -1,0 +1,20 @@
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: default
+  namespace: open-cluster-management
+  labels:
+    hub-of-hubs.open-cluster-management.io/used-by: hub-of-hubs
+spec:
+  numberOfClusters: 1
+  prioritizerPolicy:
+    configurations:
+    - scoreCoordinate:
+        builtIn: ResourceAllocatableMemory
+        type: BuiltIn
+      weight: 1
+    - scoreCoordinate:
+        builtIn: Steady
+        type: BuiltIn
+      weight: 3
+    mode: Exact
