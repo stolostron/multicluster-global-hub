@@ -57,26 +57,41 @@ func NewConfigManager() (*ConfigManager, error) {
 	}
 
 	pflag.StringVar(&configManager.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
-	pflag.StringVar(&configManager.Kafka.BootstrapServers, "kafka-bootstrap-server", "", "The bootstrap server for kafka.")
+	pflag.StringVar(&configManager.Kafka.BootstrapServers, "kafka-bootstrap-server", "",
+		"The bootstrap server for kafka.")
 	pflag.StringVar(&configManager.Kafka.SslCa, "kafka-ssl-ca", "", "The authentication to connect to the kafka.")
 
-	pflag.StringVar(&configManager.Kafka.ProducerId, "kafka-producer-id", "", "Producer Id for the kafka, default is the leaf hub name.")
+	pflag.StringVar(&configManager.Kafka.ProducerId, "kafka-producer-id", "",
+		"Producer Id for the kafka, default is the leaf hub name.")
 
 	pflag.StringVar(&configManager.Kafka.ComsumerTopic, "kafka-consumer-topic", "spec", "Topic for the kafka consumer.")
 	pflag.StringVar(&configManager.Kafka.ProducerTopic, "kafka-producer-topic", "status", "Topic for the kafka producer.")
-	pflag.StringVar(&configManager.PodNameSpace, "pod-namespace", "open-cluster-management", "The agent running namespace, also used as leader election namespace")
-	pflag.StringVar(&configManager.TransportType, "transport-type", "kafka", "The transport type, 'kafka' or 'sync-service'.")
-	pflag.StringVar(&configManager.SyncService.Protocol, "sync-service-protocol", "http", "The protocol for sync-service communication.")
-	pflag.StringVar(&configManager.SyncService.ConsumerHost, "cloud-sync-service-consumer-host", "sync-service-ess.sync-service.svc.cluster.local", "The host for Cloud Sync Service.")
-	pflag.StringVar(&configManager.SyncService.ProducerHost, "cloud-sync-service-producer-host", "sync-service-ess.sync-service.svc.cluster.local", "The host for Cloud Sync Service.")
-	pflag.IntVar(&configManager.SyncService.ConsumerPort, "cloud-sync-service-consumer-port", 8090, "The port for Cloud Sync Service.")
-	pflag.IntVar(&configManager.SyncService.ProducerPort, "cloud-sync-service-producer-port", 8090, "The port for Cloud Sync Service.")
-	pflag.IntVar(&configManager.SyncService.ConsumerPollingInterval, "cloud-sync-service-polling-interval", 5, "The polling interval in second for Cloud Sync Service.")
-	pflag.IntVar(&configManager.SpecWorkPoolSize, "consumer-worker-pool-size", defaultK8sClientsPoolSize, "The goroutine number to propagate the bundles on managed cluster.")
-	pflag.BoolVar(&configManager.SpecEnforceHohRbac, "enforce-hoh-rbac", false, "enable hoh RBAC or not, default false")
-	pflag.StringVar(&configManager.TransportCompressionType, "transport-message-compression-type", "gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
-	pflag.IntVar(&configManager.Kafka.ProducerMessageLimit, "kafka-message-size-limit", 100, "The limit for kafka message size in KB.")
-	pflag.IntVar(&configManager.StatusDeltaCountSwitchFactor, "status-delta-count-switch-factor", 100, "default with 100.")
+	pflag.StringVar(&configManager.PodNameSpace, "pod-namespace", "open-cluster-management",
+		"The agent running namespace, also used as leader election namespace")
+	pflag.StringVar(&configManager.TransportType, "transport-type", "kafka",
+		"The transport type, 'kafka' or 'sync-service'.")
+	pflag.StringVar(&configManager.SyncService.Protocol, "sync-service-protocol", "http",
+		"The protocol for sync-service communication.")
+	pflag.StringVar(&configManager.SyncService.ConsumerHost, "cloud-sync-service-consumer-host",
+		"sync-service-ess.sync-service.svc.cluster.local", "The host for Cloud Sync Service.")
+	pflag.StringVar(&configManager.SyncService.ProducerHost, "cloud-sync-service-producer-host",
+		"sync-service-ess.sync-service.svc.cluster.local", "The host for Cloud Sync Service.")
+	pflag.IntVar(&configManager.SyncService.ConsumerPort, "cloud-sync-service-consumer-port", 8090,
+		"The port for Cloud Sync Service.")
+	pflag.IntVar(&configManager.SyncService.ProducerPort, "cloud-sync-service-producer-port", 8090,
+		"The port for Cloud Sync Service.")
+	pflag.IntVar(&configManager.SyncService.ConsumerPollingInterval, "cloud-sync-service-polling-interval", 5,
+		"The polling interval in second for Cloud Sync Service.")
+	pflag.IntVar(&configManager.SpecWorkPoolSize, "consumer-worker-pool-size", defaultK8sClientsPoolSize,
+		"The goroutine number to propagate the bundles on managed cluster.")
+	pflag.BoolVar(&configManager.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
+		"enable hoh RBAC or not, default false")
+	pflag.StringVar(&configManager.TransportCompressionType, "transport-message-compression-type", "gzip",
+		"The message compression type for transport layer, 'gzip' or 'no-op'.")
+	pflag.IntVar(&configManager.Kafka.ProducerMessageLimit, "kafka-message-size-limit", 100,
+		"The limit for kafka message size in KB.")
+	pflag.IntVar(&configManager.StatusDeltaCountSwitchFactor, "status-delta-count-switch-factor", 100,
+		"default with 100.")
 	pflag.Parse()
 
 	if configManager.LeafHubName == "" {
@@ -90,7 +105,8 @@ func NewConfigManager() (*ConfigManager, error) {
 	}
 
 	if configManager.Kafka.ProducerMessageLimit > maxMessageSizeLimit {
-		return nil, fmt.Errorf("flag kafka-message-size-limit %d must not exceed %d", configManager.Kafka.ProducerMessageLimit, maxMessageSizeLimit)
+		return nil, fmt.Errorf("flag kafka-message-size-limit %d must not exceed %d",
+			configManager.Kafka.ProducerMessageLimit, maxMessageSizeLimit)
 	}
 	return configManager, nil
 }

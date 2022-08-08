@@ -16,7 +16,8 @@ import (
 // DB is the needed interface for the spec/status syncer and spec/status transport
 type DB interface {
 	// GetConn returns the database connction
-	// TODO(morvencao): should not return concrete DB connection type here, maybe should return a warpe type for DB connection
+	// TODO(morvencao): should not return concrete DB connection type here,
+	// maybe should return a warpe type for DB connection
 	GetConn() *pgxpool.Pool
 
 	SpecDB

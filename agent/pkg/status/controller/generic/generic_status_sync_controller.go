@@ -89,19 +89,16 @@ func (c *genericStatusSyncController) Reconcile(ctx context.Context, request ctr
 		// either way, no need to do anything in this state.
 		return ctrl.Result{}, nil
 	} else if err != nil {
-		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD},
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
 	if c.isObjectBeingDeleted(object) {
 		if err := c.deleteObjectAndFinalizer(ctx, object, reqLogger); err != nil {
-			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
 		}
 	} else { // otherwise, the object was not deleted and no error occurred
 		if err := c.updateObjectAndFinalizer(ctx, object, reqLogger); err != nil {
-			reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
 		}
 	}
@@ -215,7 +212,9 @@ func (c *genericStatusSyncController) syncBundles() {
 
 			payloadBytes, err := json.Marshal(entry.bundle)
 			if err != nil {
-				c.log.Error(fmt.Errorf("sync object from type %s with id %s - %w", constants.StatusBundle, entry.transportBundleKey, err), "failed to sync bundle")
+				c.log.Error(
+					fmt.Errorf("sync object from type %s with id %s - %w", constants.StatusBundle, entry.transportBundleKey, err),
+					"failed to sync bundle")
 			}
 
 			transportMessageKey := entry.transportBundleKey

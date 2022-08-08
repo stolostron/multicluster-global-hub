@@ -69,7 +69,8 @@ func FetchBearerToken(opt Options) (string, error) {
 	}
 	clients := NewTestClient(opt)
 	kubeclient := clients.KubeClient()
-	secretList, err := kubeclient.CoreV1().Secrets(opt.HubCluster.Namespace).List(context.TODO(), metav1.ListOptions{FieldSelector: "type=kubernetes.io/service-account-token"})
+	secretList, err := kubeclient.CoreV1().Secrets(opt.HubCluster.Namespace).List(context.TODO(),
+		metav1.ListOptions{FieldSelector: "type=kubernetes.io/service-account-token"})
 	if err != nil {
 		return "", err
 	}
@@ -93,10 +94,12 @@ func FetchBearerToken(opt Options) (string, error) {
 func DeleteTestingRBAC(opt Options) error {
 	clients := NewTestClient(opt)
 	kubeclient := clients.KubeClient()
-	if err := kubeclient.RbacV1().ClusterRoleBindings().Delete(context.TODO(), SERVICE_ACCOUNT_ROLE_BINDING_NAME, metav1.DeleteOptions{}); err != nil {
+	if err := kubeclient.RbacV1().ClusterRoleBindings().Delete(context.TODO(),
+		SERVICE_ACCOUNT_ROLE_BINDING_NAME, metav1.DeleteOptions{}); err != nil {
 		return err
 	}
-	if err := kubeclient.CoreV1().ServiceAccounts(opt.HubCluster.Namespace).Delete(context.TODO(), SERVICE_ACCOUNT_NAME, metav1.DeleteOptions{}); err != nil {
+	if err := kubeclient.CoreV1().ServiceAccounts(opt.HubCluster.Namespace).Delete(context.TODO(),
+		SERVICE_ACCOUNT_NAME, metav1.DeleteOptions{}); err != nil {
 		return err
 	}
 	return nil
@@ -120,11 +123,13 @@ func CreateClusterRoleBinding(opt Options, crb *rbacv1.ClusterRoleBinding) error
 func CreateServiceAccount(opt Options, sa *v1.ServiceAccount) error {
 	clients := NewTestClient(opt)
 	kubeclient := clients.KubeClient()
-	_, err := kubeclient.CoreV1().ServiceAccounts(opt.HubCluster.Namespace).Create(context.TODO(), sa, metav1.CreateOptions{})
+	_, err := kubeclient.CoreV1().ServiceAccounts(opt.HubCluster.Namespace).Create(context.TODO(),
+		sa, metav1.CreateOptions{})
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			klog.V(6).Infof("serviceaccount %s already exists, skip", sa.GetName())
-			_, err := kubeclient.CoreV1().ServiceAccounts(opt.HubCluster.Namespace).Update(context.TODO(), sa, metav1.UpdateOptions{})
+			_, err := kubeclient.CoreV1().ServiceAccounts(opt.HubCluster.Namespace).Update(context.TODO(),
+				sa, metav1.UpdateOptions{})
 			return err
 		}
 		klog.Errorf("Failed to create serviceaccount %s due to %v", sa.GetName(), err)

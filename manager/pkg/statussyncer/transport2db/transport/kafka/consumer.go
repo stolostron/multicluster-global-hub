@@ -33,8 +33,8 @@ type KafkaConsumerConfig struct {
 }
 
 // NewConsumer creates a new instance of Consumer.
-func NewConsumer(committerInterval time.Duration, bootstrapServer, SslCa string, consumerConfig *KafkaConsumerConfig, conflationManager *conflator.ConflationManager, statistics *statistics.Statistics,
-	log logr.Logger,
+func NewConsumer(committerInterval time.Duration, bootstrapServer, SslCa string, consumerConfig *KafkaConsumerConfig,
+	conflationManager *conflator.ConflationManager, statistics *statistics.Statistics, log logr.Logger,
 ) (*Consumer, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       bootstrapServer,
@@ -65,7 +65,8 @@ func NewConsumer(committerInterval time.Duration, bootstrapServer, SslCa string,
 	}
 
 	// create committer
-	committer, err := newCommitter(committerInterval, consumerConfig.ConsumerTopic, kafkaConsumer, conflationManager.GetBundlesMetadata, log)
+	committer, err := newCommitter(committerInterval, consumerConfig.ConsumerTopic, kafkaConsumer,
+		conflationManager.GetBundlesMetadata, log)
 	if err != nil {
 		close(msgChan)
 		kafkaConsumer.Close()

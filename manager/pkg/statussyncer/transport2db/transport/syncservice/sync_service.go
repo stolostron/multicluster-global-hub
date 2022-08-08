@@ -21,10 +21,14 @@ import (
 )
 
 type SyncServiceConfig struct {
-	Protocol        string
-	CSSHost         string
-	CSSPort         int // int to uint16 and keep align with https://pkg.go.dev/github.com/open-horizon/edge-sync-service-client/client#NewSyncServiceClient
-	PollingInterval int // keep align with https://pkg.go.dev/github.com/open-horizon/edge-sync-service-client/client#SyncServiceClient.StartPollingForUpdates
+	Protocol string
+	CSSHost  string
+	// int to uint16 and keep align with
+	// https://pkg.go.dev/github.com/open-horizon/edge-sync-service-client/client#NewSyncServiceClient
+	CSSPort int
+	// keep align with
+	// https://pkg.go.dev/github.com/open-horizon/edge-sync-service-client/client#SyncServiceClient.StartPollingForUpdates
+	PollingInterval int
 }
 
 const (
@@ -40,10 +44,12 @@ var (
 )
 
 // NewSyncService creates a new instance of SyncService.
-func NewSyncService(committerInterval time.Duration, syncServiceConfig *SyncServiceConfig, conflationManager *conflator.ConflationManager, statistics *statistics.Statistics,
+func NewSyncService(committerInterval time.Duration, syncServiceConfig *SyncServiceConfig,
+	conflationManager *conflator.ConflationManager, statistics *statistics.Statistics,
 	log logr.Logger,
 ) (*SyncService, error) {
-	syncServiceClient := client.NewSyncServiceClient(syncServiceConfig.Protocol, syncServiceConfig.CSSHost, uint16(syncServiceConfig.CSSPort))
+	syncServiceClient := client.NewSyncServiceClient(syncServiceConfig.Protocol,
+		syncServiceConfig.CSSHost, uint16(syncServiceConfig.CSSPort))
 
 	syncServiceClient.SetOrgID("myorg")
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")

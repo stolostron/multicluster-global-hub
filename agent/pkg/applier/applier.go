@@ -21,7 +21,8 @@ var manifestFS embed.FS
 
 var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 
-func ApplyManifestsForVersion(ctx context.Context, hubVersion string, dyn dynamic.Interface, mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger) error {
+func ApplyManifestsForVersion(ctx context.Context, hubVersion string, dyn dynamic.Interface,
+	mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger) error {
 	err := fs.WalkDir(manifestFS, "manifests/"+hubVersion, func(file string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -60,7 +61,8 @@ func ApplyManifestsForVersion(ctx context.Context, hubVersion string, dyn dynami
 	return err
 }
 
-func applyDynamicResource(ctx context.Context, dr dynamic.ResourceInterface, desired *unstructured.Unstructured, log logr.Logger) error {
+func applyDynamicResource(ctx context.Context, dr dynamic.ResourceInterface,
+	desired *unstructured.Unstructured, log logr.Logger) error {
 	existingObj, err := dr.Get(ctx, desired.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		log.Info("creating unstructured object", "name", desired.GetName(), "namespace", desired.GetNamespace())

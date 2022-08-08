@@ -45,6 +45,8 @@ const (
 	kafkaTransportTypeName             = "kafka"
 	syncServiceTransportTypeName       = "sync-service"
 	leaderElectionLockName             = "hub-of-hubs-lock"
+	initializationFailMsg              = "initialization error"
+	initializationFailKey              = "failed to initialize"
 )
 
 var (
@@ -102,35 +104,63 @@ func parseFlags() (*hohManagerConfig, error) {
 		nonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 	}
 
-	pflag.StringVar(&managerConfig.managerNamespace, "manager-namespace", "open-cluster-management", "The manager running namespace, also used as leader election namespace.")
-	pflag.StringVar(&managerConfig.watchNamespace, "watch-namespace", "", "The watching namespace of the controllers, multiple namespace must be splited by comma.")
-	pflag.DurationVar(&managerConfig.syncerConfig.specSyncInterval, "spec-sync-interval", 5*time.Second, "The synchronization interval of resources in spec.")
-	pflag.DurationVar(&managerConfig.syncerConfig.statusSyncInterval, "status-sync-interval", 5*time.Second, "The synchronization interval of resources in status.")
-	pflag.DurationVar(&managerConfig.syncerConfig.deletedLabelsTrimmingInterval, "deleted-labels-trimming-interval", 5*time.Second, "The trimming interval of deleted labels.")
-	pflag.StringVar(&managerConfig.databaseConfig.processDatabaseURL, "process-database-url", "", "The URL of database server for the process user.")
-	pflag.StringVar(&managerConfig.databaseConfig.transportBridgeDatabaseURL, "transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
-	pflag.StringVar(&managerConfig.transportCommonConfig.transportType, "transport-type", "kafka", "The transport type, 'kafka' or 'sync-service'.")
-	pflag.StringVar(&managerConfig.transportCommonConfig.msgCompressionType, "transport-message-compression-type", "gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
-	pflag.DurationVar(&managerConfig.transportCommonConfig.committerInterval, "transport-committer-interval", 40*time.Second, "The committer interval for transport layer.")
-	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bootstrap-server", "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
+	pflag.StringVar(&managerConfig.managerNamespace, "manager-namespace", "open-cluster-management",
+		"The manager running namespace, also used as leader election namespace.")
+	pflag.StringVar(&managerConfig.watchNamespace, "watch-namespace", "",
+		"The watching namespace of the controllers, multiple namespace must be splited by comma.")
+	pflag.DurationVar(&managerConfig.syncerConfig.specSyncInterval, "spec-sync-interval", 5*time.Second,
+		"The synchronization interval of resources in spec.")
+	pflag.DurationVar(&managerConfig.syncerConfig.statusSyncInterval, "status-sync-interval", 5*time.Second,
+		"The synchronization interval of resources in status.")
+	pflag.DurationVar(&managerConfig.syncerConfig.deletedLabelsTrimmingInterval, "deleted-labels-trimming-interval",
+		5*time.Second, "The trimming interval of deleted labels.")
+	pflag.StringVar(&managerConfig.databaseConfig.processDatabaseURL, "process-database-url", "",
+		"The URL of database server for the process user.")
+	pflag.StringVar(&managerConfig.databaseConfig.transportBridgeDatabaseURL,
+		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
+	pflag.StringVar(&managerConfig.transportCommonConfig.transportType, "transport-type", "kafka",
+		"The transport type, 'kafka' or 'sync-service'.")
+	pflag.StringVar(&managerConfig.transportCommonConfig.msgCompressionType, "transport-message-compression-type",
+		"gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
+	pflag.DurationVar(&managerConfig.transportCommonConfig.committerInterval, "transport-committer-interval",
+		40*time.Second, "The committer interval for transport layer.")
+	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bootstrap-server",
+		"kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
 	pflag.StringVar(&managerConfig.kafkaConfig.SslCa, "kafka-ssl-ca", "", "The CA for kafka bootstrap server.")
-	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerID, "kakfa-producer-id", "hub-of-hubs", "ID for the kafka producer.")
-	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerTopic, "kakfa-producer-topic", "spec", "Topic for the kafka producer.")
-	pflag.IntVar(&managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
-	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerID, "kakfa-consumer-id", "hub-of-hubs", "ID for the kafka consumer.")
-	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerTopic, "kakfa-consumer-topic", "status", "Topic for the kafka consumer.")
-	pflag.StringVar(&managerConfig.syncServiceConfig.Protocol, "sync-service-protocol", "http", "The protocol for sync-service communication.")
-	pflag.StringVar(&managerConfig.syncServiceConfig.CSSHost, "cloud-sync-service-host", "sync-service-css.sync-service.svc.cluster.local", "The host for Cloud Sync Service.")
-	pflag.IntVar(&managerConfig.syncServiceConfig.CSSPort, "cloud-sync-service-port", 9689, "The port for Cloud Sync Service.")
-	pflag.IntVar(&managerConfig.syncServiceConfig.PollingInterval, "cloud-sync-service-polling-interval", 5, "The polling interval in second for Cloud Sync Service.")
-	pflag.DurationVar(&managerConfig.statisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second, "The log interval for statistics.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url", "https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path", "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationURL, "authorization-url", "https://hub-of-hubs-rbac.open-cluster-management.svc:8181", "The authorization URL for nonK8s API server.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationCABundlePath, "authorization-cabundle-path", "/hub-of-hubs-rbac-ca/service-ca.crt", "The CA bundle path for authorization server.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerCertificatePath, "server-certificate-path", "/certs/tls.crt", "The certificate path for nonK8s API server.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerKeyPath, "server-key-path", "/certs/tls.key", "The private key path for nonK8s API server.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerBasePath, "server-base-path", "/multicloud/hub-of-hubs-nonk8s-api", "The base path for nonK8s API server.")
+	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerID, "kakfa-producer-id",
+		"hub-of-hubs", "ID for the kafka producer.")
+	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerTopic, "kakfa-producer-topic",
+		"spec", "Topic for the kafka producer.")
+	pflag.IntVar(&managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 940,
+		"The limit for kafka message size in KB.")
+	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerID, "kakfa-consumer-id", "hub-of-hubs",
+		"ID for the kafka consumer.")
+	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerTopic, "kakfa-consumer-topic", "status",
+		"Topic for the kafka consumer.")
+	pflag.StringVar(&managerConfig.syncServiceConfig.Protocol, "sync-service-protocol", "http",
+		"The protocol for sync-service communication.")
+	pflag.StringVar(&managerConfig.syncServiceConfig.CSSHost, "cloud-sync-service-host",
+		"sync-service-css.sync-service.svc.cluster.local", "The host for Cloud Sync Service.")
+	pflag.IntVar(&managerConfig.syncServiceConfig.CSSPort, "cloud-sync-service-port", 9689,
+		"The port for Cloud Sync Service.")
+	pflag.IntVar(&managerConfig.syncServiceConfig.PollingInterval, "cloud-sync-service-polling-interval", 5,
+		"The polling interval in second for Cloud Sync Service.")
+	pflag.DurationVar(&managerConfig.statisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second,
+		"The log interval for statistics.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
+		"https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path",
+		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationURL, "authorization-url",
+		"https://hub-of-hubs-rbac.open-cluster-management.svc:8181", "The authorization URL for nonK8s API server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationCABundlePath, "authorization-cabundle-path",
+		"/hub-of-hubs-rbac-ca/service-ca.crt", "The CA bundle path for authorization server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerCertificatePath, "server-certificate-path",
+		"/certs/tls.crt", "The certificate path for nonK8s API server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerKeyPath, "server-key-path",
+		"/certs/tls.key", "The private key path for nonK8s API server.")
+	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerBasePath, "server-base-path",
+		"/multicloud/hub-of-hubs-nonk8s-api", "The base path for nonK8s API server.")
 
 	// add flags for logger
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
@@ -186,7 +216,9 @@ func requireInitialDependencyChecks(transportType string) bool {
 }
 
 // function to choose spec transport type based on env var.
-func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer, kafkaCA string, kafkaProducerConfig *speckafka.KafkaProducerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig) (spectransport.Transport, error) {
+func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer, kafkaCA string,
+	kafkaProducerConfig *speckafka.KafkaProducerConfig,
+	syncServiceConfig *statussyncservice.SyncServiceConfig) (spectransport.Transport, error) {
 	msgCompressor, err := compressor.NewCompressor(compressor.CompressionType(transportCommonConfig.msgCompressionType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create message-compressor: %w", err)
@@ -194,14 +226,16 @@ func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstr
 
 	switch transportCommonConfig.transportType {
 	case kafkaTransportTypeName:
-		kafkaProducer, err := speckafka.NewProducer(msgCompressor, kafkaBootstrapServer, kafkaCA, kafkaProducerConfig, ctrl.Log.WithName("kafka-producer"))
+		kafkaProducer, err := speckafka.NewProducer(msgCompressor, kafkaBootstrapServer, kafkaCA,
+			kafkaProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
 
 		return kafkaProducer, nil
 	case syncServiceTransportTypeName:
-		syncService, err := specsyncservice.NewSyncService(msgCompressor, syncServiceConfig, ctrl.Log.WithName("sync-service-for-spec"))
+		syncService, err := specsyncservice.NewSyncService(msgCompressor, syncServiceConfig,
+			ctrl.Log.WithName("sync-service-for-spec"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sync-service for spec: %w", err)
 		}
@@ -214,19 +248,23 @@ func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstr
 }
 
 // function to choose status transport type based on env var.
-func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer, kafkaCA string, kafkaConsumerConfig *statuskafka.KafkaConsumerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig, conflationMgr *conflator.ConflationManager,
-	statistics *statistics.Statistics,
+func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer, kafkaCA string,
+	kafkaConsumerConfig *statuskafka.KafkaConsumerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig,
+	conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
 ) (statustransport.Transport, error) {
 	switch transportCommonConfig.transportType {
 	case kafkaTransportTypeName:
-		kafkaConsumer, err := statuskafka.NewConsumer(transportCommonConfig.committerInterval, kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig, conflationMgr, statistics, ctrl.Log.WithName("kafka-consumer"))
+		kafkaConsumer, err := statuskafka.NewConsumer(transportCommonConfig.committerInterval,
+			kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig, conflationMgr,
+			statistics, ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
 
 		return kafkaConsumer, nil
 	case syncServiceTransportTypeName:
-		syncService, err := statussyncservice.NewSyncService(transportCommonConfig.committerInterval, syncServiceConfig, conflationMgr, statistics, ctrl.Log.WithName("sync-service-for-status"))
+		syncService, err := statussyncservice.NewSyncService(transportCommonConfig.committerInterval,
+			syncServiceConfig, conflationMgr, statistics, ctrl.Log.WithName("sync-service-for-status"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sync-service for status: %w", err)
 		}
@@ -238,9 +276,11 @@ func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBoots
 	}
 }
 
-func createManager(managerConfig *hohManagerConfig, processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL, workersPool *workerpool.DBWorkerPool,
-	specTransportObj spectransport.Transport, statusTransportObj statustransport.Transport, conflationManager *conflator.ConflationManager,
-	conflationReadyQueue *conflator.ConflationReadyQueue, statistics *statistics.Statistics,
+func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
+	transportBridgePostgreSQL *postgresql.PostgreSQL, workersPool *workerpool.DBWorkerPool,
+	specTransportObj spectransport.Transport, statusTransportObj statustransport.Transport,
+	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
+	statistics *statistics.Statistics,
 ) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		Namespace:               managerConfig.watchNamespace,
@@ -276,11 +316,13 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL, transport
 		return nil, fmt.Errorf("failed to add spec-to-db controllers: %w", err)
 	}
 
-	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, specTransportObj, managerConfig.syncerConfig.specSyncInterval); err != nil {
+	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, specTransportObj,
+		managerConfig.syncerConfig.specSyncInterval); err != nil {
 		return nil, fmt.Errorf("failed to add db-to-transport syncers: %w", err)
 	}
 
-	if err := specsyncer.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL, managerConfig.syncerConfig.deletedLabelsTrimmingInterval); err != nil {
+	if err := specsyncer.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL,
+		managerConfig.syncerConfig.deletedLabelsTrimmingInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 
@@ -292,7 +334,8 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL, transport
 		return nil, fmt.Errorf("failed to add status controller: %w", err)
 	}
 
-	if err := statussyncer.AddTransport2DBSyncers(mgr, workersPool, conflationManager, conflationReadyQueue, statusTransportObj, statistics); err != nil {
+	if err := statussyncer.AddTransport2DBSyncers(mgr, workersPool, conflationManager, conflationReadyQueue,
+		statusTransportObj, statistics); err != nil {
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
@@ -313,14 +356,14 @@ func doMain() int {
 	// create statistics
 	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"), managerConfig.statisticsConfig)
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "statistics")
+		log.Error(err, initializationFailMsg, initializationFailKey, "statistics")
 		return 1
 	}
 
 	// db layer initialization for process user
 	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.databaseConfig.processDatabaseURL)
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "process PostgreSQL")
+		log.Error(err, initializationFailMsg, initializationFailKey, "process PostgreSQL")
 		return 1
 	}
 	defer processPostgreSQL.Stop()
@@ -328,20 +371,21 @@ func doMain() int {
 	// db layer initialization for transport-bridge user
 	transportBridgePostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.databaseConfig.transportBridgeDatabaseURL)
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "transport-bridge PostgreSQL")
+		log.Error(err, initializationFailMsg, initializationFailKey, "transport-bridge PostgreSQL")
 		return 1
 	}
 	defer transportBridgePostgreSQL.Stop()
 
 	// db layer initialization - worker pool + connection pool
-	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), managerConfig.databaseConfig.transportBridgeDatabaseURL, stats)
+	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"),
+		managerConfig.databaseConfig.transportBridgeDatabaseURL, stats)
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "DBWorkerPool")
+		log.Error(err, initializationFailMsg, initializationFailKey, "DBWorkerPool")
 		return 1
 	}
 
 	if err = dbWorkerPool.Start(); err != nil {
-		log.Error(err, "initialization error", "failed to start", "DBWorkerPool")
+		log.Error(err, initializationFailMsg, "failed to start", "DBWorkerPool")
 		return 1
 	}
 	defer dbWorkerPool.Stop()
@@ -353,9 +397,12 @@ func doMain() int {
 		requireInitialDependencyChecks, stats) // manage all Conflation Units
 
 	// status transport layer initialization
-	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig, managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa, managerConfig.kafkaConfig.consumerConfig, managerConfig.syncServiceConfig, conflationManager, stats)
+	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig,
+		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
+		managerConfig.kafkaConfig.consumerConfig,
+		managerConfig.syncServiceConfig, conflationManager, stats)
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "status transport")
+		log.Error(err, initializationFailMsg, initializationFailKey, "status transport")
 		return 1
 	}
 
@@ -363,16 +410,19 @@ func doMain() int {
 	defer statusTransportObj.Stop()
 
 	// spec transport layer initialization
-	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig, managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa, managerConfig.kafkaConfig.producerConfig, managerConfig.syncServiceConfig)
+	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig,
+		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
+		managerConfig.kafkaConfig.producerConfig, managerConfig.syncServiceConfig)
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "spec transport")
+		log.Error(err, initializationFailMsg, initializationFailKey, "spec transport")
 		return 1
 	}
 
 	specTransportObj.Start()
 	defer specTransportObj.Stop()
 
-	mgr, err := createManager(managerConfig, processPostgreSQL, transportBridgePostgreSQL, dbWorkerPool, specTransportObj, statusTransportObj, conflationManager, conflationReadyQueue, stats)
+	mgr, err := createManager(managerConfig, processPostgreSQL, transportBridgePostgreSQL,
+		dbWorkerPool, specTransportObj, statusTransportObj, conflationManager, conflationReadyQueue, stats)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1

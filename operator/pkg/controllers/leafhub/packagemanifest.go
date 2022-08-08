@@ -40,7 +40,8 @@ var packageManifestConfigInstance = &packageManifestConfig{}
 
 func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Logger) (*packageManifestConfig, error) {
 	packageManifestList := &operatorsv1.PackageManifestList{}
-	if err := c.List(ctx, packageManifestList, client.MatchingLabels{"catalog": constants.ACMSubscriptionPublicSource}); err != nil {
+	if err := c.List(ctx, packageManifestList,
+		client.MatchingLabels{"catalog": constants.ACMSubscriptionPublicSource}); err != nil {
 		return nil, err
 	}
 

@@ -30,11 +30,13 @@ func NewHoHRenderer(manifestFS embed.FS) Renderer {
 	}
 }
 
-func (r *HoHRenderer) Render(component string, getConfigValuesFunc GetConfigValuesFunc) ([]*unstructured.Unstructured, error) {
+func (r *HoHRenderer) Render(component string, getConfigValuesFunc GetConfigValuesFunc) (
+	[]*unstructured.Unstructured, error) {
 	return r.RenderWithFilter(component, "", getConfigValuesFunc)
 }
 
-func (r *HoHRenderer) RenderWithFilter(component, filter string, getConfigValuesFunc GetConfigValuesFunc) ([]*unstructured.Unstructured, error) {
+func (r *HoHRenderer) RenderWithFilter(component, filter string, getConfigValuesFunc GetConfigValuesFunc) (
+	[]*unstructured.Unstructured, error) {
 	var unstructuredObjs []*unstructured.Unstructured
 
 	configValues, err := getConfigValuesFunc(component)
@@ -91,11 +93,13 @@ func (r *HoHRenderer) RenderWithFilter(component, filter string, getConfigValues
 	return unstructuredObjs, nil
 }
 
-func (r *HoHRenderer) RenderForCluster(cluster, component string, getClusterConfigValuesFunc GetClusterConfigValuesFunc) ([]*unstructured.Unstructured, error) {
+func (r *HoHRenderer) RenderForCluster(cluster, component string,
+	getClusterConfigValuesFunc GetClusterConfigValuesFunc) ([]*unstructured.Unstructured, error) {
 	return r.RenderForClusterWithFilter(cluster, component, "", getClusterConfigValuesFunc)
 }
 
-func (r *HoHRenderer) RenderForClusterWithFilter(cluster, component, filter string, getClusterConfigValuesFunc GetClusterConfigValuesFunc) ([]*unstructured.Unstructured, error) {
+func (r *HoHRenderer) RenderForClusterWithFilter(cluster, component, filter string,
+	getClusterConfigValuesFunc GetClusterConfigValuesFunc) ([]*unstructured.Unstructured, error) {
 	var unstructuredObjs []*unstructured.Unstructured
 
 	configValues, err := getClusterConfigValuesFunc(cluster, component)

@@ -141,8 +141,8 @@ func (syncer *managedClusterLabelsBundleSyncer) handleBundle() {
 	syncer.bundleProcessingWaitingGroup.Wait()
 }
 
-func (syncer *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(labelsSpec *specbundle.ManagedClusterLabelsSpec,
-	lastProcessedTimestampPtr *time.Time,
+func (syncer *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
+	labelsSpec *specbundle.ManagedClusterLabelsSpec, lastProcessedTimestampPtr *time.Time,
 ) {
 	syncer.workerPool.Submit(workers.NewJob(labelsSpec, func(ctx context.Context,
 		k8sClient client.Client, obj interface{},
@@ -195,8 +195,8 @@ func (syncer *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(labels
 	}))
 }
 
-func (syncer *managedClusterLabelsBundleSyncer) managedClusterMarkUpdated(labelsSpec *specbundle.ManagedClusterLabelsSpec,
-	lastProcessedTimestampPtr *time.Time,
+func (syncer *managedClusterLabelsBundleSyncer) managedClusterMarkUpdated(
+	labelsSpec *specbundle.ManagedClusterLabelsSpec, lastProcessedTimestampPtr *time.Time,
 ) {
 	*lastProcessedTimestampPtr = labelsSpec.UpdateTimestamp
 }

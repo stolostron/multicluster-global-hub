@@ -112,50 +112,59 @@ func printVersion(log logr.Logger) {
 }
 
 // function to choose transport type based on env var.
-func getConsumer(environmentManager *helper.ConfigManager, genericBundleChan chan *bundle.GenericBundle) (consumer.Consumer, error) {
+func getConsumer(environmentManager *helper.ConfigManager,
+	genericBundleChan chan *bundle.GenericBundle) (consumer.Consumer, error) {
 	switch environmentManager.TransportType {
 	case TRANSPORT_TYPE_KAFKA:
-		kafkaConsumer, err := consumer.NewKafkaConsumer(ctrl.Log.WithName("kafka-consumer"), environmentManager, genericBundleChan)
+		kafkaConsumer, err := consumer.NewKafkaConsumer(ctrl.Log.WithName("kafka-consumer"),
+			environmentManager, genericBundleChan)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
 		return kafkaConsumer, nil
 	case TRANSPORT_TYPE_SYNC_SVC:
-		syncService, err := consumer.NewSyncService(ctrl.Log.WithName("sync-service"), environmentManager, genericBundleChan)
+		syncService, err := consumer.NewSyncService(ctrl.Log.WithName("sync-service"),
+			environmentManager, genericBundleChan)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sync-service: %w", err)
 		}
 		return syncService, nil
 	default:
-		return nil, fmt.Errorf("environment variable %q - %q is not a valid option", "TRANSPORT_TYPE", environmentManager.TransportType)
+		return nil, fmt.Errorf("environment variable %q - %q is not a valid option",
+			"TRANSPORT_TYPE", environmentManager.TransportType)
 	}
 }
 
 func getProducer(environmentManager *helper.ConfigManager) (producer.Producer, error) {
-	messageCompressor, err := compressor.NewCompressor(compressor.CompressionType(environmentManager.TransportCompressionType))
+	messageCompressor, err := compressor.NewCompressor(
+		compressor.CompressionType(environmentManager.TransportCompressionType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transport producer message-compressor: %w", err)
 	}
 
 	switch environmentManager.TransportType {
 	case TRANSPORT_TYPE_KAFKA:
-		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor, ctrl.Log.WithName("kafka-producer"), environmentManager)
+		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
+			ctrl.Log.WithName("kafka-producer"), environmentManager)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
 		return kafkaProducer, nil
 	case TRANSPORT_TYPE_SYNC_SVC:
-		syncServiceProducer, err := producer.NewSyncServiceProducer(messageCompressor, ctrl.Log.WithName("syncservice-producer"), environmentManager)
+		syncServiceProducer, err := producer.NewSyncServiceProducer(messageCompressor,
+			ctrl.Log.WithName("syncservice-producer"), environmentManager)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sync-service producer: %w", err)
 		}
 		return syncServiceProducer, nil
 	default:
-		return nil, fmt.Errorf("environment variable %q - %q is not a valid option", "TRANSPORT_TYPE", environmentManager.TransportType)
+		return nil, fmt.Errorf("environment variable %q - %q is not a valid option",
+			"TRANSPORT_TYPE", environmentManager.TransportType)
 	}
 }
 
-func createManager(consumer consumer.Consumer, producer producer.Producer, environmentManager *helper.ConfigManager) (ctrl.Manager, error) {
+func createManager(consumer consumer.Consumer, producer producer.Producer,
+	environmentManager *helper.ConfigManager) (ctrl.Manager, error) {
 	leaseDuration := 137 * time.Second
 	renewDeadline := 107 * time.Second
 	retryPeriod := 26 * time.Second
@@ -204,11 +213,11 @@ func createManager(consumer consumer.Consumer, producer producer.Producer, envir
 func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
 	// add cluster scheme
 	if err := clustersV1.Install(runtimeScheme); err != nil {
-		return fmt.Errorf("failed to add scheme: %w", err)
+		return fmt.Errorf("failed to add clusterv1 scheme: %w", err)
 	}
 
 	if err := clustersV1beta1.Install(runtimeScheme); err != nil {
-		return fmt.Errorf("failed to add scheme: %w", err)
+		return fmt.Errorf("failed to add clusterv1beta1 scheme: %w", err)
 	}
 
 	schemeBuilders := []*scheme.Builder{
@@ -263,7 +272,8 @@ func getIncarnation(mgr ctrl.Manager) (uint64, error) {
 	// incarnation configMap exists, get incarnation, increment it and update object
 	incarnationString, exists := configMap.Data[INCARNATION_CONFIG_MAP_KEY]
 	if !exists {
-		return 0, fmt.Errorf("configmap %s does not contain (%s)", INCARNATION_CONFIG_MAP_KEY, INCARNATION_CONFIG_MAP_KEY)
+		return 0, fmt.Errorf("configmap %s does not contain (%s)",
+			INCARNATION_CONFIG_MAP_KEY, INCARNATION_CONFIG_MAP_KEY)
 	}
 
 	lastIncarnation, err := strconv.ParseUint(incarnationString, BASE10, UINT64_SIZE)

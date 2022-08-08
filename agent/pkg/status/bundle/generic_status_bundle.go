@@ -11,7 +11,9 @@ import (
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.
 func NewGenericStatusBundle(leafHubName string, incarnation uint64, manipulateObjFunc func(obj Object)) Bundle {
 	if manipulateObjFunc == nil {
-		manipulateObjFunc = func(object Object) {}
+		manipulateObjFunc = func(object Object) {
+			// do nothing
+		}
 	}
 
 	return &GenericStatusBundle{

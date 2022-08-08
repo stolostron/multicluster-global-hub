@@ -15,11 +15,11 @@ import (
 )
 
 // AddTransport2DBSyncers performs the initial setup required before starting the runtime manager.
-// adds controllers and/or runnables to the manager, registers handler functions within the dispatcher and create bundle
-// functions within the transport.
-func AddTransport2DBSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, conflationManager *conflator.ConflationManager,
-	conflationReadyQueue *conflator.ConflationReadyQueue, transport transport.Transport,
-	statistics manager.Runnable,
+// adds controllers and/or runnables to the manager, registers handler functions within the dispatcher
+//  and create bundle functions within the transport.
+func AddTransport2DBSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
+	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
+	transport transport.Transport, statistics manager.Runnable,
 ) error {
 	// register config controller within the runtime manager
 	config, err := addConfigController(mgr)
@@ -56,7 +56,8 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerP
 }
 
 func addConfigController(mgr ctrl.Manager) (*corev1.ConfigMap, error) {
-	config := &corev1.ConfigMap{Data: map[string]string{"aggregationLevel": "full"}} // default value is full until the config is read from the CR
+	config := &corev1.ConfigMap{Data: map[string]string{"aggregationLevel": "full"}}
+	// default value is full until the config is read from the CR
 
 	if err := configctl.AddConfigController(mgr,
 		ctrl.Log.WithName("hub-of-hubs-config"),

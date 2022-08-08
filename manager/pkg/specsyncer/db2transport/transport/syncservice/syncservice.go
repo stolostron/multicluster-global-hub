@@ -18,8 +18,10 @@ const (
 )
 
 // NewSyncService returns a new instance of SyncService object.
-func NewSyncService(compressor compressor.Compressor, syncServiceConfig *statussyncservice.SyncServiceConfig, log logr.Logger) (*SyncService, error) {
-	syncServiceClient := client.NewSyncServiceClient(syncServiceConfig.Protocol, syncServiceConfig.CSSHost, uint16(syncServiceConfig.CSSPort))
+func NewSyncService(compressor compressor.Compressor, syncServiceConfig *statussyncservice.SyncServiceConfig,
+	log logr.Logger) (*SyncService, error) {
+	syncServiceClient := client.NewSyncServiceClient(syncServiceConfig.Protocol,
+		syncServiceConfig.CSSHost, uint16(syncServiceConfig.CSSPort))
 
 	syncServiceClient.SetOrgID("myorg")
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")

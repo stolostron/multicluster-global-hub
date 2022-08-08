@@ -105,7 +105,8 @@ func (c *client) GetPgPool() *pgxpool.Pool {
 	klog.V(5).Info("pg service: ", pgService, " pg port: ", pgPort)
 
 	dynamicClientSet := c.KubeDynamicClient()
-	pgbounder, err := dynamicClientSet.Resource(NewRouteGVR()).Namespace("hoh-postgres").Get(context.TODO(), "hoh-pgbouncer", metav1.GetOptions{})
+	pgbounder, err := dynamicClientSet.Resource(NewRouteGVR()).Namespace("hoh-postgres").
+		Get(context.TODO(), "hoh-pgbouncer", metav1.GetOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -157,7 +158,8 @@ func LoadConfig(url, kubeconfig, context string) (*rest.Config, error) {
 	}
 	// If no in-cluster config, try the default location in the user's home directory.
 	if usr, err := user.Current(); err == nil {
-		klog.V(5).Infof("clientcmd.BuildConfigFromFlags for url %s using %s\n", url, filepath.Join(usr.HomeDir, ".kube", "config"))
+		klog.V(5).Infof("clientcmd.BuildConfigFromFlags for url %s using %s\n", url,
+			filepath.Join(usr.HomeDir, ".kube", "config"))
 		if c, err := clientcmd.BuildConfigFromFlags(url, filepath.Join(usr.HomeDir, ".kube", "config")); err == nil {
 			return c, nil
 		}

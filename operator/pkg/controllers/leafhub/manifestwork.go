@@ -120,7 +120,8 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, hohC
 			Namespace: managedClusterName,
 		}, existingHubSubWork); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("creating hub subscription manifestwork", "namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
+			log.Info("creating hub subscription manifestwork",
+				"namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
 			return desiredHubSubWork, c.Create(ctx, desiredHubSubWork)
 		} else {
 			// Error reading the object
@@ -146,12 +147,14 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, hohC
 		return nil, err
 	}
 	if modified {
-		log.Info("updating hub subscription manifestwork", "namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
+		log.Info("updating hub subscription manifestwork",
+			"namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
 		desiredHubSubWork.ObjectMeta.ResourceVersion = existingHubSubWork.ObjectMeta.ResourceVersion
 		return desiredHubSubWork, c.Update(ctx, desiredHubSubWork)
 	}
 
-	log.Info("hub subscription manifestwork doesn't change", "namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
+	log.Info("hub subscription manifestwork doesn't change",
+		"namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
 	return existingHubSubWork, nil
 }
 
@@ -283,7 +286,8 @@ func getPackageManifestConfigFromHubSubWork(hubSubWork *workv1.ManifestWork) (*p
 }
 
 // applyHubMCHWork creates or updates the mch manifestwork for leafhub cluster
-func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, hohConfigName, managedClusterName string) (*workv1.ManifestWork, error) {
+func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, hohConfigName,
+	managedClusterName string) (*workv1.ManifestWork, error) {
 	desiredHubMCHWork, err := buildHubMCHWork(ctx, c, log, hohConfigName, managedClusterName)
 	if err != nil {
 		return nil, err
@@ -450,15 +454,17 @@ func getDefaultHypershiftHubConfigValues() HypershiftHubConfigValues {
 }
 
 // applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
-func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config, managedClusterName,
-	channelClusterIP string, pm *packageManifestConfig, hcConfig *config.HostedClusterConfig) (*workv1.ManifestWork, error) {
+func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logger,
+	hohConfig *hubofhubsv1alpha1.Config, managedClusterName, channelClusterIP string,
+	pm *packageManifestConfig, hcConfig *config.HostedClusterConfig) (*workv1.ManifestWork, error) {
 	if pm == nil || pm.ACMCurrentCSV == "" {
 		return nil, fmt.Errorf("empty packagemanifest")
 	}
 
 	hypershiftHubConfigValues := getDefaultHypershiftHubConfigValues()
 	acmImages, mceImages := pm.ACMImages, pm.MCEImages
-	acmDefaultImageRegistry, mceDefaultImageRegistry := constants.DefaultACMUpstreamImageRegistry, constants.DefaultMCEUpstreamImageRegistry
+	acmDefaultImageRegistry := constants.DefaultACMUpstreamImageRegistry
+	mceDefaultImageRegistry := constants.DefaultMCEUpstreamImageRegistry
 
 	acmSnapshot, ok := hohConfig.GetAnnotations()[constants.HoHHubACMSnapShotKey]
 	if !ok || acmSnapshot == "" {
@@ -471,7 +477,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 		mceDefaultImageRegistry = constants.DefaultMCEDownStreamImageRegistry
 	}
 
-	tpl, err := parseHubHypershiftTemplates(hypershiftHubManifestFS, acmSnapshot, mceSnapshot, acmDefaultImageRegistry, mceDefaultImageRegistry, acmImages, mceImages)
+	tpl, err := parseHubHypershiftTemplates(hypershiftHubManifestFS, acmSnapshot, mceSnapshot,
+		acmDefaultImageRegistry, mceDefaultImageRegistry, acmImages, mceImages)
 	if err != nil {
 		return nil, err
 	}
@@ -512,7 +519,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 		return nil, err
 	}
 	if imagePullSecret != nil {
-		hostedHubManifests = append(hostedHubManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Object: imagePullSecret}})
+		hostedHubManifests = append(hostedHubManifests, workv1.Manifest{
+			RawExtension: runtime.RawExtension{Object: imagePullSecret}})
 	}
 
 	hostedHubWork := &workv1.ManifestWork{
@@ -550,7 +558,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	}
 
 	if imagePullSecret != nil {
-		hostingHubManifests = append(hostingHubManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Object: imagePullSecret}})
+		hostingHubManifests = append(hostingHubManifests, workv1.Manifest{
+			RawExtension: runtime.RawExtension{Object: imagePullSecret}})
 	}
 
 	hostingHubWork := &workv1.ManifestWork{
@@ -566,8 +575,23 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			// DeleteOption: &workv1.DeleteOption{PropagationPolicy: workv1.DeletePropagationPolicyTypeOrphan},
 			ManifestConfigs: []workv1.ManifestConfigOption{
 				{
-					ResourceIdentifier: workv1.ResourceIdentifier{Group: "", Resource: "services", Name: "channels-apps-open-cluster-management-webhook-svc", Namespace: hypershiftHostedClusterName},
-					FeedbackRules:      []workv1.FeedbackRule{{Type: workv1.JSONPathsType, JsonPaths: []workv1.JsonPath{{Name: "clusterIP", Path: ".spec.clusterIP"}}}},
+					ResourceIdentifier: workv1.ResourceIdentifier{
+						Group:     "",
+						Resource:  "services",
+						Name:      "channels-apps-open-cluster-management-webhook-svc",
+						Namespace: hypershiftHostedClusterName,
+					},
+					FeedbackRules: []workv1.FeedbackRule{
+						{
+							Type: workv1.JSONPathsType,
+							JsonPaths: []workv1.JsonPath{
+								{
+									Name: "clusterIP",
+									Path: ".spec.clusterIP",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -717,7 +741,8 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 			}
 			if string(rawJSON) != "null" {
 				// log.Info("raw JSON object for agent", "json", rawJSON)
-				agentHostedManifests = append(agentHostedManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
+				agentHostedManifests = append(agentHostedManifests,
+					workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
 			}
 		}
 	}
@@ -765,7 +790,8 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 			}
 			if string(rawJSON) != "null" {
 				// log.Info("raw JSON object for hosting agent", "json", rawJSON)
-				agentHostingManifests = append(agentHostingManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
+				agentHostingManifests = append(agentHostingManifests,
+					workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
 			}
 		}
 	}
@@ -790,9 +816,11 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 	return err
 }
 
-// removePostponeDeleteAnnotationFromHubSubWork removes the postpone-delete annotation for leafhub subsctiption manifestwork
+// removePostponeDeleteAnnotationFromHubSubWork removes the postpone-delete
+// annotation for leafhub subsctiption manifestwork
 // so that the workagent can delete the manifestwork normally
-func removePostponeDeleteAnnotationFromHubSubWork(ctx context.Context, c client.Client, managedClusterName string) error {
+func removePostponeDeleteAnnotationFromHubSubWork(ctx context.Context, c client.Client,
+	managedClusterName string) error {
 	hohHubMCHWork := &workv1.ManifestWork{}
 	if err := c.Get(ctx,
 		types.NamespacedName{
@@ -800,7 +828,8 @@ func removePostponeDeleteAnnotationFromHubSubWork(ctx context.Context, c client.
 			Namespace: managedClusterName,
 		}, hohHubMCHWork); err != nil {
 		if errors.IsNotFound(err) {
-			// hub mch manifestwork is deleted, try to remove the postpone-delete annotation for leafhub subsctiption manifestwork
+			// hub mch manifestwork is deleted, try to remove the postpone-delete
+			// annotation for leafhub subsctiption manifestwork
 			hohHubSubWork := &workv1.ManifestWork{}
 			if err := c.Get(ctx,
 				types.NamespacedName{
@@ -828,7 +857,8 @@ func removePostponeDeleteAnnotationFromHubSubWork(ctx context.Context, c client.
 }
 
 // removeLeafHubHostingWork removes manifestwork for leafhub on hypershift hosting cluster
-func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClusterName, hostingClusterName string) error {
+func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClusterName,
+	hostingClusterName string) error {
 	hohAgentMgtWork := &workv1.ManifestWork{}
 	if err := c.Get(ctx,
 		types.NamespacedName{
@@ -865,7 +895,8 @@ func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClust
 }
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config) (string, string, error) {
+func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config) (
+	string, string, error) {
 	// for local dev/test
 	kafkaBootstrapServer, ok := hohConfig.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
 	if ok && kafkaBootstrapServer != "" {
@@ -914,7 +945,8 @@ func generatePullSecret(ctx context.Context, c client.Client, namespace string) 
 }
 
 // applyManifestWork creates or updates a single manifestwork resource
-func applyManifestWork(ctx context.Context, c client.Client, log logr.Logger, desiredWork *workv1.ManifestWork) (*workv1.ManifestWork, error) {
+func applyManifestWork(ctx context.Context, c client.Client, log logr.Logger, desiredWork *workv1.ManifestWork) (
+	*workv1.ManifestWork, error) {
 	existingWork := &workv1.ManifestWork{}
 	if err := c.Get(ctx,
 		types.NamespacedName{
@@ -939,7 +971,8 @@ func applyManifestWork(ctx context.Context, c client.Client, log logr.Logger, de
 	}
 
 	if modified {
-		log.Info("updating manifestwork because it is changed", "namespace", desiredWork.GetNamespace(), "name", desiredWork.GetName())
+		log.Info("updating manifestwork because it is changed",
+			"namespace", desiredWork.GetNamespace(), "name", desiredWork.GetName())
 		desiredWork.ObjectMeta.ResourceVersion = existingWork.ObjectMeta.ResourceVersion
 		if err := c.Update(ctx, desiredWork); err != nil {
 			return nil, err
@@ -991,9 +1024,11 @@ func ensureManifestWork(desired, existing *workv1.ManifestWork, log logr.Logger)
 		}
 
 		metadata := existingObj.(map[string]interface{})["metadata"].(map[string]interface{})
-		metadata["creationTimestamp"] = nil // to avoid noise of compare due to https://github.com/kubernetes/kubernetes/issues/67610
+		// to avoid noise of compare due to https://github.com/kubernetes/kubernetes/issues/67610
+		metadata["creationTimestamp"] = nil
 		if !equality.Semantic.DeepDerivative(desiredObj, existingObj) {
-			log.Info("existing manifest object is not equal to the desired manifest object", "namespace", existing.GetNamespace(), "name", existing.GetName(), "index", i)
+			log.Info("existing manifest object is not equal to the desired manifest object",
+				"namespace", existing.GetNamespace(), "name", existing.GetName(), "index", i)
 			return true, nil
 		}
 	}

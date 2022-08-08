@@ -17,6 +17,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const failedBatchFormat = "failed to perform batch - %w"
+
 // NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
 func NewPoliciesDBSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
 	dbSyncer := &PoliciesDBSyncer{
@@ -190,7 +192,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 	}
 	// batch may contain up to the number of compliance status rows per leaf hub, that is (num_of_policies * num_of_MCs)
 	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
-		return fmt.Errorf("failed to perform batch - %w", err)
+		return fmt.Errorf(failedBatchFormat, err)
 	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
@@ -290,7 +292,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 	}
 	// batch may contain up to the number of compliance status rows per leaf hub, that is (num_of_policies * num_of_MCs)
 	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
-		return fmt.Errorf("failed to perform batch - %w", err)
+		return fmt.Errorf(failedBatchFormat, err)
 	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
@@ -354,7 +356,7 @@ func (syncer *PoliciesDBSyncer) handleDeltaComplianceBundle(ctx context.Context,
 	}
 	// batch may contain up to the number of compliance status rows per leaf hub, that is (num_of_policies * num_of_MCs)
 	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
-		return fmt.Errorf("failed to perform batch - %w", err)
+		return fmt.Errorf(failedBatchFormat, err)
 	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)

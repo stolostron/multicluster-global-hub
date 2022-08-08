@@ -61,7 +61,8 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	idToVersionMapFromDB, err := dbClient.GetResourceIDToVersionByLeafHub(ctx, syncer.dbSchema, syncer.dbTableName, leafHubName)
+	idToVersionMapFromDB, err := dbClient.GetResourceIDToVersionByLeafHub(ctx, syncer.dbSchema,
+		syncer.dbTableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", syncer.dbSchema, syncer.dbTableName, err)
 	}

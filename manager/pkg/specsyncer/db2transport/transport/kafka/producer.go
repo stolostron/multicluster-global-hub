@@ -27,7 +27,8 @@ type KafkaProducerConfig struct {
 }
 
 // NewProducer returns a new instance of Producer object.
-func NewProducer(compressor compressor.Compressor, bootstrapServer, SslCa string, producerConfig *KafkaProducerConfig, log logr.Logger) (*Producer, error) {
+func NewProducer(compressor compressor.Compressor, bootstrapServer, SslCa string,
+	producerConfig *KafkaProducerConfig, log logr.Logger) (*Producer, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       bootstrapServer,
 		"client.id":               producerConfig.ProducerID,

@@ -93,7 +93,9 @@ func (c *LeafHubControlInfoController) syncBundle() {
 
 	payloadBytes, err := json.Marshal(c.bundle)
 	if err != nil {
-		c.log.Error(fmt.Errorf("sync object from type %s with id %s - %w", constants.StatusBundle, c.transportBundleKey, err), "failed to sync bundle")
+		c.log.Error(
+			fmt.Errorf("sync object from type %s with id %s - %w", constants.StatusBundle, c.transportBundleKey, err),
+			"failed to sync bundle")
 	}
 
 	transportMessageKey := c.transportBundleKey

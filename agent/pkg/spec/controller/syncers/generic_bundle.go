@@ -76,7 +76,8 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 			bundleObject = syncer.anonymize(bundleObject) // anonymize removes the user identity from the obj if exists
 		}
 
-		syncer.workerPool.Submit(workers.NewJob(bundleObject, func(ctx context.Context, k8sClient client.Client, obj interface{}) {
+		syncer.workerPool.Submit(workers.NewJob(bundleObject, func(ctx context.Context,
+			k8sClient client.Client, obj interface{}) {
 			defer syncer.bundleProcessingWaitingGroup.Done()
 
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
@@ -94,8 +95,8 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 					"namespace", unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 				return
 			}
-			syncer.log.Info("object updated", "name", unstructuredObject.GetName(), "namespace", unstructuredObject.GetNamespace(),
-				"kind", unstructuredObject.GetKind())
+			syncer.log.Info("object updated", "name", unstructuredObject.GetName(), "namespace",
+				unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 		}))
 	}
 }
@@ -106,7 +107,8 @@ func (syncer *genericBundleSyncer) syncDeletedObjects(deletedObjects []*unstruct
 			deletedBundleObj = syncer.anonymize(deletedBundleObj) // anonymize removes the user identity from the obj if exists
 		}
 
-		syncer.workerPool.Submit(workers.NewJob(deletedBundleObj, func(ctx context.Context, k8sClient client.Client, obj interface{}) {
+		syncer.workerPool.Submit(workers.NewJob(deletedBundleObj, func(ctx context.Context,
+			k8sClient client.Client, obj interface{}) {
 			defer syncer.bundleProcessingWaitingGroup.Done()
 
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
@@ -116,8 +118,8 @@ func (syncer *genericBundleSyncer) syncDeletedObjects(deletedObjects []*unstruct
 				syncer.log.Error(err, "failed to delete object", "name", unstructuredObject.GetName(), "namespace",
 					unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 			} else if deleted {
-				syncer.log.Info("object deleted", "name", unstructuredObject.GetName(), "namespace", unstructuredObject.GetNamespace(),
-					"kind", unstructuredObject.GetKind())
+				syncer.log.Info("object deleted", "name", unstructuredObject.GetName(),
+					"namespace", unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 			}
 		}))
 	}

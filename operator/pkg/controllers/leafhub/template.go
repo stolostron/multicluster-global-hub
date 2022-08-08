@@ -30,7 +30,9 @@ func parseNonHypershiftTemplates(manifestFS embed.FS) (*template.Template, error
 		if err != nil {
 			return err
 		}
-		if d.IsDir() && (strings.HasSuffix(file, "subscription") || strings.HasSuffix(file, "mch") || strings.HasSuffix(file, "agent")) {
+		if d.IsDir() && (strings.HasSuffix(file, "subscription") ||
+			strings.HasSuffix(file, "mch") ||
+			strings.HasSuffix(file, "agent")) {
 			manifests, err := readFilesInDir(manifestFS, file)
 			if err != nil {
 				return err
@@ -50,7 +52,8 @@ func parseNonHypershiftTemplates(manifestFS embed.FS) (*template.Template, error
 }
 
 // parseHubHypershiftTemplates parses hypershift templates from given FS
-func parseHubHypershiftTemplates(manifestFS embed.FS, acmSnapshot, mceSnapshot, acmDefaultImageRegistry, mceDefaultImageRegistry string, acmImages, mceImages map[string]string) (*template.Template, error) {
+func parseHubHypershiftTemplates(manifestFS embed.FS, acmSnapshot, mceSnapshot, acmDefaultImageRegistry,
+	mceDefaultImageRegistry string, acmImages, mceImages map[string]string) (*template.Template, error) {
 	tf := template.FuncMap{
 		"getACMImage": func(imageKey string) string {
 			if acmSnapshot != "" {
