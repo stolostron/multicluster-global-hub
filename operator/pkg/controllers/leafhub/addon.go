@@ -106,7 +106,8 @@ func applyManagedClusterAddon(ctx context.Context, c client.Client, log logr.Log
 				return err
 			}
 			// update the status of created managedclusteraddon
-			return updateManagedClusterAddonStatus(ctx, c, log, newHoHManagedClusterAddon)
+			// return updateManagedClusterAddonStatus(ctx, c, log, newHoHManagedClusterAddon)
+			return nil
 		} else {
 			// Error reading the object
 			return err

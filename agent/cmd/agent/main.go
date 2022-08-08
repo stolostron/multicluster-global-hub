@@ -26,6 +26,7 @@ import (
 
 	"github.com/stolostron/hub-of-hubs/agent/pkg/controllers"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
+	"github.com/stolostron/hub-of-hubs/agent/pkg/lease"
 	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/bundle"
 	specController "github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/hub-of-hubs/agent/pkg/status/controller"
@@ -196,6 +197,10 @@ func createManager(consumer consumer.Consumer, producer producer.Producer, envir
 
 	if err := controllers.AddControllers(mgr); err != nil {
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
+	}
+
+	if err := lease.AddHoHLeaseUpdater(mgr, environmentManager.PodNameSpace, "hub-of-hubs-controller"); err != nil {
+		return nil, fmt.Errorf("failed to add lease updater: %w", err)
 	}
 
 	return mgr, nil
