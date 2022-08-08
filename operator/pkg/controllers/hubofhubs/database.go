@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	hubofhubsv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/hubofhubs/v1alpha1"
+	"github.com/stolostron/hub-of-hubs/operator/pkg/condition"
 )
 
 const (
@@ -26,7 +27,7 @@ var databaseFS embed.FS
 
 func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, config *hubofhubsv1alpha1.Config, namespacedName types.NamespacedName) error {
 	log := ctrllog.FromContext(ctx)
-	if reconciler.containConditionStatus(ctx, config, CONDITION_TYPE_DATABASE_INIT, CONDITION_STATUS_TRUE) {
+	if condition.ContainConditionStatus(config, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
 		log.Info("Database has initialized")
 		return nil
 	}
@@ -70,9 +71,9 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 		return nil
 	})
 	if err != nil {
-		conditionError := reconciler.setConditionDatabaseInit(ctx, config, CONDITION_STATUS_FALSE)
+		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, config, condition.CONDITION_STATUS_FALSE)
 		if conditionError != nil {
-			return fmt.Errorf("failed to set condition(%s): %w", CONDITION_STATUS_FALSE, conditionError)
+			return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return fmt.Errorf("failed to walk database directory: %w", err)
 	}
@@ -95,17 +96,17 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 	postgreSecret.Data[TRANSPORT_URI_KEY] = []byte(transportURI)
 	err = reconciler.Client.Update(ctx, postgreSecret)
 	if err != nil {
-		conditionError := reconciler.setConditionDatabaseInit(ctx, config, CONDITION_STATUS_FALSE)
+		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, config, condition.CONDITION_STATUS_FALSE)
 		if conditionError != nil {
-			return fmt.Errorf("failed to set condition(%s): %w", CONDITION_STATUS_FALSE, conditionError)
+			return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return fmt.Errorf("failed to update postgres secret: %w", err)
 	}
 
 	log.Info("Database initialized")
-	err = reconciler.setConditionDatabaseInit(ctx, config, CONDITION_STATUS_TRUE)
+	err = condition.SetConditionDatabaseInit(ctx, reconciler.Client, config, condition.CONDITION_STATUS_TRUE)
 	if err != nil {
-		return fmt.Errorf("failed to set condition(%s): %w", CONDITION_STATUS_TRUE, err)
+		return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, err)
 	}
 	return nil
 }
