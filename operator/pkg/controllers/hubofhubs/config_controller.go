@@ -20,6 +20,7 @@ import (
 	"context"
 	"embed"
 	"encoding/base64"
+	"fmt"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +46,7 @@ import (
 	leafhubscontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/leafhub"
 
 	// pmcontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/packagemanifest"
+	"github.com/stolostron/hub-of-hubs/operator/pkg/condition"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/deployer"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/renderer"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/utils"
@@ -110,8 +112,7 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.setConditionResourceFound(ctx, hohConfig)
-	if err != nil {
+	if err := condition.SetConditionResourceFound(ctx, r.Client, hohConfig); err != nil {
 		log.Error(err, "Failed to set condition resource found")
 		return ctrl.Result{}, err
 	}
@@ -154,6 +155,9 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return hohRBACConfig, err
 	})
 	if err != nil {
+		if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -171,16 +175,29 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
-		err := hohDeployer.Deploy(obj)
-		if err != nil {
+		if err := hohDeployer.Deploy(obj); err != nil {
+			if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+			}
 			return ctrl.Result{}, err
 		}
+	}
+
+	if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_TRUE); conditionError != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
 	// retrieve bootstrapserver and CA of kafka from secret
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, r.Client, log, hohConfig)
 	if err != nil {
+		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+		}
 		return ctrl.Result{}, err
+	}
+
+	if conditionError := condition.SetConditionTransportInit(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_TRUE); conditionError != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", func(component string) (interface{}, error) {
@@ -199,6 +216,9 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return managerConfig, err
 	})
 	if err != nil {
+		if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -216,10 +236,16 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
-		err := hohDeployer.Deploy(obj)
-		if err != nil {
+		if err := hohDeployer.Deploy(obj); err != nil {
+			if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+			}
 			return ctrl.Result{}, err
 		}
+	}
+
+	if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_TRUE); conditionError != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
 	// try to start leafhub controller if it is not running
