@@ -33,8 +33,8 @@ import (
 )
 
 // applyClusterManagementAddon creates or updates ClusterManagementAddOn for hub-of-hubs
-func applyClusterManagementAddon(ctx context.Context, c client.Client, log logr.Logger, hohConfigName string) error {
-	newHoHClusterManagementAddOn := buildClusterManagementAddon(hohConfigName)
+func applyClusterManagementAddon(ctx context.Context, c client.Client, log logr.Logger, mghName string) error {
+	newHoHClusterManagementAddOn := buildClusterManagementAddon(mghName)
 	existingHoHClusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{}
 	if err := c.Get(ctx,
 		types.NamespacedName{
@@ -61,8 +61,8 @@ func applyClusterManagementAddon(ctx context.Context, c client.Client, log logr.
 }
 
 // deleteClusterManagementAddon deletes ClusterManagementAddOn for hub-of-hubs
-func deleteClusterManagementAddon(ctx context.Context, c client.Client, log logr.Logger, hohConfigName string) error {
-	hohClusterManagementAddOn := buildClusterManagementAddon(hohConfigName)
+func deleteClusterManagementAddon(ctx context.Context, c client.Client, log logr.Logger, mghName string) error {
+	hohClusterManagementAddOn := buildClusterManagementAddon(mghName)
 	err := c.Delete(ctx, hohClusterManagementAddOn)
 	if err != nil && !errors.IsNotFound(err) {
 		log.Error(err, "failed to delete hoh clustermanagementaddon", "name", hohClusterManagementAddOn.GetName())
@@ -74,12 +74,12 @@ func deleteClusterManagementAddon(ctx context.Context, c client.Client, log logr
 }
 
 // buildClusterManagementAddon builds ClusterManagementAddOn resource for hub-of-hubs
-func buildClusterManagementAddon(hohConfigName string) *addonv1alpha1.ClusterManagementAddOn {
+func buildClusterManagementAddon(mghName string) *addonv1alpha1.ClusterManagementAddOn {
 	return &addonv1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.HoHClustermanagementAddonName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: hohConfigName,
+				constants.HoHOperatorOwnerLabelKey: mghName,
 			},
 		},
 		Spec: addonv1alpha1.ClusterManagementAddOnSpec{
@@ -93,8 +93,8 @@ func buildClusterManagementAddon(hohConfigName string) *addonv1alpha1.ClusterMan
 
 // applyManagedClusterAddon creates or updates ManagedClusterAddon for leafhubs
 func applyManagedClusterAddon(ctx context.Context, c client.Client, log logr.Logger, managedClusterName,
-	hohConfigName string) error {
-	newHoHManagedClusterAddon := buildManagedClusterAddon(managedClusterName, hohConfigName)
+	mghName string) error {
+	newHoHManagedClusterAddon := buildManagedClusterAddon(managedClusterName, mghName)
 	existingHoHManagedClusterAddon := &addonv1alpha1.ManagedClusterAddOn{}
 	if err := c.Get(ctx,
 		types.NamespacedName{
@@ -134,8 +134,8 @@ func applyManagedClusterAddon(ctx context.Context, c client.Client, log logr.Log
 
 // deleteManagedClusterAddon deletes ManagedClusterAddon for leafhubs
 func deleteManagedClusterAddon(ctx context.Context, c client.Client, log logr.Logger, managedClusterName,
-	hohConfigName string) error {
-	hohManagedClusterAddon := buildManagedClusterAddon(managedClusterName, hohConfigName)
+	mghName string) error {
+	hohManagedClusterAddon := buildManagedClusterAddon(managedClusterName, mghName)
 	err := c.Delete(ctx, hohManagedClusterAddon)
 	if err != nil && !errors.IsNotFound(err) {
 		log.Error(err, "failed to delete hoh managedclusteraddon", hohManagedClusterAddon.GetNamespace(),
@@ -149,13 +149,13 @@ func deleteManagedClusterAddon(ctx context.Context, c client.Client, log logr.Lo
 }
 
 // buildManagedClusterAddon builds ManagedClusterAddOn resource for given managedcluster
-func buildManagedClusterAddon(managedClusterName, hohConfigName string) *addonv1alpha1.ManagedClusterAddOn {
+func buildManagedClusterAddon(managedClusterName, mghName string) *addonv1alpha1.ManagedClusterAddOn {
 	return &addonv1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.HoHManagedClusterAddonName,
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: hohConfigName,
+				constants.HoHOperatorOwnerLabelKey: mghName,
 			},
 		},
 		Spec: addonv1alpha1.ManagedClusterAddOnSpec{

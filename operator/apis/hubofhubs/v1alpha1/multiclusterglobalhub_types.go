@@ -34,17 +34,17 @@ const (
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-// Config is the Schema for the configs API
-type Config struct {
+// MultiClusterGlobalHub is the Schema for the multiclusterglobalhubs API
+type MultiClusterGlobalHub struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ConfigSpec   `json:"spec,omitempty"`
-	Status ConfigStatus `json:"status,omitempty"`
+	Spec   MultiClusterGlobalHubSpec   `json:"spec,omitempty"`
+	Status MultiClusterGlobalHubStatus `json:"status,omitempty"`
 }
 
-// ConfigSpec defines the desired state of Config
-type ConfigSpec struct {
+// MultiClusterGlobalHubSpec defines the desired state of MultiClusterGlobalHub
+type MultiClusterGlobalHubSpec struct {
 	// +kubebuilder:default:=full
 	AggregationLevel AggregationLevel `json:"aggregationLevel,omitempty"` // full or minimal
 	// +kubebuilder:default:=true
@@ -55,28 +55,28 @@ type ConfigSpec struct {
 	PostgreSQL corev1.LocalObjectReference `json:"postgreSQL,omitempty"`
 }
 
-// ConfigStatus defines the observed state of Config
-type ConfigStatus struct {
-	// ConfigStatus defines the observed state of Config
+// MultiClusterGlobalHubStatus defines the observed state of MultiClusterGlobalHub
+type MultiClusterGlobalHubStatus struct {
+	// MultiClusterGlobalHubStatus defines the observed state of MultiClusterGlobalHub
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
-// ConfigList contains a list of Config
-type ConfigList struct {
+// MultiClusterGlobalHubList contains a list of MultiClusterGlobalHub
+type MultiClusterGlobalHubList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Config `json:"items"`
+	Items           []MultiClusterGlobalHub `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Config{}, &ConfigList{})
+	SchemeBuilder.Register(&MultiClusterGlobalHub{}, &MultiClusterGlobalHubList{})
 }
 
-func (config *Config) GetConditions() []metav1.Condition {
-	return config.Status.Conditions
+func (mgh *MultiClusterGlobalHub) GetConditions() []metav1.Condition {
+	return mgh.Status.Conditions
 }
 
-func (config *Config) SetConditions(conditions []metav1.Condition) {
-	config.Status.Conditions = conditions
+func (mgh *MultiClusterGlobalHub) SetConditions(conditions []metav1.Condition) {
+	mgh.Status.Conditions = conditions
 }

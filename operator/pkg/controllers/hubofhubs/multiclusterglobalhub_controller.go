@@ -60,20 +60,20 @@ var isLeafHubControllerRunnning = false
 
 // var isPackageManifestControllerRunnning = false
 
-// ConfigReconciler reconciles a Config object
-type ConfigReconciler struct {
+// MultiClusterGlobalHubReconciler reconciles a MultiClusterGlobalHub object
+type MultiClusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
 	Scheme *runtime.Scheme
 }
 
 // SetConditionFunc is function type that receives the concrete condition method
-type SetConditionFunc func(ctx context.Context, c client.Client, config *hubofhubsv1alpha1.Config,
+type SetConditionFunc func(ctx context.Context, c client.Client, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub,
 	status metav1.ConditionStatus) error
 
-//+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=multiclusterglobalhubs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=multiclusterglobalhubs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersetbindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/join,verbs=create;delete
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/bind,verbs=create;delete
@@ -95,50 +95,50 @@ type SetConditionFunc func(ctx context.Context, c client.Client, config *hubofhu
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the Config object against the actual cluster state, and then
+// the MultiClusterGlobalHub object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 
-	// Fetch the hub-of-hubs config instance
-	hohConfig := &hubofhubsv1alpha1.Config{}
-	err := r.Get(ctx, req.NamespacedName, hohConfig)
+	// Fetch the hub-of-hubs multiclusterglobalhub instance
+	mgh := &hubofhubsv1alpha1.MultiClusterGlobalHub{}
+	err := r.Get(ctx, req.NamespacedName, mgh)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			log.Info("Config resource not found. Ignoring since object must be deleted")
+			log.Info("MultiClusterGlobalHub resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		log.Error(err, "Failed to get Config")
+		log.Error(err, "Failed to get MultiClusterGlobalHub")
 		return ctrl.Result{}, err
 	}
 
-	if err := condition.SetConditionResourceFound(ctx, r.Client, hohConfig); err != nil {
+	if err := condition.SetConditionResourceFound(ctx, r.Client, mgh); err != nil {
 		log.Error(err, "Failed to set condition resource found")
 		return ctrl.Result{}, err
 	}
 
 	// handle gc
-	isTerminating, err := r.initFinalization(ctx, hohConfig, log)
+	isTerminating, err := r.initFinalization(ctx, mgh, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if isTerminating {
-		log.Info("hoh config is terminating, skip the reconcile")
+		log.Info("multiclusterglobalhub is terminating, skip the reconcile")
 		return ctrl.Result{}, err
 	}
 
 	// init DB and transport here
-	err = r.reconcileDatabase(ctx, hohConfig, types.NamespacedName{
-		Name:      hohConfig.Spec.PostgreSQL.Name,
+	err = r.reconcileDatabase(ctx, mgh, types.NamespacedName{
+		Name:      mgh.Spec.PostgreSQL.Name,
 		Namespace: constants.HOHDefaultNamespace,
 	})
 	if err != nil {
@@ -146,7 +146,7 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// reconcile hoh-system namespace and hub-of-hubs configuration
-	err = r.reconcileHoHResources(ctx, hohConfig)
+	err = r.reconcileHoHResources(ctx, mgh)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -154,7 +154,7 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer := renderer.NewHoHRenderer(fs)
 
-	annotations := hohConfig.GetAnnotations()
+	annotations := mgh.GetAnnotations()
 	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", func(component string) (interface{}, error) {
 		hohRBACConfig := struct {
 			Image string
@@ -165,31 +165,31 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return hohRBACConfig, err
 	})
 	if err != nil {
-		if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+		if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); conditionError != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, hohRBACObjects, hohConfig, condition.SetConditionRBACDeployed, log)
+	err = r.manipulateObj(ctx, hohRBACObjects, mgh, condition.SetConditionRBACDeployed, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_TRUE); conditionError != nil {
+	if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE); conditionError != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
 	// retrieve bootstrapserver and CA of kafka from secret
-	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, r.Client, log, hohConfig)
+	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, r.Client, log, mgh)
 	if err != nil {
-		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); conditionError != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return ctrl.Result{}, err
 	}
 
-	if conditionError := condition.SetConditionTransportInit(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_TRUE); conditionError != nil {
+	if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE); conditionError != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
@@ -201,7 +201,7 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			KafkaBootstrapServer string
 		}{
 			Image:                config.GetImage(annotations, "hub_of_hubs_manager"),
-			DBSecret:             hohConfig.Spec.PostgreSQL.Name,
+			DBSecret:             mgh.Spec.PostgreSQL.Name,
 			KafkaCA:              kafkaCA,
 			KafkaBootstrapServer: kafkaBootstrapServer,
 		}
@@ -209,13 +209,13 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return managerConfig, err
 	})
 	if err != nil {
-		if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+		if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); conditionError != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, managerObjects, hohConfig, condition.SetConditionManagerDeployed, log)
+	err = r.manipulateObj(ctx, managerObjects, mgh, condition.SetConditionManagerDeployed, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -228,12 +228,12 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, placementObjects, hohConfig, nil, log)
+	err = r.manipulateObj(ctx, placementObjects, mgh, nil, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_TRUE); conditionError != nil {
+	if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE); conditionError != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
@@ -266,15 +266,15 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *ConfigReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
-	hohConfig *hubofhubsv1alpha1.Config, setConditionFunc SetConditionFunc, log logr.Logger) error {
+func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
+	mgh *hubofhubsv1alpha1.MultiClusterGlobalHub, setConditionFunc SetConditionFunc, log logr.Logger) error {
 	hohDeployer := deployer.NewHoHDeployer(r.Client)
 	// manipulate the object
 	for _, obj := range objs {
 		// TODO: more solid way to check if the object is namespace scoped resource
 		if obj.GetNamespace() != "" {
 			// set ownerreference of controller
-			if err := controllerutil.SetControllerReference(hohConfig, obj, r.Scheme); err != nil {
+			if err := controllerutil.SetControllerReference(mgh, obj, r.Scheme); err != nil {
 				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(),
 					"namespace", obj.GetNamespace(), "name", obj.GetName())
 			}
@@ -284,13 +284,13 @@ func (r *ConfigReconciler) manipulateObj(ctx context.Context, objs []*unstructur
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[constants.HoHOperatorOwnerLabelKey] = hohConfig.GetName()
+		labels[constants.HoHOperatorOwnerLabelKey] = mgh.GetName()
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
 		if err := hohDeployer.Deploy(obj); err != nil {
 			if setConditionFunc != nil {
-				conditionError := setConditionFunc(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE)
+				conditionError := setConditionFunc(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE)
 				if conditionError != nil {
 					return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
 				}
@@ -301,42 +301,42 @@ func (r *ConfigReconciler) manipulateObj(ctx context.Context, objs []*unstructur
 	return nil
 }
 
-func (r *ConfigReconciler) initFinalization(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config,
+func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub,
 	log logr.Logger,
 ) (bool, error) {
-	if hohConfig.GetDeletionTimestamp() != nil &&
-		utils.Contains(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer) {
+	if mgh.GetDeletionTimestamp() != nil &&
+		utils.Contains(mgh.GetFinalizers(), constants.HoHOperatorFinalizer) {
 		log.Info("to delete hoh resources")
 		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
-		if err := r.pruneGlobalResources(ctx, hohConfig); err != nil {
+		if err := r.pruneGlobalResources(ctx, mgh); err != nil {
 			log.Error(err, "failed to remove cluster scoped resources")
 			return false, err
 		}
 
 		// clean up hoh-system namespace and hub-of-hubs configuration
-		if err := r.pruneHoHResources(ctx, hohConfig); err != nil {
+		if err := r.pruneHoHResources(ctx, mgh); err != nil {
 			log.Error(err, "failed to remove hub-of-hubs resources")
 			return false, err
 		}
 
-		hohConfig.SetFinalizers(utils.Remove(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer))
-		err := r.Client.Update(context.TODO(), hohConfig)
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), constants.HoHOperatorFinalizer))
+		err := r.Client.Update(context.TODO(), mgh)
 		if err != nil {
-			log.Error(err, "failed to remove finalizer from hoh config resource")
+			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
 			return false, err
 		}
-		log.Info("finalizer is removed from hoh config resource")
+		log.Info("finalizer is removed from multiclusterglobalhub resource")
 
 		return true, nil
 	}
-	if !utils.Contains(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer) {
-		hohConfig.SetFinalizers(append(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer))
-		err := r.Client.Update(context.TODO(), hohConfig)
+	if !utils.Contains(mgh.GetFinalizers(), constants.HoHOperatorFinalizer) {
+		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.HoHOperatorFinalizer))
+		err := r.Client.Update(context.TODO(), mgh)
 		if err != nil {
-			log.Error(err, "failed to add finalizer to hoh config resource")
+			log.Error(err, "failed to add finalizer to multiclusterglobalhub resource")
 			return false, err
 		}
-		log.Info("finalizer is added to hoh config resource")
+		log.Info("finalizer is added to multiclusterglobalhub resource")
 	}
 
 	return false, nil
@@ -344,9 +344,9 @@ func (r *ConfigReconciler) initFinalization(ctx context.Context, hohConfig *hubo
 
 // pruneGlobalResources deletes the cluster scoped resources created by the hub-of-hubs-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *ConfigReconciler) pruneGlobalResources(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config) error {
+func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub) error {
 	listOpts := []client.ListOption{
-		client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: hohConfig.GetName()}),
+		client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: mgh.GetName()}),
 	}
 
 	clusterRoleList := &rbacv1.ClusterRoleList{}
@@ -377,7 +377,7 @@ func (r *ConfigReconciler) pruneGlobalResources(ctx context.Context, hohConfig *
 }
 
 // reconcileHoHResources tries to create hoh resources if they don't exist
-func (r *ConfigReconciler) reconcileHoHResources(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config) error {
+func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub) error {
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.HOHSystemNamespace,
@@ -387,7 +387,7 @@ func (r *ConfigReconciler) reconcileHoHResources(ctx context.Context, hohConfig 
 				ObjectMeta: metav1.ObjectMeta{
 					Name: constants.HOHSystemNamespace,
 					Labels: map[string]string{
-						constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
+						constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
 					},
 				},
 			}); err != nil {
@@ -399,17 +399,17 @@ func (r *ConfigReconciler) reconcileHoHResources(ctx context.Context, hohConfig 
 	}
 
 	// hoh configmap
-	hohConfigMap := &corev1.ConfigMap{
+	mghMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: constants.HOHSystemNamespace,
 			Name:      constants.HOHConfigName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
+				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
 			},
 		},
 		Data: map[string]string{
-			"aggregationLevel":    string(hohConfig.Spec.AggregationLevel),
-			"enableLocalPolicies": strconv.FormatBool(hohConfig.Spec.EnableLocalPolicies),
+			"aggregationLevel":    string(mgh.Spec.AggregationLevel),
+			"enableLocalPolicies": strconv.FormatBool(mgh.Spec.EnableLocalPolicies),
 		},
 	}
 
@@ -420,7 +420,7 @@ func (r *ConfigReconciler) reconcileHoHResources(ctx context.Context, hohConfig 
 			Name:      constants.HOHConfigName,
 		}, existingHoHConfigMap); err != nil {
 		if errors.IsNotFound(err) {
-			if err := r.Client.Create(ctx, hohConfigMap); err != nil {
+			if err := r.Client.Create(ctx, mghMap); err != nil {
 				return err
 			}
 			return nil
@@ -429,10 +429,10 @@ func (r *ConfigReconciler) reconcileHoHResources(ctx context.Context, hohConfig 
 		}
 	}
 
-	if !equality.Semantic.DeepDerivative(hohConfigMap.Data, existingHoHConfigMap.Data) ||
-		!equality.Semantic.DeepDerivative(hohConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
-		hohConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
-		if err := r.Client.Update(ctx, hohConfigMap); err != nil {
+	if !equality.Semantic.DeepDerivative(mghMap.Data, existingHoHConfigMap.Data) ||
+		!equality.Semantic.DeepDerivative(mghMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
+		mghMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
+		if err := r.Client.Update(ctx, mghMap); err != nil {
 			return err
 		}
 		return nil
@@ -442,7 +442,7 @@ func (r *ConfigReconciler) reconcileHoHResources(ctx context.Context, hohConfig 
 }
 
 // pruneHoHResources tries to delete hoh resources
-func (r *ConfigReconciler) pruneHoHResources(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config) error {
+func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub) error {
 	// hoh configmap
 	existingHoHConfigMap := &corev1.ConfigMap{}
 	if err := r.Client.Get(ctx,
@@ -467,7 +467,7 @@ func (r *ConfigReconciler) pruneHoHResources(ctx context.Context, hohConfig *hub
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.HOHSystemNamespace,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: hohConfig.GetName(),
+				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
 			},
 		},
 	}
@@ -480,11 +480,11 @@ func (r *ConfigReconciler) pruneHoHResources(ctx context.Context, hohConfig *hub
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	hohConfigPred := predicate.Funcs{
+func (r *MultiClusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	mghPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			// set request name to be used in leafhub controller
-			config.SetHoHConfigNamespacedName(types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()})
+			config.SetHoHMGHNamespacedName(types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()})
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -496,16 +496,16 @@ func (r *ConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&hubofhubsv1alpha1.Config{}, builder.WithPredicates(hohConfigPred)).
+		For(&hubofhubsv1alpha1.MultiClusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Complete(r)
 }
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config) (
+func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub) (
 	string, string, error,
 ) {
 	// for local dev/test
-	kafkaBootstrapServer, ok := hohConfig.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
+	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
 	if ok && kafkaBootstrapServer != "" {
 		log.Info("Kafka bootstrap server from annotation", "server", kafkaBootstrapServer, "certificate", "")
 		return kafkaBootstrapServer, "", nil
@@ -514,7 +514,7 @@ func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, hohCo
 	kafkaSecret := &corev1.Secret{}
 	if err := c.Get(ctx, types.NamespacedName{
 		Namespace: constants.HOHDefaultNamespace,
-		Name:      hohConfig.Spec.Kafka.Name,
+		Name:      mgh.Spec.Kafka.Name,
 	}, kafkaSecret); err != nil {
 		return "", "", err
 	}

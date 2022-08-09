@@ -14,7 +14,7 @@ resources:
   controller: true
   domain: open-cluster-management.io
   group: hubofhubs
-  kind: Config
+  kind: MultiClusterGlobalHub
   path: github.com/stolostron/hub-of-hubs-operator/apis/hubofhubs/v1alpha1
   version: v1alpha1
 version: "3"

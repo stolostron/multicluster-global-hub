@@ -132,7 +132,7 @@ rules:
 - apiGroups:
   - hubofhubs.open-cluster-management.io
   resources:
-  - configs
+  - multiclusterglobalhubs
   verbs:
   - create
   - delete
@@ -144,13 +144,13 @@ rules:
 - apiGroups:
   - hubofhubs.open-cluster-management.io
   resources:
-  - configs/finalizers
+  - multiclusterglobalhubs/finalizers
   verbs:
   - update
 - apiGroups:
   - hubofhubs.open-cluster-management.io
   resources:
-  - configs/status
+  - multiclusterglobalhubs/status
   verbs:
   - get
   - patch

@@ -22,11 +22,11 @@ const (
 //go:embed database
 var databaseFS embed.FS
 
-func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, config *hubofhubsv1alpha1.Config,
+func (reconciler *MultiClusterGlobalHubReconciler) reconcileDatabase(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub,
 	namespacedName types.NamespacedName,
 ) error {
 	log := ctrllog.FromContext(ctx)
-	if condition.ContainConditionStatus(config, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
+	if condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
 		log.Info("Database has initialized")
 		return nil
 	}
@@ -64,7 +64,7 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 		return nil
 	})
 	if err != nil {
-		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, config, condition.CONDITION_STATUS_FALSE)
+		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_FALSE)
 		if conditionError != nil {
 			return fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_FALSE, conditionError)
 		}
@@ -72,7 +72,7 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 	}
 
 	log.Info("Database initialized")
-	err = condition.SetConditionDatabaseInit(ctx, reconciler.Client, config, condition.CONDITION_STATUS_TRUE)
+	err = condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_TRUE)
 	if err != nil {
 		return fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_TRUE, err)
 	}

@@ -25,20 +25,20 @@ import (
 )
 
 var (
-	hohConfigNamespacedName = types.NamespacedName{}
-	imageManifests          = map[string]string{
+	hohMGHNamespacedName = types.NamespacedName{}
+	imageManifests       = map[string]string{
 		"hub_of_hubs_agent":   "quay.io/stolostron/hub-of-hubs-agent:latest",
 		"hub_of_hubs_manager": "quay.io/stolostron/hub-of-hubs-manager:latest",
 		"hub_of_hubs_rbac":    "quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-rbac:latest",
 	}
 )
 
-func SetHoHConfigNamespacedName(namespacedName types.NamespacedName) {
-	hohConfigNamespacedName = namespacedName
+func SetHoHMGHNamespacedName(namespacedName types.NamespacedName) {
+	hohMGHNamespacedName = namespacedName
 }
 
-func GetHoHConfigNamespacedName() types.NamespacedName {
-	return hohConfigNamespacedName
+func GetHoHMGHNamespacedName() types.NamespacedName {
+	return hohMGHNamespacedName
 }
 
 // GetImageManifests...
@@ -51,7 +51,7 @@ func SetImageManifests(images map[string]string) {
 	imageManifests = images
 }
 
-// GetImage is used to retrieve image for given component based on hoh config annotation
+// GetImage is used to retrieve image for given component based on multiclusterglobalhub annotation
 // TODO: validate the image format is correct before return
 func GetImage(annotations map[string]string, componentName string) string {
 	if annotations != nil {

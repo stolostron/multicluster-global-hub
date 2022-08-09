@@ -1,5 +1,5 @@
 apiVersion: hubofhubs.open-cluster-management.io/v1alpha1
-kind: Config
+kind: MultiClusterGlobalHub
 metadata:
   # annotations:
     # hoh-image-repository: quay.io/open-cluster-management-hub-of-hubs
@@ -8,7 +8,7 @@ metadata:
     # hoh-hub-ACM-snapshot: 2.5.0-SNAPSHOT-2022-05-13-20-43-27
     # hoh-hub-MCE-snapshot: 2.0.0-BACKPLANE-2022-05-13-17-52-12
     # hoh-kafka-bootstrap-server: kafka-brokers-cluster-kafka-external-bootstrap-kafka.apps.testing.example.com
-  name: config
+  name: multiclusterglobalhub
 spec:
   kafka:
     name: kafka-secret
