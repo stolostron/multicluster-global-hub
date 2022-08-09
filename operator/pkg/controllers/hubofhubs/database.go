@@ -45,7 +45,7 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 	}
 	defer conn.Close(ctx)
 
-	err = iofs.WalkDir(databaseFS, "database/v2", func(file string, d iofs.DirEntry, beforeError error) error {
+	err = iofs.WalkDir(databaseFS, "database", func(file string, d iofs.DirEntry, beforeError error) error {
 		if beforeError != nil {
 			return beforeError
 		}

@@ -25,12 +25,9 @@ spec:
         configuration:
           useServiceDnsDomain: true
       - name: external
-        port: 9095
-        type: nodeport
+        port: 9093
+        type: route
         tls: true
-        configuration:
-          bootstrap: 
-            nodePort: 30095
     config:
       auto.create.topics.enable: "false"
       offsets.topic.replication.factor: 2
@@ -44,7 +41,7 @@ spec:
     storage:
       type: ephemeral
   zookeeper:
-    replicas: 1
+    replicas: 3
     logging:
       type: inline
       loggers:
