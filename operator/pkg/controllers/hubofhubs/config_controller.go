@@ -302,7 +302,8 @@ func (r *ConfigReconciler) manipulateObj(ctx context.Context, objs []*unstructur
 }
 
 func (r *ConfigReconciler) initFinalization(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config,
-	log logr.Logger) (bool, error) {
+	log logr.Logger,
+) (bool, error) {
 	if hohConfig.GetDeletionTimestamp() != nil &&
 		utils.Contains(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer) {
 		log.Info("to delete hoh resources")
@@ -501,7 +502,8 @@ func (r *ConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
 func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config) (
-	string, string, error) {
+	string, string, error,
+) {
 	// for local dev/test
 	kafkaBootstrapServer, ok := hohConfig.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
 	if ok && kafkaBootstrapServer != "" {
