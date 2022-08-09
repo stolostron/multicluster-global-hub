@@ -32,7 +32,9 @@ func (bundle *Bundle) UpdateObject(bundle.Object) {
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *Bundle) DeleteObject(bundle.Object) {}
+func (bundle *Bundle) DeleteObject(bundle.Object) {
+	// do nothing
+}
 
 // GetBundleVersion function to get bundle version.
 func (bundle *Bundle) GetBundleVersion() *statusbundle.BundleVersion {

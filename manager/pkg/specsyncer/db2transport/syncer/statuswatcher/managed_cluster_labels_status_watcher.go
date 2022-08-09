@@ -18,7 +18,8 @@ const (
 )
 
 // AddManagedClusterLabelsStatusWatcher adds managedClusterLabelsStatusWatcher to the manager.
-func AddManagedClusterLabelsStatusWatcher(mgr ctrl.Manager, specDB db.SpecDB, statusDB db.StatusDB, deletedLabelsTrimmingInterval time.Duration) error {
+func AddManagedClusterLabelsStatusWatcher(mgr ctrl.Manager, specDB db.SpecDB, statusDB db.StatusDB,
+	deletedLabelsTrimmingInterval time.Duration) error {
 	if err := mgr.Add(&managedClusterLabelsStatusWatcher{
 		log:                   ctrl.Log.WithName("managed-cluster-labels-status-watcher"),
 		specDB:                specDB,

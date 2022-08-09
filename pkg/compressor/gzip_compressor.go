@@ -9,6 +9,7 @@ import (
 
 const (
 	gzipCompressorErrorString = "gzip compressor error"
+	gzipCompressorErrorFormat = "%s - %w"
 	gzipType                  = "gzip"
 )
 
@@ -31,11 +32,11 @@ func (compressor *CompressorGZip) Compress(data []byte) ([]byte, error) {
 
 	writer := gzip.NewWriter(&buf)
 	if _, err := writer.Write(data); err != nil {
-		return nil, fmt.Errorf("%s - %w", gzipCompressorErrorString, err)
+		return nil, fmt.Errorf(gzipCompressorErrorFormat, gzipCompressorErrorString, err)
 	}
 
 	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("%s - %w", gzipCompressorErrorString, err)
+		return nil, fmt.Errorf(gzipCompressorErrorFormat, gzipCompressorErrorString, err)
 	}
 
 	return buf.Bytes(), nil
@@ -45,16 +46,16 @@ func (compressor *CompressorGZip) Compress(data []byte) ([]byte, error) {
 func (compressor *CompressorGZip) Decompress(compressedData []byte) ([]byte, error) {
 	reader, err := gzip.NewReader(bytes.NewBuffer(compressedData))
 	if err != nil {
-		return nil, fmt.Errorf("%s - %w", gzipCompressorErrorString, err)
+		return nil, fmt.Errorf(gzipCompressorErrorFormat, gzipCompressorErrorString, err)
 	}
 
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, fmt.Errorf("%s - %w", gzipCompressorErrorString, err)
+		return nil, fmt.Errorf(gzipCompressorErrorFormat, gzipCompressorErrorString, err)
 	}
 
 	if err = reader.Close(); err != nil {
-		return nil, fmt.Errorf("%s - %w", gzipCompressorErrorString, err)
+		return nil, fmt.Errorf(gzipCompressorErrorFormat, gzipCompressorErrorString, err)
 	}
 
 	return data, nil

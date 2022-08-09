@@ -32,8 +32,10 @@ type SyncServiceProducer struct {
 }
 
 // NewSyncService creates a new instance of SyncService.
-func NewSyncServiceProducer(compressor compressor.Compressor, log logr.Logger, env *helper.ConfigManager) (*SyncServiceProducer, error) {
-	syncServiceClient := client.NewSyncServiceClient(env.SyncService.Protocol, env.SyncService.ProducerHost, uint16(env.SyncService.ProducerPort))
+func NewSyncServiceProducer(compressor compressor.Compressor, log logr.Logger,
+	env *helper.ConfigManager) (*SyncServiceProducer, error) {
+	syncServiceClient := client.NewSyncServiceClient(env.SyncService.Protocol,
+		env.SyncService.ProducerHost, uint16(env.SyncService.ProducerPort))
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	return &SyncServiceProducer{

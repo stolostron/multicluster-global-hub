@@ -129,7 +129,10 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// init DB and transport here
-	err = r.reconcileDatabase(ctx, hohConfig, types.NamespacedName{Name: hohConfig.Spec.PostgreSQL.Name, Namespace: constants.HOHDefaultNamespace})
+	err = r.reconcileDatabase(ctx, hohConfig, types.NamespacedName{
+		Name:      hohConfig.Spec.PostgreSQL.Name,
+		Namespace: constants.HOHDefaultNamespace,
+	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -166,7 +169,8 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if obj.GetNamespace() != "" {
 			// set ownerreference of controller
 			if err := controllerutil.SetControllerReference(hohConfig, obj, r.Scheme); err != nil {
-				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(), "namespace", obj.GetNamespace(), "name", obj.GetName())
+				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(),
+					"namespace", obj.GetNamespace(), "name", obj.GetName())
 			}
 		}
 		// set owner labels
@@ -227,7 +231,8 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if obj.GetNamespace() != "" {
 			// set ownerreference of controller
 			if err := controllerutil.SetControllerReference(hohConfig, obj, r.Scheme); err != nil {
-				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(), "namespace", obj.GetNamespace(), "name", obj.GetName())
+				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(),
+					"namespace", obj.GetNamespace(), "name", obj.GetName())
 			}
 		}
 		// set owner labels
@@ -277,8 +282,10 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *ConfigReconciler) initFinalization(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config, log logr.Logger) (bool, error) {
-	if hohConfig.GetDeletionTimestamp() != nil && utils.Contains(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer) {
+func (r *ConfigReconciler) initFinalization(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config,
+	log logr.Logger) (bool, error) {
+	if hohConfig.GetDeletionTimestamp() != nil &&
+		utils.Contains(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer) {
 		log.Info("to delete hoh resources")
 		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 		if err := r.pruneGlobalResources(ctx, hohConfig); err != nil {
@@ -328,7 +335,8 @@ func (r *ConfigReconciler) pruneGlobalResources(ctx context.Context, hohConfig *
 		return err
 	}
 	for idx := range clusterRoleList.Items {
-		if err := r.Client.Delete(ctx, &clusterRoleList.Items[idx], &client.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+		if err := r.Client.Delete(ctx, &clusterRoleList.Items[idx], &client.DeleteOptions{}); err != nil &&
+			!errors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -339,7 +347,8 @@ func (r *ConfigReconciler) pruneGlobalResources(ctx context.Context, hohConfig *
 		return err
 	}
 	for idx := range clusterRoleBindingList.Items {
-		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx], &client.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx], &client.DeleteOptions{}); err != nil &&
+			!errors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -472,7 +481,8 @@ func (r *ConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config) (string, string, error) {
+func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, hohConfig *hubofhubsv1alpha1.Config) (
+	string, string, error) {
 	// for local dev/test
 	kafkaBootstrapServer, ok := hohConfig.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
 	if ok && kafkaBootstrapServer != "" {

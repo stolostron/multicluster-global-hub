@@ -26,8 +26,9 @@ type KafkaComsumer struct {
 	compressorsMap map[compressor.CompressionType]compressor.Compressor
 	topic          string
 
+	// messageChan get the message from kafka and put it to the genericBundleChan
 	messageChan                     chan *kafka.Message
-	genericBundlesChan              chan *bundle.GenericBundle // messageChan get the message from kafka and put it to the genericBundleChan
+	genericBundlesChan              chan *bundle.GenericBundle
 	customBundleIDToRegistrationMap map[string]*bundle.CustomBundleRegistration
 
 	partitionToOffsetToCommitMap map[int32]kafka.Offset // size limited at all times (low)
@@ -40,7 +41,8 @@ type KafkaComsumer struct {
 }
 
 // NewConsumer creates a new instance of Consumer.
-func NewKafkaConsumer(log logr.Logger, environmentManager *helper.ConfigManager, genericBundlesChan chan *bundle.GenericBundle) (*KafkaComsumer, error) {
+func NewKafkaConsumer(log logr.Logger, environmentManager *helper.ConfigManager,
+	genericBundlesChan chan *bundle.GenericBundle) (*KafkaComsumer, error) {
 	leafHubName := environmentManager.LeafHubName
 	topic := environmentManager.Kafka.ComsumerTopic
 
@@ -164,7 +166,8 @@ func (c *KafkaComsumer) syncGenericBundle(payload []byte) error {
 }
 
 // SyncCustomBundle writes a custom bundle to its respective syncer channel.
-func (c *KafkaComsumer) SyncCustomBundle(customBundleRegistration *bundle.CustomBundleRegistration, payload []byte) error {
+func (c *KafkaComsumer) SyncCustomBundle(customBundleRegistration *bundle.CustomBundleRegistration,
+	payload []byte) error {
 	receivedBundle := customBundleRegistration.InitBundlesResourceFunc()
 	if err := json.Unmarshal(payload, &receivedBundle); err != nil {
 		return fmt.Errorf("failed to parse custom bundle - %w", err)

@@ -18,14 +18,16 @@ import (
 )
 
 const (
-	PROCESS_URI_KEY   = "process_uri"
-	TRANSPORT_URI_KEY = "transport_uri"
+	PROCESS_URI_KEY    = "process_uri"
+	TRANSPORT_URI_KEY  = "transport_uri"
+	failedConditionMsg = "failed to set condition(%s): %w"
 )
 
 //go:embed database
 var databaseFS embed.FS
 
-func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, config *hubofhubsv1alpha1.Config, namespacedName types.NamespacedName) error {
+func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, config *hubofhubsv1alpha1.Config,
+	namespacedName types.NamespacedName) error {
 	log := ctrllog.FromContext(ctx)
 	if condition.ContainConditionStatus(config, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
 		log.Info("Database has initialized")
@@ -73,7 +75,7 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 	if err != nil {
 		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, config, condition.CONDITION_STATUS_FALSE)
 		if conditionError != nil {
-			return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+			return fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return fmt.Errorf("failed to walk database directory: %w", err)
 	}
@@ -84,7 +86,8 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 	if err != nil {
 		return fmt.Errorf("failed to alter process_user password: %w", err)
 	}
-	_, err = conn.Exec(context.Background(), fmt.Sprintf("ALTER USER transport_user with password '%s'", transportPassword))
+	_, err = conn.Exec(context.Background(), fmt.Sprintf("ALTER USER transport_user with password '%s'",
+		transportPassword))
 	if err != nil {
 		return fmt.Errorf("failed to alter transport_user password: %w", err)
 	}
@@ -98,7 +101,7 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 	if err != nil {
 		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, config, condition.CONDITION_STATUS_FALSE)
 		if conditionError != nil {
-			return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+			return fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return fmt.Errorf("failed to update postgres secret: %w", err)
 	}
@@ -106,7 +109,7 @@ func (reconciler *ConfigReconciler) reconcileDatabase(ctx context.Context, confi
 	log.Info("Database initialized")
 	err = condition.SetConditionDatabaseInit(ctx, reconciler.Client, config, condition.CONDITION_STATUS_TRUE)
 	if err != nil {
-		return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, err)
+		return fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_TRUE, err)
 	}
 	return nil
 }

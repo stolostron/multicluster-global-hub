@@ -49,7 +49,7 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 )
 
-var logger = ctrllog.Log.WithName("controller_leafhub")
+const failedConditionMsg = "failed to set condition(%s): %w"
 
 // hubClusters defines internal map that stores hub clusters
 type hubClusters struct {
@@ -129,29 +129,33 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// in either case, the controller doesn't need to go through all managed clusters
 	if req.NamespacedName.Namespace == "" && req.NamespacedName.Name != "" {
 		if err := r.reconcileLeafHub(ctx, req, hohConfig, shouldPruneAll, log); err != nil {
-			if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, hohConfig, req.NamespacedName.Name, condition.CONDITION_STATUS_FALSE); conditionError != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+			if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, hohConfig,
+				req.NamespacedName.Name, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+				return ctrl.Result{}, fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_FALSE, conditionError)
 			}
 			return ctrl.Result{}, err
 		}
 		if !condition.ContainsCondition(hohConfig, condition.CONDITION_TYPE_LEAFHUB_DEPLOY) {
-			if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, hohConfig, req.NamespacedName.Name, condition.CONDITION_STATUS_TRUE); conditionError != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
+			if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, hohConfig, req.NamespacedName.Name,
+				condition.CONDITION_STATUS_TRUE); conditionError != nil {
+				return ctrl.Result{}, fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_TRUE, conditionError)
 			}
 		}
 		return ctrl.Result{}, nil
 	}
 
 	if err := r.reconcileHoHConfig(ctx, req, hohConfig, shouldPruneAll, log); err != nil {
-		if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, hohConfig, "", condition.CONDITION_STATUS_FALSE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+		if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, hohConfig, "",
+			condition.CONDITION_STATUS_FALSE); conditionError != nil {
+			return ctrl.Result{}, fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return ctrl.Result{}, err
 	}
 
 	if !condition.ContainsCondition(hohConfig, condition.CONDITION_TYPE_LEAFHUB_DEPLOY) {
-		if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, hohConfig, req.NamespacedName.Name, condition.CONDITION_STATUS_TRUE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
+		if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, hohConfig, req.NamespacedName.Name,
+			condition.CONDITION_STATUS_TRUE); conditionError != nil {
+			return ctrl.Result{}, fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_TRUE, conditionError)
 		}
 	}
 	return ctrl.Result{}, nil
@@ -288,7 +292,8 @@ func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log l
 	}
 
 	// if the csv PHASE is Succeeded, then create mch manifestwork to install Hub
-	if isSubReady, _ := findStatusFeedbackValueFromWork(hubSubWork, "Subscription", "state", "AtLatestKnown", log); !isSubReady {
+	isSubReady, _ := findStatusFeedbackValueFromWork(hubSubWork, "Subscription", "state", "AtLatestKnown", log)
+	if !isSubReady {
 		return nil
 	}
 
@@ -364,7 +369,8 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 	}
 
 	log.Info("got clusterIP for channel service", "ClusterIP", channelServiceIP)
-	if _, err := applyHubHypershiftWorks(ctx, r.Client, log, hohConfig, managedClusterName, channelServiceIP, pm, hcConfig); err != nil {
+	if _, err := applyHubHypershiftWorks(ctx, r.Client, log, hohConfig, managedClusterName,
+		channelServiceIP, pm, hcConfig); err != nil {
 		return err
 	}
 
@@ -373,7 +379,8 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 }
 
 // reconcileHoHConfig reconciles the hoh config change
-func (r *LeafHubReconciler) reconcileHoHConfig(ctx context.Context, req ctrl.Request, hohConfig *hubofhubsv1alpha1.Config, toPruneAll bool, log logr.Logger) error {
+func (r *LeafHubReconciler) reconcileHoHConfig(ctx context.Context, req ctrl.Request,
+	hohConfig *hubofhubsv1alpha1.Config, toPruneAll bool, log logr.Logger) error {
 	// handle hoh config deleting
 	if toPruneAll {
 		log.Info("hoh config is terminating, delete manifests for leafhubs...")
@@ -436,7 +443,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
 				e.Object.GetLabels()[constants.LeafHubClusterDisabledLabelKey] != constants.LeafHubClusterDisabledLabelVal &&
-				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions, "ManagedClusterConditionAvailable") {
+				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
+					"ManagedClusterConditionAvailable") {
 				leafhubs.append(e.Object.GetName())
 				return true
 			}
@@ -446,7 +454,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			if e.ObjectNew.GetLabels()["vendor"] == "OpenShift" &&
 				e.ObjectNew.GetName() != constants.LocalClusterName &&
 				e.ObjectNew.GetLabels()[constants.LeafHubClusterDisabledLabelKey] != constants.LeafHubClusterDisabledLabelVal &&
-				meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions, "ManagedClusterConditionAvailable") {
+				meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions,
+					"ManagedClusterConditionAvailable") {
 				if e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
 					if e.ObjectNew.GetDeletionTimestamp() == nil {
 						leafhubs.append(e.ObjectNew.GetName())
@@ -462,7 +471,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
 				e.Object.GetLabels()[constants.LeafHubClusterDisabledLabelKey] != constants.LeafHubClusterDisabledLabelVal &&
-				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions, "ManagedClusterConditionAvailable") {
+				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
+					"ManagedClusterConditionAvailable") {
 				leafhubs.delete(e.Object.GetName())
 				return true
 			}
@@ -472,15 +482,15 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	hohConfigPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			config.SetHoHConfigNamespacedName(types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()})
+			config.SetHoHConfigNamespacedName(types.NamespacedName{
+				Namespace: e.Object.GetNamespace(),
+				Name:      e.Object.GetName(),
+			})
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			// only requeue the event when leafhub configuration is changed
-			if e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
-				return true
-			}
-			return false
+			return e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion()
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return !e.DeleteStateUnknown
@@ -496,7 +506,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
 				// && !reflect.DeepEqual(e.ObjectNew.(*workv1.ManifestWork).Spec.Workload.Manifests,
 				// 	e.ObjectOld.(*workv1.ManifestWork).Spec.Workload.Manifests) {
-				if e.ObjectNew.GetName() == fmt.Sprintf("%s-%s", e.ObjectNew.GetNamespace(), constants.HOHHubSubscriptionWorkSuffix) ||
+				if e.ObjectNew.GetName() == fmt.Sprintf("%s-%s", e.ObjectNew.GetNamespace(),
+					constants.HOHHubSubscriptionWorkSuffix) ||
 					e.ObjectNew.GetName() == fmt.Sprintf("%s-%s", e.ObjectNew.GetNamespace(), constants.HoHHubMCHWorkSuffix) ||
 					strings.Contains(e.ObjectNew.GetName(), constants.HoHHostingHubWorkSuffix) {
 					return true
@@ -513,31 +524,37 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// primary watch for managedcluster
 		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
 		// secondary watch for manifestwork
-		Watches(&source.Kind{Type: &workv1.ManifestWork{}}, handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-			managedClusterName := obj.GetNamespace()
-			if strings.Contains(obj.GetName(), constants.HoHHostingHubWorkSuffix) {
-				managedClusterName = strings.TrimSuffix(obj.GetName(), fmt.Sprintf("-%s", constants.HoHHostingHubWorkSuffix))
-			}
-			return []reconcile.Request{
-				{NamespacedName: types.NamespacedName{
-					Name: managedClusterName,
-				}},
-			}
-		}), builder.WithPredicates(workPred)).
+		Watches(&source.Kind{Type: &workv1.ManifestWork{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				managedClusterName := obj.GetNamespace()
+				if strings.Contains(obj.GetName(), constants.HoHHostingHubWorkSuffix) {
+					managedClusterName = strings.TrimSuffix(obj.GetName(), fmt.Sprintf("-%s",
+						constants.HoHHostingHubWorkSuffix))
+				}
+				return []reconcile.Request{
+					{NamespacedName: types.NamespacedName{
+						Name: managedClusterName,
+					}},
+				}
+			}), builder.WithPredicates(workPred)).
 		// watch for hoh config change
-		Watches(&source.Kind{Type: &hubofhubsv1alpha1.Config{}}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(hohConfigPred)).
+		Watches(&source.Kind{Type: &hubofhubsv1alpha1.Config{}},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(hohConfigPred)).
 		Complete(r)
 }
 
-// findStatusFeedbackValueFromWork finds the expected feedback value from given resource and field in manifestwork status
+// findStatusFeedbackValueFromWork finds the expected feedback value from given resource
+// and field in manifestwork status
 // return true if the expected value is found
-func findStatusFeedbackValueFromWork(work *workv1.ManifestWork, kind, feedbackField, feedbackValue string, log logr.Logger) (bool, string) {
+func findStatusFeedbackValueFromWork(work *workv1.ManifestWork, kind, feedbackField, feedbackValue string,
+	log logr.Logger) (bool, string) {
 	log.Info("checking status feedback value from manifestwork", "manifestwork namespace", work.GetNamespace(),
 		"manifestwork name", work.GetName(), "resource kind", kind, "feedback field", feedbackField)
 	for _, manifestCondition := range work.Status.ResourceStatus.Manifests {
 		if manifestCondition.ResourceMeta.Kind == kind {
 			for _, value := range manifestCondition.StatusFeedbacks.Values {
-				if value.Name == feedbackField && value.Value.String != nil && (*value.Value.String == feedbackValue || feedbackValue == "") {
+				if value.Name == feedbackField && value.Value.String != nil &&
+					(*value.Value.String == feedbackValue || feedbackValue == "") {
 					return true, *value.Value.String
 				}
 			}

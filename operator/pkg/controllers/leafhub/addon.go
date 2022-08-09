@@ -92,7 +92,8 @@ func buildClusterManagementAddon(hohConfigName string) *addonv1alpha1.ClusterMan
 }
 
 // applyManagedClusterAddon creates or updates ManagedClusterAddon for leafhubs
-func applyManagedClusterAddon(ctx context.Context, c client.Client, log logr.Logger, managedClusterName, hohConfigName string) error {
+func applyManagedClusterAddon(ctx context.Context, c client.Client, log logr.Logger, managedClusterName,
+	hohConfigName string) error {
 	newHoHManagedClusterAddon := buildManagedClusterAddon(managedClusterName, hohConfigName)
 	existingHoHManagedClusterAddon := &addonv1alpha1.ManagedClusterAddOn{}
 	if err := c.Get(ctx,
@@ -101,7 +102,8 @@ func applyManagedClusterAddon(ctx context.Context, c client.Client, log logr.Log
 			Namespace: newHoHManagedClusterAddon.GetNamespace(),
 		}, existingHoHManagedClusterAddon); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("creating hoh managedclusteraddon", "namespace", newHoHManagedClusterAddon.GetNamespace(), "name", newHoHManagedClusterAddon.GetName(), "managedcluster", managedClusterName)
+			log.Info("creating hoh managedclusteraddon", "namespace", newHoHManagedClusterAddon.GetNamespace(),
+				"name", newHoHManagedClusterAddon.GetName(), "managedcluster", managedClusterName)
 			if err := c.Create(ctx, newHoHManagedClusterAddon); err != nil {
 				return err
 			}
@@ -115,26 +117,33 @@ func applyManagedClusterAddon(ctx context.Context, c client.Client, log logr.Log
 
 	// compare new managedclusteraddon and existing managedclusteraddon
 	if !equality.Semantic.DeepDerivative(newHoHManagedClusterAddon.Spec, existingHoHManagedClusterAddon.Spec) {
-		log.Info("updating hoh managedclusteraddon because it is changed", "namespace", newHoHManagedClusterAddon.GetNamespace(), "name", newHoHManagedClusterAddon.GetName(), "managedcluster", managedClusterName)
+		log.Info("updating hoh managedclusteraddon because it is changed",
+			"namespace", newHoHManagedClusterAddon.GetNamespace(),
+			"name", newHoHManagedClusterAddon.GetName(),
+			"managedcluster", managedClusterName)
 		newHoHManagedClusterAddon.ObjectMeta.ResourceVersion = existingHoHManagedClusterAddon.ObjectMeta.ResourceVersion
 		return c.Update(ctx, newHoHManagedClusterAddon)
 	}
 
-	log.Info("hoh managedclusteraddon is existing and not changed", "namespace", newHoHManagedClusterAddon.GetNamespace(), "name", newHoHManagedClusterAddon.GetName(), "managedcluster", managedClusterName)
+	log.Info("hoh managedclusteraddon is existing and not changed", "namespace", newHoHManagedClusterAddon.GetNamespace(),
+		"name", newHoHManagedClusterAddon.GetName(), "managedcluster", managedClusterName)
 
 	return nil
 }
 
 // deleteManagedClusterAddon deletes ManagedClusterAddon for leafhubs
-func deleteManagedClusterAddon(ctx context.Context, c client.Client, log logr.Logger, managedClusterName, hohConfigName string) error {
+func deleteManagedClusterAddon(ctx context.Context, c client.Client, log logr.Logger, managedClusterName,
+	hohConfigName string) error {
 	hohManagedClusterAddon := buildManagedClusterAddon(managedClusterName, hohConfigName)
 	err := c.Delete(ctx, hohManagedClusterAddon)
 	if err != nil && !errors.IsNotFound(err) {
-		log.Error(err, "failed to delete hoh managedclusteraddon", hohManagedClusterAddon.GetNamespace(), "name", hohManagedClusterAddon.GetName(), "managedcluster", managedClusterName)
+		log.Error(err, "failed to delete hoh managedclusteraddon", hohManagedClusterAddon.GetNamespace(),
+			"name", hohManagedClusterAddon.GetName(), "managedcluster", managedClusterName)
 		return err
 	}
 
-	log.Info("hoh managedclusteraddon is deleted", "namespace", hohManagedClusterAddon.GetNamespace(), "name", hohManagedClusterAddon.GetName(), "managedcluster", managedClusterName)
+	log.Info("hoh managedclusteraddon is deleted", "namespace", hohManagedClusterAddon.GetNamespace(),
+		"name", hohManagedClusterAddon.GetName(), "managedcluster", managedClusterName)
 	return nil
 }
 
@@ -156,7 +165,8 @@ func buildManagedClusterAddon(managedClusterName, hohConfigName string) *addonv1
 }
 
 // updateManagedClusterAddonStatus updates the status of given ManagedClusterAddOn
-func updateManagedClusterAddonStatus(ctx context.Context, c client.Client, log logr.Logger, managedClusterAddon *addonv1alpha1.ManagedClusterAddOn) error {
+func updateManagedClusterAddonStatus(ctx context.Context, c client.Client, log logr.Logger,
+	managedClusterAddon *addonv1alpha1.ManagedClusterAddOn) error {
 	// wait 10s for readiness of created managedclusteraddon with 2 seconds interval
 	existingHoHManagedClusterAddon := &addonv1alpha1.ManagedClusterAddOn{}
 	if errPoll := wait.Poll(2*time.Second, 10*time.Second, func() (bool, error) {
@@ -169,7 +179,8 @@ func updateManagedClusterAddonStatus(ctx context.Context, c client.Client, log l
 		}
 		return true, nil
 	}); errPoll != nil {
-		log.Error(errPoll, "failed to get the managedclusteraddon", "namespace", managedClusterAddon.GetNamespace(), "name", managedClusterAddon.GetName())
+		log.Error(errPoll, "failed to get the managedclusteraddon",
+			"namespace", managedClusterAddon.GetNamespace(), "name", managedClusterAddon.GetName())
 		return errPoll
 	}
 
@@ -187,18 +198,21 @@ func updateManagedClusterAddonStatus(ctx context.Context, c client.Client, log l
 		Message:            "Addon Installing",
 	}
 	if len(existingHoHManagedClusterAddon.Status.Conditions) > 0 {
-		existingHoHManagedClusterAddon.Status.Conditions = append(existingHoHManagedClusterAddon.Status.Conditions, newCondition)
+		existingHoHManagedClusterAddon.Status.Conditions = append(
+			existingHoHManagedClusterAddon.Status.Conditions, newCondition)
 	} else {
 		existingHoHManagedClusterAddon.Status.Conditions = []metav1.Condition{newCondition}
 	}
 
 	// update status for the created managedclusteraddon
 	if err := c.Status().Update(context.TODO(), existingHoHManagedClusterAddon); err != nil {
-		log.Error(err, "failed to update status for managedclusteraddon", "namespace", existingHoHManagedClusterAddon.GetNamespace(), "name", existingHoHManagedClusterAddon.GetName())
+		log.Error(err, "failed to update status for managedclusteraddon",
+			"namespace", existingHoHManagedClusterAddon.GetNamespace(), "name", existingHoHManagedClusterAddon.GetName())
 		return err
 	}
 
-	log.Info("updated the status of managedclusteraddon", "namespace", existingHoHManagedClusterAddon.GetNamespace(), "name", existingHoHManagedClusterAddon.GetName())
+	log.Info("updated the status of managedclusteraddon",
+		"namespace", existingHoHManagedClusterAddon.GetNamespace(), "name", existingHoHManagedClusterAddon.GetName())
 
 	return nil
 }

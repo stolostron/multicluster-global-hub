@@ -33,14 +33,16 @@ type KafkaProducer struct {
 }
 
 // NewProducer returns a new instance of Producer object.
-func NewKafkaProducer(compressor compressor.Compressor, log logr.Logger, environmentManager *helper.ConfigManager) (*KafkaProducer, error) {
+func NewKafkaProducer(compressor compressor.Compressor, log logr.Logger,
+	environmentManager *helper.ConfigManager) (*KafkaProducer, error) {
 	configMap, err := environmentManager.GetProducerKafkaConfigMap()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kafka configMap")
 	}
 
 	deliveryChan := make(chan kafka.Event)
-	kafkaProducer, err := kafkaproducer.NewKafkaProducer(configMap, environmentManager.Kafka.ProducerMessageLimit*kiloBytesToBytes, deliveryChan)
+	kafkaProducer, err := kafkaproducer.NewKafkaProducer(configMap,
+		environmentManager.Kafka.ProducerMessageLimit*kiloBytesToBytes, deliveryChan)
 	if err != nil {
 		close(deliveryChan)
 		return nil, fmt.Errorf("failed to create producer: %w", err)

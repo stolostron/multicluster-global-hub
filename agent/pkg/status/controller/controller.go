@@ -23,7 +23,8 @@ import (
 )
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(mgr ctrl.Manager, pro producer.Producer, configManager helper.ConfigManager, incarnation uint64) error {
+func AddControllers(mgr ctrl.Manager, pro producer.Producer,
+	configManager helper.ConfigManager, incarnation uint64) error {
 	config := &corev1.ConfigMap{}
 	if err := configCtrl.AddConfigController(mgr, config); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
@@ -34,11 +35,13 @@ func AddControllers(mgr ctrl.Manager, pro producer.Producer, configManager helpe
 		return fmt.Errorf("failed to add SyncIntervals controller: %w", err)
 	}
 
-	if err := policies.AddPoliciesStatusController(mgr, pro, configManager, incarnation, config, syncIntervals); err != nil {
+	if err := policies.AddPoliciesStatusController(mgr, pro, configManager,
+		incarnation, config, syncIntervals); err != nil {
 		return fmt.Errorf("failed to add PoliciesStatusController controller: %w", err)
 	}
 
-	addControllerFunctions := []func(ctrl.Manager, producer.Producer, string, uint64, *corev1.ConfigMap, *syncintervals.SyncIntervals) error{
+	addControllerFunctions := []func(ctrl.Manager, producer.Producer, string, uint64,
+		*corev1.ConfigMap, *syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController,
 		placement.AddPlacementRulesController,
 		placement.AddPlacementsController,
