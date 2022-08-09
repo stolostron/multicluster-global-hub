@@ -10,11 +10,7 @@ The operator of Hub-of-Hubs (see: https://github.com/stolostron/hub-of-hubs)
 
 ```bash
 kubectl create secret generic postgresql-secret -n "open-cluster-management" \
-    --from-literal=host=<postgresql-host> \
-    --from-literal=port=<postgresql-port> \
-    --from-literal=user=<admin-user-of-hub-of-hubs-database> \
-    --from-literal=password=<admin-user-password> \
-    --from-literal=database=<name-of-hub-of-hubs-database>
+    --from-literal=database_uri=<postgresql-uri> 
 ```
 
 4. Kafka is installed and two topics `spec` and `status` are created, also a secret with name `kafka-secret` that contains the kafka access information should be created in `open-cluster-management` namespace:
@@ -24,6 +20,11 @@ kubectl create secret generic kafka-secret -n "open-cluster-management" \
     --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \
     --from-literal=CA=<CA-for-kafka-server>
 ```
+
+5. You can run the following script to create kafka and postgres clusters and the corresponding secrets in a local environment (the names of the two secrets should be strictly the same as the names of postgres and kafka in the hub of hubs CR)
+    - Install OLM(Optional): `./operator/config/samples/olm.sh`
+    - Install Kafka and create secret `kafka-secret`: `./operator/config/samples/kafka/deploy_kafka.sh`
+    - Install Postgres and create secret `postgresql-secret`: `./operator/config/samples/postgres/deploy_postgres.sh`
 
 ## Getting started
 
