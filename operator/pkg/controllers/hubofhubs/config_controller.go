@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -66,9 +67,16 @@ type ConfigReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// SetConditionFunc is function type that receives the concrete condition method
+type SetConditionFunc func(ctx context.Context, c client.Client, config *hubofhubsv1alpha1.Config,
+	status metav1.ConditionStatus) error
+
 //+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersetbindings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/join,verbs=create;delete
+//+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/bind,verbs=create;delete
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;create;update;delete
@@ -145,7 +153,6 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer := renderer.NewHoHRenderer(fs)
-	hohDeployer := deployer.NewHoHDeployer(r.Client)
 
 	annotations := hohConfig.GetAnnotations()
 	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", func(component string) (interface{}, error) {
@@ -164,27 +171,9 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	for _, obj := range hohRBACObjects {
-		// TODO: more solid way to check if the object is namespace scoped resource
-		if obj.GetNamespace() != "" {
-			// set ownerreference of controller
-			if err := controllerutil.SetControllerReference(hohConfig, obj, r.Scheme); err != nil {
-				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(),
-					"namespace", obj.GetNamespace(), "name", obj.GetName())
-			}
-		}
-		// set owner labels
-		labels := obj.GetLabels()
-		labels[constants.HoHOperatorOwnerLabelKey] = hohConfig.GetName()
-		obj.SetLabels(labels)
-
-		log.Info("Creating or updating object", "object", obj)
-		if err := hohDeployer.Deploy(obj); err != nil {
-			if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
-			}
-			return ctrl.Result{}, err
-		}
+	err = r.manipulateObj(ctx, hohRBACObjects, hohConfig, condition.SetConditionRBACDeployed, log)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_TRUE); conditionError != nil {
@@ -226,27 +215,22 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	for _, obj := range managerObjects {
-		// TODO: more solid way to check if the object is namespace scoped resource
-		if obj.GetNamespace() != "" {
-			// set ownerreference of controller
-			if err := controllerutil.SetControllerReference(hohConfig, obj, r.Scheme); err != nil {
-				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(),
-					"namespace", obj.GetNamespace(), "name", obj.GetName())
-			}
-		}
-		// set owner labels
-		labels := obj.GetLabels()
-		labels[constants.HoHOperatorOwnerLabelKey] = hohConfig.GetName()
-		obj.SetLabels(labels)
+	err = r.manipulateObj(ctx, managerObjects, hohConfig, condition.SetConditionManagerDeployed, log)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-		log.Info("Creating or updating object", "object", obj)
-		if err := hohDeployer.Deploy(obj); err != nil {
-			if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE); conditionError != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
-			}
-			return ctrl.Result{}, err
-		}
+	// render the default placement
+	placementObjects, err := hohRenderer.Render("manifests/placement", func(component string) (interface{}, error) {
+		return struct{}{}, err
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = r.manipulateObj(ctx, placementObjects, hohConfig, nil, log)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_TRUE); conditionError != nil {
@@ -280,6 +264,41 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// }
 
 	return ctrl.Result{}, nil
+}
+
+func (r *ConfigReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
+	hohConfig *hubofhubsv1alpha1.Config, setConditionFunc SetConditionFunc, log logr.Logger) error {
+	hohDeployer := deployer.NewHoHDeployer(r.Client)
+	// manipulate the object
+	for _, obj := range objs {
+		// TODO: more solid way to check if the object is namespace scoped resource
+		if obj.GetNamespace() != "" {
+			// set ownerreference of controller
+			if err := controllerutil.SetControllerReference(hohConfig, obj, r.Scheme); err != nil {
+				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(),
+					"namespace", obj.GetNamespace(), "name", obj.GetName())
+			}
+		}
+		// set owner labels
+		labels := obj.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[constants.HoHOperatorOwnerLabelKey] = hohConfig.GetName()
+		obj.SetLabels(labels)
+
+		log.Info("Creating or updating object", "object", obj)
+		if err := hohDeployer.Deploy(obj); err != nil {
+			if setConditionFunc != nil {
+				conditionError := setConditionFunc(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE)
+				if conditionError != nil {
+					return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+				}
+			}
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *ConfigReconciler) initFinalization(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config,

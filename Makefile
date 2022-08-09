@@ -41,7 +41,7 @@ push-agent-image:
 	docker push ${REGISTRY}/hub-of-hubs-agent:${IMAGE_TAG}
 
 .PHONY: unit-tests
-unit-tests: unit-tests-manager unit-tests-agent
+unit-tests: unit-tests-operator unit-tests-manager unit-tests-agent
 
 setup_envtest:
 	GOBIN=${TMP_BIN} go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
