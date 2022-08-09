@@ -67,6 +67,10 @@ type ConfigReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// SetConditionFunc is function type that receives the concrete condition method
+type SetConditionFunc func(ctx context.Context, c client.Client, config *hubofhubsv1alpha1.Config,
+	status metav1.ConditionStatus) error
+
 //+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=configs/finalizers,verbs=update
@@ -167,7 +171,7 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, hohRBACObjects, hohConfig, log)
+	err = r.manipulateObj(ctx, hohRBACObjects, hohConfig, condition.SetConditionRBACDeployed, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -211,7 +215,7 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, managerObjects, hohConfig, log)
+	err = r.manipulateObj(ctx, managerObjects, hohConfig, condition.SetConditionManagerDeployed, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -224,7 +228,7 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, placementObjects, hohConfig, log)
+	err = r.manipulateObj(ctx, placementObjects, hohConfig, nil, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -263,7 +267,7 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 func (r *ConfigReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
-	hohConfig *hubofhubsv1alpha1.Config, log logr.Logger) error {
+	hohConfig *hubofhubsv1alpha1.Config, setConditionFunc SetConditionFunc, log logr.Logger) error {
 	hohDeployer := deployer.NewHoHDeployer(r.Client)
 	// manipulate the object
 	for _, obj := range objs {
@@ -285,9 +289,11 @@ func (r *ConfigReconciler) manipulateObj(ctx context.Context, objs []*unstructur
 
 		log.Info("Creating or updating object", "object", obj)
 		if err := hohDeployer.Deploy(obj); err != nil {
-			conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE)
-			if conditionError != nil {
-				return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+			if setConditionFunc != nil {
+				conditionError := setConditionFunc(ctx, r.Client, hohConfig, condition.CONDITION_STATUS_FALSE)
+				if conditionError != nil {
+					return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+				}
 			}
 			return err
 		}
