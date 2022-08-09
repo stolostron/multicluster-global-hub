@@ -297,7 +297,8 @@ func (r *ConfigReconciler) manipulateObj(ctx context.Context, objs []*unstructur
 
 func (r *ConfigReconciler) initFinalization(ctx context.Context, hohConfig *hubofhubsv1alpha1.Config,
 	log logr.Logger) (bool, error) {
-	if hohConfig.GetDeletionTimestamp() != nil && utils.Contains(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer) {
+	if hohConfig.GetDeletionTimestamp() != nil &&
+		utils.Contains(hohConfig.GetFinalizers(), constants.HoHOperatorFinalizer) {
 		log.Info("to delete hoh resources")
 		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 		if err := r.pruneGlobalResources(ctx, hohConfig); err != nil {
