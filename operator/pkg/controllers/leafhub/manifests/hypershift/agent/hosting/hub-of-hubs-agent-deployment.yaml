@@ -13,7 +13,7 @@ spec:
       labels:
         name: hub-of-hubs-agent
     spec:
-      serviceAccountName: default
+      serviceAccountName: hub-of-hubs-agent
       containers:
         - name: hub-of-hubs-agent
           image: {{.HoHAgentImage}}

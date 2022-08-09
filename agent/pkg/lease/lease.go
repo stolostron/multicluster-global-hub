@@ -1,0 +1,149 @@
+package lease
+
+import (
+	"context"
+	"time"
+
+	"github.com/go-logr/logr"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	leaseUpdateJitterFactor     = 0.25
+	defaultLeaseDurationSeconds = 60
+)
+
+// leaseUpdater updates lease with given name and namespace in certain period
+type leaseUpdater struct {
+	log                  logr.Logger
+	kubeClient           client.Client
+	leaseName            string
+	leaseNamespace       string
+	leaseDurationSeconds int32
+	healthCheckFuncs     []func() bool
+}
+
+// AddHoHLeaseUpdater creates a new LeaseUpdater instance aand add it to given manager
+func AddHoHLeaseUpdater(mgr ctrl.Manager, addonNamespace, addonName string) error {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return err
+	}
+	// creates the clientset
+	c, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	return mgr.Add(&leaseUpdater{
+		log:                  ctrl.Log.WithName("hub-of-hubs-lease-updater"),
+		kubeClient:           mgr.GetClient(),
+		leaseName:            addonName,
+		leaseNamespace:       addonNamespace,
+		leaseDurationSeconds: defaultLeaseDurationSeconds,
+		healthCheckFuncs: []func() bool{
+			checkAddonPodFunc(ctrl.Log.WithName("hub-of-hubs-lease-updater"),
+				c.CoreV1(),
+				addonNamespace,
+				"name=hub-of-hubs-agent"),
+		},
+	})
+}
+
+// Start starts a goroutine to update lease to implement controller-runtime Runnable interface
+func (r *leaseUpdater) Start(ctx context.Context) error {
+	wait.JitterUntilWithContext(context.TODO(),
+		r.reconcile,
+		time.Duration(r.leaseDurationSeconds)*time.Second,
+		leaseUpdateJitterFactor,
+		true)
+	return nil
+}
+
+func (r *leaseUpdater) updateLease(ctx context.Context) error {
+	lease := &coordinationv1.Lease{}
+	err := r.kubeClient.Get(ctx, types.NamespacedName{
+		Namespace: r.leaseNamespace,
+		Name:      r.leaseName,
+	}, lease)
+	switch {
+	case errors.IsNotFound(err):
+		// create lease
+		newLease := &coordinationv1.Lease{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      r.leaseName,
+				Namespace: r.leaseNamespace,
+			},
+			Spec: coordinationv1.LeaseSpec{
+				LeaseDurationSeconds: &r.leaseDurationSeconds,
+				RenewTime: &metav1.MicroTime{
+					Time: time.Now(),
+				},
+			},
+		}
+
+		// create new lease if it is not found
+		if err := r.kubeClient.Create(ctx, newLease, &client.CreateOptions{}); err != nil {
+			return err
+		}
+	case err != nil:
+		return err
+	default:
+		// update lease
+		lease.Spec.RenewTime = &metav1.MicroTime{Time: time.Now()}
+		if err := r.kubeClient.Update(ctx, lease, &client.UpdateOptions{}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *leaseUpdater) reconcile(ctx context.Context) {
+	r.log.Info("lease updater is reconciling", "namespace", r.leaseNamespace, "name", r.leaseName)
+	for _, f := range r.healthCheckFuncs {
+		if !f() {
+			// if a healthy check fails, do not update lease.
+			return
+		}
+	}
+	// Update lease on managed cluster
+	if err := r.updateLease(ctx); err != nil {
+		r.log.Error(err, "failed to update lease", "namespace", r.leaseNamespace, "name", r.leaseName)
+	}
+
+	r.log.Info("lease is created or updated", "namespace", r.leaseNamespace, "name", r.leaseName)
+}
+
+// checkAddonPodFunc checks whether the agent pod is running
+func checkAddonPodFunc(log logr.Logger, podGetter corev1client.PodsGetter,
+	namespace, labelSelector string,
+) func() bool {
+	return func() bool {
+		pods, err := podGetter.Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+		if err != nil {
+			log.Error(err, "failed to get the pod list with label selector",
+				"namespace", namespace, "labelSelector", labelSelector)
+			return false
+		}
+
+		// Ii one of the pods is running, we think the agent is serving.
+		for _, pod := range pods.Items {
+			if pod.Status.Phase == corev1.PodRunning {
+				return true
+			}
+		}
+
+		return false
+	}
+}
