@@ -18,7 +18,7 @@ spec:
       serviceAccountName: hub-of-hubs-manager
       containers:
         - name: hub-of-hubs-manager
-          image: {{.Image}}
+          image: "{{.Image}}"
           imagePullPolicy: Always
           args:
             - --zap-devel=true
@@ -37,19 +37,19 @@ spec:
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
-                 apiVersion: v1
-                 fieldPath: metadata.namespace
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
             - name: WATCH_NAMESPACE
             - name: PROCESS_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{.DBSecret}}
-                  key: process_uri
+                  name: "{{.DBSecret}}"
+                  key: database_uri
             - name: TRANSPORT_BRIDGE_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{.DBSecret}}
-                  key: transport_uri
+                  name: "{{.DBSecret}}"
+                  key: database_uri
           volumeMounts:
             - readOnly: true
               mountPath: /hub-of-hubs-rbac-ca
