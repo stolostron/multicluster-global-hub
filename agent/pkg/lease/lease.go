@@ -51,13 +51,22 @@ func AddHoHLeaseUpdater(mgr ctrl.Manager, addonNamespace, addonName string) erro
 		leaseName:            addonName,
 		leaseNamespace:       addonNamespace,
 		leaseDurationSeconds: defaultLeaseDurationSeconds,
-		healthCheckFuncs:     []func() bool{checkAddonPodFunc(ctrl.Log.WithName("hub-of-hubs-lease-updater"), c.CoreV1(), addonNamespace, "name=hub-of-hubs-agent")},
+		healthCheckFuncs: []func() bool{
+			checkAddonPodFunc(ctrl.Log.WithName("hub-of-hubs-lease-updater"),
+				c.CoreV1(),
+				addonNamespace,
+				"name=hub-of-hubs-agent"),
+		},
 	})
 }
 
 // Start starts a goroutine to update lease to implement controller-runtime Runnable interface
 func (r *leaseUpdater) Start(ctx context.Context) error {
-	wait.JitterUntilWithContext(context.TODO(), r.reconcile, time.Duration(r.leaseDurationSeconds)*time.Second, leaseUpdateJitterFactor, true)
+	wait.JitterUntilWithContext(context.TODO(),
+		r.reconcile,
+		time.Duration(r.leaseDurationSeconds)*time.Second,
+		leaseUpdateJitterFactor,
+		true)
 	return nil
 }
 
@@ -117,11 +126,14 @@ func (r *leaseUpdater) reconcile(ctx context.Context) {
 }
 
 // checkAddonPodFunc checks whether the agent pod is running
-func checkAddonPodFunc(log logr.Logger, podGetter corev1client.PodsGetter, namespace, labelSelector string) func() bool {
+func checkAddonPodFunc(log logr.Logger, podGetter corev1client.PodsGetter,
+	namespace, labelSelector string,
+) func() bool {
 	return func() bool {
 		pods, err := podGetter.Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 		if err != nil {
-			log.Error(err, "failed to get the pod list with label selector", "namespace", namespace, "labelSelector", labelSelector)
+			log.Error(err, "failed to get the pod list with label selector",
+				"namespace", namespace, "labelSelector", labelSelector)
 			return false
 		}
 
