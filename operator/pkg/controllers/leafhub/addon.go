@@ -79,15 +79,15 @@ func deleteClusterManagementAddon(ctx context.Context, c client.Client, log logr
 func buildClusterManagementAddon(mghName string) *addonv1alpha1.ClusterManagementAddOn {
 	return &addonv1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.HoHClustermanagementAddonName,
+			Name: constants.HoHClusterManagementAddonName,
 			Labels: map[string]string{
 				constants.HoHOperatorOwnerLabelKey: mghName,
 			},
 		},
 		Spec: addonv1alpha1.ClusterManagementAddOnSpec{
 			AddOnMeta: addonv1alpha1.AddOnMeta{
-				DisplayName: constants.HoHClustermanagementAddonDisplayName,
-				Description: constants.HoHClustermanagementAddonDescription,
+				DisplayName: constants.HoHClusterManagementAddonDisplayName,
+				Description: constants.HoHClusterManagementAddonDescription,
 			},
 		},
 	}
