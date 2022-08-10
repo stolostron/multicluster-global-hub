@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -29,6 +30,7 @@ func NewHoHDeployer(client client.Client) Deployer {
 	deployer := &HoHDeployer{client: client}
 	deployer.deployFuncs = map[string]deployFunc{
 		"Deployment":               deployer.deployDeployment,
+		"Job":                      deployer.deployJob,
 		"Service":                  deployer.deployService,
 		"ConfigMap":                deployer.deployConfigMap,
 		"Secret":                   deployer.deploySecret,
@@ -89,6 +91,32 @@ func (d *HoHDeployer) deployDeployment(desiredObj, existingObj *unstructured.Uns
 
 	if !apiequality.Semantic.DeepDerivative(desiredDepoly, existingDepoly) {
 		return d.client.Update(context.TODO(), desiredDepoly)
+	}
+
+	return nil
+}
+
+func (d *HoHDeployer) deployJob(desiredObj, existingObj *unstructured.Unstructured) error {
+	existingJSON, _ := existingObj.MarshalJSON()
+	existingJob := &batchv1.Job{}
+	err := json.Unmarshal(existingJSON, existingJob)
+	if err != nil {
+		return err
+	}
+
+	desiredJSON, _ := desiredObj.MarshalJSON()
+	desiredJob := &batchv1.Job{}
+	err = json.Unmarshal(desiredJSON, desiredJob)
+	if err != nil {
+		return err
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredJob.Spec, existingJob.Spec) {
+		// job resource cannot be updated, delete ond job and recreate new one
+		if err := d.client.Delete(context.TODO(), existingJob); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+		return d.client.Create(context.TODO(), desiredJob)
 	}
 
 	return nil

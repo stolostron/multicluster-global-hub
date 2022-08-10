@@ -22,8 +22,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/go-logr/logr"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -32,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -66,11 +69,6 @@ type MultiClusterGlobalHubReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// SetConditionFunc is function type that receives the concrete condition method
-type SetConditionFunc func(ctx context.Context, c client.Client,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	status metav1.ConditionStatus) error
-
 //+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/finalizers,verbs=update
@@ -84,7 +82,7 @@ type SetConditionFunc func(ctx context.Context, c client.Client,
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;create;update;delete
+//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;create;delete;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=ingresses,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;create;update;delete
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;create;update;delete
@@ -125,8 +123,11 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
+	// create new HoHRenderer and HoHDeployer
+	hohRenderer := renderer.NewHoHRenderer(fs)
+
 	// handle gc
-	isTerminating, err := r.initFinalization(ctx, mgh, log)
+	isTerminating, err := r.initFinalization(ctx, mgh, hohRenderer, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -151,9 +152,6 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// create new HoHRenderer and HoHDeployer
-	hohRenderer := renderer.NewHoHRenderer(fs)
-
 	annotations := mgh.GetAnnotations()
 	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", func(component string) (interface{}, error) {
 		hohRBACConfig := struct {
@@ -162,26 +160,15 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			Image: config.GetImage(annotations, "hub_of_hubs_rbac"),
 		}
 
-		return hohRBACConfig, err
+		return hohRBACConfig, nil
 	})
 	if err != nil {
-		if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_FALSE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
-				condition.CONDITION_STATUS_FALSE, conditionError)
-		}
 		return ctrl.Result{}, err
 	}
 
 	err = r.manipulateObj(ctx, hohRBACObjects, mgh, condition.SetConditionRBACDeployed, log)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, mgh,
-		condition.CONDITION_STATUS_TRUE); conditionError != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
-			condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
 	// retrieve bootstrapserver and CA of kafka from secret
@@ -214,14 +201,9 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			KafkaBootstrapServer: kafkaBootstrapServer,
 		}
 
-		return managerConfig, err
+		return managerConfig, nil
 	})
 	if err != nil {
-		if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_FALSE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
-				condition.CONDITION_STATUS_FALSE, conditionError)
-		}
 		return ctrl.Result{}, err
 	}
 
@@ -232,7 +214,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	// render the default placement
 	placementObjects, err := hohRenderer.Render("manifests/placement", func(component string) (interface{}, error) {
-		return struct{}{}, err
+		return struct{}{}, nil
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -243,7 +225,48 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, mgh,
+	// render the console setup job
+	consoleSetupObjects, err := hohRenderer.Render("manifests/console-setup", func(
+		component string,
+	) (interface{}, error) {
+		return struct{}{}, nil
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = r.manipulateObj(ctx, consoleSetupObjects, mgh, condition.SetConditionConsoleDeployed, log)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	log.Info("wait at most 300s for the hub-of-hubs console is set up")
+	consoleSetupJob := &batchv1.Job{}
+	if errPoll := wait.Poll(30*time.Second, 300*time.Second, func() (bool, error) {
+		if err := r.Client.Get(ctx,
+			types.NamespacedName{
+				Name:      "hoh-of-hubs-console-setup",
+				Namespace: constants.HOHDefaultNamespace,
+			}, consoleSetupJob); err != nil {
+			return false, err
+		}
+		if consoleSetupJob.Status.Succeeded > 0 {
+			return true, nil
+		}
+		return false, nil
+	}); errPoll != nil {
+		log.Error(errPoll, "hub-of-hubs console setup job failed",
+			"namespace", constants.HOHDefaultNamespace,
+			"name", "hoh-of-hubs-console-setup")
+		if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_FALSE); conditionError != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
+				condition.CONDITION_STATUS_FALSE, conditionError)
+		}
+		return ctrl.Result{}, errPoll
+	}
+	log.Info("hub-of-hubs console is set up")
+	if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
 		condition.CONDITION_STATUS_TRUE); conditionError != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
 			condition.CONDITION_STATUS_TRUE, conditionError)
@@ -279,7 +302,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub, setConditionFunc SetConditionFunc, log logr.Logger,
+	mgh *operatorv1alpha1.MultiClusterGlobalHub, setConditionFunc condition.SetConditionFunc, log logr.Logger,
 ) error {
 	hohDeployer := deployer.NewHoHDeployer(r.Client)
 	// manipulate the object
@@ -312,14 +335,58 @@ func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, obj
 			return err
 		}
 	}
+
+	if setConditionFunc != nil {
+		if conditionError := setConditionFunc(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_TRUE); conditionError != nil {
+			return fmt.Errorf("failed to set condition(%s): %w",
+				condition.CONDITION_STATUS_TRUE, conditionError)
+		}
+	}
+
 	return nil
 }
 
 func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	log logr.Logger,
+	hohRenderer renderer.Renderer, log logr.Logger,
 ) (bool, error) {
 	if mgh.GetDeletionTimestamp() != nil &&
 		utils.Contains(mgh.GetFinalizers(), constants.HoHOperatorFinalizer) {
+		log.Info("cleanup hub-of-hubs console")
+		// render the console cleanup job
+		consoleCleanupObjects, err := hohRenderer.Render("manifests/console-cleanup",
+			func(component string) (interface{}, error) {
+				return struct{}{}, nil
+			})
+		if err != nil {
+			return false, err
+		}
+		if err := r.manipulateObj(ctx, consoleCleanupObjects, mgh, nil, log); err != nil {
+			return false, err
+		}
+
+		log.Info("wait at most 300s for the hub-of-hubs console is cleaned up")
+		consoleCleanJob := &batchv1.Job{}
+		if errPoll := wait.Poll(30*time.Second, 300*time.Second, func() (bool, error) {
+			if err := r.Client.Get(ctx,
+				types.NamespacedName{
+					Name:      "hoh-of-hubs-console-cleanup",
+					Namespace: constants.HOHDefaultNamespace,
+				}, consoleCleanJob); err != nil {
+				return false, err
+			}
+			if consoleCleanJob.Status.Succeeded > 0 {
+				return true, nil
+			}
+			return false, nil
+		}); errPoll != nil {
+			log.Error(errPoll, "hub-of-hubs console cleanup job failed",
+				"namespace", constants.HOHDefaultNamespace,
+				"name", "hoh-of-hubs-console-cleanup")
+			return false, errPoll
+		}
+		log.Info("hub-of-hubs console is cleaned up")
+
 		log.Info("to delete hoh resources")
 		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 		if err := r.pruneGlobalResources(ctx, mgh); err != nil {
@@ -334,8 +401,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 		}
 
 		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), constants.HoHOperatorFinalizer))
-		err := r.Client.Update(context.TODO(), mgh)
-		if err != nil {
+		if err := r.Client.Update(context.TODO(), mgh); err != nil {
 			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
 			return false, err
 		}
@@ -369,7 +435,7 @@ func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 		return err
 	}
 	for idx := range clusterRoleList.Items {
-		if err := r.Client.Delete(ctx, &clusterRoleList.Items[idx], &client.DeleteOptions{}); err != nil &&
+		if err := r.Client.Delete(ctx, &clusterRoleList.Items[idx]); err != nil &&
 			!errors.IsNotFound(err) {
 			return err
 		}
@@ -381,7 +447,7 @@ func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 		return err
 	}
 	for idx := range clusterRoleBindingList.Items {
-		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx], &client.DeleteOptions{}); err != nil &&
+		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx]); err != nil &&
 			!errors.IsNotFound(err) {
 			return err
 		}

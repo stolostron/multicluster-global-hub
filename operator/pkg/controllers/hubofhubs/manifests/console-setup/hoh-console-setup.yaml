@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hoh-of-hubs-console-setup
+  namespace: open-cluster-management
+  labels:
+    name: hoh-of-hubs-console
+spec:
+  template:
+    spec:
+      serviceAccountName: hub-of-hubs-operator
+      containers:
+      - name: console-setup
+        image: quay.io/morvencao/hub-of-hubs-operator:latest
+        imagePullPolicy: Always
+        command: ["/bin/sh", "-c", "/tmp/console-script/console-setup.sh"]
+        env:
+        # add this env to resolve https://github.com/helm/helm/issues/11012
+        - name: HOME
+          value: "/tmp"
+        volumeMounts:
+        - name: console-script
+          mountPath: /tmp/console-script
+      volumes:
+      - name: console-script
+        configMap:
+          name: hoh-of-hubs-console-script
+          defaultMode: 0755
+      restartPolicy: Never

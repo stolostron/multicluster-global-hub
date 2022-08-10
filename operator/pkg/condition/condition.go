@@ -73,6 +73,13 @@ const (
 	CONDITION_MESSAGE_MANAGER_DEPLOY = "Hub-of-Hubs Manager Deployed"
 )
 
+// NOTE: the status of ConsoleDeployed can only be True; otherwise there is no condition
+const (
+	CONDITION_TYPE_CONSOLE_DEPLOY    = "ConsoleDeployed"
+	CONDITION_REASON_CONSOLE_DEPLOY  = "ConsoleDeployed"
+	CONDITION_MESSAGE_CONSOLE_DEPLOY = "Hub-of-Hubs Console Deployed"
+)
+
 // NOTE: the status of LeafHubDeployed can only be True; otherwise there is no condition
 const (
 	CONDITION_TYPE_LEAFHUB_DEPLOY           = "LeafHubDeployed"
@@ -81,6 +88,11 @@ const (
 	CONDITION_REASON_LEAFHUB_DEPLOY_FAILED  = "LeafHubDeployFailed"
 	CONDITION_MESSAGE_LEAFHUB_DEPLOY_FAILED = "Leaf Hub Deployed FAILED"
 )
+
+// SetConditionFunc is function type that receives the concrete condition method
+type SetConditionFunc func(ctx context.Context, c client.Client,
+	mgh *operatorv1alpha1.MultiClusterGlobalHub,
+	status metav1.ConditionStatus) error
 
 func SetConditionResourceFound(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RESOURCE_FOUND, CONDITION_STATUS_TRUE,
@@ -113,6 +125,13 @@ func SetConditionManagerDeployed(ctx context.Context, c client.Client, mgh *oper
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MANAGER_DEPLOY, status,
 		CONDITION_REASON_MANAGER_DEPLOY, CONDITION_MESSAGE_MANAGER_DEPLOY)
+}
+
+func SetConditionConsoleDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
+	status metav1.ConditionStatus,
+) error {
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_CONSOLE_DEPLOY, status,
+		CONDITION_REASON_CONSOLE_DEPLOY, CONDITION_MESSAGE_CONSOLE_DEPLOY)
 }
 
 func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
