@@ -443,14 +443,32 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 
 // pruneHoHResources tries to delete hoh resources
 func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub) error {
-	// hoh configmap
+	// hoh-system namespace and hub-of-hubs-config configmap
+	hohSystemNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.HOHSystemNamespace,
+			Labels: map[string]string{
+				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+			},
+		},
+	}
 	existingHoHConfigMap := &corev1.ConfigMap{}
-	if err := r.Client.Get(ctx,
+	err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Namespace: constants.HOHSystemNamespace,
 			Name:      constants.HOHConfigName,
-		}, existingHoHConfigMap); err != nil && !errors.IsNotFound(err) {
-		return err
+		}, existingHoHConfigMap)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+
+		// cleanup hoh-system namespace
+		if err := r.Client.Delete(ctx, hohSystemNamespace); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+
+		return nil
 	}
 
 	// clean the finalizers added by hub-of-hubs-manager
@@ -463,15 +481,7 @@ func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context,
 		return err
 	}
 
-	hohSystemNamespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.HOHSystemNamespace,
-			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
-			},
-		},
-	}
-
+	// cleanup hoh-system namespace
 	if err := r.Client.Delete(ctx, hohSystemNamespace); err != nil && !errors.IsNotFound(err) {
 		return err
 	}
