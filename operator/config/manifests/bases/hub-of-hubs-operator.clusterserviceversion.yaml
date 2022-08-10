@@ -10,10 +10,11 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: Config is the Schema for the configs API
-      displayName: Config
-      kind: Config
-      name: configs.hubofhubs.open-cluster-management.io
+    - description: MultiClusterGlobalHub is the Schema for the multiclusterglobalhubs
+        API
+      displayName: Multi Cluster Global Hub
+      kind: MultiClusterGlobalHub
+      name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha1
   description: hub-of-hubs-operator defines the configuration for the hub-of-hubs
     installation with one custom resource.

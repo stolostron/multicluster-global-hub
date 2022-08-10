@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
-	hubofhubsv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/hubofhubs/v1alpha1"
+	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
 	hubofhubscontrollers "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/hubofhubs"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
@@ -53,7 +53,7 @@ func init() {
 	utilruntime.Must(workv1.AddToScheme(scheme))
 	utilruntime.Must(addonv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(hypershiftdeploymentv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(hubofhubsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(operatorv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -87,12 +87,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&hubofhubscontrollers.ConfigReconciler{
+	if err = (&hubofhubscontrollers.MultiClusterGlobalHubReconciler{
 		Manager: mgr,
 		Client:  mgr.GetClient(),
 		Scheme:  mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Config")
+		setupLog.Error(err, "unable to create controller", "controller", "MultiClusterGlobalHub")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

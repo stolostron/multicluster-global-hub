@@ -130,32 +130,6 @@ rules:
   - create
   - delete
 - apiGroups:
-  - hubofhubs.open-cluster-management.io
-  resources:
-  - configs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - hubofhubs.open-cluster-management.io
-  resources:
-  - configs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - hubofhubs.open-cluster-management.io
-  resources:
-  - configs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
   - networking.k8s.io
   resources:
   - ingresses
@@ -172,6 +146,32 @@ rules:
   - create
   - delete
   - get
+  - update
+- apiGroups:
+  - operator.open-cluster-management.io
+  resources:
+  - multiclusterglobalhubs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.open-cluster-management.io
+  resources:
+  - multiclusterglobalhubs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - operator.open-cluster-management.io
+  resources:
+  - multiclusterglobalhubs/status
+  verbs:
+  - get
+  - patch
   - update
 - apiGroups:
   - packages.operators.coreos.com

@@ -1,23 +1,27 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: configs.hubofhubs.open-cluster-management.io
+  name: multiclusterglobalhubs.operator.open-cluster-management.io
 spec:
-  group: hubofhubs.open-cluster-management.io
+  group: operator.open-cluster-management.io
   names:
-    kind: Config
-    listKind: ConfigList
-    plural: configs
-    singular: config
+    kind: MultiClusterGlobalHub
+    listKind: MultiClusterGlobalHubList
+    plural: multiclusterglobalhubs
+    shortNames:
+    - mgh
+    singular: multiclusterglobalhub
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Config is the Schema for the configs API
+        description: MultiClusterGlobalHub is the Schema for the multiclusterglobalhubs
+          API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -32,7 +36,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ConfigSpec defines the desired state of Config
+            description: MultiClusterGlobalHubSpec defines the desired state of MultiClusterGlobalHub
             properties:
               aggregationLevel:
                 default: full
@@ -65,10 +69,12 @@ spec:
                 type: object
             type: object
           status:
-            description: ConfigStatus defines the observed state of Config
+            description: MultiClusterGlobalHubStatus defines the observed state of
+              MultiClusterGlobalHub
             properties:
               conditions:
-                description: ConfigStatus defines the observed state of Config
+                description: MultiClusterGlobalHubStatus defines the observed state
+                  of MultiClusterGlobalHub
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct

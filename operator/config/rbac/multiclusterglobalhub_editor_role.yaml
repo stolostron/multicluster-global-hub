@@ -1,0 +1,24 @@
+# permissions for end users to edit multiclusterglobalhubs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: multiclusterglobalhub-editor-role
+rules:
+- apiGroups:
+  - operator.open-cluster-management.io
+  resources:
+  - multiclusterglobalhubs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.open-cluster-management.io
+  resources:
+  - multiclusterglobalhubs/status
+  verbs:
+  - get
