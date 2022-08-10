@@ -34,6 +34,7 @@ const (
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=mgh
 // MultiClusterGlobalHub is the Schema for the multiclusterglobalhubs API
 type MultiClusterGlobalHub struct {
 	metav1.TypeMeta   `json:",inline"`

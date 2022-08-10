@@ -12,6 +12,8 @@ spec:
     kind: MultiClusterGlobalHub
     listKind: MultiClusterGlobalHubList
     plural: multiclusterglobalhubs
+    shortNames:
+    - mgh
     singular: multiclusterglobalhub
   scope: Namespaced
   versions:
