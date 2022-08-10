@@ -9,6 +9,7 @@ import (
 	set "github.com/deckarep/golang-set"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db/postgresql/batch"
 )
@@ -62,7 +63,8 @@ func (p *PostgreSQL) SendBatch(ctx context.Context, batch interface{}) error {
 	for i := 0; i < postgreSQLBatch.Len(); i++ {
 		_, err := batchResult.Exec()
 		if err != nil {
-			errorStringBuilder.WriteString(fmt.Errorf("failed to execute batch statement %w, ", err).Error())
+			errorStringBuilder.WriteString(fmt.Errorf(
+				"failed to execute batch statement %w, ", err).Error())
 		}
 	}
 

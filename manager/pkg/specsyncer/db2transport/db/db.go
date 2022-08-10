@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/hub-of-hubs/pkg/bundle/spec"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // DB is the needed interface for the spec/status syncer and spec/status transport
@@ -67,7 +68,8 @@ type ManagedClusterLabelsSpecDB interface {
 // TODO: once non-k8s-restapi exposes hub names, delete interface.
 type TempManagedClusterLabelsSpecDB interface {
 	// GetEntriesWithoutLeafHubName returns a slice of ManagedClusterLabelsSpec that are missing leaf hub name.
-	GetEntriesWithoutLeafHubName(ctx context.Context, tableName string) ([]*spec.ManagedClusterLabelsSpec, error)
+	GetEntriesWithoutLeafHubName(ctx context.Context, tableName string) (
+		[]*spec.ManagedClusterLabelsSpec, error)
 	// UpdateLeafHubName updates leaf hub name for a given managed cluster under optimistic concurrency.
 	UpdateLeafHubName(ctx context.Context, tableName string, readVersion int64,
 		managedClusterName string, leafHubName string) error

@@ -120,7 +120,8 @@ func (pool *WorkerPool) createUserWorker(userIdentity string, userGroups []strin
 	}
 
 	workerQueue := make(chan *Job, pool.poolSize)
-	worker := newWorkerWithClient(pool.log.WithName(fmt.Sprintf("impersonation-%s", userIdentity)),
+	worker := newWorkerWithClient(pool.log.WithName(
+		fmt.Sprintf("impersonation-%s", userIdentity)),
 		1, k8sClient, workerQueue)
 	worker.start(pool.ctx)
 	pool.impersonationWorkersQueues[workerIdentifier] = workerQueue

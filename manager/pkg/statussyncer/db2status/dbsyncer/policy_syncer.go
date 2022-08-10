@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/errors"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 )
 
 const (

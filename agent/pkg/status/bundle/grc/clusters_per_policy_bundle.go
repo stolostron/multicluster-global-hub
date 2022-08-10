@@ -48,7 +48,8 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object bundlepkg.Object) {
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
 	if err != nil { // object not found, need to add it to the bundle
-		bundle.Objects = append(bundle.Objects, bundle.getClustersPerPolicy(originPolicyID, policy))
+		bundle.Objects = append(bundle.Objects,
+			bundle.getClustersPerPolicy(originPolicyID, policy))
 		bundle.BundleVersion.Generation++
 
 		return

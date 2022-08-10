@@ -6,9 +6,10 @@ package spec2db
 import (
 	"fmt"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/spec2db/controller"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // AddSpec2DBControllers adds all the spec-to-db controllers to the Manager.

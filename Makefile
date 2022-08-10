@@ -73,3 +73,9 @@ e2e-tests-connection e2e-tests-cluster e2e-tests-label e2e-tests-app e2e-tests-p
 
 e2e-prow-tests: 
 	./cicd-scripts/run-prow-e2e-test.sh
+
+.PHONY: fmt				##formats the code
+fmt:
+	@gci write -s standard -s default -s "prefix(github.com/stolostron/hub-of-hubs)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
+	@go fmt ./agent/... ./manager/... ./operator/... ./pkg/... ./test/pkg/...
+	GOFUMPT_SPLIT_LONG_LINES=on gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/

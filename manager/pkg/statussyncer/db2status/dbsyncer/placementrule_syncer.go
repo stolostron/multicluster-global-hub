@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/errors"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 )
 
 const (
@@ -144,7 +145,8 @@ func updatePlacementRuleStatus(ctx context.Context, k8sClient client.Client, pla
 
 	deployedPlacementRule.Status = *placementRuleStatus
 
-	err = k8sClient.Status().Patch(ctx, deployedPlacementRule, client.MergeFrom(originalPlacementRule))
+	err = k8sClient.Status().Patch(ctx, deployedPlacementRule,
+		client.MergeFrom(originalPlacementRule))
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to update placementrule CR (name=%s, namespace=%s): %w",
 			deployedPlacementRule.Name, deployedPlacementRule.Namespace, err)

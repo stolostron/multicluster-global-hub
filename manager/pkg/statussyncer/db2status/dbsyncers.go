@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/db2status/dbsyncer"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // AddDBSyncers adds all the DBSyncers to the Manager.

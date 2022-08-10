@@ -6,25 +6,28 @@ package controller
 import (
 	"fmt"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 )
 
 func AddManagedClusterSetBindingController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&clusterv1beta1.ManagedClusterSetBinding{}).
 		Complete(&genericSpecToDBReconciler{
-			client:         mgr.GetClient(),
-			specDB:         specDB,
-			log:            ctrl.Log.WithName("managedclustersetbindings-spec-syncer"),
-			tableName:      "managedclustersetbindings",
-			finalizerName:  hohCleanupFinalizer,
-			createInstance: func() client.Object { return &clusterv1beta1.ManagedClusterSetBinding{} },
-			cleanStatus:    cleanManagedClusterSetBindingsStatus,
-			areEqual:       areManagedClusterSetBindingsEqual,
+			client:        mgr.GetClient(),
+			specDB:        specDB,
+			log:           ctrl.Log.WithName("managedclustersetbindings-spec-syncer"),
+			tableName:     "managedclustersetbindings",
+			finalizerName: hohCleanupFinalizer,
+			createInstance: func() client.Object {
+				return &clusterv1beta1.ManagedClusterSetBinding{}
+			},
+			cleanStatus: cleanManagedClusterSetBindingsStatus,
+			areEqual:    areManagedClusterSetBindingsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add managed cluster set binding controller to the manager: %w", err)
 	}

@@ -110,7 +110,8 @@ func (d *HoHDeployer) deployService(desiredObj, existingObj *unstructured.Unstru
 	}
 
 	if !apiequality.Semantic.DeepDerivative(desiredService, existingService) {
-		desiredService.ObjectMeta.ResourceVersion = existingService.ObjectMeta.ResourceVersion
+		desiredService.ObjectMeta.ResourceVersion =
+			existingService.ObjectMeta.ResourceVersion
 		desiredService.Spec.ClusterIP = existingService.Spec.ClusterIP
 		return d.client.Update(context.TODO(), desiredService)
 	}

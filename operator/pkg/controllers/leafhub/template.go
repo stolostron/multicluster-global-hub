@@ -53,7 +53,8 @@ func parseNonHypershiftTemplates(manifestFS embed.FS) (*template.Template, error
 
 // parseHubHypershiftTemplates parses hypershift templates from given FS
 func parseHubHypershiftTemplates(manifestFS embed.FS, acmSnapshot, mceSnapshot, acmDefaultImageRegistry,
-	mceDefaultImageRegistry string, acmImages, mceImages map[string]string) (*template.Template, error) {
+	mceDefaultImageRegistry string, acmImages, mceImages map[string]string,
+) (*template.Template, error) {
 	tf := template.FuncMap{
 		"getACMImage": func(imageKey string) string {
 			if acmSnapshot != "" {

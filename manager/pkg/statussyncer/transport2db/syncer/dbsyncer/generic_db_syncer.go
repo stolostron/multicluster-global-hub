@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db"
@@ -12,7 +14,6 @@ import (
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
 	"github.com/stolostron/hub-of-hubs/pkg/bundle/status"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // genericDBSyncer implements generic status resource db sync business logic.
@@ -64,7 +65,8 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 	idToVersionMapFromDB, err := dbClient.GetResourceIDToVersionByLeafHub(ctx, syncer.dbSchema,
 		syncer.dbTableName, leafHubName)
 	if err != nil {
-		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", syncer.dbSchema, syncer.dbTableName, err)
+		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w",
+			syncer.dbSchema, syncer.dbTableName, err)
 	}
 
 	batchBuilder := dbClient.NewGenericBatchBuilder(syncer.dbSchema, syncer.dbTableName, leafHubName)

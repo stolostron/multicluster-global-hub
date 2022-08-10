@@ -43,7 +43,8 @@ type SyncService struct {
 
 // NewSyncService creates a new instance of SyncService.
 func NewSyncService(log logr.Logger, environmentManager *helper.ConfigManager,
-	genericBundlesUpdatesChan chan *bundle.GenericBundle) (*SyncService, error) {
+	genericBundlesUpdatesChan chan *bundle.GenericBundle,
+) (*SyncService, error) {
 	syncServiceConfig := environmentManager.SyncService
 	syncServiceClient := client.NewSyncServiceClient(syncServiceConfig.Protocol,
 		syncServiceConfig.ConsumerHost, uint16(syncServiceConfig.ConsumerPort))
@@ -114,7 +115,8 @@ func (s *SyncService) handleBundle(objectMetaData *client.ObjectMetaData) error 
 	}
 
 	// if selective distribution was applied msgID contains "LH_ID." prefix. if not, trim returns string as is.
-	msgID := strings.TrimPrefix(objectMetaData.ObjectID, fmt.Sprintf("%s.", objectMetaData.DestID))
+	msgID := strings.TrimPrefix(objectMetaData.ObjectID,
+		fmt.Sprintf("%s.", objectMetaData.DestID))
 
 	customBundleRegistration, found := s.customBundleIDToRegistrationMap[msgID]
 	if !found { // received generic bundle
@@ -147,7 +149,8 @@ func (s *SyncService) syncGenericBundle(payload []byte) error {
 
 // SyncCustomBundle writes a custom bundle to its respective syncer channel.
 func (c *SyncService) SyncCustomBundle(customBundleRegistration *bundle.CustomBundleRegistration,
-	payload []byte) error {
+	payload []byte,
+) error {
 	receivedBundle := customBundleRegistration.InitBundlesResourceFunc()
 	if err := json.Unmarshal(payload, &receivedBundle); err != nil {
 		return fmt.Errorf("failed to parse custom bundle - %w", err)

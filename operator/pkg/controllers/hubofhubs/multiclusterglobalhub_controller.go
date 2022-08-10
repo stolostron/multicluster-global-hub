@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -40,14 +41,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/go-logr/logr"
 	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
+	// pmcontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/packagemanifest"
+	"github.com/stolostron/hub-of-hubs/operator/pkg/condition"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/config"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
 	leafhubscontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/leafhub"
-
-	// pmcontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/packagemanifest"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/condition"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/deployer"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/renderer"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/utils"
@@ -68,7 +67,8 @@ type MultiClusterGlobalHubReconciler struct {
 }
 
 // SetConditionFunc is function type that receives the concrete condition method
-type SetConditionFunc func(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
+type SetConditionFunc func(ctx context.Context, c client.Client,
+	mgh *operatorv1alpha1.MultiClusterGlobalHub,
 	status metav1.ConditionStatus) error
 
 //+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -165,8 +165,10 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return hohRBACConfig, err
 	})
 	if err != nil {
-		if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+		if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_FALSE); conditionError != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
+				condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return ctrl.Result{}, err
 	}
@@ -176,21 +178,27 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE); conditionError != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
+	if conditionError := condition.SetConditionRBACDeployed(ctx, r.Client, mgh,
+		condition.CONDITION_STATUS_TRUE); conditionError != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
+			condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
 	// retrieve bootstrapserver and CA of kafka from secret
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, r.Client, log, mgh)
 	if err != nil {
-		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_FALSE); conditionError != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
+				condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return ctrl.Result{}, err
 	}
 
-	if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE); conditionError != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
+	if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh,
+		condition.CONDITION_STATUS_TRUE); conditionError != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
+			condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", func(component string) (interface{}, error) {
@@ -209,8 +217,10 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return managerConfig, err
 	})
 	if err != nil {
-		if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+		if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_FALSE); conditionError != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
+				condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return ctrl.Result{}, err
 	}
@@ -233,8 +243,10 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE); conditionError != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_TRUE, conditionError)
+	if conditionError := condition.SetConditionManagerDeployed(ctx, r.Client, mgh,
+		condition.CONDITION_STATUS_TRUE); conditionError != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
+			condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
 	// try to start leafhub controller if it is not running
@@ -267,7 +279,8 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub, setConditionFunc SetConditionFunc, log logr.Logger) error {
+	mgh *operatorv1alpha1.MultiClusterGlobalHub, setConditionFunc SetConditionFunc, log logr.Logger,
+) error {
 	hohDeployer := deployer.NewHoHDeployer(r.Client)
 	// manipulate the object
 	for _, obj := range objs {
@@ -292,7 +305,8 @@ func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, obj
 			if setConditionFunc != nil {
 				conditionError := setConditionFunc(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE)
 				if conditionError != nil {
-					return fmt.Errorf("failed to set condition(%s): %w", condition.CONDITION_STATUS_FALSE, conditionError)
+					return fmt.Errorf("failed to set condition(%s): %w",
+						condition.CONDITION_STATUS_FALSE, conditionError)
 				}
 			}
 			return err
@@ -494,7 +508,9 @@ func (r *MultiClusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	mghPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			// set request name to be used in leafhub controller
-			config.SetHoHMGHNamespacedName(types.NamespacedName{Namespace: e.Object.GetNamespace(), Name: e.Object.GetName()})
+			config.SetHoHMGHNamespacedName(types.NamespacedName{
+				Namespace: e.Object.GetNamespace(), Name: e.Object.GetName(),
+			})
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -529,5 +545,6 @@ func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *
 		return "", "", err
 	}
 
-	return string(kafkaSecret.Data["bootstrap_server"]), base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
+	return string(kafkaSecret.Data["bootstrap_server"]),
+		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
 }

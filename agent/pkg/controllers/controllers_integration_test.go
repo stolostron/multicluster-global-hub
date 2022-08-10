@@ -18,7 +18,6 @@ import (
 )
 
 var _ = Describe("controller", Ordered, func() {
-
 	ctx, cancel := context.WithCancel(context.Background())
 	var mgr ctrl.Manager
 
@@ -50,7 +49,9 @@ var _ = Describe("controller", Ordered, func() {
 	It("clusterrole testing", func() {
 		By("Having the ClusterRole created")
 		clusterrole := &rbacv1.ClusterRole{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{Name: controllers.HubOfHubsClusterRoleName},
+		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
+			Name: controllers.HubOfHubsClusterRoleName,
+		},
 			clusterrole)).NotTo(HaveOccurred())
 		Expect(clusterrole.GetName()).To(Equal(controllers.HubOfHubsClusterRoleName))
 
@@ -58,10 +59,13 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(mgr.GetClient().Delete(ctx, clusterrole)).NotTo(HaveOccurred())
 		time.Sleep(1 * time.Second)
 		newClusterrole := &rbacv1.ClusterRole{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{Name: controllers.HubOfHubsClusterRoleName},
+		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
+			Name: controllers.HubOfHubsClusterRoleName,
+		},
 			newClusterrole)).NotTo(HaveOccurred())
 		Expect(newClusterrole.GetName()).To(Equal(controllers.HubOfHubsClusterRoleName))
-		Expect(clusterrole.GetResourceVersion()).NotTo(Equal(newClusterrole.GetResourceVersion()))
+		Expect(clusterrole.GetResourceVersion()).NotTo(
+			Equal(newClusterrole.GetResourceVersion()))
 
 		By("Expect the ClusterRole no change")
 		newClusterrole.Rules = append(newClusterrole.Rules, rbacv1.PolicyRule{
@@ -76,17 +80,21 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(mgr.GetClient().Update(ctx, newClusterrole)).NotTo(HaveOccurred())
 		time.Sleep(1 * time.Second)
 		finalClusterrole := &rbacv1.ClusterRole{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{Name: controllers.HubOfHubsClusterRoleName},
+		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
+			Name: controllers.HubOfHubsClusterRoleName,
+		},
 			finalClusterrole)).NotTo(HaveOccurred())
 		Expect(equality.Semantic.DeepEqual(clusterrole.Rules, finalClusterrole.Rules)).To(BeTrue())
-		Expect(finalClusterrole.GetResourceVersion()).NotTo(Equal(newClusterrole.GetResourceVersion()))
+		Expect(finalClusterrole.GetResourceVersion()).NotTo(
+			Equal(newClusterrole.GetResourceVersion()))
 	})
 
 	It("clusterrolebinding testing", func() {
-
 		By("Having the ClusterRoleBing created")
 		clusterrolebinding := &rbacv1.ClusterRoleBinding{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{Name: controllers.HubOfHubsClusterRoleName},
+		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
+			Name: controllers.HubOfHubsClusterRoleName,
+		},
 			clusterrolebinding)).NotTo(HaveOccurred())
 		Expect(clusterrolebinding.GetName()).To(Equal(controllers.HubOfHubsClusterRoleName))
 
@@ -94,10 +102,14 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(mgr.GetClient().Delete(ctx, clusterrolebinding)).NotTo(HaveOccurred())
 		time.Sleep(1 * time.Second)
 		newClusterroleBinding := &rbacv1.ClusterRoleBinding{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{Name: controllers.HubOfHubsClusterRoleName},
+		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
+			Name: controllers.HubOfHubsClusterRoleName,
+		},
 			newClusterroleBinding)).NotTo(HaveOccurred())
-		Expect(newClusterroleBinding.GetName()).To(Equal(controllers.HubOfHubsClusterRoleName))
-		Expect(clusterrolebinding.GetResourceVersion()).NotTo(Equal(newClusterroleBinding.GetResourceVersion()))
+		Expect(newClusterroleBinding.GetName()).To(
+			Equal(controllers.HubOfHubsClusterRoleName))
+		Expect(clusterrolebinding.GetResourceVersion()).NotTo(
+			Equal(newClusterroleBinding.GetResourceVersion()))
 
 		By("Expect the ClusterRoleBinding no change")
 		newClusterroleBinding.Subjects = append(newClusterroleBinding.Subjects, rbacv1.Subject{
@@ -108,15 +120,17 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(mgr.GetClient().Update(ctx, newClusterroleBinding)).NotTo(HaveOccurred())
 		time.Sleep(1 * time.Second)
 		finalClusterroleBinding := &rbacv1.ClusterRoleBinding{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{Name: controllers.HubOfHubsClusterRoleName},
+		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
+			Name: controllers.HubOfHubsClusterRoleName,
+		},
 			finalClusterroleBinding)).NotTo(HaveOccurred())
-		Expect(equality.Semantic.DeepEqual(clusterrolebinding.Subjects, finalClusterroleBinding.Subjects)).To(BeTrue())
-		Expect(finalClusterroleBinding.GetResourceVersion()).NotTo(Equal(newClusterroleBinding.GetResourceVersion()))
-
+		Expect(equality.Semantic.DeepEqual(clusterrolebinding.Subjects,
+			finalClusterroleBinding.Subjects)).To(BeTrue())
+		Expect(finalClusterroleBinding.GetResourceVersion()).NotTo(
+			Equal(newClusterroleBinding.GetResourceVersion()))
 	})
 
 	AfterAll(func() {
 		defer cancel()
 	})
-
 })

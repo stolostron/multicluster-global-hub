@@ -86,10 +86,12 @@ func (builder *PoliciesBatchBuilder) DeleteClusterStatus(policyID string, cluste
 	_, found := builder.deleteClusterComplianceArgs[policyID]
 	if !found {
 		// first args of the delete statement are policyID and leafHubName
-		builder.deleteClusterComplianceArgs[policyID] = append(make([]interface{}, 0), policyID, builder.leafHubName)
+		builder.deleteClusterComplianceArgs[policyID] =
+			append(make([]interface{}, 0), policyID, builder.leafHubName)
 	}
 
-	builder.deleteClusterComplianceArgs[policyID] = append(builder.deleteClusterComplianceArgs[policyID], clusterName)
+	builder.deleteClusterComplianceArgs[policyID] = append(
+		builder.deleteClusterComplianceArgs[policyID], clusterName)
 }
 
 // Build builds the batch object.
@@ -143,8 +145,10 @@ func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() 
 		db.ComplianceType) // compliance column index
 
 	// num of columns is total num of args divided by num of rows
-	columnCount := len(builder.updateClusterComplianceArgs) / builder.updateClusterComplianceRowsCount
-	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateClusterComplianceRowsCount, columnCount,
+	columnCount := len(builder.updateClusterComplianceArgs) /
+		builder.updateClusterComplianceRowsCount
+	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(
+		builder.updateClusterComplianceRowsCount, columnCount,
 		specialColumns))
 
 	stringBuilder.WriteString(") AS new(id,cluster_name,leaf_hub_name,compliance) ")

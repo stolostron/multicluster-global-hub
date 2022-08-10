@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statistics"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
@@ -55,7 +56,8 @@ func NewSyncService(committerInterval time.Duration, syncServiceConfig *SyncServ
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	// create committer
-	committer, err := newCommitter(committerInterval, syncServiceClient, conflationManager.GetBundlesMetadata, log)
+	committer, err := newCommitter(committerInterval, syncServiceClient,
+		conflationManager.GetBundlesMetadata, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
 	}

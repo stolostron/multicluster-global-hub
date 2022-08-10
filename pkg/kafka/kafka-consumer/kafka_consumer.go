@@ -8,6 +8,7 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
+
 	kafkaheaders "github.com/stolostron/hub-of-hubs/pkg/kafka/headers"
 )
 
@@ -17,7 +18,8 @@ var errHeaderNotFound = errors.New("required message header not found")
 
 // NewKafkaConsumer returns a new instance of KafkaConsumer.
 func NewKafkaConsumer(configMap *kafka.ConfigMap, msgChan chan *kafka.Message,
-	log logr.Logger) (*KafkaConsumer, error) {
+	log logr.Logger,
+) (*KafkaConsumer, error) {
 	consumer, err := kafka.NewConsumer(configMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka consumer - %w", err)
@@ -145,7 +147,8 @@ func (consumer *KafkaConsumer) lookupHeader(msg *kafka.Message, headerKey string
 }
 
 func (consumer *KafkaConsumer) createFragmentInfo(msg *kafka.Message,
-	fragment *messageFragment) (*messageFragmentInfo, error) {
+	fragment *messageFragment,
+) (*messageFragmentInfo, error) {
 	timestampHeader, found := consumer.lookupHeader(msg, kafkaheaders.FragmentationTimestamp)
 	if !found {
 		return nil, fmt.Errorf("%w : header key - %s", errHeaderNotFound, kafkaheaders.FragmentationTimestamp)
@@ -158,7 +161,8 @@ func (consumer *KafkaConsumer) createFragmentInfo(msg *kafka.Message,
 
 	timestamp, err := time.Parse(time.RFC3339, string(timestampHeader.Value))
 	if err != nil {
-		return nil, fmt.Errorf("header (%s) illegal value - %w", kafkaheaders.FragmentationTimestamp, err)
+		return nil, fmt.Errorf("header (%s) illegal value - %w",
+			kafkaheaders.FragmentationTimestamp, err)
 	}
 
 	size := binary.BigEndian.Uint32(sizeHeader.Value)

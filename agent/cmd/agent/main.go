@@ -114,7 +114,8 @@ func printVersion(log logr.Logger) {
 
 // function to choose transport type based on env var.
 func getConsumer(environmentManager *helper.ConfigManager,
-	genericBundleChan chan *bundle.GenericBundle) (consumer.Consumer, error) {
+	genericBundleChan chan *bundle.GenericBundle,
+) (consumer.Consumer, error) {
 	switch environmentManager.TransportType {
 	case TRANSPORT_TYPE_KAFKA:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(ctrl.Log.WithName("kafka-consumer"),
@@ -165,7 +166,8 @@ func getProducer(environmentManager *helper.ConfigManager) (producer.Producer, e
 }
 
 func createManager(consumer consumer.Consumer, producer producer.Producer,
-	environmentManager *helper.ConfigManager) (ctrl.Manager, error) {
+	environmentManager *helper.ConfigManager,
+) (ctrl.Manager, error) {
 	leaseDuration := 137 * time.Second
 	renewDeadline := 107 * time.Second
 	retryPeriod := 26 * time.Second

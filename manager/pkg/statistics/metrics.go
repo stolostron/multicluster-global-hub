@@ -8,5 +8,7 @@ type bundleMetrics struct {
 }
 
 func newBundleMetrics() *bundleMetrics {
-	return &bundleMetrics{conflationUnit: conflationUnitMeasurement{startTimestamps: make(map[string]int64)}}
+	return &bundleMetrics{conflationUnit: conflationUnitMeasurement{
+		startTimestamps: make(map[string]int64),
+	}}
 }

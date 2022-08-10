@@ -6,8 +6,9 @@ package status
 import (
 	"fmt"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/status/controller"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/status/controller"
 )
 
 // AddStatusControllers adds all the status controllers to the Manager.

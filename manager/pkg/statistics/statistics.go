@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/helpers"
 )
@@ -127,7 +128,8 @@ func (s *Statistics) run(ctx context.Context) {
 
 			for bundleType, bundleMetrics := range s.bundleMetrics {
 				metrics.WriteString(fmt.Sprintf("[%s, (transport {total received=%d}), (cu {%s}), (db process {%s})], ",
-					bundleType, bundleMetrics.totalReceived, bundleMetrics.conflationUnit.toString(),
+					bundleType, bundleMetrics.totalReceived,
+					bundleMetrics.conflationUnit.toString(),
 					bundleMetrics.database.toString()))
 			}
 

@@ -60,7 +60,8 @@ func (c *syncIntervalsController) Reconcile(ctx context.Context, request ctrl.Re
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
-		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, fmt.Errorf("reconciliation failed: %w", err)
+		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD},
+			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
 	c.setSyncInterval(configMap, "managed_clusters", &c.syncIntervalsData.managedClusters)

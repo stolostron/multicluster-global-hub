@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+
 	kafkaheaders "github.com/stolostron/hub-of-hubs/pkg/kafka/headers"
 	"github.com/stolostron/hub-of-hubs/pkg/kafka/kafka-producer/builder"
 )
@@ -22,7 +23,8 @@ const (
 // messageSizeLimit: the message size limit in bytes (payloads of higher length are broken into fragments).
 // deliveryChan: the channel to delivery production events to.
 func NewKafkaProducer(configMap *kafka.ConfigMap, messageSizeLimit int,
-	deliveryChan chan kafka.Event) (*KafkaProducer, error) {
+	deliveryChan chan kafka.Event,
+) (*KafkaProducer, error) {
 	producer, err := kafka.NewProducer(configMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka producer - %w", err)
@@ -55,7 +57,8 @@ func (producer *KafkaProducer) Producer() *kafka.Producer {
 
 // ProduceAsync sends a message to the kafka brokers asynchronously.
 func (producer *KafkaProducer) ProduceAsync(key string, topic string, partition int32, headers []kafka.Header,
-	payload []byte) error {
+	payload []byte,
+) error {
 	messageFragments := producer.getMessageFragments(key, &topic, partition, headers, payload)
 
 	for _, message := range messageFragments {
@@ -68,7 +71,8 @@ func (producer *KafkaProducer) ProduceAsync(key string, topic string, partition 
 }
 
 func (producer *KafkaProducer) getMessageFragments(key string, topic *string, partition int32, headers []kafka.Header,
-	payload []byte) []*kafka.Message {
+	payload []byte,
+) []*kafka.Message {
 	if len(payload) <= producer.messageSizeLimit {
 		return []*kafka.Message{builder.NewMessageBuilder(key, topic, partition, headers, payload).Build()}
 	}
@@ -78,7 +82,8 @@ func (producer *KafkaProducer) getMessageFragments(key string, topic *string, pa
 	fragmentationTimestamp := time.Now().Format(time.RFC3339)
 
 	for index, chunk := range chunks {
-		messageFragments[index] = builder.NewMessageBuilder(fmt.Sprintf("%s_%d", key, index), topic, partition,
+		messageFragments[index] = builder.NewMessageBuilder(
+			fmt.Sprintf("%s_%d", key, index), topic, partition,
 			headers, chunk).
 			Header(kafka.Header{
 				Key: kafkaheaders.Size, Value: toByteArray(len(payload)),

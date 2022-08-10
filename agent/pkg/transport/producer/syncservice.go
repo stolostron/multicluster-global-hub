@@ -33,7 +33,8 @@ type SyncServiceProducer struct {
 
 // NewSyncService creates a new instance of SyncService.
 func NewSyncServiceProducer(compressor compressor.Compressor, log logr.Logger,
-	env *helper.ConfigManager) (*SyncServiceProducer, error) {
+	env *helper.ConfigManager,
+) (*SyncServiceProducer, error) {
 	syncServiceClient := client.NewSyncServiceClient(env.SyncService.Protocol,
 		env.SyncService.ProducerHost, uint16(env.SyncService.ProducerPort))
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
@@ -93,7 +94,7 @@ func (s *SyncServiceProducer) sendMessages() {
 			}
 
 			InvokeCallback(s.eventSubscriptionMap, msg.ID, DeliveryAttempt)
-			//s.eventSubscriptionMap[msg.ID][DeliveryAttempt]()
+			// s.eventSubscriptionMap[msg.ID][DeliveryAttempt]()
 
 			if err := s.client.UpdateObject(&objectMetaData); err != nil {
 				s.reportError(err, "Failed to update the object in the Edge Sync Service", msg)
@@ -113,7 +114,7 @@ func (s *SyncServiceProducer) sendMessages() {
 			}
 
 			InvokeCallback(s.eventSubscriptionMap, msg.ID, DeliverySuccess)
-			//s.eventSubscriptionMap[msg.ID][DeliverySuccess]()
+			// s.eventSubscriptionMap[msg.ID][DeliverySuccess]()
 			s.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType,
 				"Version", msg.Version)
 		}

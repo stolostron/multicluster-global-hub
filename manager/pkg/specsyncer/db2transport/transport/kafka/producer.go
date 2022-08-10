@@ -7,6 +7,7 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/transport"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
 	kafkaclient "github.com/stolostron/hub-of-hubs/pkg/kafka"
@@ -28,7 +29,8 @@ type KafkaProducerConfig struct {
 
 // NewProducer returns a new instance of Producer object.
 func NewProducer(compressor compressor.Compressor, bootstrapServer, SslCa string,
-	producerConfig *KafkaProducerConfig, log logr.Logger) (*Producer, error) {
+	producerConfig *KafkaProducerConfig, log logr.Logger,
+) (*Producer, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       bootstrapServer,
 		"client.id":               producerConfig.ProducerID,
@@ -43,7 +45,8 @@ func NewProducer(compressor compressor.Compressor, bootstrapServer, SslCa string
 	}
 
 	deliveryChan := make(chan kafka.Event)
-	kafkaProducer, err := kafkaproducer.NewKafkaProducer(kafkaConfigMap, producerConfig.MsgSizeLimitKB*kiloBytesToBytes,
+	kafkaProducer, err := kafkaproducer.NewKafkaProducer(kafkaConfigMap,
+		producerConfig.MsgSizeLimitKB*kiloBytesToBytes,
 		deliveryChan)
 	if err != nil {
 		close(deliveryChan)

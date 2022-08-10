@@ -6,8 +6,6 @@ package controller
 import (
 	"fmt"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -15,6 +13,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
 func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {

@@ -1,8 +1,9 @@
 package bundle
 
 import (
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
 // NewBaseObjectsBundle creates a new base bundle with no data in it.

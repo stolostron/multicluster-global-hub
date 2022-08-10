@@ -2,6 +2,7 @@ package syncservice
 
 import (
 	"github.com/open-horizon/edge-sync-service-client/client"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
 )
 

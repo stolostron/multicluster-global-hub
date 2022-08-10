@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/intervalpolicy"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -19,7 +20,8 @@ const (
 
 // AddManagedClusterLabelsStatusWatcher adds managedClusterLabelsStatusWatcher to the manager.
 func AddManagedClusterLabelsStatusWatcher(mgr ctrl.Manager, specDB db.SpecDB, statusDB db.StatusDB,
-	deletedLabelsTrimmingInterval time.Duration) error {
+	deletedLabelsTrimmingInterval time.Duration,
+) error {
 	if err := mgr.Add(&managedClusterLabelsStatusWatcher{
 		log:                   ctrl.Log.WithName("managed-cluster-labels-status-watcher"),
 		specDB:                specDB,
@@ -46,13 +48,15 @@ type managedClusterLabelsStatusWatcher struct {
 }
 
 func (watcher *managedClusterLabelsStatusWatcher) Start(ctx context.Context) error {
-	watcher.log.Info("initialized watcher", "spec table", fmt.Sprintf("spec.%s", watcher.labelsSpecTableName),
+	watcher.log.Info("initialized watcher", "spec table",
+		fmt.Sprintf("spec.%s", watcher.labelsSpecTableName),
 		"status table", fmt.Sprintf("status.%s", watcher.labelsStatusTableName))
 
 	go watcher.updateDeletedLabelsPeriodically(ctx)
 
 	<-ctx.Done() // blocking wait for cancel context event
-	watcher.log.Info("stopped watcher", "spec table", fmt.Sprintf("spec.%s", watcher.labelsSpecTableName),
+	watcher.log.Info("stopped watcher", "spec table",
+		fmt.Sprintf("spec.%s", watcher.labelsSpecTableName),
 		"status table", fmt.Sprintf("status.%s", watcher.labelsStatusTableName))
 
 	return nil
@@ -72,7 +76,8 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodicall
 
 		case <-labelsTrimmerTicker.C:
 			// define timeout of max execution interval on the update function
-			ctxWithTimeout, cancelFunc := context.WithTimeout(ctx, watcher.intervalPolicy.GetMaxInterval())
+			ctxWithTimeout, cancelFunc := context.WithTimeout(ctx,
+				watcher.intervalPolicy.GetMaxInterval())
 			trimmed := watcher.trimDeletedLabelsByStatus(ctxWithTimeout)
 
 			cancelFunc() // cancel child ctx and is used to cleanup resources once context expires or update is done.
@@ -98,7 +103,8 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodicall
 
 		case <-hubNameFillTicker.C: // TODO: delete when nonk8s-api exposes name.
 			// define timeout of max execution interval on the update function
-			ctxWithTimeout, cancelFunc := context.WithTimeout(ctx, watcher.intervalPolicy.GetMaxInterval())
+			ctxWithTimeout, cancelFunc := context.WithTimeout(ctx,
+				watcher.intervalPolicy.GetMaxInterval())
 			watcher.fillMissingLeafHubNames(ctxWithTimeout)
 
 			cancelFunc() // cancel child ctx and is used to cleanup resources once context expires or update is done.
@@ -142,7 +148,8 @@ func (watcher *managedClusterLabelsStatusWatcher) trimDeletedLabelsByStatus(ctx 
 			}
 
 			// if deleted labels did not change then skip
-			if len(deletedLabelKeysStillInStatus) == len(managedClusterLabelsSpec.DeletedLabelKeys) {
+			if len(deletedLabelKeysStillInStatus) ==
+				len(managedClusterLabelsSpec.DeletedLabelKeys) {
 				continue
 			}
 
@@ -159,7 +166,8 @@ func (watcher *managedClusterLabelsStatusWatcher) trimDeletedLabelsByStatus(ctx 
 				continue
 			}
 
-			watcher.log.Info("trimmed labels successfully", "leafHub", managedClusterLabelsSpecBundle.LeafHubName,
+			watcher.log.Info("trimmed labels successfully", "leafHub",
+				managedClusterLabelsSpecBundle.LeafHubName,
 				"managedCluster", managedClusterLabelsSpec.ClusterName, "version", managedClusterLabelsSpec.Version)
 		}
 	}

@@ -205,7 +205,8 @@ func handleRefTerm(operandMap map[string]interface{}) (string, error) {
 	}
 
 	if firstPart != inputVariable && secondPart != clusterVariable {
-		return "", fmt.Errorf("%w: expected 'input.cluster' received '%s.%s'", errUnexpectedValue, firstPart, secondPart)
+		return "", fmt.Errorf("%w: expected 'input.cluster' received '%s.%s'",
+			errUnexpectedValue, firstPart, secondPart)
 	}
 
 	operand, err := createPostgreSQLJSONPath(termValueArray[2:])

@@ -8,13 +8,14 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
 type placementBindingController struct {

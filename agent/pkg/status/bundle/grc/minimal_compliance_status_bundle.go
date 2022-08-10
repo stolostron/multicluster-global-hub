@@ -45,7 +45,8 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object bundlepkg.Objec
 
 	index, err := bundle.getObjectIndexByUID(originPolicyID)
 	if err != nil { // object not found, need to add it to the bundle
-		bundle.Objects = append(bundle.Objects, bundle.getMinimalPolicyComplianceStatus(originPolicyID, policy))
+		bundle.Objects = append(bundle.Objects,
+			bundle.getMinimalPolicyComplianceStatus(originPolicyID, policy))
 		bundle.BundleVersion.Generation++
 
 		return

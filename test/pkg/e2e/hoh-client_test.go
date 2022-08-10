@@ -18,7 +18,6 @@ import (
 )
 
 var _ = Describe("Check all the clients could connect to the HoH servers", Label("e2e-tests-connection"), func() {
-
 	It("connect to the apiserver with kubernetes interface", func() {
 		hubClient := clients.KubeClient()
 		deployClient := hubClient.AppsV1().Deployments(testOptions.HubCluster.Namespace)
@@ -30,7 +29,8 @@ var _ = Describe("Check all the clients could connect to the HoH servers", Label
 	It("connect to the apiserver with dynamic interface", func() {
 		dynamicClient := clients.KubeDynamicClient()
 		hohConfigMapGVR := utils.NewHoHConfigMapGVR()
-		configMapList, err := dynamicClient.Resource(hohConfigMapGVR).Namespace("hoh-system").List(context.TODO(), metav1.ListOptions{})
+		configMapList, err := dynamicClient.Resource(hohConfigMapGVR).Namespace(
+			"hoh-system").List(context.TODO(), metav1.ListOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(len(configMapList.Items) > 0).To(BeTrue())
 	})

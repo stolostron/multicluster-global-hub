@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi/authentication"
 )
 
@@ -54,8 +55,11 @@ func Patch(authorizationURL string, authorizationCABundle []byte,
 
 		fmt.Fprintf(gin.DefaultWriter, "patch for hub cluster: %s\n", hubCluster)
 
-		if !isAuthorized(user, groups, authorizationURL, authorizationCABundle, dbConnectionPool, cluster, hubCluster) {
-			ginCtx.JSON(http.StatusForbidden, gin.H{"status": "the current user cannot patch the cluster"})
+		if !isAuthorized(user, groups, authorizationURL, authorizationCABundle,
+			dbConnectionPool, cluster, hubCluster) {
+			ginCtx.JSON(http.StatusForbidden, gin.H{
+				"status": "the current user cannot patch the cluster",
+			})
 		}
 
 		var patches []patch
@@ -219,7 +223,8 @@ func isAuthorized(user string, groups []string, authorizationURL string, authori
 ) bool {
 	query := fmt.Sprintf(
 		"SELECT COUNT(payload) from status.managed_clusters WHERE payload -> 'metadata' ->> 'name' = '%s' AND leaf_hub_name = '%s' AND %s",
-		cluster, hubCluster, filterByAuthorization(user, groups, authorizationURL, authorizationCABundle, gin.DefaultWriter))
+		cluster, hubCluster, filterByAuthorization(user, groups, authorizationURL,
+			authorizationCABundle, gin.DefaultWriter))
 
 	var count int64
 
@@ -248,7 +253,9 @@ func getLabels(ginCtx *gin.Context, patches []patch) (map[string]string, map[str
 		rawLabel := strings.TrimPrefix(aPatch.Path, "/metadata/labels/")
 
 		if rawLabel == aPatch.Path {
-			ginCtx.JSON(http.StatusNotImplemented, gin.H{"status": onlyPatchOfLabelsIsImplemented})
+			ginCtx.JSON(http.StatusNotImplemented, gin.H{
+				"status": onlyPatchOfLabelsIsImplemented,
+			})
 
 			return nil, nil, errOnlyPatchOfLabelsIsImplemented
 		}
@@ -270,7 +277,9 @@ func getLabels(ginCtx *gin.Context, patches []patch) (map[string]string, map[str
 			continue
 		}
 
-		ginCtx.JSON(http.StatusNotImplemented, gin.H{"status": onlyAddOrRemoveAreImplemented})
+		ginCtx.JSON(http.StatusNotImplemented, gin.H{
+			"status": onlyAddOrRemoveAreImplemented,
+		})
 
 		return nil, nil, errOnlyAddOrRemoveAreImplemented
 	}

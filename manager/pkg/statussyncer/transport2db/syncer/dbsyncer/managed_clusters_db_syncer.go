@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db"
@@ -12,7 +14,6 @@ import (
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
 	"github.com/stolostron/hub-of-hubs/pkg/bundle/status"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
@@ -72,7 +73,8 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 		return fmt.Errorf("failed fetching leaf hub managed clusters from db - %w", err)
 	}
 	// batch is per leaf hub, therefore no need to specify leafHubName in Insert/Update/Delete
-	batchBuilder := dbClient.NewManagedClustersBatchBuilder(db.StatusSchema, db.ManagedClustersTableName, leafHubName)
+	batchBuilder := dbClient.NewManagedClustersBatchBuilder(db.StatusSchema,
+		db.ManagedClustersTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() {
 		cluster, ok := object.(*clusterv1.ManagedCluster)

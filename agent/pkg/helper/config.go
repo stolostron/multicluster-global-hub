@@ -59,7 +59,8 @@ func NewConfigManager() (*ConfigManager, error) {
 	pflag.StringVar(&configManager.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
 	pflag.StringVar(&configManager.Kafka.BootstrapServers, "kafka-bootstrap-server", "",
 		"The bootstrap server for kafka.")
-	pflag.StringVar(&configManager.Kafka.SslCa, "kafka-ssl-ca", "", "The authentication to connect to the kafka.")
+	pflag.StringVar(&configManager.Kafka.SslCa, "kafka-ssl-ca", "",
+		"The authentication to connect to the kafka.")
 
 	pflag.StringVar(&configManager.Kafka.ProducerId, "kafka-producer-id", "",
 		"Producer Id for the kafka, default is the leaf hub name.")
@@ -80,17 +81,20 @@ func NewConfigManager() (*ConfigManager, error) {
 		"The port for Cloud Sync Service.")
 	pflag.IntVar(&configManager.SyncService.ProducerPort, "cloud-sync-service-producer-port", 8090,
 		"The port for Cloud Sync Service.")
-	pflag.IntVar(&configManager.SyncService.ConsumerPollingInterval, "cloud-sync-service-polling-interval", 5,
+	pflag.IntVar(&configManager.SyncService.ConsumerPollingInterval,
+		"cloud-sync-service-polling-interval", 5,
 		"The polling interval in second for Cloud Sync Service.")
 	pflag.IntVar(&configManager.SpecWorkPoolSize, "consumer-worker-pool-size", defaultK8sClientsPoolSize,
 		"The goroutine number to propagate the bundles on managed cluster.")
 	pflag.BoolVar(&configManager.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
 		"enable hoh RBAC or not, default false")
-	pflag.StringVar(&configManager.TransportCompressionType, "transport-message-compression-type", "gzip",
+	pflag.StringVar(&configManager.TransportCompressionType,
+		"transport-message-compression-type", "gzip",
 		"The message compression type for transport layer, 'gzip' or 'no-op'.")
 	pflag.IntVar(&configManager.Kafka.ProducerMessageLimit, "kafka-message-size-limit", 100,
 		"The limit for kafka message size in KB.")
-	pflag.IntVar(&configManager.StatusDeltaCountSwitchFactor, "status-delta-count-switch-factor", 100,
+	pflag.IntVar(&configManager.StatusDeltaCountSwitchFactor,
+		"status-delta-count-switch-factor", 100,
 		"default with 100.")
 	pflag.Parse()
 
