@@ -4,4 +4,4 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
-  name: multiclusterglobalhubs.hubofhubs.open-cluster-management.io
+  name: multiclusterglobalhubs.operator.open-cluster-management.io

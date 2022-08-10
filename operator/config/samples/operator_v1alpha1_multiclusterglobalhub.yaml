@@ -1,4 +1,4 @@
-apiVersion: hubofhubs.open-cluster-management.io/v1alpha1
+apiVersion: operator.open-cluster-management.io/v1alpha1
 kind: MultiClusterGlobalHub
 metadata:
   # annotations:

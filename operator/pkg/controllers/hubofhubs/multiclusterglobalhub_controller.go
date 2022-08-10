@@ -41,7 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/go-logr/logr"
-	hubofhubsv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/hubofhubs/v1alpha1"
+	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/config"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
 	leafhubscontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/leafhub"
@@ -68,12 +68,12 @@ type MultiClusterGlobalHubReconciler struct {
 }
 
 // SetConditionFunc is function type that receives the concrete condition method
-type SetConditionFunc func(ctx context.Context, c client.Client, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub,
+type SetConditionFunc func(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
 	status metav1.ConditionStatus) error
 
-//+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=multiclusterglobalhubs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=hubofhubs.open-cluster-management.io,resources=multiclusterglobalhubs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersetbindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/join,verbs=create;delete
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/bind,verbs=create;delete
@@ -105,7 +105,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	log := ctrllog.FromContext(ctx)
 
 	// Fetch the hub-of-hubs multiclusterglobalhub instance
-	mgh := &hubofhubsv1alpha1.MultiClusterGlobalHub{}
+	mgh := &operatorv1alpha1.MultiClusterGlobalHub{}
 	err := r.Get(ctx, req.NamespacedName, mgh)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -267,7 +267,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
-	mgh *hubofhubsv1alpha1.MultiClusterGlobalHub, setConditionFunc SetConditionFunc, log logr.Logger) error {
+	mgh *operatorv1alpha1.MultiClusterGlobalHub, setConditionFunc SetConditionFunc, log logr.Logger) error {
 	hohDeployer := deployer.NewHoHDeployer(r.Client)
 	// manipulate the object
 	for _, obj := range objs {
@@ -301,7 +301,7 @@ func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, obj
 	return nil
 }
 
-func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub,
+func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub,
 	log logr.Logger,
 ) (bool, error) {
 	if mgh.GetDeletionTimestamp() != nil &&
@@ -344,7 +344,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 
 // pruneGlobalResources deletes the cluster scoped resources created by the hub-of-hubs-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub) error {
+func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub) error {
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: mgh.GetName()}),
 	}
@@ -377,7 +377,7 @@ func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 }
 
 // reconcileHoHResources tries to create hoh resources if they don't exist
-func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub) error {
+func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub) error {
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.HOHSystemNamespace,
@@ -442,7 +442,7 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 }
 
 // pruneHoHResources tries to delete hoh resources
-func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub) error {
+func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub) error {
 	// hoh configmap
 	existingHoHConfigMap := &corev1.ConfigMap{}
 	if err := r.Client.Get(ctx,
@@ -496,12 +496,12 @@ func (r *MultiClusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&hubofhubsv1alpha1.MultiClusterGlobalHub{}, builder.WithPredicates(mghPred)).
+		For(&operatorv1alpha1.MultiClusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Complete(r)
 }
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub) (
+func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub) (
 	string, string, error,
 ) {
 	// for local dev/test

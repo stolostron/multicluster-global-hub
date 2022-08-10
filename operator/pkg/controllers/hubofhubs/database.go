@@ -11,7 +11,7 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/jackc/pgx/v4"
-	hubofhubsv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/hubofhubs/v1alpha1"
+	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/condition"
 )
 
@@ -22,7 +22,7 @@ const (
 //go:embed database
 var databaseFS embed.FS
 
-func (reconciler *MultiClusterGlobalHubReconciler) reconcileDatabase(ctx context.Context, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub,
+func (reconciler *MultiClusterGlobalHubReconciler) reconcileDatabase(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub,
 	namespacedName types.NamespacedName,
 ) error {
 	log := ctrllog.FromContext(ctx)

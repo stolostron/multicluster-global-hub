@@ -14,7 +14,7 @@ spec:
         API
       displayName: Multi Cluster Global Hub
       kind: MultiClusterGlobalHub
-      name: multiclusterglobalhubs.hubofhubs.open-cluster-management.io
+      name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha1
   description: hub-of-hubs-operator defines the configuration for the hub-of-hubs
     installation with one custom resource.

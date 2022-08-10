@@ -5,7 +5,7 @@ metadata:
   name: multiclusterglobalhub-editor-role
 rules:
 - apiGroups:
-  - hubofhubs.open-cluster-management.io
+  - operator.open-cluster-management.io
   resources:
   - multiclusterglobalhubs
   verbs:
@@ -17,7 +17,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - hubofhubs.open-cluster-management.io
+  - operator.open-cluster-management.io
   resources:
   - multiclusterglobalhubs/status
   verbs:

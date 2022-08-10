@@ -5,7 +5,7 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "hubofhubs.open-cluster-management.io/v1alpha1",
+          "apiVersion": "operator.open-cluster-management.io/v1alpha1",
           "kind": "MultiClusterGlobalHub",
           "metadata": {
             "name": "multiclusterglobalhub"
@@ -33,7 +33,7 @@ spec:
         API
       displayName: Multi Cluster Global Hub
       kind: MultiClusterGlobalHub
-      name: multiclusterglobalhubs.hubofhubs.open-cluster-management.io
+      name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha1
   description: hub-of-hubs-operator defines the configuration for the hub-of-hubs
     installation with one custom resource.
@@ -281,32 +281,6 @@ spec:
           - create
           - delete
         - apiGroups:
-          - hubofhubs.open-cluster-management.io
-          resources:
-          - multiclusterglobalhubs
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - hubofhubs.open-cluster-management.io
-          resources:
-          - multiclusterglobalhubs/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - hubofhubs.open-cluster-management.io
-          resources:
-          - multiclusterglobalhubs/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
           - networking.k8s.io
           resources:
           - ingresses
@@ -323,6 +297,32 @@ spec:
           - create
           - delete
           - get
+          - update
+        - apiGroups:
+          - operator.open-cluster-management.io
+          resources:
+          - multiclusterglobalhubs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - operator.open-cluster-management.io
+          resources:
+          - multiclusterglobalhubs/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - operator.open-cluster-management.io
+          resources:
+          - multiclusterglobalhubs/status
+          verbs:
+          - get
+          - patch
           - update
         - apiGroups:
           - packages.operators.coreos.com

@@ -38,8 +38,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
-	operatorv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	hubofhubsv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/hubofhubs/v1alpha1"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/config"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
 	workv1 "open-cluster-management.io/api/work/v1"
@@ -271,7 +271,7 @@ func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 func getPackageManifestConfigFromHubSubWork(hubSubWork *workv1.ManifestWork) (*packageManifestConfig, error) {
 	for _, manifest := range hubSubWork.Spec.Workload.Manifests {
 		if strings.Contains(string(manifest.RawExtension.Raw), `"kind":"Subscription"`) {
-			sub := operatorv1alpha1.Subscription{}
+			sub := olmv1alpha1.Subscription{}
 			err := json.Unmarshal(manifest.RawExtension.Raw, &sub)
 			if err != nil {
 				return nil, err
@@ -455,7 +455,7 @@ func getDefaultHypershiftHubConfigValues() HypershiftHubConfigValues {
 
 // applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
 func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logger,
-	mgh *hubofhubsv1alpha1.MultiClusterGlobalHub, managedClusterName, channelClusterIP string,
+	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName, channelClusterIP string,
 	pm *packageManifestConfig, hcConfig *config.HostedClusterConfig) (*workv1.ManifestWork, error) {
 	if pm == nil || pm.ACMCurrentCSV == "" {
 		return nil, fmt.Errorf("empty packagemanifest")
@@ -629,7 +629,7 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 }
 
 // applyHoHAgentWork creates or updates hub-of-hubs-agent manifestwork
-func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub,
+func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub,
 	managedClusterName string) error {
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, c, log, mgh)
 	if err != nil {
@@ -698,7 +698,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mg
 
 // applyHoHAgentHypershiftWork creates or updates hub-of-hubs-agent manifestwork
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.Logger,
-	mgh *hubofhubsv1alpha1.MultiClusterGlobalHub, managedClusterName string, hcConfig *config.HostedClusterConfig) error {
+	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName string, hcConfig *config.HostedClusterConfig) error {
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, c, log, mgh)
 	if err != nil {
 		return err
@@ -895,7 +895,7 @@ func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClust
 }
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *hubofhubsv1alpha1.MultiClusterGlobalHub) (
+func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub) (
 	string, string, error) {
 	// for local dev/test
 	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]

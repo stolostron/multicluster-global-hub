@@ -5,7 +5,7 @@ metadata:
   name: multiclusterglobalhub-viewer-role
 rules:
 - apiGroups:
-  - hubofhubs.open-cluster-management.io
+  - operator.open-cluster-management.io
   resources:
   - multiclusterglobalhubs
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - hubofhubs.open-cluster-management.io
+  - operator.open-cluster-management.io
   resources:
   - multiclusterglobalhubs/status
   verbs:
