@@ -229,7 +229,13 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	consoleSetupObjects, err := hohRenderer.Render("manifests/console-setup", func(
 		component string,
 	) (interface{}, error) {
-		return struct{}{}, nil
+		consoleJobConfig := struct {
+			Image string
+		}{
+			Image: config.GetImage(annotations, "hub_of_hubs_console_job"),
+		}
+
+		return consoleJobConfig, nil
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -242,7 +248,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	log.Info("wait at most 300s for the hub-of-hubs console is set up")
 	consoleSetupJob := &batchv1.Job{}
-	if errPoll := wait.Poll(30*time.Second, 300*time.Second, func() (bool, error) {
+	if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 		if err := r.Client.Get(ctx,
 			types.NamespacedName{
 				Name:      "hoh-of-hubs-console-setup",
@@ -356,7 +362,13 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 		// render the console cleanup job
 		consoleCleanupObjects, err := hohRenderer.Render("manifests/console-cleanup",
 			func(component string) (interface{}, error) {
-				return struct{}{}, nil
+				consoleJobConfig := struct {
+					Image string
+				}{
+					Image: config.GetImage(mgh.GetAnnotations(), "hub_of_hubs_console_job"),
+				}
+
+				return consoleJobConfig, nil
 			})
 		if err != nil {
 			return false, err
@@ -367,7 +379,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 
 		log.Info("wait at most 300s for the hub-of-hubs console is cleaned up")
 		consoleCleanJob := &batchv1.Job{}
-		if errPoll := wait.Poll(30*time.Second, 300*time.Second, func() (bool, error) {
+		if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 			if err := r.Client.Get(ctx,
 				types.NamespacedName{
 					Name:      "hoh-of-hubs-console-cleanup",
