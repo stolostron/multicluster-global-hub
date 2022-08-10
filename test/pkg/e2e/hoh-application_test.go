@@ -54,8 +54,10 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		Expect(len(managedClusters)).Should(BeNumerically(">", 1), "at least 2 managed clusters")
 		managedClusterName1 = managedClusters[0].Name
 		managedClusterName2 = managedClusters[1].Name
-		Expect(len(managedClusterName1)).Should(BeNumerically(">", 0), "managedclustername1 should not be empty")
-		Expect(len(managedClusterName2)).Should(BeNumerically(">", 0), "managedclustername2 should not be empty")
+		Expect(len(managedClusterName1)).Should(BeNumerically(">", 0),
+			"managedclustername1 should not be empty")
+		Expect(len(managedClusterName2)).Should(BeNumerically(">", 0),
+			"managedclustername2 should not be empty")
 
 		By("Get the appsubreport client")
 		cfg, err := clients.RestConfig(clients.HubClusterName())
@@ -146,9 +148,13 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			seconds += 5
 			if seconds > 40 {
 				seconds = 0
-				return checkAppsubreport(appClient, 2, []string{managedClusterName1, managedClusterName2}, true)
+				return checkAppsubreport(appClient, 2, []string{
+					managedClusterName1, managedClusterName2,
+				}, true)
 			} else {
-				return checkAppsubreport(appClient, 2, []string{managedClusterName1, managedClusterName2}, false)
+				return checkAppsubreport(appClient, 2, []string{
+					managedClusterName1, managedClusterName2,
+				}, false)
 			}
 		}, 12*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
@@ -171,7 +177,8 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			for _, cluster := range managedClusters {
 				if val, ok := cluster.Labels[APP_LABEL_KEY]; ok {
 					if val == APP_LABEL_VALUE {
-						return fmt.Errorf("the label %s: %s is not removed from %s", APP_LABEL_KEY, APP_LABEL_VALUE, cluster.Name)
+						return fmt.Errorf("the label %s: %s is not removed from %s",
+							APP_LABEL_KEY, APP_LABEL_VALUE, cluster.Name)
 					}
 				}
 			}
@@ -226,5 +233,6 @@ func checkAppsubreport(appClient client.Client, expectDeployNum int, expectClust
 		msg, err = clients.Kubectl(clients.HubClusterName(), "apply", "-f", APP_SUB_YAML)
 		Expect(err).ShouldNot(HaveOccurred(), msg)
 	}
-	return fmt.Errorf("the appsub %s: %s hasn't deplyed to the cluster: %s", APP_SUB_NAMESPACE, APP_SUB_NAME, strings.Join(expectClusterNames, ","))
+	return fmt.Errorf("the appsub %s: %s hasn't deplyed to the cluster: %s", APP_SUB_NAMESPACE,
+		APP_SUB_NAME, strings.Join(expectClusterNames, ","))
 }

@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/errors"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 )
 
 func AddPlacementDecisionDBSyncer(mgr ctrl.Manager, database db.DB,
@@ -118,7 +119,8 @@ func getAggregatedPlacementDecisions(ctx context.Context, database db.DB,
 		}
 
 		// assuming that cluster names are unique across the hubs, all we need to do is a complete merge
-		aggregatedPlacementDecision.Status.Decisions = append(aggregatedPlacementDecision.Status.Decisions,
+		aggregatedPlacementDecision.Status.Decisions = append(
+			aggregatedPlacementDecision.Status.Decisions,
 			leafHubPlacementDecision.Status.Decisions...)
 	}
 
@@ -153,7 +155,8 @@ func updatePlacementDecision(ctx context.Context, k8sClient client.Client,
 
 	deployedPlacementDecision.Status.Decisions = aggregatedPlacementDecision.Status.Decisions
 
-	err = k8sClient.Status().Patch(ctx, deployedPlacementDecision, client.MergeFrom(originalPlacementDecision))
+	err = k8sClient.Status().Patch(ctx, deployedPlacementDecision,
+		client.MergeFrom(originalPlacementDecision))
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to update placement-decision CR (name=%s, namespace=%s): %w",
 			deployedPlacementDecision.Name, deployedPlacementDecision.Namespace, err)

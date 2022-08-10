@@ -139,7 +139,8 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 	log.Info("adding finalizer")
 	controllerutil.AddFinalizer(object, c.finalizerName)
 
-	if err := c.client.Update(ctx, object); err != nil && !strings.Contains(err.Error(), "the object has been modified") {
+	if err := c.client.Update(ctx, object); err != nil &&
+		!strings.Contains(err.Error(), "the object has been modified") {
 		return fmt.Errorf("failed to add finalizer %s - %w", c.finalizerName, err)
 	}
 
@@ -213,7 +214,8 @@ func (c *genericStatusSyncController) syncBundles() {
 			payloadBytes, err := json.Marshal(entry.bundle)
 			if err != nil {
 				c.log.Error(
-					fmt.Errorf("sync object from type %s with id %s - %w", constants.StatusBundle, entry.transportBundleKey, err),
+					fmt.Errorf("sync object from type %s with id %s - %w",
+						constants.StatusBundle, entry.transportBundleKey, err),
 					"failed to sync bundle")
 			}
 

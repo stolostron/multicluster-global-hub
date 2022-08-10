@@ -24,7 +24,8 @@ import (
 
 // AddControllers adds all the controllers to the Manager.
 func AddControllers(mgr ctrl.Manager, pro producer.Producer,
-	configManager helper.ConfigManager, incarnation uint64) error {
+	configManager helper.ConfigManager, incarnation uint64,
+) error {
 	config := &corev1.ConfigMap{}
 	if err := configCtrl.AddConfigController(mgr, config); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)

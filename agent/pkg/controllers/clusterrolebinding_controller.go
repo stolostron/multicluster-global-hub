@@ -42,7 +42,6 @@ func (c *clusterRoleBindingController) Reconcile(ctx context.Context, request ct
 	}
 	reqLogger.Info("Reconciliation complete.")
 	return ctrl.Result{}, nil
-
 }
 
 func createClusterRoleBinding() *rbacv1.ClusterRoleBinding {
@@ -69,7 +68,6 @@ func createClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 }
 
 func AddClusterRoleBindingController(mgr ctrl.Manager) error {
-
 	clusterRoleBindingPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			HubOfHubsCreateByKey: HubOfHubsCreateByValue,

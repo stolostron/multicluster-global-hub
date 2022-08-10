@@ -24,7 +24,8 @@ func AddToScheme(scheme *runtime.Scheme) error {
 
 // AddSpecSyncers adds spec syncers to the Manager.
 func AddSyncersToManager(manager ctrl.Manager, consumer consumer.Consumer, configManager helper.ConfigManager) error {
-	workerPool, err := workers.AddWorkerPool(ctrl.Log.WithName("workers-pool"), configManager.SpecWorkPoolSize, manager)
+	workerPool, err := workers.AddWorkerPool(ctrl.Log.WithName("workers-pool"),
+		configManager.SpecWorkPoolSize, manager)
 	if err != nil {
 		return fmt.Errorf("failed to add worker pool to runtime manager: %w", err)
 	}
@@ -35,7 +36,8 @@ func AddSyncersToManager(manager ctrl.Manager, consumer consumer.Consumer, confi
 	}
 
 	// add managed cluster labels syncer to mgr
-	if err = syncers.AddManagedClusterLabelsBundleSyncer(ctrl.Log.WithName("managed-clusters-labels-syncer"), manager,
+	if err = syncers.AddManagedClusterLabelsBundleSyncer(
+		ctrl.Log.WithName("managed-clusters-labels-syncer"), manager,
 		consumer, workerPool); err != nil {
 		return fmt.Errorf("failed to add managed cluster labels syncer to runtime manager: %w", err)
 	}

@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
 const (
@@ -34,7 +35,8 @@ func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *corev1.Confi
 	}
 
 	configPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == constants.HohSystemNamespace && object.GetName() == constants.HoHConfigName
+		return object.GetNamespace() == constants.HohSystemNamespace &&
+			object.GetName() == constants.HoHConfigName
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).

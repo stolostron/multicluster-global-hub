@@ -11,6 +11,7 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statistics"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"

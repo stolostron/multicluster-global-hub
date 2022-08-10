@@ -6,11 +6,11 @@ import (
 	"fmt"
 	iofs "io/fs"
 
+	"github.com/jackc/pgx/v4"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/jackc/pgx/v4"
 	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/condition"
 )

@@ -42,7 +42,8 @@ type KafkaComsumer struct {
 
 // NewConsumer creates a new instance of Consumer.
 func NewKafkaConsumer(log logr.Logger, environmentManager *helper.ConfigManager,
-	genericBundlesChan chan *bundle.GenericBundle) (*KafkaComsumer, error) {
+	genericBundlesChan chan *bundle.GenericBundle,
+) (*KafkaComsumer, error) {
 	leafHubName := environmentManager.LeafHubName
 	topic := environmentManager.Kafka.ComsumerTopic
 
@@ -129,7 +130,8 @@ func (c *KafkaComsumer) processMessage(message *kafka.Message) {
 		return
 	}
 
-	decompressedPayload, err := c.decompressPayload(message.Value, compressor.CompressionType(compressionTypeBytes))
+	decompressedPayload, err := c.decompressPayload(message.Value,
+		compressor.CompressionType(compressionTypeBytes))
 	if err != nil {
 		c.logError(err, "failed to decompress bundle bytes", message)
 		return
@@ -167,7 +169,8 @@ func (c *KafkaComsumer) syncGenericBundle(payload []byte) error {
 
 // SyncCustomBundle writes a custom bundle to its respective syncer channel.
 func (c *KafkaComsumer) SyncCustomBundle(customBundleRegistration *bundle.CustomBundleRegistration,
-	payload []byte) error {
+	payload []byte,
+) error {
 	receivedBundle := customBundleRegistration.InitBundlesResourceFunc()
 	if err := json.Unmarshal(payload, &receivedBundle); err != nil {
 		return fmt.Errorf("failed to parse custom bundle - %w", err)

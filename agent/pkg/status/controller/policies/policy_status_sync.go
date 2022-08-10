@@ -63,11 +63,14 @@ func createBundleCollection(pro producer.Producer, env helper.ConfigManager, inc
 	clustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
 
 	// minimal compliance status bundle
-	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
+	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		constants.MinimalPolicyComplianceMsgKey)
 	minimalComplianceStatusBundle := grc.NewMinimalComplianceStatusBundle(leafHubName, incarnation)
 
 	fullStatusPredicate := func() bool { return hubOfHubsConfig.Data["aggregationLevel"] == "full" }
-	minimalStatusPredicate := func() bool { return hubOfHubsConfig.Data["aggregationLevel"] == "minimal" }
+	minimalStatusPredicate := func() bool {
+		return hubOfHubsConfig.Data["aggregationLevel"] == "minimal"
+	}
 
 	// apply a hybrid sync manager on the (full aggregation) compliance bundles
 	completeComplianceStatusBundleCollectionEntry, deltaComplianceStatusBundleCollectionEntry,
@@ -95,7 +98,8 @@ func getHybridComplianceBundleCollectionEntries(transport producer.Producer, lea
 	deltaCountSwitchFactor int,
 ) (*generic.BundleCollectionEntry, *generic.BundleCollectionEntry, error) {
 	// complete compliance status bundle
-	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
+	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		constants.PolicyCompleteComplianceMsgKey)
 	completeComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
 		incarnation, extractPolicyID)
 
@@ -109,10 +113,12 @@ func getHybridComplianceBundleCollectionEntries(transport producer.Producer, lea
 	deltaComplianceBundleCollectionEntry := generic.NewBundleCollectionEntry(deltaComplianceStatusTransportKey,
 		deltaComplianceStatusBundle, fullStatusPredicate)
 
-	if err := generic.NewHybridSyncManager(ctrl.Log.WithName("compliance-status-hybrid-sync-manager"),
+	if err := generic.NewHybridSyncManager(ctrl.Log.WithName(
+		"compliance-status-hybrid-sync-manager"),
 		transport, completeComplianceBundleCollectionEntry, deltaComplianceBundleCollectionEntry,
 		deltaCountSwitchFactor); err != nil {
-		return nil, nil, fmt.Errorf("%w: %v", err, errors.New("failed to create hybrid sync manager"))
+		return nil, nil, fmt.Errorf("%w: %v", err,
+			errors.New("failed to create hybrid sync manager"))
 	}
 
 	return completeComplianceBundleCollectionEntry, deltaComplianceBundleCollectionEntry, nil

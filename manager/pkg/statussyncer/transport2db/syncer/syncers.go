@@ -3,15 +3,16 @@ package syncer
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db/workerpool"
 	configctl "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/syncer/config"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
-	corev1 "k8s.io/api/core/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // AddTransport2DBSyncers performs the initial setup required before starting the runtime manager.

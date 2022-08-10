@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
 )
 
 var (

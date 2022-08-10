@@ -86,7 +86,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				if policyInfo.ClusterName == managedClusterName1 {
 					if policyInfo.ErrorInfo == "none" && policyInfo.Compliance == "non_compliant" {
 						policyStr, _ := json.MarshalIndent(transportedPolicies, "", "  ")
-						klog.V(5).Info(fmt.Printf("Inform policy[ %s -> %s ]: %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, string(policyStr)))
+						klog.V(5).Info(fmt.Printf("Inform policy[ %s -> %s ]: %s",
+							POLICY_LABEL_KEY, POLICY_LABEL_VALUE, string(policyStr)))
 						return nil
 					} else {
 						return fmt.Errorf("the cluster %s with policyInfo %s and compliance %s ",
@@ -108,7 +109,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				if policyInfo.ClusterName == managedClusterName1 {
 					if policyInfo.ErrorInfo == "none" && policyInfo.Compliance == "compliant" {
 						policyStr, _ := json.MarshalIndent(transportedPolicies, "", "  ")
-						klog.V(5).Info(fmt.Printf("Enforce policy[ %s -> %s ]: %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, string(policyStr)))
+						klog.V(5).Info(fmt.Printf("Enforce policy[ %s -> %s ]: %s",
+							POLICY_LABEL_KEY, POLICY_LABEL_VALUE, string(policyStr)))
 						return nil
 					} else {
 						return fmt.Errorf("the cluster %s with policy error Information %s and compliacne %s",
@@ -182,7 +184,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			for _, cluster := range managedClusters {
 				if cluster.Name == managedClusterName1 {
 					if val, ok := cluster.Labels[POLICY_LABEL_KEY]; ok && val == POLICY_LABEL_VALUE {
-						return fmt.Errorf("the label %s: %s has't removed from the cluster %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, cluster.Name)
+						return fmt.Errorf("the label %s: %s has't removed from the cluster %s",
+							POLICY_LABEL_KEY, POLICY_LABEL_VALUE, cluster.Name)
 					}
 				}
 			}
@@ -195,18 +198,17 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			transportedPolicies := listTransportedPolicies(token, httpClient)
 			for _, policyInfo := range transportedPolicies {
 				if policyInfo.ClusterName == managedClusterName1 {
-					return fmt.Errorf("the cluster %s policy(%s: %s)should be removed", managedClusterName1, policyInfo.ErrorInfo, policyInfo.Compliance)
+					return fmt.Errorf("the cluster %s policy(%s: %s)should be removed",
+						managedClusterName1, policyInfo.ErrorInfo, policyInfo.Compliance)
 				}
 			}
 			policyStr, _ := json.MarshalIndent(transportedPolicies, "", "  ")
 			klog.V(5).Info(fmt.Printf("remove policy from managedcluster1: %s", string(policyStr)))
 			return nil
 		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
-
 	})
 
 	AfterAll(func() {
-
 		By("Delete the enforced policy")
 		_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", ENFORCE_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -224,7 +226,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		Eventually(func() error {
 			transportedPolicies := listTransportedPolicies(token, httpClient)
 			for _, policyInfo := range transportedPolicies {
-				if policyInfo.ClusterName == managedClusterName2 || policyInfo.ClusterName == managedClusterName1 {
+				if policyInfo.ClusterName == managedClusterName2 ||
+					policyInfo.ClusterName == managedClusterName1 {
 					return fmt.Errorf("the cluster %s should delete the policy", policyInfo.ClusterName)
 				}
 			}
@@ -249,7 +252,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			for _, cluster := range managedClusters {
 				if cluster.Name == managedClusterName2 {
 					if val, ok := cluster.Labels[POLICY_LABEL_KEY]; ok && val == POLICY_LABEL_VALUE {
-						return fmt.Errorf("the label %s: %s has't removed from the cluster %s", POLICY_LABEL_KEY, POLICY_LABEL_VALUE, cluster.Name)
+						return fmt.Errorf("the label %s: %s has't removed from the cluster %s",
+							POLICY_LABEL_KEY, POLICY_LABEL_VALUE, cluster.Name)
 					}
 				}
 			}

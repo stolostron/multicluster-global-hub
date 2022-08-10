@@ -6,20 +6,22 @@ package controller
 import (
 	"fmt"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/hub-of-hubs/pkg/constants"
 )
 
 func AddHubOfHubsConfigController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.ConfigMap{}).
 		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
-			return object.GetNamespace() == constants.HohSystemNamespace && object.GetName() == constants.HoHConfigName
+			return object.GetNamespace() == constants.HohSystemNamespace &&
+				object.GetName() == constants.HoHConfigName
 		})).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),

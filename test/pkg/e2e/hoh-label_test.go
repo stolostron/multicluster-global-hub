@@ -100,7 +100,6 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 			}
 			return nil
 		}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
-
 	})
 })
 
@@ -146,7 +145,8 @@ func getManagedCluster(client *http.Client, token string) []clusterv1.ManagedClu
 }
 
 func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterName string) {
-	updateLabelUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters/%s", testOptions.HubCluster.Nonk8sApiServer, managedClusterName)
+	updateLabelUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters/%s",
+		testOptions.HubCluster.Nonk8sApiServer, managedClusterName)
 	// set method and body
 	jsonBody, err := json.Marshal(patches)
 	Expect(err).ShouldNot(HaveOccurred())

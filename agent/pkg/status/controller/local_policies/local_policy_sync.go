@@ -65,7 +65,8 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 
 	// check for full information
 	localPolicyStatusPredicate := func() bool {
-		return hubOfHubsConfig.Data["aggregationLevel"] == "full" && hubOfHubsConfig.Data["enableLocalPolicies"] == "true"
+		return hubOfHubsConfig.Data["aggregationLevel"] == "full" &&
+			hubOfHubsConfig.Data["enableLocalPolicies"] == "true"
 	}
 	// multiple bundles for local policies
 	return []*generic.BundleCollectionEntry{

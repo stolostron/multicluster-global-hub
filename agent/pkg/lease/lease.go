@@ -130,7 +130,9 @@ func checkAddonPodFunc(log logr.Logger, podGetter corev1client.PodsGetter,
 	namespace, labelSelector string,
 ) func() bool {
 	return func() bool {
-		pods, err := podGetter.Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+		pods, err := podGetter.Pods(namespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: labelSelector,
+		})
 		if err != nil {
 			log.Error(err, "failed to get the pod list with label selector",
 				"namespace", namespace, "labelSelector", labelSelector)

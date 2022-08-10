@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statistics"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator/dependency"
@@ -221,7 +222,8 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 
 	dependantBundle, ok := conflationElement.bundleInfo.getBundle().(bundle.DependantBundle)
 	if !ok { // this bundle declared it has a dependency but doesn't implement DependantBundle
-		cu.log.Error(errDependencyCannotBeEvaluated, "cannot evaluate bundle dependencies, not processing bundle",
+		cu.log.Error(errDependencyCannotBeEvaluated,
+			"cannot evaluate bundle dependencies, not processing bundle",
 			"LeafHubName", conflationElement.bundleInfo.getBundle().GetLeafHubName(),
 			"bundleType", helpers.GetBundleType(conflationElement.bundleInfo.getBundle()))
 
@@ -231,7 +233,8 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
 	dependencyLastProcessedVersion := cu.priorityQueue[dependencyIndex].lastProcessedBundleVersion
 
-	if !cu.requireInitialDependencyChecks && dependencyLastProcessedVersion.Equals(noBundleVersion()) {
+	if !cu.requireInitialDependencyChecks &&
+		dependencyLastProcessedVersion.Equals(noBundleVersion()) {
 		return true // transport does not require initial dependency check
 	}
 

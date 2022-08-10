@@ -16,6 +16,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/scheme"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db/postgresql"
@@ -34,9 +38,6 @@ import (
 	statuskafka "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/kafka"
 	statussyncservice "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/syncservice"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 const (
@@ -144,7 +145,8 @@ func parseFlags() (*hohManagerConfig, error) {
 		"sync-service-css.sync-service.svc.cluster.local", "The host for Cloud Sync Service.")
 	pflag.IntVar(&managerConfig.syncServiceConfig.CSSPort, "cloud-sync-service-port", 9689,
 		"The port for Cloud Sync Service.")
-	pflag.IntVar(&managerConfig.syncServiceConfig.PollingInterval, "cloud-sync-service-polling-interval", 5,
+	pflag.IntVar(&managerConfig.syncServiceConfig.PollingInterval,
+		"cloud-sync-service-polling-interval", 5,
 		"The polling interval in second for Cloud Sync Service.")
 	pflag.DurationVar(&managerConfig.statisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second,
 		"The log interval for statistics.")
@@ -153,7 +155,8 @@ func parseFlags() (*hohManagerConfig, error) {
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path",
 		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationURL, "authorization-url",
-		"https://hub-of-hubs-rbac.open-cluster-management.svc:8181", "The authorization URL for nonK8s API server.")
+		"https://hub-of-hubs-rbac.open-cluster-management.svc:8181",
+		"The authorization URL for nonK8s API server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationCABundlePath, "authorization-cabundle-path",
 		"/hub-of-hubs-rbac-ca/service-ca.crt", "The CA bundle path for authorization server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerCertificatePath, "server-certificate-path",
@@ -219,8 +222,10 @@ func requireInitialDependencyChecks(transportType string) bool {
 // function to choose spec transport type based on env var.
 func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer, kafkaCA string,
 	kafkaProducerConfig *speckafka.KafkaProducerConfig,
-	syncServiceConfig *statussyncservice.SyncServiceConfig) (spectransport.Transport, error) {
-	msgCompressor, err := compressor.NewCompressor(compressor.CompressionType(transportCommonConfig.msgCompressionType))
+	syncServiceConfig *statussyncservice.SyncServiceConfig,
+) (spectransport.Transport, error) {
+	msgCompressor, err := compressor.NewCompressor(
+		compressor.CompressionType(transportCommonConfig.msgCompressionType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create message-compressor: %w", err)
 	}
@@ -243,7 +248,8 @@ func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstr
 
 		return syncService, nil
 	default:
-		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errFlagParameterIllegalValue, transportType,
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option",
+			errFlagParameterIllegalValue, transportType,
 			transportCommonConfig.transportType)
 	}
 }
@@ -255,7 +261,8 @@ func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBoots
 ) (statustransport.Transport, error) {
 	switch transportCommonConfig.transportType {
 	case kafkaTransportTypeName:
-		kafkaConsumer, err := statuskafka.NewConsumer(transportCommonConfig.committerInterval,
+		kafkaConsumer, err := statuskafka.NewConsumer(
+			transportCommonConfig.committerInterval,
 			kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig, conflationMgr,
 			statistics, ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
@@ -264,15 +271,18 @@ func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBoots
 
 		return kafkaConsumer, nil
 	case syncServiceTransportTypeName:
-		syncService, err := statussyncservice.NewSyncService(transportCommonConfig.committerInterval,
-			syncServiceConfig, conflationMgr, statistics, ctrl.Log.WithName("sync-service-for-status"))
+		syncService, err := statussyncservice.NewSyncService(
+			transportCommonConfig.committerInterval,
+			syncServiceConfig, conflationMgr, statistics,
+			ctrl.Log.WithName("sync-service-for-status"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sync-service for status: %w", err)
 		}
 
 		return syncService, nil
 	default:
-		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errFlagParameterIllegalValue, transportType,
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option",
+			errFlagParameterIllegalValue, transportType,
 			transportCommonConfig.transportType)
 	}
 }
@@ -297,7 +307,8 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
 	if strings.Contains(managerConfig.watchNamespace, ",") {
 		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(managerConfig.watchNamespace, ","))
+		options.NewCache = cache.MultiNamespacedCacheBuilder(
+			strings.Split(managerConfig.watchNamespace, ","))
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
@@ -309,7 +320,8 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := nonk8sapi.AddNonK8sApiServer(mgr, processPostgreSQL, managerConfig.nonK8sAPIServerConfig); err != nil {
+	if err := nonk8sapi.AddNonK8sApiServer(mgr, processPostgreSQL,
+		managerConfig.nonK8sAPIServerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
@@ -327,7 +339,8 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 
-	if err := db2status.AddDBSyncers(mgr, processPostgreSQL, managerConfig.syncerConfig.statusSyncInterval); err != nil {
+	if err := db2status.AddDBSyncers(mgr, processPostgreSQL,
+		managerConfig.syncerConfig.statusSyncInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db syncers: %w", err)
 	}
 
@@ -370,7 +383,8 @@ func doMain() int {
 	defer processPostgreSQL.Stop()
 
 	// db layer initialization for transport-bridge user
-	transportBridgePostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.databaseConfig.transportBridgeDatabaseURL)
+	transportBridgePostgreSQL, err := postgresql.NewPostgreSQL(
+		managerConfig.databaseConfig.transportBridgeDatabaseURL)
 	if err != nil {
 		log.Error(err, initializationFailMsg, initializationFailKey, "transport-bridge PostgreSQL")
 		return 1
@@ -393,7 +407,8 @@ func doMain() int {
 
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
-	requireInitialDependencyChecks := requireInitialDependencyChecks(managerConfig.transportCommonConfig.transportType)
+	requireInitialDependencyChecks := requireInitialDependencyChecks(
+		managerConfig.transportCommonConfig.transportType)
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
 		requireInitialDependencyChecks, stats) // manage all Conflation Units
 

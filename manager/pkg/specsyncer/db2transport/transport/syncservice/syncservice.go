@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/transport"
 	statussyncservice "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/syncservice"
 	"github.com/stolostron/hub-of-hubs/pkg/compressor"
@@ -19,7 +20,8 @@ const (
 
 // NewSyncService returns a new instance of SyncService object.
 func NewSyncService(compressor compressor.Compressor, syncServiceConfig *statussyncservice.SyncServiceConfig,
-	log logr.Logger) (*SyncService, error) {
+	log logr.Logger,
+) (*SyncService, error) {
 	syncServiceClient := client.NewSyncServiceClient(syncServiceConfig.Protocol,
 		syncServiceConfig.CSSHost, uint16(syncServiceConfig.CSSPort))
 

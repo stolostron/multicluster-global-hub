@@ -23,8 +23,9 @@ import (
 
 	"github.com/go-logr/logr"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
 )
 
 type packageManifestConfig struct {

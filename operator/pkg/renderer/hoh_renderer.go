@@ -31,12 +31,14 @@ func NewHoHRenderer(manifestFS embed.FS) Renderer {
 }
 
 func (r *HoHRenderer) Render(component string, getConfigValuesFunc GetConfigValuesFunc) (
-	[]*unstructured.Unstructured, error) {
+	[]*unstructured.Unstructured, error,
+) {
 	return r.RenderWithFilter(component, "", getConfigValuesFunc)
 }
 
 func (r *HoHRenderer) RenderWithFilter(component, filter string, getConfigValuesFunc GetConfigValuesFunc) (
-	[]*unstructured.Unstructured, error) {
+	[]*unstructured.Unstructured, error,
+) {
 	var unstructuredObjs []*unstructured.Unstructured
 
 	configValues, err := getConfigValuesFunc(component)
@@ -85,7 +87,9 @@ func (r *HoHRenderer) RenderWithFilter(component, filter string, getConfigValues
 					return unstructuredObjs, err
 				}
 
-				unstructuredObjs = append(unstructuredObjs, &unstructured.Unstructured{Object: unstructuredObj})
+				unstructuredObjs = append(unstructuredObjs, &unstructured.Unstructured{
+					Object: unstructuredObj,
+				})
 			}
 		}
 	}
@@ -94,12 +98,14 @@ func (r *HoHRenderer) RenderWithFilter(component, filter string, getConfigValues
 }
 
 func (r *HoHRenderer) RenderForCluster(cluster, component string,
-	getClusterConfigValuesFunc GetClusterConfigValuesFunc) ([]*unstructured.Unstructured, error) {
+	getClusterConfigValuesFunc GetClusterConfigValuesFunc,
+) ([]*unstructured.Unstructured, error) {
 	return r.RenderForClusterWithFilter(cluster, component, "", getClusterConfigValuesFunc)
 }
 
 func (r *HoHRenderer) RenderForClusterWithFilter(cluster, component, filter string,
-	getClusterConfigValuesFunc GetClusterConfigValuesFunc) ([]*unstructured.Unstructured, error) {
+	getClusterConfigValuesFunc GetClusterConfigValuesFunc,
+) ([]*unstructured.Unstructured, error) {
 	var unstructuredObjs []*unstructured.Unstructured
 
 	configValues, err := getClusterConfigValuesFunc(cluster, component)
@@ -139,7 +145,9 @@ func (r *HoHRenderer) RenderForClusterWithFilter(cluster, component, filter stri
 			return unstructuredObjs, err
 		}
 
-		unstructuredObjs = append(unstructuredObjs, &unstructured.Unstructured{Object: unstructuredObj})
+		unstructuredObjs = append(unstructuredObjs, &unstructured.Unstructured{
+			Object: unstructuredObj,
+		})
 	}
 
 	return unstructuredObjs, nil

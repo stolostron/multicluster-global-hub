@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/syncer/dbsyncer"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/syncer/statuswatcher"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/transport"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // AddDB2TransportSyncers adds the controllers that send info from DB to transport layer to the Manager.
@@ -39,7 +40,8 @@ func AddDB2TransportSyncers(mgr ctrl.Manager, specDB db.SpecDB, transportObj tra
 
 // AddStatusDBWatchers adds the controllers that watch the status DB to update the spec DB to the Manager.
 func AddStatusDBWatchers(mgr ctrl.Manager, specDB db.SpecDB, statusDB db.StatusDB,
-	deletedLabelsTrimmingInterval time.Duration) error {
+	deletedLabelsTrimmingInterval time.Duration,
+) error {
 	if err := statuswatcher.AddManagedClusterLabelsStatusWatcher(mgr, specDB, statusDB,
 		deletedLabelsTrimmingInterval); err != nil {
 		return fmt.Errorf("failed to add status watcher: %w", err)

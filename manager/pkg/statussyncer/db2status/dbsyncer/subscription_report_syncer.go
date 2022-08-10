@@ -10,12 +10,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/errors"
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 )
 
 func AddSubscriptionReportDBSyncer(mgr ctrl.Manager, database db.DB,
@@ -153,7 +154,8 @@ func updateSubscriptionReport(ctx context.Context, k8sClient client.Client,
 	deployedSubscriptionReport.Summary = aggregatedSubscriptionReport.Summary
 	deployedSubscriptionReport.Results = aggregatedSubscriptionReport.Results
 
-	err = k8sClient.Patch(ctx, deployedSubscriptionReport, client.MergeFrom(originalSubscriptionReport))
+	err = k8sClient.Patch(ctx, deployedSubscriptionReport,
+		client.MergeFrom(originalSubscriptionReport))
 	if err != nil {
 		return fmt.Errorf("failed to update subscription-report CR (name=%s, namespace=%s): %w",
 			deployedSubscriptionReport.Name, deployedSubscriptionReport.Namespace, err)

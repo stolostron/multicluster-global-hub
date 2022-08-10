@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	set "github.com/deckarep/golang-set"
+
 	"github.com/stolostron/hub-of-hubs/pkg/bundle/status"
 )
 
@@ -92,7 +93,8 @@ func (bundle *DeltaComplianceStatusBundle) inheritObjects(oldObjects []*status.P
 
 	// turn updated policy-info collections back into policy generic-statuses
 	for _, policyGenericStatus := range bundle.Objects {
-		updatePolicyStatusInBundle(policyGenericStatus, policiesMap[policyGenericStatus.PolicyID])
+		updatePolicyStatusInBundle(policyGenericStatus,
+			policiesMap[policyGenericStatus.PolicyID])
 	}
 
 	// update bundle's objects with the surviving policies as-is
@@ -149,6 +151,8 @@ func updatePolicyStatusInBundle(policyGenericStatus *status.PolicyGenericComplia
 	policyStatus *policyStatus,
 ) {
 	policyGenericStatus.CompliantClusters = createSliceFromSet(policyStatus.compliantClusters)
-	policyGenericStatus.NonCompliantClusters = createSliceFromSet(policyStatus.nonCompliantClusters)
-	policyGenericStatus.UnknownComplianceClusters = createSliceFromSet(policyStatus.unknownClusters)
+	policyGenericStatus.NonCompliantClusters =
+		createSliceFromSet(policyStatus.nonCompliantClusters)
+	policyGenericStatus.UnknownComplianceClusters =
+		createSliceFromSet(policyStatus.unknownClusters)
 }

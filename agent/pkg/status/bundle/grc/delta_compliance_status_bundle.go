@@ -22,10 +22,11 @@ func NewDeltaComplianceStatusBundle(leafHubName string, baseBundle bundlepkg.Bun
 ) bundlepkg.DeltaStateBundle {
 	return &DeltaComplianceStatusBundle{
 		BaseDeltaComplianceStatusBundle: statusbundle.BaseDeltaComplianceStatusBundle{
-			Objects:           make([]*statusbundle.PolicyGenericComplianceStatus, 0),
-			LeafHubName:       leafHubName,
-			BaseBundleVersion: statusbundle.NewBundleVersion(incarnation, baseBundle.GetBundleVersion().Generation),
-			BundleVersion:     statusbundle.NewBundleVersion(incarnation, 0),
+			Objects:     make([]*statusbundle.PolicyGenericComplianceStatus, 0),
+			LeafHubName: leafHubName,
+			BaseBundleVersion: statusbundle.NewBundleVersion(incarnation,
+				baseBundle.GetBundleVersion().Generation),
+			BundleVersion: statusbundle.NewBundleVersion(incarnation, 0),
 		},
 		cyclicTransportationBundleID: 0,
 		baseBundle:                   baseBundle,

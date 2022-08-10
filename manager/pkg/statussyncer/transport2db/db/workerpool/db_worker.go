@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statistics"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/helpers"
@@ -70,11 +71,13 @@ func (worker *DBWorker) start(ctx context.Context) {
 
 				if err != nil {
 					worker.log.Error(err, "failed processing DB job", "WorkerID", worker.workerID,
-						"BundleType", helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(),
+						"BundleType", helpers.GetBundleType(job.bundle),
+						"LeafHubName", job.bundle.GetLeafHubName(),
 						"Version", job.bundle.GetVersion().String())
 				} else {
 					worker.log.Info("finished processing DB job", "WorkerID", worker.workerID,
-						"BundleType", helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(),
+						"BundleType", helpers.GetBundleType(job.bundle),
+						"LeafHubName", job.bundle.GetLeafHubName(),
 						"Version", job.bundle.GetVersion().String())
 				}
 			}

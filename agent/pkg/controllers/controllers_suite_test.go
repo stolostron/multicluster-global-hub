@@ -19,8 +19,10 @@ func TestControllers(t *testing.T) {
 	RunSpecs(t, "Controller Integration Suite")
 }
 
-var testenv *envtest.Environment
-var cfg *rest.Config
+var (
+	testenv *envtest.Environment
+	cfg     *rest.Config
+)
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))

@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 	"k8s.io/apimachinery/pkg/api/errors"
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
 )
 
 func AddSubscriptionStatusStatusDBSyncer(mgr ctrl.Manager, database db.DB,
@@ -114,7 +115,8 @@ func getAggregatedSubscriptionStatuses(ctx context.Context, database db.DB,
 		}
 
 		// assuming that cluster names are unique across the hubs, all we need to do is a complete merge
-		subscriptionStatus.Statuses.SubscriptionStatus = append(subscriptionStatus.Statuses.SubscriptionStatus,
+		subscriptionStatus.Statuses.SubscriptionStatus = append(
+			subscriptionStatus.Statuses.SubscriptionStatus,
 			leafHubSubscriptionStatus.Statuses.SubscriptionStatus...)
 	}
 
@@ -149,7 +151,8 @@ func updateSubscriptionStatus(ctx context.Context, k8sClient client.Client,
 
 	deployedSubscriptionStatus.Statuses = aggregatedSubscriptionStatus.Statuses
 
-	err = k8sClient.Patch(ctx, deployedSubscriptionStatus, client.MergeFrom(originalSubscriptionStatus))
+	err = k8sClient.Patch(ctx, deployedSubscriptionStatus,
+		client.MergeFrom(originalSubscriptionStatus))
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to update subscription-status CR (name=%s, namespace=%s): %w",
 			deployedSubscriptionStatus.Name, deployedSubscriptionStatus.Namespace, err)

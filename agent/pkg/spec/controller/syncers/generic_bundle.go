@@ -62,7 +62,8 @@ func (syncer *genericBundleSyncer) sync(ctx context.Context) {
 			return
 
 		case receivedBundle := <-syncer.genericBundleChan: // handle the bundle
-			syncer.bundleProcessingWaitingGroup.Add(len(receivedBundle.Objects) + len(receivedBundle.DeletedObjects))
+			syncer.bundleProcessingWaitingGroup.Add(
+				len(receivedBundle.Objects) + len(receivedBundle.DeletedObjects))
 			syncer.syncObjects(receivedBundle.Objects)
 			syncer.syncDeletedObjects(receivedBundle.DeletedObjects)
 			syncer.bundleProcessingWaitingGroup.Wait()
@@ -77,14 +78,17 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 		}
 
 		syncer.workerPool.Submit(workers.NewJob(bundleObject, func(ctx context.Context,
-			k8sClient client.Client, obj interface{}) {
+			k8sClient client.Client, obj interface{},
+		) {
 			defer syncer.bundleProcessingWaitingGroup.Done()
 
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
 
 			if !syncer.enforceHohRbac { // if rbac not enforced, create missing namespaces.
-				if err := helper.CreateNamespaceIfNotExist(ctx, k8sClient, unstructuredObject.GetNamespace()); err != nil {
-					syncer.log.Error(err, "failed to create namespace", "namespace", unstructuredObject.GetNamespace())
+				if err := helper.CreateNamespaceIfNotExist(ctx, k8sClient,
+					unstructuredObject.GetNamespace()); err != nil {
+					syncer.log.Error(err, "failed to create namespace",
+						"namespace", unstructuredObject.GetNamespace())
 					return
 				}
 			}
@@ -108,14 +112,16 @@ func (syncer *genericBundleSyncer) syncDeletedObjects(deletedObjects []*unstruct
 		}
 
 		syncer.workerPool.Submit(workers.NewJob(deletedBundleObj, func(ctx context.Context,
-			k8sClient client.Client, obj interface{}) {
+			k8sClient client.Client, obj interface{},
+		) {
 			defer syncer.bundleProcessingWaitingGroup.Done()
 
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
 
 			// syncer.deleteObject(ctx, k8sClient, obj.(*unstructured.Unstructured))
 			if deleted, err := helper.DeleteObject(ctx, k8sClient, unstructuredObject); err != nil {
-				syncer.log.Error(err, "failed to delete object", "name", unstructuredObject.GetName(), "namespace",
+				syncer.log.Error(err, "failed to delete object", "name",
+					unstructuredObject.GetName(), "namespace",
 					unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 			} else if deleted {
 				syncer.log.Info("object deleted", "name", unstructuredObject.GetName(),

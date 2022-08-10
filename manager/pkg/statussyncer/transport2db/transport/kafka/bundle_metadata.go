@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
 )
 

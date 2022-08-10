@@ -15,8 +15,6 @@ import (
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi/authentication"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi/util"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
@@ -25,6 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+
+	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi/authentication"
+	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi/util"
 )
 
 const (
@@ -135,7 +136,10 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 		}
 
 		addedManagedClusterNames.Add(managedCluster.GetName())
-		sendWatchEvent(&metav1.WatchEvent{Type: "ADDED", Object: runtime.RawExtension{Object: managedCluster}}, writer)
+		sendWatchEvent(&metav1.WatchEvent{
+			Type:   "ADDED",
+			Object: runtime.RawExtension{Object: managedCluster},
+		}, writer)
 	}
 
 	managedClusterNamesToDelete := previouslyAddedManagedClusterNames.Difference(addedManagedClusterNames)
@@ -156,7 +160,10 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 			Kind:    "ManagedCluster",
 		})
 		managedClusterToDelete.SetName(managedClusterNameToDeleteAsString)
-		sendWatchEvent(&metav1.WatchEvent{Type: "DELETED", Object: runtime.RawExtension{Object: managedClusterToDelete}},
+		sendWatchEvent(&metav1.WatchEvent{
+			Type:   "DELETED",
+			Object: runtime.RawExtension{Object: managedClusterToDelete},
+		},
 			writer)
 	}
 

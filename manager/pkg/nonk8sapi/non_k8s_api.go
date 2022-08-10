@@ -14,11 +14,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi/authentication"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi/managedclusters"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi/policies"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const secondsToFinishOnShutdown = 5
@@ -54,22 +55,26 @@ func readCertificates(nonK8sAPIServerConfig *NonK8sAPIServerConfig) ([]byte, []b
 		clusterAPICABundle, err := ioutil.ReadFile(nonK8sAPIServerConfig.ClusterAPICABundlePath)
 		if err != nil {
 			return clusterAPICABundle, authorizationCABundle, certificate,
-				fmt.Errorf("%w: %s", errFailedToLoadCertificate, nonK8sAPIServerConfig.ClusterAPICABundlePath)
+				fmt.Errorf("%w: %s", errFailedToLoadCertificate,
+					nonK8sAPIServerConfig.ClusterAPICABundlePath)
 		}
 	}
 
 	if nonK8sAPIServerConfig.AuthorizationCABundlePath != "" {
-		authorizationCABundle, err := ioutil.ReadFile(nonK8sAPIServerConfig.AuthorizationCABundlePath)
+		authorizationCABundle, err := ioutil.ReadFile(
+			nonK8sAPIServerConfig.AuthorizationCABundlePath)
 		if err != nil {
 			return clusterAPICABundle, authorizationCABundle, certificate,
-				fmt.Errorf("%w: %s", errFailedToLoadCertificate, nonK8sAPIServerConfig.AuthorizationCABundlePath)
+				fmt.Errorf("%w: %s", errFailedToLoadCertificate,
+					nonK8sAPIServerConfig.AuthorizationCABundlePath)
 		}
 	}
 
 	certificate, err := tls.LoadX509KeyPair(nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
 	if err != nil {
 		return clusterAPICABundle, authorizationCABundle, certificate,
-			fmt.Errorf("%w: %s/%s", errFailedToLoadCertificate, nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
+			fmt.Errorf("%w: %s/%s", errFailedToLoadCertificate,
+				nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
 	}
 
 	return clusterAPICABundle, authorizationCABundle, certificate, nil
@@ -87,9 +92,12 @@ func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig 
 	router.Use(authentication.Authentication(nonK8sAPIServerConfig.ClusterAPIURL, clusterAPICABundle))
 
 	routerGroup := router.Group(nonK8sAPIServerConfig.ServerBasePath)
-	routerGroup.GET("/managedclusters", managedclusters.List(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
-	routerGroup.PATCH("/managedclusters/:cluster", managedclusters.Patch(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
-	routerGroup.GET("/policiesstatus", policies.ListStatus(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
+	routerGroup.GET("/managedclusters", managedclusters.List(
+		nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
+	routerGroup.PATCH("/managedclusters/:cluster",
+		managedclusters.Patch(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
+	routerGroup.GET("/policiesstatus", policies.ListStatus(
+		nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
 
 	err = mgr.Add(&nonK8sApiServer{
 		log: ctrl.Log.WithName("non-k8s-api-server"),

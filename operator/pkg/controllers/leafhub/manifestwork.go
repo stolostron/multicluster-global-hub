@@ -28,6 +28,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-logr/logr"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -35,14 +37,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/go-logr/logr"
-	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/config"
 	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
-	workv1 "open-cluster-management.io/api/work/v1"
 )
 
 //go:embed manifests/nonhypershift
@@ -107,7 +107,8 @@ func init() {
 
 // applyHubSubWork creates or updates the subscription manifestwork for leafhub cluster
 func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghName, managedClusterName string,
-	pm *packageManifestConfig) (*workv1.ManifestWork, error) {
+	pm *packageManifestConfig,
+) (*workv1.ManifestWork, error) {
 	desiredHubSubWork, err := buildHubSubWork(ctx, c, log, mghName, managedClusterName, pm)
 	if err != nil {
 		return nil, err
@@ -116,7 +117,8 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 	existingHubSubWork := &workv1.ManifestWork{}
 	if err := c.Get(ctx,
 		types.NamespacedName{
-			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HOHHubSubscriptionWorkSuffix),
+			Name: fmt.Sprintf("%s-%s", managedClusterName,
+				constants.HOHHubSubscriptionWorkSuffix),
 			Namespace: managedClusterName,
 		}, existingHubSubWork); err != nil {
 		if errors.IsNotFound(err) {
@@ -149,7 +151,8 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 	if modified {
 		log.Info("updating hub subscription manifestwork",
 			"namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
-		desiredHubSubWork.ObjectMeta.ResourceVersion = existingHubSubWork.ObjectMeta.ResourceVersion
+		desiredHubSubWork.ObjectMeta.ResourceVersion =
+			existingHubSubWork.ObjectMeta.ResourceVersion
 		return desiredHubSubWork, c.Update(ctx, desiredHubSubWork)
 	}
 
@@ -160,7 +163,8 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 
 // buildHubSubWork creates hub subscription manifestwork
 func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghName, managedClusterName string,
-	pm *packageManifestConfig) (*workv1.ManifestWork, error) {
+	pm *packageManifestConfig,
+) (*workv1.ManifestWork, error) {
 	tpl, err := parseNonHypershiftTemplates(nonHypershiftManifestFS)
 	if err != nil {
 		return nil, err
@@ -204,7 +208,9 @@ func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 			}
 			if string(rawJSON) != "null" {
 				// log.Info("raw JSON object for subscription", "json", rawJSON)
-				subManifests = append(subManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
+				subManifests = append(subManifests, workv1.Manifest{
+					RawExtension: runtime.RawExtension{Raw: rawJSON},
+				})
 			}
 		}
 	}
@@ -214,12 +220,15 @@ func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 		return nil, err
 	}
 	if imagePullSecret != nil {
-		subManifests = append(subManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Object: imagePullSecret}})
+		subManifests = append(subManifests, workv1.Manifest{
+			RawExtension: runtime.RawExtension{Object: imagePullSecret},
+		})
 	}
 
 	hubSubWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HOHHubSubscriptionWorkSuffix),
+			Name: fmt.Sprintf("%s-%s", managedClusterName,
+				constants.HOHHubSubscriptionWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
 				constants.HoHOperatorOwnerLabelKey: mghName,
@@ -287,7 +296,8 @@ func getPackageManifestConfigFromHubSubWork(hubSubWork *workv1.ManifestWork) (*p
 
 // applyHubMCHWork creates or updates the mch manifestwork for leafhub cluster
 func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, mghName,
-	managedClusterName string) (*workv1.ManifestWork, error) {
+	managedClusterName string,
+) (*workv1.ManifestWork, error) {
 	desiredHubMCHWork, err := buildHubMCHWork(ctx, c, log, mghName, managedClusterName)
 	if err != nil {
 		return nil, err
@@ -299,7 +309,8 @@ func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 
 // buildHubMCHWork creates hub MCH manifestwork
 func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, mghName,
-	managedClusterName string) (*workv1.ManifestWork, error) {
+	managedClusterName string,
+) (*workv1.ManifestWork, error) {
 	tpl, err := parseNonHypershiftTemplates(nonHypershiftManifestFS)
 	if err != nil {
 		return nil, err
@@ -335,7 +346,9 @@ func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 			}
 			if string(rawJSON) != "null" {
 				// log.Info("raw JSON object for mch", "json", rawJSON)
-				mchManifests = append(mchManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
+				mchManifests = append(mchManifests, workv1.Manifest{
+					RawExtension: runtime.RawExtension{Raw: rawJSON},
+				})
 			}
 		}
 	}
@@ -345,7 +358,9 @@ func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 		return nil, err
 	}
 	if imagePullSecret != nil {
-		mchManifests = append(mchManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Object: imagePullSecret}})
+		mchManifests = append(mchManifests, workv1.Manifest{
+			RawExtension: runtime.RawExtension{Object: imagePullSecret},
+		})
 	}
 
 	hubMCHWork := &workv1.ManifestWork{
@@ -456,7 +471,8 @@ func getDefaultHypershiftHubConfigValues() HypershiftHubConfigValues {
 // applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
 func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logger,
 	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName, channelClusterIP string,
-	pm *packageManifestConfig, hcConfig *config.HostedClusterConfig) (*workv1.ManifestWork, error) {
+	pm *packageManifestConfig, hcConfig *config.HostedClusterConfig,
+) (*workv1.ManifestWork, error) {
 	if pm == nil || pm.ACMCurrentCSV == "" {
 		return nil, fmt.Errorf("empty packagemanifest")
 	}
@@ -470,7 +486,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	if !ok || acmSnapshot == "" {
 		acmDefaultImageRegistry = constants.DefaultACMDownStreamImageRegistry
 		// handle special case for governance-policy-addon-controller image
-		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController = "acm-governance-policy-addon-controller"
+		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController =
+			"acm-governance-policy-addon-controller"
 	}
 	mceSnapshot, ok := mgh.GetAnnotations()[constants.HoHHubMCESnapShotKey]
 	if !ok || mceSnapshot == "" {
@@ -504,7 +521,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 
 	// apply manifestwork on hypershift hosted cluster
 	var buf1 bytes.Buffer
-	if err := tpl.ExecuteTemplate(&buf1, "manifests/hypershift/hub/hosted", hypershiftHubConfigValues); err != nil {
+	if err := tpl.ExecuteTemplate(&buf1, "manifests/hypershift/hub/hosted",
+		hypershiftHubConfigValues); err != nil {
 		return nil, err
 	}
 	// log.Info("render templates for objects on hosted cluster", "templates", buf1.String())
@@ -520,7 +538,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	}
 	if imagePullSecret != nil {
 		hostedHubManifests = append(hostedHubManifests, workv1.Manifest{
-			RawExtension: runtime.RawExtension{Object: imagePullSecret}})
+			RawExtension: runtime.RawExtension{Object: imagePullSecret},
+		})
 	}
 
 	hostedHubWork := &workv1.ManifestWork{
@@ -547,7 +566,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 
 	// manifestwork on hypershift hosting cluster
 	var buf2 bytes.Buffer
-	if err = tpl.ExecuteTemplate(&buf2, "manifests/hypershift/hub/hosting", hypershiftHubConfigValues); err != nil {
+	if err = tpl.ExecuteTemplate(&buf2, "manifests/hypershift/hub/hosting",
+		hypershiftHubConfigValues); err != nil {
 		return nil, err
 	}
 	// log.Info("render templates for objects on hosting cluster", "templates", buf1.String())
@@ -559,7 +579,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 
 	if imagePullSecret != nil {
 		hostingHubManifests = append(hostingHubManifests, workv1.Manifest{
-			RawExtension: runtime.RawExtension{Object: imagePullSecret}})
+			RawExtension: runtime.RawExtension{Object: imagePullSecret},
+		})
 	}
 
 	hostingHubWork := &workv1.ManifestWork{
@@ -620,7 +641,9 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 			}
 			if string(rawJSON) != "null" {
 				// log.Info("raw JSON object for object on hosting cluster", "json", rawJSON)
-				workManifests = append(workManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
+				workManifests = append(workManifests, workv1.Manifest{
+					RawExtension: runtime.RawExtension{Raw: rawJSON},
+				})
 			}
 		}
 	}
@@ -630,7 +653,8 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 
 // applyHoHAgentWork creates or updates hub-of-hubs-agent manifestwork
 func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	managedClusterName string) error {
+	managedClusterName string,
+) error {
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, c, log, mgh)
 	if err != nil {
 		return err
@@ -672,7 +696,9 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mg
 			}
 			if string(rawJSON) != "null" {
 				// log.Info("raw JSON object for agent", "json", rawJSON)
-				agentManifests = append(agentManifests, workv1.Manifest{RawExtension: runtime.RawExtension{Raw: rawJSON}})
+				agentManifests = append(agentManifests, workv1.Manifest{
+					RawExtension: runtime.RawExtension{Raw: rawJSON},
+				})
 			}
 		}
 	}
@@ -698,7 +724,8 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mg
 
 // applyHoHAgentHypershiftWork creates or updates hub-of-hubs-agent manifestwork
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.Logger,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName string, hcConfig *config.HostedClusterConfig) error {
+	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName string, hcConfig *config.HostedClusterConfig,
+) error {
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, c, log, mgh)
 	if err != nil {
 		return err
@@ -820,7 +847,8 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 // annotation for leafhub subsctiption manifestwork
 // so that the workagent can delete the manifestwork normally
 func removePostponeDeleteAnnotationFromHubSubWork(ctx context.Context, c client.Client,
-	managedClusterName string) error {
+	managedClusterName string,
+) error {
 	hohHubMCHWork := &workv1.ManifestWork{}
 	if err := c.Get(ctx,
 		types.NamespacedName{
@@ -833,7 +861,8 @@ func removePostponeDeleteAnnotationFromHubSubWork(ctx context.Context, c client.
 			hohHubSubWork := &workv1.ManifestWork{}
 			if err := c.Get(ctx,
 				types.NamespacedName{
-					Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HOHHubSubscriptionWorkSuffix),
+					Name: fmt.Sprintf("%s-%s", managedClusterName,
+						constants.HOHHubSubscriptionWorkSuffix),
 					Namespace: managedClusterName,
 				}, hohHubSubWork); err != nil {
 				if errors.IsNotFound(err) {
@@ -858,7 +887,8 @@ func removePostponeDeleteAnnotationFromHubSubWork(ctx context.Context, c client.
 
 // removeLeafHubHostingWork removes manifestwork for leafhub on hypershift hosting cluster
 func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClusterName,
-	hostingClusterName string) error {
+	hostingClusterName string,
+) error {
 	hohAgentMgtWork := &workv1.ManifestWork{}
 	if err := c.Get(ctx,
 		types.NamespacedName{
@@ -896,7 +926,8 @@ func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClust
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
 func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub) (
-	string, string, error) {
+	string, string, error,
+) {
 	// for local dev/test
 	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
 	if ok && kafkaBootstrapServer != "" {
@@ -912,7 +943,8 @@ func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *
 		return "", "", err
 	}
 
-	return string(kafkaSecret.Data["bootstrap_server"]), base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
+	return string(kafkaSecret.Data["bootstrap_server"]),
+		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
 }
 
 // generatePullSecret copy the image pull secret to target namespace
@@ -946,7 +978,8 @@ func generatePullSecret(ctx context.Context, c client.Client, namespace string) 
 
 // applyManifestWork creates or updates a single manifestwork resource
 func applyManifestWork(ctx context.Context, c client.Client, log logr.Logger, desiredWork *workv1.ManifestWork) (
-	*workv1.ManifestWork, error) {
+	*workv1.ManifestWork, error,
+) {
 	existingWork := &workv1.ManifestWork{}
 	if err := c.Get(ctx,
 		types.NamespacedName{

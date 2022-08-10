@@ -5,6 +5,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db"
@@ -12,8 +15,6 @@ import (
 	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
 	"github.com/stolostron/hub-of-hubs/pkg/bundle/status"
 	"github.com/stolostron/hub-of-hubs/pkg/constants"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // NewLocalSpecDBSyncer creates a new instance of LocalSpecDBSyncer.

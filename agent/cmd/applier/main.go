@@ -9,13 +9,14 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/applier"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/stolostron/hub-of-hubs/agent/pkg/applier"
 )
 
 var (

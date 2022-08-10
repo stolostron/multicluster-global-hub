@@ -58,7 +58,8 @@ func (assembler *kafkaMessageAssembler) processFragmentInfo(fragInfo *messageFra
 }
 
 func (assembler *kafkaMessageAssembler) assembleCollection(key string,
-	collection *messageFragmentsCollection) *kafka.Message {
+	collection *messageFragmentsCollection,
+) *kafka.Message {
 	assembledBundle, err := collection.assemble()
 	if err != nil {
 		return nil // cannot assemble, no need to log

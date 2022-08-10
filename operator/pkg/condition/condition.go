@@ -83,31 +83,41 @@ const (
 )
 
 func SetConditionResourceFound(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RESOURCE_FOUND, CONDITION_STATUS_TRUE, CONDITION_REASON_RESOURCE_FOUND, CONDITION_MESSAGE_RESOURCE_FOUND)
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RESOURCE_FOUND, CONDITION_STATUS_TRUE,
+		CONDITION_REASON_RESOURCE_FOUND, CONDITION_MESSAGE_RESOURCE_FOUND)
 }
 
 func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	status metav1.ConditionStatus) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_DATABASE_INIT, status, CONDITION_REASON_DATABASE_INIT, CONDITION_MESSAGE_DATABASE_INIT)
+	status metav1.ConditionStatus,
+) error {
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_DATABASE_INIT, status,
+		CONDITION_REASON_DATABASE_INIT, CONDITION_MESSAGE_DATABASE_INIT)
 }
 
 func SetConditionTransportInit(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	status metav1.ConditionStatus) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_TRANSPORT_INIT, status, CONDITION_REASON_TRANSPORT_INIT, CONDITION_MESSAGE_TRANSPORT_INIT)
+	status metav1.ConditionStatus,
+) error {
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_TRANSPORT_INIT, status,
+		CONDITION_REASON_TRANSPORT_INIT, CONDITION_MESSAGE_TRANSPORT_INIT)
 }
 
 func SetConditionRBACDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	status metav1.ConditionStatus) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RBAC_DEPLOY, status, CONDITION_REASON_RBAC_DEPLOY, CONDITION_MESSAGE_RBAC_DEPLOY)
+	status metav1.ConditionStatus,
+) error {
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RBAC_DEPLOY, status,
+		CONDITION_REASON_RBAC_DEPLOY, CONDITION_MESSAGE_RBAC_DEPLOY)
 }
 
 func SetConditionManagerDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	status metav1.ConditionStatus) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MANAGER_DEPLOY, status, CONDITION_REASON_MANAGER_DEPLOY, CONDITION_MESSAGE_MANAGER_DEPLOY)
+	status metav1.ConditionStatus,
+) error {
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MANAGER_DEPLOY, status,
+		CONDITION_REASON_MANAGER_DEPLOY, CONDITION_MESSAGE_MANAGER_DEPLOY)
 }
 
 func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	clusterName string, status metav1.ConditionStatus) error {
+	clusterName string, status metav1.ConditionStatus,
+) error {
 	reason := CONDITION_REASON_LEAFHUB_DEPLOY
 	message := CONDITION_MESSAGE_LEAFHUB_DEPLOY
 	if status == CONDITION_STATUS_FALSE {
@@ -119,7 +129,8 @@ func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *oper
 }
 
 func SetCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub, typeName string,
-	status metav1.ConditionStatus, reason string, message string) error {
+	status metav1.ConditionStatus, reason string, message string,
+) error {
 	if !ContainsCondition(mgh, typeName) {
 		return AppendCondition(ctx, c, mgh, typeName,
 			status, reason, message)
@@ -157,7 +168,9 @@ func ContainConditionStatus(mgh *operatorv1alpha1.MultiClusterGlobalHub, typeNam
 	return output
 }
 
-func ContainConditionStatusReason(mgh *operatorv1alpha1.MultiClusterGlobalHub, typeName, reason string, status metav1.ConditionStatus) bool {
+func ContainConditionStatusReason(mgh *operatorv1alpha1.MultiClusterGlobalHub,
+	typeName, reason string, status metav1.ConditionStatus,
+) bool {
 	output := false
 	for _, condition := range mgh.Status.Conditions {
 		if condition.Type == typeName && condition.Reason == reason && condition.Status == status {
@@ -178,7 +191,8 @@ func GetConditionStatus(mgh *operatorv1alpha1.MultiClusterGlobalHub, typeName st
 }
 
 func DeleteCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	typeName string, reason string) error {
+	typeName string, reason string,
+) error {
 	newConditions := make([]metav1.Condition, 0)
 	for _, condition := range mgh.Status.Conditions {
 		if condition.Type != typeName && condition.Reason != reason {
@@ -198,7 +212,10 @@ func AppendCondition(ctx context.Context, c client.Client, object client.Object,
 ) error {
 	conditions, ok := (object).(ICondition)
 	if ok {
-		condition := metav1.Condition{Type: typeName, Status: status, Reason: reason, Message: message, LastTransitionTime: metav1.Time{Time: time.Now()}}
+		condition := metav1.Condition{
+			Type: typeName, Status: status, Reason: reason,
+			Message: message, LastTransitionTime: metav1.Time{Time: time.Now()},
+		}
 		conditions.SetConditions(append(conditions.GetConditions(), condition))
 		err := c.Status().Update(ctx, object)
 		if err != nil {

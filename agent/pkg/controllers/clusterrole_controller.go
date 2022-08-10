@@ -49,7 +49,6 @@ func (c *clusterRoleController) Reconcile(ctx context.Context, request ctrl.Requ
 	}
 	reqLogger.Info("Reconciliation complete.")
 	return ctrl.Result{}, nil
-
 }
 
 func createClusterRole() *rbacv1.ClusterRole {
@@ -102,7 +101,6 @@ func createClusterRole() *rbacv1.ClusterRole {
 }
 
 func AddClusterRoleController(mgr ctrl.Manager) error {
-
 	clusterRolePredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			HubOfHubsCreateByKey: HubOfHubsCreateByValue,

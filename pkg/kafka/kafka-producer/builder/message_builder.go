@@ -6,7 +6,8 @@ import (
 
 // NewMessageBuilder creates a new instance of MessageBuilder.
 func NewMessageBuilder(key string, topic *string, partitionID int32, headers []kafka.Header,
-	payload []byte) *MessageBuilder {
+	payload []byte,
+) *MessageBuilder {
 	return &MessageBuilder{
 		message: &kafka.Message{
 			Key: []byte(key),
