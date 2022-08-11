@@ -28,9 +28,10 @@ import (
 var (
 	hohMGHNamespacedName = types.NamespacedName{}
 	imageManifests       = map[string]string{
-		"hub_of_hubs_agent":   "quay.io/stolostron/hub-of-hubs-agent:latest",
-		"hub_of_hubs_manager": "quay.io/stolostron/hub-of-hubs-manager:latest",
-		"hub_of_hubs_rbac":    "quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-rbac:latest",
+		"hub_of_hubs_agent":       "quay.io/stolostron/hub-of-hubs-agent:latest",
+		"hub_of_hubs_manager":     "quay.io/stolostron/hub-of-hubs-manager:latest",
+		"hub_of_hubs_console_job": "quay.io/stolostron/hub-of-hubs-operator:latest",
+		"hub_of_hubs_rbac":        "quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-rbac:latest",
 	}
 )
 

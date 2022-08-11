@@ -11,7 +11,7 @@ spec:
       serviceAccountName: hub-of-hubs-operator
       containers:
       - name: console-setup
-        image: quay.io/morvencao/hub-of-hubs-operator:latest
+        image: {{.Image}}
         imagePullPolicy: Always
         command: ["/bin/sh", "-c", "/tmp/console-script/console-setup.sh"]
         env:
