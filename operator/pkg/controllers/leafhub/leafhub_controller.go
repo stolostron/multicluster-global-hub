@@ -265,25 +265,35 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 		return deleteManagedClusterAddon(ctx, r.Client, log, managedClusterName, mgh.GetName())
 	}
 
-	pm, err := getPackageManifestConfig(ctx, r.Client, log)
-	if err != nil {
-		return err
-	}
-	if pm == nil || pm.ACMDefaultChannel == "" || pm.ACMCurrentCSV == "" {
-		return fmt.Errorf("PackageManifest for ACM is not ready")
-	}
-
-	if hostingClusterName == "" { // for non-hypershift hosted leaf hub
-		if err := r.reconcileNonHostedLeafHub(ctx, log, managedClusterName, mgh, pm); err != nil {
+	if managedCluster.GetLabels()[constants.LeafHubClusterInstallHubLabelKey] ==
+		constants.LeafHubClusterDisableInstallHubLabelVal {
+		// this is for e2e testing only. In e2e tests, we install ocm in leaf hub.
+		err := applyHoHAgentWork(ctx, r.Client, log, mgh, managedClusterName)
+		if err != nil {
 			return err
 		}
-	} else { // for hypershift hosted leaf hub
-		if pm.MCEDefaultChannel == "" || pm.MCECurrentCSV == "" {
+	} else {
+
+		pm, err := getPackageManifestConfig(ctx, r.Client, log)
+		if err != nil {
+			return err
+		}
+		if pm == nil || pm.ACMDefaultChannel == "" || pm.ACMCurrentCSV == "" {
 			return fmt.Errorf("PackageManifest for ACM is not ready")
 		}
 
-		if err := r.reconcileHostedLeafHub(ctx, log, managedClusterName, mgh, pm, hcConfig); err != nil {
-			return err
+		if hostingClusterName == "" { // for non-hypershift hosted leaf hub
+			if err := r.reconcileNonHostedLeafHub(ctx, log, managedClusterName, mgh, pm); err != nil {
+				return err
+			}
+		} else { // for hypershift hosted leaf hub
+			if pm.MCEDefaultChannel == "" || pm.MCECurrentCSV == "" {
+				return fmt.Errorf("PackageManifest for ACM is not ready")
+			}
+
+			if err := r.reconcileHostedLeafHub(ctx, log, managedClusterName, mgh, pm, hcConfig); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -372,8 +382,7 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 		}
 	}
 
-	isChannelServiceReady, channelServiceIP :=
-		findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
+	isChannelServiceReady, channelServiceIP := findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
 	if !isChannelServiceReady {
 		log.Info("channel service is not ready, won't apply the hub-of-hubs-agent manifestwork")
 		return nil
