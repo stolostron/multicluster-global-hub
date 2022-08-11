@@ -128,14 +128,17 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// in either case, the controller doesn't need to go through all managed clusters
 	if req.NamespacedName.Namespace == "" && req.NamespacedName.Name != "" {
 		if err := r.reconcileLeafHub(ctx, req, mgh, shouldPruneAll, log); err != nil {
-			if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, mgh,
-				req.NamespacedName.Name, condition.CONDITION_STATUS_FALSE); conditionError != nil {
-				return ctrl.Result{}, fmt.Errorf(failedConditionMsg,
-					condition.CONDITION_STATUS_FALSE, conditionError)
+			if !shouldPruneAll {
+				if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, mgh,
+					req.NamespacedName.Name, condition.CONDITION_STATUS_FALSE); conditionError != nil {
+					return ctrl.Result{}, fmt.Errorf(failedConditionMsg,
+						condition.CONDITION_STATUS_FALSE, conditionError)
+				}
 			}
 			return ctrl.Result{}, err
 		}
-		if !condition.ContainsCondition(mgh, condition.CONDITION_TYPE_LEAFHUB_DEPLOY) {
+		if !shouldPruneAll && !condition.ContainsCondition(mgh,
+			condition.CONDITION_TYPE_LEAFHUB_DEPLOY) {
 			if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, mgh, req.NamespacedName.Name,
 				condition.CONDITION_STATUS_TRUE); conditionError != nil {
 				return ctrl.Result{}, fmt.Errorf(failedConditionMsg,
@@ -145,7 +148,7 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.MultiClusterGlobalHub(ctx, req, mgh, shouldPruneAll, log); err != nil {
+	if err := r.reconcileMultiClusterGlobalHub(ctx, req, mgh, shouldPruneAll, log); err != nil {
 		if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, mgh, "",
 			condition.CONDITION_STATUS_FALSE); conditionError != nil {
 			return ctrl.Result{}, fmt.Errorf(failedConditionMsg,
@@ -154,7 +157,8 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	if !condition.ContainsCondition(mgh, condition.CONDITION_TYPE_LEAFHUB_DEPLOY) {
+	if !shouldPruneAll && !condition.ContainsCondition(mgh,
+		condition.CONDITION_TYPE_LEAFHUB_DEPLOY) {
 		if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, mgh, req.NamespacedName.Name,
 			condition.CONDITION_STATUS_TRUE); conditionError != nil {
 			return ctrl.Result{}, fmt.Errorf(failedConditionMsg,
@@ -385,8 +389,8 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 	return applyHoHAgentHypershiftWork(ctx, r.Client, log, mgh, managedClusterName, hcConfig)
 }
 
-// MultiClusterGlobalHub reconciles the multiclusterglobalhub change
-func (r *LeafHubReconciler) MultiClusterGlobalHub(ctx context.Context, req ctrl.Request,
+// reconcileMultiClusterGlobalHub reconciles the multiclusterglobalhub change
+func (r *LeafHubReconciler) reconcileMultiClusterGlobalHub(ctx context.Context, req ctrl.Request,
 	mgh *operatorv1alpha1.MultiClusterGlobalHub, toPruneAll bool, log logr.Logger,
 ) error {
 	// handle multiclusterglobalhub deleting

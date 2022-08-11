@@ -32,9 +32,9 @@ const (
 )
 
 const (
-	HoHClustermanagementAddonName               = "hub-of-hubs-controller"
-	HoHClustermanagementAddonDisplayName        = "Hub of Hubs Controller"
-	HoHClustermanagementAddonDescription        = "Hub of Hubs Controller manages hub-of-hubs components."
+	HoHClusterManagementAddonName               = "hub-of-hubs-controller"
+	HoHClusterManagementAddonDisplayName        = "Hub of Hubs Controller"
+	HoHClusterManagementAddonDescription        = "Hub of Hubs Controller manages hub-of-hubs components."
 	HoHManagedClusterAddonName                  = "hub-of-hubs-controller"
 	HoHManagedClusterAddonDisplayName           = "Hub of Hubs Controller"
 	HoHManagedClusterAddonDescription           = "Hub of Hubs Controller manages hub-of-hubs components."
