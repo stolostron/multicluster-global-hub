@@ -7,7 +7,7 @@ metadata:
   namespace: kafka
 spec:
   targetNamespaces:
-  - kafka
+    - kafka
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -17,5 +17,5 @@ metadata:
 spec:
   channel: strimzi-0.23.x
   name: strimzi-kafka-operator
-  source: operatorhubio-catalog
-  sourceNamespace: olm
+  source: community-operators
+  sourceNamespace: openshift-marketplace
