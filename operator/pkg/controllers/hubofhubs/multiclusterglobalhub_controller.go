@@ -225,57 +225,59 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// render the console setup job
-	consoleSetupObjects, err := hohRenderer.Render("manifests/console-setup", func(
-		component string,
-	) (interface{}, error) {
-		consoleJobConfig := struct {
-			Image string
-		}{
-			Image: config.GetImage(annotations, "hub_of_hubs_console_job"),
+	if mgh.GetAnnotations()[constants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
+		// render the console setup job
+		consoleSetupObjects, err := hohRenderer.Render("manifests/console-setup", func(
+			component string,
+		) (interface{}, error) {
+			consoleJobConfig := struct {
+				Image string
+			}{
+				Image: config.GetImage(annotations, "hub_of_hubs_console_job"),
+			}
+
+			return consoleJobConfig, nil
+		})
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 
-		return consoleJobConfig, nil
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	err = r.manipulateObj(ctx, consoleSetupObjects, mgh, condition.SetConditionConsoleDeployed, log)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	log.Info("wait at most 300s for the hub-of-hubs console is set up")
-	consoleSetupJob := &batchv1.Job{}
-	if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-		if err := r.Client.Get(ctx,
-			types.NamespacedName{
-				Name:      "hoh-of-hubs-console-setup",
-				Namespace: constants.HOHDefaultNamespace,
-			}, consoleSetupJob); err != nil {
-			return false, err
+		err = r.manipulateObj(ctx, consoleSetupObjects, mgh, condition.SetConditionConsoleDeployed, log)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
-		if consoleSetupJob.Status.Succeeded > 0 {
-			return true, nil
+
+		log.Info("wait at most 300s for the hub-of-hubs console is set up")
+		consoleSetupJob := &batchv1.Job{}
+		if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
+			if err := r.Client.Get(ctx,
+				types.NamespacedName{
+					Name:      "hoh-of-hubs-console-setup",
+					Namespace: constants.HOHDefaultNamespace,
+				}, consoleSetupJob); err != nil {
+				return false, err
+			}
+			if consoleSetupJob.Status.Succeeded > 0 {
+				return true, nil
+			}
+			return false, nil
+		}); errPoll != nil {
+			log.Error(errPoll, "hub-of-hubs console setup job failed",
+				"namespace", constants.HOHDefaultNamespace,
+				"name", "hoh-of-hubs-console-setup")
+			if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
+				condition.CONDITION_STATUS_FALSE); conditionError != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
+					condition.CONDITION_STATUS_FALSE, conditionError)
+			}
+			return ctrl.Result{}, errPoll
 		}
-		return false, nil
-	}); errPoll != nil {
-		log.Error(errPoll, "hub-of-hubs console setup job failed",
-			"namespace", constants.HOHDefaultNamespace,
-			"name", "hoh-of-hubs-console-setup")
+		log.Info("hub-of-hubs console is set up")
 		if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_FALSE); conditionError != nil {
+			condition.CONDITION_STATUS_TRUE); conditionError != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
-				condition.CONDITION_STATUS_FALSE, conditionError)
+				condition.CONDITION_STATUS_TRUE, conditionError)
 		}
-		return ctrl.Result{}, errPoll
-	}
-	log.Info("hub-of-hubs console is set up")
-	if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
-		condition.CONDITION_STATUS_TRUE); conditionError != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
-			condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
 	// try to start leafhub controller if it is not running
