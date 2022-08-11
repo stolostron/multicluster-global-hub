@@ -29,6 +29,9 @@ const (
 	LeafHubClusterAnnotationKey    = "hub-of-hubs.open-cluster-management.io/managed-by-hoh"
 	HoHOperatorOwnerLabelKey       = "hub-of-hubs.open-cluster-management.io/managed-by"
 	HoHOperatorFinalizer           = "hub-of-hubs.open-cluster-management.io/res-cleanup"
+
+	LeafHubClusterInstallHubLabelKey        = "globalhub.open-cluster-management.io/hub-install"
+	LeafHubClusterDisableInstallHubLabelVal = "disabled"
 )
 
 const (
