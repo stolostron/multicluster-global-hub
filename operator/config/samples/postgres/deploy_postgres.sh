@@ -1,13 +1,19 @@
 #!/bin/bash
-
 KUBECONFIG=${1:-$KUBECONFIG}
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+postgresSecret=${POSTGRES_SECRET_NAME:-"postgresql-secret"}
+ready=$(kubectl get secret $postgresSecret -n open-cluster-management --ignore-not-found=true)
+if [ ! -z "$ready" ]; then
+  echo "PostgreSecret $postgresSecret already exists in open-cluster-management namespace"
+  exit 0
+fi
 
 # install postgres operator
 POSTGRES_OPERATOR=${POSTGRES_OPERATOR:-"pgo"}
 kubectl apply -k ${currentDir}/postgres-operator
 kubectl -n postgres-operator wait --for=condition=Available Deployment/$POSTGRES_OPERATOR --timeout=1000s
-echo "$POSTGRES_OPERATOR is ready!"
+echo "$POSTGRES_OPERATOR operator is ready!"
 
 # deploy postgres cluster
 pgnamespace="hoh-postgres"
@@ -26,14 +32,6 @@ while [ -z "$matched" ]; do
   sleep 5
   (( SECOND = SECOND + 5 ))
 done
-
-# patch the postgres stateful
-stss=$(kubectl get statefulset -n $pgnamespace -o jsonpath={.items..metadata.name})
-for sts in ${stss}; do
-  kubectl patch statefulset ${sts} -n $pgnamespace -p '{"spec":{"template":{"spec":{"securityContext":{"fsGroup":26}}}}}'
-done
-# delete all pods to recreate in case the pod won't be restarted when the statefulset is patched
-kubectl delete pod -n $pgnamespace --all --ignore-not-found=true 2>/dev/null
 echo "Postgres is ready!"
 
 # create usersecret for postgres
@@ -41,10 +39,10 @@ databaseHost="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-te
 databasePort="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "port" | base64decode}}')"
 databaseUser="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "user" | base64decode}}')"
 databasePassword="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "password" | base64decode}}')"
-databasePassword=$(printf %s "$pgAdminPassword" |jq -sRr @uri)
+databasePassword=$(printf %s "$databasePassword" |jq -sRr @uri)
 
 databaseUri="postgres://${databaseUser}:${databasePassword}@${databaseHost}:${pgAdminPort}/hoh"
 
-kubectl create secret generic postgresql-secret -n "open-cluster-management" \
+kubectl create secret generic $postgresSecret -n "open-cluster-management" \
     --from-literal=database_uri=$databaseUri
 echo "Postgresql-secret is ready!"

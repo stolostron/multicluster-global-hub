@@ -3,6 +3,13 @@
 KUBECONFIG=${1:-$KUBECONFIG}
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+kafkaSecret=${KAFKA_SECRET_NAME:-"kafka-secret"}
+ready=$(kubectl get secret $kafkaSecret -n open-cluster-management --ignore-not-found=true)
+if [ ! -z "$ready" ]; then
+  echo "kafkaSecret $kafkaSecret already exists in open-cluster-management namespace"
+  exit 0
+fi
+
 # install community kafka operator
 kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
 KAFKA_OPERATOR=${KAFKA_OPERATOR:-"strimzi-cluster-operator-v0.23.0"}
@@ -55,9 +62,8 @@ done
 echo "Kafka topics spec and status are ready!"
 
 bootstrapServers=$(kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].bootstrapServers}')
-certificate=$(kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' | base64 -w 0)
-
+kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' > $currentDir/kafka-cert.pem
 kubectl create secret generic kafka-secret -n "open-cluster-management" \
     --from-literal=bootstrap_server=$bootstrapServers \
-    --from-literal=CA=$certificate
+    --from-file=CA=$currentDir/kafka-cert.pem
 echo "Kafka secret is ready!"
