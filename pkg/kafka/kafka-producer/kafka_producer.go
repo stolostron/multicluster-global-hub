@@ -7,8 +7,8 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 
-	kafkaheaders "github.com/stolostron/hub-of-hubs/pkg/kafka/headers"
-	"github.com/stolostron/hub-of-hubs/pkg/kafka/kafka-producer/builder"
+	kafkaheaders "github.com/stolostron/multicluster-globalhub/pkg/kafka/headers"
+	"github.com/stolostron/multicluster-globalhub/pkg/kafka/kafka-producer/builder"
 )
 
 const (

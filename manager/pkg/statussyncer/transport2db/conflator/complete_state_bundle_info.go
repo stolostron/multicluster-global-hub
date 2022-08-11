@@ -1,9 +1,9 @@
 package conflator
 
 import (
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
 )
 
 // newCompleteStateBundleInfo returns a new completeStateBundleInfo instance.

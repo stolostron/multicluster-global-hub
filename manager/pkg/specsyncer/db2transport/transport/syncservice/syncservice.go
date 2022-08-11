@@ -8,9 +8,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/transport"
-	statussyncservice "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport/syncservice"
-	"github.com/stolostron/hub-of-hubs/pkg/compressor"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport"
+	statussyncservice "github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport/syncservice"
+	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
 )
 
 const (

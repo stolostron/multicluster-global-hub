@@ -15,12 +15,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/bundle"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller/workers"
-	consumer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/consumer"
-	specbundle "github.com/stolostron/hub-of-hubs/pkg/bundle/spec"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/spec/bundle"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/spec/controller/workers"
+	consumer "github.com/stolostron/multicluster-globalhub/agent/pkg/transport/consumer"
+	specbundle "github.com/stolostron/multicluster-globalhub/pkg/bundle/spec"
+	"github.com/stolostron/multicluster-globalhub/pkg/constants"
 )
 
 const (

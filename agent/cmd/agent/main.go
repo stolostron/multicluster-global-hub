@@ -24,15 +24,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/stolostron/hub-of-hubs/agent/pkg/controllers"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/lease"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/spec/bundle"
-	specController "github.com/stolostron/hub-of-hubs/agent/pkg/spec/controller"
-	statusController "github.com/stolostron/hub-of-hubs/agent/pkg/status/controller"
-	consumer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/consumer"
-	producer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	"github.com/stolostron/hub-of-hubs/pkg/compressor"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/controllers"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/lease"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/spec/bundle"
+	specController "github.com/stolostron/multicluster-globalhub/agent/pkg/spec/controller"
+	statusController "github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller"
+	consumer "github.com/stolostron/multicluster-globalhub/agent/pkg/transport/consumer"
+	producer "github.com/stolostron/multicluster-globalhub/agent/pkg/transport/producer"
+	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
 )
 
 const (

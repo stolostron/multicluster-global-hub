@@ -13,12 +13,12 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statistics"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
-	"github.com/stolostron/hub-of-hubs/pkg/compressor"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statistics"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
+	"github.com/stolostron/multicluster-globalhub/pkg/constants"
 )
 
 type SyncServiceConfig struct {

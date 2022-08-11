@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
 )
 
 func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {

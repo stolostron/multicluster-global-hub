@@ -8,8 +8,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/open-horizon/edge-sync-service-client/client"
 
-	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
-	"github.com/stolostron/hub-of-hubs/pkg/compressor"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
 )
 
 const (

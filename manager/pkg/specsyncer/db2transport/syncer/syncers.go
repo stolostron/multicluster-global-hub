@@ -6,10 +6,10 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/syncer/dbsyncer"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/syncer/statuswatcher"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/transport"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/syncer/dbsyncer"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/syncer/statuswatcher"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport"
 )
 
 // AddDB2TransportSyncers adds the controllers that send info from DB to transport layer to the Manager.

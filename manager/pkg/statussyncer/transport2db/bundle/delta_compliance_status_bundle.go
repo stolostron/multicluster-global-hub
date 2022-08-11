@@ -6,7 +6,7 @@ import (
 
 	set "github.com/deckarep/golang-set"
 
-	"github.com/stolostron/hub-of-hubs/pkg/bundle/status"
+	"github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
 )
 
 var errWrongType = errors.New("received invalid type")

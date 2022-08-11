@@ -5,7 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	statusbundle "github.com/stolostron/hub-of-hubs/pkg/bundle/status"
+	statusbundle "github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.

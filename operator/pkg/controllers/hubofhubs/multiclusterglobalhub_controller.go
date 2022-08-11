@@ -44,15 +44,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
-	// pmcontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/packagemanifest"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/condition"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/config"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
-	leafhubscontroller "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/leafhub"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/deployer"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/renderer"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/utils"
+	operatorv1alpha1 "github.com/stolostron/multicluster-globalhub/operator/apis/operator/v1alpha1"
+	// pmcontroller "github.com/stolostron/multicluster-globalhub/operator/pkg/controllers/packagemanifest"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/config"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
+	leafhubscontroller "github.com/stolostron/multicluster-globalhub/operator/pkg/controllers/leafhub"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/deployer"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/renderer"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/utils"
 )
 
 //go:embed manifests

@@ -14,7 +14,7 @@ import (
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
+	"github.com/stolostron/multicluster-globalhub/test/pkg/utils"
 )
 
 var _ = Describe("Check the managed cluster from HoH manager", Label("e2e-tests-cluster"), Ordered, func() {

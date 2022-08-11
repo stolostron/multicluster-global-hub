@@ -8,10 +8,10 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
-	"github.com/stolostron/hub-of-hubs/pkg/compressor"
-	"github.com/stolostron/hub-of-hubs/pkg/kafka/headers"
-	kafkaproducer "github.com/stolostron/hub-of-hubs/pkg/kafka/kafka-producer"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
+	"github.com/stolostron/multicluster-globalhub/pkg/kafka/headers"
+	kafkaproducer "github.com/stolostron/multicluster-globalhub/pkg/kafka/kafka-producer"
 )
 
 const (

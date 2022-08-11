@@ -1,4 +1,4 @@
-module github.com/stolostron/hub-of-hubs
+module github.com/stolostron/multicluster-globalhub
 
 go 1.18
 

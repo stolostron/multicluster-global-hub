@@ -15,10 +15,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/bundle"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
-	producer "github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/syncintervals"
+	producer "github.com/stolostron/multicluster-globalhub/agent/pkg/transport/producer"
+	"github.com/stolostron/multicluster-globalhub/pkg/constants"
 )
 
 const REQUEUE_PERIOD = 5 * time.Second

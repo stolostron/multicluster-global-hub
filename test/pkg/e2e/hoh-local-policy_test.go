@@ -16,7 +16,7 @@ import (
 	"k8s.io/klog"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
+	"github.com/stolostron/multicluster-globalhub/test/pkg/utils"
 )
 
 const (

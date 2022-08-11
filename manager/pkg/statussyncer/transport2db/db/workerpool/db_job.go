@@ -1,8 +1,8 @@
 package workerpool
 
 import (
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator"
 )
 
 // NewDBJob creates a new instance of DBJob.

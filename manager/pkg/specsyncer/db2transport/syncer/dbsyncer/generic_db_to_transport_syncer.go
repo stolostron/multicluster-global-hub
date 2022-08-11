@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/intervalpolicy"
 )
 
 type genericDBToTransportSyncer struct {

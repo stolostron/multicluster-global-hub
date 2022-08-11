@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/hub-of-hubs/pkg/bundle/spec"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/bundle"
+	"github.com/stolostron/multicluster-globalhub/pkg/bundle/spec"
 )
 
 var errOptimisticConcurrencyUpdateFailed = errors.New("zero rows were affected by an optimistic concurrency update")

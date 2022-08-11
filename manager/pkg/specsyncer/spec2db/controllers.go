@@ -8,8 +8,8 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/spec2db/controller"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/spec2db/controller"
 )
 
 // AddSpec2DBControllers adds all the spec-to-db controllers to the Manager.

@@ -40,9 +40,9 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/config"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
+	operatorv1alpha1 "github.com/stolostron/multicluster-globalhub/operator/apis/operator/v1alpha1"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/config"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
 )
 
 //go:embed manifests/nonhypershift

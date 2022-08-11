@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/transport"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/bundle"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport"
+	"github.com/stolostron/multicluster-globalhub/pkg/constants"
 )
 
 const timeFormat = "2006-01-02_15-04-05.000000"

@@ -71,8 +71,8 @@ Currently we do not use health/ready checks.
 
 ## Build
 
-* [Makefile](https://github.com/stolostron/hub-of-hubs/blob/main/Makefile)
-* [Dockerfile](https://github.com/stolostron/hub-of-hubs/blob/main/manager/Dockerfile)
+* [Makefile](https://github.com/stolostron/multicluster-globalhub/blob/main/Makefile)
+* [Dockerfile](https://github.com/stolostron/multicluster-globalhub/blob/main/manager/Dockerfile)
 
 ## Formatting
 

@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/nonk8sapi/authentication"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/nonk8sapi/authentication"
 )
 
 var (

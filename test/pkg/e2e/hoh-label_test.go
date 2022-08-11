@@ -15,7 +15,7 @@ import (
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
+	"github.com/stolostron/multicluster-globalhub/test/pkg/utils"
 )
 
 const (

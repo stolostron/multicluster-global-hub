@@ -41,10 +41,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/condition"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/config"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
+	operatorv1alpha1 "github.com/stolostron/multicluster-globalhub/operator/apis/operator/v1alpha1"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/config"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
 )
 
 const failedConditionMsg = "failed to set condition(%s): %w"

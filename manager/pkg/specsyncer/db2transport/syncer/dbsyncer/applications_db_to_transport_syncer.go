@@ -9,10 +9,10 @@ import (
 	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/intervalpolicy"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/specsyncer/db2transport/transport"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/bundle"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport"
 )
 
 const (
