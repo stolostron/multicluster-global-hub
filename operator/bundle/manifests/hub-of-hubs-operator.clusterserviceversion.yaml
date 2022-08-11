@@ -522,7 +522,9 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
+          - watch
         - apiGroups:
           - ""
           resources:
@@ -553,7 +555,9 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
+          - watch
         - apiGroups:
           - ""
           resources:
@@ -562,7 +566,9 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
+          - watch
         - apiGroups:
           - addon.open-cluster-management.io
           resources:
@@ -595,7 +601,9 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
+          - watch
         - apiGroups:
           - batch
           resources:
@@ -656,7 +664,9 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
+          - watch
         - apiGroups:
           - networking.k8s.io
           resources:
@@ -665,7 +675,9 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
+          - watch
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
@@ -710,6 +722,7 @@ spec:
           - get
           - list
           - update
+          - watch
         - apiGroups:
           - rbac.authorization.k8s.io
           resources:
@@ -720,6 +733,7 @@ spec:
           - get
           - list
           - update
+          - watch
         - apiGroups:
           - rbac.authorization.k8s.io
           resources:
@@ -728,7 +742,9 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
+          - watch
         - apiGroups:
           - rbac.authorization.k8s.io
           resources:
@@ -737,7 +753,9 @@ spec:
           - create
           - delete
           - get
+          - list
           - update
+          - watch
         - apiGroups:
           - work.open-cluster-management.io
           resources:

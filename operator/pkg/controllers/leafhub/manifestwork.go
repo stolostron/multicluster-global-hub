@@ -106,10 +106,10 @@ func init() {
 }
 
 // applyHubSubWork creates or updates the subscription manifestwork for leafhub cluster
-func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghName, managedClusterName string,
+func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, managedClusterName string,
 	pm *packageManifestConfig,
 ) (*workv1.ManifestWork, error) {
-	desiredHubSubWork, err := buildHubSubWork(ctx, c, log, mghName, managedClusterName, pm)
+	desiredHubSubWork, err := buildHubSubWork(ctx, c, log, managedClusterName, pm)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 		return nil, err
 	}
 	log.Info("existing packagemanifest", "packagemanifest", existingPM, "managedcluster", managedClusterName)
-	desiredHubSubWork, err = buildHubSubWork(ctx, c, log, mghName, managedClusterName, existingPM)
+	desiredHubSubWork, err = buildHubSubWork(ctx, c, log, managedClusterName, existingPM)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 }
 
 // buildHubSubWork creates hub subscription manifestwork
-func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghName, managedClusterName string,
+func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, managedClusterName string,
 	pm *packageManifestConfig,
 ) (*workv1.ManifestWork, error) {
 	tpl, err := parseNonHypershiftTemplates(nonHypershiftManifestFS)
@@ -231,7 +231,7 @@ func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 				constants.HOHHubSubscriptionWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mghName,
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 			},
 			Annotations: map[string]string{
 				// Add the postpone delete annotation for manifestwork so that the observabilityaddon can be
@@ -295,10 +295,10 @@ func getPackageManifestConfigFromHubSubWork(hubSubWork *workv1.ManifestWork) (*p
 }
 
 // applyHubMCHWork creates or updates the mch manifestwork for leafhub cluster
-func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, mghName,
+func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger,
 	managedClusterName string,
 ) (*workv1.ManifestWork, error) {
-	desiredHubMCHWork, err := buildHubMCHWork(ctx, c, log, mghName, managedClusterName)
+	desiredHubMCHWork, err := buildHubMCHWork(ctx, c, log, managedClusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 }
 
 // buildHubMCHWork creates hub MCH manifestwork
-func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, mghName,
+func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger,
 	managedClusterName string,
 ) (*workv1.ManifestWork, error) {
 	tpl, err := parseNonHypershiftTemplates(nonHypershiftManifestFS)
@@ -368,7 +368,7 @@ func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger, mghN
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHubMCHWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mghName,
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -547,7 +547,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostedHubWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -588,7 +588,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingHubWorkSuffix),
 			Namespace: hcConfig.HostingClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -708,7 +708,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mg
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHAgentWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -779,7 +779,7 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostedAgentWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -828,7 +828,7 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingAgentWorkSuffix),
 			Namespace: hcConfig.HostingClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
