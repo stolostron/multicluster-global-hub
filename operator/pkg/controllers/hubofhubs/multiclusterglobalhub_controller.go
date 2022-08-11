@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -287,9 +288,15 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	// try to start leafhub controller if it is not running
 	if !isLeafHubControllerRunnning {
+		dynamicClient, err := dynamic.NewForConfig(r.Manager.GetConfig())
+		if err != nil {
+			log.Error(err, "failed to create dynamic client")
+			return ctrl.Result{}, err
+		}
 		if err := (&leafhubscontroller.LeafHubReconciler{
-			Client: r.Client,
-			Scheme: r.Scheme,
+			DynamicClient: dynamicClient,
+			Client:        r.Client,
+			Scheme:        r.Scheme,
 		}).SetupWithManager(r.Manager); err != nil {
 			log.Error(err, "unable to create controller", "controller", "LeafHub")
 			return ctrl.Result{}, err

@@ -22,8 +22,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 
 	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
 )
@@ -39,15 +41,24 @@ type packageManifestConfig struct {
 
 var packageManifestConfigInstance = &packageManifestConfig{}
 
-func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Logger) (*packageManifestConfig, error) {
-	packageManifestList := &operatorsv1.PackageManifestList{}
-	if err := c.List(ctx, packageManifestList,
-		client.MatchingLabels{"catalog": constants.ACMSubscriptionPublicSource}); err != nil {
+func getPackageManifestConfig(ctx context.Context, dynClient dynamic.Interface,
+	log logr.Logger,
+) (*packageManifestConfig, error) {
+	pmClient := dynClient.Resource(schema.GroupVersionResource{
+		Group:    "packages.operators.coreos.com",
+		Version:  "v1",
+		Resource: "packagemanifests",
+	})
+
+	packageManifestList, err := pmClient.List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("catalog=%s", constants.ACMSubscriptionPublicSource),
+	})
+	if err != nil {
 		return nil, err
 	}
 
 	for _, pm := range packageManifestList.Items {
-		if pm.Name == constants.ACMPackageManifestName {
+		if pm.GetName() == constants.ACMPackageManifestName {
 			log.Info("found ACM PackageManifest")
 			acmDefaultChannel, acmCurrentCSV, ACMImages, err := getSinglePackageManifestConfig(pm)
 			if err != nil {
@@ -58,7 +69,7 @@ func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Log
 			packageManifestConfigInstance.ACMCurrentCSV = acmCurrentCSV
 			packageManifestConfigInstance.ACMImages = ACMImages
 		}
-		if pm.Name == constants.MCEPackageManifestName {
+		if pm.GetName() == constants.MCEPackageManifestName {
 			log.Info("found MCE PackageManifest")
 			mceDefaultChannel, mceCurrentCSV, MCEImages, err := getSinglePackageManifestConfig(pm)
 			if err != nil {
@@ -74,20 +85,25 @@ func getPackageManifestConfig(ctx context.Context, c client.Client, log logr.Log
 	return packageManifestConfigInstance, nil
 }
 
-func getSinglePackageManifestConfig(pm operatorsv1.PackageManifest) (string, string, map[string]string, error) {
-	defaultChannel := pm.Status.DefaultChannel
+func getSinglePackageManifestConfig(pm unstructured.Unstructured) (string, string, map[string]string, error) {
+	statusObj := pm.Object["status"].(map[string]interface{})
+	defaultChannel := statusObj["defaultChannel"].(string)
+	channels := statusObj["channels"].([]interface{})
 	currentCSV := ""
 	images := map[string]string{}
-	for _, channel := range pm.Status.Channels {
-		if channel.Name == defaultChannel {
-			currentCSV = channel.CurrentCSV
-			relatedImages := channel.CurrentCSVDesc.RelatedImages
+	for _, channel := range channels {
+		if channel.(map[string]interface{})["name"].(string) == defaultChannel {
+			currentCSV = channel.(map[string]interface{})["currentCSV"].(string)
+			// retrieve the related images
+			currentCSVDesc := channel.(map[string]interface{})["currentCSVDesc"].(map[string]interface{})
+			relatedImages := currentCSVDesc["relatedImages"].([]interface{})
 			for _, img := range relatedImages {
+				imgStr := img.(string)
 				var imgStrs []string
-				if strings.Contains(img, "@") {
-					imgStrs = strings.Split(img, "@")
-				} else if strings.Contains(img, ":") {
-					imgStrs = strings.Split(img, ":")
+				if strings.Contains(imgStr, "@") {
+					imgStrs = strings.Split(imgStr, "@")
+				} else if strings.Contains(imgStr, ":") {
+					imgStrs = strings.Split(imgStr, ":")
 				} else {
 					return "", "", images, fmt.Errorf("invalid image format: %s in packagemanifest", img)
 				}
@@ -97,7 +113,7 @@ func getSinglePackageManifestConfig(pm operatorsv1.PackageManifest) (string, str
 				imgNameStrs := strings.Split(imgStrs[0], "/")
 				imageName := imgNameStrs[len(imgNameStrs)-1]
 				imageKey := strings.TrimSuffix(imageName, "-rhel8")
-				images[imageKey] = img
+				images[imageKey] = imgStr
 			}
 			break
 		}
