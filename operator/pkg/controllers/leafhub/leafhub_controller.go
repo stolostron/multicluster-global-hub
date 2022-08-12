@@ -288,7 +288,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 			}
 		} else { // for hypershift hosted leaf hub
 			if pm.MCEDefaultChannel == "" || pm.MCECurrentCSV == "" {
-				return fmt.Errorf("PackageManifest for ACM is not ready")
+				return fmt.Errorf("PackageManifest for MCE is not ready")
 			}
 
 			if err := r.reconcileHostedLeafHub(ctx, log, managedClusterName, mgh, pm, hcConfig); err != nil {
@@ -382,7 +382,8 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 		}
 	}
 
-	isChannelServiceReady, channelServiceIP := findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
+	isChannelServiceReady, channelServiceIP :=
+		findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
 	if !isChannelServiceReady {
 		log.Info("channel service is not ready, won't apply the hub-of-hubs-agent manifestwork")
 		return nil
