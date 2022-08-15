@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/dynamic"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
@@ -75,6 +76,7 @@ var leafhubs = hubClusters{clusters: make(map[string]bool)}
 
 // LeafHubReconciler reconciles a LeafHub Cluster
 type LeafHubReconciler struct {
+	DynamicClient dynamic.Interface
 	client.Client
 	Scheme *runtime.Scheme
 }
@@ -275,8 +277,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 			return err
 		}
 	} else {
-
-		pm, err := getPackageManifestConfig(ctx, r.Client, log)
+		pm, err := getPackageManifestConfig(ctx, r.DynamicClient, log)
 		if err != nil {
 			return err
 		}
