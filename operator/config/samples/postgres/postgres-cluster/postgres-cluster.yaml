@@ -9,6 +9,10 @@ spec:
   users:
     - name: "postgres"
       databases: ["hoh"]
+    - name: "hoh-process-user"
+      databases: ["hoh"]
+    - name: "transport-bridge-user"
+      databases: ["hoh"]
   instances:
     - name: pgha1
       replicas: 1

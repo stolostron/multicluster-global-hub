@@ -21,7 +21,7 @@ echo "export VERBOSE=6" >> ${ROOT_DIR}/test/resources/env.list
 
 scp "${OPT[@]}" -r ../multicluster-globalhub "$HOST:$HOST_DIR"
 
-ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget  -y 
+ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget jq -y 
 echo "setup e2e environment"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && sudo make e2e-setup-dependencies && make e2e-setup-start" > >(tee "$ARTIFACT_DIR/run-e2e-setup.log") 2>&1
 echo "runn e2e tests"
