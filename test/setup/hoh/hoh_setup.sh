@@ -7,9 +7,9 @@ if [ $TAG == "latest" ]; then
   branch="main"
 fi
 export OPENSHIFT_CI=${OPENSHIFT_CI:-"false"}
-export MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF:-"quay.io/stolostron/hub-of-hubs-manager:$TAG"}
-export MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF:-"quay.io/stolostron/hub-of-hubs-agent:$TAG"}
-export MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF:-"quay.io/stolostron/hub-of-hubs-operator:$TAG"}
+export MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF:-"quay.io/stolostron/multicluster-globalhub-manager:$TAG"}
+export MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF:-"quay.io/stolostron/multicluster-globalhub-agent:$TAG"}
+export MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF:-"quay.io/stolostron/multicluster-globalhub-operator:$TAG"}
 
 echo "KUBECONFIG $KUBECONFIG"
 echo "OPENSHIFT_CI: $OPENSHIFT_CI"
@@ -23,7 +23,7 @@ rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
 
 cd ${rootDir}
 make deploy-operator IMG=$MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF
-kubectl wait deployment -n "$namespace" hub-of-hubs-operator --for condition=Available=True --timeout=600s
+kubectl wait deployment -n "$namespace" multicluster-globalhub-operator --for condition=Available=True --timeout=600s
 echo "HoH operator is ready!"
 
 # patch hub-of-hubs-operator images
