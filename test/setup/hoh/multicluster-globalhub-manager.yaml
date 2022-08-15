@@ -16,7 +16,7 @@ spec:
       serviceAccountName: multicluster-globalhub-manager
       containers:
         - name: multicluster-globalhub-manager
-          image: ${HUB_OF_HUBS_MANAGER_IMAGE_REF}
+          image: ${MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF}
           imagePullPolicy: Always
           args:
             - --zap-devel=true

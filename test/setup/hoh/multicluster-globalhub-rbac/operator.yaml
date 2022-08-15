@@ -46,7 +46,7 @@ spec:
       serviceAccountName: ${COMPONENT}
       containers:
         - name: ${COMPONENT}
-          image: ${REGISTRY}/${COMPONENT}:${IMAGE_TAG}
+          image: ${REGISTRY}/hub-of-hubs-rbac:${IMAGE_TAG}
           imagePullPolicy: Always
           args:
           - "/data/opa_authorization.rego"

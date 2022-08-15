@@ -7,13 +7,13 @@ if [ $TAG == "latest" ]; then
   branch="main"
 fi
 export OPENSHIFT_CI=${OPENSHIFT_CI:-"false"}
-export HUB_OF_HUBS_MANAGER_IMAGE_REF=${HUB_OF_HUBS_MANAGER_IMAGE_REF:-"quay.io/open-cluster-management-hub-of-hubs/multicluster-globalhub-manager:$TAG"}
-export HUB_OF_HUBS_AGENT_IMAGE_REF=${HUB_OF_HUBS_AGENT_IMAGE_REF:-"quay.io/open-cluster-management-hub-of-hubs/multicluster-globalhub-agent:$TAG"}
+export MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF:-"quay.io/open-cluster-management-hub-of-hubs/multicluster-globalhub-manager:$TAG"}
+export MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF:-"quay.io/open-cluster-management-hub-of-hubs/multicluster-globalhub-agent:$TAG"}
 
 echo "KUBECONFIG $KUBECONFIG"
 echo "OPENSHIFT_CI: $OPENSHIFT_CI"
-echo "HUB_OF_HUBS_MANAGER_IMAGE_REF $HUB_OF_HUBS_MANAGER_IMAGE_REF"
-echo "HUB_OF_HUBS_AGENT_IMAGE_REF $HUB_OF_HUBS_AGENT_IMAGE_REF"
+echo "MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF $MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF"
+echo "MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF $MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF"
 
 namespace=open-cluster-management
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
