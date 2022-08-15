@@ -26,6 +26,9 @@ build-operator-image: vendor
 push-operator-image:
 	docker push ${REGISTRY}/hub-of-hubs-operator:${IMAGE_TAG}
 
+deploy-operator: 
+	cd operator && make deploy
+
 build-manager-image: vendor
 	cd manager && make
 	docker build -t ${REGISTRY}/hub-of-hubs-manager:${IMAGE_TAG} . -f manager/Dockerfile
