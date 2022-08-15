@@ -6,7 +6,7 @@ plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: hub-of-hubs-operator
-repo: github.com/stolostron/hub-of-hubs-operator
+repo: github.com/stolostron/multicluster-globalhub-operator
 resources:
 - api:
     crdVersion: v1
@@ -15,6 +15,6 @@ resources:
   domain: open-cluster-management.io
   group: operator
   kind: MultiClusterGlobalHub
-  path: github.com/stolostron/hub-of-hubs-operator/apis/operator/v1alpha1
+  path: github.com/stolostron/multicluster-globalhub-operator/apis/operator/v1alpha1
   version: v1alpha1
 version: "3"

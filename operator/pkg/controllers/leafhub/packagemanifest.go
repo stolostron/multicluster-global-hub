@@ -25,7 +25,7 @@ import (
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
 )
 
 type packageManifestConfig struct {

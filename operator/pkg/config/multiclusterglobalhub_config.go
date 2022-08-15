@@ -22,7 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
 )
 
 var (

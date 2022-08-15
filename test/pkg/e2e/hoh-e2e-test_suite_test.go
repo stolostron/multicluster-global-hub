@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog"
 
-	"github.com/stolostron/hub-of-hubs/test/pkg/utils"
+	"github.com/stolostron/multicluster-globalhub/test/pkg/utils"
 )
 
 var (

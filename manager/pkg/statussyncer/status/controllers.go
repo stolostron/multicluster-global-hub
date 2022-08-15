@@ -8,7 +8,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/status/controller"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/status/controller"
 )
 
 // AddStatusControllers adds all the status controllers to the Manager.

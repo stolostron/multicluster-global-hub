@@ -7,12 +7,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db/workerpool"
-	configctl "github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/syncer/config"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db/workerpool"
+	configctl "github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/syncer/config"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
 )
 
 // AddTransport2DBSyncers performs the initial setup required before starting the runtime manager.

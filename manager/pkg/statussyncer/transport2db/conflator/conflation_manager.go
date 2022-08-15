@@ -5,9 +5,9 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statistics"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statistics"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
 )
 
 // NewConflationManager creates a new instance of ConflationManager.

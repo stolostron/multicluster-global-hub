@@ -8,13 +8,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/transport"
-	"github.com/stolostron/hub-of-hubs/pkg/bundle/status"
-	"github.com/stolostron/hub-of-hubs/pkg/constants"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-globalhub/pkg/constants"
 )
 
 // NewLocalSpecDBSyncer creates a new instance of LocalSpecDBSyncer.

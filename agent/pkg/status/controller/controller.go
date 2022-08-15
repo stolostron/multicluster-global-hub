@@ -9,17 +9,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/hub-of-hubs/agent/pkg/helper"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/apps"
-	configCtrl "github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/config"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/controlinfo"
-	localpolicies "github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/local_policies"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/localplacement"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/managedclusters"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/placement"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/policies"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/status/controller/syncintervals"
-	"github.com/stolostron/hub-of-hubs/agent/pkg/transport/producer"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/apps"
+	configCtrl "github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/controlinfo"
+	localpolicies "github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/local_policies"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/localplacement"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/managedclusters"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/placement"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/policies"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/syncintervals"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/transport/producer"
 )
 
 // AddControllers adds all the controllers to the Manager.

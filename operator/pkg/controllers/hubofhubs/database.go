@@ -11,8 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
-	"github.com/stolostron/hub-of-hubs/operator/pkg/condition"
+	operatorv1alpha1 "github.com/stolostron/multicluster-globalhub/operator/apis/operator/v1alpha1"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/condition"
 )
 
 const (

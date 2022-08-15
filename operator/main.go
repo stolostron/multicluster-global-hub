@@ -35,8 +35,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	operatorv1alpha1 "github.com/stolostron/hub-of-hubs/operator/apis/operator/v1alpha1"
-	hubofhubscontrollers "github.com/stolostron/hub-of-hubs/operator/pkg/controllers/hubofhubs"
+	operatorv1alpha1 "github.com/stolostron/multicluster-globalhub/operator/apis/operator/v1alpha1"
+	hubofhubscontrollers "github.com/stolostron/multicluster-globalhub/operator/pkg/controllers/hubofhubs"
 	//+kubebuilder:scaffold:imports
 )
 

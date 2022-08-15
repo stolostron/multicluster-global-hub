@@ -40,12 +40,12 @@ spec:
   - multiple-hubs
   links:
   - name: Hub Of Hubs Operator
-    url: https://github.com/stolostron/hub-of-hubs
+    url: https://github.com/stolostron/multicluster-globalhub
   maintainers:
   - email: acm-contact@redhat.com
     name: acm-contact
   maturity: alpha
   provider:
     name: Red Hat, Inc
-    url: https://github.com/stolostron/hub-of-hubs
+    url: https://github.com/stolostron/multicluster-globalhub
   version: 0.0.1

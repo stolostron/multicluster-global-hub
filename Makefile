@@ -76,6 +76,6 @@ e2e-prow-tests:
 
 .PHONY: fmt				##formats the code
 fmt:
-	@gci write -s standard -s default -s "prefix(github.com/stolostron/hub-of-hubs)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
+	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-globalhub)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
 	@go fmt ./agent/... ./manager/... ./operator/... ./pkg/... ./test/pkg/...
 	GOFUMPT_SPLIT_LONG_LINES=on gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/

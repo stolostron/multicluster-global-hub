@@ -29,7 +29,7 @@ import (
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/hub-of-hubs/operator/pkg/constants"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
 )
 
 // applyClusterManagementAddon creates or updates ClusterManagementAddOn for hub-of-hubs

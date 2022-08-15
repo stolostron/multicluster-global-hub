@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stolostron/hub-of-hubs/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db"
 )
 
 const (

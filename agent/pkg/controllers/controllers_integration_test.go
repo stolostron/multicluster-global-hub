@@ -14,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/hub-of-hubs/agent/pkg/controllers"
+	"github.com/stolostron/multicluster-globalhub/agent/pkg/controllers"
 )
 
 var _ = Describe("controller", Ordered, func() {
