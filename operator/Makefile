@@ -118,7 +118,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with the hub-of-hubs-operator.
-	docker build -t ${IMG} .. -f operator.Dockerfile
+	docker build -t ${IMG} .. -f Dockerfile
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the hub-of-hubs-operator.
