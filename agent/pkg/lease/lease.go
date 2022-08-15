@@ -46,16 +46,16 @@ func AddHoHLeaseUpdater(mgr ctrl.Manager, addonNamespace, addonName string) erro
 	}
 
 	return mgr.Add(&leaseUpdater{
-		log:                  ctrl.Log.WithName("hub-of-hubs-lease-updater"),
+		log:                  ctrl.Log.WithName("multicluster-globalhub-lease-updater"),
 		kubeClient:           mgr.GetClient(),
 		leaseName:            addonName,
 		leaseNamespace:       addonNamespace,
 		leaseDurationSeconds: defaultLeaseDurationSeconds,
 		healthCheckFuncs: []func() bool{
-			checkAddonPodFunc(ctrl.Log.WithName("hub-of-hubs-lease-updater"),
+			checkAddonPodFunc(ctrl.Log.WithName("multicluster-globalhub-lease-updater"),
 				c.CoreV1(),
 				addonNamespace,
-				"name=hub-of-hubs-agent"),
+				"name=multicluster-globalhub-agent"),
 		},
 	})
 }

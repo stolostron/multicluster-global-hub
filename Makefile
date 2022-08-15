@@ -21,27 +21,27 @@ clean-vendor:
 
 build-operator-image: vendor
 	cd operator && make
-	docker build -t ${REGISTRY}/hub-of-hubs-operator:${IMAGE_TAG} . -f operator/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-globalhub-operator:${IMAGE_TAG} . -f operator/Dockerfile
 
 push-operator-image:
-	docker push ${REGISTRY}/hub-of-hubs-operator:${IMAGE_TAG}
+	docker push ${REGISTRY}/multicluster-globalhub-operator:${IMAGE_TAG}
 
 deploy-operator: 
 	cd operator && make deploy
 
 build-manager-image: vendor
 	cd manager && make
-	docker build -t ${REGISTRY}/hub-of-hubs-manager:${IMAGE_TAG} . -f manager/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-globalhub-manager:${IMAGE_TAG} . -f manager/Dockerfile
 
 push-manager-image:
-	docker push ${REGISTRY}/hub-of-hubs-manager:${IMAGE_TAG}
+	docker push ${REGISTRY}/multicluster-globalhub-manager:${IMAGE_TAG}
 
 build-agent-image: vendor
 	cd agent && make
-	docker build -t ${REGISTRY}/hub-of-hubs-agent:${IMAGE_TAG} . -f agent/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-globalhub-agent:${IMAGE_TAG} . -f agent/Dockerfile
 
 push-agent-image:
-	docker push ${REGISTRY}/hub-of-hubs-agent:${IMAGE_TAG}
+	docker push ${REGISTRY}/multicluster-globalhub-agent:${IMAGE_TAG}
 
 .PHONY: unit-tests
 unit-tests: unit-tests-operator unit-tests-manager unit-tests-agent

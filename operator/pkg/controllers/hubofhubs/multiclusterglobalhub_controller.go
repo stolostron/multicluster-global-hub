@@ -450,7 +450,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 	return false, nil
 }
 
-// pruneGlobalResources deletes the cluster scoped resources created by the hub-of-hubs-operator
+// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-globalhub-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
 func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
@@ -551,7 +551,7 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 
 // pruneHoHResources tries to delete hoh resources
 func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context) error {
-	// hoh-system namespace and hub-of-hubs-config configmap
+	// hoh-system namespace and multicluster-globalhub-config configmap
 	hohSystemNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.HOHSystemNamespace,
@@ -579,7 +579,7 @@ func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context)
 		return nil
 	}
 
-	// clean the finalizers added by hub-of-hubs-manager
+	// clean the finalizers added by multicluster-globalhub-manager
 	existingHoHConfigMap.SetFinalizers([]string{})
 	if err := r.Client.Update(ctx, existingHoHConfigMap); err != nil {
 		return err

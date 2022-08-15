@@ -25,7 +25,7 @@ spec:
             - --transport-type=${TRANSPORT_TYPE}
             - --process-database-url=$(PROCESS_DATABASE_URL)
             - --transport-bridge-database-url=$(TRANSPORT_BRIDGE_DATABASE_URL)
-            - --authorization-cabundle-path=/hub-of-hubs-rbac-ca/service-ca.crt
+            - --authorization-cabundle-path=/multicluster-globalhub-rbac-ca/service-ca.crt
             - --cluster-api-cabundle-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
             - --server-certificate-path=/certs/tls.crt
             - --server-key-path=/certs/tls.key
@@ -48,18 +48,18 @@ spec:
                   key: transport_uri
           volumeMounts:
             - readOnly: true
-              mountPath: /hub-of-hubs-rbac-ca
-              name: hub-of-hubs-rbac-ca
+              mountPath: /multicluster-globalhub-rbac-ca
+              name: multicluster-globalhub-rbac-ca
             - readOnly: true
               mountPath: /certs
               name: certs
       volumes:
-        - name: hub-of-hubs-rbac-ca
+        - name: multicluster-globalhub-rbac-ca
           configMap:
-            name: hub-of-hubs-rbac-ca-bundle
+            name: multicluster-globalhub-rbac-ca-bundle
         - name: certs
           secret:
-            secretName: hub-of-hubs-certs
+            secretName: multicluster-globalhub-certs
 ---
 apiVersion: v1
 kind: Service
@@ -69,7 +69,7 @@ metadata:
     name: hub-of-hubs
     service: hub-of-hubs
   annotations:
-    service.beta.openshift.io/serving-cert-secret-name: hub-of-hubs-certs
+    service.beta.openshift.io/serving-cert-secret-name: multicluster-globalhub-certs
 spec:
   ports:
   - port: 8080
@@ -96,13 +96,13 @@ spec:
             name: hub-of-hubs
             port:
               number: 8080
-        path: /multicloud/hub-of-hubs-nonk8s-api
+        path: /multicloud/multicluster-globalhub-nonk8s-api
         pathType: ImplementationSpecific
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hub-of-hubs-ca-bundle
+  name: multicluster-globalhub-ca-bundle
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
   labels:

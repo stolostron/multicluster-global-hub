@@ -2,7 +2,7 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   creationTimestamp: null
-  name: hub-of-hubs-operator-console-setup-clusterrole
+  name: multicluster-globalhub-operator-console-setup-clusterrole
 rules:
 # role for patching ocm-mutating-webhook
 - apiGroups:

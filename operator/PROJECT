@@ -5,7 +5,7 @@ multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: hub-of-hubs-operator
+projectName: multicluster-globalhub-operator
 repo: github.com/stolostron/multicluster-globalhub-operator
 resources:
 - api:

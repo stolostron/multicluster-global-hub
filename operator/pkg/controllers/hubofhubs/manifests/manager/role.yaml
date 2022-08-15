@@ -2,10 +2,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   creationTimestamp: null
-  name: hub-of-hubs-manager
+  name: multicluster-globalhub-manager
   namespace: open-cluster-management
   labels:
-    name: hub-of-hubs-manager
+    name: multicluster-globalhub-manager
 rules:
 - apiGroups:
   - ""
@@ -51,7 +51,7 @@ rules:
 - apiGroups:
   - apps
   resourceNames:
-  - hub-of-hubs-manager
+  - multicluster-globalhub-manager
   resources:
   - deployments/finalizers
   verbs:

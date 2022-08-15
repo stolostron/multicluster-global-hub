@@ -7,27 +7,27 @@ metadata:
 apiVersion: v1
 kind: Service
 metadata:
-  name: hub-of-hubs-rbac
+  name: multicluster-globalhub-rbac
   labels:
-    app: hub-of-hubs-rbac
-    service: hub-of-hubs-rbac
+    app: multicluster-globalhub-rbac
+    service: multicluster-globalhub-rbac
   annotations:
-    service.beta.openshift.io/serving-cert-secret-name: hub-of-hubs-rbac-certs
+    service.beta.openshift.io/serving-cert-secret-name: multicluster-globalhub-rbac-certs
 spec:
   ports:
   - port: 8181
     name: http
   selector:
-    name: hub-of-hubs-rbac
+    name: multicluster-globalhub-rbac
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hub-of-hubs-rbac-ca-bundle
+  name: multicluster-globalhub-rbac-ca-bundle
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
   labels:
-    service: hub-of-hubs-rbac
+    service: multicluster-globalhub-rbac
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -68,7 +68,7 @@ spec:
            secretName: opa-data
        - name: certs
          secret:
-           secretName: hub-of-hubs-rbac-certs
+           secretName: multicluster-globalhub-rbac-certs
 ---
 kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
@@ -77,7 +77,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      name: hub-of-hubs-rbac
+      name: multicluster-globalhub-rbac
   ingress:
   - from:
     - podSelector: {}

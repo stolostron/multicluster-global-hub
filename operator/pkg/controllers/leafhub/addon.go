@@ -164,7 +164,7 @@ func buildManagedClusterAddon(managedClusterName string) *addonv1alpha1.ManagedC
 			},
 		},
 		Spec: addonv1alpha1.ManagedClusterAddOnSpec{
-			// addon lease namespace, should be the namespace of hub-of-hubs-agent
+			// addon lease namespace, should be the namespace of multicluster-globalhub-agent
 			InstallNamespace: constants.HoHManagedClusterAddonInstallationNamespace,
 		},
 	}
