@@ -58,9 +58,9 @@ function deployController() {
 
   # skip hub cluster controller on the test
 
-  # deploy multicluster-globalhub-addon component with environment variables
+  # deploy hub-of-hubs-addon component with environment variables
   export ENFORCE_HOH_RBAC=${ENFORCE_HOH_RBAC:-"false"}
-  component="multicluster-globalhub-addon"
+  component="hub-of-hubs-addon"
   rm -rf $component
   git clone https://github.com/stolostron/$component.git
   cd $component
@@ -71,8 +71,8 @@ function deployController() {
   rm ./deploy/deployment.yaml.tmpl
   cd ..
   rm -rf $component
-  kubectl wait deployment -n "$namespace" multicluster-globalhub-addon-controller --for condition=Available=True --timeout=600s
-  echo "created multicluster-globalhub-addon"
+  kubectl wait deployment -n "$namespace" hub-of-hubs-addon-controller --for condition=Available=True --timeout=600s
+  echo "created hub-of-hubs-addon"
 
   echo "HoH controller is ready!"
 }
