@@ -25,8 +25,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -35,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,18 +80,18 @@ type MultiClusterGlobalHubReconciler struct {
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/bind,verbs=create;delete
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;delete
-//+kubebuilder:rbac:groups="",resources=services,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;create;update;delete
+//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
-//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;create;delete;list;watch
-//+kubebuilder:rbac:groups="networking.k8s.io",resources=ingresses,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;create;update;delete
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;create;update;delete
-//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;create;update;delete
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;delete;list;watch
+//+kubebuilder:rbac:groups="networking.k8s.io",resources=ingresses,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -101,6 +104,7 @@ type MultiClusterGlobalHubReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
+	log.Info("Reconciling", "namespacedname", req.NamespacedName)
 
 	// Fetch the hub-of-hubs multiclusterglobalhub instance
 	mgh := &operatorv1alpha1.MultiClusterGlobalHub{}
@@ -329,7 +333,7 @@ func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, obj
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[constants.HoHOperatorOwnerLabelKey] = mgh.GetName()
+		labels[constants.HoHOperatorOwnerLabelKey] = constants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
@@ -406,13 +410,13 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 
 		log.Info("to delete hoh resources")
 		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
-		if err := r.pruneGlobalResources(ctx, mgh); err != nil {
+		if err := r.pruneGlobalResources(ctx); err != nil {
 			log.Error(err, "failed to remove cluster scoped resources")
 			return false, err
 		}
 
 		// clean up hoh-system namespace and hub-of-hubs configuration
-		if err := r.pruneHoHResources(ctx, mgh); err != nil {
+		if err := r.pruneHoHResources(ctx); err != nil {
 			log.Error(err, "failed to remove hub-of-hubs resources")
 			return false, err
 		}
@@ -441,9 +445,9 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 
 // pruneGlobalResources deletes the cluster scoped resources created by the hub-of-hubs-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub) error {
+func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
-		client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: mgh.GetName()}),
+		client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
 	}
 
 	clusterRoleList := &rbacv1.ClusterRoleList{}
@@ -484,7 +488,7 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 				ObjectMeta: metav1.ObjectMeta{
 					Name: constants.HOHSystemNamespace,
 					Labels: map[string]string{
-						constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+						constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 					},
 				},
 			}); err != nil {
@@ -496,12 +500,12 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 	}
 
 	// hoh configmap
-	mghMap := &corev1.ConfigMap{
+	hohConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: constants.HOHSystemNamespace,
 			Name:      constants.HOHConfigName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Data: map[string]string{
@@ -517,7 +521,7 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 			Name:      constants.HOHConfigName,
 		}, existingHoHConfigMap); err != nil {
 		if errors.IsNotFound(err) {
-			if err := r.Client.Create(ctx, mghMap); err != nil {
+			if err := r.Client.Create(ctx, hohConfigMap); err != nil {
 				return err
 			}
 			return nil
@@ -526,10 +530,10 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 		}
 	}
 
-	if !equality.Semantic.DeepDerivative(mghMap.Data, existingHoHConfigMap.Data) ||
-		!equality.Semantic.DeepDerivative(mghMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
-		mghMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
-		if err := r.Client.Update(ctx, mghMap); err != nil {
+	if !equality.Semantic.DeepDerivative(hohConfigMap.Data, existingHoHConfigMap.Data) ||
+		!equality.Semantic.DeepDerivative(hohConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
+		hohConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
+		if err := r.Client.Update(ctx, hohConfigMap); err != nil {
 			return err
 		}
 		return nil
@@ -539,13 +543,13 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 }
 
 // pruneHoHResources tries to delete hoh resources
-func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub) error {
+func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context) error {
 	// hoh-system namespace and hub-of-hubs-config configmap
 	hohSystemNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.HOHSystemNamespace,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 			},
 		},
 	}
@@ -597,15 +601,39 @@ func (r *MultiClusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return !e.DeleteStateUnknown
 		},
 	}
 
+	ownPred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() // only requeue when spec change
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return true
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha1.MultiClusterGlobalHub{}, builder.WithPredicates(mghPred)).
+		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
+		Owns(&batchv1.Job{}, builder.WithPredicates(ownPred)).
+		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
+		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
+		Owns(&corev1.ConfigMap{}, builder.WithPredicates(ownPred)).
+		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).
+		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
+		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
+		Owns(&networkingv1.Ingress{}, builder.WithPredicates(ownPred)).
+		Owns(&networkingv1.NetworkPolicy{}, builder.WithPredicates(ownPred)).
+		Owns(&clusterv1beta1.ManagedClusterSetBinding{}, builder.WithPredicates(ownPred)).
+		Owns(&clusterv1beta1.Placement{}, builder.WithPredicates(ownPred)).
 		Complete(r)
 }
 

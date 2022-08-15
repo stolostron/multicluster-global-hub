@@ -32,8 +32,11 @@ func NewHoHDeployer(client client.Client) Deployer {
 		"Deployment":               deployer.deployDeployment,
 		"Job":                      deployer.deployJob,
 		"Service":                  deployer.deployService,
+		"ServiceAccount":           deployer.deployServiceAccount,
 		"ConfigMap":                deployer.deployConfigMap,
 		"Secret":                   deployer.deploySecret,
+		"Role":                     deployer.deployRole,
+		"RoleBinding":              deployer.deployRoleBinding,
 		"ClusterRole":              deployer.deployClusterRole,
 		"ClusterRoleBinding":       deployer.deployClusterRoleBinding,
 		"CustomResourceDefinition": deployer.deployCRD,
@@ -89,7 +92,7 @@ func (d *HoHDeployer) deployDeployment(desiredObj, existingObj *unstructured.Uns
 		return err
 	}
 
-	if !apiequality.Semantic.DeepDerivative(desiredDepoly, existingDepoly) {
+	if !apiequality.Semantic.DeepDerivative(desiredDepoly.Spec, existingDepoly.Spec) {
 		return d.client.Update(context.TODO(), desiredDepoly)
 	}
 
@@ -137,11 +140,37 @@ func (d *HoHDeployer) deployService(desiredObj, existingObj *unstructured.Unstru
 		return err
 	}
 
-	if !apiequality.Semantic.DeepDerivative(desiredService, existingService) {
+	if !apiequality.Semantic.DeepDerivative(desiredService.Spec, existingService.Spec) {
 		desiredService.ObjectMeta.ResourceVersion =
 			existingService.ObjectMeta.ResourceVersion
 		desiredService.Spec.ClusterIP = existingService.Spec.ClusterIP
 		return d.client.Update(context.TODO(), desiredService)
+	}
+
+	return nil
+}
+
+func (d *HoHDeployer) deployServiceAccount(desiredObj, existingObj *unstructured.Unstructured) error {
+	existingJSON, _ := existingObj.MarshalJSON()
+	existingServiceAccount := &corev1.ServiceAccount{}
+	err := json.Unmarshal(existingJSON, existingServiceAccount)
+	if err != nil {
+		return err
+	}
+
+	desiredJSON, _ := desiredObj.MarshalJSON()
+	desiredServiceAccount := &corev1.ServiceAccount{}
+	err = json.Unmarshal(desiredJSON, desiredServiceAccount)
+	if err != nil {
+		return err
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredServiceAccount.Secrets, existingServiceAccount.Secrets) ||
+		!apiequality.Semantic.DeepDerivative(desiredServiceAccount.ImagePullSecrets,
+			existingServiceAccount.ImagePullSecrets) {
+		desiredServiceAccount.ObjectMeta.ResourceVersion =
+			existingServiceAccount.ObjectMeta.ResourceVersion
+		return d.client.Update(context.TODO(), desiredServiceAccount)
 	}
 
 	return nil
@@ -162,7 +191,7 @@ func (d *HoHDeployer) deployConfigMap(desiredObj, existingObj *unstructured.Unst
 		return err
 	}
 
-	if !apiequality.Semantic.DeepDerivative(desiredConfigMap, existingConfigMap) {
+	if !apiequality.Semantic.DeepDerivative(desiredConfigMap.Data, existingConfigMap.Data) {
 		return d.client.Update(context.TODO(), desiredConfigMap)
 	}
 
@@ -184,8 +213,53 @@ func (d *HoHDeployer) deploySecret(desiredObj, existingObj *unstructured.Unstruc
 		return err
 	}
 
-	if !apiequality.Semantic.DeepDerivative(desiredSecret, existingSecret) {
+	if !apiequality.Semantic.DeepDerivative(desiredSecret.Data, existingSecret.Data) {
 		return d.client.Update(context.TODO(), desiredSecret)
+	}
+
+	return nil
+}
+
+func (d *HoHDeployer) deployRole(desiredObj, existingObj *unstructured.Unstructured) error {
+	existingJSON, _ := existingObj.MarshalJSON()
+	existingRole := &rbacv1.Role{}
+	err := json.Unmarshal(existingJSON, existingRole)
+	if err != nil {
+		return err
+	}
+
+	desiredJSON, _ := desiredObj.MarshalJSON()
+	desiredRole := &rbacv1.Role{}
+	err = json.Unmarshal(desiredJSON, desiredRole)
+	if err != nil {
+		return err
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredRole.Rules, existingRole.Rules) {
+		return d.client.Update(context.TODO(), desiredRole)
+	}
+
+	return nil
+}
+
+func (d *HoHDeployer) deployRoleBinding(desiredObj, existingObj *unstructured.Unstructured) error {
+	existingJSON, _ := existingObj.MarshalJSON()
+	existingRoleBinding := &rbacv1.RoleBinding{}
+	err := json.Unmarshal(existingJSON, existingRoleBinding)
+	if err != nil {
+		return err
+	}
+
+	desiredJSON, _ := desiredObj.MarshalJSON()
+	desiredRoleBinding := &rbacv1.RoleBinding{}
+	err = json.Unmarshal(desiredJSON, desiredRoleBinding)
+	if err != nil {
+		return err
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredRoleBinding.Subjects, existingRoleBinding.Subjects) ||
+		!apiequality.Semantic.DeepDerivative(desiredRoleBinding.RoleRef, existingRoleBinding.RoleRef) {
+		return d.client.Update(context.TODO(), desiredRoleBinding)
 	}
 
 	return nil
@@ -206,9 +280,8 @@ func (d *HoHDeployer) deployClusterRole(desiredObj, existingObj *unstructured.Un
 		return err
 	}
 
-	// if !apiequality.Semantic.DeepDerivative(desiredClusterRole.Rules, existingClusterRole.Rules) ||
-	// 	!apiequality.Semantic.DeepDerivative(desiredClusterRole.AggregationRule, existingClusterRole.AggregationRule) {
-	if !apiequality.Semantic.DeepDerivative(desiredClusterRole, existingClusterRole) {
+	if !apiequality.Semantic.DeepDerivative(desiredClusterRole.Rules, existingClusterRole.Rules) ||
+		!apiequality.Semantic.DeepDerivative(desiredClusterRole.AggregationRule, existingClusterRole.AggregationRule) {
 		return d.client.Update(context.TODO(), desiredClusterRole)
 	}
 
@@ -230,9 +303,8 @@ func (d *HoHDeployer) deployClusterRoleBinding(desiredObj, existingObj *unstruct
 		return err
 	}
 
-	// if !apiequality.Semantic.DeepDerivative(desiredClusterRoleBinding.Subjects, existingClusterRoleBinding.Subjects) ||
-	// 	!apiequality.Semantic.DeepDerivative(desiredClusterRoleBinding.RoleRef, existingClusterRoleBinding.RoleRef) {
-	if !apiequality.Semantic.DeepDerivative(desiredClusterRoleBinding, existingClusterRoleBinding) {
+	if !apiequality.Semantic.DeepDerivative(desiredClusterRoleBinding.Subjects, existingClusterRoleBinding.Subjects) ||
+		!apiequality.Semantic.DeepDerivative(desiredClusterRoleBinding.RoleRef, existingClusterRoleBinding.RoleRef) {
 		return d.client.Update(context.TODO(), desiredClusterRoleBinding)
 	}
 
@@ -254,7 +326,7 @@ func (d *HoHDeployer) deployCRD(desiredObj, existingObj *unstructured.Unstructur
 		return err
 	}
 
-	if !apiequality.Semantic.DeepDerivative(desiredCRD, existingCRD) {
+	if !apiequality.Semantic.DeepDerivative(desiredCRD.Spec, existingCRD.Spec) {
 		return d.client.Update(context.TODO(), desiredCRD)
 	}
 

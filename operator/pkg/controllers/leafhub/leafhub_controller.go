@@ -19,6 +19,7 @@ package leafhub
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -262,7 +264,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 			}
 		}
 		// delete managedclusteraddon for the managedcluster
-		return deleteManagedClusterAddon(ctx, r.Client, log, managedClusterName, mgh.GetName())
+		return deleteManagedClusterAddon(ctx, r.Client, log, managedClusterName)
 	}
 
 	if managedCluster.GetLabels()[constants.LeafHubClusterInstallHubLabelKey] ==
@@ -298,14 +300,14 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 	}
 
 	// apply ManagedClusterAddons
-	return applyManagedClusterAddon(ctx, r.Client, log, managedClusterName, mgh.GetName())
+	return applyManagedClusterAddon(ctx, r.Client, log, managedClusterName)
 }
 
 // reconcileNonHostedLeafHub reconciles the normal leafhub, which is not running hosted mode
 func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log logr.Logger, managedClusterName string,
 	mgh *operatorv1alpha1.MultiClusterGlobalHub, pm *packageManifestConfig,
 ) error {
-	hubSubWork, err := applyHubSubWork(ctx, r.Client, log, mgh.GetName(), managedClusterName, pm)
+	hubSubWork, err := applyHubSubWork(ctx, r.Client, log, managedClusterName, pm)
 	if err != nil {
 		return err
 	}
@@ -318,7 +320,7 @@ func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log l
 
 	log.Info("hub subscription is ready, applying hub MCH manifestwork")
 	// TODO: fetch user defined mch from annotation
-	hubMCHWork, err := applyHubMCHWork(ctx, r.Client, log, mgh.GetName(), managedClusterName)
+	hubMCHWork, err := applyHubMCHWork(ctx, r.Client, log, managedClusterName)
 	if err != nil {
 		return err
 	}
@@ -410,12 +412,12 @@ func (r *LeafHubReconciler) reconcileMultiClusterGlobalHub(ctx context.Context, 
 		for leafhub := range leafhubs.clusters {
 			if err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{}, client.InNamespace(leafhub),
 				client.MatchingLabels(map[string]string{
-					constants.HoHOperatorOwnerLabelKey: mgh.GetName(),
+					constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
 				})); err != nil {
 				return err
 			}
 			// delete managedclusteraddon
-			if err := deleteManagedClusterAddon(ctx, r.Client, log, leafhub, mgh.GetName()); err != nil {
+			if err := deleteManagedClusterAddon(ctx, r.Client, log, leafhub); err != nil {
 				return err
 			}
 		}
@@ -423,19 +425,21 @@ func (r *LeafHubReconciler) reconcileMultiClusterGlobalHub(ctx context.Context, 
 		// also handle case of local-cluster as hypershift hosting cluster
 		if err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{},
 			client.InNamespace(constants.LocalClusterName),
-			client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: mgh.GetName()})); err != nil {
+			client.MatchingLabels(map[string]string{
+				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+			})); err != nil {
 			return err
 		}
 
 		// delete ClusterManagementAddon
-		if err := deleteClusterManagementAddon(ctx, r.Client, log, mgh.GetName()); err != nil {
+		if err := deleteClusterManagementAddon(ctx, r.Client, log); err != nil {
 			return err
 		}
 
 		return nil
 	}
 
-	if err := applyClusterManagementAddon(ctx, r.Client, log, mgh.GetName()); err != nil {
+	if err := applyClusterManagementAddon(ctx, r.Client, log); err != nil {
 		return err
 	}
 
@@ -518,10 +522,42 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			// only requeue the event when leafhub configuration is changed
-			return e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion()
+			return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return !e.DeleteStateUnknown
+		},
+	}
+
+	clusterManagementAddonPred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectNew.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal &&
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+				return true
+			}
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal
+		},
+	}
+
+	managedClusterAddonPred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectNew.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal &&
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+				return true
+			}
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal
 		},
 	}
 
@@ -530,27 +566,52 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()[constants.HoHOperatorOwnerLabelKey] != "" &&
+			if e.ObjectNew.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal &&
 				e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
-				// && !reflect.DeepEqual(e.ObjectNew.(*workv1.ManifestWork).Spec.Workload.Manifests,
-				// 	e.ObjectOld.(*workv1.ManifestWork).Spec.Workload.Manifests) {
 				if e.ObjectNew.GetName() == fmt.Sprintf("%s-%s", e.ObjectNew.GetNamespace(),
 					constants.HOHHubSubscriptionWorkSuffix) ||
 					e.ObjectNew.GetName() == fmt.Sprintf("%s-%s", e.ObjectNew.GetNamespace(), constants.HoHHubMCHWorkSuffix) ||
 					strings.Contains(e.ObjectNew.GetName(), constants.HoHHostingHubWorkSuffix) {
+					return true
+				} else if !reflect.DeepEqual(e.ObjectNew.(*workv1.ManifestWork).Spec.Workload.Manifests,
+					e.ObjectOld.(*workv1.ManifestWork).Spec.Workload.Manifests) {
 					return true
 				}
 			}
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
+			return e.Object.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal
 		},
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		// primary watch for managedcluster
 		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
+		// watch for multiclusterglobalhub change
+		Watches(&source.Kind{Type: &operatorv1alpha1.MultiClusterGlobalHub{}},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(mghPred)).
+		// watch for clustermanagementaddon change
+		Watches(&source.Kind{Type: &addonv1alpha1.ClusterManagementAddOn{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					{NamespacedName: types.NamespacedName{
+						// add fake namespace to trigger MGH reconcile when clustermanagementaddon updated/deleted
+						Namespace: constants.HOHDefaultNamespace,
+						Name:      obj.GetName(),
+					}},
+				}
+			}), builder.WithPredicates(clusterManagementAddonPred)).
+		// secondary watch for managedclusteraddon
+		Watches(&source.Kind{Type: &addonv1alpha1.ManagedClusterAddOn{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					// only trigger the leafhub reconcile when managedclusteraddon is updated/deleted
+					{NamespacedName: types.NamespacedName{
+						Name: obj.GetNamespace(),
+					}},
+				}
+			}), builder.WithPredicates(managedClusterAddonPred)).
 		// secondary watch for manifestwork
 		Watches(&source.Kind{Type: &workv1.ManifestWork{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
@@ -565,9 +626,6 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					}},
 				}
 			}), builder.WithPredicates(workPred)).
-		// watch for multiclusterglobalhub change
-		Watches(&source.Kind{Type: &operatorv1alpha1.MultiClusterGlobalHub{}},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(mghPred)).
 		Complete(r)
 }
 

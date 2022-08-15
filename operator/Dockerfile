@@ -36,10 +36,9 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
     rm kubectl
 
 # install helm
-RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 && \
-    chmod 700 get_helm.sh && \
-    VERIFY_CHECKSUM=false ./get_helm.sh && \
-    rm get_helm.sh
+RUN curl -L https://get.helm.sh/helm-v3.9.3-linux-amd64.tar.gz | tar xz && \
+    mv linux-amd64/helm /usr/local/bin/helm && \
+    rm -rf linux-amd64
 
 # install yq
 RUN curl -LO https://github.com/mikefarah/yq/releases/download/v4.25.3/yq_linux_amd64 && \

@@ -22,6 +22,13 @@ import (
 
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -30,12 +37,15 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1alpha1 "github.com/stolostron/multicluster-globalhub/operator/apis/operator/v1alpha1"
+	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
 	hubofhubscontrollers "github.com/stolostron/multicluster-globalhub/operator/pkg/controllers/hubofhubs"
 	//+kubebuilder:scaffold:imports
 )
@@ -49,6 +59,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(operatorsv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1beta1.AddToScheme(scheme))
 	utilruntime.Must(workv1.AddToScheme(scheme))
 	utilruntime.Must(addonv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(hypershiftdeploymentv1alpha1.AddToScheme(scheme))
@@ -75,6 +86,66 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	// build filtered resource map
+	newCacheFunc := cache.BuilderWithOptions(cache.Options{
+		SelectorsByObject: cache.SelectorsByObject{
+			&corev1.Secret{}: { // also cache postgresql-secret and kafka-secret
+				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": constants.HOHDefaultNamespace}),
+			},
+			&corev1.ConfigMap{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&corev1.ServiceAccount{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&corev1.Service{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&appsv1.Deployment{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&batchv1.Job{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&rbacv1.Role{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&rbacv1.RoleBinding{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&rbacv1.ClusterRole{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&rbacv1.ClusterRoleBinding{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&networkingv1.Ingress{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&networkingv1.NetworkPolicy{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&clusterv1beta1.ManagedClusterSetBinding{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&clusterv1beta1.Placement{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&clusterv1.ManagedCluster{}: {
+				Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
+			},
+			&workv1.ManifestWork{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&addonv1alpha1.ClusterManagementAddOn{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+			&addonv1alpha1.ManagedClusterAddOn{}: {
+				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+			},
+		},
+	})
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -82,6 +153,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "549a8919.open-cluster-management.io",
+		NewCache:               newCacheFunc,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

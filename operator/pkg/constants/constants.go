@@ -29,6 +29,7 @@ const (
 	LeafHubClusterAnnotationKey              = "hub-of-hubs.open-cluster-management.io/managed-by-hoh"
 	GlobalHubSkipConsoleInstallAnnotationKey = "globalhub.open-cluster-management.io/skip-console-install"
 	HoHOperatorOwnerLabelKey                 = "hub-of-hubs.open-cluster-management.io/managed-by"
+	HoHOperatorOwnerLabelVal                 = "multicluster-globalhub-operator"
 	HoHOperatorFinalizer                     = "hub-of-hubs.open-cluster-management.io/res-cleanup"
 
 	LeafHubClusterInstallHubLabelKey        = "globalhub.open-cluster-management.io/hub-install"
