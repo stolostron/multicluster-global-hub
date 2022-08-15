@@ -242,7 +242,8 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			return ctrl.Result{}, err
 		}
 
-		err = r.manipulateObj(ctx, consoleSetupObjects, mgh, condition.SetConditionConsoleDeployed, log)
+		err = r.manipulateObj(ctx, consoleSetupObjects, mgh,
+			condition.SetConditionConsoleDeployed, log)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -360,46 +361,48 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 ) (bool, error) {
 	if mgh.GetDeletionTimestamp() != nil &&
 		utils.Contains(mgh.GetFinalizers(), constants.HoHOperatorFinalizer) {
-		log.Info("cleanup hub-of-hubs console")
-		// render the console cleanup job
-		consoleCleanupObjects, err := hohRenderer.Render("manifests/console-cleanup",
-			func(component string) (interface{}, error) {
-				consoleJobConfig := struct {
-					Image string
-				}{
-					Image: config.GetImage(mgh.GetAnnotations(), "hub_of_hubs_console_job"),
-				}
+		if mgh.GetAnnotations()[constants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
+			log.Info("cleanup hub-of-hubs console")
+			// render the console cleanup job
+			consoleCleanupObjects, err := hohRenderer.Render("manifests/console-cleanup",
+				func(component string) (interface{}, error) {
+					consoleJobConfig := struct {
+						Image string
+					}{
+						Image: config.GetImage(mgh.GetAnnotations(), "hub_of_hubs_console_job"),
+					}
 
-				return consoleJobConfig, nil
-			})
-		if err != nil {
-			return false, err
-		}
-		if err := r.manipulateObj(ctx, consoleCleanupObjects, mgh, nil, log); err != nil {
-			return false, err
-		}
-
-		log.Info("wait at most 300s for the hub-of-hubs console is cleaned up")
-		consoleCleanJob := &batchv1.Job{}
-		if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-			if err := r.Client.Get(ctx,
-				types.NamespacedName{
-					Name:      "hoh-of-hubs-console-cleanup",
-					Namespace: constants.HOHDefaultNamespace,
-				}, consoleCleanJob); err != nil {
+					return consoleJobConfig, nil
+				})
+			if err != nil {
 				return false, err
 			}
-			if consoleCleanJob.Status.Succeeded > 0 {
-				return true, nil
+			if err := r.manipulateObj(ctx, consoleCleanupObjects, mgh, nil, log); err != nil {
+				return false, err
 			}
-			return false, nil
-		}); errPoll != nil {
-			log.Error(errPoll, "hub-of-hubs console cleanup job failed",
-				"namespace", constants.HOHDefaultNamespace,
-				"name", "hoh-of-hubs-console-cleanup")
-			return false, errPoll
+
+			log.Info("wait at most 300s for the hub-of-hubs console is cleaned up")
+			consoleCleanJob := &batchv1.Job{}
+			if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
+				if err := r.Client.Get(ctx,
+					types.NamespacedName{
+						Name:      "hoh-of-hubs-console-cleanup",
+						Namespace: constants.HOHDefaultNamespace,
+					}, consoleCleanJob); err != nil {
+					return false, err
+				}
+				if consoleCleanJob.Status.Succeeded > 0 {
+					return true, nil
+				}
+				return false, nil
+			}); errPoll != nil {
+				log.Error(errPoll, "hub-of-hubs console cleanup job failed",
+					"namespace", constants.HOHDefaultNamespace,
+					"name", "hoh-of-hubs-console-cleanup")
+				return false, errPoll
+			}
+			log.Info("hub-of-hubs console is cleaned up")
 		}
-		log.Info("hub-of-hubs console is cleaned up")
 
 		log.Info("to delete hoh resources")
 		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
