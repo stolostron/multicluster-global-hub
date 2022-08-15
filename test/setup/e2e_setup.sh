@@ -35,8 +35,8 @@ enableOLM $CTX_HUB 2>&1 >> $LOG &
 hover $! "  Enable OLM for $CTX_HUB"
 
 # install some component in microshift in detached mode
-bash ${CURRENT_DIR}/postgres/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
-bash ${CURRENT_DIR}/kafka/kafka_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
+bash ${CURRENT_DIR}/hoh/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
+bash ${CURRENT_DIR}/hoh/kafka_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
 initHub $CTX_HUB 2>&1 >> $LOG &
 
 # init leafhub 
@@ -46,7 +46,7 @@ source ${CURRENT_DIR}/leafhub_setup.sh
 
 # joining lh to hoh
 initHub $CTX_HUB 2>&1 >> $LOG &
-hover $! "3 Initing HoH OCM $HUB_OF_HUB_NAME" 
+hover $! "3 Init HoH OCM $HUB_OF_HUB_NAME" 
 
 # check connection
 connectMicroshift "${LEAF_HUB_NAME}-control-plane" "${HUB_OF_HUB_NAME}" 2>&1 >> $LOG &
@@ -64,11 +64,11 @@ hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED"
 kubectl config use-context $CTX_HUB >> $LOG
 
 # install kafka
-bash ${CURRENT_DIR}/kafka/kafka_setup.sh $KUBECONFIG 2>&1 >> $LOG &
+bash ${CURRENT_DIR}/hoh/kafka_setup.sh $KUBECONFIG 2>&1 >> $LOG &
 hover $! "4 Install kafka cluster" 
 
 # install postgres
-bash ${CURRENT_DIR}/postgres/postgres_setup.sh $KUBECONFIG 2>&1 >> $LOG &
+bash ${CURRENT_DIR}/hoh/postgres_setup.sh $KUBECONFIG 2>&1 >> $LOG &
 hover $! "5 Install postgres cluster" 
 
 # deploy hoh

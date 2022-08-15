@@ -79,10 +79,9 @@ function deployController() {
 
 function initPostgres() {
   pgNamespace="hoh-postgres"
-  processUser="hoh-pguser-hoh-process-user"
-  transportUser="hoh-pguser-transport-bridge-user"
-  DATABASE_URL_HOH="$(kubectl get secrets -n "${pgNamespace}" "${processUser}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
-  DATABASE_URL_TRANSPORT="$(kubectl get secrets -n "${pgNamespace}" "${transportUser}" -o go-template='{{index (.data) "pgbouncer-uri" | base64decode}}')"
+  pgUserSecretName="postgresql-secret"
+  DATABASE_URL_HOH="$(kubectl get secrets -n "${namespace}" "${pgUserSecretName}" -o go-template='{{index (.data) "database_uri" | base64decode}}')"
+  DATABASE_URL_TRANSPORT="$(kubectl get secrets -n "${namespace}" "${pgUserSecretName}" -o go-template='{{index (.data) "database_uri" | base64decode}}')"
 
   kubectl delete -f ${currentDir}/hoh/hub-of-hubs-postgres-job.yaml --ignore-not-found=true
   export IMAGE=quay.io/open-cluster-management-hub-of-hubs/postgresql-ansible:$TAG
