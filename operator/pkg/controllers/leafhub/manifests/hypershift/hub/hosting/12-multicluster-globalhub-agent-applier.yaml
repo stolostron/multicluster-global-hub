@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: hoh-of-hubs-agent-applier
+  name: multicluster-globalhub-agent-applier
   namespace: {{.HostedClusterName}}
 spec:
   template:

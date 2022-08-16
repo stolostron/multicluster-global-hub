@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name:  hoh-of-hubs-console-script
+  name:  multicluster-globalhub-console-script
   namespace: open-cluster-management
   labels:
-    name: hoh-of-hubs-console
+    name: multicluster-globalhub-console
 data:
   console-setup.sh: |
     #!/bin/bash

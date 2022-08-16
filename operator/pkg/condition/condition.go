@@ -63,21 +63,21 @@ const (
 const (
 	CONDITION_TYPE_RBAC_DEPLOY    = "RBACDeployed"
 	CONDITION_REASON_RBAC_DEPLOY  = "RBACDeployed"
-	CONDITION_MESSAGE_RBAC_DEPLOY = "Hub-of-Hubs RBAC Deployed"
+	CONDITION_MESSAGE_RBAC_DEPLOY = "Multicluster Global Hub RBAC Deployed"
 )
 
 // NOTE: the status of ManagerDeployed can only be True; otherwise there is no condition
 const (
 	CONDITION_TYPE_MANAGER_DEPLOY    = "ManagerDeployed"
 	CONDITION_REASON_MANAGER_DEPLOY  = "ManagerDeployed"
-	CONDITION_MESSAGE_MANAGER_DEPLOY = "Hub-of-Hubs Manager Deployed"
+	CONDITION_MESSAGE_MANAGER_DEPLOY = "Multicluster Global Hub Manager Deployed"
 )
 
 // NOTE: the status of ConsoleDeployed can only be True; otherwise there is no condition
 const (
 	CONDITION_TYPE_CONSOLE_DEPLOY    = "ConsoleDeployed"
 	CONDITION_REASON_CONSOLE_DEPLOY  = "ConsoleDeployed"
-	CONDITION_MESSAGE_CONSOLE_DEPLOY = "Hub-of-Hubs Console Deployed"
+	CONDITION_MESSAGE_CONSOLE_DEPLOY = "Multicluster Global Hub Console Deployed"
 )
 
 // NOTE: the status of LeafHubDeployed can only be True; otherwise there is no condition

@@ -1,10 +1,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: hoh-of-hubs-console-cleanup
+  name: multicluster-globalhub-console-cleanup
   namespace: open-cluster-management
   labels:
-    name: hoh-of-hubs-console
+    name: multicluster-globalhub-console
 spec:
   template:
     spec:
@@ -24,6 +24,6 @@ spec:
       volumes:
       - name: console-script
         configMap:
-          name: hoh-of-hubs-console-script
+          name: multicluster-globalhub-console-script
           defaultMode: 0755
       restartPolicy: Never

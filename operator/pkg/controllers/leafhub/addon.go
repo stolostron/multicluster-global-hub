@@ -32,7 +32,7 @@ import (
 	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
 )
 
-// applyClusterManagementAddon creates or updates ClusterManagementAddOn for hub-of-hubs
+// applyClusterManagementAddon creates or updates ClusterManagementAddOn for multicluster-globalhub
 func applyClusterManagementAddon(ctx context.Context, c client.Client, log logr.Logger) error {
 	newHoHClusterManagementAddOn := buildClusterManagementAddon()
 	existingHoHClusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{}
@@ -62,7 +62,7 @@ func applyClusterManagementAddon(ctx context.Context, c client.Client, log logr.
 	return nil
 }
 
-// deleteClusterManagementAddon deletes ClusterManagementAddOn for hub-of-hubs
+// deleteClusterManagementAddon deletes ClusterManagementAddOn for multicluster-globalhub
 func deleteClusterManagementAddon(ctx context.Context, c client.Client, log logr.Logger) error {
 	hohClusterManagementAddOn := buildClusterManagementAddon()
 	err := c.Delete(ctx, hohClusterManagementAddOn)
@@ -75,7 +75,7 @@ func deleteClusterManagementAddon(ctx context.Context, c client.Client, log logr
 	return nil
 }
 
-// buildClusterManagementAddon builds ClusterManagementAddOn resource for hub-of-hubs
+// buildClusterManagementAddon builds ClusterManagementAddOn resource for multicluster-globalhub
 func buildClusterManagementAddon() *addonv1alpha1.ClusterManagementAddOn {
 	return &addonv1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
