@@ -16,8 +16,8 @@ spec:
       kind: MultiClusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha1
-  description: multicluster-globalhub-operator defines the configuration for the hub-of-hubs
-    installation with one custom resource.
+  description: multicluster-globalhub-operator defines the configuration for multicluster
+    global hub installation with one custom resource.
   displayName: multicluster-globalhub-operator
   icon:
   - base64data: ""
@@ -36,7 +36,7 @@ spec:
   - supported: true
     type: AllNamespaces
   keywords:
-  - hub-of-hubs
+  - multicluster-globalhub
   - multiple-hubs
   links:
   - name: Hub Of Hubs Operator

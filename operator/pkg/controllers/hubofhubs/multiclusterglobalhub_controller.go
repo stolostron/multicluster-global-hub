@@ -107,7 +107,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling", "namespacedname", req.NamespacedName)
 
-	// Fetch the hub-of-hubs multiclusterglobalhub instance
+	// Fetch the multiclusterglobalhub instance
 	mgh := &operatorv1alpha1.MultiClusterGlobalHub{}
 	err := r.Get(ctx, req.NamespacedName, mgh)
 	if err != nil {
@@ -151,7 +151,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// reconcile hoh-system namespace and hub-of-hubs configuration
+	// reconcile hoh-system namespace and multicluster-globalhub configuration
 	err = r.reconcileHoHResources(ctx, mgh)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -253,12 +253,12 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			return ctrl.Result{}, err
 		}
 
-		log.Info("wait at most 300s for the hub-of-hubs console is set up")
+		log.Info("wait at most 300s for the multicluster-globalhub console is set up")
 		consoleSetupJob := &batchv1.Job{}
 		if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 			if err := r.Client.Get(ctx,
 				types.NamespacedName{
-					Name:      "hoh-of-hubs-console-setup",
+					Name:      "multicluster-globalhub-console-setup",
 					Namespace: constants.HOHDefaultNamespace,
 				}, consoleSetupJob); err != nil {
 				return false, err
@@ -268,9 +268,9 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			}
 			return false, nil
 		}); errPoll != nil {
-			log.Error(errPoll, "hub-of-hubs console setup job failed",
+			log.Error(errPoll, "multicluster-globalhub console setup job failed",
 				"namespace", constants.HOHDefaultNamespace,
-				"name", "hoh-of-hubs-console-setup")
+				"name", "multicluster-globalhub-console-setup")
 			if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
 				condition.CONDITION_STATUS_FALSE); conditionError != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
@@ -278,7 +278,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			}
 			return ctrl.Result{}, errPoll
 		}
-		log.Info("hub-of-hubs console is set up")
+		log.Info("multicluster-globalhub console is set up")
 		if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
 			condition.CONDITION_STATUS_TRUE); conditionError != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
@@ -373,7 +373,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 	if mgh.GetDeletionTimestamp() != nil &&
 		utils.Contains(mgh.GetFinalizers(), constants.HoHOperatorFinalizer) {
 		if mgh.GetAnnotations()[constants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
-			log.Info("cleanup hub-of-hubs console")
+			log.Info("cleanup multicluster-globalhub console")
 			// render the console cleanup job
 			consoleCleanupObjects, err := hohRenderer.Render("manifests/console-cleanup",
 				func(component string) (interface{}, error) {
@@ -392,12 +392,12 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 				return false, err
 			}
 
-			log.Info("wait at most 300s for the hub-of-hubs console is cleaned up")
+			log.Info("wait at most 300s for the multicluster-globalhub console is cleaned up")
 			consoleCleanJob := &batchv1.Job{}
 			if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 				if err := r.Client.Get(ctx,
 					types.NamespacedName{
-						Name:      "hoh-of-hubs-console-cleanup",
+						Name:      "multicluster-globalhub-console-cleanup",
 						Namespace: constants.HOHDefaultNamespace,
 					}, consoleCleanJob); err != nil {
 					return false, err
@@ -407,12 +407,12 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 				}
 				return false, nil
 			}); errPoll != nil {
-				log.Error(errPoll, "hub-of-hubs console cleanup job failed",
+				log.Error(errPoll, "multicluster-globalhub console cleanup job failed",
 					"namespace", constants.HOHDefaultNamespace,
-					"name", "hoh-of-hubs-console-cleanup")
+					"name", "multicluster-globalhub-console-cleanup")
 				return false, errPoll
 			}
-			log.Info("hub-of-hubs console is cleaned up")
+			log.Info("multicluster-globalhubconsole is cleaned up")
 		}
 
 		log.Info("to delete hoh resources")
@@ -422,9 +422,9 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 			return false, err
 		}
 
-		// clean up hoh-system namespace and hub-of-hubs configuration
+		// clean up hoh-system namespace and multicluster-globalhub configuration
 		if err := r.pruneHoHResources(ctx); err != nil {
-			log.Error(err, "failed to remove hub-of-hubs resources")
+			log.Error(err, "failed to remove multicluster-globalhub resources")
 			return false, err
 		}
 
