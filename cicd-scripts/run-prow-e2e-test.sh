@@ -12,6 +12,7 @@ OPT=(-q -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -i "${KE
 ROOT_DIR="$(cd "$(dirname "$0")/.." ; pwd -P)"
 HOST_DIR="/tmp/multicluster-globalhub"
 
+echo "export MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF=$MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
 echo "export MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF=$MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
 echo "export MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF=$MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
 echo "export OPENSHIFT_CI=$OPENSHIFT_CI" >> ${ROOT_DIR}/test/resources/env.list
