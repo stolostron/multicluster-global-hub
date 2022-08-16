@@ -51,9 +51,9 @@ type MultiClusterGlobalHubSpec struct {
 	// +kubebuilder:default:=true
 	EnableLocalPolicies bool `json:"enableLocalPolicies,omitempty"`
 	// +required
-	Kafka corev1.LocalObjectReference `json:"kafka,omitempty"`
+	Transport corev1.LocalObjectReference `json:"transport,omitempty"`
 	// +required
-	PostgreSQL corev1.LocalObjectReference `json:"postgreSQL,omitempty"`
+	Storage corev1.LocalObjectReference `json:"storage,omitempty"`
 }
 
 // MultiClusterGlobalHubStatus defines the observed state of MultiClusterGlobalHub

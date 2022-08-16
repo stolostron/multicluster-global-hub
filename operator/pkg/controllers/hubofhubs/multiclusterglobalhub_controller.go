@@ -144,7 +144,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	// init DB and transport here
 	err = r.reconcileDatabase(ctx, mgh, types.NamespacedName{
-		Name:      mgh.Spec.PostgreSQL.Name,
+		Name:      mgh.Spec.Storage.Name,
 		Namespace: constants.HOHDefaultNamespace,
 	})
 	if err != nil {
@@ -201,7 +201,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			KafkaBootstrapServer string
 		}{
 			Image:                config.GetImage(annotations, "hub_of_hubs_manager"),
-			DBSecret:             mgh.Spec.PostgreSQL.Name,
+			DBSecret:             mgh.Spec.Storage.Name,
 			KafkaCA:              kafkaCA,
 			KafkaBootstrapServer: kafkaBootstrapServer,
 		}
@@ -658,7 +658,7 @@ func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *
 	kafkaSecret := &corev1.Secret{}
 	if err := c.Get(ctx, types.NamespacedName{
 		Namespace: constants.HOHDefaultNamespace,
-		Name:      mgh.Spec.Kafka.Name,
+		Name:      mgh.Spec.Transport.Name,
 	}, kafkaSecret); err != nil {
 		return "", "", err
 	}
