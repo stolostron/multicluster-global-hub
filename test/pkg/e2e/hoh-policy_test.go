@@ -42,11 +42,16 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}
 		httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
 
-		By("Get a managed cluster name")
-		managedClusters := getManagedCluster(httpClient, token)
-		Expect(len(managedClusters)).Should(BeNumerically(">", 1), "at least 2 managed clusters")
-		managedClusterName1 = managedClusters[0].Name
-		managedClusterName2 = managedClusters[1].Name
+		By("Get managed cluster name")
+		Eventually(func() error {
+			managedClusters := getManagedCluster(httpClient, token)
+			if len(managedClusters) <= 1 {
+				return fmt.Errorf("wrong number of managed cluster, should be %d, but found %d", 2, len(managedClusters))
+			}
+			managedClusterName1 = managedClusters[0].Name
+			managedClusterName2 = managedClusters[1].Name
+			return nil
+		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("add the label to a managedcluster for the policy", func() {
