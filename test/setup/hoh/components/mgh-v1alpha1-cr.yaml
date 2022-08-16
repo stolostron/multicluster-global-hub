@@ -13,7 +13,7 @@ metadata:
   # hoh-kafka-bootstrap-server: kafka-brokers-cluster-kafka-external-bootstrap-kafka.apps.testing.example.com
   name: multiclusterglobalhub
 spec:
-  kafka:
-    name: ${KAFKA_SECRET_NAME}
-  postgreSQL:
-    name: ${POSTGRES_SECRET_NAME}
+  transport:
+    name: ${TRANSPORT_SECRET_NAME}
+  storage:
+    name: ${STORAGE_SECRET_NAME}

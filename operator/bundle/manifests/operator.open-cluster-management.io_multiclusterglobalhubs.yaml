@@ -48,7 +48,7 @@ spec:
               enableLocalPolicies:
                 default: true
                 type: boolean
-              kafka:
+              storage:
                 description: LocalObjectReference contains enough information to let
                   you locate the referenced object inside the same namespace.
                 properties:
@@ -57,7 +57,7 @@ spec:
                       TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
                 type: object
-              postgreSQL:
+              transport:
                 description: LocalObjectReference contains enough information to let
                   you locate the referenced object inside the same namespace.
                 properties:

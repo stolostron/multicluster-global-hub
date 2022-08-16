@@ -938,7 +938,7 @@ func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *
 	kafkaSecret := &corev1.Secret{}
 	if err := c.Get(ctx, types.NamespacedName{
 		Namespace: constants.HOHDefaultNamespace,
-		Name:      mgh.Spec.Kafka.Name,
+		Name:      mgh.Spec.Transport.Name,
 	}, kafkaSecret); err != nil {
 		return "", "", err
 	}

@@ -89,7 +89,7 @@ func main() {
 	// build filtered resource map
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
 		SelectorsByObject: cache.SelectorsByObject{
-			&corev1.Secret{}: { // also cache postgresql-secret and kafka-secret
+			&corev1.Secret{}: { // also cache transport-secret and storage-secret
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": constants.HOHDefaultNamespace}),
 			},
 			&corev1.ConfigMap{}: {

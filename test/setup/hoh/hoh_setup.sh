@@ -32,8 +32,8 @@ kubectl patch deployment multicluster-operators-placementrule -n open-cluster-ma
 kubectl patch clustermanager cluster-manager --type merge -p '{"spec":{"placementImagePullSpec":"quay.io/open-cluster-management-hub-of-hubs/placement:hub-of-hubs@sha256:b7293b436dc00506b370762fb4eb352e7c6cc5413d135fc03c93ed311e7ed4c4"}}'
 echo "HoH images is updated!"
 
-export KAFKA_SECRET_NAME="kafka-secret"
-export POSTGRES_SECRET_NAME="postgresql-secret"
+export TRANSPORT_SECRET_NAME="transport-secret"
+export STORAGE_SECRET_NAME="storage-secret"
 envsubst < ${currentDir}/components/mgh-v1alpha1-cr.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
 
