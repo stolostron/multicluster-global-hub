@@ -61,7 +61,7 @@ func addConfigController(mgr ctrl.Manager) (*corev1.ConfigMap, error) {
 	// default value is full until the config is read from the CR
 
 	if err := configctl.AddConfigController(mgr,
-		ctrl.Log.WithName("hub-of-hubs-config"),
+		ctrl.Log.WithName("multicluster-globalhub-config"),
 		config,
 	); err != nil {
 		return nil, fmt.Errorf("failed to add config controller: %w", err)

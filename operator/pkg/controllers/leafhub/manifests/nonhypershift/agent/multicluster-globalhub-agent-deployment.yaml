@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hub-of-hubs-agent
+  name: multicluster-globalhub-agent
   namespace: open-cluster-management
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: hub-of-hubs-agent
+      name: multicluster-globalhub-agent
   template:
     metadata:
       labels:
-        name: hub-of-hubs-agent
+        name: multicluster-globalhub-agent
     spec:
-      serviceAccountName: hub-of-hubs-agent
+      serviceAccountName: multicluster-globalhub-agent
       containers:
-        - name: hub-of-hubs-agent
+        - name: multicluster-globalhub-agent
           image: {{.HoHAgentImage}}
           args:
             - '--zap-devel=true'

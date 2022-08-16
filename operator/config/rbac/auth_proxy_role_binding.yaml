@@ -8,5 +8,5 @@ roleRef:
   name: proxy-role
 subjects:
 - kind: ServiceAccount
-  name: hub-of-hubs-operator
+  name: multicluster-globalhub-operator
   namespace: open-cluster-management

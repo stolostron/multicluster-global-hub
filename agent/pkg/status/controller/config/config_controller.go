@@ -30,7 +30,7 @@ type hubOfHubsConfigController struct {
 func AddConfigController(mgr ctrl.Manager, configObject *corev1.ConfigMap) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
 		client:       mgr.GetClient(),
-		log:          ctrl.Log.WithName("hub-of-hubs-config"),
+		log:          ctrl.Log.WithName("multicluster-globalhub-config"),
 		configObject: configObject,
 	}
 

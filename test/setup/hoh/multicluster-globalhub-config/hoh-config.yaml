@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hub-of-hubs-config
+  name: multicluster-globalhub-config
   namespace: hoh-system
   labels:
-    name: hub-of-hubs-config
+    name: multicluster-globalhub-config
 data:
   aggregationLevel: "full"
   enableLocalPolicies: "true"

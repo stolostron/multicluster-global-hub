@@ -651,7 +651,7 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 	return workManifests, nil
 }
 
-// applyHoHAgentWork creates or updates hub-of-hubs-agent manifestwork
+// applyHoHAgentWork creates or updates multicluster-globalhub-agent manifestwork
 func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub,
 	managedClusterName string,
 ) error {
@@ -722,7 +722,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mg
 	return err
 }
 
-// applyHoHAgentHypershiftWork creates or updates hub-of-hubs-agent manifestwork
+// applyHoHAgentHypershiftWork creates or updates multicluster-globalhub-agent manifestwork
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.Logger,
 	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName string, hcConfig *config.HostedClusterConfig,
 ) error {

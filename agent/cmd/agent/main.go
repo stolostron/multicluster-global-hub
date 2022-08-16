@@ -40,7 +40,7 @@ const (
 	METRICS_PORT               = 9435
 	TRANSPORT_TYPE_KAFKA       = "kafka"
 	TRANSPORT_TYPE_SYNC_SVC    = "sync-service"
-	LEADER_ELECTION_ID         = "hub-of-hubs-agent-lock"
+	LEADER_ELECTION_ID         = "multicluster-globalhub-agent-lock"
 	HOH_LOCAL_NAMESPACE        = "hoh-local"
 	INCARNATION_CONFIG_MAP_KEY = "incarnation"
 	BASE10                     = 10
@@ -210,7 +210,8 @@ func createManager(consumer consumer.Consumer, producer producer.Producer,
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
-	if err := lease.AddHoHLeaseUpdater(mgr, environmentManager.PodNameSpace, "hub-of-hubs-controller"); err != nil {
+	if err := lease.AddHoHLeaseUpdater(mgr, environmentManager.PodNameSpace,
+		"multicluster-globalhub-controller"); err != nil {
 		return nil, fmt.Errorf("failed to add lease updater: %w", err)
 	}
 

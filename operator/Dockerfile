@@ -9,7 +9,7 @@ COPY go.sum go.mod ./
 COPY ./operator ./operator
 COPY ./pkg ./pkg
 
-RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o bin/hub-of-hubs-operator operator/main.go
+RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o bin/multicluster-globalhub-operator operator/main.go
 
 # Download console charts
 RUN git clone https://github.com/stolostron/hub-of-hubs-console-chart.git && \
@@ -19,12 +19,12 @@ RUN git clone https://github.com/stolostron/hub-of-hubs-console-chart.git && \
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
-ENV OPERATOR=/usr/local/bin/hub-of-hubs-operator \
+ENV OPERATOR=/usr/local/bin/multicluster-globalhub-operator \
     USER_UID=1001 \
     USER_NAME=operator
 
 # install operator binary
-COPY --from=builder /workspace/bin/hub-of-hubs-operator ${OPERATOR}
+COPY --from=builder /workspace/bin/multicluster-globalhub-operator ${OPERATOR}
 
 RUN microdnf install jq tar gzip && \
     microdnf update && \
@@ -55,4 +55,4 @@ COPY --from=builder /workspace/application-chart/stable/application-chart charts
 RUN mkdir .cache && chown ${USER_UID}:0 .cache && chmod 0777 .cache
 
 USER ${USER_UID}
-ENTRYPOINT ["/usr/local/bin/hub-of-hubs-operator"]
+ENTRYPOINT ["/usr/local/bin/multicluster-globalhub-operator"]

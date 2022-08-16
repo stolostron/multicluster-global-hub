@@ -1,4 +1,4 @@
-# hub-of-hubs-operator
+# multicluster-globalhub-operator
 
 The operator of Hub-of-Hubs (see: https://github.com/stolostron/multicluster-globalhub)
 
@@ -30,13 +30,13 @@ kubectl create secret generic kafka-secret -n "open-cluster-management" \
 1. Build and push your image to the location specified by `IMG`:
 
 ```bash
-make docker-build docker-push IMG=<some-registry>/hub-of-hubs-operator:<tag>
+make docker-build docker-push IMG=<some-registry>/multicluster-globalhub-operator:<tag>
 ```
 
 2. Deploy the controller to the cluster with the image specified by `IMG`:
 
 ```bash
-make deploy IMG=<some-registry>/hub-of-hubs-operator:<tag>
+make deploy IMG=<some-registry>/multicluster-globalhub-operator:<tag>
 ```
 
 3. Install Instances of Custom Resource:

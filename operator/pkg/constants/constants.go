@@ -19,7 +19,7 @@ package constants
 const (
 	HOHDefaultNamespace = "open-cluster-management"
 	HOHSystemNamespace  = "hoh-system"
-	HOHConfigName       = "hub-of-hubs-config"
+	HOHConfigName       = "multicluster-globalhub-config"
 	LocalClusterName    = "local-cluster"
 )
 
@@ -37,10 +37,10 @@ const (
 )
 
 const (
-	HoHClusterManagementAddonName               = "hub-of-hubs-controller"
+	HoHClusterManagementAddonName               = "multicluster-globalhub-controller"
 	HoHClusterManagementAddonDisplayName        = "Hub of Hubs Controller"
 	HoHClusterManagementAddonDescription        = "Hub of Hubs Controller manages hub-of-hubs components."
-	HoHManagedClusterAddonName                  = "hub-of-hubs-controller"
+	HoHManagedClusterAddonName                  = "multicluster-globalhub-controller"
 	HoHManagedClusterAddonDisplayName           = "Hub of Hubs Controller"
 	HoHManagedClusterAddonDescription           = "Hub of Hubs Controller manages hub-of-hubs components."
 	HoHManagedClusterAddonInstallationNamespace = "open-cluster-management"

@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hub-of-hubs-manager
+  name: multicluster-globalhub-manager
   namespace: open-cluster-management
   labels:
-    name: hub-of-hubs-manager
+    name: multicluster-globalhub-manager
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: hub-of-hubs-manager
+      name: multicluster-globalhub-manager
   template:
     metadata:
       labels:
-        name: hub-of-hubs-manager
+        name: multicluster-globalhub-manager
     spec:
-      serviceAccountName: hub-of-hubs-manager
+      serviceAccountName: multicluster-globalhub-manager
       containers:
-        - name: hub-of-hubs-manager
+        - name: multicluster-globalhub-manager
           image: "{{.Image}}"
           imagePullPolicy: Always
           args:
@@ -29,7 +29,7 @@ spec:
             - --kafka-ssl-ca={{.KafkaCA}}
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)
-            - --authorization-cabundle-path=/hub-of-hubs-rbac-ca/service-ca.crt
+            - --authorization-cabundle-path=/multicluster-globalhub-rbac-ca/service-ca.crt
             - --cluster-api-cabundle-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
             - --server-certificate-path=/certs/tls.crt
             - --server-key-path=/certs/tls.key
@@ -47,15 +47,15 @@ spec:
                   key: database_uri
           volumeMounts:
             - readOnly: true
-              mountPath: /hub-of-hubs-rbac-ca
-              name: hub-of-hubs-rbac-ca
+              mountPath: /multicluster-globalhub-rbac-ca
+              name: multicluster-globalhub-rbac-ca
             - readOnly: true
               mountPath: /certs
               name: certs
       volumes:
-        - name: hub-of-hubs-rbac-ca
+        - name: multicluster-globalhub-rbac-ca
           configMap:
-            name: hub-of-hubs-rbac-ca-bundle
+            name: multicluster-globalhub-rbac-ca-bundle
         - name: certs
           secret:
-            secretName: hub-of-hubs-manager-certs
+            secretName: multicluster-globalhub-manager-certs

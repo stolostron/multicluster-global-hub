@@ -2,7 +2,7 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   creationTimestamp: null
-  name: hub-of-hubs-operator-aggregated-clusterrole
+  name: multicluster-globalhub-operator-aggregated-clusterrole
 rules:
 - apiGroups:
   - "policy.open-cluster-management.io"
@@ -120,7 +120,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   creationTimestamp: null
-  name: hub-of-hubs-operator-aggregated-role
+  name: multicluster-globalhub-operator-aggregated-role
 rules:
 - apiGroups:
   - ""
@@ -166,7 +166,7 @@ rules:
 - apiGroups:
   - apps
   resourceNames:
-  - hub-of-hubs-manager
+  - multicluster-globalhub-manager
   resources:
   - deployments/finalizers
   verbs:

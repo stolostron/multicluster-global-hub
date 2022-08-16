@@ -4,7 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-  name: hub-of-hubs-operator.v0.0.0
+  name: multicluster-globalhub-operator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -16,9 +16,9 @@ spec:
       kind: MultiClusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha1
-  description: hub-of-hubs-operator defines the configuration for the hub-of-hubs
+  description: multicluster-globalhub-operator defines the configuration for the hub-of-hubs
     installation with one custom resource.
-  displayName: hub-of-hubs-operator
+  displayName: multicluster-globalhub-operator
   icon:
   - base64data: ""
     mediatype: ""

@@ -326,7 +326,8 @@ func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log l
 		return err
 	}
 
-	log.Info("checking status feedback value from hub mch manifestwork before applying hub-of-hubs-agent manifestwork")
+	log.Info("checking status feedback value from hub mch manifestwork" +
+		" before applying multicluster-globalhub-agent manifestwork")
 	mchIsReadyNum := 0
 	// if the MCH is Running, then create hoh agent manifestwork to install HoH agent
 	// ideally, the mch status should be in Running state.
@@ -358,11 +359,11 @@ func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log l
 		}
 	}
 	if mchIsReadyNum != 2 {
-		log.Info("hub MCH is not ready, won't apply the hub-of-hubs-agent manifestwork")
+		log.Info("hub MCH is not ready, won't apply the multicluster-globalhub-agent manifestwork")
 		return nil
 	}
 
-	// apply the hub-of-hubs-agent manifestwork
+	// apply the multicluster-globalhub-agent manifestwork
 	return applyHoHAgentWork(ctx, r.Client, log, mgh, managedClusterName)
 }
 
@@ -385,10 +386,9 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 		}
 	}
 
-	isChannelServiceReady, channelServiceIP :=
-		findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
+	isChannelServiceReady, channelServiceIP := findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
 	if !isChannelServiceReady {
-		log.Info("channel service is not ready, won't apply the hub-of-hubs-agent manifestwork")
+		log.Info("channel service is not ready, won't apply the multicluster-globalhub-agent manifestwork")
 		return nil
 	}
 
@@ -398,7 +398,7 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 		return err
 	}
 
-	// apply the hub-of-hubs-agent manifestwork
+	// apply the multicluster-globalhub-agent manifestwork
 	return applyHoHAgentHypershiftWork(ctx, r.Client, log, mgh, managedClusterName, hcConfig)
 }
 
