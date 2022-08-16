@@ -1,135 +1,84 @@
-# Hub of Hubs
+# Multicluster Global Hub Overview
+[![Build](https://img.shields.io/badge/build-Prow-informational)](https://prow.ci.openshift.org/?repo=stolostron%2F${multicluster-globalhub})
+[![SonarCloud](https://sonarcloud.io/images/project_badges/sonarcloud-white.svg)](https://sonarcloud.io/summary/new_code?id=open-cluster-management_hub-of-hubs)
 
-[![License](https://img.shields.io/github/license/stolostron/hub-of-hubs)](/LICENSE)
-
+This document attempts to explain how the different components in multicluster global hub come together to deliver multicluster management at very high scale. The multicluster-globalhub operator is the root operator which pulls in all things needed.
 ----
 
-Hub of Hubs provides multi-cluster management at very high scale.
+## Conceptual Diagram
+ 
+![ArchitectureDiagram](doc/architecture/multicluster-globalhub-arch.png)
 
-Hub of Hubs utilizes several standard [RHACM hub clusters](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.4/html/about/welcome-to-red-hat-advanced-cluster-management-for-kubernetes#hub-cluster)
-to provide cluster-management capabilities, such as applying compliance policies to managed clusters and monitoring
-compliance status, or managing application and cluster lifecycle, while addressing the scale and performance
-requirements of edge use cases.
+### Multicluster Global Hub Operator
+Operator for multicluster global hub. It is used to deploy all required components for multicluster management. The components include multicluster-globalhub-manager in the global hub cluster and multicluster-globalhub-agent in the hub cluster.
 
-Our [simulations](simulation.md) showed that a Hub of Hubs is able to manage one million clusters with hundreds of
-policies and/or applications applied to each cluster.
+The Operator also leverages the manifestwork to deploy the Advanced Cluster Management for Kubernetes in the managed cluster. So the managed cluster can be switched to a ACM Hub cluster.
 
-![ArchitectureDiagram](diagrams/ScalableHOHArchitecture.png)
+### Multicluster Global Hub Manager
+The manager is used to persist the data into the postgreSQL. The data is from Kafka transport. The manager is also used to post the data to Kafka transport so that it can be synced to the hub cluster.
 
-----
+### Multicluster Global Hub Agent
+The agent is running in the hub cluster. It is responsible to sync-up the data from the hub cluster to the global cluster hub via Kafka transport. For instance, sync-up the managed clusters' info from the hub cluster to the global hub cluster and sync-up the policy or application from the global hub cluster to the hub cluster.
 
-## Getting started
-
-The [demos](demos).
-
-## Deployment
-
-See [deployment scripts](deploy).
-
-## Repositories
-
-### Ansible playbooks to setup PostgreSQL
-
-* [hub-of-hubs-postgresql](https://github.com/stolostron/hub-of-hubs-postgresql)
-
-### Hub-of-Hubs components
-
-* [hub-of-hub-manager](https://github.com/stolostron/hub-of-hubs-manager)
-
-Note: [hub-of-hub-manager](https://github.com/stolostron/hub-of-hubs-manager) is an all-in-one repository that contains the following components in hub of hubs:
-
-  - [hub-of-hubs-spec-sync](https://github.com/stolostron/hub-of-hubs-spec-sync)
-  - [hub-of-hubs-status-sync](https://github.com/stolostron/hub-of-hubs-status-sync)
-  - [hub-of-hubs-spec-transport-bridge](https://github.com/stolostron/hub-of-hubs-spec-transport-bridge)
-  - [hub-of-hubs-status-transport-bridge](https://github.com/stolostron/hub-of-hubs-status-transport-bridge)
-  - [hub-of-hubs-nonk8s-api](https://github.com/stolostron/hub-of-hubs-nonk8s-api)
-
-#### RBAC
-
-* [hub-of-hubs-rbac](https://github.com/stolostron/hub-of-hubs-rbac)
-
-#### UI
-
-See [package diagram](ui_packages.md).
-
-* [hub-of-hubs-console](https://github.com/stolostron/hub-of-hubs-console)
-* [hub-of-hubs-console-chart](https://github.com/stolostron/hub-of-hubs-console-chart)
-* [hub-of-hubs-ui-components](https://github.com/stolostron/hub-of-hubs-ui-components)
-* [hub-of-hubs-grc-ui](https://github.com/stolostron/hub-of-hubs-grc-ui)
-
-### CLI
-
-* [hub-of-hubs-cli-plugins](https://github.com/stolostron/hub-of-hubs-cli-plugins)
-
-### Transport options
-
-* [hub-of-hubs-sync-service](https://github.com/stolostron/hub-of-hubs-sync-service)
-* [hub-of-hubs/pkg/kafka](https://github.com/stolostron/hub-of-hubs/pkg/kafka)
-
-### Message Compression
-
-* [hub-of-hubs-message-compression](https://github.com/stolostron/hub-of-hubs-message-compression)
-
-### Hub-of-Hubs-agent components
-
-* [hub-of-hub-agent](https://github.com/stolostron/hub-of-hubs-agent)
-
-Note: [hub-of-hub-agent](https://github.com/stolostron/hub-of-hubs-agent) is an all-in-one repository that contains the following components in leaf hubs:
-
-* [leaf-hub-spec-sync](https://github.com/stolostron/leaf-hub-spec-sync)
-* [leaf-hub-status-sync](https://github.com/stolostron/leaf-hub-status-sync)
-
-### Data types definitions
-
-* [hub-of-hubs-crds](https://github.com/stolostron/hub-of-hubs-crds)
-* [hub-of-hubs-data-types](https://github.com/stolostron/hub-of-hubs-data-types)
-
-### Custom repositories
-
-* Hub of Hubs
-  * https://github.com/vadimeisenbergibm/governance-policy-propagator/tree/no_status_update to prevent updating policy status by governance policy propagator
-
-## Development
-
-See [the development page](./development.md).
-
-### Simulation at high scale
-
-See [simulation at high scale](./simulation.md).
-
-### Contributing
-
-Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
-
-## Run E2E tests locally
-
-You can build a local hub-of-hubs environment with 1 Microshift cluster and 3 KinD clusters in 1 VM. Then running all the e2e test cases to verify the functions.
+## Quick Start Guide
 
 ### Prerequisites
-- KinD with version 0.12.0+
-- Docker Engine with 20.10.17+
-- kubectl CLI
-- [clusteradm CLI](https://github.com/open-cluster-management-io/clusteradm)
 
-### Setup a local environment
+1. Connect to a Kubernetes cluster with `kubectl`
+2. ACM or OCM is installed on the Kubernetes cluster
+3. PostgreSQL is installed and a database is created for hub-of-hubs, also a secret with name `postgresql-secret` that contains the credential should be created in `open-cluster-management` namespace. The credential format like `postgres://<user>:<password>@<host>:<port>/<database>`:
 
-All you need to do is running the command `make e2e-setup-start`, Then you will have a minimal hub-of-hubs environment. It should be noted that after running the command, it will take some time to set up the whole environment, and finally the value of `KUBECONFIG` will be printed on your terminal. You can use that to access your local hub-of-hubs clusters.
-
-### Run the E2E test cases
-
-You can type `make $COMPONENT` to run the corresponding E2E test, all possible values of `COMPONENT` are listed below:
-
-- `e2e-tests-connection`: Test connnection to the api-server and nonk8s-server
-- `e2e-tests-cluster`: Test whether the managed cluster is synced to the HoH server
-- `e2e-tests-label`: Test whether labels can be added or removed from a managed cluster
-- `e2e-tests-policy`: Test whether the global policy applied to the managed cluster can be deployed, scaled and deleted
-- `e2e-tests-local-policy` Test whether the local policy applied to the leaf hub can be deployed or deleted
-- `e2e-tests-app` Test whether the application can be applied, scaled, scheduled and deleted
-- `e2e-tests-all`: Test if all the E2E cases work properly
-
-### Clean up the local E2E environment
-
+```bash
+kubectl create secret generic postgresql-secret -n "open-cluster-management" \
+    --from-literal=database_uri=<postgresql-uri> 
 ```
-make e2e-setup-clean
+> You can run this sample script `./operator/config/samples/postgres/deploy_postgres.sh` to install postgres in `hoh-postgres` namespace and create the secret `postgresql-secret` in namespace `open-cluster-management` automatically. 
+
+4. Kafka is installed and two topics `spec` and `status` are created, also a secret with name `kafka-secret` that contains the kafka access information should be created in `open-cluster-management` namespace:
+
+```bash
+kubectl create secret generic kafka-secret -n "open-cluster-management" \
+    --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \
+    --from-literal=CA=<CA-for-kafka-server>
+```
+> As above, You can run this sample script `./operator/config/samples/kafka/deploy_kafka.sh` to install kafka in kafka namespace and create the secret `kafka-secret` in namespace `open-cluster-management` automatically. 
+
+### Run the operator in the cluster
+
+1. Build and push your image to the location specified by `IMG`:
+
+```bash
+make docker-build docker-push IMG=<some-registry>/multicluster-globalhub-operator:<tag>
 ```
 
+2. Deploy the controller to the cluster with the image specified by `IMG`:
+
+```bash
+make deploy IMG=<some-registry>/multicluster-globalhub-operator:<tag>
+```
+
+3. Install Instances of Custom Resource:
+
+```bash
+kubectl apply -k config/samples/
+```
+
+### Uninstall the operator
+
+1. Delete the multicluster-globalhub-operator CR:
+
+```bash
+kubectl delete mgh --all
+```
+
+2. Delete the multicluster-globalhub-operator:
+
+```bash
+make undeploy
+```
+
+3. To delete the multicluster global hub CRD from the cluster:
+
+```bash
+make uninstall
+```
