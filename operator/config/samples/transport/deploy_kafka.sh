@@ -66,4 +66,6 @@ kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners
 kubectl create secret generic ${transportSecret} -n "open-cluster-management" \
     --from-literal=bootstrap_server=$bootstrapServers \
     --from-file=CA=$currentDir/kafka-cert.pem
+
+rm $currentDir/kafka-cert.pem
 echo "transport secret is ready!"

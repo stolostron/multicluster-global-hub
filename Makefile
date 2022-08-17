@@ -29,6 +29,9 @@ push-operator-image:
 deploy-operator: 
 	cd operator && make deploy
 
+undeploy-operator:
+	cd operator && make undeploy
+
 build-manager-image: vendor
 	cd manager && make
 	docker build -t ${REGISTRY}/multicluster-globalhub-manager:${IMAGE_TAG} . -f manager/Dockerfile
