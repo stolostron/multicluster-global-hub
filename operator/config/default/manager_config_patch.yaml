@@ -1,13 +1,13 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multicluster-globalhub-operator
+  name: multicluster-global-hub-operator
   namespace: open-cluster-management
 spec:
   template:
     spec:
       containers:
-      - name: multicluster-globalhub-operator
+      - name: multicluster-global-hub-operator
         args:
         - "--config=controller_manager_config.yaml"
         volumeMounts:

@@ -3,8 +3,8 @@ package dbsyncer
 import (
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
 )
 
 const (

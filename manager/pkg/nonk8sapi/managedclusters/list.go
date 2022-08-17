@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/nonk8sapi/authentication"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/nonk8sapi/util"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/authentication"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
 )
 
 const (

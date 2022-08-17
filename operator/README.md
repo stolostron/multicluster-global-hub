@@ -1,6 +1,6 @@
-# multicluster-globalhub-operator
+# multicluster-global-hub-operator
 
-The operator of multicluster global hub (see: https://github.com/stolostron/multicluster-globalhub)
+The operator of multicluster global hub (see: https://github.com/stolostron/multicluster-global-hub)
 
 ## Prerequisites
 
@@ -30,13 +30,13 @@ kubectl create secret generic transport-secret -n "open-cluster-management" \
 1. Build and push your image to the location specified by `IMG`:
 
 ```bash
-make docker-build docker-push IMG=<some-registry>/multicluster-globalhub-operator:<tag>
+make docker-build docker-push IMG=<some-registry>/multicluster-global-hub-operator:<tag>
 ```
 
 2. Deploy the controller to the cluster with the image specified by `IMG`:
 
 ```bash
-make deploy IMG=<some-registry>/multicluster-globalhub-operator:<tag>
+make deploy IMG=<some-registry>/multicluster-global-hub-operator:<tag>
 ```
 
 3. Install Instances of Custom Resource:

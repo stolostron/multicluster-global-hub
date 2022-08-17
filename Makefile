@@ -21,27 +21,27 @@ clean-vendor:
 
 build-operator-image: vendor
 	cd operator && make
-	docker build -t ${REGISTRY}/multicluster-globalhub-operator:${IMAGE_TAG} . -f operator/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG} . -f operator/Dockerfile
 
 push-operator-image:
-	docker push ${REGISTRY}/multicluster-globalhub-operator:${IMAGE_TAG}
+	docker push ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG}
 
 deploy-operator: 
 	cd operator && make deploy
 
 build-manager-image: vendor
 	cd manager && make
-	docker build -t ${REGISTRY}/multicluster-globalhub-manager:${IMAGE_TAG} . -f manager/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG} . -f manager/Dockerfile
 
 push-manager-image:
-	docker push ${REGISTRY}/multicluster-globalhub-manager:${IMAGE_TAG}
+	docker push ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG}
 
 build-agent-image: vendor
 	cd agent && make
-	docker build -t ${REGISTRY}/multicluster-globalhub-agent:${IMAGE_TAG} . -f agent/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG} . -f agent/Dockerfile
 
 push-agent-image:
-	docker push ${REGISTRY}/multicluster-globalhub-agent:${IMAGE_TAG}
+	docker push ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG}
 
 .PHONY: unit-tests
 unit-tests: unit-tests-operator unit-tests-manager unit-tests-agent
@@ -79,6 +79,6 @@ e2e-prow-tests:
 
 .PHONY: fmt				##formats the code
 fmt:
-	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-globalhub)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
+	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
 	@go fmt ./agent/... ./manager/... ./operator/... ./pkg/... ./test/pkg/...
 	GOFUMPT_SPLIT_LONG_LINES=on gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/

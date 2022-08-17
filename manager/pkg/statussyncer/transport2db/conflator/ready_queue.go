@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statistics"
 )
 
 // NewConflationReadyQueue creates a new instance of ConflationReadyQueue.

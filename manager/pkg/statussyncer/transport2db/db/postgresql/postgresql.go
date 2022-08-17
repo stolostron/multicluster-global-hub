@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db/postgresql/batch"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/postgresql/batch"
 )
 
 var (

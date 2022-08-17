@@ -28,8 +28,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# open-cluster-management.io/multicluster-globalhub-operator-bundle:$VERSION and open-cluster-management.io/multicluster-globalhub-operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= open-cluster-management.io/multicluster-globalhub-operator
+# open-cluster-management.io/multicluster-global-hub-operator-bundle:$VERSION and open-cluster-management.io/multicluster-global-hub-operator-catalog:$VERSION.
+IMAGE_TAG_BASE ?= open-cluster-management.io/multicluster-global-hub-operator
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -47,7 +47,7 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/stolostron/multicluster-globalhub-operator:latest
+IMG ?= quay.io/stolostron/multicluster-global-hub-operator:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
 
@@ -88,7 +88,7 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=multicluster-globalhub-operator-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=multicluster-global-hub-operator-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -109,19 +109,19 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 
 .PHONY: build
-build: generate fmt vet ## Build multicluster-globalhub-operator binary.
-	go build -o bin/multicluster-globalhub-operator main.go
+build: generate fmt vet ## Build multicluster-global-hub-operator binary.
+	go build -o bin/multicluster-global-hub-operator main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
 .PHONY: docker-build
-docker-build: test ## Build docker image with the multicluster-globalhub-operator.
+docker-build: test ## Build docker image with the multicluster-global-hub-operator.
 	docker build -t ${IMG} .. -f Dockerfile
 
 .PHONY: docker-push
-docker-push: ## Push docker image with the multicluster-globalhub-operator.
+docker-push: ## Push docker image with the multicluster-global-hub-operator.
 	docker push ${IMG}
 
 ##@ Deployment
@@ -140,7 +140,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image quay.io/stolostron/multicluster-globalhub-operator=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image quay.io/stolostron/multicluster-global-hub-operator=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy
@@ -182,7 +182,7 @@ $(ENVTEST): $(LOCALBIN)
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
 	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image quay.io/stolostron/multicluster-globalhub-operator=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image quay.io/stolostron/multicluster-global-hub-operator=${IMG}
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle $(BUNDLE_GEN_FLAGS)
 	operator-sdk bundle validate ./bundle
 

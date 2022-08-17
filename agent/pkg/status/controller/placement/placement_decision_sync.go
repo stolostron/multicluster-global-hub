@@ -7,11 +7,11 @@ import (
 	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/generic"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/syncintervals"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/transport/producer"
-	"github.com/stolostron/multicluster-globalhub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (

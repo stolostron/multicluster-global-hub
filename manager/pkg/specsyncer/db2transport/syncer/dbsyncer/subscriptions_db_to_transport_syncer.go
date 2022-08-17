@@ -9,10 +9,10 @@ import (
 	subscriptionv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/intervalpolicy"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport"
 )
 
 const (

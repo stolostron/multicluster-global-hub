@@ -12,13 +12,13 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statistics"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
-	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
-	kafkaclient "github.com/stolostron/multicluster-globalhub/pkg/kafka"
-	"github.com/stolostron/multicluster-globalhub/pkg/kafka/headers"
-	kafkaconsumer "github.com/stolostron/multicluster-globalhub/pkg/kafka/kafka-consumer"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	kafkaclient "github.com/stolostron/multicluster-global-hub/pkg/kafka"
+	"github.com/stolostron/multicluster-global-hub/pkg/kafka/headers"
+	kafkaconsumer "github.com/stolostron/multicluster-global-hub/pkg/kafka/kafka-consumer"
 )
 
 const (

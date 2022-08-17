@@ -8,11 +8,11 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport"
-	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
-	kafkaclient "github.com/stolostron/multicluster-globalhub/pkg/kafka"
-	"github.com/stolostron/multicluster-globalhub/pkg/kafka/headers"
-	kafkaproducer "github.com/stolostron/multicluster-globalhub/pkg/kafka/kafka-producer"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	kafkaclient "github.com/stolostron/multicluster-global-hub/pkg/kafka"
+	"github.com/stolostron/multicluster-global-hub/pkg/kafka/headers"
+	kafkaproducer "github.com/stolostron/multicluster-global-hub/pkg/kafka/kafka-producer"
 )
 
 const (

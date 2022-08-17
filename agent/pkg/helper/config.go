@@ -8,7 +8,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
 
-	kafkaclient "github.com/stolostron/multicluster-globalhub/pkg/kafka"
+	kafkaclient "github.com/stolostron/multicluster-global-hub/pkg/kafka"
 )
 
 const (

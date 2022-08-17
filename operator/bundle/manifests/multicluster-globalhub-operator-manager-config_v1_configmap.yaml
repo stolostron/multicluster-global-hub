@@ -14,4 +14,4 @@ data:
       resourceName: 549a8919.open-cluster-management.io
 kind: ConfigMap
 metadata:
-  name: multicluster-globalhub-operator-manager-config
+  name: multicluster-global-hub-operator-manager-config

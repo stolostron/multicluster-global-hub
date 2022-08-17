@@ -22,15 +22,15 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
 var (
 	hohMGHNamespacedName = types.NamespacedName{}
 	imageManifests       = map[string]string{
-		"hub_of_hubs_agent":       "quay.io/stolostron/multicluster-globalhub-agent:latest",
-		"hub_of_hubs_manager":     "quay.io/stolostron/multicluster-globalhub-manager:latest",
-		"hub_of_hubs_console_job": "quay.io/stolostron/multicluster-globalhub-operator:latest",
+		"hub_of_hubs_agent":       "quay.io/stolostron/multicluster-global-hub-agent:latest",
+		"hub_of_hubs_manager":     "quay.io/stolostron/multicluster-global-hub-manager:latest",
+		"hub_of_hubs_console_job": "quay.io/stolostron/multicluster-global-hub-operator:latest",
 		"hub_of_hubs_rbac":        "quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-rbac:latest",
 	}
 )
@@ -58,7 +58,7 @@ func SetImageManifests(images map[string]string) {
 func GetImage(annotations map[string]string, componentName string) string {
 	if annotations != nil {
 		// dev/test only. e.g.
-		// use annotation key "hoh-hub_of_hubs_manager-image" to override multicluster-globalhub-manager image
+		// use annotation key "hoh-hub_of_hubs_manager-image" to override multicluster-global-hub-manager image
 		componentImage, overrideImage := annotations["hoh-"+componentName+"-image"]
 		if overrideImage && componentImage != "" {
 			return componentImage

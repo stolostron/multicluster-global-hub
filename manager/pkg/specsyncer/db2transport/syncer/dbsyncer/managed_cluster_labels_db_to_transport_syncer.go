@@ -7,10 +7,10 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/intervalpolicy"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport"
-	"github.com/stolostron/multicluster-globalhub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const managedClusterLabelsDBTableName = "managed_clusters_labels"

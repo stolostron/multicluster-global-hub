@@ -10,12 +10,12 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
 
-	helper "github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
-	bundle "github.com/stolostron/multicluster-globalhub/agent/pkg/spec/bundle"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/transport"
-	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
-	"github.com/stolostron/multicluster-globalhub/pkg/kafka/headers"
-	kafkaconsumer "github.com/stolostron/multicluster-globalhub/pkg/kafka/kafka-consumer"
+	helper "github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
+	bundle "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/pkg/kafka/headers"
+	kafkaconsumer "github.com/stolostron/multicluster-global-hub/pkg/kafka/kafka-consumer"
 )
 
 // Consumer abstracts hub-of-hubs/pkg/kafka kafka-consumer's generic usage.

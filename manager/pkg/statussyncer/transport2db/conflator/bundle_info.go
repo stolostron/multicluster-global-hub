@@ -1,8 +1,8 @@
 package conflator
 
 import (
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
 )
 
 // createBundleInfoFunc function that specifies how to create a bundle-info.

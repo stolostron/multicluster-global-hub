@@ -24,8 +24,8 @@ type clusterRoleController struct {
 
 const (
 	HubOfHubsCreateByKey     = "hub-of-hubs.open-cluster-management.io/create-by"
-	HubOfHubsCreateByValue   = "multicluster-globalhub-agent"
-	HubOfHubsClusterRoleName = "open-cluster-management:multicluster-globalhub-managedcluster-creation"
+	HubOfHubsCreateByValue   = "multicluster-global-hub-agent"
+	HubOfHubsClusterRoleName = "open-cluster-management:multicluster-global-hub-managedcluster-creation"
 )
 
 func (c *clusterRoleController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {

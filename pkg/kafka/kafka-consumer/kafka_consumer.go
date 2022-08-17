@@ -9,7 +9,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
 
-	kafkaheaders "github.com/stolostron/multicluster-globalhub/pkg/kafka/headers"
+	kafkaheaders "github.com/stolostron/multicluster-global-hub/pkg/kafka/headers"
 )
 
 const pollTimeoutMs = 100

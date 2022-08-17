@@ -1,6 +1,6 @@
 package bundle
 
-import "github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
+import "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 
 // CreateBundleFunction function that specifies how to create a bundle.
 type CreateBundleFunction func() Bundle

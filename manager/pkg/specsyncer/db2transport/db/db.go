@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/multicluster-globalhub/pkg/bundle/spec"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 )
 
 // DB is the needed interface for the spec/status syncer and spec/status transport

@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multicluster-globalhub-manager
+  name: multicluster-global-hub-manager
   namespace: open-cluster-management
   labels:
-    name: multicluster-globalhub-manager
+    name: multicluster-global-hub-manager
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: multicluster-globalhub-manager
+      name: multicluster-global-hub-manager
   template:
     metadata:
       labels:
-        name: multicluster-globalhub-manager
+        name: multicluster-global-hub-manager
     spec:
-      serviceAccountName: multicluster-globalhub-manager
+      serviceAccountName: multicluster-global-hub-manager
       containers:
-        - name: multicluster-globalhub-manager
+        - name: multicluster-global-hub-manager
           image: "{{.Image}}"
           imagePullPolicy: Always
           args:
@@ -29,7 +29,7 @@ spec:
             - --kafka-ssl-ca={{.KafkaCA}}
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)
-            - --authorization-cabundle-path=/multicluster-globalhub-rbac-ca/service-ca.crt
+            - --authorization-cabundle-path=/multicluster-global-hub-rbac-ca/service-ca.crt
             - --cluster-api-cabundle-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
             - --server-certificate-path=/certs/tls.crt
             - --server-key-path=/certs/tls.key
@@ -47,15 +47,15 @@ spec:
                   key: database_uri
           volumeMounts:
             - readOnly: true
-              mountPath: /multicluster-globalhub-rbac-ca
-              name: multicluster-globalhub-rbac-ca
+              mountPath: /multicluster-global-hub-rbac-ca
+              name: multicluster-global-hub-rbac-ca
             - readOnly: true
               mountPath: /certs
               name: certs
       volumes:
-        - name: multicluster-globalhub-rbac-ca
+        - name: multicluster-global-hub-rbac-ca
           configMap:
-            name: multicluster-globalhub-rbac-ca-bundle
+            name: multicluster-global-hub-rbac-ca-bundle
         - name: certs
           secret:
-            secretName: multicluster-globalhub-manager-certs
+            secretName: multicluster-global-hub-manager-certs

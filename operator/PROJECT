@@ -5,8 +5,8 @@ multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: multicluster-globalhub-operator
-repo: github.com/stolostron/multicluster-globalhub-operator
+projectName: multicluster-global-hub-operator
+repo: github.com/stolostron/multicluster-global-hub-operator
 resources:
 - api:
     crdVersion: v1
@@ -15,6 +15,6 @@ resources:
   domain: open-cluster-management.io
   group: operator
   kind: MultiClusterGlobalHub
-  path: github.com/stolostron/multicluster-globalhub-operator/apis/operator/v1alpha1
+  path: github.com/stolostron/multicluster-global-hub-operator/apis/operator/v1alpha1
   version: v1alpha1
 version: "3"

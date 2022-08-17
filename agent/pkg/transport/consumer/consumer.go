@@ -1,6 +1,6 @@
 package consumer
 
-import bundle "github.com/stolostron/multicluster-globalhub/agent/pkg/spec/bundle"
+import bundle "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
 
 // Transport is an interface for transport layer.
 type Consumer interface {

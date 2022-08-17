@@ -6,9 +6,9 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statistics"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
 )
 
 // NewDBWorker creates a new instance of DBWorker.

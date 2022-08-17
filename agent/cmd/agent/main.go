@@ -24,15 +24,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/controllers"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/lease"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/spec/bundle"
-	specController "github.com/stolostron/multicluster-globalhub/agent/pkg/spec/controller"
-	statusController "github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller"
-	consumer "github.com/stolostron/multicluster-globalhub/agent/pkg/transport/consumer"
-	producer "github.com/stolostron/multicluster-globalhub/agent/pkg/transport/producer"
-	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
+	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
+	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
+	consumer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/consumer"
+	producer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 )
 
 const (
@@ -40,7 +40,7 @@ const (
 	METRICS_PORT               = 9435
 	TRANSPORT_TYPE_KAFKA       = "kafka"
 	TRANSPORT_TYPE_SYNC_SVC    = "sync-service"
-	LEADER_ELECTION_ID         = "multicluster-globalhub-agent-lock"
+	LEADER_ELECTION_ID         = "multicluster-global-hub-agent-lock"
 	HOH_LOCAL_NAMESPACE        = "hoh-local"
 	INCARNATION_CONFIG_MAP_KEY = "incarnation"
 	BASE10                     = 10
@@ -211,7 +211,7 @@ func createManager(consumer consumer.Consumer, producer producer.Producer,
 	}
 
 	if err := lease.AddHoHLeaseUpdater(mgr, environmentManager.PodNameSpace,
-		"multicluster-globalhub-controller"); err != nil {
+		"multicluster-global-hub-controller"); err != nil {
 		return nil, fmt.Errorf("failed to add lease updater: %w", err)
 	}
 

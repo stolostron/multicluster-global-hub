@@ -9,11 +9,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/generic"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/controller/syncintervals"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
 )
 
 const (

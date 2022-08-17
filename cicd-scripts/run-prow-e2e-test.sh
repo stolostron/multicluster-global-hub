@@ -10,17 +10,17 @@ HOST="ec2-user@${IP}"
 OPT=(-q -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -i "${KEY}")
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." ; pwd -P)"
-HOST_DIR="/tmp/multicluster-globalhub"
+HOST_DIR="/tmp/multicluster-global-hub"
 
-echo "export MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF=$MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
-echo "export MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF=$MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
-echo "export MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF=$MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
+echo "export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF=$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
+echo "export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF=$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
+echo "export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF=$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
 echo "export OPENSHIFT_CI=$OPENSHIFT_CI" >> ${ROOT_DIR}/test/resources/env.list
 echo "export LOG=/dev/stdout" >> ${ROOT_DIR}/test/resources/env.list
 echo "export LEAF_HUB_LOG=/dev/stdout" >> ${ROOT_DIR}/test/resources/env.list
 echo "export VERBOSE=6" >> ${ROOT_DIR}/test/resources/env.list
 
-scp "${OPT[@]}" -r ../multicluster-globalhub "$HOST:$HOST_DIR"
+scp "${OPT[@]}" -r ../multicluster-global-hub "$HOST:$HOST_DIR"
 
 ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget jq -y 
 echo "setup e2e environment"

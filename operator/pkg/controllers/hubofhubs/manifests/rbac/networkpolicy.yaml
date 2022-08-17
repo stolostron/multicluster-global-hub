@@ -5,11 +5,11 @@ metadata:
   name: allow-within-namespace-for-opa
   namespace: open-cluster-management
   labels:
-    name: multicluster-globalhub-rbac
+    name: multicluster-global-hub-rbac
 spec:
   podSelector:
     matchLabels:
-      name: multicluster-globalhub-rbac
+      name: multicluster-global-hub-rbac
   ingress:
   - from:
     - podSelector: {}

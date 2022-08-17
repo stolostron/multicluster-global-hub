@@ -4,7 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-  name: multicluster-globalhub-operator.v0.0.0
+  name: multicluster-global-hub-operator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -16,9 +16,9 @@ spec:
       kind: MultiClusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha1
-  description: multicluster-globalhub-operator defines the configuration for multicluster
+  description: multicluster-global-hub-operator defines the configuration for multicluster
     global hub installation with one custom resource.
-  displayName: multicluster-globalhub-operator
+  displayName: multicluster-global-hub-operator
   icon:
   - base64data: ""
     mediatype: ""
@@ -36,16 +36,16 @@ spec:
   - supported: true
     type: AllNamespaces
   keywords:
-  - multicluster-globalhub
+  - multicluster-global-hub
   - multiple-hubs
   links:
   - name: Hub Of Hubs Operator
-    url: https://github.com/stolostron/multicluster-globalhub
+    url: https://github.com/stolostron/multicluster-global-hub
   maintainers:
   - email: acm-contact@redhat.com
     name: acm-contact
   maturity: alpha
   provider:
     name: Red Hat, Inc
-    url: https://github.com/stolostron/multicluster-globalhub
+    url: https://github.com/stolostron/multicluster-global-hub
   version: 0.0.1

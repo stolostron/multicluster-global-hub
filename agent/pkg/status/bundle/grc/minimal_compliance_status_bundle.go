@@ -5,9 +5,9 @@ import (
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	bundlepkg "github.com/stolostron/multicluster-globalhub/agent/pkg/status/bundle"
-	statusbundle "github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
-	"github.com/stolostron/multicluster-globalhub/pkg/constants"
+	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.

@@ -2,8 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    name: multicluster-globalhub-operator
-  name: multicluster-globalhub-operator-metrics-service
+    name: multicluster-global-hub-operator
+  name: multicluster-global-hub-operator-metrics-service
   namespace: open-cluster-management
 spec:
   ports:
@@ -12,4 +12,4 @@ spec:
     protocol: TCP
     targetPort: https
   selector:
-    name: multicluster-globalhub-operator
+    name: multicluster-global-hub-operator

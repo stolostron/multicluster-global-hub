@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
 type packageManifestConfig struct {

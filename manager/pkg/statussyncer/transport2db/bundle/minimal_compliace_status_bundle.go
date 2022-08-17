@@ -1,6 +1,6 @@
 package bundle
 
-import "github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
+import "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
 func NewMinimalComplianceStatusBundle() Bundle {

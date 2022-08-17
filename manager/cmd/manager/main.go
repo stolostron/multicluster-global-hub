@@ -20,24 +20,24 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/nonk8sapi"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/scheme"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	specsyncer "github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/syncer"
-	spectransport "github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport"
-	speckafka "github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport/kafka"
-	specsyncservice "github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/transport/syncservice"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/spec2db"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statistics"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/db2status"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/status"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db/workerpool"
-	statussyncer "github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/syncer"
-	statustransport "github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
-	statuskafka "github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport/kafka"
-	statussyncservice "github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport/syncservice"
-	"github.com/stolostron/multicluster-globalhub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
+	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
+	spectransport "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport"
+	speckafka "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport/kafka"
+	specsyncservice "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport/syncservice"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/db2status"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/status"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
+	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
+	statustransport "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	statuskafka "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/kafka"
+	statussyncservice "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/syncservice"
+	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 )
 
 const (
@@ -45,7 +45,7 @@ const (
 	metricsPort                  int32 = 8384
 	kafkaTransportTypeName             = "kafka"
 	syncServiceTransportTypeName       = "sync-service"
-	leaderElectionLockName             = "multicluster-globalhub-lock"
+	leaderElectionLockName             = "multicluster-global-hub-lock"
 	initializationFailMsg              = "initialization error"
 	initializationFailKey              = "failed to initialize"
 	transportType                      = "transport-type"
@@ -155,10 +155,10 @@ func parseFlags() (*hohManagerConfig, error) {
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path",
 		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationURL, "authorization-url",
-		"https://multicluster-globalhub-rbac.open-cluster-management.svc:8181",
+		"https://multicluster-global-hub-rbac.open-cluster-management.svc:8181",
 		"The authorization URL for nonK8s API server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationCABundlePath, "authorization-cabundle-path",
-		"/multicluster-globalhub-rbac-ca/service-ca.crt", "The CA bundle path for authorization server.")
+		"/multicluster-global-hub-rbac-ca/service-ca.crt", "The CA bundle path for authorization server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerCertificatePath, "server-certificate-path",
 		"/certs/tls.crt", "The certificate path for nonK8s API server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerKeyPath, "server-key-path",

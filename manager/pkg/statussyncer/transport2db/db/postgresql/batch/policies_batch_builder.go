@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
 )
 
 const (
@@ -86,8 +86,7 @@ func (builder *PoliciesBatchBuilder) DeleteClusterStatus(policyID string, cluste
 	_, found := builder.deleteClusterComplianceArgs[policyID]
 	if !found {
 		// first args of the delete statement are policyID and leafHubName
-		builder.deleteClusterComplianceArgs[policyID] =
-			append(make([]interface{}, 0), policyID, builder.leafHubName)
+		builder.deleteClusterComplianceArgs[policyID] = append(make([]interface{}, 0), policyID, builder.leafHubName)
 	}
 
 	builder.deleteClusterComplianceArgs[policyID] = append(

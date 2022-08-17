@@ -6,13 +6,13 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
-	"github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
-	"github.com/stolostron/multicluster-globalhub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // NewControlInfoDBSyncer creates a new instance of ControlInfoDBSyncer.

@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 
-	"github.com/stolostron/multicluster-globalhub/test/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
 var _ = Describe("Check all the clients could connect to the HoH servers", Label("e2e-tests-connection"), func() {

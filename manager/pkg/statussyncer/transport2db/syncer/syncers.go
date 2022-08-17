@@ -7,12 +7,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db/workerpool"
-	configctl "github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/syncer/config"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
+	configctl "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
 )
 
 // AddTransport2DBSyncers performs the initial setup required before starting the runtime manager.
@@ -61,7 +61,7 @@ func addConfigController(mgr ctrl.Manager) (*corev1.ConfigMap, error) {
 	// default value is full until the config is read from the CR
 
 	if err := configctl.AddConfigController(mgr,
-		ctrl.Log.WithName("multicluster-globalhub-config"),
+		ctrl.Log.WithName("multicluster-global-hub-config"),
 		config,
 	); err != nil {
 		return nil, fmt.Errorf("failed to add config controller: %w", err)

@@ -1,9 +1,9 @@
 # This patch inject a sidecar container which is a HTTP proxy for the
-# multicluster-globalhub-operator, it performs RBAC authorization against the Kubernetes API using SubjectAccessReviews.
+# multicluster-global-hub-operator, it performs RBAC authorization against the Kubernetes API using SubjectAccessReviews.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multicluster-globalhub-operator
+  name: multicluster-global-hub-operator
   namespace: open-cluster-management
 spec:
   template:
@@ -27,7 +27,7 @@ spec:
           requests:
             cpu: 5m
             memory: 64Mi
-      - name: multicluster-globalhub-operator
+      - name: multicluster-global-hub-operator
         args:
         - "--health-probe-bind-address=:8081"
         - "--metrics-bind-address=127.0.0.1:8080"

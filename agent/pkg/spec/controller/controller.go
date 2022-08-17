@@ -7,10 +7,10 @@ import (
 	clustersv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/spec/controller/syncers"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/spec/controller/workers"
-	consumer "github.com/stolostron/multicluster-globalhub/agent/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
+	consumer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/consumer"
 )
 
 // AddToScheme adds only resources that have to be fetched.

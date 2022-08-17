@@ -16,10 +16,10 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/nonk8sapi/authentication"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/nonk8sapi/managedclusters"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/nonk8sapi/policies"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/authentication"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/managedclusters"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/policies"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 )
 
 const secondsToFinishOnShutdown = 5
