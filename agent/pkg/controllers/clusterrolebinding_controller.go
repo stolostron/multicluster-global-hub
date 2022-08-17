@@ -14,6 +14,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 type clusterRoleBindingController struct {
@@ -49,7 +51,7 @@ func createClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: HubOfHubsClusterRoleName,
 			Labels: map[string]string{
-				HubOfHubsCreateByKey: HubOfHubsCreateByValue,
+				constants.GlobalHubOwnerLabelKey: constants.HoHAgentOwnerLabelValue,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -70,7 +72,7 @@ func createClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 func AddClusterRoleBindingController(mgr ctrl.Manager) error {
 	clusterRoleBindingPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			HubOfHubsCreateByKey: HubOfHubsCreateByValue,
+			constants.GlobalHubOwnerLabelKey: constants.HoHAgentOwnerLabelValue,
 		},
 	})
 	if err := ctrl.NewControllerManagedBy(mgr).

@@ -34,7 +34,7 @@ func AddPlacementRuleController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("placementrules-spec-syncer"),
 			tableName:      "placementrules",
-			finalizerName:  hohCleanupFinalizer,
+			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &placementrulev1.PlacementRule{} },
 			cleanStatus:    cleanPlacementRuleStatus,
 			areEqual:       arePlacementRulesEqual,

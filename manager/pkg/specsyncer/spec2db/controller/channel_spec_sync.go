@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
@@ -26,7 +27,7 @@ func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("channels-spec-syncer"),
 			tableName:      "channels",
-			finalizerName:  hohCleanupFinalizer,
+			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &channelv1.Channel{} },
 			cleanStatus:    cleanChannelStatus,
 			areEqual:       areChannelsEqual,

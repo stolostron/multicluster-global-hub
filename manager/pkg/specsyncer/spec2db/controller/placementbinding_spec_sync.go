@@ -34,7 +34,7 @@ func AddPlacementBindingController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("placementbindings-spec-syncer"),
 			tableName:      "placementbindings",
-			finalizerName:  hohCleanupFinalizer,
+			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &policyv1.PlacementBinding{} },
 			cleanStatus:    cleanPlacementBindingStatus,
 			areEqual:       arePlacementBindingsEqual,

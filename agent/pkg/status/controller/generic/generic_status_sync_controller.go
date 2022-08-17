@@ -26,10 +26,6 @@ const REQUEUE_PERIOD = 5 * time.Second
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
-const (
-	hubOfHubsCleanupFinalizer = "hub-of-hubs.open-cluster-management.io/resource-cleanup"
-)
-
 type genericStatusSyncController struct {
 	client                  client.Client
 	log                     logr.Logger
@@ -52,7 +48,7 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, producer p
 		log:                     ctrl.Log.WithName(logName),
 		transport:               producer,
 		orderedBundleCollection: orderedBundleCollection,
-		finalizerName:           hubOfHubsCleanupFinalizer,
+		finalizerName:           constants.GlobalHubCleanupFinalizer,
 		createBundleObjFunc:     createObjFunc,
 		resolveSyncIntervalFunc: resolveSyncIntervalFunc,
 		lock:                    sync.Mutex{},

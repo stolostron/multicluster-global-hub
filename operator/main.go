@@ -47,6 +47,7 @@ import (
 	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -93,55 +94,55 @@ func main() {
 				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": constants.HOHDefaultNamespace}),
 			},
 			&corev1.ConfigMap{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&corev1.ServiceAccount{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&corev1.Service{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&appsv1.Deployment{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&batchv1.Job{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&rbacv1.Role{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&rbacv1.RoleBinding{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&rbacv1.ClusterRole{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&rbacv1.ClusterRoleBinding{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&networkingv1.Ingress{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&networkingv1.NetworkPolicy{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&clusterv1beta1.ManagedClusterSetBinding{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&clusterv1beta1.Placement{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&clusterv1.ManagedCluster{}: {
 				Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
 			},
 			&workv1.ManifestWork{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&addonv1alpha1.ClusterManagementAddOn{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 			&addonv1alpha1.ManagedClusterAddOn{}: {
-				Label: labels.SelectorFromSet(labels.Set{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+				Label: labels.SelectorFromSet(labels.Set{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 			},
 		},
 	})

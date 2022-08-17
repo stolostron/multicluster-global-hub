@@ -4,7 +4,7 @@ metadata:
   name: default
   namespace: open-cluster-management
   labels:
-    hub-of-hubs.open-cluster-management.io/used-by: hub-of-hubs
+    global-hub.open-cluster-management.io/managed-by: multicluster-global-hub-operator
 spec:
   numberOfClusters: 1
   prioritizerPolicy:

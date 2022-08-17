@@ -28,7 +28,7 @@ func AddHubOfHubsConfigController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("hoh-configs-spec-syncer"),
 			tableName:      "configs",
-			finalizerName:  hohCleanupFinalizer,
+			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &corev1.ConfigMap{} },
 			cleanStatus:    cleanConfigStatus,
 			areEqual:       areConfigsEqual,

@@ -14,12 +14,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
-	placementRuleSyncLog           = "placement-rules-sync"
-	PlacementRuleMsgKey            = "PlacementRule"
-	OriginOwnerReferenceAnnotation = "hub-of-hubs.open-cluster-management.io/originOwnerReferenceUid"
+	placementRuleSyncLog = "placement-rules-sync"
+	PlacementRuleMsgKey  = "PlacementRule"
 )
 
 // AddPlacementRulesController adds placement-rule controller to the manager.
@@ -37,7 +37,7 @@ func AddPlacementRulesController(mgr ctrl.Manager, transport producer.Producer, 
 
 	// TODO datatypes.OriginOwnerReferenceAnnotation
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return helper.HasAnnotation(object, OriginOwnerReferenceAnnotation)
+		return helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 
 	if err := generic.NewGenericStatusSyncController(mgr, placementRuleSyncLog, transport, bundleCollection,

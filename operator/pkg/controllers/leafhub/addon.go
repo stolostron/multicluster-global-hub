@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // applyClusterManagementAddon creates or updates ClusterManagementAddOn for multicluster-global-hub
@@ -52,7 +53,8 @@ func applyClusterManagementAddon(ctx context.Context, c client.Client, log logr.
 	if !equality.Semantic.DeepDerivative(newHoHClusterManagementAddOn.Spec,
 		existingHoHClusterManagementAddOn.Spec) {
 		log.Info("updating hoh clustermanagementaddon because it is changed", "name", newHoHClusterManagementAddOn.GetName())
-		newHoHClusterManagementAddOn.ObjectMeta.ResourceVersion = existingHoHClusterManagementAddOn.ObjectMeta.ResourceVersion
+		newHoHClusterManagementAddOn.ObjectMeta.ResourceVersion =
+			existingHoHClusterManagementAddOn.ObjectMeta.ResourceVersion
 		return c.Update(ctx, newHoHClusterManagementAddOn)
 	}
 
@@ -80,7 +82,7 @@ func buildClusterManagementAddon() *addonv1alpha1.ClusterManagementAddOn {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.HoHClusterManagementAddonName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: addonv1alpha1.ClusterManagementAddOnSpec{
@@ -124,7 +126,8 @@ func applyManagedClusterAddon(ctx context.Context, c client.Client, log logr.Log
 			"namespace", newHoHManagedClusterAddon.GetNamespace(),
 			"name", newHoHManagedClusterAddon.GetName(),
 			"managedcluster", managedClusterName)
-		newHoHManagedClusterAddon.ObjectMeta.ResourceVersion = existingHoHManagedClusterAddon.ObjectMeta.ResourceVersion
+		newHoHManagedClusterAddon.ObjectMeta.ResourceVersion =
+			existingHoHManagedClusterAddon.ObjectMeta.ResourceVersion
 		return c.Update(ctx, newHoHManagedClusterAddon)
 	}
 
@@ -158,7 +161,7 @@ func buildManagedClusterAddon(managedClusterName string) *addonv1alpha1.ManagedC
 			Name:      constants.HoHManagedClusterAddonName,
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: addonv1alpha1.ManagedClusterAddOnSpec{

@@ -158,7 +158,8 @@ func parseFlags() (*hohManagerConfig, error) {
 		"https://multicluster-global-hub-rbac.open-cluster-management.svc:8181",
 		"The authorization URL for nonK8s API server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.AuthorizationCABundlePath, "authorization-cabundle-path",
-		"/multicluster-global-hub-rbac-ca/service-ca.crt", "The CA bundle path for authorization server.")
+		"/multicluster-global-hub-rbac-ca/service-ca.crt",
+		"The CA bundle path for authorization server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerCertificatePath, "server-certificate-path",
 		"/certs/tls.crt", "The certificate path for nonK8s API server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerKeyPath, "server-key-path",

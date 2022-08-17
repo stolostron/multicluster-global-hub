@@ -35,7 +35,7 @@ func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("policies-spec-syncer"),
 			tableName:      "policies",
-			finalizerName:  hohCleanupFinalizer,
+			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &policyv1.Policy{} },
 			cleanStatus:    cleanPolicyStatus,
 			areEqual:       arePoliciesEqual,

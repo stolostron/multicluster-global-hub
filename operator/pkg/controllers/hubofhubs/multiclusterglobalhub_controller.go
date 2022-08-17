@@ -57,6 +57,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 //go:embed manifests
@@ -230,7 +231,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	if mgh.GetAnnotations()[constants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
+	if mgh.GetAnnotations()[commonconstants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
 		// render the console setup job
 		consoleSetupObjects, err := hohRenderer.Render("manifests/console-setup", func(
 			component string,
@@ -340,7 +341,8 @@ func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, obj
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[constants.HoHOperatorOwnerLabelKey] = constants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] =
+			commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
@@ -371,8 +373,8 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 	hohRenderer renderer.Renderer, log logr.Logger,
 ) (bool, error) {
 	if mgh.GetDeletionTimestamp() != nil &&
-		utils.Contains(mgh.GetFinalizers(), constants.HoHOperatorFinalizer) {
-		if mgh.GetAnnotations()[constants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
+		utils.Contains(mgh.GetFinalizers(), commonconstants.HoHOperatorFinalizer) {
+		if mgh.GetAnnotations()[commonconstants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
 			log.Info("cleanup multicluster-global-hub console")
 			// render the console cleanup job
 			consoleCleanupObjects, err := hohRenderer.Render("manifests/console-cleanup",
@@ -428,7 +430,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 			return false, err
 		}
 
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), constants.HoHOperatorFinalizer))
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.HoHOperatorFinalizer))
 		if err := r.Client.Update(context.TODO(), mgh); err != nil {
 			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
 			return false, err
@@ -437,8 +439,8 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 
 		return true, nil
 	}
-	if !utils.Contains(mgh.GetFinalizers(), constants.HoHOperatorFinalizer) {
-		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.HoHOperatorFinalizer))
+	if !utils.Contains(mgh.GetFinalizers(), commonconstants.HoHOperatorFinalizer) {
+		mgh.SetFinalizers(append(mgh.GetFinalizers(), commonconstants.HoHOperatorFinalizer))
 		err := r.Client.Update(context.TODO(), mgh)
 		if err != nil {
 			log.Error(err, "failed to add finalizer to multiclusterglobalhub resource")
@@ -454,7 +456,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
 func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
-		client.MatchingLabels(map[string]string{constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal}),
+		client.MatchingLabels(map[string]string{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
 	}
 
 	clusterRoleList := &rbacv1.ClusterRoleList{}
@@ -495,7 +497,7 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 				ObjectMeta: metav1.ObjectMeta{
 					Name: constants.HOHSystemNamespace,
 					Labels: map[string]string{
-						constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+						commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 					},
 				},
 			}); err != nil {
@@ -512,7 +514,7 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 			Namespace: constants.HOHSystemNamespace,
 			Name:      constants.HOHConfigName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Data: map[string]string{
@@ -556,7 +558,7 @@ func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context)
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.HOHSystemNamespace,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 	}

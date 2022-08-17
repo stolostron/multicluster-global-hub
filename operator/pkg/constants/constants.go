@@ -24,19 +24,6 @@ const (
 )
 
 const (
-	LeafHubClusterDisabledLabelKey           = "hoh"
-	LeafHubClusterDisabledLabelVal           = "disabled"
-	LeafHubClusterAnnotationKey              = "hub-of-hubs.open-cluster-management.io/managed-by-hoh"
-	GlobalHubSkipConsoleInstallAnnotationKey = "global-hub.open-cluster-management.io/skip-console-install"
-	HoHOperatorOwnerLabelKey                 = "global-hub.open-cluster-management.io/managed-by"
-	HoHOperatorOwnerLabelVal                 = "multicluster-global-hub-operator"
-	HoHOperatorFinalizer                     = "global-hub.open-cluster-management.io/res-cleanup"
-
-	LeafHubClusterInstallHubLabelKey        = "global-hub.open-cluster-management.io/hub-install"
-	LeafHubClusterDisableInstallHubLabelVal = "disabled"
-)
-
-const (
 	HoHClusterManagementAddonName        = "multicluster-global-hub-controller"
 	HoHClusterManagementAddonDisplayName = "Multicluster Global Hub Controller"
 	HoHClusterManagementAddonDescription = "Multicluster Global Hub Controller " +

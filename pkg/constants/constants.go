@@ -4,9 +4,6 @@ const (
 	// HohSystemNamespace - Hub of Hubs dedicated namespace.
 	HohSystemNamespace = "hoh-system"
 	HoHConfigName      = "multicluster-global-hub-config"
-
-	// OriginOwnerReferenceAnnotation - Origin owner reference annotation.
-	OriginOwnerReferenceAnnotation = "hub-of-hubs.open-cluster-management.io/originOwnerReferenceUid"
 )
 
 // message types
@@ -53,7 +50,42 @@ const (
 
 	// ControlInfoMsgKey - control info message key.
 	ControlInfoMsgKey = "ControlInfo"
+)
 
-	// hubOfHubsLocalResource - local-resource label
+// store all the labels
+const (
+	// control if need to install global-hub-agent and regional hub
+	LeafHubClusterDisabledLabelKey = "global-hub.open-cluster-management.io/global-hub-agent"
+	LeafHubClusterDisabledLabelVal = "disabled"
+
+	// identify the resource is managed by
+	GlobalHubOwnerLabelKey   = "global-hub.open-cluster-management.io/managed-by"
+	GlobalHubOwnerLabelVal   = "global-hub"
+	HoHOperatorOwnerLabelVal = "multicluster-global-hub-operator"
+	HoHAgentOwnerLabelValue  = "multicluster-global-hub-agent"
+
+	// control if need to install ACM hub into this cluster
+	LeafHubClusterInstallHubLabelKey        = "global-hub.open-cluster-management.io/regional-hub"
+	LeafHubClusterDisableInstallHubLabelVal = "disabled"
+
+	// identify the resource is a local-resource
 	HubOfHubsLocalResource = "hub-of-hubs.open-cluster-management.io/local-resource"
+)
+
+// store all the annotations
+const (
+	// identify the managed cluster is managed by the specified regional hub cluster
+	ManagedClusterManagedByAnnotation = "global-hub.open-cluster-management.io/managed-by"
+
+	// identify the resource is from the global hub cluster
+	OriginOwnerReferenceAnnotation = "global-hub.open-cluster-management.io/origin-ownerreference-uid"
+
+	// This is a temporary annotation to be used to skip console installation during e2e environment setup
+	GlobalHubSkipConsoleInstallAnnotationKey = "global-hub.open-cluster-management.io/skip-console-install"
+)
+
+// store all the finalizers
+const (
+	// cleanup finalizer
+	GlobalHubCleanupFinalizer = "global-hub.open-cluster-management.io/resource-cleanup"
 )
