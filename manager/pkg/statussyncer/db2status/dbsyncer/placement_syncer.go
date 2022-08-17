@@ -14,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 )
 
 func AddPlacementStatusDBSyncer(mgr ctrl.Manager, database db.DB,
@@ -107,8 +107,7 @@ func getPlacementStatus(ctx context.Context, database db.DB,
 		statusEntriesFound = true
 
 		// assuming that cluster names are unique across the hubs, all we need to do is a complete merge
-		placementStatus.NumberOfSelectedClusters +=
-			leafHubPlacement.Status.NumberOfSelectedClusters
+		placementStatus.NumberOfSelectedClusters += leafHubPlacement.Status.NumberOfSelectedClusters
 	}
 
 	return &placementStatus, statusEntriesFound, nil
@@ -135,8 +134,7 @@ func updatePlacementStatus(ctx context.Context, k8sClient client.Client,
 	// if object exists, clone and update
 	originalPlacement := deployedPlacement.DeepCopy()
 
-	deployedPlacement.Status.NumberOfSelectedClusters =
-		placementStatus.NumberOfSelectedClusters
+	deployedPlacement.Status.NumberOfSelectedClusters = placementStatus.NumberOfSelectedClusters
 
 	err = k8sClient.Status().Patch(ctx, deployedPlacement, client.MergeFrom(originalPlacement))
 	if err != nil && !errors.IsNotFound(err) {

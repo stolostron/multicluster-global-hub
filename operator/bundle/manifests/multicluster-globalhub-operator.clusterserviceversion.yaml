@@ -23,7 +23,7 @@ metadata:
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.19.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: multicluster-globalhub-operator.v0.0.1
+  name: multicluster-global-hub-operator.v0.0.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -35,9 +35,9 @@ spec:
       kind: MultiClusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha1
-  description: multicluster-globalhub-operator defines the configuration for multicluster
+  description: multicluster-global-hub-operator defines the configuration for multicluster
     global hub installation with one custom resource.
-  displayName: multicluster-globalhub-operator
+  displayName: multicluster-global-hub-operator
   icon:
   - base64data: ""
     mediatype: ""
@@ -768,37 +768,37 @@ spec:
           - patch
           - update
           - watch
-        serviceAccountName: multicluster-globalhub-operator
+        serviceAccountName: multicluster-global-hub-operator
       deployments:
       - label:
-          name: multicluster-globalhub-operator
-        name: multicluster-globalhub-operator
+          name: multicluster-global-hub-operator
+        name: multicluster-global-hub-operator
         spec:
           replicas: 1
           selector:
             matchLabels:
-              name: multicluster-globalhub-operator
+              name: multicluster-global-hub-operator
           strategy: {}
           template:
             metadata:
               annotations:
-                kubectl.kubernetes.io/default-container: multicluster-globalhub-operator
+                kubectl.kubernetes.io/default-container: multicluster-global-hub-operator
               labels:
-                name: multicluster-globalhub-operator
+                name: multicluster-global-hub-operator
             spec:
               containers:
               - args:
                 - --leader-elect
                 command:
-                - multicluster-globalhub-operator
-                image: quay.io/stolostron/multicluster-globalhub-operator:latest
+                - multicluster-global-hub-operator
+                image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 livenessProbe:
                   httpGet:
                     path: /healthz
                     port: 8081
                   initialDelaySeconds: 15
                   periodSeconds: 20
-                name: multicluster-globalhub-operator
+                name: multicluster-global-hub-operator
                 readinessProbe:
                   httpGet:
                     path: /readyz
@@ -816,7 +816,7 @@ spec:
                   allowPrivilegeEscalation: false
               securityContext:
                 runAsNonRoot: true
-              serviceAccountName: multicluster-globalhub-operator
+              serviceAccountName: multicluster-global-hub-operator
               terminationGracePeriodSeconds: 10
       permissions:
       - rules:
@@ -895,7 +895,7 @@ spec:
         - apiGroups:
           - apps
           resourceNames:
-          - multicluster-globalhub-manager
+          - multicluster-global-hub-manager
           resources:
           - deployments/finalizers
           verbs:
@@ -909,7 +909,7 @@ spec:
           - create
           - update
           - delete
-        serviceAccountName: multicluster-globalhub-operator
+        serviceAccountName: multicluster-global-hub-operator
     strategy: deployment
   installModes:
   - supported: false
@@ -921,16 +921,16 @@ spec:
   - supported: true
     type: AllNamespaces
   keywords:
-  - multicluster-globalhub
+  - multicluster-global-hub
   - multiple-hubs
   links:
   - name: Hub Of Hubs Operator
-    url: https://github.com/stolostron/multicluster-globalhub
+    url: https://github.com/stolostron/multicluster-global-hub
   maintainers:
   - email: acm-contact@redhat.com
     name: acm-contact
   maturity: alpha
   provider:
     name: Red Hat, Inc
-    url: https://github.com/stolostron/multicluster-globalhub
+    url: https://github.com/stolostron/multicluster-global-hub
   version: 0.0.1

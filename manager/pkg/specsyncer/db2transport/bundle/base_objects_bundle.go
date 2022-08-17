@@ -3,7 +3,7 @@ package bundle
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/stolostron/multicluster-globalhub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // NewBaseObjectsBundle creates a new base bundle with no data in it.

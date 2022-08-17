@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
-	"github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 var errWrongBundleType = errors.New("received wrong bundle type, expecting DeltaStateBundle")

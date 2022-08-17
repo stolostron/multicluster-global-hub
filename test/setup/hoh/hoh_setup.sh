@@ -7,23 +7,23 @@ if [ $TAG == "latest" ]; then
   branch="main"
 fi
 export OPENSHIFT_CI=${OPENSHIFT_CI:-"false"}
-export MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF:-"quay.io/stolostron/multicluster-globalhub-manager:$TAG"}
-export MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF:-"quay.io/stolostron/multicluster-globalhub-agent:$TAG"}
-export MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF=${MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF:-"quay.io/stolostron/multicluster-globalhub-operator:$TAG"}
+export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF:-"quay.io/stolostron/multicluster-global-hub-manager:$TAG"}
+export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF:-"quay.io/stolostron/multicluster-global-hub-agent:$TAG"}
+export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF:-"quay.io/stolostron/multicluster-global-hub-operator:$TAG"}
 
 echo "KUBECONFIG $KUBECONFIG"
 echo "OPENSHIFT_CI: $OPENSHIFT_CI"
-echo "MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF $MULTICLUSTER_GLOBALHUB_MANAGER_IMAGE_REF"
-echo "MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF $MULTICLUSTER_GLOBALHUB_AGENT_IMAGE_REF"
-echo "MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF $MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF"
+echo "MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF"
+echo "MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
+echo "MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF"
 
 namespace=open-cluster-management
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
 
 cd ${rootDir}
-make deploy-operator IMG=$MULTICLUSTER_GLOBALHUB_OPERATOR_IMAGE_REF
-kubectl wait deployment -n "$namespace" multicluster-globalhub-operator --for condition=Available=True --timeout=600s
+make deploy-operator IMG=$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF
+kubectl wait deployment -n "$namespace" multicluster-global-hub-operator --for condition=Available=True --timeout=600s
 echo "HoH operator is ready!"
 
 # patch hub-of-hubs-operator images

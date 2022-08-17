@@ -8,14 +8,14 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/conflator/dependency"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
-	"github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
-	"github.com/stolostron/multicluster-globalhub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator/dependency"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const failedBatchFormat = "failed to perform batch - %w"
@@ -287,8 +287,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 			continue // do not handle objects other than PolicyComplianceStatus
 		}
 		// nonCompliantClusters includes both non Compliant and Unknown clusters
-		nonCompliantClustersFromDB, policyExistsInDB :=
-			nonCompliantRowsFromDB[policyComplianceStatus.PolicyID]
+		nonCompliantClustersFromDB, policyExistsInDB := nonCompliantRowsFromDB[policyComplianceStatus.PolicyID]
 		if !policyExistsInDB {
 			nonCompliantClustersFromDB = db.NewPolicyClusterSets()
 		}

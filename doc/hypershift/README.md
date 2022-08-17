@@ -41,7 +41,7 @@ _Note_: This guide is used to enable leaf hub from HyperShift hosted cluster w/ 
 
 ## Get Started
 
-1. Follow the [guide](https://github.com/stolostron/multicluster-globalhub/tree/release-2.5/deploy) to install HoH(`> v0.4.0` or `latest`) to ACM hub cluster.
+1. Follow the [guide](https://github.com/stolostron/multicluster-global-hub/tree/release-2.5/deploy) to install HoH(`> v0.4.0` or `latest`) to ACM hub cluster.
 2. In the HoH console, import the second OpenShift cluster as a leaf hub (with name `hypermgt` for simplicity) in which hypershift operator will be running.
 3. Set the following environment variable that will be used throughout the guide:
 

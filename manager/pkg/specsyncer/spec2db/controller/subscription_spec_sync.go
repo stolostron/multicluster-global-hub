@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 )
 
 func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {

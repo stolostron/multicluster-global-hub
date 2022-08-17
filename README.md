@@ -1,15 +1,15 @@
 # Multicluster Global Hub Overview
-[![Build](https://img.shields.io/badge/build-Prow-informational)](https://prow.ci.openshift.org/?repo=stolostron%2F${multicluster-globalhub})
+[![Build](https://img.shields.io/badge/build-Prow-informational)](https://prow.ci.openshift.org/?repo=stolostron%2F${multicluster-global-hub})
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_hub-of-hubs&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=open-cluster-management_hub-of-hubs)
 
-This document attempts to explain how the different components in multicluster global hub come together to deliver multicluster management at very high scale. The multicluster-globalhub operator is the root operator which pulls in all things needed.
+This document attempts to explain how the different components in multicluster global hub come together to deliver multicluster management at very high scale. The multicluster-global-hub operator is the root operator which pulls in all things needed.
 
 ## Conceptual Diagram
  
-![ArchitectureDiagram](doc/architecture/multicluster-globalhub-arch.png)
+![ArchitectureDiagram](doc/architecture/multicluster-global-hub-arch.png)
 
 ### Multicluster Global Hub Operator
-Operator for multicluster global hub. It is used to deploy all required components for multicluster management. The components include multicluster-globalhub-manager in the global hub cluster and multicluster-globalhub-agent in the hub cluster.
+Operator for multicluster global hub. It is used to deploy all required components for multicluster management. The components include multicluster-global-hub-manager in the global hub cluster and multicluster-global-hub-agent in the hub cluster.
 
 The Operator also leverages the manifestwork to deploy the Advanced Cluster Management for Kubernetes in the managed cluster. So the managed cluster can be switched to a ACM Hub cluster.
 
@@ -47,13 +47,13 @@ kubectl create secret generic kafka-secret -n "open-cluster-management" \
 1. Build and push your image to the location specified by `IMG`:
 
 ```bash
-make docker-build docker-push IMG=<some-registry>/multicluster-globalhub-operator:<tag>
+make docker-build docker-push IMG=<some-registry>/multicluster-global-hub-operator:<tag>
 ```
 
 2. Deploy the controller to the cluster with the image specified by `IMG`:
 
 ```bash
-make deploy IMG=<some-registry>/multicluster-globalhub-operator:<tag>
+make deploy IMG=<some-registry>/multicluster-global-hub-operator:<tag>
 ```
 
 3. Install Instances of Custom Resource:
@@ -64,13 +64,13 @@ kubectl apply -k config/samples/
 
 ### Uninstall the operator
 
-1. Delete the multicluster-globalhub-operator CR:
+1. Delete the multicluster-global-hub-operator CR:
 
 ```bash
 kubectl delete mgh --all
 ```
 
-2. Delete the multicluster-globalhub-operator:
+2. Delete the multicluster-global-hub-operator:
 
 ```bash
 make undeploy

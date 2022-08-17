@@ -1,6 +1,6 @@
 package bundle
 
-import "github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
+import "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 
 type baseBundle struct {
 	LeafHubName   string                `json:"leafHubName"`

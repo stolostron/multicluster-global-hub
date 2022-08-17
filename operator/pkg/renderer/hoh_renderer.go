@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// HoHRenderer is an implementation of the Renderer interface for multicluster-globalhub scenario
+// HoHRenderer is an implementation of the Renderer interface for multicluster-global-hub scenario
 type HoHRenderer struct {
 	manifestFS embed.FS
 	decoder    runtime.Decoder

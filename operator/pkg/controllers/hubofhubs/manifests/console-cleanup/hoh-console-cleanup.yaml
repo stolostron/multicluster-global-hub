@@ -1,14 +1,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: multicluster-globalhub-console-cleanup
+  name: multicluster-global-hub-console-cleanup
   namespace: open-cluster-management
   labels:
-    name: multicluster-globalhub-console
+    name: multicluster-global-hub-console
 spec:
   template:
     spec:
-      serviceAccountName: multicluster-globalhub-operator
+      serviceAccountName: multicluster-global-hub-operator
       containers:
       - name: console-cleanup
         image: {{.Image}}
@@ -24,6 +24,6 @@ spec:
       volumes:
       - name: console-script
         configMap:
-          name: multicluster-globalhub-console-script
+          name: multicluster-global-hub-console-script
           defaultMode: 0755
       restartPolicy: Never

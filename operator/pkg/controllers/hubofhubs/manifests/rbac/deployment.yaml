@@ -2,23 +2,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multicluster-globalhub-rbac
+  name: multicluster-global-hub-rbac
   namespace: open-cluster-management
   labels:
-    name: multicluster-globalhub-rbac
+    name: multicluster-global-hub-rbac
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: multicluster-globalhub-rbac
+      name: multicluster-global-hub-rbac
   template:
     metadata:
       labels:
-        name: multicluster-globalhub-rbac
+        name: multicluster-global-hub-rbac
     spec:
-      serviceAccountName: multicluster-globalhub-rbac
+      serviceAccountName: multicluster-global-hub-rbac
       containers:
-        - name: multicluster-globalhub-rbac
+        - name: multicluster-global-hub-rbac
           image: {{.Image}}
           imagePullPolicy: Always
           args:
@@ -41,4 +41,4 @@ spec:
            secretName: opa-data
        - name: certs
          secret:
-           secretName: multicluster-globalhub-rbac-certs
+           secretName: multicluster-global-hub-rbac-certs

@@ -2,37 +2,37 @@
 # kind: Namespace
 # metadata:
 #   labels:
-#     name: multicluster-globalhub-operator
+#     name: multicluster-global-hub-operator
 #   name: open-cluster-management
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multicluster-globalhub-operator
+  name: multicluster-global-hub-operator
   namespace: open-cluster-management
   labels:
-    name: multicluster-globalhub-operator
+    name: multicluster-global-hub-operator
 spec:
   selector:
     matchLabels:
-      name: multicluster-globalhub-operator
+      name: multicluster-global-hub-operator
   replicas: 1
   template:
     metadata:
       annotations:
-        kubectl.kubernetes.io/default-container: multicluster-globalhub-operator
+        kubectl.kubernetes.io/default-container: multicluster-global-hub-operator
       labels:
-        name: multicluster-globalhub-operator
+        name: multicluster-global-hub-operator
     spec:
       securityContext:
         runAsNonRoot: true
       containers:
       - command:
-        - multicluster-globalhub-operator
+        - multicluster-global-hub-operator
         args:
         - --leader-elect
-        image: quay.io/stolostron/multicluster-globalhub-operator:latest
-        name: multicluster-globalhub-operator
+        image: quay.io/stolostron/multicluster-global-hub-operator:latest
+        name: multicluster-global-hub-operator
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
@@ -56,5 +56,5 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
-      serviceAccountName: multicluster-globalhub-operator
+      serviceAccountName: multicluster-global-hub-operator
       terminationGracePeriodSeconds: 10

@@ -22,7 +22,7 @@ package packagemanifest
 // 	"strings"
 
 // 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
-// 	"github.com/stolostron/multicluster-globalhub/operator/pkg/config"
+// 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 // 	"k8s.io/apimachinery/pkg/api/errors"
 // 	"k8s.io/apimachinery/pkg/runtime"
 // 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,7 +32,7 @@ package packagemanifest
 // 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 // 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-// 	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
+// 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 // )
 
 // // PackageManifestReconciler reconciles packagemanifests.packages.operators.coreos.com

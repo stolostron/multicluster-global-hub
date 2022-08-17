@@ -12,8 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-globalhub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
@@ -30,7 +30,7 @@ type hubOfHubsConfigController struct {
 func AddConfigController(mgr ctrl.Manager, configObject *corev1.ConfigMap) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
 		client:       mgr.GetClient(),
-		log:          ctrl.Log.WithName("multicluster-globalhub-config"),
+		log:          ctrl.Log.WithName("multicluster-global-hub-config"),
 		configObject: configObject,
 	}
 

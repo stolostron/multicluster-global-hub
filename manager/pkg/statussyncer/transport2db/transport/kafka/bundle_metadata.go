@@ -3,7 +3,7 @@ package kafka
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
 )
 
 // newBundleMetadata returns a new instance of BundleMetadata.

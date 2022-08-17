@@ -8,8 +8,8 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
 )
 
 const (

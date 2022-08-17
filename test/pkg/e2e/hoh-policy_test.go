@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/klog"
 
-	"github.com/stolostron/multicluster-globalhub/test/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
 const (

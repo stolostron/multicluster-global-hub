@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	statusbundle "github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
+	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // ErrObjectNotFound error to be used when an object is not found.

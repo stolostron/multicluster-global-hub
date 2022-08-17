@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/applier"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/applier"
 )
 
 var (

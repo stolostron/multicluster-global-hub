@@ -8,8 +8,8 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/transport2db/transport"
-	kafkaconsumer "github.com/stolostron/multicluster-globalhub/pkg/kafka/kafka-consumer"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	kafkaconsumer "github.com/stolostron/multicluster-global-hub/pkg/kafka/kafka-consumer"
 )
 
 // newCommitter returns a new instance of committer.
@@ -54,8 +54,7 @@ func (c *committer) periodicCommit(ctx context.Context) {
 			bundlesMetadata := c.getBundlesMetadataFunc()
 			// extract the lowest per partition in the pending bundles, the highest per partition in the
 			// processed bundles
-			pendingOffsetsToCommit, processedOffsetsToCommit :=
-				c.filterMetadataPerPartition(bundlesMetadata)
+			pendingOffsetsToCommit, processedOffsetsToCommit := c.filterMetadataPerPartition(bundlesMetadata)
 			// patch the processed offsets map with that of the pending ones, so that if a partition
 			// has both types, the pending bundle gains priority (overwrites).
 			for partition, offset := range pendingOffsetsToCommit {

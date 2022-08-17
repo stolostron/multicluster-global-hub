@@ -40,9 +40,9 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-globalhub/operator/apis/operator/v1alpha1"
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/config"
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
+	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
 //go:embed manifests/nonhypershift
@@ -151,8 +151,7 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mana
 	if modified {
 		log.Info("updating hub subscription manifestwork",
 			"namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
-		desiredHubSubWork.ObjectMeta.ResourceVersion =
-			existingHubSubWork.ObjectMeta.ResourceVersion
+		desiredHubSubWork.ObjectMeta.ResourceVersion = existingHubSubWork.ObjectMeta.ResourceVersion
 		return desiredHubSubWork, c.Update(ctx, desiredHubSubWork)
 	}
 
@@ -486,8 +485,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	if !ok || acmSnapshot == "" {
 		acmDefaultImageRegistry = constants.DefaultACMDownStreamImageRegistry
 		// handle special case for governance-policy-addon-controller image
-		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController =
-			"acm-governance-policy-addon-controller"
+		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController = "acm-governance-policy-addon-controller"
 	}
 	mceSnapshot, ok := mgh.GetAnnotations()[constants.HoHHubMCESnapShotKey]
 	if !ok || mceSnapshot == "" {
@@ -651,7 +649,7 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 	return workManifests, nil
 }
 
-// applyHoHAgentWork creates or updates multicluster-globalhub-agent manifestwork
+// applyHoHAgentWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub,
 	managedClusterName string,
 ) error {
@@ -722,7 +720,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mg
 	return err
 }
 
-// applyHoHAgentHypershiftWork creates or updates multicluster-globalhub-agent manifestwork
+// applyHoHAgentHypershiftWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.Logger,
 	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName string, hcConfig *config.HostedClusterConfig,
 ) error {

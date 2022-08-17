@@ -29,10 +29,10 @@ import (
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
-// applyClusterManagementAddon creates or updates ClusterManagementAddOn for multicluster-globalhub
+// applyClusterManagementAddon creates or updates ClusterManagementAddOn for multicluster-global-hub
 func applyClusterManagementAddon(ctx context.Context, c client.Client, log logr.Logger) error {
 	newHoHClusterManagementAddOn := buildClusterManagementAddon()
 	existingHoHClusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{}
@@ -52,8 +52,7 @@ func applyClusterManagementAddon(ctx context.Context, c client.Client, log logr.
 	if !equality.Semantic.DeepDerivative(newHoHClusterManagementAddOn.Spec,
 		existingHoHClusterManagementAddOn.Spec) {
 		log.Info("updating hoh clustermanagementaddon because it is changed", "name", newHoHClusterManagementAddOn.GetName())
-		newHoHClusterManagementAddOn.ObjectMeta.ResourceVersion =
-			existingHoHClusterManagementAddOn.ObjectMeta.ResourceVersion
+		newHoHClusterManagementAddOn.ObjectMeta.ResourceVersion = existingHoHClusterManagementAddOn.ObjectMeta.ResourceVersion
 		return c.Update(ctx, newHoHClusterManagementAddOn)
 	}
 
@@ -62,7 +61,7 @@ func applyClusterManagementAddon(ctx context.Context, c client.Client, log logr.
 	return nil
 }
 
-// deleteClusterManagementAddon deletes ClusterManagementAddOn for multicluster-globalhub
+// deleteClusterManagementAddon deletes ClusterManagementAddOn for multicluster-global-hub
 func deleteClusterManagementAddon(ctx context.Context, c client.Client, log logr.Logger) error {
 	hohClusterManagementAddOn := buildClusterManagementAddon()
 	err := c.Delete(ctx, hohClusterManagementAddOn)
@@ -75,7 +74,7 @@ func deleteClusterManagementAddon(ctx context.Context, c client.Client, log logr
 	return nil
 }
 
-// buildClusterManagementAddon builds ClusterManagementAddOn resource for multicluster-globalhub
+// buildClusterManagementAddon builds ClusterManagementAddOn resource for multicluster-global-hub
 func buildClusterManagementAddon() *addonv1alpha1.ClusterManagementAddOn {
 	return &addonv1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
@@ -125,8 +124,7 @@ func applyManagedClusterAddon(ctx context.Context, c client.Client, log logr.Log
 			"namespace", newHoHManagedClusterAddon.GetNamespace(),
 			"name", newHoHManagedClusterAddon.GetName(),
 			"managedcluster", managedClusterName)
-		newHoHManagedClusterAddon.ObjectMeta.ResourceVersion =
-			existingHoHManagedClusterAddon.ObjectMeta.ResourceVersion
+		newHoHManagedClusterAddon.ObjectMeta.ResourceVersion = existingHoHManagedClusterAddon.ObjectMeta.ResourceVersion
 		return c.Update(ctx, newHoHManagedClusterAddon)
 	}
 
@@ -164,7 +162,7 @@ func buildManagedClusterAddon(managedClusterName string) *addonv1alpha1.ManagedC
 			},
 		},
 		Spec: addonv1alpha1.ManagedClusterAddOnSpec{
-			// addon lease namespace, should be the namespace of multicluster-globalhub-agent
+			// addon lease namespace, should be the namespace of multicluster-global-hub-agent
 			InstallNamespace: constants.HoHManagedClusterAddonInstallationNamespace,
 		},
 	}

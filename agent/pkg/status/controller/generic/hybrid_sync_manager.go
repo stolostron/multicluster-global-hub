@@ -6,9 +6,9 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-globalhub/agent/pkg/transport/producer"
-	statusbundle "github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
+	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry that wraps a DeltaStateBundle bundle")

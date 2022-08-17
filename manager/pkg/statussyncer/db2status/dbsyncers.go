@@ -9,8 +9,8 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-globalhub/manager/pkg/statussyncer/db2status/dbsyncer"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/db2status/dbsyncer"
 )
 
 // AddDBSyncers adds all the DBSyncers to the Manager.

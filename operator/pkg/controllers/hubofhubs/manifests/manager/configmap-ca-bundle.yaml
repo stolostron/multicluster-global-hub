@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: multicluster-globalhub-rbac-ca-bundle
+  name: multicluster-global-hub-rbac-ca-bundle
   namespace: open-cluster-management
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
   labels:
-    service: multicluster-globalhub-manager
+    service: multicluster-global-hub-manager

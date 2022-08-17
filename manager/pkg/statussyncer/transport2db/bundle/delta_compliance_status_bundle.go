@@ -6,7 +6,7 @@ import (
 
 	set "github.com/deckarep/golang-set"
 
-	"github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 var errWrongType = errors.New("received invalid type")
@@ -151,8 +151,6 @@ func updatePolicyStatusInBundle(policyGenericStatus *status.PolicyGenericComplia
 	policyStatus *policyStatus,
 ) {
 	policyGenericStatus.CompliantClusters = createSliceFromSet(policyStatus.compliantClusters)
-	policyGenericStatus.NonCompliantClusters =
-		createSliceFromSet(policyStatus.nonCompliantClusters)
-	policyGenericStatus.UnknownComplianceClusters =
-		createSliceFromSet(policyStatus.unknownClusters)
+	policyGenericStatus.NonCompliantClusters = createSliceFromSet(policyStatus.nonCompliantClusters)
+	policyGenericStatus.UnknownComplianceClusters = createSliceFromSet(policyStatus.unknownClusters)
 }

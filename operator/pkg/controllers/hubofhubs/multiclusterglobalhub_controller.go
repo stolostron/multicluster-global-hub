@@ -48,15 +48,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-globalhub/operator/apis/operator/v1alpha1"
-	// pmcontroller "github.com/stolostron/multicluster-globalhub/operator/pkg/controllers/packagemanifest"
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/condition"
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/config"
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/constants"
-	leafhubscontroller "github.com/stolostron/multicluster-globalhub/operator/pkg/controllers/leafhub"
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/deployer"
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/renderer"
-	"github.com/stolostron/multicluster-globalhub/operator/pkg/utils"
+	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	leafhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/leafhub"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
 //go:embed manifests
@@ -151,7 +151,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// reconcile hoh-system namespace and multicluster-globalhub configuration
+	// reconcile hoh-system namespace and multicluster-global-hub configuration
 	err = r.reconcileHoHResources(ctx, mgh)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -253,12 +253,12 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			return ctrl.Result{}, err
 		}
 
-		log.Info("wait at most 300s for the multicluster-globalhub console is set up")
+		log.Info("wait at most 300s for the multicluster-global-hub console is set up")
 		consoleSetupJob := &batchv1.Job{}
 		if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 			if err := r.Client.Get(ctx,
 				types.NamespacedName{
-					Name:      "multicluster-globalhub-console-setup",
+					Name:      "multicluster-global-hub-console-setup",
 					Namespace: constants.HOHDefaultNamespace,
 				}, consoleSetupJob); err != nil {
 				return false, err
@@ -268,9 +268,9 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			}
 			return false, nil
 		}); errPoll != nil {
-			log.Error(errPoll, "multicluster-globalhub console setup job failed",
+			log.Error(errPoll, "multicluster-global-hub console setup job failed",
 				"namespace", constants.HOHDefaultNamespace,
-				"name", "multicluster-globalhub-console-setup")
+				"name", "multicluster-global-hub-console-setup")
 			if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
 				condition.CONDITION_STATUS_FALSE); conditionError != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
@@ -278,7 +278,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			}
 			return ctrl.Result{}, errPoll
 		}
-		log.Info("multicluster-globalhub console is set up")
+		log.Info("multicluster-global-hub console is set up")
 		if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
 			condition.CONDITION_STATUS_TRUE); conditionError != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
@@ -373,7 +373,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 	if mgh.GetDeletionTimestamp() != nil &&
 		utils.Contains(mgh.GetFinalizers(), constants.HoHOperatorFinalizer) {
 		if mgh.GetAnnotations()[constants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
-			log.Info("cleanup multicluster-globalhub console")
+			log.Info("cleanup multicluster-global-hub console")
 			// render the console cleanup job
 			consoleCleanupObjects, err := hohRenderer.Render("manifests/console-cleanup",
 				func(component string) (interface{}, error) {
@@ -392,12 +392,12 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 				return false, err
 			}
 
-			log.Info("wait at most 300s for the multicluster-globalhub console is cleaned up")
+			log.Info("wait at most 300s for the multicluster-global-hub console is cleaned up")
 			consoleCleanJob := &batchv1.Job{}
 			if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 				if err := r.Client.Get(ctx,
 					types.NamespacedName{
-						Name:      "multicluster-globalhub-console-cleanup",
+						Name:      "multicluster-global-hub-console-cleanup",
 						Namespace: constants.HOHDefaultNamespace,
 					}, consoleCleanJob); err != nil {
 					return false, err
@@ -407,9 +407,9 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 				}
 				return false, nil
 			}); errPoll != nil {
-				log.Error(errPoll, "multicluster-globalhub console cleanup job failed",
+				log.Error(errPoll, "multicluster-global-hub console cleanup job failed",
 					"namespace", constants.HOHDefaultNamespace,
-					"name", "multicluster-globalhub-console-cleanup")
+					"name", "multicluster-global-hub-console-cleanup")
 				return false, errPoll
 			}
 			log.Info("multicluster-globalhubconsole is cleaned up")
@@ -422,9 +422,9 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 			return false, err
 		}
 
-		// clean up hoh-system namespace and multicluster-globalhub configuration
+		// clean up hoh-system namespace and multicluster-global-hub configuration
 		if err := r.pruneHoHResources(ctx); err != nil {
-			log.Error(err, "failed to remove multicluster-globalhub resources")
+			log.Error(err, "failed to remove multicluster-global-hub resources")
 			return false, err
 		}
 
@@ -450,7 +450,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 	return false, nil
 }
 
-// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-globalhub-operator
+// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
 func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
@@ -551,7 +551,7 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 
 // pruneHoHResources tries to delete hoh resources
 func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context) error {
-	// hoh-system namespace and multicluster-globalhub-config configmap
+	// hoh-system namespace and multicluster-global-hub-config configmap
 	hohSystemNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.HOHSystemNamespace,
@@ -579,7 +579,7 @@ func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context)
 		return nil
 	}
 
-	// clean the finalizers added by multicluster-globalhub-manager
+	// clean the finalizers added by multicluster-global-hub-manager
 	existingHoHConfigMap.SetFinalizers([]string{})
 	if err := r.Client.Update(ctx, existingHoHConfigMap); err != nil {
 		return err

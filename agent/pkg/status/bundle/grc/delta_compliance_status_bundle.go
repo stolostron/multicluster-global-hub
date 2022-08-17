@@ -7,8 +7,8 @@ import (
 	set "github.com/deckarep/golang-set"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	bundlepkg "github.com/stolostron/multicluster-globalhub/agent/pkg/status/bundle"
-	statusbundle "github.com/stolostron/multicluster-globalhub/pkg/bundle/status"
+	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 const unknownComplianceStatus = "unknown"
