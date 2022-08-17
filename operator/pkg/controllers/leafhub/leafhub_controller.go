@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
@@ -78,6 +79,7 @@ var leafhubs = hubClusters{clusters: make(map[string]bool)}
 // LeafHubReconciler reconciles a LeafHub Cluster
 type LeafHubReconciler struct {
 	DynamicClient dynamic.Interface
+	KubeClient    kubernetes.Interface
 	client.Client
 	Scheme *runtime.Scheme
 }
@@ -126,6 +128,11 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// if multiclusterglobalhub is terminating, also set prune all flag to true
 	if mgh.GetDeletionTimestamp() != nil {
 		shouldPruneAll = true
+	}
+
+	if config.IsPaused(mgh) {
+		log.Info("multiclusterglobalhub reconciliation is paused, nothing more to do")
+		return ctrl.Result{}, nil
 	}
 
 	// if namespace of the reconcile request is empty, then the reconcile request is
@@ -249,6 +256,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 
 	// init the hostedcluster config
 	hcConfig := &config.HostedClusterConfig{
+		ManagedClusterName: managedClusterName,
 		HostingClusterName: hostingClusterName,
 		HostingNamespace:   hostingNamespace,
 		HostedClusterName:  hostedClusterName,
@@ -274,7 +282,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 	if managedCluster.GetLabels()[commonconstants.RegionalHubTypeLabelKey] ==
 		commonconstants.RegionalHubTypeNoHubInstall {
 		// this is for e2e testing only. In e2e tests, we install ocm in leaf hub.
-		err := applyHoHAgentWork(ctx, r.Client, log, mgh, managedClusterName)
+		err := applyHoHAgentWork(ctx, r.Client, r.KubeClient, log, mgh, managedClusterName)
 		if err != nil {
 			return err
 		}
@@ -296,7 +304,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 				return fmt.Errorf("PackageManifest for MCE is not ready")
 			}
 
-			if err := r.reconcileHostedLeafHub(ctx, log, managedClusterName, mgh, pm, hcConfig); err != nil {
+			if err := r.reconcileHostedLeafHub(ctx, log, mgh, pm, hcConfig); err != nil {
 				return err
 			}
 		}
@@ -310,7 +318,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log logr.Logger, managedClusterName string,
 	mgh *operatorv1alpha1.MultiClusterGlobalHub, pm *packageManifestConfig,
 ) error {
-	hubSubWork, err := applyHubSubWork(ctx, r.Client, log, managedClusterName, pm)
+	hubSubWork, err := applyHubSubWork(ctx, r.Client, r.KubeClient, log, managedClusterName, pm)
 	if err != nil {
 		return err
 	}
@@ -323,7 +331,7 @@ func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log l
 
 	log.Info("hub subscription is ready, applying hub MCH manifestwork")
 	// TODO: fetch user defined mch from annotation
-	hubMCHWork, err := applyHubMCHWork(ctx, r.Client, log, managedClusterName)
+	hubMCHWork, err := applyHubMCHWork(ctx, r.Client, r.KubeClient, log, managedClusterName)
 	if err != nil {
 		return err
 	}
@@ -366,11 +374,11 @@ func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log l
 	}
 
 	// apply the multicluster-global-hub-agent manifestwork
-	return applyHoHAgentWork(ctx, r.Client, log, mgh, managedClusterName)
+	return applyHoHAgentWork(ctx, r.Client, r.KubeClient, log, mgh, managedClusterName)
 }
 
 // reconcileHostedLeafHub reconciles the multiclusterglobalhub change
-func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr.Logger, managedClusterName string,
+func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr.Logger,
 	mgh *operatorv1alpha1.MultiClusterGlobalHub, pm *packageManifestConfig, hcConfig *config.HostedClusterConfig,
 ) error {
 	// check the manifestwork for hosted hub before apply it, be careful about the order
@@ -378,30 +386,31 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 	hubMgtWork := &workv1.ManifestWork{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
 		Namespace: hcConfig.HostingClusterName,
-		Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingHubWorkSuffix),
+		Name:      fmt.Sprintf("%s-%s", hcConfig.ManagedClusterName, constants.HoHHostingHubWorkSuffix),
 	}, hubMgtWork); err != nil {
 		if errors.IsNotFound(err) {
-			_, err := applyHubHypershiftWorks(ctx, r.Client, log, mgh, managedClusterName, "", pm, hcConfig)
+			_, err := applyHubHypershiftWorks(ctx, r.Client, r.KubeClient, log, mgh, "", pm, hcConfig)
 			return err
 		} else {
 			return err
 		}
 	}
 
-	isChannelServiceReady, channelServiceIP := findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
+	isChannelServiceReady, channelServiceIP :=
+		findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
 	if !isChannelServiceReady {
 		log.Info("channel service is not ready, won't apply the multicluster-global-hub-agent manifestwork")
 		return nil
 	}
 
 	log.Info("got clusterIP for channel service", "ClusterIP", channelServiceIP)
-	if _, err := applyHubHypershiftWorks(ctx, r.Client, log, mgh, managedClusterName,
+	if _, err := applyHubHypershiftWorks(ctx, r.Client, r.KubeClient, log, mgh,
 		channelServiceIP, pm, hcConfig); err != nil {
 		return err
 	}
 
 	// apply the multicluster-global-hub-agent manifestwork
-	return applyHoHAgentHypershiftWork(ctx, r.Client, log, mgh, managedClusterName, hcConfig)
+	return applyHoHAgentHypershiftWork(ctx, r.Client, r.KubeClient, log, mgh, hcConfig)
 }
 
 // reconcileMultiClusterGlobalHub reconciles the multiclusterglobalhub change

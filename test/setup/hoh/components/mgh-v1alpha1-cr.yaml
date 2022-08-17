@@ -2,15 +2,8 @@ apiVersion: operator.open-cluster-management.io/v1alpha1
 kind: MultiClusterGlobalHub
 metadata:
   annotations:
-    hoh-hub_of_hubs_manager-image: ${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}
-    hoh-hub_of_hubs_agent-image: ${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF}
+    mgh-image-overrides-cm: mgh-images-config
     global-hub.open-cluster-management.io/skip-console-install: "true"
-  # hoh-image-repository: quay.io/open-cluster-management-hub-of-hubs
-  # hoh-image-tag: latest
-  # hoh-hub_of_hubs_manager-image: quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-manager:dev
-  # hoh-hub-ACM-snapshot: 2.5.0-SNAPSHOT-2022-05-13-20-43-27
-  # hoh-hub-MCE-snapshot: 2.0.0-BACKPLANE-2022-05-13-17-52-12
-  # hoh-kafka-bootstrap-server: kafka-brokers-cluster-kafka-external-bootstrap-kafka.apps.testing.example.com
   name: multiclusterglobalhub
 spec:
   transport:

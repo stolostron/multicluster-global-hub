@@ -17,6 +17,24 @@ echo "MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_MANAGER
 echo "MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
 echo "MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF"
 
+IFS='@' read -ra MGHManagerImageRefArray <<< "$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF"
+MGHManagerImageRepo=${MGHManagerImageRefArray[0]}
+export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REPO=${MGHManagerImageRepo%/*}
+export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_NAME=${MGHManagerImageRepo##*/}
+export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_GIGEST=${MGHManagerImageRefArray[1]}
+
+IFS='@' read -ra MGHAgentImageRefArray <<< "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
+MGHAgentImageRepo=${MGHAgentImageRefArray[0]}
+export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REPO=${MGHAgentImageRepo%/*}
+export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_NAME=${MGHAgentImageRepo##*/}
+export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_GIGEST=${MGHAgentImageRefArray[1]}
+
+IFS='@' read -ra MGHOperatorImageRefArray <<< "$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF"
+MGHOperatorImageRepo=${MGHOperatorImageRefArray[0]}
+export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REPO=${MGHOperatorImageRepo%/*}
+export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_NAME=${MGHOperatorImageRepo##*/}
+export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_GIGEST=${MGHOperatorImageRefArray[1]}
+
 namespace=open-cluster-management
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
@@ -34,6 +52,7 @@ echo "HoH images is updated!"
 
 export TRANSPORT_SECRET_NAME="transport-secret"
 export STORAGE_SECRET_NAME="storage-secret"
+envsubst < ${currentDir}/components/mgh-images-config.yaml | kubectl apply -f - -n "$namespace"
 envsubst < ${currentDir}/components/mgh-v1alpha1-cr.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
 

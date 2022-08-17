@@ -27,10 +27,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -45,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	//+kubebuilder:scaffold:imports
@@ -95,8 +94,8 @@ func main() {
 	// build filtered resource map
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
 		SelectorsByObject: cache.SelectorsByObject{
-			&corev1.Secret{}: { // also cache transport-secret and storage-secret
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": constants.HOHDefaultNamespace}),
+			&corev1.Secret{}: {
+				Label: labelSelector,
 			},
 			&corev1.ConfigMap{}: {
 				Label: labelSelector,
@@ -166,10 +165,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "failed to create kube client")
+		os.Exit(1)
+	}
+
 	if err = (&hubofhubscontrollers.MultiClusterGlobalHubReconciler{
-		Manager: mgr,
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
+		Manager:    mgr,
+		Client:     mgr.GetClient(),
+		KubeClient: kubeClient,
+		Scheme:     mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MultiClusterGlobalHub")
 		os.Exit(1)
