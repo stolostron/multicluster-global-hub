@@ -791,6 +791,13 @@ spec:
                 - --leader-elect
                 command:
                 - multicluster-global-hub-operator
+                env:
+                - name: OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER
+                  value: quay.io/stolostron/multicluster-global-hub-manager:latest
+                - name: OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT
+                  value: quay.io/stolostron/multicluster-global-hub-agent:latest
+                - name: OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_OPERATOR
+                  value: quay.io/stolostron/multicluster-global-hub-operator:latest
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 livenessProbe:
                   httpGet:

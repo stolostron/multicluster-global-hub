@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes"
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -107,10 +108,10 @@ func init() {
 }
 
 // applyHubSubWork creates or updates the subscription manifestwork for leafhub cluster
-func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, managedClusterName string,
-	pm *packageManifestConfig,
+func applyHubSubWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
+	managedClusterName string, pm *packageManifestConfig,
 ) (*workv1.ManifestWork, error) {
-	desiredHubSubWork, err := buildHubSubWork(ctx, c, log, managedClusterName, pm)
+	desiredHubSubWork, err := buildHubSubWork(ctx, kubeClient, log, managedClusterName, pm)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +141,7 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mana
 		return nil, err
 	}
 	log.Info("existing packagemanifest", "packagemanifest", existingPM, "managedcluster", managedClusterName)
-	desiredHubSubWork, err = buildHubSubWork(ctx, c, log, managedClusterName, existingPM)
+	desiredHubSubWork, err = buildHubSubWork(ctx, kubeClient, log, managedClusterName, existingPM)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +164,7 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mana
 }
 
 // buildHubSubWork creates hub subscription manifestwork
-func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, managedClusterName string,
+func buildHubSubWork(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger, managedClusterName string,
 	pm *packageManifestConfig,
 ) (*workv1.ManifestWork, error) {
 	tpl, err := parseNonHypershiftTemplates(nonHypershiftManifestFS)
@@ -216,7 +217,8 @@ func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mana
 		}
 	}
 
-	imagePullSecret, err := generatePullSecret(ctx, c, constants.OpenshiftMarketPlaceNamespace)
+	imagePullSecret, err := generatePullSecret(ctx, kubeClient,
+		constants.OpenshiftMarketPlaceNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -296,10 +298,10 @@ func getPackageManifestConfigFromHubSubWork(hubSubWork *workv1.ManifestWork) (*p
 }
 
 // applyHubMCHWork creates or updates the mch manifestwork for leafhub cluster
-func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger,
+func applyHubMCHWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
 	managedClusterName string,
 ) (*workv1.ManifestWork, error) {
-	desiredHubMCHWork, err := buildHubMCHWork(ctx, c, log, managedClusterName)
+	desiredHubMCHWork, err := buildHubMCHWork(ctx, kubeClient, log, managedClusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +311,7 @@ func applyHubMCHWork(ctx context.Context, c client.Client, log logr.Logger,
 }
 
 // buildHubMCHWork creates hub MCH manifestwork
-func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger,
+func buildHubMCHWork(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
 	managedClusterName string,
 ) (*workv1.ManifestWork, error) {
 	tpl, err := parseNonHypershiftTemplates(nonHypershiftManifestFS)
@@ -354,7 +356,7 @@ func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger,
 		}
 	}
 
-	imagePullSecret, err := generatePullSecret(ctx, c, constants.HOHDefaultNamespace)
+	imagePullSecret, err := generatePullSecret(ctx, kubeClient, constants.HOHDefaultNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -389,21 +391,13 @@ func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger,
 					},
 					FeedbackRules: []workv1.FeedbackRule{
 						{
-							Type: workv1.JSONPathsType,
-							JsonPaths: []workv1.JsonPath{
-								{
-									Name: "state",
-									Path: ".status.phase",
-								},
-							},
+							Type:      workv1.JSONPathsType,
+							JsonPaths: []workv1.JsonPath{{Name: "state", Path: ".status.phase"}},
 						},
 						{
 							Type: workv1.JSONPathsType,
 							JsonPaths: []workv1.JsonPath{
-								{
-									Name: "currentVersion",
-									Path: ".status.currentVersion",
-								},
+								{Name: "currentVersion", Path: ".status.currentVersion"},
 							},
 						},
 						// ideally, the mch status should be in Running state.
@@ -430,10 +424,7 @@ func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger,
 						{
 							Type: workv1.JSONPathsType,
 							JsonPaths: []workv1.JsonPath{
-								{
-									Name: "grc-sub-status",
-									Path: ".status.components.grc-sub.status",
-								},
+								{Name: "grc-sub-status", Path: ".status.components.grc-sub.status"},
 							},
 						},
 					},
@@ -470,27 +461,23 @@ func getDefaultHypershiftHubConfigValues() HypershiftHubConfigValues {
 }
 
 // applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
-func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logger,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName, channelClusterIP string,
+func applyHubHypershiftWorks(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
+	mgh *operatorv1alpha1.MultiClusterGlobalHub, channelClusterIP string,
 	pm *packageManifestConfig, hcConfig *config.HostedClusterConfig,
 ) (*workv1.ManifestWork, error) {
-	if pm == nil || pm.ACMCurrentCSV == "" {
-		return nil, fmt.Errorf("empty packagemanifest")
-	}
-
 	hypershiftHubConfigValues := getDefaultHypershiftHubConfigValues()
 	acmImages, mceImages := pm.ACMImages, pm.MCEImages
 	acmDefaultImageRegistry := constants.DefaultACMUpstreamImageRegistry
 	mceDefaultImageRegistry := constants.DefaultMCEUpstreamImageRegistry
 
-	acmSnapshot, ok := mgh.GetAnnotations()[constants.HoHHubACMSnapShotKey]
+	acmSnapshot, ok := mgh.GetAnnotations()[constants.AnnotationHubACMSnapshot]
 	if !ok || acmSnapshot == "" {
 		acmDefaultImageRegistry = constants.DefaultACMDownStreamImageRegistry
 		// handle special case for governance-policy-addon-controller image
 		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController =
 			"acm-governance-policy-addon-controller"
 	}
-	mceSnapshot, ok := mgh.GetAnnotations()[constants.HoHHubMCESnapShotKey]
+	mceSnapshot, ok := mgh.GetAnnotations()[constants.AnnotationHubMCESnapshot]
 	if !ok || mceSnapshot == "" {
 		mceDefaultImageRegistry = constants.DefaultMCEDownStreamImageRegistry
 	}
@@ -509,7 +496,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	}
 	latestACMVersionM := strings.Join(latestACMVersionParts[:2], ".")
 	hypershiftHubConfigValues.HubVersion = latestACMVersionM
-	hypershiftHubConfigValues.HoHAgentImage = config.GetImage(mgh.GetAnnotations(), "hub_of_hubs_agent")
+	hypershiftHubConfigValues.HoHAgentImage = config.GetImage("multicluster_global_hub_agent")
 	hypershiftHubConfigValues.HostedClusterName = hypershiftHostedClusterName
 	hypershiftHubConfigValues.ImagePullSecret = imagePullSecretName
 	hypershiftHubConfigValues.MCE.DefaultImageRegistry = mceDefaultImageRegistry
@@ -533,7 +520,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 		return nil, err
 	}
 
-	imagePullSecret, err := generatePullSecret(ctx, c, hypershiftHostedClusterName)
+	imagePullSecret, err := generatePullSecret(ctx, kubeClient, hypershiftHostedClusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -545,8 +532,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 
 	hostedHubWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostedHubWorkSuffix),
-			Namespace: managedClusterName,
+			Name:      fmt.Sprintf("%s-%s", hcConfig.ManagedClusterName, constants.HoHHostedHubWorkSuffix),
+			Namespace: hcConfig.ManagedClusterName,
 			Labels: map[string]string{
 				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
@@ -586,7 +573,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 
 	hostingHubWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingHubWorkSuffix),
+			Name:      fmt.Sprintf("%s-%s", hcConfig.ManagedClusterName, constants.HoHHostingHubWorkSuffix),
 			Namespace: hcConfig.HostingClusterName,
 			Labels: map[string]string{
 				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
@@ -605,13 +592,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 					},
 					FeedbackRules: []workv1.FeedbackRule{
 						{
-							Type: workv1.JSONPathsType,
-							JsonPaths: []workv1.JsonPath{
-								{
-									Name: "clusterIP",
-									Path: ".spec.clusterIP",
-								},
-							},
+							Type:      workv1.JSONPathsType,
+							JsonPaths: []workv1.JsonPath{{Name: "clusterIP", Path: ".spec.clusterIP"}},
 						},
 					},
 				},
@@ -653,16 +635,16 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 }
 
 // applyHoHAgentWork creates or updates multicluster-global-hub-agent manifestwork
-func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub,
-	managedClusterName string,
+func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
+	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName string,
 ) error {
-	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, c, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
 	if err != nil {
 		return err
 	}
 
 	agentConfigValues := &HoHAgentConfigValues{
-		HoHAgentImage:        config.GetImage(mgh.GetAnnotations(), "hub_of_hubs_agent"),
+		HoHAgentImage:        config.GetImage("multicluster_global_hub_agent"),
 		LeadHubID:            managedClusterName,
 		KafkaBootstrapServer: kafkaBootstrapServer,
 		KafkaCA:              kafkaCA,
@@ -724,17 +706,17 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mg
 }
 
 // applyHoHAgentHypershiftWork creates or updates multicluster-global-hub-agent manifestwork
-func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.Logger,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName string, hcConfig *config.HostedClusterConfig,
+func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface,
+	log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub, hcConfig *config.HostedClusterConfig,
 ) error {
-	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, c, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
 	if err != nil {
 		return err
 	}
 
 	agentConfigValues := &HoHAgentConfigValues{
-		HoHAgentImage:          config.GetImage(mgh.GetAnnotations(), "hub_of_hubs_agent"),
-		LeadHubID:              managedClusterName,
+		HoHAgentImage:          config.GetImage("multicluster_global_hub_agent"),
+		LeadHubID:              hcConfig.ManagedClusterName,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCA:                kafkaCA,
 		HostedClusterNamespace: fmt.Sprintf("%s-%s", hcConfig.HostingNamespace, hcConfig.HostedClusterName),
@@ -777,8 +759,8 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 
 	agentHostedWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostedAgentWorkSuffix),
-			Namespace: managedClusterName,
+			Name:      fmt.Sprintf("%s-%s", hcConfig.ManagedClusterName, constants.HoHHostedAgentWorkSuffix),
+			Namespace: hcConfig.ManagedClusterName,
 			Labels: map[string]string{
 				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
@@ -826,7 +808,7 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 
 	agentHostingWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingAgentWorkSuffix),
+			Name:      fmt.Sprintf("%s-%s", hcConfig.ManagedClusterName, constants.HoHHostingAgentWorkSuffix),
 			Namespace: hcConfig.HostingClusterName,
 			Labels: map[string]string{
 				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
@@ -926,21 +908,22 @@ func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClust
 }
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub) (
-	string, string, error,
-) {
+func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
+	mgh *operatorv1alpha1.MultiClusterGlobalHub,
+) (string, string, error) {
 	// for local dev/test
-	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
+	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]
 	if ok && kafkaBootstrapServer != "" {
 		log.Info("Kafka bootstrap server from annotation", "server", kafkaBootstrapServer, "certificate", "")
 		return kafkaBootstrapServer, "", nil
 	}
 
-	kafkaSecret := &corev1.Secret{}
-	if err := c.Get(ctx, types.NamespacedName{
-		Namespace: constants.HOHDefaultNamespace,
-		Name:      mgh.Spec.Transport.Name,
-	}, kafkaSecret); err != nil {
+	kafkaSecret, err := kubeClient.CoreV1().Secrets(constants.HOHDefaultNamespace).Get(ctx,
+		mgh.Spec.Transport.Name, metav1.GetOptions{})
+	if err != nil {
+		log.Error(err, "failed to get transport secret",
+			"namespace", constants.HOHDefaultNamespace,
+			"name", mgh.Spec.Transport.Name)
 		return "", "", err
 	}
 
@@ -949,16 +932,16 @@ func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *
 }
 
 // generatePullSecret copy the image pull secret to target namespace
-func generatePullSecret(ctx context.Context, c client.Client, namespace string) (*corev1.Secret, error) {
+func generatePullSecret(ctx context.Context, kubeClient kubernetes.Interface,
+	namespace string,
+) (*corev1.Secret, error) {
 	if imagePullSecretName != "" {
-		imagePullSecret := &corev1.Secret{}
-		if err := c.Get(ctx,
-			types.NamespacedName{
-				Namespace: podNamespace,
-				Name:      imagePullSecretName,
-			}, imagePullSecret); err != nil {
+		imagePullSecret, err := kubeClient.CoreV1().Secrets(podNamespace).Get(ctx,
+			imagePullSecretName, metav1.GetOptions{})
+		if err != nil {
 			return nil, err
 		}
+
 		return &corev1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: corev1.SchemeGroupVersion.String(),

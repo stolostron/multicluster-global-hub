@@ -7,7 +7,7 @@ import (
 	iofs "io/fs"
 
 	"github.com/jackc/pgx/v4"
-	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -32,12 +32,15 @@ func (reconciler *MultiClusterGlobalHubReconciler) reconcileDatabase(ctx context
 	}
 
 	log.Info("Database initializing")
-	postgreSecret := &corev1.Secret{}
-	err := reconciler.Client.Get(ctx, namespacedName, postgreSecret)
+	postgreSecret, err := reconciler.KubeClient.CoreV1().Secrets(namespacedName.Namespace).Get(
+		ctx, namespacedName.Name, metav1.GetOptions{})
 	if err != nil {
-		log.Error(err, "Can't get postgres secret")
+		log.Error(err, "failed to get storage secret",
+			"namespace", namespacedName.Namespace,
+			"name", namespacedName.Name)
 		return err
 	}
+
 	databaseURI := string(postgreSecret.Data["database_uri"])
 	conn, err := pgx.Connect(ctx, databaseURI)
 	if err != nil {

@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 type HostedClusterConfig struct {
+	ManagedClusterName string
 	HostingClusterName string
 	HostingNamespace   string
 	HostedClusterName  string // same to hypershiftdeployment name

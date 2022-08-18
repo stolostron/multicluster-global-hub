@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -71,7 +72,8 @@ var isLeafHubControllerRunnning = false
 type MultiClusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
-	Scheme *runtime.Scheme
+	KubeClient kubernetes.Interface
+	Scheme     *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -140,7 +142,31 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	if isTerminating {
 		log.Info("multiclusterglobalhub is terminating, skip the reconcile")
+		return ctrl.Result{}, nil
+	}
+
+	// check for image overrides configmap
+	var imageOverridesConfigmap *corev1.ConfigMap
+	if imageOverridesConfigmapName := config.GetImageOverridesConfigmap(mgh); imageOverridesConfigmapName != "" {
+		var err error
+		imageOverridesConfigmap, err = r.KubeClient.CoreV1().ConfigMaps(mgh.GetNamespace()).Get(
+			ctx, imageOverridesConfigmapName, metav1.GetOptions{})
+		if err != nil {
+			log.Error(err, "failed to get image overrides configmap",
+				"namespace", mgh.GetNamespace(),
+				"name", imageOverridesConfigmapName)
+			return ctrl.Result{}, err
+		}
+	}
+
+	// set imgae overrides
+	if err := config.SetImageOverrides(mgh, imageOverridesConfigmap); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if config.IsPaused(mgh) {
+		log.Info("multiclusterglobalhub reconciliation is paused, nothing more to do")
+		return ctrl.Result{}, nil
 	}
 
 	// init DB and transport here
@@ -158,12 +184,11 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	annotations := mgh.GetAnnotations()
 	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", func(component string) (interface{}, error) {
 		hohRBACConfig := struct {
 			Image string
 		}{
-			Image: config.GetImage(annotations, "hub_of_hubs_rbac"),
+			Image: config.GetImage("multicluster_global_hub_rbac"),
 		}
 
 		return hohRBACConfig, nil
@@ -178,7 +203,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// retrieve bootstrapserver and CA of kafka from secret
-	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, r.Client, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, r.KubeClient, log, mgh)
 	if err != nil {
 		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh,
 			condition.CONDITION_STATUS_FALSE); conditionError != nil {
@@ -201,7 +226,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			KafkaCA              string
 			KafkaBootstrapServer string
 		}{
-			Image:                config.GetImage(annotations, "hub_of_hubs_manager"),
+			Image:                config.GetImage("multicluster_global_hub_manager"),
 			DBSecret:             mgh.Spec.Storage.Name,
 			KafkaCA:              kafkaCA,
 			KafkaBootstrapServer: kafkaBootstrapServer,
@@ -239,7 +264,7 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			consoleJobConfig := struct {
 				Image string
 			}{
-				Image: config.GetImage(annotations, "hub_of_hubs_console_job"),
+				Image: config.GetImage("multicluster_global_hub_operator"),
 			}
 
 			return consoleJobConfig, nil
@@ -294,8 +319,14 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			log.Error(err, "failed to create dynamic client")
 			return ctrl.Result{}, err
 		}
+		kubeClient, err := kubernetes.NewForConfig(r.Manager.GetConfig())
+		if err != nil {
+			log.Error(err, "failed to create kube client")
+			return ctrl.Result{}, err
+		}
 		if err := (&leafhubscontroller.LeafHubReconciler{
 			DynamicClient: dynamicClient,
+			KubeClient:    kubeClient,
 			Client:        r.Client,
 			Scheme:        r.Scheme,
 		}).SetupWithManager(r.Manager); err != nil {
@@ -382,7 +413,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 					consoleJobConfig := struct {
 						Image string
 					}{
-						Image: config.GetImage(mgh.GetAnnotations(), "hub_of_hubs_console_job"),
+						Image: config.GetImage("multicluster_global_hub_operator"),
 					}
 
 					return consoleJobConfig, nil
@@ -651,21 +682,22 @@ func (r *MultiClusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 }
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, c client.Client, log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub) (
-	string, string, error,
-) {
+func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
+	mgh *operatorv1alpha1.MultiClusterGlobalHub,
+) (string, string, error) {
 	// for local dev/test
-	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.HoHKafkaBootstrapServerKey]
+	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]
 	if ok && kafkaBootstrapServer != "" {
 		log.Info("Kafka bootstrap server from annotation", "server", kafkaBootstrapServer, "certificate", "")
 		return kafkaBootstrapServer, "", nil
 	}
 
-	kafkaSecret := &corev1.Secret{}
-	if err := c.Get(ctx, types.NamespacedName{
-		Namespace: constants.HOHDefaultNamespace,
-		Name:      mgh.Spec.Transport.Name,
-	}, kafkaSecret); err != nil {
+	kafkaSecret, err := kubeClient.CoreV1().Secrets(constants.HOHDefaultNamespace).Get(ctx,
+		mgh.Spec.Transport.Name, metav1.GetOptions{})
+	if err != nil {
+		log.Error(err, "failed to get transport secret",
+			"namespace", constants.HOHDefaultNamespace,
+			"name", mgh.Spec.Transport.Name)
 		return "", "", err
 	}
 
