@@ -43,6 +43,7 @@ import (
 	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 //go:embed manifests/nonhypershift
@@ -151,7 +152,8 @@ func applyHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mana
 	if modified {
 		log.Info("updating hub subscription manifestwork",
 			"namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
-		desiredHubSubWork.ObjectMeta.ResourceVersion = existingHubSubWork.ObjectMeta.ResourceVersion
+		desiredHubSubWork.ObjectMeta.ResourceVersion =
+			existingHubSubWork.ObjectMeta.ResourceVersion
 		return desiredHubSubWork, c.Update(ctx, desiredHubSubWork)
 	}
 
@@ -230,7 +232,7 @@ func buildHubSubWork(ctx context.Context, c client.Client, log logr.Logger, mana
 				constants.HOHHubSubscriptionWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 			Annotations: map[string]string{
 				// Add the postpone delete annotation for manifestwork so that the observabilityaddon can be
@@ -367,7 +369,7 @@ func buildHubMCHWork(ctx context.Context, c client.Client, log logr.Logger,
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHubMCHWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -485,7 +487,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 	if !ok || acmSnapshot == "" {
 		acmDefaultImageRegistry = constants.DefaultACMDownStreamImageRegistry
 		// handle special case for governance-policy-addon-controller image
-		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController = "acm-governance-policy-addon-controller"
+		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController =
+			"acm-governance-policy-addon-controller"
 	}
 	mceSnapshot, ok := mgh.GetAnnotations()[constants.HoHHubMCESnapShotKey]
 	if !ok || mceSnapshot == "" {
@@ -545,7 +548,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostedHubWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -586,7 +589,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, log logr.Logg
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingHubWorkSuffix),
 			Namespace: hcConfig.HostingClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -706,7 +709,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, log logr.Logger, mg
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHAgentWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -777,7 +780,7 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostedAgentWorkSuffix),
 			Namespace: managedClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{
@@ -826,7 +829,7 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, log logr.
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHostingAgentWorkSuffix),
 			Namespace: hcConfig.HostingClusterName,
 			Labels: map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: workv1.ManifestWorkSpec{

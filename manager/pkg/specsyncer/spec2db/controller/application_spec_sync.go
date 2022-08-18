@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func AddApplicationController(mgr ctrl.Manager, specDB db.SpecDB) error {
@@ -22,7 +23,7 @@ func AddApplicationController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("applications-spec-syncer"),
 			tableName:      "applications",
-			finalizerName:  hohCleanupFinalizer,
+			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &applicationv1beta1.Application{} },
 			cleanStatus:    cleanApplicationStatus,
 			areEqual:       areApplicationsEqual,

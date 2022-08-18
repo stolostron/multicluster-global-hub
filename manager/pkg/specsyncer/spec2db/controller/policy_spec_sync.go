@@ -22,7 +22,7 @@ func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	policyPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      constants.HubOfHubsLocalResource,
+				Key:      constants.GlobalHubLocalResource,
 				Operator: metav1.LabelSelectorOpDoesNotExist,
 			},
 		},
@@ -35,7 +35,7 @@ func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("policies-spec-syncer"),
 			tableName:      "policies",
-			finalizerName:  hohCleanupFinalizer,
+			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &policyv1.Policy{} },
 			cleanStatus:    cleanPolicyStatus,
 			areEqual:       arePoliciesEqual,

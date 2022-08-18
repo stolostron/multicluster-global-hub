@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func AddManagedClusterSetBindingController(mgr ctrl.Manager, specDB db.SpecDB) error {
@@ -22,7 +23,7 @@ func AddManagedClusterSetBindingController(mgr ctrl.Manager, specDB db.SpecDB) e
 			specDB:        specDB,
 			log:           ctrl.Log.WithName("managedclustersetbindings-spec-syncer"),
 			tableName:     "managedclustersetbindings",
-			finalizerName: hohCleanupFinalizer,
+			finalizerName: constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object {
 				return &clusterv1beta1.ManagedClusterSetBinding{}
 			},

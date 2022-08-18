@@ -21,7 +21,7 @@ func AddPlacementBindingController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	placementBindingPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      constants.HubOfHubsLocalResource,
+				Key:      constants.GlobalHubLocalResource,
 				Operator: metav1.LabelSelectorOpDoesNotExist,
 			},
 		},
@@ -34,7 +34,7 @@ func AddPlacementBindingController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("placementbindings-spec-syncer"),
 			tableName:      "placementbindings",
-			finalizerName:  hohCleanupFinalizer,
+			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &policyv1.PlacementBinding{} },
 			cleanStatus:    cleanPlacementBindingStatus,
 			areEqual:       arePlacementBindingsEqual,

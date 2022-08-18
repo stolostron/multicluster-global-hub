@@ -15,6 +15,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 type clusterRoleController struct {
@@ -23,8 +25,6 @@ type clusterRoleController struct {
 }
 
 const (
-	HubOfHubsCreateByKey     = "hub-of-hubs.open-cluster-management.io/create-by"
-	HubOfHubsCreateByValue   = "multicluster-global-hub-agent"
 	HubOfHubsClusterRoleName = "open-cluster-management:multicluster-global-hub-managedcluster-creation"
 )
 
@@ -56,7 +56,7 @@ func createClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: HubOfHubsClusterRoleName,
 			Labels: map[string]string{
-				HubOfHubsCreateByKey: HubOfHubsCreateByValue,
+				constants.GlobalHubOwnerLabelKey: constants.HoHAgentOwnerLabelValue,
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -103,7 +103,7 @@ func createClusterRole() *rbacv1.ClusterRole {
 func AddClusterRoleController(mgr ctrl.Manager) error {
 	clusterRolePredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			HubOfHubsCreateByKey: HubOfHubsCreateByValue,
+			constants.GlobalHubOwnerLabelKey: constants.HoHAgentOwnerLabelValue,
 		},
 	})
 	if err := ctrl.NewControllerManagedBy(mgr).

@@ -16,8 +16,7 @@ import (
 )
 
 const (
-	clusterStatusSyncLogName          = "clusters-status-sync"
-	managedClusterManagedByAnnotation = "hub-of-hubs.open-cluster-management.io/managed-by"
+	clusterStatusSyncLogName = "clusters-status-sync"
 )
 
 // mgr, pro, env.LeafHubID, incarnation, config, syncIntervals
@@ -31,7 +30,7 @@ func AddClustersStatusController(mgr ctrl.Manager, producer producer.Producer, l
 	// update bundle object
 	manipulateObjFunc := func(object bundle.Object) {
 		helper.AddAnnotations(object, map[string]string{
-			managedClusterManagedByAnnotation: leafHubName,
+			constants.ManagedClusterManagedByAnnotation: leafHubName,
 		})
 	}
 

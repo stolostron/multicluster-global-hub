@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {
@@ -26,7 +27,7 @@ func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("subscriptions-spec-syncer"),
 			tableName:      "subscriptions",
-			finalizerName:  hohCleanupFinalizer,
+			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &subscriptionv1.Subscription{} },
 			cleanStatus:    cleanSubscriptionStatus,
 			areEqual:       areSubscriptionsEqual,

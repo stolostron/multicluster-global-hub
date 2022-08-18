@@ -48,6 +48,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const failedConditionMsg = "failed to set condition(%s): %w"
@@ -210,15 +211,15 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 	if val, ok := annotations["import.open-cluster-management.io/klusterlet-deploy-mode"]; ok && val == "Hosted" {
 		hostingClusterName, ok = annotations["import.open-cluster-management.io/hosting-cluster-name"]
 		if !ok || hostingClusterName == "" {
-			return fmt.Errorf("missing hosting-cluster-name in managed cluster.")
+			return fmt.Errorf("missing hosting-cluster-name in managed cluster")
 		}
 		hypershiftdeploymentName, ok := annotations["cluster.open-cluster-management.io/hypershiftdeployment"]
 		if !ok || hypershiftdeploymentName == "" {
-			return fmt.Errorf("missing hypershiftdeployment name in managed cluster.")
+			return fmt.Errorf("missing hypershiftdeployment name in managed cluster")
 		}
 		splits := strings.Split(hypershiftdeploymentName, "/")
 		if len(splits) != 2 || splits[1] == "" {
-			return fmt.Errorf("bad hypershiftdeployment name in managed cluster.")
+			return fmt.Errorf("bad hypershiftdeployment name in managed cluster")
 		}
 		hypershiftDeploymentNamespace := splits[0]
 		hostedClusterName = splits[1]
@@ -236,8 +237,9 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 
 		// for hypershift hosted managedcluster, add leafhub annotation
 		// TODO: remove this after UI supports this
-		if val, ok := annotations[constants.LeafHubClusterAnnotationKey]; !ok || val != "true" {
-			annotations[constants.LeafHubClusterAnnotationKey] = "true"
+		val, ok := annotations[commonconstants.ManagedClusterManagedByAnnotation]
+		if !ok || val != commonconstants.GlobalHubOwnerLabelVal {
+			annotations[commonconstants.ManagedClusterManagedByAnnotation] = commonconstants.GlobalHubOwnerLabelVal
 			managedCluster.SetAnnotations(annotations)
 			if err := r.Client.Update(ctx, managedCluster); err != nil {
 				return err
@@ -269,8 +271,8 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 		return deleteManagedClusterAddon(ctx, r.Client, log, managedClusterName)
 	}
 
-	if managedCluster.GetLabels()[constants.LeafHubClusterInstallHubLabelKey] ==
-		constants.LeafHubClusterDisableInstallHubLabelVal {
+	if managedCluster.GetLabels()[commonconstants.RegionalHubTypeLabelKey] ==
+		commonconstants.RegionalHubTypeNoHubInstall {
 		// this is for e2e testing only. In e2e tests, we install ocm in leaf hub.
 		err := applyHoHAgentWork(ctx, r.Client, log, mgh, managedClusterName)
 		if err != nil {
@@ -413,7 +415,7 @@ func (r *LeafHubReconciler) reconcileMultiClusterGlobalHub(ctx context.Context, 
 		for leafhub := range leafhubs.clusters {
 			if err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{}, client.InNamespace(leafhub),
 				client.MatchingLabels(map[string]string{
-					constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+					commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 				})); err != nil {
 				return err
 			}
@@ -427,7 +429,7 @@ func (r *LeafHubReconciler) reconcileMultiClusterGlobalHub(ctx context.Context, 
 		if err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{},
 			client.InNamespace(constants.LocalClusterName),
 			client.MatchingLabels(map[string]string{
-				constants.HoHOperatorOwnerLabelKey: constants.HoHOperatorOwnerLabelVal,
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
 			})); err != nil {
 			return err
 		}
@@ -472,8 +474,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		CreateFunc: func(e event.CreateEvent) bool {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
-				e.Object.GetLabels()[constants.LeafHubClusterDisabledLabelKey] !=
-					constants.LeafHubClusterDisabledLabelVal &&
+				e.Object.GetLabels()[commonconstants.RegionalHubTypeLabelKey] !=
+					commonconstants.RegionalHubTypeNoHubAgentInstall &&
 				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				leafhubs.append(e.Object.GetName())
@@ -484,8 +486,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			if e.ObjectNew.GetLabels()["vendor"] == "OpenShift" &&
 				e.ObjectNew.GetName() != constants.LocalClusterName &&
-				e.ObjectNew.GetLabels()[constants.LeafHubClusterDisabledLabelKey] !=
-					constants.LeafHubClusterDisabledLabelVal &&
+				e.ObjectNew.GetLabels()[commonconstants.RegionalHubTypeLabelKey] !=
+					commonconstants.RegionalHubTypeNoHubAgentInstall &&
 				meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				if e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
@@ -502,8 +504,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
-				e.Object.GetLabels()[constants.LeafHubClusterDisabledLabelKey] !=
-					constants.LeafHubClusterDisabledLabelVal &&
+				e.Object.GetLabels()[commonconstants.RegionalHubTypeLabelKey] !=
+					commonconstants.RegionalHubTypeNoHubAgentInstall &&
 				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				leafhubs.delete(e.Object.GetName())
@@ -535,14 +537,16 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal &&
+			if e.ObjectNew.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal &&
 				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
 				return true
 			}
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal
+			return e.Object.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal
 		},
 	}
 
@@ -551,14 +555,16 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal &&
+			if e.ObjectNew.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal &&
 				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
 				return true
 			}
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal
+			return e.Object.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal
 		},
 	}
 
@@ -567,7 +573,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal &&
+			if e.ObjectNew.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal &&
 				e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
 				if e.ObjectNew.GetName() == fmt.Sprintf("%s-%s", e.ObjectNew.GetNamespace(),
 					constants.HOHHubSubscriptionWorkSuffix) ||
@@ -582,7 +589,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetLabels()[constants.HoHOperatorOwnerLabelKey] == constants.HoHOperatorOwnerLabelVal
+			return e.Object.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal
 		},
 	}
 

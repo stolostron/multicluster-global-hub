@@ -8,7 +8,7 @@ metadata:
     policy.open-cluster-management.io/categories: PR.IP Information Protection Processes and Procedures
     policy.open-cluster-management.io/controls: PR.IP-1 Baseline Configuration
   labels:
-    hub-of-hubs.open-cluster-management.io/local-resource: ''
+    global-hub.open-cluster-management.io/local-resource: ''
 spec:
   remediationAction: inform
   disabled: false
@@ -47,7 +47,7 @@ metadata:
   name: binding-policy-limitrange
   namespace: local-policy-namespace
   labels:
-    hub-of-hubs.open-cluster-management.io/local-resource: ''
+    global-hub.open-cluster-management.io/local-resource: ''
 placementRef:
   name: placement-policy-limitrange
   kind: PlacementRule
@@ -63,7 +63,7 @@ metadata:
   name: placement-policy-limitrange
   namespace: local-policy-namespace
   labels:
-    hub-of-hubs.open-cluster-management.io/local-resource: ''
+    global-hub.open-cluster-management.io/local-resource: ''
 spec:
   clusterConditions:
     - status: 'True'

@@ -54,7 +54,8 @@ func (c *committer) periodicCommit(ctx context.Context) {
 			bundlesMetadata := c.getBundlesMetadataFunc()
 			// extract the lowest per partition in the pending bundles, the highest per partition in the
 			// processed bundles
-			pendingOffsetsToCommit, processedOffsetsToCommit := c.filterMetadataPerPartition(bundlesMetadata)
+			pendingOffsetsToCommit, processedOffsetsToCommit :=
+				c.filterMetadataPerPartition(bundlesMetadata)
 			// patch the processed offsets map with that of the pending ones, so that if a partition
 			// has both types, the pending bundle gains priority (overwrites).
 			for partition, offset := range pendingOffsetsToCommit {
