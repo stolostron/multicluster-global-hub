@@ -53,10 +53,10 @@ unit-tests-operator:
 	go test `go list ./operator/... | grep -v test`
 
 unit-tests-manager:
-	go test `go list ./manager/... | grep -v test` -tags dynamic
+	go test `go list ./manager/... | grep -v test`
 
 unit-tests-agent: setup_envtest
-	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" go test `go list ./agent/... | grep -v test` -tags dynamic
+	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" go test `go list ./agent/... | grep -v test`
 
 e2e-setup-dependencies:
 	./test/setup/e2e_dependencies.sh
