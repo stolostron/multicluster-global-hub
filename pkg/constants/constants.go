@@ -58,8 +58,8 @@ const (
 	RegionalHubTypeLabelKey = "global-hub.open-cluster-management.io/regional-hub-type"
 	// NoHubInstall stands up the global hub won't install ACM hub into the managed cluster
 	RegionalHubTypeNoHubInstall = "NoHubInstall"
-	// NoAgentInstall stands up the managed cluster won't be managed by the global hub.
-	RegionalHubTypeNoAgentInstall = "NoAgentInstall"
+	// NoHubAgentInstall stands up the managed cluster won't be managed by the global hub.
+	RegionalHubTypeNoHubAgentInstall = "NoHubAgentInstall"
 
 	// identify the resource is managed by
 	GlobalHubOwnerLabelKey   = "global-hub.open-cluster-management.io/managed-by"
@@ -68,7 +68,7 @@ const (
 	HoHAgentOwnerLabelValue  = "multicluster-global-hub-agent"
 
 	// identify the resource is a local-resource
-	HubOfHubsLocalResource = "hub-of-hubs.open-cluster-management.io/local-resource"
+	GlobalHubLocalResource = "global-hub.open-cluster-management.io/local-resource"
 )
 
 // store all the annotations

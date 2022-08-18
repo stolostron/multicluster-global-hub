@@ -475,7 +475,7 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
 				e.Object.GetLabels()[commonconstants.RegionalHubTypeLabelKey] !=
-					commonconstants.RegionalHubTypeNoAgentInstall &&
+					commonconstants.RegionalHubTypeNoHubAgentInstall &&
 				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				leafhubs.append(e.Object.GetName())
@@ -487,7 +487,7 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			if e.ObjectNew.GetLabels()["vendor"] == "OpenShift" &&
 				e.ObjectNew.GetName() != constants.LocalClusterName &&
 				e.ObjectNew.GetLabels()[commonconstants.RegionalHubTypeLabelKey] !=
-					commonconstants.RegionalHubTypeNoAgentInstall &&
+					commonconstants.RegionalHubTypeNoHubAgentInstall &&
 				meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				if e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
@@ -505,7 +505,7 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
 				e.Object.GetLabels()[commonconstants.RegionalHubTypeLabelKey] !=
-					commonconstants.RegionalHubTypeNoAgentInstall &&
+					commonconstants.RegionalHubTypeNoHubAgentInstall &&
 				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				leafhubs.delete(e.Object.GetName())
