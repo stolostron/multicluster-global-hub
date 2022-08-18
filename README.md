@@ -1,6 +1,7 @@
 # Multicluster Global Hub Overview
 [![Build](https://img.shields.io/badge/build-Prow-informational)](https://prow.ci.openshift.org/?repo=stolostron%2F${multicluster-global-hub})
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_hub-of-hubs&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=open-cluster-management_hub-of-hubs)
+[![Go Reference](https://pkg.go.dev/badge/github.com/stolostron/multicluster-global-hub.svg)](https://pkg.go.dev/github.com/stolostron/multicluster-global-hub)
 [![License](https://img.shields.io/github/license/stolostron/multicluster-global-hub)](/LICENSE)
 
 This document attempts to explain how the different components in multicluster global hub come together to deliver multicluster management at very high scale. The multicluster-global-hub operator is the root operator which pulls in all things needed.
