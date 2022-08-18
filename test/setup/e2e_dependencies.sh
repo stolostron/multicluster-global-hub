@@ -119,7 +119,9 @@ function checkVolume() {
 
 checkGolang
 checkDocker
-checkVolume
+if [[ $OPENSHIFT_CI == "true" ]]; then 
+  checkVolume
+fi
 checkKind
 checkKubectl
 checkClusteradm
