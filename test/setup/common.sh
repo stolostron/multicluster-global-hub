@@ -343,24 +343,18 @@ function enableOLM() {
   
   GIT_PATH="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.21.2"
   kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
-  kubectl wait --for=condition=Established -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
-  sleep 10
+  kubectl wait --for=condition=Established -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
   kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
 
-  retries=30
-  until [[ $retries == 0 ]]; do
-    csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
-    if [[ "$csvPhase" == "Succeeded" ]]; then
-      break
-    fi
-    kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
-    kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
-    echo "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
-    echo "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
-    sleep 10
+  retries=60
+  csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+  while [[ $retries -gt 0 && "$csvPhase" != "Succeeded" ]]; do
+    echo "csvPhase: ${csvPhase}"
+    sleep 5
     retries=$((retries - 1))
+    csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
   done
-  kubectl rollout status -w deployment/packageserver --namespace="${NS}" 
+  kubectl rollout status -w deployment/packageserver --namespace="${NS}" --timeout=60s
 
   if [ $retries == 0 ]; then
     echo "CSV \"packageserver\" failed to reach phase succeeded"
