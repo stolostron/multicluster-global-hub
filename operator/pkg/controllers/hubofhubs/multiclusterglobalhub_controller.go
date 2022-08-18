@@ -373,7 +373,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 	hohRenderer renderer.Renderer, log logr.Logger,
 ) (bool, error) {
 	if mgh.GetDeletionTimestamp() != nil &&
-		utils.Contains(mgh.GetFinalizers(), commonconstants.HoHOperatorFinalizer) {
+		utils.Contains(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
 		if mgh.GetAnnotations()[commonconstants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
 			log.Info("cleanup multicluster-global-hub console")
 			// render the console cleanup job
@@ -430,7 +430,8 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 			return false, err
 		}
 
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.HoHOperatorFinalizer))
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(),
+			commonconstants.GlobalHubCleanupFinalizer))
 		if err := r.Client.Update(context.TODO(), mgh); err != nil {
 			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
 			return false, err
@@ -439,8 +440,9 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 
 		return true, nil
 	}
-	if !utils.Contains(mgh.GetFinalizers(), commonconstants.HoHOperatorFinalizer) {
-		mgh.SetFinalizers(append(mgh.GetFinalizers(), commonconstants.HoHOperatorFinalizer))
+	if !utils.Contains(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
+		mgh.SetFinalizers(append(mgh.GetFinalizers(),
+			commonconstants.GlobalHubCleanupFinalizer))
 		err := r.Client.Update(context.TODO(), mgh)
 		if err != nil {
 			log.Error(err, "failed to add finalizer to multiclusterglobalhub resource")
@@ -456,7 +458,9 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
 func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
-		client.MatchingLabels(map[string]string{commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal}),
+		client.MatchingLabels(map[string]string{
+			commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+		}),
 	}
 
 	clusterRoleList := &rbacv1.ClusterRoleList{}

@@ -48,16 +48,15 @@ unit-tests: unit-tests-operator unit-tests-manager unit-tests-agent
 
 setup_envtest:
 	GOBIN=${TMP_BIN} go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-	export KUBEBUILDER_ASSETS=`${TMP_BIN}/setup-envtest use --use-env -p path`
 
 unit-tests-operator:
 	go test `go list ./operator/... | grep -v test`
 
 unit-tests-manager:
-	go test `go list ./manager/... | grep -v test`
+	go test `go list ./manager/... | grep -v test` -tags dynamic
 
 unit-tests-agent: setup_envtest
-	go test `go list ./agent/... | grep -v test`
+	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" go test `go list ./agent/... | grep -v test` -tags dynamic
 
 e2e-setup-dependencies:
 	./test/setup/e2e_dependencies.sh
