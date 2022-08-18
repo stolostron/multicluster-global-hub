@@ -211,15 +211,15 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 	if val, ok := annotations["import.open-cluster-management.io/klusterlet-deploy-mode"]; ok && val == "Hosted" {
 		hostingClusterName, ok = annotations["import.open-cluster-management.io/hosting-cluster-name"]
 		if !ok || hostingClusterName == "" {
-			return fmt.Errorf("missing hosting-cluster-name in managed cluster.")
+			return fmt.Errorf("missing hosting-cluster-name in managed cluster")
 		}
 		hypershiftdeploymentName, ok := annotations["cluster.open-cluster-management.io/hypershiftdeployment"]
 		if !ok || hypershiftdeploymentName == "" {
-			return fmt.Errorf("missing hypershiftdeployment name in managed cluster.")
+			return fmt.Errorf("missing hypershiftdeployment name in managed cluster")
 		}
 		splits := strings.Split(hypershiftdeploymentName, "/")
 		if len(splits) != 2 || splits[1] == "" {
-			return fmt.Errorf("bad hypershiftdeployment name in managed cluster.")
+			return fmt.Errorf("bad hypershiftdeployment name in managed cluster")
 		}
 		hypershiftDeploymentNamespace := splits[0]
 		hostedClusterName = splits[1]
@@ -271,8 +271,8 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 		return deleteManagedClusterAddon(ctx, r.Client, log, managedClusterName)
 	}
 
-	if managedCluster.GetLabels()[commonconstants.LeafHubClusterInstallHubLabelKey] ==
-		commonconstants.LeafHubClusterDisableInstallHubLabelVal {
+	if managedCluster.GetLabels()[commonconstants.RegionalHubTypeLabelKey] ==
+		commonconstants.RegionalHubTypeNoHubInstall {
 		// this is for e2e testing only. In e2e tests, we install ocm in leaf hub.
 		err := applyHoHAgentWork(ctx, r.Client, log, mgh, managedClusterName)
 		if err != nil {
@@ -388,8 +388,7 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 		}
 	}
 
-	isChannelServiceReady, channelServiceIP :=
-		findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
+	isChannelServiceReady, channelServiceIP := findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
 	if !isChannelServiceReady {
 		log.Info("channel service is not ready, won't apply the multicluster-global-hub-agent manifestwork")
 		return nil
@@ -475,8 +474,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		CreateFunc: func(e event.CreateEvent) bool {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
-				e.Object.GetLabels()[commonconstants.LeafHubClusterDisabledLabelKey] !=
-					commonconstants.LeafHubClusterDisabledLabelVal &&
+				e.Object.GetLabels()[commonconstants.RegionalHubTypeLabelKey] !=
+					commonconstants.RegionalHubTypeNoAgentInstall &&
 				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				leafhubs.append(e.Object.GetName())
@@ -487,8 +486,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			if e.ObjectNew.GetLabels()["vendor"] == "OpenShift" &&
 				e.ObjectNew.GetName() != constants.LocalClusterName &&
-				e.ObjectNew.GetLabels()[commonconstants.LeafHubClusterDisabledLabelKey] !=
-					commonconstants.LeafHubClusterDisabledLabelVal &&
+				e.ObjectNew.GetLabels()[commonconstants.RegionalHubTypeLabelKey] !=
+					commonconstants.RegionalHubTypeNoAgentInstall &&
 				meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				if e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion() {
@@ -505,8 +504,8 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			if e.Object.GetLabels()["vendor"] == "OpenShift" &&
 				e.Object.GetName() != constants.LocalClusterName &&
-				e.Object.GetLabels()[commonconstants.LeafHubClusterDisabledLabelKey] !=
-					commonconstants.LeafHubClusterDisabledLabelVal &&
+				e.Object.GetLabels()[commonconstants.RegionalHubTypeLabelKey] !=
+					commonconstants.RegionalHubTypeNoAgentInstall &&
 				meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				leafhubs.delete(e.Object.GetName())

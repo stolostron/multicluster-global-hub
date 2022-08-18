@@ -74,7 +74,7 @@ hover $! "5 Install postgres cluster"
 # deploy hoh
 # need the following labels to enable deploying agent in leaf hub cluster
 kubectl label managedcluster kind-$LEAF_HUB_NAME vendor=OpenShift
-kubectl label managedcluster kind-$LEAF_HUB_NAME global-hub.open-cluster-management.io/regional-hub=disabled
+kubectl label managedcluster kind-$LEAF_HUB_NAME global-hub.open-cluster-management.io/regional-hub-type=NoHubInstall
 source ${CURRENT_DIR}/hoh/hoh_setup.sh >> $LOG 2>&1 &
 hover $! "6 Deploy hub-of-hubs with $TAG" 
 

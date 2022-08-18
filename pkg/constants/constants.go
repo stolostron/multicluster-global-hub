@@ -54,19 +54,18 @@ const (
 
 // store all the labels
 const (
-	// control if need to install global-hub-agent and regional hub
-	LeafHubClusterDisabledLabelKey = "global-hub.open-cluster-management.io/global-hub-agent"
-	LeafHubClusterDisabledLabelVal = "disabled"
+	// control if need to install global-hub-agent and regional hub or not
+	RegionalHubTypeLabelKey = "global-hub.open-cluster-management.io/regional-hub-type"
+	// NoHubInstall stands up the global hub won't install ACM hub into the managed cluster
+	RegionalHubTypeNoHubInstall = "NoHubInstall"
+	// NoAgentInstall stands up the managed cluster won't be managed by the global hub.
+	RegionalHubTypeNoAgentInstall = "NoAgentInstall"
 
 	// identify the resource is managed by
 	GlobalHubOwnerLabelKey   = "global-hub.open-cluster-management.io/managed-by"
 	GlobalHubOwnerLabelVal   = "global-hub"
 	HoHOperatorOwnerLabelVal = "multicluster-global-hub-operator"
 	HoHAgentOwnerLabelValue  = "multicluster-global-hub-agent"
-
-	// control if need to install ACM hub into this cluster
-	LeafHubClusterInstallHubLabelKey        = "global-hub.open-cluster-management.io/regional-hub"
-	LeafHubClusterDisableInstallHubLabelVal = "disabled"
 
 	// identify the resource is a local-resource
 	HubOfHubsLocalResource = "hub-of-hubs.open-cluster-management.io/local-resource"
