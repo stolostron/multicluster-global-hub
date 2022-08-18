@@ -86,7 +86,7 @@ func AddPlacementBindingController(mgr ctrl.Manager) error {
 	placementBindingPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      constants.HubOfHubsLocalResource,
+				Key:      constants.GlobalHubLocalResource,
 				Operator: metav1.LabelSelectorOpDoesNotExist,
 			},
 		},

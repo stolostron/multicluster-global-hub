@@ -22,7 +22,7 @@ func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	policyPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      constants.HubOfHubsLocalResource,
+				Key:      constants.GlobalHubLocalResource,
 				Operator: metav1.LabelSelectorOpDoesNotExist,
 			},
 		},
