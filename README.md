@@ -88,3 +88,7 @@ make undeploy
 ```bash
 make uninstall
 ```
+
+# Contributing
+
+Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
