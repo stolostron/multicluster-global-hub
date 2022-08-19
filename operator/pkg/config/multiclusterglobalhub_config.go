@@ -48,7 +48,7 @@ var (
 		"multicluster_global_hub_agent":    "quay.io/stolostron/multicluster-global-hub-agent:latest",
 		"multicluster_global_hub_manager":  "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		"multicluster_global_hub_operator": "quay.io/stolostron/multicluster-global-hub-operator:latest",
-		"multicluster_global_hub_rbac":     "quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-rbac:latest",
+		"multicluster_global_hub_rbac":     "quay.io/open-cluster-management-hub-of-hubs/hub-of-hubs-rbac:v0.5.0",
 	}
 )
 
