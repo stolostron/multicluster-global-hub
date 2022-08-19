@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -62,7 +62,7 @@ var _ = Describe("Check all the clients could connect to the HoH servers", Label
 		Expect(err).ShouldNot(HaveOccurred())
 		defer resp.Body.Close()
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		var result map[string]interface{}

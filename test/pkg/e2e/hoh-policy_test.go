@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -288,7 +288,7 @@ func listTransportedPolicies(token string, httpClient *http.Client) []policyStat
 	defer resp.Body.Close()
 
 	By("Parse response to managed cluster")
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	Expect(err).ShouldNot(HaveOccurred())
 
 	var policiesStatus []policyStatus
