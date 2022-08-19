@@ -20,10 +20,16 @@ metadata:
           }
         }
       ]
-    capabilities: Basic Install
+    capabilities: Seamless Upgrades
+    categories: Integration & Delivery,OpenShift Optional
+    certified: "false"
+    containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
+    description: Manages the installation and upgrade of the MultiCluster Global Hub.
     operators.operatorframework.io/builder: operator-sdk-v1.19.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: multicluster-global-hub-operator.v0.0.1
+    repository: https://github.com/stolostron/multicluster-global-hub
+    support: Red Hat
+  name: multicluster-global-hub-operator.v0.5.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -35,12 +41,36 @@ spec:
       kind: MultiClusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha1
-  description: multicluster-global-hub-operator defines the configuration for multicluster
-    global hub installation with one custom resource.
-  displayName: multicluster-global-hub-operator
+  description: "MultiCluster Global Hub Operator defines the configuration for multicluster
+    global hub installation and upgrade with one custom resource.\n\n## Prerequisites\n\n-
+    Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.5 or later needs
+    to be installed.\n- PostgreSQL needs to be installed and a database is created
+    for multicluster global hub.\n- Kafka needs to be installed and two topics `spec`
+    and `status` should be created.\n- A secret named `postgresql-secret` that contains
+    the database access credential should be created in `open-cluster-management`
+    namespace, eg.\n\n```\nkubectl create secret generic postgresql-secret -n open-cluster-management
+    \\\n  --from-literal=database_uri=<postgresql-uri> \n```\n\n- A secret named `kafka-secret`
+    that contains the kafka access information should be created in `open-cluster-management`
+    namespace, eg.\n\n```\nkubectl create secret generic kafka-secret -n open-cluster-management
+    \\\n  --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \\\n  --from-literal=CA=<CA-for-kafka-server>\n```\n\n##
+    How to Install\n\n- Install `Multicluster Global Hub Operator` by following instructions
+    in top right button `Install`.\n\nA pod will be created in `open-cluster-management`
+    namespace\n\n```\n$ kubectl get pods -n open-cluster-management\nNAME                                                             READY
+    \  STATUS    RESTARTS   AGE\nmulticluster-global-hub-operator-5ccbbc878d-98fdp
+    \               1/1     Running   0          19s\n```\n\nThe operator is now providing
+    new Custom Resources Definitions: `multiclusterglobalhubs.operator.open-cluster-management.io`\n\n##
+    Using the Multicluster Global Hub Operator\n\nAfter installing the operator, create
+    an instance of the MultiClusterGlobalHub resource to install the Multicluster
+    Global Hub.\n\nThe pods of Multicluster Global Hub are created in the `open-cluster-management`
+    namespace:\n\n```\n$ kubectl get pods -n open-cluster-management\nNAME                                                             READY
+    \  STATUS    RESTARTS   AGE\nmulticluster-global-hub-operator-5ccbbc878d-98fdp
+    \               1/1     Running   0          56s\nmulticluster-global-hub-manager-7c55644568-mth8f
+    \                1/1     Running   0          11s\nmulticluster-global-hub-rbac-77888b7dc4-z9vbp
+    \                   1/1     Running   0          10s\n```\n"
+  displayName: Multicluster Global Hub Operator
   icon:
-  - base64data: ""
-    mediatype: ""
+  - base64data: PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTguNTEgMjU4LjUxIj48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6I2QxZDFkMTt9LmNscy0ye2ZpbGw6IzhkOGQ4Zjt9PC9zdHlsZT48L2RlZnM+PHRpdGxlPkFzc2V0IDQ8L3RpdGxlPjxnIGlkPSJMYXllcl8yIiBkYXRhLW5hbWU9IkxheWVyIDIiPjxnIGlkPSJMYXllcl8xLTIiIGRhdGEtbmFtZT0iTGF5ZXIgMSI+PHBhdGggY2xhc3M9ImNscy0xIiBkPSJNMTI5LjI1LDIwQTEwOS4xLDEwOS4xLDAsMCwxLDIwNi40LDIwNi40LDEwOS4xLDEwOS4xLDAsMSwxLDUyLjExLDUyLjExLDEwOC40NSwxMDguNDUsMCwwLDEsMTI5LjI1LDIwbTAtMjBoMEM1OC4xNiwwLDAsNTguMTYsMCwxMjkuMjVIMGMwLDcxLjA5LDU4LjE2LDEyOS4yNiwxMjkuMjUsMTI5LjI2aDBjNzEuMDksMCwxMjkuMjYtNTguMTcsMTI5LjI2LTEyOS4yNmgwQzI1OC41MSw1OC4xNiwyMDAuMzQsMCwxMjkuMjUsMFoiLz48cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik0xNzcuNTQsMTAzLjQxSDE0MS42NkwxNTQuOSw2NS43NmMxLjI1LTQuNC0yLjMzLTguNzYtNy4yMS04Ljc2SDEwMi45M2E3LjMyLDcuMzIsMCwwLDAtNy40LDZsLTEwLDY5LjYxYy0uNTksNC4xNywyLjg5LDcuODksNy40LDcuODloMzYuOUwxMTUuNTUsMTk3Yy0xLjEyLDQuNDEsMi40OCw4LjU1LDcuMjQsOC41NWE3LjU4LDcuNTgsMCwwLDAsNi40Ny0zLjQ4TDE4NCwxMTMuODVDMTg2Ljg2LDEwOS4yNCwxODMuMjksMTAzLjQxLDE3Ny41NCwxMDMuNDFaIi8+PC9nPjwvZz48L3N2Zz4=
+    mediatype: image/svg+xml
   install:
     spec:
       clusterPermissions:
@@ -931,7 +961,7 @@ spec:
   - multicluster-global-hub
   - multiple-hubs
   links:
-  - name: Hub Of Hubs Operator
+  - name: Multicluster Global Hub Operator
     url: https://github.com/stolostron/multicluster-global-hub
   maintainers:
   - email: acm-contact@redhat.com
@@ -940,4 +970,4 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 0.0.1
+  version: 0.5.0
