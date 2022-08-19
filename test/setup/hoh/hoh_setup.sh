@@ -17,28 +17,38 @@ echo "MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_MANAGER
 echo "MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
 echo "MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF"
 
-IFS=':'
-if [[ $OPENSHIFT_CI == "true" ]]; then
-  IFS='@'
-fi
-
+if [[ $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF =~ "@" ]]; then IFS='@'; else IFS=':'; fi
 read -ra MGHManagerImageRefArray <<< "$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF"
 MGHManagerImageRepo=${MGHManagerImageRefArray[0]}
 export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REPO=${MGHManagerImageRepo%/*}
 export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_NAME=${MGHManagerImageRepo##*/}
-export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_GIGEST=${MGHManagerImageRefArray[1]}
+if [[ $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF =~ "@" ]]; then 
+  export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_GIGEST=${MGHManagerImageRefArray[1]}
+else
+  export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_TAG=${MGHManagerImageRefArray[1]}
+fi
 
+if [[ $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF =~ "@" ]]; then IFS='@'; else IFS=':'; fi
 read -ra MGHAgentImageRefArray <<< "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
 MGHAgentImageRepo=${MGHAgentImageRefArray[0]}
 export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REPO=${MGHAgentImageRepo%/*}
 export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_NAME=${MGHAgentImageRepo##*/}
-export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_GIGEST=${MGHAgentImageRefArray[1]}
+if [[ $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF =~ "@" ]]; then 
+  export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_GIGEST=${MGHAgentImageRefArray[1]}
+else
+  export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_TAG=${MGHAgentImageRefArray[1]}
+fi
 
+if [[ $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF =~ "@" ]]; then IFS='@'; else IFS=':'; fi
 read -ra MGHOperatorImageRefArray <<< "$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF"
 MGHOperatorImageRepo=${MGHOperatorImageRefArray[0]}
 export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REPO=${MGHOperatorImageRepo%/*}
 export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_NAME=${MGHOperatorImageRepo##*/}
-export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_GIGEST=${MGHOperatorImageRefArray[1]}
+if [[ $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF =~ "@" ]]; then 
+  export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_GIGEST=${MGHOperatorImageRefArray[1]}
+else
+  export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_TAG=${MGHOperatorImageRefArray[1]}
+fi
 
 namespace=open-cluster-management
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -58,18 +68,13 @@ echo "HoH images is updated!"
 
 export TRANSPORT_SECRET_NAME="transport-secret"
 export STORAGE_SECRET_NAME="storage-secret"
-if [[ $OPENSHIFT_CI == "true" ]]; then
-  envsubst < ${currentDir}/components/mgh-images-config.yaml | kubectl apply -f - -n "$namespace"
-else
-  envsubst < ${currentDir}/components/mgh-images-config-local.yaml | kubectl apply -f - -n "$namespace"
-fi
 envsubst < ${currentDir}/components/mgh-v1alpha1-cr.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
 
 kubectl apply -f ${currentDir}/components/manager-service-local.yaml -n "$namespace"
 echo "HoH manager nodeport service is ready!"
 
-sleep 5
+sleep 2
 echo "HoH cr and configmap information:"
 kubectl get cm mgh-images-config -n "$namespace" -oyaml 
 kubectl get mgh multiclusterglobalhub -n "$namespace" -oyaml
