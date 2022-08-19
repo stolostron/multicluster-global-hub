@@ -1,12 +1,12 @@
-# Hub-of-Hubs Manages Lifecycle of ACM Hub Clusters Using HyperShift Control Plane
+# Multicluster Global Hub Manages Lifecycle of ACM Hub Clusters Using HyperShift Control Plane
 
-Hub-of-Hubs supports ACM hub clusters from instantiation to ensuring the health. This document explain how Hub-of-Hubs manages lifecycle of ACM hub clusters which are using HyperShift control-plane. With HyperShift and Hub-of-Hubs, multiple hosted clusters can be provisioned by one HyperShift and enabled as leaf hubs by Hub-of-Hubs controller.
+Multicluster global hub supports ACM hub clusters from instantiation to ensuring the health. This document explain how multicluster global hub manages lifecycle of ACM hub clusters which are using HyperShift control-plane. With HyperShift and multicluster global hub, multiple hosted clusters can be provisioned by one HyperShift and enabled as the regional hubs by multicluster global hub controller.
 
-_Note_: This guide is used to enable leaf hub from HyperShift hosted cluster w/ zero work node, if you're trying to provisioned 1+ worker node to HyperShift hosted cluster, please refer to the [HyperShift official document](https://hypershift-docs.netlify.app/).
+_Note_: This guide is used to enable the regional hub from HyperShift hosted cluster w/ zero work node, if you're trying to provisioned 1+ worker node to HyperShift hosted cluster, please refer to the [HyperShift official document](https://hypershift-docs.netlify.app/).
 
 ## Prerequisites
 
-1. Two OpenShift Cluster with recommended version 4.10+, one will be hub-of-hubs cluster, another will be HyperShift management cluster.
+1. Two OpenShift Cluster with recommended version 4.10+, one will be the multicluster global hub cluster, another will be HyperShift management cluster.
 2. ACM 2.5+ installed on the first OpenShift cluster from Operator Hub. (Alternate: https://github.com/stolostron/deploy)
 3. If the second OpenShift cluster (which will be HyperShift management cluster) is deployed on bare metal and HyperShift hosted clusters are also provisioned on bare metal, make sure worker nodes of the second OpenShift cluster have external IPs, othertwise, API service of the HyperShift hosted cluster can't be accessed from external.
 4. If the second OpenShift cluster (which will be HyperShift management cluster) is deployed on AWS and HyperShift hosted clusters are also provisioned on AWS, a Route53 public zone for cluster DNS records should be ready on AWS.
@@ -42,7 +42,7 @@ _Note_: This guide is used to enable leaf hub from HyperShift hosted cluster w/ 
 ## Get Started
 
 1. Follow the [guide](https://github.com/stolostron/multicluster-global-hub/tree/release-2.5/deploy) to install HoH(`> v0.4.0` or `latest`) to ACM hub cluster.
-2. In the HoH console, import the second OpenShift cluster as a leaf hub (with name `hypermgt` for simplicity) in which hypershift operator will be running.
+2. In the HoH console, import the second OpenShift cluster as a regional hub (with name `hypermgt` for simplicity) in which hypershift operator will be running.
 3. Set the following environment variable that will be used throughout the guide:
 
 ```bash
@@ -101,9 +101,9 @@ export HYPERSHIFT_MGMT_CLUSTER=hypermgt
     oc wait --for=condition=Available managedclusteraddon/hypershift-addon -n ${HYPERSHIFT_MGMT_CLUSTER} --timeout=600s
     ```
 
-5. Create HyperShift hosted cluster and enable it as leaf hub.
+5. Create HyperShift hosted cluster and enable it as regional hub.
 
     - Refer to the [guide](./hypershift-aws.md) for HyperShift management cluster and hosted cluster provisioned on AWS
     - Refer to the [guide](./hypershift-bm.md) for HyperShift management cluster and hosted cluster provisioned on bare metal
 
-6. Import a managed cluster to the HyperShift leaf hub by following the [guide](./hypershift-leafhub-import-cluster.md).
+6. Import a managed cluster to the HyperShift regional hub by following the [guide](./hypershift-regionalhub-import-cluster.md).
