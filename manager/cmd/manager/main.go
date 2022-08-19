@@ -130,12 +130,12 @@ func parseFlags() (*hohManagerConfig, error) {
 		"kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
 	pflag.StringVar(&managerConfig.kafkaConfig.SslCa, "kafka-ssl-ca", "", "The CA for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerID, "kakfa-producer-id",
-		"hub-of-hubs", "ID for the kafka producer.")
+		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerTopic, "kakfa-producer-topic",
 		"spec", "Topic for the kafka producer.")
 	pflag.IntVar(&managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 940,
 		"The limit for kafka message size in KB.")
-	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerID, "kakfa-consumer-id", "hub-of-hubs",
+	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerID, "kakfa-consumer-id", "multicluster-global-hub",
 		"ID for the kafka consumer.")
 	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerTopic, "kakfa-consumer-topic", "status",
 		"Topic for the kafka consumer.")
