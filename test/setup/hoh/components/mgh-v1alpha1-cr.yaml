@@ -1,33 +1,3 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mgh-images-config
-data:
-  manifest.json: |-
-    [
-      {
-        "image-name": "${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_NAME}",
-        "image-remote": "${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REPO}",
-        "image-digest": "${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_GIGEST}",
-        "image-tag": "${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_TAG}",
-        "image-key": "multicluster_global_hub_manager"
-      },
-      {
-        "image-name": "${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_NAME}",
-        "image-remote": "${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REPO}",
-        "image-digest": "${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_GIGEST}",
-        "image-tag": "${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_TAG}",
-        "image-key": "multicluster_global_hub_agent"
-      },
-      {
-        "image-name": "${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_NAME}",
-        "image-remote": "${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REPO}",
-        "image-digest": "${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_GIGEST}",
-        "image-tag": "${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_TAG}",
-        "image-key": "multicluster_global_hub_operator"
-      }
-    ]
----
 apiVersion: operator.open-cluster-management.io/v1alpha1
 kind: MultiClusterGlobalHub
 metadata:
