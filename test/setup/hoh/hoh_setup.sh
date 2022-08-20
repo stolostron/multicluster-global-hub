@@ -68,6 +68,7 @@ echo "HoH images is updated!"
 
 export TRANSPORT_SECRET_NAME="transport-secret"
 export STORAGE_SECRET_NAME="storage-secret"
+envsubst < ${currentDir}/components/mgh-images-config.yaml | kubectl apply -f - -n "$namespace"
 envsubst < ${currentDir}/components/mgh-v1alpha1-cr.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
 
