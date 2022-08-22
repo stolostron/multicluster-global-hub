@@ -68,8 +68,8 @@ var isLeafHubControllerRunnning = false
 
 // var isPackageManifestControllerRunnning = false
 
-// MultiClusterGlobalHubReconciler reconciles a MultiClusterGlobalHub object
-type MultiClusterGlobalHubReconciler struct {
+// MulticlusterGlobalHubReconciler reconciles a MulticlusterGlobalHub object
+type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
 	KubeClient kubernetes.Interface
@@ -100,29 +100,29 @@ type MultiClusterGlobalHubReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the MultiClusterGlobalHub object against the actual cluster state, and then
+// the MulticlusterGlobalHub object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling", "namespacedname", req.NamespacedName)
 
 	// Fetch the multiclusterglobalhub instance
-	mgh := &operatorv1alpha1.MultiClusterGlobalHub{}
+	mgh := &operatorv1alpha1.MulticlusterGlobalHub{}
 	err := r.Get(ctx, req.NamespacedName, mgh)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			log.Info("MultiClusterGlobalHub resource not found. Ignoring since object must be deleted")
+			log.Info("MulticlusterGlobalHub resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		log.Error(err, "Failed to get MultiClusterGlobalHub")
+		log.Error(err, "Failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
 
@@ -353,8 +353,8 @@ func (r *MultiClusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub, setConditionFunc condition.SetConditionFunc, log logr.Logger,
+func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
+	mgh *operatorv1alpha1.MulticlusterGlobalHub, setConditionFunc condition.SetConditionFunc, log logr.Logger,
 ) error {
 	hohDeployer := deployer.NewHoHDeployer(r.Client)
 	// manipulate the object
@@ -400,7 +400,7 @@ func (r *MultiClusterGlobalHubReconciler) manipulateObj(ctx context.Context, obj
 	return nil
 }
 
-func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub,
+func (r *MulticlusterGlobalHubReconciler) initFinalization(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub,
 	hohRenderer renderer.Renderer, log logr.Logger,
 ) (bool, error) {
 	if mgh.GetDeletionTimestamp() != nil &&
@@ -487,7 +487,7 @@ func (r *MultiClusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 
 // pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
+func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
 			commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
@@ -522,7 +522,7 @@ func (r *MultiClusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 }
 
 // reconcileHoHResources tries to create hoh resources if they don't exist
-func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub) error {
+func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub) error {
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.HOHSystemNamespace,
@@ -587,7 +587,7 @@ func (r *MultiClusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 }
 
 // pruneHoHResources tries to delete hoh resources
-func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context) error {
+func (r *MulticlusterGlobalHubReconciler) pruneHoHResources(ctx context.Context) error {
 	// hoh-system namespace and multicluster-global-hub-config configmap
 	hohSystemNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -635,7 +635,7 @@ func (r *MultiClusterGlobalHubReconciler) pruneHoHResources(ctx context.Context)
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MultiClusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	mghPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			// set request name to be used in leafhub controller
@@ -665,7 +665,7 @@ func (r *MultiClusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1alpha1.MultiClusterGlobalHub{}, builder.WithPredicates(mghPred)).
+		For(&operatorv1alpha1.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
 		Owns(&batchv1.Job{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
@@ -683,7 +683,7 @@ func (r *MultiClusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
 func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub,
+	mgh *operatorv1alpha1.MulticlusterGlobalHub,
 ) (string, string, error) {
 	// for local dev/test
 	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]

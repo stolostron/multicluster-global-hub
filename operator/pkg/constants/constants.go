@@ -62,22 +62,22 @@ const (
 )
 
 const (
-	// AnnotationHubACMSnapshot sits in MultiClusterGlobalHub annotations
+	// AnnotationHubACMSnapshot sits in MulticlusterGlobalHub annotations
 	// to identify the ACM image snapshot for regional hub
 	AnnotationHubACMSnapshot = "mgh-hub-ACM-snapshot"
-	// AnnotationHubMCESnapshot sits in MultiClusterGlobalHub annotations
+	// AnnotationHubMCESnapshot sits in MulticlusterGlobalHub annotations
 	// to identify the MCE image snapshot for regional hub
 	AnnotationHubMCESnapshot = "mgh-hub-MCE-snapshot"
-	// AnnotationKafkaBootstrapServer sits in MultiClusterGlobalHub annotations
+	// AnnotationKafkaBootstrapServer sits in MulticlusterGlobalHub annotations
 	// to identify kafka server address used to dev/test
 	AnnotationKafkaBootstrapServer = "mgh-kafka-bootstrap-server"
-	// AnnotationMCHPause sits in MultiClusterGlobalHub annotations
-	// to identify if the MultiClusterGlobalHub is paused or not
+	// AnnotationMCHPause sits in MulticlusterGlobalHub annotations
+	// to identify if the MulticlusterGlobalHub is paused or not
 	AnnotationMGHPause = "mgh-pause"
-	// AnnotationImageRepo sits in MultiClusterGlobalHub annotations
+	// AnnotationImageRepo sits in MulticlusterGlobalHub annotations
 	// to identify a custom image repository to use
 	AnnotationImageRepo = "mgh-image-repository"
-	// AnnotationImageOverridesCM sits in MultiClusterGlobalHub annotations
+	// AnnotationImageOverridesCM sits in MulticlusterGlobalHub annotations
 	// to identify a custom configmap containing image overrides
 	AnnotationImageOverridesCM = "mgh-image-overrides-cm"
 	// MGHOperandImagePrefix ...

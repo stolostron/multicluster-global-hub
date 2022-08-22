@@ -61,7 +61,7 @@ func GetHoHMGHNamespacedName() types.NamespacedName {
 }
 
 // getAnnotation returns the annotation value for a given key, or an empty string if not set
-func getAnnotation(mgh *operatorv1alpha1.MultiClusterGlobalHub, annotationKey string) string {
+func getAnnotation(mgh *operatorv1alpha1.MulticlusterGlobalHub, annotationKey string) string {
 	annotations := mgh.GetAnnotations()
 	if annotations == nil {
 		return ""
@@ -70,8 +70,8 @@ func getAnnotation(mgh *operatorv1alpha1.MultiClusterGlobalHub, annotationKey st
 	return annotations[annotationKey]
 }
 
-// IsPaused returns true if the MultiClusterGlobalHub instance is labeled as paused, and false otherwise
-func IsPaused(mgh *operatorv1alpha1.MultiClusterGlobalHub) bool {
+// IsPaused returns true if the MulticlusterGlobalHub instance is labeled as paused, and false otherwise
+func IsPaused(mgh *operatorv1alpha1.MulticlusterGlobalHub) bool {
 	isPausedVal := getAnnotation(mgh, constants.AnnotationMGHPause)
 	if isPausedVal != "" && strings.EqualFold(isPausedVal, "true") {
 		return true
@@ -81,11 +81,11 @@ func IsPaused(mgh *operatorv1alpha1.MultiClusterGlobalHub) bool {
 }
 
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
-func GetImageOverridesConfigmap(mgh *operatorv1alpha1.MultiClusterGlobalHub) string {
+func GetImageOverridesConfigmap(mgh *operatorv1alpha1.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, constants.AnnotationImageOverridesCM)
 }
 
-func SetImageOverrides(mgh *operatorv1alpha1.MultiClusterGlobalHub, cm *corev1.ConfigMap) error {
+func SetImageOverrides(mgh *operatorv1alpha1.MulticlusterGlobalHub, cm *corev1.ConfigMap) error {
 	// first check for environment variables containing the 'OPERAND_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)

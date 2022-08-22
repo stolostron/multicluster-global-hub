@@ -22,7 +22,7 @@ const (
 //go:embed database
 var databaseFS embed.FS
 
-func (reconciler *MultiClusterGlobalHubReconciler) reconcileDatabase(ctx context.Context, mgh *operatorv1alpha1.MultiClusterGlobalHub,
+func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub,
 	namespacedName types.NamespacedName,
 ) error {
 	log := ctrllog.FromContext(ctx)

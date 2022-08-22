@@ -171,13 +171,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&hubofhubscontrollers.MultiClusterGlobalHubReconciler{
+	if err = (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
 		Manager:    mgr,
 		Client:     mgr.GetClient(),
 		KubeClient: kubeClient,
 		Scheme:     mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MultiClusterGlobalHub")
+		setupLog.Error(err, "unable to create controller", "controller", "MulticlusterGlobalHub")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

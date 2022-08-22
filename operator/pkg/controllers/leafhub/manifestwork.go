@@ -462,7 +462,7 @@ func getDefaultHypershiftHubConfigValues() HypershiftHubConfigValues {
 
 // applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
 func applyHubHypershiftWorks(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub, channelClusterIP string,
+	mgh *operatorv1alpha1.MulticlusterGlobalHub, channelClusterIP string,
 	pm *packageManifestConfig, hcConfig *config.HostedClusterConfig,
 ) (*workv1.ManifestWork, error) {
 	hypershiftHubConfigValues := getDefaultHypershiftHubConfigValues()
@@ -636,7 +636,7 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 
 // applyHoHAgentWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub, managedClusterName string,
+	mgh *operatorv1alpha1.MulticlusterGlobalHub, managedClusterName string,
 ) error {
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
 	if err != nil {
@@ -707,7 +707,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernet
 
 // applyHoHAgentHypershiftWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface,
-	log logr.Logger, mgh *operatorv1alpha1.MultiClusterGlobalHub, hcConfig *config.HostedClusterConfig,
+	log logr.Logger, mgh *operatorv1alpha1.MulticlusterGlobalHub, hcConfig *config.HostedClusterConfig,
 ) error {
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
 	if err != nil {
@@ -909,7 +909,7 @@ func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClust
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
 func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MultiClusterGlobalHub,
+	mgh *operatorv1alpha1.MulticlusterGlobalHub,
 ) (string, string, error) {
 	// for local dev/test
 	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]
