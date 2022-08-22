@@ -86,19 +86,34 @@ func doMain() int {
 		return 1
 	}
 
-	log.Info("starting the Cmd.")
+	ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
 
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	go func() {
+		if err := initResources(ctx, mgr, log); err != nil {
+			log.Error(err, "failed to init resource")
+		}
+		defer cancel()
+	}()
+
+	log.Info("starting the Cmd.")
+	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
 	}
 
-	if err := controllers.PostStart(mgr); err != nil {
-		log.Error(err, "failed to exec postStart")
-		return 1
-	}
-
 	return 0
+}
+
+func initResources(ctx context.Context, mgr ctrl.Manager, log logr.Logger) error {
+	log.Info("Waiting for cache to sync...")
+	synced := mgr.GetCache().WaitForCacheSync(ctx)
+	if !synced {
+		return fmt.Errorf("failed to sync cache")
+	}
+	if err := controllers.InitResources(mgr); err != nil {
+		return fmt.Errorf("failed to init resources")
+	}
+	return nil
 }
 
 func initLog() logr.Logger {

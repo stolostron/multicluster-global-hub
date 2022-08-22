@@ -25,7 +25,7 @@ func AddControllers(mgr ctrl.Manager) error {
 	return nil
 }
 
-func PostStart(mgr ctrl.Manager) error {
+func InitResources(mgr ctrl.Manager) error {
 	initControllerFunctions := []func(ctrl.Manager) error{
 		InitClusterRole,
 		InitClusterRoleBinding,
