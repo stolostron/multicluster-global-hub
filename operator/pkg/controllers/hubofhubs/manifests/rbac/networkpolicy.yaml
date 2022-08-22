@@ -3,7 +3,7 @@ kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
   name: allow-within-namespace-for-opa
-  namespace: open-cluster-management
+  namespace: {{.Namespace}}
   labels:
     name: multicluster-global-hub-rbac
 spec:

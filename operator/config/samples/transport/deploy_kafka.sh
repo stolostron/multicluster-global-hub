@@ -3,10 +3,11 @@
 KUBECONFIG=${1:-$KUBECONFIG}
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+TARGET_NAMESPACE=${TARGET_NAMESPACE:-"open-cluster-management"}
 transportSecret=${TRANSPORT_SECRET_NAME:-"transport-secret"}
-ready=$(kubectl get secret $transportSecret -n open-cluster-management --ignore-not-found=true)
+ready=$(kubectl get secret $transportSecret -n $TARGET_NAMESPACE --ignore-not-found=true)
 if [ ! -z "$ready" ]; then
-  echo "transportSecret $transportSecret already exists in open-cluster-management namespace"
+  echo "transportSecret $transportSecret already exists in $TARGET_NAMESPACE namespace"
   exit 0
 fi
 
@@ -63,9 +64,9 @@ echo "Kafka topics spec and status are ready!"
 
 bootstrapServers=$(kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].bootstrapServers}')
 kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' > $currentDir/kafka-cert.pem
-kubectl create secret generic ${transportSecret} -n "open-cluster-management" \
+kubectl create secret generic ${transportSecret} -n $TARGET_NAMESPACE \
     --from-literal=bootstrap_server=$bootstrapServers \
     --from-file=CA=$currentDir/kafka-cert.pem
 
 rm $currentDir/kafka-cert.pem
-echo "transport secret is ready!"
+echo "transport secret is ready in $TARGET_NAMESPACE namespace!"

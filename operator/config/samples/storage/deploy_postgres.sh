@@ -2,10 +2,11 @@
 KUBECONFIG=${1:-$KUBECONFIG}
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+TARGET_NAMESPACE=${TARGET_NAMESPACE:-"open-cluster-management"}
 storageSecret=${STORAGE_SECRET_NAME:-"storage-secret"}
-ready=$(kubectl get secret $storageSecret -n open-cluster-management --ignore-not-found=true)
+ready=$(kubectl get secret $storageSecret -n $TARGET_NAMESPACE --ignore-not-found=true)
 if [ ! -z "$ready" ]; then
-  echo "storageSecret $storageSecret already exists in open-cluster-management namespace"
+  echo "storageSecret $storageSecret already exists in $TARGET_NAMESPACE namespace"
   exit 0
 fi
 
@@ -43,6 +44,6 @@ databasePassword=$(printf %s "$databasePassword" |jq -sRr @uri)
 
 databaseUri="postgres://${databaseUser}:${databasePassword}@${databaseHost}:${pgAdminPort}/hoh"
 
-kubectl create secret generic $storageSecret -n "open-cluster-management" \
+kubectl create secret generic $storageSecret -n $TARGET_NAMESPACE \
     --from-literal=database_uri=$databaseUri
-echo "storage secret is ready!"
+echo "storage secret is ready in $TARGET_NAMESPACE namespace!"

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: multicluster-global-hub-manager
-  namespace: open-cluster-management
+  namespace: {{.Namespace}}
   labels:
     name: multicluster-global-hub-manager
 spec:
