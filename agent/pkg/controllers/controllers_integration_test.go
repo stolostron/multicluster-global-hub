@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -34,6 +35,10 @@ var _ = Describe("controller", Ordered, func() {
 		By("Adding the controllers to the manager")
 		Expect(controllers.AddControllers(mgr)).NotTo(HaveOccurred())
 
+		kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(controllers.InitResources(ctx, kubeClient)).NotTo(HaveOccurred())
+
 		go func() {
 			defer GinkgoRecover()
 			Expect(mgr.Start(ctx)).NotTo(HaveOccurred())
@@ -41,9 +46,6 @@ var _ = Describe("controller", Ordered, func() {
 
 		By("Waiting for the manager to be ready")
 		Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
-
-		By("Executing the PostStart function")
-		Expect(controllers.PostStart(mgr)).NotTo(HaveOccurred())
 	})
 
 	It("clusterrole testing", func() {

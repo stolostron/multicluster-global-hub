@@ -14,7 +14,9 @@ import (
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	clustersV1 "open-cluster-management.io/api/cluster/v1"
 	clustersV1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policiesV1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -86,19 +88,31 @@ func doMain() int {
 		return 1
 	}
 
-	log.Info("starting the Cmd.")
+	ctx := ctrl.SetupSignalHandler()
 
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	log.Info("initiating the resources")
+	if err := initResources(ctx, mgr.GetConfig(), log); err != nil {
+		log.Error(err, "failed to init resource")
+	}
+
+	log.Info("starting the Cmd")
+	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
 	}
 
-	if err := controllers.PostStart(mgr); err != nil {
-		log.Error(err, "failed to exec postStart")
-		return 1
-	}
-
 	return 0
+}
+
+func initResources(ctx context.Context, config *rest.Config, log logr.Logger) error {
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to create kube client")
+	}
+	if err := controllers.InitResources(ctx, kubeClient); err != nil {
+		return fmt.Errorf("failed to init resources")
+	}
+	return nil
 }
 
 func initLog() logr.Logger {

@@ -11,6 +11,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -88,11 +89,12 @@ func AddClusterRoleBindingController(mgr ctrl.Manager) error {
 	return nil
 }
 
-func InitClusterRoleBinding(mgr ctrl.Manager) error {
-	err := mgr.GetClient().Get(context.TODO(),
-		client.ObjectKey{Name: HubOfHubsClusterRoleName}, &rbacv1.ClusterRoleBinding{})
+func InitClusterRoleBinding(ctx context.Context, kubeClient *kubernetes.Clientset) error {
+	_, err := kubeClient.RbacV1().ClusterRoleBindings().Get(
+		ctx, HubOfHubsClusterRoleName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		if err := mgr.GetClient().Create(context.Background(), createClusterRoleBinding()); err != nil {
+		if _, err := kubeClient.RbacV1().ClusterRoleBindings().Create(
+			ctx, createClusterRoleBinding(), metav1.CreateOptions{}); err != nil {
 			return err
 		}
 		return nil
