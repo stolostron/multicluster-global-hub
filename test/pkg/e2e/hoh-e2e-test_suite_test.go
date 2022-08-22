@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -65,7 +64,7 @@ func initVars() {
 	testTimeout = time.Second * 30
 
 	klog.V(6).Infof("Options Path: %s", optionsFile)
-	data, err := ioutil.ReadFile(optionsFile)
+	data, err := os.ReadFile(optionsFile)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = yaml.UnmarshalStrict([]byte(data), &testOptionsContainer)

@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -48,7 +48,7 @@ var _ = Describe("Check the managed cluster from HoH manager", Label("e2e-tests-
 		defer resp.Body.Close()
 
 		By("Parse response to managed cluster")
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Return parsed managedcluster")
