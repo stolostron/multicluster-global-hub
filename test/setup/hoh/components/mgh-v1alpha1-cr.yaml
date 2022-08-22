@@ -1,5 +1,5 @@
 apiVersion: operator.open-cluster-management.io/v1alpha1
-kind: MultiClusterGlobalHub
+kind: MulticlusterGlobalHub
 metadata:
   annotations:
     mgh-image-overrides-cm: mgh-images-config

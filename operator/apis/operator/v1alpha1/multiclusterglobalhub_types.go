@@ -35,17 +35,17 @@ const (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=mgh
-// MultiClusterGlobalHub is the Schema for the multiclusterglobalhubs API
-type MultiClusterGlobalHub struct {
+// MulticlusterGlobalHub is the Schema for the multiclusterglobalhubs API
+type MulticlusterGlobalHub struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   MultiClusterGlobalHubSpec   `json:"spec,omitempty"`
-	Status MultiClusterGlobalHubStatus `json:"status,omitempty"`
+	Spec   MulticlusterGlobalHubSpec   `json:"spec,omitempty"`
+	Status MulticlusterGlobalHubStatus `json:"status,omitempty"`
 }
 
-// MultiClusterGlobalHubSpec defines the desired state of MultiClusterGlobalHub
-type MultiClusterGlobalHubSpec struct {
+// MulticlusterGlobalHubSpec defines the desired state of MulticlusterGlobalHub
+type MulticlusterGlobalHubSpec struct {
 	// +kubebuilder:default:=full
 	AggregationLevel AggregationLevel `json:"aggregationLevel,omitempty"` // full or minimal
 	// +kubebuilder:default:=true
@@ -56,28 +56,28 @@ type MultiClusterGlobalHubSpec struct {
 	Storage corev1.LocalObjectReference `json:"storage,omitempty"`
 }
 
-// MultiClusterGlobalHubStatus defines the observed state of MultiClusterGlobalHub
-type MultiClusterGlobalHubStatus struct {
-	// MultiClusterGlobalHubStatus defines the observed state of MultiClusterGlobalHub
+// MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
+type MulticlusterGlobalHubStatus struct {
+	// MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
-// MultiClusterGlobalHubList contains a list of MultiClusterGlobalHub
-type MultiClusterGlobalHubList struct {
+// MulticlusterGlobalHubList contains a list of MulticlusterGlobalHub
+type MulticlusterGlobalHubList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MultiClusterGlobalHub `json:"items"`
+	Items           []MulticlusterGlobalHub `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&MultiClusterGlobalHub{}, &MultiClusterGlobalHubList{})
+	SchemeBuilder.Register(&MulticlusterGlobalHub{}, &MulticlusterGlobalHubList{})
 }
 
-func (mgh *MultiClusterGlobalHub) GetConditions() []metav1.Condition {
+func (mgh *MulticlusterGlobalHub) GetConditions() []metav1.Condition {
 	return mgh.Status.Conditions
 }
 
-func (mgh *MultiClusterGlobalHub) SetConditions(conditions []metav1.Condition) {
+func (mgh *MulticlusterGlobalHub) SetConditions(conditions []metav1.Condition) {
 	mgh.Status.Conditions = conditions
 }
