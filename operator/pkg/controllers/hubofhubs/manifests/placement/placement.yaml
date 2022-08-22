@@ -18,3 +18,11 @@ spec:
         type: BuiltIn
       weight: 3
     mode: Exact
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchExpressions:
+        - key: local-cluster
+          operator: NotIn
+          values:
+          - "true"

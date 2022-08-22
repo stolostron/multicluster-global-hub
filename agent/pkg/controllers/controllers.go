@@ -4,8 +4,10 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -25,15 +27,15 @@ func AddControllers(mgr ctrl.Manager) error {
 	return nil
 }
 
-func InitResources(mgr ctrl.Manager) error {
-	initControllerFunctions := []func(ctrl.Manager) error{
+func InitResources(ctx context.Context, kubeClient *kubernetes.Clientset) error {
+	initControllerFunctions := []func(context.Context, *kubernetes.Clientset) error{
 		InitClusterRole,
 		InitClusterRoleBinding,
 	}
 
 	for _, initControllerFunction := range initControllerFunctions {
-		if err := initControllerFunction(mgr); err != nil {
-			return fmt.Errorf("failed to init controller: %w", err)
+		if err := initControllerFunction(ctx, kubeClient); err != nil {
+			return fmt.Errorf("failed to execute init function: %w", err)
 		}
 	}
 

@@ -14,7 +14,9 @@ import (
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	clustersV1 "open-cluster-management.io/api/cluster/v1"
 	clustersV1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policiesV1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -86,16 +88,14 @@ func doMain() int {
 		return 1
 	}
 
-	ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
+	ctx := ctrl.SetupSignalHandler()
 
-	go func() {
-		if err := initResources(ctx, mgr, log); err != nil {
-			log.Error(err, "failed to init resource")
-		}
-		defer cancel()
-	}()
+	log.Info("initiating the resources")
+	if err := initResources(ctx, mgr.GetConfig(), log); err != nil {
+		log.Error(err, "failed to init resource")
+	}
 
-	log.Info("starting the Cmd.")
+	log.Info("starting the Cmd")
 	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
@@ -104,13 +104,12 @@ func doMain() int {
 	return 0
 }
 
-func initResources(ctx context.Context, mgr ctrl.Manager, log logr.Logger) error {
-	log.Info("Waiting for cache to sync...")
-	synced := mgr.GetCache().WaitForCacheSync(ctx)
-	if !synced {
-		return fmt.Errorf("failed to sync cache")
+func initResources(ctx context.Context, config *rest.Config, log logr.Logger) error {
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to create kube client")
 	}
-	if err := controllers.InitResources(mgr); err != nil {
+	if err := controllers.InitResources(ctx, kubeClient); err != nil {
 		return fmt.Errorf("failed to init resources")
 	}
 	return nil
