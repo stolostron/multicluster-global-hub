@@ -52,6 +52,16 @@ var (
 	}
 )
 
+// GetDefaultNamespace returns default installation namespace
+func GetDefaultNamespace() string {
+	defaultNamespace, _ := os.LookupEnv("POD_NAMESPACE")
+	if defaultNamespace == "" {
+		defaultNamespace = constants.HOHDefaultNamespace
+	}
+
+	return defaultNamespace
+}
+
 func SetHoHMGHNamespacedName(namespacedName types.NamespacedName) {
 	hohMGHNamespacedName = namespacedName
 }

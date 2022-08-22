@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: multicluster-global-hub-console-cleanup
-  namespace: open-cluster-management
+  namespace: {{.Namespace}}
   labels:
     name: multicluster-global-hub-console
 spec:

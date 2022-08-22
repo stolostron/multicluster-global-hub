@@ -38,13 +38,6 @@ const (
 	CONDITION_STATUS_UNKNOWN = "Unknown"
 )
 
-// NOTE: the status of ResourceFound can only be True; otherwise there is no condition
-const (
-	CONDITION_TYPE_RESOURCE_FOUND    = "ResourceFound"
-	CONDITION_REASON_RESOURCE_FOUND  = "ResourceFound"
-	CONDITION_MESSAGE_RESOURCE_FOUND = "Resource found"
-)
-
 // NOTE: the status of DatabaseInitialized can be True or False
 const (
 	CONDITION_TYPE_DATABASE_INIT    = "DatabaseInitialized"
@@ -93,11 +86,6 @@ const (
 type SetConditionFunc func(ctx context.Context, c client.Client,
 	mgh *operatorv1alpha1.MulticlusterGlobalHub,
 	status metav1.ConditionStatus) error
-
-func SetConditionResourceFound(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MulticlusterGlobalHub) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RESOURCE_FOUND, CONDITION_STATUS_TRUE,
-		CONDITION_REASON_RESOURCE_FOUND, CONDITION_MESSAGE_RESOURCE_FOUND)
-}
 
 func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,

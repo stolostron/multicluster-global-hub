@@ -17,10 +17,11 @@ limitations under the License.
 package constants
 
 const (
-	HOHDefaultNamespace = "open-cluster-management"
-	HOHSystemNamespace  = "hoh-system"
-	HOHConfigName       = "multicluster-global-hub-config"
-	LocalClusterName    = "local-cluster"
+	HOHDefaultNamespace        = "open-cluster-management"
+	HOHSystemNamespace         = "hoh-system"
+	HOHConfigName              = "multicluster-global-hub-config"
+	LocalClusterName           = "local-cluster"
+	DefaultImagePullSecretName = "multiclusterhub-operator-pull-secret"
 )
 
 const (
@@ -32,7 +33,6 @@ const (
 	HoHManagedClusterAddonDisplayName = "Multicluster Global Hub Controller"
 	HoHManagedClusterAddonDescription = "Multicluster Global Hub Controller " +
 		"manages multicluster-global-hub components."
-	HoHManagedClusterAddonInstallationNamespace = "open-cluster-management"
 )
 
 const (

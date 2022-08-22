@@ -6,7 +6,7 @@ metadata:
     ingress.open-cluster-management.io/secure-backends: "true"
     kubernetes.io/ingress.class: ingress-open-cluster-management
   name: multicluster-global-hub-manager
-  namespace: open-cluster-management
+  namespace: {{.Namespace}}
   labels:
     name: multicluster-global-hub-manager
 spec:

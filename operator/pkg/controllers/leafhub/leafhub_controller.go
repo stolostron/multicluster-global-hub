@@ -86,7 +86,7 @@ type LeafHubReconciler struct {
 
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;watch
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=hypershiftdeployments,verbs=get;list;watch
-//+kubebuilder:rbac:groups=work.open-cluster-management.io,resources=manifestworks,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=work.open-cluster-management.io,resources=manifestworks,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=managedclusteraddons,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
@@ -615,7 +615,7 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
 						// add fake namespace to trigger MGH reconcile when clustermanagementaddon updated/deleted
-						Namespace: constants.HOHDefaultNamespace,
+						Namespace: config.GetDefaultNamespace(),
 						Name:      obj.GetName(),
 					}},
 				}

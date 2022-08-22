@@ -32,13 +32,17 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -126,16 +130,20 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	if err := condition.SetConditionResourceFound(ctx, r.Client, mgh); err != nil {
-		log.Error(err, "Failed to set condition resource found")
+	// create new HoHRenderer and HoHDeployer
+	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
+
+	// create discovery client
+	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// create new HoHRenderer and HoHDeployer
-	hohRenderer := renderer.NewHoHRenderer(fs)
+	// create restmapper for deployer to find GVR
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
 	// handle gc
-	isTerminating, err := r.initFinalization(ctx, mgh, hohRenderer, log)
+	isTerminating, err := r.initFinalization(ctx, mgh, hohRenderer, hohDeployer, mapper, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -172,7 +180,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	// init DB and transport here
 	err = r.reconcileDatabase(ctx, mgh, types.NamespacedName{
 		Name:      mgh.Spec.Storage.Name,
-		Namespace: constants.HOHDefaultNamespace,
+		Namespace: config.GetDefaultNamespace(),
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -185,19 +193,20 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", func(component string) (interface{}, error) {
-		hohRBACConfig := struct {
-			Image string
+		return struct {
+			Image     string
+			Namespace string
 		}{
-			Image: config.GetImage("multicluster_global_hub_rbac"),
-		}
-
-		return hohRBACConfig, nil
+			Image:     config.GetImage("multicluster_global_hub_rbac"),
+			Namespace: config.GetDefaultNamespace(),
+		}, nil
 	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, hohRBACObjects, mgh, condition.SetConditionRBACDeployed, log)
+	err = r.manipulateObj(ctx, hohDeployer, mapper, hohRBACObjects, mgh,
+		condition.SetConditionRBACDeployed, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -220,38 +229,43 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", func(component string) (interface{}, error) {
-		managerConfig := struct {
+		return struct {
 			Image                string
 			DBSecret             string
 			KafkaCA              string
 			KafkaBootstrapServer string
+			Namespace            string
 		}{
 			Image:                config.GetImage("multicluster_global_hub_manager"),
 			DBSecret:             mgh.Spec.Storage.Name,
 			KafkaCA:              kafkaCA,
 			KafkaBootstrapServer: kafkaBootstrapServer,
-		}
-
-		return managerConfig, nil
+			Namespace:            config.GetDefaultNamespace(),
+		}, nil
 	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, managerObjects, mgh, condition.SetConditionManagerDeployed, log)
+	err = r.manipulateObj(ctx, hohDeployer, mapper, managerObjects, mgh,
+		condition.SetConditionManagerDeployed, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// render the default placement
 	placementObjects, err := hohRenderer.Render("manifests/placement", func(component string) (interface{}, error) {
-		return struct{}{}, nil
+		return struct {
+			Namespace string
+		}{
+			Namespace: config.GetDefaultNamespace(),
+		}, nil
 	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, placementObjects, mgh, nil, log)
+	err = r.manipulateObj(ctx, hohDeployer, mapper, placementObjects, mgh, nil, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -261,19 +275,19 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		consoleSetupObjects, err := hohRenderer.Render("manifests/console-setup", func(
 			component string,
 		) (interface{}, error) {
-			consoleJobConfig := struct {
-				Image string
+			return struct {
+				Image     string
+				Namespace string
 			}{
-				Image: config.GetImage("multicluster_global_hub_operator"),
-			}
-
-			return consoleJobConfig, nil
+				Image:     config.GetImage("multicluster_global_hub_operator"),
+				Namespace: config.GetDefaultNamespace(),
+			}, nil
 		})
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 
-		err = r.manipulateObj(ctx, consoleSetupObjects, mgh,
+		err = r.manipulateObj(ctx, hohDeployer, mapper, consoleSetupObjects, mgh,
 			condition.SetConditionConsoleDeployed, log)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -285,7 +299,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			if err := r.Client.Get(ctx,
 				types.NamespacedName{
 					Name:      "multicluster-global-hub-console-setup",
-					Namespace: constants.HOHDefaultNamespace,
+					Namespace: config.GetDefaultNamespace(),
 				}, consoleSetupJob); err != nil {
 				return false, err
 			}
@@ -295,7 +309,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			return false, nil
 		}); errPoll != nil {
 			log.Error(errPoll, "multicluster-global-hub console setup job failed",
-				"namespace", constants.HOHDefaultNamespace,
+				"namespace", config.GetDefaultNamespace(),
 				"name", "multicluster-global-hub-console-setup")
 			if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
 				condition.CONDITION_STATUS_FALSE); conditionError != nil {
@@ -353,20 +367,29 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, objs []*unstructured.Unstructured,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, setConditionFunc condition.SetConditionFunc, log logr.Logger,
+func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,
+	mapper *restmapper.DeferredDiscoveryRESTMapper, objs []*unstructured.Unstructured,
+	mgh *operatorv1alpha1.MulticlusterGlobalHub, setConditionFunc condition.SetConditionFunc,
+	log logr.Logger,
 ) error {
-	hohDeployer := deployer.NewHoHDeployer(r.Client)
 	// manipulate the object
 	for _, obj := range objs {
-		// TODO: more solid way to check if the object is namespace scoped resource
-		if obj.GetNamespace() != "" {
-			// set ownerreference of controller
+		mapping, err := mapper.RESTMapping(obj.GroupVersionKind().GroupKind(), obj.GroupVersionKind().Version)
+		if err != nil {
+			log.Error(err, "failed to find mapping for resource", "kind", obj.GetKind(),
+				"namespace", obj.GetNamespace(), "name", obj.GetName())
+			return err
+		}
+
+		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+			// for namespaced resource, set ownerreference of controller
 			if err := controllerutil.SetControllerReference(mgh, obj, r.Scheme); err != nil {
 				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(),
 					"namespace", obj.GetNamespace(), "name", obj.GetName())
+				return err
 			}
 		}
+
 		// set owner labels
 		labels := obj.GetLabels()
 		if labels == nil {
@@ -400,8 +423,10 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, obj
 	return nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) initFinalization(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub,
-	hohRenderer renderer.Renderer, log logr.Logger,
+func (r *MulticlusterGlobalHubReconciler) initFinalization(ctx context.Context,
+	mgh *operatorv1alpha1.MulticlusterGlobalHub,
+	hohRenderer renderer.Renderer, hohDeployer deployer.Deployer,
+	mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
 ) (bool, error) {
 	if mgh.GetDeletionTimestamp() != nil &&
 		utils.Contains(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
@@ -410,18 +435,18 @@ func (r *MulticlusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 			// render the console cleanup job
 			consoleCleanupObjects, err := hohRenderer.Render("manifests/console-cleanup",
 				func(component string) (interface{}, error) {
-					consoleJobConfig := struct {
-						Image string
+					return struct {
+						Image     string
+						Namespace string
 					}{
-						Image: config.GetImage("multicluster_global_hub_operator"),
-					}
-
-					return consoleJobConfig, nil
+						Image:     config.GetImage("multicluster_global_hub_operator"),
+						Namespace: config.GetDefaultNamespace(),
+					}, nil
 				})
 			if err != nil {
 				return false, err
 			}
-			if err := r.manipulateObj(ctx, consoleCleanupObjects, mgh, nil, log); err != nil {
+			if err := r.manipulateObj(ctx, hohDeployer, mapper, consoleCleanupObjects, mgh, nil, log); err != nil {
 				return false, err
 			}
 
@@ -431,7 +456,7 @@ func (r *MulticlusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 				if err := r.Client.Get(ctx,
 					types.NamespacedName{
 						Name:      "multicluster-global-hub-console-cleanup",
-						Namespace: constants.HOHDefaultNamespace,
+						Namespace: config.GetDefaultNamespace(),
 					}, consoleCleanJob); err != nil {
 					return false, err
 				}
@@ -441,7 +466,7 @@ func (r *MulticlusterGlobalHubReconciler) initFinalization(ctx context.Context, 
 				return false, nil
 			}); errPoll != nil {
 				log.Error(errPoll, "multicluster-global-hub console cleanup job failed",
-					"namespace", constants.HOHDefaultNamespace,
+					"namespace", config.GetDefaultNamespace(),
 					"name", "multicluster-global-hub-console-cleanup")
 				return false, errPoll
 			}
@@ -692,11 +717,11 @@ func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log lo
 		return kafkaBootstrapServer, "", nil
 	}
 
-	kafkaSecret, err := kubeClient.CoreV1().Secrets(constants.HOHDefaultNamespace).Get(ctx,
+	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
 		mgh.Spec.Transport.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "failed to get transport secret",
-			"namespace", constants.HOHDefaultNamespace,
+			"namespace", config.GetDefaultNamespace(),
 			"name", mgh.Spec.Transport.Name)
 		return "", "", err
 	}

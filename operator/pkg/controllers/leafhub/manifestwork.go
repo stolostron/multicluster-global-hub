@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -94,17 +93,6 @@ type HoHAgentConfigValues struct {
 	KafkaBootstrapServer   string
 	KafkaCA                string
 	HostedClusterNamespace string // for hypershift case
-}
-
-var podNamespace, imagePullSecretName string
-
-func init() {
-	podNamespace, _ = os.LookupEnv("POD_NAMESPACE")
-	if podNamespace == "" {
-		podNamespace = constants.HOHDefaultNamespace
-	}
-
-	imagePullSecretName = "multiclusterhub-operator-pull-secret"
 }
 
 // applyHubSubWork creates or updates the subscription manifestwork for leafhub cluster
@@ -222,11 +210,10 @@ func buildHubSubWork(ctx context.Context, kubeClient kubernetes.Interface, log l
 	if err != nil {
 		return nil, err
 	}
-	if imagePullSecret != nil {
-		subManifests = append(subManifests, workv1.Manifest{
-			RawExtension: runtime.RawExtension{Object: imagePullSecret},
-		})
-	}
+
+	subManifests = append(subManifests, workv1.Manifest{
+		RawExtension: runtime.RawExtension{Object: imagePullSecret},
+	})
 
 	hubSubWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
@@ -360,11 +347,10 @@ func buildHubMCHWork(ctx context.Context, kubeClient kubernetes.Interface, log l
 	if err != nil {
 		return nil, err
 	}
-	if imagePullSecret != nil {
-		mchManifests = append(mchManifests, workv1.Manifest{
-			RawExtension: runtime.RawExtension{Object: imagePullSecret},
-		})
-	}
+
+	mchManifests = append(mchManifests, workv1.Manifest{
+		RawExtension: runtime.RawExtension{Object: imagePullSecret},
+	})
 
 	hubMCHWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
@@ -498,7 +484,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, kubeClient ku
 	hypershiftHubConfigValues.HubVersion = latestACMVersionM
 	hypershiftHubConfigValues.HoHAgentImage = config.GetImage("multicluster_global_hub_agent")
 	hypershiftHubConfigValues.HostedClusterName = hypershiftHostedClusterName
-	hypershiftHubConfigValues.ImagePullSecret = imagePullSecretName
+	hypershiftHubConfigValues.ImagePullSecret = constants.DefaultImagePullSecretName
 	hypershiftHubConfigValues.MCE.DefaultImageRegistry = mceDefaultImageRegistry
 
 	if channelClusterIP != "" {
@@ -524,11 +510,10 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, kubeClient ku
 	if err != nil {
 		return nil, err
 	}
-	if imagePullSecret != nil {
-		hostedHubManifests = append(hostedHubManifests, workv1.Manifest{
-			RawExtension: runtime.RawExtension{Object: imagePullSecret},
-		})
-	}
+
+	hostedHubManifests = append(hostedHubManifests, workv1.Manifest{
+		RawExtension: runtime.RawExtension{Object: imagePullSecret},
+	})
 
 	hostedHubWork := &workv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
@@ -918,11 +903,11 @@ func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log lo
 		return kafkaBootstrapServer, "", nil
 	}
 
-	kafkaSecret, err := kubeClient.CoreV1().Secrets(constants.HOHDefaultNamespace).Get(ctx,
+	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
 		mgh.Spec.Transport.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "failed to get transport secret",
-			"namespace", constants.HOHDefaultNamespace,
+			"namespace", config.GetDefaultNamespace(),
 			"name", mgh.Spec.Transport.Name)
 		return "", "", err
 	}
@@ -935,29 +920,26 @@ func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log lo
 func generatePullSecret(ctx context.Context, kubeClient kubernetes.Interface,
 	namespace string,
 ) (*corev1.Secret, error) {
-	if imagePullSecretName != "" {
-		imagePullSecret, err := kubeClient.CoreV1().Secrets(podNamespace).Get(ctx,
-			imagePullSecretName, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-		return &corev1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: corev1.SchemeGroupVersion.String(),
-				Kind:       "Secret",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      imagePullSecret.Name,
-				Namespace: namespace,
-			},
-			Data: map[string][]byte{
-				".dockerconfigjson": imagePullSecret.Data[".dockerconfigjson"],
-			},
-			Type: corev1.SecretTypeDockerConfigJson,
-		}, nil
+	imagePullSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
+		constants.DefaultImagePullSecretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: corev1.SchemeGroupVersion.String(),
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      imagePullSecret.Name,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			".dockerconfigjson": imagePullSecret.Data[".dockerconfigjson"],
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+	}, nil
 }
 
 // applyManifestWork creates or updates a single manifestwork resource
