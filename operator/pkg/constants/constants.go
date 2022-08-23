@@ -18,7 +18,7 @@ package constants
 
 const (
 	HOHDefaultNamespace        = "open-cluster-management"
-	HOHSystemNamespace         = "hoh-system"
+	HOHSystemNamespace         = "open-cluster-management-global-hub-system"
 	HOHConfigName              = "multicluster-global-hub-config"
 	LocalClusterName           = "local-cluster"
 	DefaultImagePullSecretName = "multiclusterhub-operator-pull-secret"
@@ -36,13 +36,13 @@ const (
 )
 
 const (
-	HOHHubSubscriptionWorkSuffix = "hoh-hub-subscription"
-	HoHHubMCHWorkSuffix          = "hoh-hub-mch"
-	HoHHostingHubWorkSuffix      = "hoh-hub-hosting"
-	HoHHostedHubWorkSuffix       = "hoh-hub-hosted"
-	HoHHostingAgentWorkSuffix    = "hoh-agent-hosting"
-	HoHHostedAgentWorkSuffix     = "hoh-agent-hosted"
-	HoHAgentWorkSuffix           = "hoh-agent"
+	HOHHubSubscriptionWorkSuffix = "mgh-hub-subscription"
+	HoHHubMCHWorkSuffix          = "mgh-hub-mch"
+	HoHHostingHubWorkSuffix      = "mgh-hub-hosting"
+	HoHHostedHubWorkSuffix       = "mgh-hub-hosted"
+	HoHHostingAgentWorkSuffix    = "mgh-agent-hosting"
+	HoHHostedAgentWorkSuffix     = "mgh-agent-hosted"
+	HoHAgentWorkSuffix           = "mgh-agent"
 )
 
 const (

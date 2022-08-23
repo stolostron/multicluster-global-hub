@@ -25,7 +25,7 @@ import (
 
 const (
 	periodicApplyInterval = 5 * time.Second
-	hohFieldManager       = "hoh-agent"
+	hohFieldManager       = "mgh-agent"
 )
 
 // managedClusterLabelsBundleSyncer syncs managed clusters metadata from received bundles.

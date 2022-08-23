@@ -30,7 +30,7 @@ var _ = Describe("Check all the clients could connect to the HoH servers", Label
 		dynamicClient := clients.KubeDynamicClient()
 		hohConfigMapGVR := utils.NewHoHConfigMapGVR()
 		configMapList, err := dynamicClient.Resource(hohConfigMapGVR).Namespace(
-			"hoh-system").List(context.TODO(), metav1.ListOptions{})
+			"open-cluster-management-global-hub-system").List(context.TODO(), metav1.ListOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(len(configMapList.Items) > 0).To(BeTrue())
 	})
