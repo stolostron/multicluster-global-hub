@@ -16,6 +16,10 @@ FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 ENV USER_UID=1001
 ENV USER_NAME=manager
 
+# install yq binary to parse json
+RUN curl -LO http://stedolan.github.io/jq/download/linux64/jq && \
+    chmod 755 jq && mv jq /usr/local/bin/jq
+
 # install operator binary
 COPY --from=builder /workspace/bin/manager /usr/local/bin/manager
 
