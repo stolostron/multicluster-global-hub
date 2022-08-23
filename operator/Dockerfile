@@ -40,10 +40,20 @@ RUN curl -L https://get.helm.sh/helm-v3.9.3-linux-amd64.tar.gz | tar xz && \
     mv linux-amd64/helm /usr/local/bin/helm && \
     rm -rf linux-amd64
 
+# checksum for helm
+RUN echo "a3c20903fa6de6bc1034500cb28d18c5 /usr/local/bin/helm" > ./helm-md5sum.txt && \
+    md5sum -c ./helm-md5sum.txt && \
+    rm ./helm-md5sum.txt
+
 # install yq
 RUN curl -LO https://github.com/mikefarah/yq/releases/download/v4.25.3/yq_linux_amd64 && \
     install -o root -g root -m 0755 yq_linux_amd64 /usr/local/bin/yq && \
     rm yq_linux_amd64
+
+# checksum for yq
+RUN echo "c6ff76e253d99664bf3b751f7415d722 /usr/local/bin/yq" > ./yq-md5sum.txt && \
+    md5sum -c ./yq-md5sum.txt && \
+    rm ./yq-md5sum.txt
 
 # copy the console charts
 RUN mkdir -p charts
