@@ -6,7 +6,6 @@ import (
 	"os"
 	"runtime"
 	"strconv"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
@@ -182,17 +181,17 @@ func getProducer(environmentManager *helper.ConfigManager) (producer.Producer, e
 func createManager(consumer consumer.Consumer, producer producer.Producer,
 	environmentManager *helper.ConfigManager,
 ) (ctrl.Manager, error) {
-	leaseDuration := 137 * time.Second
-	renewDeadline := 107 * time.Second
-	retryPeriod := 26 * time.Second
+	// leaseDuration := 137 * time.Second
+	// renewDeadline := 107 * time.Second
+	// retryPeriod := 26 * time.Second
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", METRICS_HOST, METRICS_PORT),
 		LeaderElection:          true,
 		LeaderElectionID:        LEADER_ELECTION_ID,
 		LeaderElectionNamespace: environmentManager.PodNameSpace,
-		LeaseDuration:           &leaseDuration,
-		RenewDeadline:           &renewDeadline,
-		RetryPeriod:             &retryPeriod,
+		// LeaseDuration:           &leaseDuration,
+		// RenewDeadline:           &renewDeadline,
+		// RetryPeriod:             &retryPeriod,
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
