@@ -59,7 +59,7 @@ data:
       name: hoh-images-config
     EOF
 
-    kubectl annotate mce multiclusterengine --overwrite imageOverridesCM=hoh-config
+    kubectl annotate mce multiclusterengine --overwrite imageOverridesCM=hoh-images-config
   console-cleanup.sh: |
     #!/bin/bash
     set -e
