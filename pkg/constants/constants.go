@@ -2,7 +2,7 @@ package constants
 
 const (
 	// HohSystemNamespace - Hub of Hubs dedicated namespace.
-	HohSystemNamespace = "hoh-system"
+	HohSystemNamespace = "open-cluster-management-global-hub-system"
 	HoHConfigName      = "multicluster-global-hub-config"
 )
 

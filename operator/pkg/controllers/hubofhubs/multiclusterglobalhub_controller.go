@@ -186,7 +186,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// reconcile hoh-system namespace and multicluster-global-hub configuration
+	// reconcile open-cluster-management-global-hub-system namespace and multicluster-global-hub configuration
 	err = r.reconcileHoHResources(ctx, mgh)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -395,8 +395,7 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] =
-			commonconstants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
@@ -480,7 +479,7 @@ func (r *MulticlusterGlobalHubReconciler) initFinalization(ctx context.Context,
 			return false, err
 		}
 
-		// clean up hoh-system namespace and multicluster-global-hub configuration
+		// clean up open-cluster-management-global-hub-system namespace and multicluster-global-hub configuration
 		if err := r.pruneHoHResources(ctx); err != nil {
 			log.Error(err, "failed to remove multicluster-global-hub resources")
 			return false, err
@@ -613,7 +612,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 
 // pruneHoHResources tries to delete hoh resources
 func (r *MulticlusterGlobalHubReconciler) pruneHoHResources(ctx context.Context) error {
-	// hoh-system namespace and multicluster-global-hub-config configmap
+	// open-cluster-management-global-hub-system namespace and multicluster-global-hub-config configmap
 	hohSystemNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.HOHSystemNamespace,
@@ -633,7 +632,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneHoHResources(ctx context.Context)
 			return err
 		}
 
-		// cleanup hoh-system namespace
+		// cleanup open-cluster-management-global-hub-system namespace
 		if err := r.Client.Delete(ctx, hohSystemNamespace); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
@@ -651,7 +650,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneHoHResources(ctx context.Context)
 		return err
 	}
 
-	// cleanup hoh-system namespace
+	// cleanup open-cluster-management-global-hub-system namespace
 	if err := r.Client.Delete(ctx, hohSystemNamespace); err != nil && !errors.IsNotFound(err) {
 		return err
 	}

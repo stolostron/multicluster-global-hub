@@ -43,7 +43,7 @@ const (
 	TRANSPORT_TYPE_KAFKA       = "kafka"
 	TRANSPORT_TYPE_SYNC_SVC    = "sync-service"
 	LEADER_ELECTION_ID         = "multicluster-global-hub-agent-lock"
-	HOH_LOCAL_NAMESPACE        = "hoh-local"
+	HOH_LOCAL_NAMESPACE        = "open-cluster-management-global-hub-local"
 	INCARNATION_CONFIG_MAP_KEY = "incarnation"
 	BASE10                     = 10
 	UINT64_SIZE                = 64
