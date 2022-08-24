@@ -41,3 +41,13 @@ for resource in $resourceNames; do
     }' | jq .
 echo "pathed resource: $resourceLink"
 done
+
+# ConfigMap
+# ConfigMap
+resourcesLink=api/v1/configmaps
+resources=$(curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" ${APISERVER}/${resourcesLink}?labelSelector=$LABEL | jq .items)
+for resource in $(echo $resources | jq -r '.[] | [ .metadata.namespace, .metadata.name ] | join("/configmaps/")'); do
+  resourceLink=api/v1/namespaces/$resource
+  curl ${APISERVER}/${resourceLink} --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X DELETE 
+  echo "deleted resource: $resourceLink"
+done
