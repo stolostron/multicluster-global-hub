@@ -8,15 +8,14 @@ NAMESPACE=$(cat ${SERVICEACCOUNT}/namespace)                   # Read this Pod's
 TOKEN=$(cat ${SERVICEACCOUNT}/token)
 CACERT=${SERVICEACCOUNT}/ca.crt                                # Reference the internal certificate authority (CA)
 
-LABEL=global-hub.open-cluster-management.io%2Fmanaged-by%3Dmulticluster-global-hub-operator
+selectValue='global-hub.open-cluster-management.io/managed-by=multicluster-global-hub-operator'
 
 # ManagedClusterSetBinding
-resourcesLink=apis/cluster.open-cluster-management.io/v1beta1/namespaces/${NAMESPACE}/managedclustersetbindings
-resourceNames=$(curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" ${APISERVER}/${resourcesLink}?labelSelector=$LABEL | jq .items[].metadata.name)
-for resource in $resourceNames; do
-  resource=$(echo $resource |sed 's/\"//g')
-  resourceLink=$resourcesLink/$resource
-  curl ${APISERVER}/${resourceLink} --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" \
+resourcesLink=${APISERVER}/apis/cluster.open-cluster-management.io/v1beta1/managedclustersetbindings 
+resources=$(curl -X GET --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" --data-urlencode "labelSelector=$selectValue" ${resourcesLink} | jq .items)
+for resource in $(echo $resources | jq -r '.[] | [ .metadata.namespace, .metadata.name ] | join("/managedclustersetbindings/")'); do
+  resourceLink=${APISERVER}/apis/cluster.open-cluster-management.io/v1beta1/namespaces/$resource
+  curl ${resourceLink} --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" \
     -X PATCH -H 'Content-Type: application/merge-patch+json' \
     -d '{
       "metadata": {
@@ -27,26 +26,22 @@ echo "pathed resource: $resourceLink"
 done
 
 # Placement
-resourcesLink=apis/cluster.open-cluster-management.io/v1beta1/namespaces/${NAMESPACE}/placements
-resourceNames=$(curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" ${APISERVER}/${resourcesLink}?labelSelector=$LABEL | jq .items[].metadata.name)
-for resource in $resourceNames; do
-  resource=$(echo $resource |sed 's/\"//g')
-  resourceLink=$resourcesLink/$resource
-  curl ${APISERVER}/${resourceLink} --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" \
+resourcesLink=${APISERVER}/apis/cluster.open-cluster-management.io/v1beta1/placements
+resources=$(curl -X GET --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" --data-urlencode "labelSelector=$selectValue" ${resourcesLink} | jq .items)
+for resource in $(echo $resources | jq -r '.[] | [ .metadata.namespace, .metadata.name ] | join("/placements/")'); do
+  resourceLink=${APISERVER}/apis/cluster.open-cluster-management.io/v1beta1/namespaces/$resource
+  finalizers=$(curl -X GET --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" ${resourceLink} | jq .metadata.finalizers)
+  echo "finalizers: $finalizers"
+  finalizers=$( echo $finalizers | jq 'del(.[] | select(. == "global-hub.open-cluster-management.io/resource-cleanup"))' )
+  echo "finalizers: $finalizers"
+
+  curl ${resourceLink} --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" \
     -X PATCH -H 'Content-Type: application/merge-patch+json' \
-    -d '{
-      "metadata": {
-        "finalizers": []
+    -d "{
+      \"metadata\": {
+        \"finalizers\": $finalizers
       }
-    }' | jq .
-echo "pathed resource: $resourceLink"
+    }" | jq .
+  echo "pathed resource: $resourceLink"
 done
 
-# ConfigMap
-resourcesLink=api/v1/configmaps
-resources=$(curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" ${APISERVER}/${resourcesLink}?labelSelector=$LABEL | jq .items)
-for resource in $(echo $resources | jq -r '.[] | [ .metadata.namespace, .metadata.name ] | join("/configmaps/")'); do
-  resourceLink=api/v1/namespaces/$resource
-  curl ${APISERVER}/${resourceLink} --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X DELETE 
-  echo "deleted resource: $resourceLink"
-done

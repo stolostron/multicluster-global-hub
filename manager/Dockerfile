@@ -19,8 +19,9 @@ ENV USER_NAME=manager
 # install operator binary
 COPY --from=builder /workspace/bin/manager /usr/local/bin/manager
 COPY ./manager/scripts/prestop.sh /usr/local/bin/prestop.sh
-RUN curl -LO http://stedolan.github.io/jq/download/linux64/jq && \
-    chmod 755 jq && mv jq /usr/local/bin/jq
+RUN curl -sLO https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && chmod 755 jq-linux64 
+RUN curl -sL https://raw.githubusercontent.com/stedolan/jq/master/sig/v1.6/sha256sum.txt -o jq.sha256sum && \
+    grep -e "jq-linux64$" jq.sha256sum | sha256sum -c && mv jq-linux64 /usr/local/bin/jq && rm jq.sha256sum
 
 COPY ./manager/scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
