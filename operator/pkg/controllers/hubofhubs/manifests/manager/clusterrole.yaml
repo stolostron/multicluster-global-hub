@@ -81,6 +81,7 @@ rules:
   - list
   - watch
   - update
+  - patch
 - apiGroups:
   - "apps.open-cluster-management.io"
   resources:

@@ -15,13 +15,15 @@ resourcesLink=${APISERVER}/apis/cluster.open-cluster-management.io/v1beta1/manag
 resources=$(curl -X GET --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" --data-urlencode "labelSelector=$selectValue" ${resourcesLink} | jq .items)
 for resource in $(echo $resources | jq -r '.[] | [ .metadata.namespace, .metadata.name ] | join("/managedclustersetbindings/")'); do
   resourceLink=${APISERVER}/apis/cluster.open-cluster-management.io/v1beta1/namespaces/$resource
+  finalizers=$(curl -X GET --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" ${resourceLink} | jq .metadata.finalizers)
+  newFinalizers=$( echo $finalizers | jq 'del(.[] | select(. == "global-hub.open-cluster-management.io/resource-cleanup"))' )
   curl ${resourceLink} --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" \
     -X PATCH -H 'Content-Type: application/merge-patch+json' \
-    -d '{
-      "metadata": {
-        "finalizers": []
+    -d "{
+      \"metadata\": {
+        \"finalizers\": $newFinalizers
       }
-    }' | jq .
+    }" | jq .
 echo "pathed resource: $resourceLink"
 done
 
@@ -31,15 +33,12 @@ resources=$(curl -X GET --cacert ${CACERT} --header "Authorization: Bearer ${TOK
 for resource in $(echo $resources | jq -r '.[] | [ .metadata.namespace, .metadata.name ] | join("/placements/")'); do
   resourceLink=${APISERVER}/apis/cluster.open-cluster-management.io/v1beta1/namespaces/$resource
   finalizers=$(curl -X GET --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" ${resourceLink} | jq .metadata.finalizers)
-  echo "finalizers: $finalizers"
-  finalizers=$( echo $finalizers | jq 'del(.[] | select(. == "global-hub.open-cluster-management.io/resource-cleanup"))' )
-  echo "finalizers: $finalizers"
-
+  newFinalizers=$( echo $finalizers | jq 'del(.[] | select(. == "global-hub.open-cluster-management.io/resource-cleanup"))' )
   curl ${resourceLink} --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" \
     -X PATCH -H 'Content-Type: application/merge-patch+json' \
     -d "{
       \"metadata\": {
-        \"finalizers\": $finalizers
+        \"finalizers\": $newFinalizers
       }
     }" | jq .
   echo "pathed resource: $resourceLink"
