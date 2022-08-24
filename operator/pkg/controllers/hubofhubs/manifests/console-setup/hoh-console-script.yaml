@@ -28,7 +28,7 @@ data:
     helm get values -a -n {{.Namespace}} $(helm ls -n {{.Namespace}} | cut -d' ' -f1 | grep grc) -o yaml > /tmp/values.yaml
     kubectl delete appsub grc-sub -n {{.Namespace}} --ignore-not-found
     cat /tmp/values.yaml |
-      yq e ".global.imageOverrides.governance_policy_propagator = \"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:hub-of-hubs\"" - |
+      yq e ".global.imageOverrides.governance_policy_propagator = \"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0\"" - |
       yq e ".global.imageOverrides.grc_ui = \"quay.io/open-cluster-management-hub-of-hubs/grc-ui:v0.5.0\"" - |
       yq e ".global.imageOverrides.grc_ui_api = \"quay.io/stolostron/grc-ui-api:2.4.3-SNAPSHOT-2022-03-21-21-19-21\"" - |
       yq e '.global.pullPolicy = "Always"' - |
@@ -40,7 +40,7 @@ data:
       yq e '.global.pullPolicy = "Always"' - |
       helm upgrade application-chart charts/application-chart -n {{.Namespace}} --install -f -
 
-    kubectl -n {{.Namespace}} patch $(kubectl get csv -oname -l operators.coreos.com/advanced-cluster-management.{{.Namespace}} -n {{.Namespace}}) --type=json -p='[{"op": "replace", "path": "/spec/install/spec/deployments/3/spec/template/spec/containers/0/image", "value":"quay.io/open-cluster-management-hub-of-hubs/multicloud-operators-subscription:hub-of-hubs"}]'
+    kubectl -n {{.Namespace}} patch $(kubectl get csv -oname -l operators.coreos.com/advanced-cluster-management.{{.Namespace}} -n {{.Namespace}}) --type=json -p='[{"op": "replace", "path": "/spec/install/spec/deployments/3/spec/template/spec/containers/0/image", "value":"quay.io/open-cluster-management-hub-of-hubs/multicloud-operators-subscription:v0.5.0"}]'
 
     cat <<EOF | kubectl apply -n multicluster-engine -f -
     apiVersion: v1
@@ -50,7 +50,7 @@ data:
           {
             "image-name": "placement",
             "image-remote": "quay.io/open-cluster-management-hub-of-hubs",
-            "image-digest": "sha256:b7293b436dc00506b370762fb4eb352e7c6cc5413d135fc03c93ed311e7ed4c4",
+            "image-digest": "sha256:04ba75acdbe4c5b480013f04f5824f828683bc44e9acd6a17600504afc9b6bbe",
             "image-key": "placement"
           }
         ]
