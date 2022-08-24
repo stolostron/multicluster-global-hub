@@ -22,6 +22,7 @@ RUN curl -LO http://stedolan.github.io/jq/download/linux64/jq && \
 
 # install operator binary
 COPY --from=builder /workspace/bin/manager /usr/local/bin/manager
+COPY ./manager/scripts/prestop.sh /usr/local/bin/prestop.sh
 
 COPY ./manager/scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
