@@ -818,39 +818,49 @@ func removePostponeDeleteAnnotationFromHubSubWork(ctx context.Context, c client.
 	managedClusterName string,
 ) error {
 	hohHubMCHWork := &workv1.ManifestWork{}
-	if err := c.Get(ctx,
+	err := c.Get(ctx,
 		types.NamespacedName{
 			Name:      fmt.Sprintf("%s-%s", managedClusterName, constants.HoHHubMCHWorkSuffix),
 			Namespace: managedClusterName,
-		}, hohHubMCHWork); err != nil {
+		}, hohHubMCHWork)
+
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	// delete mch manifestwork firstly if it still exists
+	if err == nil {
+		if err := c.Delete(ctx, hohHubMCHWork); err != nil && !errors.IsNotFound(err) {
+			// Error deleting the object
+			return err
+		}
+	}
+
+	// hub mch manifestwork is deleted, try to remove the postpone-delete
+	// annotation for leafhub subsctiption manifestwork
+	hohHubSubWork := &workv1.ManifestWork{}
+	if err := c.Get(ctx,
+		types.NamespacedName{
+			Name: fmt.Sprintf("%s-%s", managedClusterName,
+				constants.HOHHubSubscriptionWorkSuffix),
+			Namespace: managedClusterName,
+		}, hohHubSubWork); err != nil {
 		if errors.IsNotFound(err) {
-			// hub mch manifestwork is deleted, try to remove the postpone-delete
-			// annotation for leafhub subsctiption manifestwork
-			hohHubSubWork := &workv1.ManifestWork{}
-			if err := c.Get(ctx,
-				types.NamespacedName{
-					Name: fmt.Sprintf("%s-%s", managedClusterName,
-						constants.HOHHubSubscriptionWorkSuffix),
-					Namespace: managedClusterName,
-				}, hohHubSubWork); err != nil {
-				if errors.IsNotFound(err) {
-					return nil
-				} else {
-					return err
-				}
-			}
-			annotations := hohHubSubWork.GetAnnotations()
-			if annotations != nil {
-				delete(annotations, constants.WorkPostponeDeleteAnnotationKey)
-				hohHubSubWork.SetAnnotations(annotations)
-				return c.Update(ctx, hohHubSubWork)
-			}
 			return nil
 		} else {
 			return err
 		}
 	}
-	return fmt.Errorf("Hub MCH manifestwork for managedcluster %s hasn't been deleted", managedClusterName)
+
+	// update annotation
+	annotations := hohHubSubWork.GetAnnotations()
+	if annotations != nil {
+		delete(annotations, constants.WorkPostponeDeleteAnnotationKey)
+		hohHubSubWork.SetAnnotations(annotations)
+		return c.Update(ctx, hohHubSubWork)
+	}
+
+	return nil
 }
 
 // removeLeafHubHostingWork removes manifestwork for leafhub on hypershift hosting cluster
