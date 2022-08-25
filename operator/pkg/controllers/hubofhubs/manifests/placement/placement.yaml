@@ -3,6 +3,8 @@ kind: Placement
 metadata:
   name: default
   namespace: {{.Namespace}}
+  labels:
+    global-hub.open-cluster-management.io/local-resource: ""
 spec:
   numberOfClusters: 1
   prioritizerPolicy:
