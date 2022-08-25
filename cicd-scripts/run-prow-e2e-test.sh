@@ -25,6 +25,5 @@ scp "${OPT[@]}" -r ../multicluster-global-hub "$HOST:$HOST_DIR"
 ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget jq -y 
 echo "setup e2e environment"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && sudo make e2e-setup-dependencies && make e2e-setup-start" > >(tee "$ARTIFACT_DIR/run-e2e-setup.log") 2>&1
-sleep 3600
 echo "runn e2e tests"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-tests-all" > >(tee "$ARTIFACT_DIR/run-e2e-test.log") 2>&1

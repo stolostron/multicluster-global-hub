@@ -81,7 +81,6 @@ rules:
   - list
   - watch
   - update
-  - patch
 - apiGroups:
   - "apps.open-cluster-management.io"
   resources:
@@ -117,3 +116,12 @@ rules:
   - customresourcedefinitions
   verbs:
   - get
+- apiGroups:
+  - "cluster.open-cluster-management.io"
+  resources:
+  - managedclustersetbindings
+  verbs:
+  - get
+  - list
+  - update
+  - patch
