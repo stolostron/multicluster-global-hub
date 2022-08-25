@@ -634,9 +634,15 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&source.Kind{Type: &workv1.ManifestWork{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 				managedClusterName := obj.GetNamespace()
+				// for hosting manifestwork change, trigger corresponding hosted cluster reconcile
 				if strings.Contains(obj.GetName(), constants.HoHHostingHubWorkSuffix) {
 					managedClusterName = strings.TrimSuffix(obj.GetName(), fmt.Sprintf("-%s",
 						constants.HoHHostingHubWorkSuffix))
+				}
+				// for hosting manifestwork change, trigger corresponding hosted cluster reconcile
+				if strings.Contains(obj.GetName(), constants.HoHHostingAgentWorkSuffix) {
+					managedClusterName = strings.TrimSuffix(obj.GetName(), fmt.Sprintf("-%s",
+						constants.HoHHostingAgentWorkSuffix))
 				}
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
