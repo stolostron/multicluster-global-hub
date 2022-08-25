@@ -33,7 +33,7 @@ The agent is running in the regional hub clusters. It is responsible to sync-up 
 kubectl create secret generic storage-secret -n "open-cluster-management" \
     --from-literal=database_uri=<postgresql-uri> 
 ```
-> You can run this sample script `./operator/config/samples/postgres/deploy_postgres.sh` to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically. 
+> You can run this sample script `./operator/config/samples/storage/deploy_postgres.sh` to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically. 
 
 4. Kafka is installed and two topics `spec` and `status` are created, also a secret with name `transport-secret` that contains the kafka access information should be created in `open-cluster-management` namespace:
 
