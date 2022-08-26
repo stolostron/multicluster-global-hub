@@ -184,11 +184,6 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Request,
 	mgh *operatorv1alpha1.MulticlusterGlobalHub, toDelete bool, log logr.Logger,
 ) error {
-	if toDelete {
-		// do nothing when in prune mode, the multiclusterglobalhub reconcile request will clean up resources for all leafhubs
-		return nil
-	}
-
 	// Fetch the managedcluster instance
 	managedCluster := &clusterv1.ManagedCluster{}
 	managedClusterName := req.NamespacedName.Name
@@ -254,16 +249,8 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	// init the hostedcluster config
-	hcConfig := &config.HostedClusterConfig{
-		ManagedClusterName: managedClusterName,
-		HostingClusterName: hostingClusterName,
-		HostingNamespace:   hostingNamespace,
-		HostedClusterName:  hostedClusterName,
-	}
-
 	// managedcluster is being deleted
-	if !managedCluster.DeletionTimestamp.IsZero() {
+	if !managedCluster.DeletionTimestamp.IsZero() || toDelete {
 		// the managed cluster is deleting, we should not re-apply the manifestwork
 		// wait for managedcluster-import-controller to clean up the manifestwork
 		if hostingClusterName == "" { // for non-hypershift hosted leaf hub
@@ -275,8 +262,27 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 				return err
 			}
 		}
+
+		// in case of MGH deleting, remove all the leafhub manifestworks
+		if toDelete && managedCluster.DeletionTimestamp.IsZero() {
+			if err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{}, client.InNamespace(managedClusterName),
+				client.MatchingLabels(map[string]string{
+					commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+				})); err != nil {
+				return err
+			}
+		}
+
 		// delete managedclusteraddon for the managedcluster
 		return deleteManagedClusterAddon(ctx, r.Client, log, managedClusterName)
+	}
+
+	// init the hostedcluster config
+	hcConfig := &config.HostedClusterConfig{
+		ManagedClusterName: managedClusterName,
+		HostingClusterName: hostingClusterName,
+		HostingNamespace:   hostingNamespace,
+		HostedClusterName:  hostedClusterName,
 	}
 
 	if managedCluster.GetLabels()[commonconstants.RegionalHubTypeLabelKey] ==
@@ -420,39 +426,17 @@ func (r *LeafHubReconciler) reconcileMulticlusterGlobalHub(ctx context.Context, 
 	// handle multiclusterglobalhub deleting
 	if toPruneAll {
 		log.Info("multiclusterglobalhub is terminating, delete manifests for leafhubs...")
-		// remove the leafhub components
-		for leafhub := range leafhubs.clusters {
-			if err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{}, client.InNamespace(leafhub),
-				client.MatchingLabels(map[string]string{
-					commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
-				})); err != nil {
-				return err
-			}
-			// delete managedclusteraddon
-			if err := deleteManagedClusterAddon(ctx, r.Client, log, leafhub); err != nil {
-				return err
-			}
-		}
-
-		// also handle case of local-cluster as hypershift hosting cluster
-		if err := r.Client.DeleteAllOf(ctx, &workv1.ManifestWork{},
-			client.InNamespace(constants.LocalClusterName),
-			client.MatchingLabels(map[string]string{
-				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
-			})); err != nil {
-			return err
-		}
-
 		// delete ClusterManagementAddon
 		if err := deleteClusterManagementAddon(ctx, r.Client, log); err != nil {
 			return err
 		}
-
-		return nil
 	}
 
-	if err := applyClusterManagementAddon(ctx, r.Client, log); err != nil {
-		return err
+	// when MGH is not in terminating status, firstly apply ClusterManagementAddon
+	if !toPruneAll {
+		if err := applyClusterManagementAddon(ctx, r.Client, log); err != nil {
+			return err
+		}
 	}
 
 	errors := []error{}
@@ -465,13 +449,22 @@ func (r *LeafHubReconciler) reconcileMulticlusterGlobalHub(ctx context.Context, 
 		}
 
 		// trigger reconcile for each leafhub
-		if err := r.reconcileLeafHub(ctx, newReq, mgh, false, log); err != nil {
+		if err := r.reconcileLeafHub(ctx, newReq, mgh, toPruneAll, log); err != nil {
 			errors = append(errors, err)
 		}
 	}
 
 	if len(errors) > 0 {
 		return utilerrors.NewAggregate(errors)
+	}
+
+	// when MGH is terminating, last step is deleting ClusterManagementAddon
+	if toPruneAll {
+		log.Info("multiclusterglobalhub is terminating, delete manifests for leafhubs...")
+		// delete ClusterManagementAddon
+		if err := deleteClusterManagementAddon(ctx, r.Client, log); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -634,9 +627,15 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&source.Kind{Type: &workv1.ManifestWork{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 				managedClusterName := obj.GetNamespace()
+				// for hosting manifestwork change, trigger corresponding hosted cluster reconcile
 				if strings.Contains(obj.GetName(), constants.HoHHostingHubWorkSuffix) {
 					managedClusterName = strings.TrimSuffix(obj.GetName(), fmt.Sprintf("-%s",
 						constants.HoHHostingHubWorkSuffix))
+				}
+				// for hosting manifestwork change, trigger corresponding hosted cluster reconcile
+				if strings.Contains(obj.GetName(), constants.HoHHostingAgentWorkSuffix) {
+					managedClusterName = strings.TrimSuffix(obj.GetName(), fmt.Sprintf("-%s",
+						constants.HoHHostingAgentWorkSuffix))
 				}
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
