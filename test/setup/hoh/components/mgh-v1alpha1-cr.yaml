@@ -3,7 +3,6 @@ kind: MulticlusterGlobalHub
 metadata:
   annotations:
     mgh-image-overrides-cm: mgh-images-config
-    global-hub.open-cluster-management.io/skip-console-install: "true"
   name: multiclusterglobalhub
 spec:
   transport:

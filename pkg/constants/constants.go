@@ -65,7 +65,6 @@ const (
 	GlobalHubOwnerLabelKey   = "global-hub.open-cluster-management.io/managed-by"
 	GlobalHubOwnerLabelVal   = "global-hub"
 	HoHOperatorOwnerLabelVal = "multicluster-global-hub-operator"
-	HoHAgentOwnerLabelValue  = "multicluster-global-hub-agent"
 
 	// identify the resource is a local-resource
 	GlobalHubLocalResource = "global-hub.open-cluster-management.io/local-resource"
@@ -78,9 +77,6 @@ const (
 
 	// identify the resource is from the global hub cluster
 	OriginOwnerReferenceAnnotation = "global-hub.open-cluster-management.io/origin-ownerreference-uid"
-
-	// This is a temporary annotation to be used to skip console installation during e2e environment setup
-	GlobalHubSkipConsoleInstallAnnotationKey = "global-hub.open-cluster-management.io/skip-console-install"
 )
 
 // store all the finalizers
