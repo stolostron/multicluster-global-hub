@@ -33,10 +33,6 @@ spec:
             - --cluster-api-cabundle-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
             - --server-certificate-path=/certs/tls.crt
             - --server-key-path=/certs/tls.key
-          lifecycle:
-            preStop:
-              exec:
-                command: ["/bin/sh", "-c", "/usr/local/bin/prestop.sh"]
           env:
             - name: POD_NAMESPACE
               valueFrom:
