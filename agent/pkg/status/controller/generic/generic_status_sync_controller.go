@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
@@ -90,13 +88,9 @@ func (c *genericStatusSyncController) Reconcile(ctx context.Context, request ctr
 	}
 
 	if c.isObjectBeingDeleted(object) {
-		if err := c.deleteObjectAndFinalizer(ctx, object, reqLogger); err != nil {
-			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
-		}
+		c.deleteObject(ctx, object, reqLogger)
 	} else { // otherwise, the object was not deleted and no error occurred
-		if err := c.updateObjectAndFinalizer(ctx, object, reqLogger); err != nil {
-			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
-		}
+		c.updateObject(ctx, object, reqLogger)
 	}
 
 	reqLogger.Info("Reconciliation complete.")
@@ -108,13 +102,9 @@ func (c *genericStatusSyncController) isObjectBeingDeleted(object bundle.Object)
 	return !object.GetDeletionTimestamp().IsZero()
 }
 
-func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Context, object bundle.Object,
+func (c *genericStatusSyncController) updateObject(ctx context.Context, object bundle.Object,
 	log logr.Logger,
-) error {
-	if err := c.addFinalizer(ctx, object, log); err != nil {
-		return fmt.Errorf("failed to add finalizer - %w", err)
-	}
-
+) {
 	cleanObject(object)
 
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
@@ -123,29 +113,11 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order.
 	}
-
-	return nil
 }
 
-func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
-	if controllerutil.ContainsFinalizer(object, c.finalizerName) {
-		return nil
-	}
-
-	log.Info("adding finalizer")
-	controllerutil.AddFinalizer(object, c.finalizerName)
-
-	if err := c.client.Update(ctx, object); err != nil &&
-		!strings.Contains(err.Error(), "the object has been modified") {
-		return fmt.Errorf("failed to add finalizer %s - %w", c.finalizerName, err)
-	}
-
-	return nil
-}
-
-func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object,
+func (c *genericStatusSyncController) deleteObject(ctx context.Context, object bundle.Object,
 	log logr.Logger,
-) error {
+) {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 
 	for _, entry := range c.orderedBundleCollection {
@@ -153,25 +125,6 @@ func (c *genericStatusSyncController) deleteObjectAndFinalizer(ctx context.Conte
 	}
 
 	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
-
-	return c.removeFinalizer(ctx, object, log)
-}
-
-func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, object bundle.Object,
-	log logr.Logger,
-) error {
-	if !controllerutil.ContainsFinalizer(object, c.finalizerName) {
-		return nil // if finalizer is not there, do nothing.
-	}
-
-	log.Info("removing finalizer")
-	controllerutil.RemoveFinalizer(object, c.finalizerName)
-
-	if err := c.client.Update(ctx, object); err != nil {
-		return fmt.Errorf("failed to remove finalizer %s - %w", c.finalizerName, err)
-	}
-
-	return nil
 }
 
 func (c *genericStatusSyncController) periodicSync() {
