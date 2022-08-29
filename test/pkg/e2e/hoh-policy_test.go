@@ -144,7 +144,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterName1)
-		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("add policy to managedcluster2 by adding label", func() {
@@ -197,7 +197,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterName2)
-		}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("remove managedcluster1 policy by deleting label", func() {
@@ -232,7 +232,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			policyStr, _ := json.MarshalIndent(status, "", "  ")
 			klog.V(5).Info(fmt.Printf("remove policy from managedcluster1: %s", string(policyStr)))
 			return nil
-		}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	AfterAll(func() {
@@ -264,7 +264,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			policyStr, _ := json.MarshalIndent(status, "", "  ")
 			klog.V(5).Info(fmt.Printf("delete policy from clusters: %s", string(policyStr)))
 			return nil
-		}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 		By("Delete the label from managedcluster2")
 		patches := []patch{

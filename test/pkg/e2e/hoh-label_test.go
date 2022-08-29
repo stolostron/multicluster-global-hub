@@ -162,8 +162,8 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 func getManagedClusterByName(client *http.Client, token, managedClusterName string) (
 	*clusterv1.ManagedCluster, error,
 ) {
-	managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters/%s",
-		testOptions.HubCluster.Nonk8sApiServer, managedClusterName)
+	managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters",
+		testOptions.HubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
@@ -180,13 +180,19 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 		return nil, err
 	}
 
-	var managedCluster *clusterv1.ManagedCluster
-	err = json.Unmarshal(body, &managedCluster)
+	var managedClusters []clusterv1.ManagedCluster
+	err = json.Unmarshal(body, &managedClusters)
 	if err != nil {
 		return nil, err
 	}
 
-	return managedCluster, nil
+	for _, managedCluster := range managedClusters {
+		if managedCluster.Name === mamanagedClusterName {
+			return managedCluster, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterName string) error {

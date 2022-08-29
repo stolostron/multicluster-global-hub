@@ -42,7 +42,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				_, err := clients.KubeClient().CoreV1().Namespaces().Get(context.TODO(),
 					LOCAL_POLICY_NAMESPACE, metav1.GetOptions{})
 				return err
-			}, 5*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		It("add local policy label to leaf hub", func() {
