@@ -187,8 +187,8 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 	}
 
 	for _, managedCluster := range managedClusters {
-		if managedCluster.Name === mamanagedClusterName {
-			return managedCluster, nil
+		if managedCluster.Name == managedClusterName {
+			return &managedCluster, nil
 		}
 	}
 

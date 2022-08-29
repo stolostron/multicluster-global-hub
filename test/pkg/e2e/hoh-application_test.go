@@ -151,7 +151,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		By("Check the appsub apply to the clusters")
 		Eventually(func() error {
-			return checkAppsubreport(appClient, 1, []string{managedClusterName1, managedClusterName2})
+			return checkAppsubreport(appClient, 2, []string{managedClusterName1, managedClusterName2})
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
