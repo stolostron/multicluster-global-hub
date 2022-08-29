@@ -79,3 +79,7 @@ sleep 2
 echo "HoH cr and configmap information:"
 kubectl get cm mgh-images-config -n "$namespace" -oyaml 
 kubectl get mgh multiclusterglobalhub -n "$namespace" -oyaml
+
+# wait for core components to be ready
+kubectl wait deployment -n open-cluster-management multicluster-global-hub-manager --for condition=Available=True --timeout=600s
+kubectl --context kind-hub1 wait deployment -n open-cluster-management multicluster-global-hub-agent --for condition=Available=True --timeout=600s
