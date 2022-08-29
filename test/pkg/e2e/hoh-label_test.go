@@ -12,7 +12,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
@@ -153,7 +152,7 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 	if err != nil {
 		return nil, err
 	}
-	if len(managedClusters) == 2 {
+	if len(managedClusters) != 2 {
 		return nil, fmt.Errorf("cannot get two managed clusters")
 	}
 
@@ -181,13 +180,13 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 		return nil, err
 	}
 
-	var managedClusters *clusterv1.ManagedCluster
-	err = json.Unmarshal(body, &managedClusters)
+	var managedCluster *clusterv1.ManagedCluster
+	err = json.Unmarshal(body, &managedCluster)
 	if err != nil {
 		return nil, err
 	}
 
-	return managedClusters, nil
+	return managedCluster, nil
 }
 
 func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterName string) error {
@@ -219,12 +218,4 @@ func updateClusterLabel(client *http.Client, patches []patch, token, managedClus
 	}
 	defer response.Body.Close()
 	return nil
-}
-
-func printClusterLabel(clusters []clusterv1.ManagedCluster) {
-	for _, cluster := range clusters {
-		for k, v := range cluster.GetObjectMeta().GetLabels() {
-			klog.V(5).Info(fmt.Sprintf("Cluster(%s): %s -> %s", cluster.Name, k, v))
-		}
-	}
 }
