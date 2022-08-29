@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/open-horizon/edge-utilities/logger/log"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -19,6 +18,7 @@ import (
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -41,19 +41,19 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 		}
 
 		// clean up the application finalizer
-		if err := r.pruneApplicationFinalizer(ctx); err != nil {
+		if err := r.pruneApplicationFinalizer(ctx, log); err != nil {
 			log.Error(err, "failed to remove manager resorces")
 			return true, err
 		}
 
 		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
-		if err := r.pruneGlobalResources(ctx); err != nil {
+		if err := r.pruneGlobalResources(ctx, log); err != nil {
 			log.Error(err, "failed to remove global resources")
 			return true, err
 		}
 
 		// clean up namesapced resources, eg. mgh system namespace, etc
-		if err := r.pruneNamespacedResources(ctx); err != nil {
+		if err := r.pruneNamespacedResources(ctx, log); err != nil {
 			log.Error(err, "failed to remove namespaced resources")
 			return true, err
 		}
@@ -128,7 +128,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneConsoleResources(ctx context.Cont
 
 // pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
+func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context, log logr.Logger) error {
 	log.Info("clean up multicluster-global-hub global resources")
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
@@ -163,7 +163,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 }
 
 // pruneNamespacedResources tries to delete mgh resources
-func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.Context) error {
+func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.Context, log logr.Logger) error {
 	log.Info("clean up multicluster-global-hub namespaced resources")
 
 	// the multicluster-global-hub-config configmap is created by operator and finalized by manager
@@ -206,18 +206,15 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 	return nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.Context) error {
+func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.Context, log logr.Logger) error {
 	log.Info("clean up the application subscription finalizer")
 	appsubs := &appsubv1.SubscriptionList{}
 	if err := r.Client.List(ctx, appsubs, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
 		return err
 	}
-	for _, appsub := range appsubs.Items {
-		finalizers := appsub.GetFinalizers()
-		if contains(finalizers, commonconstants.GlobalHubCleanupFinalizer) {
-			newFinalizers := remove(finalizers, commonconstants.GlobalHubCleanupFinalizer)
-			appsub.SetFinalizers(newFinalizers)
-			r.Client.Update(ctx, &appsub, &client.UpdateOptions{})
+	for idx := range appsubs.Items {
+		if err := r.pruneObjectFinalizer(ctx, &appsubs.Items[idx], commonconstants.GlobalHubCleanupFinalizer); err != nil {
+			return err
 		}
 	}
 
@@ -226,12 +223,9 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 	if err := r.Client.List(ctx, channels, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
 		return err
 	}
-	for _, channel := range channels.Items {
-		finalizers := channel.GetFinalizers()
-		if contains(finalizers, commonconstants.GlobalHubCleanupFinalizer) {
-			newFinalizers := remove(finalizers, commonconstants.GlobalHubCleanupFinalizer)
-			channel.SetFinalizers(newFinalizers)
-			r.Client.Update(ctx, &channel, &client.UpdateOptions{})
+	for idx := range channels.Items {
+		if err := r.pruneObjectFinalizer(ctx, &channels.Items[idx], commonconstants.GlobalHubCleanupFinalizer); err != nil {
+			return err
 		}
 	}
 
@@ -240,12 +234,9 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 	if err := r.Client.List(ctx, palcementrules, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
 		return err
 	}
-	for _, placementrule := range palcementrules.Items {
-		finalizers := placementrule.GetFinalizers()
-		if contains(finalizers, commonconstants.GlobalHubCleanupFinalizer) {
-			newFinalizers := remove(finalizers, commonconstants.GlobalHubCleanupFinalizer)
-			placementrule.SetFinalizers(newFinalizers)
-			r.Client.Update(ctx, &placementrule, &client.UpdateOptions{})
+	for idx := range palcementrules.Items {
+		if err := r.pruneObjectFinalizer(ctx, &palcementrules.Items[idx], commonconstants.GlobalHubCleanupFinalizer); err != nil {
+			return err
 		}
 	}
 
@@ -253,20 +244,12 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 	return nil
 }
 
-func contains(elems []string, v string) bool {
-	for _, s := range elems {
-		if v == s {
-			return true
+func (r *MulticlusterGlobalHubReconciler) pruneObjectFinalizer(ctx context.Context, instance client.Object, finalizer string) error {
+	if controllerutil.ContainsFinalizer(instance, finalizer) {
+		controllerutil.RemoveFinalizer(instance, finalizer)
+		if err := r.Client.Update(ctx, instance); err != nil {
+			return err
 		}
 	}
-	return false
-}
-
-func remove(s []string, r string) []string {
-	for i, v := range s {
-		if v == r {
-			return append(s[:i], s[i+1:]...)
-		}
-	}
-	return s
+	return nil
 }
