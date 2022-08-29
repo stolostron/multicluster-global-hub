@@ -29,7 +29,8 @@ import (
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub,
+func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
+	mgh *operatorv1alpha1.MulticlusterGlobalHub,
 	mghRenderer renderer.Renderer, mghDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
 ) (bool, error) {
@@ -82,7 +83,8 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 	return false, nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) pruneConsoleResources(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub,
+func (r *MulticlusterGlobalHubReconciler) pruneConsoleResources(ctx context.Context,
+	mgh *operatorv1alpha1.MulticlusterGlobalHub,
 	mghRenderer renderer.Renderer, mghDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
 ) error {
@@ -255,7 +257,9 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 	return nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) pruneObjectFinalizer(ctx context.Context, instance client.Object, finalizer string) error {
+func (r *MulticlusterGlobalHubReconciler) pruneObjectFinalizer(ctx context.Context, instance client.Object,
+	finalizer string,
+) error {
 	if controllerutil.ContainsFinalizer(instance, finalizer) {
 		controllerutil.RemoveFinalizer(instance, finalizer)
 		if err := r.Client.Update(ctx, instance); err != nil {
