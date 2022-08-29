@@ -12,7 +12,7 @@ The operator of multicluster global hub (see: https://github.com/stolostron/mult
 kubectl create secret generic storage-secret -n "open-cluster-management" \
     --from-literal=database_uri=<postgresql-uri> 
 ```
-> You can run this sample script `config/samples/storage/deploy_postgres.sh` to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically. 
+> You can run this sample script `config/samples/storage/deploy_postgres.sh` to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically.
 
 4. Kafka is installed and two topics `spec` and `status` are created, also a secret with name `transport-secret` that contains the kafka access information should be created in `open-cluster-management` namespace:
 
@@ -21,9 +21,13 @@ kubectl create secret generic transport-secret -n "open-cluster-management" \
     --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \
     --from-literal=CA=<CA-for-kafka-server>
 ```
-> As above, You can run this sample script `config/samples/transport/deploy_kafka.sh` to install kafka in kafka namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically. 
+> As above, You can run this sample script `config/samples/transport/deploy_kafka.sh` to install kafka in kafka namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically.
 
 ## Getting started
+
+_Note:_ You can also install Multicluster Global Hub Operator from [Operator Hub](https://docs.openshift.com/container-platform/4.6/operators/understanding/olm-understanding-operatorhub.html) if you have ACM installed in an OpenShift Container Platform, the operator can be found in community operators by searching "multicluster global hub" keyword in the filter box, then follow the document to install the operator.
+
+Follow the steps below to instal Multicluster Global Hub Operator in developing environment:
 
 ### Running on the cluster
 
