@@ -53,7 +53,7 @@ var _ = BeforeSuite(func() {
 		} else {
 			return fmt.Errorf("token is empty")
 		}
-	}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
+	}, 1*time.Minute, 1*time.Second*5).ShouldNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

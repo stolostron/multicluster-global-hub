@@ -12,7 +12,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
@@ -30,28 +29,23 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 	BeforeAll(func() {
 		By("Get token for the non-k8s-api")
-		initToken, err := utils.FetchBearerToken(testOptions)
+		var err error
+		token, err = utils.FetchBearerToken(testOptions)
 		Expect(err).ShouldNot(HaveOccurred())
-		Expect(len(initToken)).Should(BeNumerically(">", 0))
-		token = initToken
 
 		By("Config request of the api")
 		transport := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
-
-		By("Get a managed cluster name")
-		managedClusters := getManagedCluster(httpClient, token)
-		Expect(len(managedClusters)).Should(BeNumerically(">", 0), "should get the managed cluster")
-		managedClusterName = managedClusters[0].Name
-		Expect(len(managedClusterName)).Should(BeNumerically(">", 0))
-	})
-
-	AfterEach(func() {
-		By("Print result after updating the cluster label")
-		managedClusters := getManagedCluster(httpClient, token)
-		printClusterLabel(managedClusters)
+		Eventually(func() error {
+			managedClusters, err := getManagedCluster(httpClient, token)
+			if err != nil {
+				return err
+			}
+			managedClusterName = managedClusters[0].Name
+			return nil
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("add the label to the managed cluster", func() {
@@ -62,23 +56,31 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 				Value: CLUSTER_LABEL_VALUE,
 			},
 		}
-		updateClusterLabel(httpClient, patches, token, managedClusterName)
+
+		Eventually(func() error {
+			err := updateClusterLabel(httpClient, patches, token, managedClusterName)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Check the label is added")
 		Eventually(func() error {
-			managedClusters := getManagedCluster(httpClient, token)
-			for _, cluster := range managedClusters {
-				if val, ok := cluster.Labels[CLUSTER_LABEL_KEY]; ok {
-					if val == CLUSTER_LABEL_VALUE {
-						return nil
-					}
+			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+			if err != nil {
+				return err
+			}
+			if val, ok := managedCluster.Labels[CLUSTER_LABEL_KEY]; ok {
+				if val == CLUSTER_LABEL_VALUE {
+					return nil
 				}
 			}
 			return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-		}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("remove the label from the maanaged cluster", func() {
+	It("remove the label from the managed cluster", func() {
 		patches := []patch{
 			{
 				Op:    "remove",
@@ -86,20 +88,28 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 				Value: CLUSTER_LABEL_VALUE,
 			},
 		}
-		updateClusterLabel(httpClient, patches, token, managedClusterName)
+		Eventually(func() error {
+			err := updateClusterLabel(httpClient, patches, token, managedClusterName)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Check the label is deleted")
 		Eventually(func() error {
-			managedClusters := getManagedCluster(httpClient, token)
-			for _, cluster := range managedClusters {
-				if val, ok := cluster.Labels[CLUSTER_LABEL_KEY]; ok {
-					if val == CLUSTER_LABEL_VALUE {
-						return fmt.Errorf("the label %s: %s should not be exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-					}
+			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+			if err != nil {
+				return err
+			}
+
+			if val, ok := managedCluster.Labels[CLUSTER_LABEL_KEY]; ok {
+				if val == CLUSTER_LABEL_VALUE {
+					return fmt.Errorf("the label %s: %s should not be exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
 				}
 			}
 			return nil
-		}, 60*time.Second*5, 1*time.Second*5).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 })
 
@@ -110,48 +120,93 @@ type patch struct {
 }
 
 func getLeafHubName(managedClusterName string) string {
-	Expect(managedClusterName).ShouldNot(BeEmpty())
 	result := ""
 	for _, cluster := range testOptions.ManagedClusters {
 		if strings.Compare(cluster.Name, managedClusterName) == 0 {
 			result = cluster.LeafHubName
 		}
 	}
-	Expect(result).ShouldNot(BeEmpty())
 	return result
 }
 
-func getManagedCluster(client *http.Client, token string) []clusterv1.ManagedCluster {
+func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCluster, error) {
 	managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
-	Expect(err).ShouldNot(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-
-	By("Get response of the api")
 	resp, err := client.Do(req)
-	Expect(err).ShouldNot(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
 
-	By("Parse response to managed cluster")
 	body, err := io.ReadAll(resp.Body)
-	Expect(err).ShouldNot(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
 
-	By("Return parsed managedcluster")
 	var managedClusters []clusterv1.ManagedCluster
-	json.Unmarshal(body, &managedClusters)
-	Expect(len(managedClusters)).Should(BeNumerically(">", 0), "should get the managed cluster")
+	err = json.Unmarshal(body, &managedClusters)
+	if err != nil {
+		return nil, err
+	}
+	if len(managedClusters) != 2 {
+		return nil, fmt.Errorf("cannot get two managed clusters")
+	}
 
-	return managedClusters
+	return managedClusters, nil
 }
 
-func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterName string) {
+func getManagedClusterByName(client *http.Client, token, managedClusterName string) (
+	*clusterv1.ManagedCluster, error,
+) {
+	managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters",
+		testOptions.HubCluster.Nonk8sApiServer)
+	req, err := http.NewRequest("GET", managedClusterUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var managedClusters []clusterv1.ManagedCluster
+	err = json.Unmarshal(body, &managedClusters)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, managedCluster := range managedClusters {
+		if managedCluster.Name == managedClusterName {
+			return &managedCluster, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterName string) error {
 	updateLabelUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters/%s",
 		testOptions.HubCluster.Nonk8sApiServer, managedClusterName)
 	// set method and body
 	jsonBody, err := json.Marshal(patches)
-	Expect(err).ShouldNot(HaveOccurred())
+	if err != nil {
+		return err
+	}
 	req, err := http.NewRequest("PATCH", updateLabelUrl, bytes.NewBuffer(jsonBody))
-	Expect(err).ShouldNot(HaveOccurred())
+	if err != nil {
+		return err
+	}
 
 	// add header
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -164,14 +219,9 @@ func updateClusterLabel(client *http.Client, patches []patch, token, managedClus
 
 	// do request
 	response, err := client.Do(req)
-	Expect(err).ShouldNot(HaveOccurred())
-	defer response.Body.Close()
-}
-
-func printClusterLabel(clusters []clusterv1.ManagedCluster) {
-	for _, cluster := range clusters {
-		for k, v := range cluster.GetObjectMeta().GetLabels() {
-			klog.V(5).Info(fmt.Sprintf("Cluster(%s): %s -> %s", cluster.Name, k, v))
-		}
+	if err != nil {
+		return err
 	}
+	defer response.Body.Close()
+	return nil
 }
