@@ -30,9 +30,11 @@ import (
 )
 
 func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub,
-	mghRenderer renderer.Renderer, mghDeployer deployer.Deployer, mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
+	mghRenderer renderer.Renderer, mghDeployer deployer.Deployer,
+	mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
 ) (bool, error) {
-	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
+	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
+		commonconstants.GlobalHubCleanupFinalizer) {
 
 		// clean up the console resources
 		if err := r.pruneConsoleResources(ctx, mgh, mghRenderer, mghDeployer, mapper, log); err != nil {
@@ -58,7 +60,8 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 			return true, err
 		}
 
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(),
+			commonconstants.GlobalHubCleanupFinalizer))
 		if err := r.Client.Update(context.TODO(), mgh); err != nil {
 			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
 			return true, err
@@ -68,7 +71,8 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 	}
 
 	if !utils.Contains(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
-		mgh.SetFinalizers(append(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+		mgh.SetFinalizers(append(mgh.GetFinalizers(),
+			commonconstants.GlobalHubCleanupFinalizer))
 		if err := r.Client.Update(context.TODO(), mgh); err != nil {
 			log.Error(err, "failed to add finalizer to multiclusterglobalhub resource")
 			return false, err
@@ -79,7 +83,8 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 }
 
 func (r *MulticlusterGlobalHubReconciler) pruneConsoleResources(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub,
-	mghRenderer renderer.Renderer, mghDeployer deployer.Deployer, mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
+	mghRenderer renderer.Renderer, mghDeployer deployer.Deployer,
+	mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
 ) error {
 	if mgh.GetAnnotations()[commonconstants.GlobalHubSkipConsoleInstallAnnotationKey] == "true" {
 		log.Info("mgh console is not installed, skip clearing the consle.")
@@ -88,7 +93,9 @@ func (r *MulticlusterGlobalHubReconciler) pruneConsoleResources(ctx context.Cont
 
 	log.Info("clean up multicluster-global-hub console")
 	// render the console cleanup job
-	consoleCleanupObjects, err := mghRenderer.Render("manifests/console-cleanup", func(component string) (interface{}, error) {
+	consoleCleanupObjects, err := mghRenderer.Render("manifests/console-cleanup", func(
+		component string,
+	) (interface{}, error) {
 		return struct {
 			Image     string
 			Namespace string
@@ -118,7 +125,8 @@ func (r *MulticlusterGlobalHubReconciler) pruneConsoleResources(ctx context.Cont
 		}
 		return false, nil
 	}); errPoll != nil {
-		log.Error(errPoll, "multicluster-global-hub console cleanup job failed", "namespace", config.GetDefaultNamespace(),
+		log.Error(errPoll, "multicluster-global-hub console cleanup job failed",
+			"namespace", config.GetDefaultNamespace(),
 			"name", "multicluster-global-hub-console-cleanup")
 		return errPoll
 	}
@@ -213,7 +221,8 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 		return err
 	}
 	for idx := range appsubs.Items {
-		if err := r.pruneObjectFinalizer(ctx, &appsubs.Items[idx], commonconstants.GlobalHubCleanupFinalizer); err != nil {
+		if err := r.pruneObjectFinalizer(ctx, &appsubs.Items[idx],
+			commonconstants.GlobalHubCleanupFinalizer); err != nil {
 			return err
 		}
 	}
@@ -224,7 +233,8 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 		return err
 	}
 	for idx := range channels.Items {
-		if err := r.pruneObjectFinalizer(ctx, &channels.Items[idx], commonconstants.GlobalHubCleanupFinalizer); err != nil {
+		if err := r.pruneObjectFinalizer(ctx, &channels.Items[idx],
+			commonconstants.GlobalHubCleanupFinalizer); err != nil {
 			return err
 		}
 	}
@@ -235,7 +245,8 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 		return err
 	}
 	for idx := range palcementrules.Items {
-		if err := r.pruneObjectFinalizer(ctx, &palcementrules.Items[idx], commonconstants.GlobalHubCleanupFinalizer); err != nil {
+		if err := r.pruneObjectFinalizer(ctx, &palcementrules.Items[idx],
+			commonconstants.GlobalHubCleanupFinalizer); err != nil {
 			return err
 		}
 	}
