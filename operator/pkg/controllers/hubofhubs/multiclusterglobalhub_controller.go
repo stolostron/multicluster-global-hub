@@ -61,7 +61,6 @@ import (
 	leafhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/leafhub"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -86,6 +85,9 @@ type MulticlusterGlobalHubReconciler struct {
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersetbindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/join,verbs=create;delete
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/bind,verbs=create;delete
+//+kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=subscriptions,verbs=get;list;update;patch
+//+kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=placementrules,verbs=get;list;update;patch
+//+kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=channels,verbs=get;list;update;patch
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
@@ -143,7 +145,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
 	// handle gc
-	isTerminating, err := r.initFinalization(ctx, mgh, hohRenderer, hohDeployer, mapper, log)
+	isTerminating, err := r.recocileFinalizer(ctx, mgh, hohRenderer, hohDeployer, mapper, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -423,129 +425,6 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 	return nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) initFinalization(ctx context.Context,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub,
-	hohRenderer renderer.Renderer, hohDeployer deployer.Deployer,
-	mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
-) (bool, error) {
-	if mgh.GetDeletionTimestamp() != nil &&
-		utils.Contains(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
-		if mgh.GetAnnotations()[commonconstants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
-			log.Info("cleanup multicluster-global-hub console")
-			// render the console cleanup job
-			consoleCleanupObjects, err := hohRenderer.Render("manifests/console-cleanup",
-				func(component string) (interface{}, error) {
-					return struct {
-						Image     string
-						Namespace string
-					}{
-						Image:     config.GetImage("multicluster_global_hub_operator"),
-						Namespace: config.GetDefaultNamespace(),
-					}, nil
-				})
-			if err != nil {
-				return false, err
-			}
-			if err := r.manipulateObj(ctx, hohDeployer, mapper, consoleCleanupObjects, mgh, nil, log); err != nil {
-				return false, err
-			}
-
-			log.Info("wait at most 300s for the multicluster-global-hub console is cleaned up")
-			consoleCleanJob := &batchv1.Job{}
-			if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-				if err := r.Client.Get(ctx,
-					types.NamespacedName{
-						Name:      "multicluster-global-hub-console-cleanup",
-						Namespace: config.GetDefaultNamespace(),
-					}, consoleCleanJob); err != nil {
-					return false, err
-				}
-				if consoleCleanJob.Status.Succeeded > 0 {
-					return true, nil
-				}
-				return false, nil
-			}); errPoll != nil {
-				log.Error(errPoll, "multicluster-global-hub console cleanup job failed",
-					"namespace", config.GetDefaultNamespace(),
-					"name", "multicluster-global-hub-console-cleanup")
-				return false, errPoll
-			}
-			log.Info("multicluster-globalhubconsole is cleaned up")
-		}
-
-		log.Info("to delete hoh resources")
-		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
-		if err := r.pruneGlobalResources(ctx); err != nil {
-			log.Error(err, "failed to remove cluster scoped resources")
-			return false, err
-		}
-
-		// clean up open-cluster-management-global-hub-system namespace and multicluster-global-hub configuration
-		if err := r.pruneHoHResources(ctx); err != nil {
-			log.Error(err, "failed to remove multicluster-global-hub resources")
-			return false, err
-		}
-
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(),
-			commonconstants.GlobalHubCleanupFinalizer))
-		if err := r.Client.Update(context.TODO(), mgh); err != nil {
-			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
-			return false, err
-		}
-		log.Info("finalizer is removed from multiclusterglobalhub resource")
-
-		return true, nil
-	}
-	if !utils.Contains(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
-		mgh.SetFinalizers(append(mgh.GetFinalizers(),
-			commonconstants.GlobalHubCleanupFinalizer))
-		err := r.Client.Update(context.TODO(), mgh)
-		if err != nil {
-			log.Error(err, "failed to add finalizer to multiclusterglobalhub resource")
-			return false, err
-		}
-		log.Info("finalizer is added to multiclusterglobalhub resource")
-	}
-
-	return false, nil
-}
-
-// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
-// cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
-	listOpts := []client.ListOption{
-		client.MatchingLabels(map[string]string{
-			commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
-		}),
-	}
-
-	clusterRoleList := &rbacv1.ClusterRoleList{}
-	err := r.Client.List(ctx, clusterRoleList, listOpts...)
-	if err != nil {
-		return err
-	}
-	for idx := range clusterRoleList.Items {
-		if err := r.Client.Delete(ctx, &clusterRoleList.Items[idx]); err != nil &&
-			!errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	clusterRoleBindingList := &rbacv1.ClusterRoleBindingList{}
-	err = r.Client.List(ctx, clusterRoleBindingList, listOpts...)
-	if err != nil {
-		return err
-	}
-	for idx := range clusterRoleBindingList.Items {
-		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx]); err != nil &&
-			!errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // reconcileHoHResources tries to create hoh resources if they don't exist
 func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub) error {
 	if err := r.Client.Get(ctx,
@@ -606,54 +485,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 			return err
 		}
 		return nil
-	}
-
-	return nil
-}
-
-// pruneHoHResources tries to delete hoh resources
-func (r *MulticlusterGlobalHubReconciler) pruneHoHResources(ctx context.Context) error {
-	// open-cluster-management-global-hub-system namespace and multicluster-global-hub-config configmap
-	hohSystemNamespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.HOHSystemNamespace,
-			Labels: map[string]string{
-				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
-			},
-		},
-	}
-	existingHoHConfigMap := &corev1.ConfigMap{}
-	err := r.Client.Get(ctx,
-		types.NamespacedName{
-			Namespace: constants.HOHSystemNamespace,
-			Name:      constants.HOHConfigName,
-		}, existingHoHConfigMap)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return err
-		}
-
-		// cleanup open-cluster-management-global-hub-system namespace
-		if err := r.Client.Delete(ctx, hohSystemNamespace); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-
-		return nil
-	}
-
-	// clean the finalizers added by multicluster-global-hub-manager
-	existingHoHConfigMap.SetFinalizers([]string{})
-	if err := r.Client.Update(ctx, existingHoHConfigMap); err != nil {
-		return err
-	}
-
-	if err := r.Client.Delete(ctx, existingHoHConfigMap); err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-
-	// cleanup open-cluster-management-global-hub-system namespace
-	if err := r.Client.Delete(ctx, hohSystemNamespace); err != nil && !errors.IsNotFound(err) {
-		return err
 	}
 
 	return nil
