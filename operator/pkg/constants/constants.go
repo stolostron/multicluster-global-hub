@@ -83,3 +83,8 @@ const (
 	// MGHOperandImagePrefix ...
 	MGHOperandImagePrefix = "OPERAND_IMAGE_"
 )
+
+const (
+	// AnnotationHostingClusterName is the annotation for indicating the hosting cluster name
+	AnnotationHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"
+)

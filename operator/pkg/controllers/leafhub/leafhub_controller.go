@@ -317,7 +317,8 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 	}
 
 	// apply ManagedClusterAddons
-	return applyManagedClusterAddon(ctx, r.Client, log, managedClusterName)
+	return applyManagedClusterAddon(ctx, r.Client, log, managedClusterName, hostingClusterName,
+		fmt.Sprintf("%s-%s", hostingNamespace, hostedClusterName))
 }
 
 // reconcileNonHostedLeafHub reconciles the normal leafhub, which is not running hosted mode

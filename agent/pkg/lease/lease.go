@@ -26,7 +26,7 @@ const (
 // leaseUpdater updates lease with given name and namespace in certain period
 type leaseUpdater struct {
 	log                  logr.Logger
-	kubeClient           client.Client
+	client               client.Client
 	leaseName            string
 	leaseNamespace       string
 	leaseDurationSeconds int32
@@ -39,21 +39,28 @@ func AddHoHLeaseUpdater(mgr ctrl.Manager, addonNamespace, addonName string) erro
 	if err != nil {
 		return err
 	}
+
+	// create new client to create or update lease, the lease is always in the cluster that pod is running
+	c, err := client.New(config, client.Options{Scheme: mgr.GetScheme()})
+	if err != nil {
+		return err
+	}
+
 	// creates the clientset
-	c, err := kubernetes.NewForConfig(config)
+	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
 	return mgr.Add(&leaseUpdater{
 		log:                  ctrl.Log.WithName("multicluster-global-hub-lease-updater"),
-		kubeClient:           mgr.GetClient(),
+		client:               c,
 		leaseName:            addonName,
 		leaseNamespace:       addonNamespace,
 		leaseDurationSeconds: defaultLeaseDurationSeconds,
 		healthCheckFuncs: []func() bool{
 			checkAddonPodFunc(ctrl.Log.WithName("multicluster-global-hub-lease-updater"),
-				c.CoreV1(),
+				kubeClient.CoreV1(),
 				addonNamespace,
 				"name=multicluster-global-hub-agent"),
 		},
@@ -72,7 +79,7 @@ func (r *leaseUpdater) Start(ctx context.Context) error {
 
 func (r *leaseUpdater) updateLease(ctx context.Context) error {
 	lease := &coordinationv1.Lease{}
-	err := r.kubeClient.Get(ctx, types.NamespacedName{
+	err := r.client.Get(ctx, types.NamespacedName{
 		Namespace: r.leaseNamespace,
 		Name:      r.leaseName,
 	}, lease)
@@ -93,7 +100,7 @@ func (r *leaseUpdater) updateLease(ctx context.Context) error {
 		}
 
 		// create new lease if it is not found
-		if err := r.kubeClient.Create(ctx, newLease, &client.CreateOptions{}); err != nil {
+		if err := r.client.Create(ctx, newLease, &client.CreateOptions{}); err != nil {
 			return err
 		}
 	case err != nil:
@@ -101,7 +108,7 @@ func (r *leaseUpdater) updateLease(ctx context.Context) error {
 	default:
 		// update lease
 		lease.Spec.RenewTime = &metav1.MicroTime{Time: time.Now()}
-		if err := r.kubeClient.Update(ctx, lease, &client.UpdateOptions{}); err != nil {
+		if err := r.client.Update(ctx, lease, &client.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
