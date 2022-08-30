@@ -300,14 +300,12 @@ func getPoliciesStatus(token string, httpClient *http.Client) ([]policyStatus, e
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
-	By("Get response of the api")
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	By("Parse response to managed cluster")
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
