@@ -18,7 +18,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/authentication"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/managedclusters"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/policies"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 )
 
@@ -96,8 +95,6 @@ func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig 
 		nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
 	routerGroup.PATCH("/managedclusters/:cluster",
 		managedclusters.Patch(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
-	routerGroup.GET("/policiesstatus", policies.ListStatus(
-		nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
 
 	err = mgr.Add(&nonK8sApiServer{
 		log: ctrl.Log.WithName("non-k8s-api-server"),

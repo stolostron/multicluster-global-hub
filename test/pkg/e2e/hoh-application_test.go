@@ -61,11 +61,9 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 		By("Get the appsubreport client")
-		cfg, err := clients.RestConfig(clients.HubClusterName())
-		Expect(err).ShouldNot(HaveOccurred())
 		scheme := runtime.NewScheme()
 		appsv1alpha1.AddToScheme(scheme)
-		appClient, err = client.New(cfg, client.Options{Scheme: scheme})
+		appClient, err = clients.ControllerRuntimeClient(scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
@@ -153,7 +151,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			By("Check the appsub apply to the clusters")
 			Eventually(func() error {
 				return checkAppsubreport(appClient, 2, []string{managedClusterName1, managedClusterName2})
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -239,6 +237,6 @@ func checkAppsubreport(appClient client.Client, expectDeployNum int, expectClust
 		}
 		return fmt.Errorf("deploy results isn't correct %v", appsubreport.Results)
 	}
-	return fmt.Errorf("the appsub %s: %s hasn't deplyed to the cluster: %s", APP_SUB_NAMESPACE,
+	return fmt.Errorf("the appsub %s: %s hasn't deployed to the cluster: %s", APP_SUB_NAMESPACE,
 		APP_SUB_NAME, strings.Join(expectClusterNames, ","))
 }

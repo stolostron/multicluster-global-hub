@@ -12,16 +12,19 @@ import (
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
+	runClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Client interface {
 	KubeClient() kubernetes.Interface
 	KubeDynamicClient() dynamic.Interface
+	ControllerRuntimeClient(scheme *runtime.Scheme) (runClient.Client, error)
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
 	HubClusterName() string
@@ -36,6 +39,18 @@ func NewTestClient(opt Options) *client {
 	return &client{
 		options: opt,
 	}
+}
+
+func (c *client) ControllerRuntimeClient(scheme *runtime.Scheme) (runClient.Client, error) {
+	cfg, err := c.RestConfig(c.HubClusterName())
+	if err != nil {
+		return nil, err
+	}
+	controllerClient, err := runClient.New(cfg, runClient.Options{Scheme: scheme})
+	if err != nil {
+		return nil, err
+	}
+	return controllerClient, nil
 }
 
 func (c *client) KubeClient() kubernetes.Interface {
