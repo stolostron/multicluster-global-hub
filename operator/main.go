@@ -39,6 +39,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	workv1 "open-cluster-management.io/api/work/v1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -76,6 +77,7 @@ func init() {
 	utilruntime.Must(appsubV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(chnv1.AddToScheme(scheme))
 	utilruntime.Must(placementrulesv1.AddToScheme(scheme))
+	utilruntime.Must(policyv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

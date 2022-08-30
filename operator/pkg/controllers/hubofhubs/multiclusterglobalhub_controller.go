@@ -89,6 +89,7 @@ type MulticlusterGlobalHubReconciler struct {
 //+kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=subscriptions,verbs=get;list;update;patch
 //+kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=placementrules,verbs=get;list;update;patch
 //+kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=channels,verbs=get;list;update;patch
+//+kubebuilder:rbac:groups=policy.open-cluster-management.io,resources=policies;placementbindings,verbs=get;list;update;patch
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
