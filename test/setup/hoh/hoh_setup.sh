@@ -81,5 +81,27 @@ kubectl get cm mgh-images-config -n "$namespace" -oyaml
 kubectl get mgh multiclusterglobalhub -n "$namespace" -oyaml
 
 # wait for core components to be ready
-kubectl wait deployment -n open-cluster-management multicluster-global-hub-manager --for condition=Available=True --timeout=600s
-kubectl --context kind-hub1 wait deployment -n open-cluster-management multicluster-global-hub-agent --for condition=Available=True --timeout=600s
+SECOND=0
+while [[ -z $(kubectl get deploy -n $namespace multicluster-global-hub-manager --ignore-not-found) ]]; do
+  if [ $SECOND -gt 200 ]; then
+    echo "Timeout waiting for deploying multicluster-global-hub-manager in namespace $namespace"
+    exit 1
+  fi
+  echo "Waiting for multicluster-global-hub-manager to be created..."
+  sleep 2;
+  (( SECOND = SECOND + 2 ))
+done;
+kubectl wait deployment -n $namespace multicluster-global-hub-manager --for condition=Available=True --timeout=600s
+
+
+SECOND=0
+while [[ -z $(kubectl get deploy -n $namespace multicluster-global-hub-agent --context kind-$LEAF_HUB_NAME --ignore-not-found) ]]; do
+  if [ $SECOND -gt 200 ]; then
+    echo "Timeout waiting for deploying multicluster-global-hub-agent in namespace $namespace"
+    exit 1
+  fi
+  echo "Waiting for multicluster-global-hub-agent to be created..."
+  sleep 2;
+  (( SECOND = SECOND + 2 ))
+done;
+kubectl --context kind-$LEAF_HUB_NAME wait deployment -n $namespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s
