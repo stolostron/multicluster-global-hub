@@ -24,9 +24,9 @@ import (
 const (
 	APP_LABEL_KEY     = "app"
 	APP_LABEL_VALUE   = "test"
-	APP_SUB_YAML      = "../../resources/app/app-pacman-appsub.yaml"
-	APP_SUB_NAME      = "pacman-appsub"
-	APP_SUB_NAMESPACE = "pacman"
+	APP_SUB_YAML      = "../../resources/app/app-helloworld-appsub.yaml"
+	APP_SUB_NAME      = "helloworld-appsub"
+	APP_SUB_NAMESPACE = "helloworld"
 )
 
 var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tests-app"), Ordered, func() {
@@ -114,7 +114,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
 				return checkAppsubreport(appClient, 1, []string{managedClusterName1})
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		It(fmt.Sprintf("Add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName2), func() {
