@@ -49,9 +49,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
@@ -520,13 +523,30 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		},
 	}
 
+	resPred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectNew.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal &&
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+				return true
+			}
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha1.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
 		Owns(&batchv1.Job{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
-		Owns(&corev1.ConfigMap{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).
 		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
 		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
@@ -534,6 +554,38 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&networkingv1.NetworkPolicy{}, builder.WithPredicates(ownPred)).
 		Owns(&clusterv1beta1.ManagedClusterSetBinding{}, builder.WithPredicates(ownPred)).
 		Owns(&clusterv1beta1.Placement{}, builder.WithPredicates(ownPred)).
+		// secondary watch for configmap
+		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetHoHMGHNamespacedName()},
+				}
+			}), builder.WithPredicates(resPred)).
+		// secondary watch for namespace
+		Watches(&source.Kind{Type: &corev1.Namespace{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetHoHMGHNamespacedName()},
+				}
+			}), builder.WithPredicates(resPred)).
+		// secondary watch for clusterrole
+		Watches(&source.Kind{Type: &rbacv1.ClusterRole{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetHoHMGHNamespacedName()},
+				}
+			}), builder.WithPredicates(resPred)).
+		// secondary watch for clusterrolebinding
+		Watches(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetHoHMGHNamespacedName()},
+				}
+			}), builder.WithPredicates(resPred)).
 		Complete(r)
 }
 
