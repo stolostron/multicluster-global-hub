@@ -1,18 +1,21 @@
 package tests
 
 import (
+	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
 const (
@@ -28,6 +31,9 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	var httpClient *http.Client
 	var managedClusterName1 string
 	var managedClusterName2 string
+	var appClient client.Client
+	policyName := "policy-limitrange"
+	policyNamespace := "default"
 
 	BeforeAll(func() {
 		By("Get token for the non-k8s-api")
@@ -52,6 +58,12 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			managedClusterName2 = managedClusters[1].Name
 			return nil
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+
+		By("Get the appsubreport client")
+		scheme := runtime.NewScheme()
+		policiesv1.AddToScheme(scheme)
+		appClient, err = clients.ControllerRuntimeClient(scheme)
+		Expect(err).ShouldNot(HaveOccurred())
 	})
 
 	It("add the label to a managedcluster for the policy", func() {
@@ -95,25 +107,19 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPoliciesStatus(token, httpClient)
+			status, err := getPolicyStatus(appClient, policyName, policyNamespace)
 			if err != nil {
 				return err
 			}
-			for _, policyInfo := range status {
+			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusterName1 {
-					if policyInfo.ErrorInfo == "none" && policyInfo.Compliance == "non_compliant" {
-						policyStr, _ := json.MarshalIndent(status, "", "  ")
-						klog.V(5).Info(fmt.Printf("Inform policy[ %s -> %s ]: %s",
-							POLICY_LABEL_KEY, POLICY_LABEL_VALUE, string(policyStr)))
+					if policyInfo.ComplianceState == policiesv1.NonCompliant {
 						return nil
-					} else {
-						return fmt.Errorf("the cluster %s with policyInfo %s and compliance %s ",
-							managedClusterName1, policyInfo.ErrorInfo, policyInfo.Compliance)
 					}
 				}
 			}
 			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterName1)
-		}, 5*60*time.Second, 5*1*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("enforce the inform policy", func() {
@@ -126,20 +132,14 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPoliciesStatus(token, httpClient)
+			status, err := getPolicyStatus(appClient, policyName, policyNamespace)
 			if err != nil {
 				return err
 			}
-			for _, policyInfo := range status {
+			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusterName1 {
-					if policyInfo.ErrorInfo == "none" && policyInfo.Compliance == "compliant" {
-						policyStr, _ := json.MarshalIndent(status, "", "  ")
-						klog.V(5).Info(fmt.Printf("Enforce policy[ %s -> %s ]: %s",
-							POLICY_LABEL_KEY, POLICY_LABEL_VALUE, string(policyStr)))
+					if policyInfo.ComplianceState == policiesv1.Compliant {
 						return nil
-					} else {
-						return fmt.Errorf("the cluster %s with policy error Information %s and compliacne %s",
-							managedClusterName1, policyInfo.ErrorInfo, policyInfo.Compliance)
 					}
 				}
 			}
@@ -180,19 +180,14 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the policy is added")
 		Eventually(func() error {
-			status, err := getPoliciesStatus(token, httpClient)
+			status, err := getPolicyStatus(appClient, policyName, policyNamespace)
 			if err != nil {
 				return err
 			}
-			for _, policyInfo := range status {
+			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusterName2 {
-					if policyInfo.ErrorInfo == "none" && policyInfo.Compliance == "compliant" {
-						policyStr, _ := json.MarshalIndent(status, "", "  ")
-						klog.V(5).Info(fmt.Printf("add policy by label: %s", string(policyStr)))
+					if policyInfo.ComplianceState == policiesv1.Compliant {
 						return nil
-					} else {
-						return fmt.Errorf("the cluster %s with policy error Information %s and compliacne %s",
-							managedClusterName2, policyInfo.ErrorInfo, policyInfo.Compliance)
 					}
 				}
 			}
@@ -219,18 +214,16 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the policy is removed from the managedclusterName1")
 		Eventually(func() error {
-			status, err := getPoliciesStatus(token, httpClient)
+			status, err := getPolicyStatus(appClient, policyName, policyNamespace)
 			if err != nil {
 				return err
 			}
-			for _, policyInfo := range status {
+			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusterName1 {
-					return fmt.Errorf("the cluster %s policy(%s: %s)should be removed",
-						managedClusterName1, policyInfo.ErrorInfo, policyInfo.Compliance)
+					return fmt.Errorf("the cluster %s policy(%s)should be removed",
+						managedClusterName1, policyName)
 				}
 			}
-			policyStr, _ := json.MarshalIndent(status, "", "  ")
-			klog.V(5).Info(fmt.Printf("remove policy from managedcluster1: %s", string(policyStr)))
 			return nil
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
@@ -249,22 +242,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		Expect(err).ShouldNot(HaveOccurred())
 		klog.V(5).Info(managedClusterName2, ": ", deleteInfo)
 
-		By("Check the policy is deleted from managedcluster1 and managedcluster2")
-		Eventually(func() error {
-			status, err := getPoliciesStatus(token, httpClient)
-			if err != nil {
-				return err
-			}
-			for _, policyInfo := range status {
-				if policyInfo.ClusterName == managedClusterName2 ||
-					policyInfo.ClusterName == managedClusterName1 {
-					return fmt.Errorf("the cluster %s should delete the policy", policyInfo.ClusterName)
-				}
-			}
-			policyStr, _ := json.MarshalIndent(status, "", "  ")
-			klog.V(5).Info(fmt.Printf("delete policy from clusters: %s", string(policyStr)))
-			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		// TODO: clyang82 should check the policy is deleted in managed clusters of the regional hub cluster
 
 		By("Delete the label from managedcluster2")
 		patches := []patch{
@@ -284,39 +262,11 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	})
 })
 
-type policyStatus struct {
-	PolicyId    string `json:"id"`
-	ClusterName string `json:"clusterName"`
-	LeafHubName string `json:"leafHubName"`
-	ErrorInfo   string `json:"errorInfo"`
-	Compliance  string `json:"compliance"`
-}
-
-func getPoliciesStatus(token string, httpClient *http.Client) ([]policyStatus, error) {
-	policyStatusUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/policiesstatus", testOptions.HubCluster.Nonk8sApiServer)
-	req, err := http.NewRequest("GET", policyStatusUrl, nil)
+func getPolicyStatus(appClient client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
+	policy := &policiesv1.Policy{}
+	err := appClient.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, policy)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-
-	By("Get response of the api")
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	By("Parse response to managed cluster")
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var policiesStatus []policyStatus
-	err = json.Unmarshal(body, &policiesStatus)
-	if err != nil {
-		return nil, err
-	}
-	return policiesStatus, nil
+	return &policy.Status, nil
 }
