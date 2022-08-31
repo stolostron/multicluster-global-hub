@@ -114,7 +114,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
 				return checkAppsubreport(appClient, 1, []string{managedClusterName1})
-			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 1*time.Hour, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		It(fmt.Sprintf("Add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName2), func() {
@@ -151,7 +151,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			By("Check the appsub apply to the clusters")
 			Eventually(func() error {
 				return checkAppsubreport(appClient, 2, []string{managedClusterName1, managedClusterName2})
-			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 1*time.Hour, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
