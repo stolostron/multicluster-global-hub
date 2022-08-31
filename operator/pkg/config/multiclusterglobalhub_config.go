@@ -80,10 +80,21 @@ func getAnnotation(mgh *operatorv1alpha1.MulticlusterGlobalHub, annotationKey st
 	return annotations[annotationKey]
 }
 
-// IsPaused returns true if the MulticlusterGlobalHub instance is labeled as paused, and false otherwise
+// IsPaused returns true if the MulticlusterGlobalHub instance is annotated as paused, and false otherwise
 func IsPaused(mgh *operatorv1alpha1.MulticlusterGlobalHub) bool {
 	isPausedVal := getAnnotation(mgh, constants.AnnotationMGHPause)
 	if isPausedVal != "" && strings.EqualFold(isPausedVal, "true") {
+		return true
+	}
+
+	return false
+}
+
+// SkipDBInit returns true if the MulticlusterGlobalHub instance is annotated as skipping database initialization,
+// and false otherwise, used in dev/test environment
+func SkipDBInit(mgh *operatorv1alpha1.MulticlusterGlobalHub) bool {
+	toSkipDBInit := getAnnotation(mgh, constants.AnnotationMGHSkipDBInit)
+	if toSkipDBInit != "" && strings.EqualFold(toSkipDBInit, "true") {
 		return true
 	}
 

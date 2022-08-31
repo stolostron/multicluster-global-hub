@@ -181,13 +181,15 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	// init DB and transport here
-	err = r.reconcileDatabase(ctx, mgh, types.NamespacedName{
-		Name:      mgh.Spec.Storage.Name,
-		Namespace: config.GetDefaultNamespace(),
-	})
-	if err != nil {
-		return ctrl.Result{}, err
+	if !config.SkipDBInit(mgh) {
+		// init DB and transport here
+		err = r.reconcileDatabase(ctx, mgh, types.NamespacedName{
+			Name:      mgh.Spec.Storage.Name,
+			Namespace: config.GetDefaultNamespace(),
+		})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// reconcile open-cluster-management-global-hub-system namespace and multicluster-global-hub configuration
