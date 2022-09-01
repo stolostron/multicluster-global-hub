@@ -3,16 +3,13 @@ package hubofhubs
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/restmapper"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -21,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -36,12 +32,6 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 ) (bool, error) {
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
 		commonconstants.GlobalHubCleanupFinalizer) {
-
-		// clean up the console resources
-		if err := r.pruneConsoleResources(ctx, mgh, mghRenderer, mghDeployer, mapper, log); err != nil {
-			log.Error(err, "failed to remove console resources")
-			return true, err
-		}
 
 		// clean up the application finalizer
 		if err := r.pruneApplicationFinalizer(ctx, log); err != nil {
@@ -81,59 +71,6 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 		log.Info("finalizer is added to multiclusterglobalhub resource")
 	}
 	return false, nil
-}
-
-func (r *MulticlusterGlobalHubReconciler) pruneConsoleResources(ctx context.Context,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub,
-	mghRenderer renderer.Renderer, mghDeployer deployer.Deployer,
-	mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
-) error {
-	if mgh.GetAnnotations()[commonconstants.GlobalHubSkipConsoleInstallAnnotationKey] == "true" {
-		log.Info("mgh console is not installed, skip clearing the consle.")
-		return nil
-	}
-
-	log.Info("clean up multicluster-global-hub console")
-	// render the console cleanup job
-	consoleCleanupObjects, err := mghRenderer.Render("manifests/console-cleanup", func(
-		component string,
-	) (interface{}, error) {
-		return struct {
-			Image     string
-			Namespace string
-		}{
-			Image:     config.GetImage("multicluster_global_hub_operator"),
-			Namespace: config.GetDefaultNamespace(),
-		}, nil
-	})
-	if err != nil {
-		return err
-	}
-	if err := r.manipulateObj(ctx, mghDeployer, mapper, consoleCleanupObjects, mgh, nil, log); err != nil {
-		return err
-	}
-
-	log.Info("wait at most 300s for the multicluster-global-hub console is cleaned up")
-	consoleCleanJob := &batchv1.Job{}
-	if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-		if err := r.Client.Get(ctx, types.NamespacedName{
-			Name:      "multicluster-global-hub-console-cleanup",
-			Namespace: config.GetDefaultNamespace(),
-		}, consoleCleanJob); err != nil {
-			return false, err
-		}
-		if consoleCleanJob.Status.Succeeded > 0 {
-			return true, nil
-		}
-		return false, nil
-	}); errPoll != nil {
-		log.Error(errPoll, "multicluster-global-hub console cleanup job failed",
-			"namespace", config.GetDefaultNamespace(),
-			"name", "multicluster-global-hub-console-cleanup")
-		return errPoll
-	}
-	log.Info("multicluster-global-hub console is cleaned up")
-	return nil
 }
 
 // pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
