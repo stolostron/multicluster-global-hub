@@ -37,7 +37,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
@@ -104,8 +103,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					Name:      MGHName,
 					Namespace: MGHNamespace,
 					Annotations: map[string]string{
-						constants.AnnotationMGHSkipDBInit:                        "true",
-						commonconstants.GlobalHubSkipConsoleInstallAnnotationKey: "true",
+						constants.AnnotationMGHSkipDBInit: "true",
 					},
 				},
 				Spec: operatorv1alpha1.MulticlusterGlobalHubSpec{
@@ -225,29 +223,6 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					err := checkResource(ctx, k8sClient, unsObj)
 					if err != nil {
 						fmt.Printf("failed to check rbac resource: %v\n", err)
-						return false
-					}
-				}
-				return true
-			}, timeout, interval).Should(BeTrue())
-
-			By("By checking the placement related resources are created as expected")
-			placementObjects, err := hohRenderer.Render("manifests/placement", func(
-				component string,
-			) (interface{}, error) {
-				return struct {
-					Namespace string
-				}{
-					Namespace: MGHNamespace,
-				}, nil
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			Eventually(func() bool {
-				for _, unsObj := range placementObjects {
-					err := checkResource(ctx, k8sClient, unsObj)
-					if err != nil {
-						fmt.Printf("failed to check placement related resource: %v\n", err)
 						return false
 					}
 				}

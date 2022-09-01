@@ -120,8 +120,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	// Fetch the multiclusterglobalhub instance
 	mgh := &operatorv1alpha1.MulticlusterGlobalHub{}
-	err := r.Get(ctx, req.NamespacedName, mgh)
-	if err != nil {
+	if err := r.Get(ctx, req.NamespacedName, mgh); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -183,18 +182,16 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	if !config.SkipDBInit(mgh) {
 		// init DB and transport here
-		err = r.reconcileDatabase(ctx, mgh, types.NamespacedName{
+		if err = r.reconcileDatabase(ctx, mgh, types.NamespacedName{
 			Name:      mgh.Spec.Storage.Name,
 			Namespace: config.GetDefaultNamespace(),
-		})
-		if err != nil {
+		}); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	// reconcile open-cluster-management-global-hub-system namespace and multicluster-global-hub configuration
-	err = r.reconcileHoHResources(ctx, mgh)
-	if err != nil {
+	if err = r.reconcileHoHResources(ctx, mgh); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -211,9 +208,8 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, hohDeployer, mapper, hohRBACObjects, mgh,
-		condition.SetConditionRBACDeployed, log)
-	if err != nil {
+	if err = r.manipulateObj(ctx, hohDeployer, mapper, hohRBACObjects, mgh,
+		condition.SetConditionRBACDeployed, log); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -253,9 +249,8 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	err = r.manipulateObj(ctx, hohDeployer, mapper, managerObjects, mgh,
-		condition.SetConditionManagerDeployed, log)
-	if err != nil {
+	if err = r.manipulateObj(ctx, hohDeployer, mapper, managerObjects, mgh,
+		condition.SetConditionManagerDeployed, log); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -328,7 +323,8 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] =
+			commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
