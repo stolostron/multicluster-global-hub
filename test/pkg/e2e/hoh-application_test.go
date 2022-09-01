@@ -118,6 +118,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		})
 
 		It(fmt.Sprintf("Add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName2), func() {
+			Skip("skip the test case due to the issue in application manager")
 			By("Add the lablel to managedcluster2")
 			patches := []patch{
 				{
