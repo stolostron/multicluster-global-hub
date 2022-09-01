@@ -44,6 +44,7 @@ import (
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -78,6 +79,7 @@ func init() {
 	utilruntime.Must(chnv1.AddToScheme(scheme))
 	utilruntime.Must(placementrulesv1.AddToScheme(scheme))
 	utilruntime.Must(policyv1.AddToScheme(scheme))
+	utilruntime.Must(applicationv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
