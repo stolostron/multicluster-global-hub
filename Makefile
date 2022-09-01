@@ -65,7 +65,7 @@ unit-tests-agent: setup_envtest
 e2e-setup-dependencies: 
 	./test/setup/e2e_dependencies.sh
 
-e2e-setup-start: vendor
+e2e-setup-start: tidy vendor e2e-setup-dependencies
 	./test/setup/e2e_setup.sh
 
 e2e-setup-clean:
