@@ -161,24 +161,22 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 	// the multicluster-global-hub-config configmap is created by operator and finalized by manager
 	log.Info(fmt.Sprintf("clean up the namespace %s configmap %s", constants.HOHSystemNamespace, constants.HOHConfigName))
 	existingMghConfigMap := &corev1.ConfigMap{}
-	if err := r.Client.Get(ctx,
+	err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Namespace: constants.HOHSystemNamespace,
 			Name:      constants.HOHConfigName,
-		}, existingMghConfigMap); err != nil && !errors.IsNotFound(err) {
+		}, existingMghConfigMap)
+	if err != nil && !errors.IsNotFound(err) {
 		return err
-	}
-	if err := r.Client.Delete(ctx, existingMghConfigMap); err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-
-	// clean the finalizers added by multicluster-global-hub-manager
-	existingMghConfigMap.SetFinalizers([]string{})
-	if err := r.Client.Update(ctx, existingMghConfigMap); err != nil {
-		return err
-	}
-	if err := r.Client.Delete(ctx, existingMghConfigMap); err != nil && !errors.IsNotFound(err) {
-		return err
+	} else if err == nil {
+		// clean the finalizers added by multicluster-global-hub-manager
+		existingMghConfigMap.SetFinalizers([]string{})
+		if err := r.Client.Update(ctx, existingMghConfigMap); err != nil {
+			return err
+		}
+		if err := r.Client.Delete(ctx, existingMghConfigMap); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
 	}
 
 	log.Info(fmt.Sprintf("clean up the namespace %s", constants.HOHSystemNamespace))
