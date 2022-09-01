@@ -132,16 +132,6 @@ rules:
   - patch
   - update
 - apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
   - cluster.open-cluster-management.io
   resources:
   - hypershiftdeployments
@@ -156,18 +146,6 @@ rules:
   verbs:
   - get
   - list
-  - update
-  - watch
-- apiGroups:
-  - cluster.open-cluster-management.io
-  resources:
-  - managedclustersetbindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
   - update
   - watch
 - apiGroups:
