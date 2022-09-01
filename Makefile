@@ -62,10 +62,10 @@ unit-tests-manager:
 unit-tests-agent: setup_envtest
 	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./agent/... | grep -v test`
 
-e2e-setup-dependencies:
+e2e-setup-dependencies: 
 	./test/setup/e2e_dependencies.sh
 
-e2e-setup-start: e2e-setup-dependencies
+e2e-setup-start: tidy vendor e2e-setup-dependencies
 	./test/setup/e2e_setup.sh
 
 e2e-setup-clean:

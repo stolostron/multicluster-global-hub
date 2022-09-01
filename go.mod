@@ -27,7 +27,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	open-cluster-management.io/api v0.7.1-0.20220526092915-173794903fb4
-	open-cluster-management.io/governance-policy-propagator v0.7.0
+	open-cluster-management.io/governance-policy-propagator v0.8.0
 	open-cluster-management.io/multicloud-operators-channel v0.6.1-0.20220211220806-5d96f748742d
 	open-cluster-management.io/multicloud-operators-subscription v0.7.0
 	sigs.k8s.io/application v0.8.3
