@@ -9,7 +9,7 @@ metadata:
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     operatorframework.io/suggested-namespace: open-cluster-management
-    operators.operatorframework.io/builder: operator-sdk-v1.19.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.23.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/stolostron/multicluster-global-hub
     support: Red Hat

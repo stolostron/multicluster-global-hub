@@ -37,7 +37,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -69,7 +68,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(operatorsv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1beta1.AddToScheme(scheme))
 	utilruntime.Must(workv1.AddToScheme(scheme))
 	utilruntime.Must(addonv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(hypershiftdeploymentv1alpha1.AddToScheme(scheme))
@@ -139,12 +137,6 @@ func main() {
 				Label: labelSelector,
 			},
 			&networkingv1.NetworkPolicy{}: {
-				Label: labelSelector,
-			},
-			&clusterv1beta1.ManagedClusterSetBinding{}: {
-				Label: labelSelector,
-			},
-			&clusterv1beta1.Placement{}: {
 				Label: labelSelector,
 			},
 			&clusterv1.ManagedCluster{}: {

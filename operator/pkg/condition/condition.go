@@ -66,13 +66,6 @@ const (
 	CONDITION_MESSAGE_MANAGER_DEPLOY = "Multicluster Global Hub Manager Deployed"
 )
 
-// NOTE: the status of ConsoleDeployed can only be True; otherwise there is no condition
-const (
-	CONDITION_TYPE_CONSOLE_DEPLOY    = "ConsoleDeployed"
-	CONDITION_REASON_CONSOLE_DEPLOY  = "ConsoleDeployed"
-	CONDITION_MESSAGE_CONSOLE_DEPLOY = "Multicluster Global Hub Console Deployed"
-)
-
 // NOTE: the status of LeafHubDeployed can only be True; otherwise there is no condition
 const (
 	CONDITION_TYPE_LEAFHUB_DEPLOY           = "LeafHubDeployed"
@@ -113,13 +106,6 @@ func SetConditionManagerDeployed(ctx context.Context, c client.Client, mgh *oper
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MANAGER_DEPLOY, status,
 		CONDITION_REASON_MANAGER_DEPLOY, CONDITION_MESSAGE_MANAGER_DEPLOY)
-}
-
-func SetConditionConsoleDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MulticlusterGlobalHub,
-	status metav1.ConditionStatus,
-) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_CONSOLE_DEPLOY, status,
-		CONDITION_REASON_CONSOLE_DEPLOY, CONDITION_MESSAGE_CONSOLE_DEPLOY)
 }
 
 func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha1.MulticlusterGlobalHub,

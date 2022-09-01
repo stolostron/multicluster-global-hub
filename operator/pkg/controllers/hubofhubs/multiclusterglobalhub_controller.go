@@ -25,7 +25,6 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -41,7 +40,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
-	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -83,7 +81,6 @@ type MulticlusterGlobalHubReconciler struct {
 //+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/finalizers,verbs=update
-//+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersetbindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/join,verbs=create;delete
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/bind,verbs=create;delete
 //+kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=subscriptions,verbs=get;list;update;patch
@@ -101,7 +98,6 @@ type MulticlusterGlobalHubReconciler struct {
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
-//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;delete;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=ingresses,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update;delete
@@ -488,7 +484,6 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha1.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
-		Owns(&batchv1.Job{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
 		// watch owned secret, opa-data secret is an exception.
@@ -497,8 +492,6 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
 		Owns(&networkingv1.Ingress{}, builder.WithPredicates(ownPred)).
 		Owns(&networkingv1.NetworkPolicy{}, builder.WithPredicates(ownPred)).
-		Owns(&clusterv1beta1.ManagedClusterSetBinding{}, builder.WithPredicates(ownPred)).
-		Owns(&clusterv1beta1.Placement{}, builder.WithPredicates(ownPred)).
 		// secondary watch for configmap
 		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
