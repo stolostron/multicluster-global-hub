@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -37,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -258,79 +256,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// render the default placement
-	placementObjects, err := hohRenderer.Render("manifests/placement", func(component string) (interface{}, error) {
-		return struct {
-			Namespace string
-		}{
-			Namespace: config.GetDefaultNamespace(),
-		}, nil
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	err = r.manipulateObj(ctx, hohDeployer, mapper, placementObjects, mgh, nil, log)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if mgh.GetAnnotations()[commonconstants.GlobalHubSkipConsoleInstallAnnotationKey] != "true" {
-		// render the console setup job
-		consoleSetupObjects, err := hohRenderer.Render("manifests/console-setup", func(
-			component string,
-		) (interface{}, error) {
-			return struct {
-				Image     string
-				Namespace string
-			}{
-				Image:     config.GetImage("multicluster_global_hub_operator"),
-				Namespace: config.GetDefaultNamespace(),
-			}, nil
-		})
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		err = r.manipulateObj(ctx, hohDeployer, mapper, consoleSetupObjects, mgh,
-			condition.SetConditionConsoleDeployed, log)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		log.Info("wait at most 300s for the multicluster-global-hub console is set up")
-		consoleSetupJob := &batchv1.Job{}
-		if errPoll := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-			if err := r.Client.Get(ctx,
-				types.NamespacedName{
-					Name:      "multicluster-global-hub-console-setup",
-					Namespace: config.GetDefaultNamespace(),
-				}, consoleSetupJob); err != nil {
-				return false, err
-			}
-			if consoleSetupJob.Status.Succeeded > 0 {
-				return true, nil
-			}
-			return false, nil
-		}); errPoll != nil {
-			log.Error(errPoll, "multicluster-global-hub console setup job failed",
-				"namespace", config.GetDefaultNamespace(),
-				"name", "multicluster-global-hub-console-setup")
-			if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
-				condition.CONDITION_STATUS_FALSE); conditionError != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
-					condition.CONDITION_STATUS_FALSE, conditionError)
-			}
-			return ctrl.Result{}, errPoll
-		}
-		log.Info("multicluster-global-hub console is set up")
-		if conditionError := condition.SetConditionConsoleDeployed(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_TRUE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set condition(%s): %w",
-				condition.CONDITION_STATUS_TRUE, conditionError)
-		}
-	}
-
 	// try to start leafhub controller if it is not running
 	if !isLeafHubControllerRunnning {
 		dynamicClient, err := dynamic.NewForConfig(r.Manager.GetConfig())
@@ -400,8 +325,7 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] =
-			commonconstants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)

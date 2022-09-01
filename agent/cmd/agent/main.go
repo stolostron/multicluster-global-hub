@@ -13,9 +13,7 @@ import (
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/client-go/rest"
 	clustersV1 "open-cluster-management.io/api/cluster/v1"
 	clustersV1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policiesV1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -25,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
@@ -87,31 +84,13 @@ func doMain() int {
 		return 1
 	}
 
-	ctx := ctrl.SetupSignalHandler()
-
-	log.Info("initiating the resources")
-	if err := initResources(ctx, mgr.GetConfig(), log); err != nil {
-		log.Error(err, "failed to init resource")
-	}
-
 	log.Info("starting the Cmd")
-	if err := mgr.Start(ctx); err != nil {
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
 	}
 
 	return 0
-}
-
-func initResources(ctx context.Context, config *rest.Config, log logr.Logger) error {
-	kubeClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return fmt.Errorf("failed to create kube client")
-	}
-	if err := controllers.InitResources(ctx, kubeClient); err != nil {
-		return fmt.Errorf("failed to init resources")
-	}
-	return nil
 }
 
 func initLog() logr.Logger {
@@ -217,10 +196,6 @@ func createManager(consumer consumer.Consumer, producer producer.Producer,
 
 	if err := statusController.AddControllers(mgr, producer, *environmentManager, incarnation); err != nil {
 		return nil, fmt.Errorf("failed to add status syncer: %w", err)
-	}
-
-	if err := controllers.AddControllers(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
 	if err := lease.AddHoHLeaseUpdater(mgr, environmentManager.PodNameSpace,
