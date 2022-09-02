@@ -1,0 +1,14 @@
+apiVersion: operator.open-cluster-management.io/v1alpha2
+kind: MulticlusterGlobalHub
+metadata:
+  annotations:
+    mgh-image-overrides-cm: mgh-images-config
+  name: multiclusterglobalhub
+spec:
+  datalayer:
+    type: largeScale
+    largeScale:
+      kafka:
+        name: ${TRANSPORT_SECRET_NAME}
+      postgres:
+        name: ${STORAGE_SECRET_NAME}

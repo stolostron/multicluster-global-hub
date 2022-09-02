@@ -52,8 +52,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -119,7 +119,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	log.Info("Reconciling", "namespacedname", req.NamespacedName)
 
 	// Fetch the multiclusterglobalhub instance
-	mgh := &operatorv1alpha1.MulticlusterGlobalHub{}
+	mgh := &operatorv1alpha2.MulticlusterGlobalHub{}
 	if err := r.Get(ctx, req.NamespacedName, mgh); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -183,7 +183,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	if !config.SkipDBInit(mgh) {
 		// init DB and transport here
 		if err = r.reconcileDatabase(ctx, mgh, types.NamespacedName{
-			Name:      mgh.Spec.Storage.Name,
+			Name:      mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 			Namespace: config.GetDefaultNamespace(),
 		}); err != nil {
 			return ctrl.Result{}, err
@@ -239,7 +239,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			Namespace            string
 		}{
 			Image:                config.GetImage("multicluster_global_hub_manager"),
-			DBSecret:             mgh.Spec.Storage.Name,
+			DBSecret:             mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 			KafkaCA:              kafkaCA,
 			KafkaBootstrapServer: kafkaBootstrapServer,
 			Namespace:            config.GetDefaultNamespace(),
@@ -297,7 +297,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, objs []*unstructured.Unstructured,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, setConditionFunc condition.SetConditionFunc,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub, setConditionFunc condition.SetConditionFunc,
 	log logr.Logger,
 ) error {
 	// manipulate the object
@@ -323,8 +323,7 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] =
-			commonconstants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
@@ -352,7 +351,7 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 }
 
 // reconcileHoHResources tries to create hoh resources if they don't exist
-func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context, mgh *operatorv1alpha1.MulticlusterGlobalHub) error {
+func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context, mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.HOHSystemNamespace,
@@ -480,7 +479,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1alpha1.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
+		For(&operatorv1alpha2.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
@@ -527,7 +526,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
 func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) (string, string, error) {
 	// for local dev/test
 	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]
@@ -537,11 +536,11 @@ func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log lo
 	}
 
 	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
-		mgh.Spec.Transport.Name, metav1.GetOptions{})
+		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "failed to get transport secret",
 			"namespace", config.GetDefaultNamespace(),
-			"name", mgh.Spec.Transport.Name)
+			"name", mgh.Spec.DataLayer.LargeScale.Kafka.Name)
 		return "", "", err
 	}
 

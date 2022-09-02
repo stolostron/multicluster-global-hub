@@ -1,4 +1,4 @@
-apiVersion: operator.open-cluster-management.io/v1alpha1
+apiVersion: operator.open-cluster-management.io/v1alpha2
 kind: MulticlusterGlobalHub
 metadata:
   # annotations:
@@ -10,7 +10,10 @@ metadata:
     # mgh-kafka-bootstrap-server: kafka-brokers-cluster-kafka-external-bootstrap-kafka.apps.testing.example.com
   name: multiclusterglobalhub
 spec:
-  transport:
-    name: transport-secret
-  storage:
-    name: storage-secret
+  datalayer:
+    type: largeScale
+    largeScale:
+      kafka:
+        name: transport-secret
+      postgres:
+        name: storage-secret

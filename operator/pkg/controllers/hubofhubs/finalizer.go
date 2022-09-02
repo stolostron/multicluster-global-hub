@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -29,7 +29,7 @@ import (
 )
 
 func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	mghRenderer renderer.Renderer, mghDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, log logr.Logger,
 ) (bool, error) {

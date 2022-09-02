@@ -17,7 +17,7 @@ spec:
     singular: multiclusterglobalhub
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: v1alpha2
     schema:
       openAPIV3Schema:
         description: MulticlusterGlobalHub is the Schema for the multiclusterglobalhubs
@@ -46,27 +46,104 @@ spec:
                 - full
                 - minimal
                 type: string
+              dataLayer:
+                description: 'DataLayer can be configured to use a different data
+                  layer. native: use the native data layer (default). largeScale:
+                  large scale data layer served by kafka and postgres.'
+                properties:
+                  largeScale:
+                    description: LargeScale is to use kafka as transport layer and
+                      use postgres as data layer This is for a large scale environment.
+                    properties:
+                      kafka:
+                        description: LocalObjectReference contains enough information
+                          to let you locate the referenced object inside the same
+                          namespace.
+                        properties:
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                        type: object
+                      postgres:
+                        description: LocalObjectReference contains enough information
+                          to let you locate the referenced object inside the same
+                          namespace.
+                        properties:
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                        type: object
+                    type: object
+                  native:
+                    description: Native may use a syncer to sync data from the regional
+                      hub cluster to the global hub cluster. The data is stored in
+                      the global hub kubernetes api server backed by etcd. This is
+                      not for a large scale environment.
+                    type: object
+                  type:
+                    description: Type is the unions discriminator. Users are expected
+                      to set this value to the name of the data layer.
+                    enum:
+                    - native
+                    - largeScale
+                    type: string
+                type: object
               enableLocalPolicies:
                 default: true
                 type: boolean
-              storage:
-                description: LocalObjectReference contains enough information to let
-                  you locate the referenced object inside the same namespace.
-                properties:
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
-                    type: string
+              imagePullPolicy:
+                description: Pull policy of the multicluster global hub images
+                type: string
+              imagePullSecret:
+                description: Pull secret of the multicluster global hub images
+                type: string
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: Spec of NodeSelector
                 type: object
-              transport:
-                description: LocalObjectReference contains enough information to let
-                  you locate the referenced object inside the same namespace.
-                properties:
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
-                    type: string
-                type: object
+              tolerations:
+                description: Tolerations causes all components to tolerate any taints.
+                items:
+                  description: The pod this Toleration is attached to tolerates any
+                    taint that matches the triple <key,value,effect> using the matching
+                    operator <operator>.
+                  properties:
+                    effect:
+                      description: Effect indicates the taint effect to match. Empty
+                        means match all taint effects. When specified, allowed values
+                        are NoSchedule, PreferNoSchedule and NoExecute.
+                      type: string
+                    key:
+                      description: Key is the taint key that the toleration applies
+                        to. Empty means match all taint keys. If the key is empty,
+                        operator must be Exists; this combination means to match all
+                        values and all keys.
+                      type: string
+                    operator:
+                      description: Operator represents a key's relationship to the
+                        value. Valid operators are Exists and Equal. Defaults to Equal.
+                        Exists is equivalent to wildcard for value, so that a pod
+                        can tolerate all taints of a particular category.
+                      type: string
+                    tolerationSeconds:
+                      description: TolerationSeconds represents the period of time
+                        the toleration (which must be of effect NoExecute, otherwise
+                        this field is ignored) tolerates the taint. By default, it
+                        is not set, which means tolerate the taint forever (do not
+                        evict). Zero and negative values will be treated as 0 (evict
+                        immediately) by the system.
+                      format: int64
+                      type: integer
+                    value:
+                      description: Value is the taint value the toleration matches
+                        to. If the operator is Exists, the value should be empty,
+                        otherwise just a regular string.
+                      type: string
+                  type: object
+                type: array
             type: object
           status:
             description: MulticlusterGlobalHubStatus defines the observed state of

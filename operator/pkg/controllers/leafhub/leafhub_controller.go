@@ -45,7 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -114,7 +114,7 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	shouldPruneAll := false
 
 	// fetch the multiclusterglobalhub instance
-	mgh := &operatorv1alpha1.MulticlusterGlobalHub{}
+	mgh := &operatorv1alpha2.MulticlusterGlobalHub{}
 	err := r.Client.Get(context.TODO(), config.GetHoHMGHNamespacedName(), mgh)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -182,7 +182,7 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // reconcileLeafHub reconciles a single leafhub
 func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Request,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, toDelete bool, log logr.Logger,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub, toDelete bool, log logr.Logger,
 ) error {
 	// Fetch the managedcluster instance
 	managedCluster := &clusterv1.ManagedCluster{}
@@ -323,7 +323,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 
 // reconcileNonHostedLeafHub reconciles the normal leafhub, which is not running hosted mode
 func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log logr.Logger, managedClusterName string,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, pm *packageManifestConfig,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub, pm *packageManifestConfig,
 ) error {
 	hubSubWork, err := applyHubSubWork(ctx, r.Client, r.KubeClient, log, managedClusterName, pm)
 	if err != nil {
@@ -386,7 +386,7 @@ func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log l
 
 // reconcileHostedLeafHub reconciles the multiclusterglobalhub change
 func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr.Logger,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, pm *packageManifestConfig, hcConfig *config.HostedClusterConfig,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub, pm *packageManifestConfig, hcConfig *config.HostedClusterConfig,
 ) error {
 	// check the manifestwork for hosted hub before apply it, be careful about the order
 	// don't call applyHubHypershiftWorks wil different channelClusterIP in one reconcile loop
@@ -422,7 +422,7 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 
 // reconcileMulticlusterGlobalHub reconciles the multiclusterglobalhub change
 func (r *LeafHubReconciler) reconcileMulticlusterGlobalHub(ctx context.Context, req ctrl.Request,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, toPruneAll bool, log logr.Logger,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub, toPruneAll bool, log logr.Logger,
 ) error {
 	// handle multiclusterglobalhub deleting
 	if toPruneAll {
@@ -601,7 +601,7 @@ func (r *LeafHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// primary watch for managedcluster
 		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
 		// watch for multiclusterglobalhub change
-		Watches(&source.Kind{Type: &operatorv1alpha1.MulticlusterGlobalHub{}},
+		Watches(&source.Kind{Type: &operatorv1alpha2.MulticlusterGlobalHub{}},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(mghPred)).
 		// watch for clustermanagementaddon change
 		Watches(&source.Kind{Type: &addonv1alpha1.ClusterManagementAddOn{}},

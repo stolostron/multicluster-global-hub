@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -94,9 +94,9 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
 
-			mgh := &operatorv1alpha1.MulticlusterGlobalHub{
+			mgh := &operatorv1alpha2.MulticlusterGlobalHub{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.open-cluster-management.io/v1alpha1",
+					APIVersion: "operator.open-cluster-management.io/v1alpha2",
 					Kind:       "MulticlusterGlobalHub",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -106,12 +106,17 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 						constants.AnnotationMGHSkipDBInit: "true",
 					},
 				},
-				Spec: operatorv1alpha1.MulticlusterGlobalHubSpec{
-					Storage: corev1.LocalObjectReference{
-						Name: StorageSecretName,
-					},
-					Transport: corev1.LocalObjectReference{
-						Name: TransportSecretName,
+				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
+					DataLayer: operatorv1alpha2.DataLayerConfig{
+						Type: "largeScale",
+						LargeScale: &operatorv1alpha2.LargeScaleConfig{
+							Kafka: corev1.LocalObjectReference{
+								Name: TransportSecretName,
+							},
+							Postgres: corev1.LocalObjectReference{
+								Name: StorageSecretName,
+							},
+						},
 					},
 				},
 			}
@@ -119,19 +124,16 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 
 			// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 			mghLookupKey := types.NamespacedName{Namespace: MGHNamespace, Name: MGHName}
-			createdMGH := &operatorv1alpha1.MulticlusterGlobalHub{}
+			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
 
 			// get this newly created MGH instance, given that creation may not immediately happen.
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
-				if err != nil {
-					return false
-				}
-				return true
+				if err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			// make sure the default values are filled
-			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha1.Full))
+			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha2.Full))
 			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
 			// create hoh render for testing
@@ -181,7 +183,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					Namespace            string
 				}{
 					Image:                config.GetImage("multicluster_global_hub_manager"),
-					DBSecret:             mgh.Spec.Storage.Name,
+					DBSecret:             mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 					KafkaCA:              base64.RawStdEncoding.EncodeToString([]byte(kafkaCA)),
 					KafkaBootstrapServer: kafkaBootstrapServer,
 					Namespace:            MGHNamespace,

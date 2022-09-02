@@ -117,7 +117,8 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
-		It(fmt.Sprintf("Add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName2), func() {
+		It(fmt.Sprintf("Add the app label[ %s: %s ] to the %s", APP_LABEL_KEY,
+			APP_LABEL_VALUE, managedClusterName2), func() {
 			By("Add the lablel to managedcluster2")
 			patches := []patch{
 				{
@@ -150,7 +151,9 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the appsub apply to the clusters")
 			Eventually(func() error {
-				return checkAppsubreport(appClient, 2, []string{managedClusterName1, managedClusterName2})
+				return checkAppsubreport(appClient, 2, []string{
+					managedClusterName1, managedClusterName2,
+				})
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 

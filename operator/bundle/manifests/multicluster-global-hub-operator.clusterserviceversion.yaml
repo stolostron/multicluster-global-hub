@@ -5,17 +5,22 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "operator.open-cluster-management.io/v1alpha1",
+          "apiVersion": "operator.open-cluster-management.io/v1alpha2",
           "kind": "MulticlusterGlobalHub",
           "metadata": {
             "name": "multiclusterglobalhub"
           },
           "spec": {
-            "storage": {
-              "name": "storage-secret"
-            },
-            "transport": {
-              "name": "transport-secret"
+            "datalayer": {
+              "largeScale": {
+                "kafka": {
+                  "name": "transport-secret"
+                },
+                "postgres": {
+                  "name": "storage-secret"
+                }
+              },
+              "type": "largeScale"
             }
           }
         }
@@ -30,18 +35,15 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/stolostron/multicluster-global-hub
     support: Red Hat
-  name: multicluster-global-hub-operator.v0.5.0
+  name: multicluster-global-hub-operator.v0.6.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MulticlusterGlobalHub is the Schema for the multiclusterglobalhubs
-        API
-      displayName: Multicluster Global Hub
-      kind: MulticlusterGlobalHub
+    - kind: MulticlusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
-      version: v1alpha1
+      version: v1alpha2
   description: "Multicluster Global Hub Operator defines the configuration for multicluster
     global hub installation and upgrade with one custom resource.\n\n## Prerequisites\n\n-
     Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.5 or later needs
@@ -677,4 +679,4 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 0.5.0
+  version: 0.6.0

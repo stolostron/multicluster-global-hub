@@ -40,7 +40,7 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -141,8 +141,7 @@ func applyHubSubWork(ctx context.Context, c client.Client, kubeClient kubernetes
 	if modified {
 		log.Info("updating hub subscription manifestwork",
 			"namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
-		desiredHubSubWork.ObjectMeta.ResourceVersion =
-			existingHubSubWork.ObjectMeta.ResourceVersion
+		desiredHubSubWork.ObjectMeta.ResourceVersion = existingHubSubWork.ObjectMeta.ResourceVersion
 		return desiredHubSubWork, c.Update(ctx, desiredHubSubWork)
 	}
 
@@ -448,7 +447,7 @@ func getDefaultHypershiftHubConfigValues() HypershiftHubConfigValues {
 
 // applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
 func applyHubHypershiftWorks(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, channelClusterIP string,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub, channelClusterIP string,
 	pm *packageManifestConfig, hcConfig *config.HostedClusterConfig,
 ) (*workv1.ManifestWork, error) {
 	hypershiftHubConfigValues := getDefaultHypershiftHubConfigValues()
@@ -460,8 +459,7 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, kubeClient ku
 	if !ok || acmSnapshot == "" {
 		acmDefaultImageRegistry = constants.DefaultACMDownStreamImageRegistry
 		// handle special case for governance-policy-addon-controller image
-		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController =
-			"acm-governance-policy-addon-controller"
+		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController = "acm-governance-policy-addon-controller"
 	}
 	mceSnapshot, ok := mgh.GetAnnotations()[constants.AnnotationHubMCESnapshot]
 	if !ok || mceSnapshot == "" {
@@ -621,7 +619,7 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 
 // applyHoHAgentWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, managedClusterName string,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub, managedClusterName string,
 ) error {
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
 	if err != nil {
@@ -692,7 +690,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernet
 
 // applyHoHAgentHypershiftWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface,
-	log logr.Logger, mgh *operatorv1alpha1.MulticlusterGlobalHub, hcConfig *config.HostedClusterConfig,
+	log logr.Logger, mgh *operatorv1alpha2.MulticlusterGlobalHub, hcConfig *config.HostedClusterConfig,
 ) error {
 	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
 	if err != nil {
@@ -904,7 +902,7 @@ func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClust
 
 // getKafkaConfig retrieves kafka server and CA from kafka secret
 func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) (string, string, error) {
 	// for local dev/test
 	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]
@@ -914,11 +912,11 @@ func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log lo
 	}
 
 	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
-		mgh.Spec.Transport.Name, metav1.GetOptions{})
+		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "failed to get transport secret",
 			"namespace", config.GetDefaultNamespace(),
-			"name", mgh.Spec.Transport.Name)
+			"name", mgh.Spec.DataLayer.LargeScale.Postgres.Name)
 		return "", "", err
 	}
 
