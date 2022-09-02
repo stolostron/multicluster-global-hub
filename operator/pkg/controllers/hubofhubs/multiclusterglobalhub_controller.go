@@ -351,7 +351,9 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 }
 
 // reconcileHoHResources tries to create hoh resources if they don't exist
-func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context, mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
+func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+) error {
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.HOHSystemNamespace,

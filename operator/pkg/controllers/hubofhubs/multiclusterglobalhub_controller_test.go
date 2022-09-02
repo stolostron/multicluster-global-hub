@@ -129,7 +129,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			// get this newly created MGH instance, given that creation may not immediately happen.
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
-				if err == nil
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			// make sure the default values are filled
@@ -238,10 +238,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					Namespace: constants.HOHSystemNamespace,
 					Name:      constants.HOHConfigName,
 				}, hohConfig)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			By("By deleting the multicluster-global-hub-config configmap")
@@ -254,10 +251,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					Namespace: constants.HOHSystemNamespace,
 					Name:      constants.HOHConfigName,
 				}, hohConfig)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
