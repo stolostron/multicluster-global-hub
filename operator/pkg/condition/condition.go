@@ -129,6 +129,7 @@ func SetCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2.Mu
 			status, reason, message)
 	} else {
 		currentStatus := GetConditionStatus(mgh, typeName)
+		fmt.Printf("currentStatus: %s", currentStatus)
 		if currentStatus != status {
 			err := DeleteCondition(ctx, c, mgh, typeName, reason)
 			if err != nil {

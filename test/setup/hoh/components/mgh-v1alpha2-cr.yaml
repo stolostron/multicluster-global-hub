@@ -5,7 +5,7 @@ metadata:
     mgh-image-overrides-cm: mgh-images-config
   name: multiclusterglobalhub
 spec:
-  datalayer:
+  dataLayer:
     type: largeScale
     largeScale:
       kafka:

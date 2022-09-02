@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"embed"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,6 +42,7 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -621,7 +621,7 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub, managedClusterName string,
 ) error {
-	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, log, mgh)
 	if err != nil {
 		return err
 	}
@@ -692,7 +692,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernet
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface,
 	log logr.Logger, mgh *operatorv1alpha2.MulticlusterGlobalHub, hcConfig *config.HostedClusterConfig,
 ) error {
-	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, log, mgh)
 	if err != nil {
 		return err
 	}
@@ -898,30 +898,6 @@ func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClust
 	}
 
 	return c.Delete(ctx, hohHubMgtWork)
-}
-
-// getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
-) (string, string, error) {
-	// for local dev/test
-	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]
-	if ok && kafkaBootstrapServer != "" {
-		log.Info("Kafka bootstrap server from annotation", "server", kafkaBootstrapServer, "certificate", "")
-		return kafkaBootstrapServer, "", nil
-	}
-
-	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
-		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
-	if err != nil {
-		log.Error(err, "failed to get transport secret",
-			"namespace", config.GetDefaultNamespace(),
-			"name", mgh.Spec.DataLayer.LargeScale.Postgres.Name)
-		return "", "", err
-	}
-
-	return string(kafkaSecret.Data["bootstrap_server"]),
-		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
 }
 
 // generatePullSecret copy the image pull secret to target namespace

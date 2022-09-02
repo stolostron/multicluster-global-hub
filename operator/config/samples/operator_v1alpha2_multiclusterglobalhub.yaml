@@ -10,7 +10,7 @@ metadata:
     # mgh-kafka-bootstrap-server: kafka-brokers-cluster-kafka-external-bootstrap-kafka.apps.testing.example.com
   name: multiclusterglobalhub
 spec:
-  datalayer:
+  dataLayer:
     type: largeScale
     largeScale:
       kafka:

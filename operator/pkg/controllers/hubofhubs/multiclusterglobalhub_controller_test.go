@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -135,6 +136,24 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			// make sure the default values are filled
 			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha2.Full))
 			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
+			Expect(createdMGH.Spec.DataLayer.LargeScale.Kafka.Name).Should(Equal(TransportSecretName))
+			Expect(createdMGH.Spec.DataLayer.LargeScale.Postgres.Name).Should(Equal(StorageSecretName))
+
+			By("By checking the MGH CR database init conditions are created as expected")
+			condition.SetConditionDatabaseInit(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_TRUE)
+			Expect(condition.GetConditionStatus(createdMGH, condition.CONDITION_TYPE_DATABASE_INIT)).Should(Equal(metav1.ConditionTrue))
+
+			By("By checking the MGH CR transport init conditions are created as expected")
+			condition.SetConditionTransportInit(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_UNKNOWN)
+			Expect(condition.GetConditionStatus(createdMGH, condition.CONDITION_TYPE_TRANSPORT_INIT)).Should(Equal(metav1.ConditionUnknown))
+
+			By("By checking the MGH CR manager deployed conditions are created as expected")
+			condition.SetConditionManagerDeployed(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_FALSE)
+			Expect(condition.GetConditionStatus(createdMGH, condition.CONDITION_TYPE_MANAGER_DEPLOY)).Should(Equal(metav1.ConditionFalse))
+
+			By("By checking the MGH CR regional hub deployed conditions are created as expected")
+			condition.SetConditionLeafHubDeployed(ctx, k8sClient, createdMGH, "test", condition.CONDITION_STATUS_TRUE)
+			Expect(condition.GetConditionStatus(createdMGH, condition.CONDITION_TYPE_LEAFHUB_DEPLOY)).Should(Equal(metav1.ConditionTrue))
 
 			// create hoh render for testing
 			hohRenderer := renderer.NewHoHRenderer(fs)

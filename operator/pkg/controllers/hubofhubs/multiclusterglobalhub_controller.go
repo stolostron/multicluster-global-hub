@@ -19,7 +19,6 @@ package hubofhubs
 import (
 	"context"
 	"embed"
-	"encoding/base64"
 	"fmt"
 	"strconv"
 
@@ -60,6 +59,7 @@ import (
 	leafhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/leafhub"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -214,7 +214,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// retrieve bootstrapserver and CA of kafka from secret
-	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, r.KubeClient, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, r.KubeClient, log, mgh)
 	if err != nil {
 		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh,
 			condition.CONDITION_STATUS_FALSE); conditionError != nil {
@@ -524,28 +524,4 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 				}
 			}), builder.WithPredicates(resPred)).
 		Complete(r)
-}
-
-// getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
-) (string, string, error) {
-	// for local dev/test
-	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]
-	if ok && kafkaBootstrapServer != "" {
-		log.Info("Kafka bootstrap server from annotation", "server", kafkaBootstrapServer, "certificate", "")
-		return kafkaBootstrapServer, "", nil
-	}
-
-	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
-		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
-	if err != nil {
-		log.Error(err, "failed to get transport secret",
-			"namespace", config.GetDefaultNamespace(),
-			"name", mgh.Spec.DataLayer.LargeScale.Kafka.Name)
-		return "", "", err
-	}
-
-	return string(kafkaSecret.Data["bootstrap_server"]),
-		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
 }

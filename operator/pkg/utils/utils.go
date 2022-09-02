@@ -17,8 +17,17 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
+
+	"github.com/go-logr/logr"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 )
 
 // Remove is used to remove string from a string array
@@ -75,4 +84,28 @@ func RemoveDuplicates(elements []string) []string {
 	}
 	// Return the new slice.
 	return result
+}
+
+// GetKafkaConfig retrieves kafka server and CA from kafka secret
+func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+) (string, string, error) {
+	// for local dev/test
+	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]
+	if ok && kafkaBootstrapServer != "" {
+		log.Info("Kafka bootstrap server from annotation", "server", kafkaBootstrapServer, "certificate", "")
+		return kafkaBootstrapServer, "", nil
+	}
+
+	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
+		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
+	if err != nil {
+		log.Error(err, "failed to get transport secret",
+			"namespace", config.GetDefaultNamespace(),
+			"name", mgh.Spec.DataLayer.LargeScale.Kafka.Name)
+		return "", "", err
+	}
+
+	return string(kafkaSecret.Data["bootstrap_server"]),
+		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
 }

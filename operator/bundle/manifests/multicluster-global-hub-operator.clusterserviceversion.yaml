@@ -11,7 +11,7 @@ metadata:
             "name": "multiclusterglobalhub"
           },
           "spec": {
-            "datalayer": {
+            "dataLayer": {
               "largeScale": {
                 "kafka": {
                   "name": "transport-secret"
