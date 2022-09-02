@@ -41,9 +41,31 @@ type packageManifestConfig struct {
 
 var packageManifestConfigInstance = &packageManifestConfig{}
 
+func setPackageManifestConfig(acmDefaultChannel, acmCurrentCSV, mceDefaultChannel, mceCurrentCSV string,
+	acmImages, mceImages map[string]string,
+) {
+	packageManifestConfigInstance = &packageManifestConfig{
+		ACMDefaultChannel: acmDefaultChannel,
+		ACMCurrentCSV:     acmCurrentCSV,
+		ACMImages:         acmImages,
+		MCEDefaultChannel: mceDefaultChannel,
+		MCECurrentCSV:     mceCurrentCSV,
+		MCEImages:         mceImages,
+	}
+}
+
 func getPackageManifestConfig(ctx context.Context, dynClient dynamic.Interface,
 	log logr.Logger,
 ) (*packageManifestConfig, error) {
+	if packageManifestConfigInstance.ACMDefaultChannel != "" &&
+		packageManifestConfigInstance.ACMCurrentCSV != "" &&
+		len(packageManifestConfigInstance.ACMImages) != 0 &&
+		packageManifestConfigInstance.MCEDefaultChannel != "" &&
+		packageManifestConfigInstance.MCECurrentCSV != "" &&
+		len(packageManifestConfigInstance.MCEImages) != 0 {
+		return packageManifestConfigInstance, nil
+	}
+
 	pmClient := dynClient.Resource(schema.GroupVersionResource{
 		Group:    "packages.operators.coreos.com",
 		Version:  "v1",
