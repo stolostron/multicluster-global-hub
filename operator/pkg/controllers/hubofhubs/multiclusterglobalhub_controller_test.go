@@ -245,6 +245,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			By("By deleting the multicluster-global-hub-config configmap")
 			Expect(k8sClient.Delete(ctx, hohConfig)).Should(Succeed())
 
+			By("By checking the multicluster-global-hub-config configmap is recreated")
 			Eventually(func() bool {
 				hohConfig := &corev1.ConfigMap{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
