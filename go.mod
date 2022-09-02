@@ -9,6 +9,7 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-logr/logr v1.2.3
 	github.com/jackc/pgx/v4 v4.16.1
+	github.com/kylelemons/godebug v1.1.0
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232
@@ -32,6 +33,7 @@ require (
 	open-cluster-management.io/multicloud-operators-subscription v0.7.0
 	sigs.k8s.io/application v0.8.3
 	sigs.k8s.io/controller-runtime v0.12.2
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
@@ -136,7 +138,6 @@ require (
 	sigs.k8s.io/cluster-api-provider-ibmcloud v0.2.3 // indirect
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace (

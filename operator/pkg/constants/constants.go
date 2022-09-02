@@ -74,6 +74,8 @@ const (
 	// AnnotationMCHPause sits in MulticlusterGlobalHub annotations
 	// to identify if the MulticlusterGlobalHub is paused or not
 	AnnotationMGHPause = "mgh-pause"
+	// AnnotationMGHSkipDBInit skips database initialization, used for dev/test
+	AnnotationMGHSkipDBInit = "mgh-skip-database-init"
 	// AnnotationImageRepo sits in MulticlusterGlobalHub annotations
 	// to identify a custom image repository to use
 	AnnotationImageRepo = "mgh-image-repository"

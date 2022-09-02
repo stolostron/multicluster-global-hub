@@ -53,8 +53,8 @@ unit-tests: unit-tests-operator unit-tests-manager unit-tests-agent
 setup_envtest:
 	GOBIN=${TMP_BIN} go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-unit-tests-operator:
-	${GO_TEST} `go list ./operator/... | grep -v test`
+unit-tests-operator: setup_envtest
+	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./operator/... | grep -v test`
 
 unit-tests-manager:
 	${GO_TEST} `go list ./manager/... | grep -v test`
