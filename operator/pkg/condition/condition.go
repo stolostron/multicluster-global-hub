@@ -152,7 +152,9 @@ func ContainsCondition(mgh *operatorv1alpha2.MulticlusterGlobalHub, typeName str
 	return output
 }
 
-func ContainConditionStatus(mgh *operatorv1alpha2.MulticlusterGlobalHub, typeName string, status metav1.ConditionStatus) bool {
+func ContainConditionStatus(mgh *operatorv1alpha2.MulticlusterGlobalHub, typeName string,
+	status metav1.ConditionStatus,
+) bool {
 	output := false
 	for _, condition := range mgh.Status.Conditions {
 		if condition.Type == typeName && condition.Status == status {
