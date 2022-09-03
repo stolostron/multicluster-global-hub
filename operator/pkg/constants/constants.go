@@ -68,9 +68,6 @@ const (
 	// AnnotationHubMCESnapshot sits in MulticlusterGlobalHub annotations
 	// to identify the MCE image snapshot for regional hub
 	AnnotationHubMCESnapshot = "mgh-hub-MCE-snapshot"
-	// AnnotationKafkaBootstrapServer sits in MulticlusterGlobalHub annotations
-	// to identify kafka server address used to dev/test
-	AnnotationKafkaBootstrapServer = "mgh-kafka-bootstrap-server"
 	// AnnotationMCHPause sits in MulticlusterGlobalHub annotations
 	// to identify if the MulticlusterGlobalHub is paused or not
 	AnnotationMGHPause = "mgh-pause"

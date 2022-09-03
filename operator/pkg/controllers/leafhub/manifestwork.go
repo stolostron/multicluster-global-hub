@@ -141,7 +141,8 @@ func applyHubSubWork(ctx context.Context, c client.Client, kubeClient kubernetes
 	if modified {
 		log.Info("updating hub subscription manifestwork",
 			"namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
-		desiredHubSubWork.ObjectMeta.ResourceVersion = existingHubSubWork.ObjectMeta.ResourceVersion
+		desiredHubSubWork.ObjectMeta.ResourceVersion =
+			existingHubSubWork.ObjectMeta.ResourceVersion
 		return desiredHubSubWork, c.Update(ctx, desiredHubSubWork)
 	}
 
@@ -459,7 +460,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, kubeClient ku
 	if !ok || acmSnapshot == "" {
 		acmDefaultImageRegistry = constants.DefaultACMDownStreamImageRegistry
 		// handle special case for governance-policy-addon-controller image
-		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController = "acm-governance-policy-addon-controller"
+		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController =
+			"acm-governance-policy-addon-controller"
 	}
 	mceSnapshot, ok := mgh.GetAnnotations()[constants.AnnotationHubMCESnapshot]
 	if !ok || mceSnapshot == "" {
@@ -621,7 +623,7 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub, managedClusterName string,
 ) error {
-	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, mgh)
 	if err != nil {
 		return err
 	}
@@ -692,7 +694,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernet
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface,
 	log logr.Logger, mgh *operatorv1alpha2.MulticlusterGlobalHub, hcConfig *config.HostedClusterConfig,
 ) error {
-	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, mgh)
 	if err != nil {
 		return err
 	}

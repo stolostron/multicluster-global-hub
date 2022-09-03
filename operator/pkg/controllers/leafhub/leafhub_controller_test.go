@@ -31,7 +31,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
@@ -74,17 +74,22 @@ var _ = Describe("LeafHub controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
 
-			mgh := &operatorv1alpha1.MulticlusterGlobalHub{
+			mgh := &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
 					Namespace: MGHNamespace,
 				},
-				Spec: operatorv1alpha1.MulticlusterGlobalHubSpec{
-					Storage: corev1.LocalObjectReference{
-						Name: StorageSecretName,
-					},
-					Transport: corev1.LocalObjectReference{
-						Name: TransportSecretName,
+				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
+					DataLayer: operatorv1alpha2.DataLayerConfig{
+						Type: "largeScale",
+						LargeScale: &operatorv1alpha2.LargeScaleConfig{
+							Kafka: corev1.LocalObjectReference{
+								Name: TransportSecretName,
+							},
+							Postgres: corev1.LocalObjectReference{
+								Name: StorageSecretName,
+							},
+						},
 					},
 				},
 			}
@@ -93,7 +98,7 @@ var _ = Describe("LeafHub controller", func() {
 			// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 			mghLookupKey := types.NamespacedName{Namespace: MGHNamespace, Name: MGHName}
 			config.SetHoHMGHNamespacedName(mghLookupKey)
-			createdMGH := &operatorv1alpha1.MulticlusterGlobalHub{}
+			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
 
 			// get this newly created MGH instance, given that creation may not immediately happen.
 			Eventually(func() bool {

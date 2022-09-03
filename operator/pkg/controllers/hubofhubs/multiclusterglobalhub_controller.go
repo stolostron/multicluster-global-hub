@@ -214,7 +214,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// retrieve bootstrapserver and CA of kafka from secret
-	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, r.KubeClient, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, r.KubeClient, mgh)
 	if err != nil {
 		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh,
 			condition.CONDITION_STATUS_FALSE); conditionError != nil {
@@ -323,7 +323,8 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] =
+			commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)

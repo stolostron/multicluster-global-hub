@@ -49,11 +49,12 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg       *rest.Config
-	k8sClient client.Client // You'll be using this client in your tests.
-	testEnv   *envtest.Environment
-	ctx       context.Context
-	cancel    context.CancelFunc
+	cfg        *rest.Config
+	k8sClient  client.Client // You'll be using this client in your tests.
+	kubeClient *kubernetes.Clientset
+	testEnv    *envtest.Environment
+	ctx        context.Context
+	cancel     context.CancelFunc
 )
 
 func TestControllers(t *testing.T) {
@@ -71,6 +72,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "testdata", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -116,7 +118,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
+	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&MulticlusterGlobalHubReconciler{
