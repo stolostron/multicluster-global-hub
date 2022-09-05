@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,15 +60,10 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 
 	Context("When create MGH Instance", func() {
 		It("Should create Multicluster Global Hub resources when MGH instance is created", func() {
-			By("By creating a new MGH instance")
 			ctx := context.Background()
 
-			By("By creating fake storage secret and transport secret")
+			By("By creating a fake storage secret secret")
 			storageSecret := &corev1.Secret{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
-					Kind:       "Secret",
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      StorageSecretName,
 					Namespace: config.GetDefaultNamespace(),
@@ -79,11 +75,8 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, storageSecret)).Should(Succeed())
 
+			By("By creating a fake transport secret")
 			transportSecret := &corev1.Secret{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
-					Kind:       "Secret",
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      TransportSecretName,
 					Namespace: config.GetDefaultNamespace(),
@@ -96,11 +89,8 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
 
+			By("By creating a new MGH instance")
 			mgh := &operatorv1alpha2.MulticlusterGlobalHub{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.open-cluster-management.io/v1alpha2",
-					Kind:       "MulticlusterGlobalHub",
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
@@ -205,7 +195,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			// create hoh render for testing
 			hohRenderer := renderer.NewHoHRenderer(fs)
 
-			checkResource := func(ctx context.Context, k8sClient client.Client, unsObj *unstructured.Unstructured,
+			checkResourceExistence := func(ctx context.Context, k8sClient client.Client, unsObj *unstructured.Unstructured,
 			) error {
 				objLookupKey := types.NamespacedName{Name: unsObj.GetName(), Namespace: unsObj.GetNamespace()}
 				gvk := unsObj.GetObjectKind().GroupVersionKind()
@@ -215,10 +205,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					return err
 				}
 
-				// delete metadata before compare
 				unsObjContent, foundObjContent := unsObj.Object, foundObj.Object
-				delete(unsObjContent, "metadata")
-				delete(foundObjContent, "metadata")
 				if !apiequality.Semantic.DeepDerivative(unsObjContent, foundObjContent) {
 					unsObjYaml, err := yaml.Marshal(unsObjContent)
 					if err != nil {
@@ -258,7 +245,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 
 			Eventually(func() bool {
 				for _, unsObj := range managerObjects {
-					err := checkResource(ctx, k8sClient, unsObj)
+					err := checkResourceExistence(ctx, k8sClient, unsObj)
 					if err != nil {
 						fmt.Printf("failed to check manager resource: %v\n", err)
 						return false
@@ -287,7 +274,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 						// skip opa-data secret check
 						continue
 					}
-					err := checkResource(ctx, k8sClient, unsObj)
+					err := checkResourceExistence(ctx, k8sClient, unsObj)
 					if err != nil {
 						fmt.Printf("failed to check rbac resource: %v\n", err)
 						return false
@@ -319,6 +306,24 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
+			By("By deleting the owned objects by the MGH instance and checking it can be recreated")
+			for _, obj := range append(managerObjects, hohRBACObjects...) {
+				obj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+				Expect(k8sClient.Delete(ctx, obj)).Should(Succeed())
+				Eventually(func() bool {
+					unsObj := &unstructured.Unstructured{}
+					unsObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Namespace: obj.GetNamespace(),
+						Name:      obj.GetName(),
+					}, unsObj)
+					if err != nil {
+						return false
+					}
+					return true
+				}, timeout, interval).Should(BeTrue())
+			}
+
 			By("By checking the kafkaBootstrapServer")
 			server, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
 			Expect(err).NotTo(HaveOccurred())
@@ -329,23 +334,47 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			_, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
 			Expect(err).To(HaveOccurred())
 
-			By("By checking setting the conditions")
+			By("By setting a test condition")
 			Expect(len(createdMGH.GetConditions())).Should(BeNumerically(">", 0))
-			createdMGH.SetConditions(append(createdMGH.GetConditions(), metav1.Condition{
-				Type: "Test", Status: condition.CONDITION_STATUS_UNKNOWN, Reason: "this is a test",
-				Message: "this is a test", LastTransitionTime: metav1.Time{Time: time.Now()},
-			}))
-			conditions := createdMGH.GetConditions()
-			hasTestCondition := false
-			for _, cond := range conditions {
-				if cond.Type == "Test" {
-					Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
-					Expect(cond.Reason).To(Equal("this is a test"))
-					Expect(cond.Message).To(Equal("this is a test"))
-					hasTestCondition = true
-				}
+			testCondition := metav1.Condition{
+				Type: "Test", Status: condition.CONDITION_STATUS_UNKNOWN,
+				Reason:             "ThisIsATest",
+				Message:            "this is a test",
+				LastTransitionTime: metav1.Time{Time: time.Now()},
 			}
-			Expect(hasTestCondition).To(BeTrue())
+			createdMGH.SetConditions(append(createdMGH.GetConditions(), testCondition))
+
+			By("By checking the test condition")
+			Expect(createdMGH.GetConditions()).To(ContainElement(testCondition))
+
+			// delete the testing MGH instance
+			By("By deleting the testing MGH instance")
+			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
+
+			// check the multicluster-global-hub-config configmap is deleted
+			By("By checking the multicluster-global-hub-config configmap is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Namespace: constants.HOHSystemNamespace,
+					Name:      constants.HOHConfigName,
+				}, hohConfig)
+				return errors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+
+			// check the owned objects are deleted
+			// comment the following test cases becase there is no gc controller in envtest
+			// see: https://book.kubebuilder.io/reference/envtest.html#testing-considerations
+			// for _, obj := range append(managerObjects, hohRBACObjects...) {
+			// 	Eventually(func() bool {
+			// 		unsObj := &unstructured.Unstructured{}
+			// 		unsObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+			// 		err := k8sClient.Get(ctx, types.NamespacedName{
+			// 			Namespace: obj.GetNamespace(),
+			// 			Name:      obj.GetName(),
+			// 		}, unsObj)
+			// 		return errors.IsNotFound(err)
+			// 	}, timeout, interval).Should(BeTrue())
+			// }
 		})
 	})
 })
