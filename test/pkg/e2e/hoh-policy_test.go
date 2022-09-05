@@ -12,10 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
 const (

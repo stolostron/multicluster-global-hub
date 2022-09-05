@@ -42,7 +42,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -72,7 +72,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
-			filepath.Join("testdata", "crd"),
+			filepath.Join("..", "testdata", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -104,7 +104,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = placementrulesv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = operatorv1alpha1.AddToScheme(scheme.Scheme)
+	err = operatorv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme

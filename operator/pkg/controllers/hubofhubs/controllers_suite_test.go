@@ -41,7 +41,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -49,11 +49,12 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg       *rest.Config
-	k8sClient client.Client // You'll be using this client in your tests.
-	testEnv   *envtest.Environment
-	ctx       context.Context
-	cancel    context.CancelFunc
+	cfg        *rest.Config
+	k8sClient  client.Client // You'll be using this client in your tests.
+	kubeClient *kubernetes.Clientset
+	testEnv    *envtest.Environment
+	ctx        context.Context
+	cancel     context.CancelFunc
 )
 
 func TestControllers(t *testing.T) {
@@ -71,6 +72,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "testdata", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -102,7 +104,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = placementrulesv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = operatorv1alpha1.AddToScheme(scheme.Scheme)
+	err = operatorv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
@@ -116,7 +118,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
+	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&MulticlusterGlobalHubReconciler{

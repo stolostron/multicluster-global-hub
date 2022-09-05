@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
@@ -33,7 +33,7 @@ func TestSetImageOverrides(t *testing.T) {
 		desc               string
 		initImageManifests map[string]string
 		operandImagesEnv   map[string]string
-		mghInstance        *operatorv1alpha1.MulticlusterGlobalHub
+		mghInstance        *operatorv1alpha2.MulticlusterGlobalHub
 		imageOverrideCM    *corev1.ConfigMap
 		wantImageManifests map[string]string
 		wantErr            error
@@ -52,12 +52,12 @@ func TestSetImageOverrides(t *testing.T) {
 				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_OPERATOR": "quay.io/stolostron/multicluster-global-hub-operator:v0.6.0",
 				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_RBAC":     "quay.io/stolostron/multicluster-global-hub-rbac:v0.6.0",
 			},
-			mghInstance: &operatorv1alpha1.MulticlusterGlobalHub{
+			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: constants.HOHDefaultNamespace,
 					Name:      mghInstanceName,
 				},
-				Spec: operatorv1alpha1.MulticlusterGlobalHubSpec{},
+				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
 			},
 			imageOverrideCM: nil,
 			wantImageManifests: map[string]string{
@@ -82,7 +82,7 @@ func TestSetImageOverrides(t *testing.T) {
 				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_OPERATOR": "quay.io/stolostron/multicluster-global-hub-operator:v0.6.0",
 				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_RBAC":     "quay.io/stolostron/multicluster-global-hub-rbac:v0.6.0",
 			},
-			mghInstance: &operatorv1alpha1.MulticlusterGlobalHub{
+			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: constants.HOHDefaultNamespace,
 					Name:      mghInstanceName,
@@ -90,7 +90,7 @@ func TestSetImageOverrides(t *testing.T) {
 						constants.AnnotationImageRepo: "quay.io/testing",
 					},
 				},
-				Spec: operatorv1alpha1.MulticlusterGlobalHubSpec{},
+				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
 			},
 			imageOverrideCM: nil,
 			wantImageManifests: map[string]string{
@@ -115,7 +115,7 @@ func TestSetImageOverrides(t *testing.T) {
 				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_OPERATOR": "quay.io/stolostron/multicluster-global-hub-operator:v0.6.0",
 				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_RBAC":     "quay.io/stolostron/multicluster-global-hub-rbac:v0.6.0",
 			},
-			mghInstance: &operatorv1alpha1.MulticlusterGlobalHub{
+			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: constants.HOHDefaultNamespace,
 					Name:      mghInstanceName,
@@ -123,7 +123,7 @@ func TestSetImageOverrides(t *testing.T) {
 						constants.AnnotationImageOverridesCM: "mgh-images-config",
 					},
 				},
-				Spec: operatorv1alpha1.MulticlusterGlobalHubSpec{},
+				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
 			},
 			imageOverrideCM: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -176,7 +176,7 @@ func TestSetImageOverrides(t *testing.T) {
 				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_OPERATOR": "quay.io/stolostron/multicluster-global-hub-operator:v0.6.0",
 				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_RBAC":     "quay.io/stolostron/multicluster-global-hub-rbac:v0.6.0",
 			},
-			mghInstance: &operatorv1alpha1.MulticlusterGlobalHub{
+			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: constants.HOHDefaultNamespace,
 					Name:      mghInstanceName,
@@ -185,7 +185,7 @@ func TestSetImageOverrides(t *testing.T) {
 						constants.AnnotationImageRepo:        "quay.io/testing",
 					},
 				},
-				Spec: operatorv1alpha1.MulticlusterGlobalHubSpec{},
+				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
 			},
 			imageOverrideCM: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{

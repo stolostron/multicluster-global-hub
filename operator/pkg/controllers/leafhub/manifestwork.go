@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"embed"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -40,9 +39,10 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -448,7 +448,7 @@ func getDefaultHypershiftHubConfigValues() HypershiftHubConfigValues {
 
 // applyHubHypershiftWorks apply hub components manifestwork to hypershift hosting and hosted cluster
 func applyHubHypershiftWorks(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, channelClusterIP string,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub, channelClusterIP string,
 	pm *packageManifestConfig, hcConfig *config.HostedClusterConfig,
 ) (*workv1.ManifestWork, error) {
 	hypershiftHubConfigValues := getDefaultHypershiftHubConfigValues()
@@ -621,9 +621,9 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 
 // applyHoHAgentWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub, managedClusterName string,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub, managedClusterName string,
 ) error {
-	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, mgh)
 	if err != nil {
 		return err
 	}
@@ -692,9 +692,9 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernet
 
 // applyHoHAgentHypershiftWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface,
-	log logr.Logger, mgh *operatorv1alpha1.MulticlusterGlobalHub, hcConfig *config.HostedClusterConfig,
+	log logr.Logger, mgh *operatorv1alpha2.MulticlusterGlobalHub, hcConfig *config.HostedClusterConfig,
 ) error {
-	kafkaBootstrapServer, kafkaCA, err := getKafkaConfig(ctx, kubeClient, log, mgh)
+	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, mgh)
 	if err != nil {
 		return err
 	}
@@ -900,30 +900,6 @@ func removeLeafHubHostingWork(ctx context.Context, c client.Client, managedClust
 	}
 
 	return c.Delete(ctx, hohHubMgtWork)
-}
-
-// getKafkaConfig retrieves kafka server and CA from kafka secret
-func getKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface, log logr.Logger,
-	mgh *operatorv1alpha1.MulticlusterGlobalHub,
-) (string, string, error) {
-	// for local dev/test
-	kafkaBootstrapServer, ok := mgh.GetAnnotations()[constants.AnnotationKafkaBootstrapServer]
-	if ok && kafkaBootstrapServer != "" {
-		log.Info("Kafka bootstrap server from annotation", "server", kafkaBootstrapServer, "certificate", "")
-		return kafkaBootstrapServer, "", nil
-	}
-
-	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
-		mgh.Spec.Transport.Name, metav1.GetOptions{})
-	if err != nil {
-		log.Error(err, "failed to get transport secret",
-			"namespace", config.GetDefaultNamespace(),
-			"name", mgh.Spec.Transport.Name)
-		return "", "", err
-	}
-
-	return string(kafkaSecret.Data["bootstrap_server"]),
-		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
 }
 
 // generatePullSecret copy the image pull secret to target namespace

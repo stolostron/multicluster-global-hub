@@ -17,8 +17,15 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 // Remove is used to remove string from a string array
@@ -75,4 +82,18 @@ func RemoveDuplicates(elements []string) []string {
 	}
 	// Return the new slice.
 	return result
+}
+
+// GetKafkaConfig retrieves kafka server and CA from kafka secret
+func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+) (string, string, error) {
+	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
+		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
+	if err != nil {
+		return "", "", err
+	}
+
+	return string(kafkaSecret.Data["bootstrap_server"]),
+		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
 }

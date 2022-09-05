@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
@@ -71,7 +71,7 @@ func GetHoHMGHNamespacedName() types.NamespacedName {
 }
 
 // getAnnotation returns the annotation value for a given key, or an empty string if not set
-func getAnnotation(mgh *operatorv1alpha1.MulticlusterGlobalHub, annotationKey string) string {
+func getAnnotation(mgh *operatorv1alpha2.MulticlusterGlobalHub, annotationKey string) string {
 	annotations := mgh.GetAnnotations()
 	if annotations == nil {
 		return ""
@@ -81,7 +81,7 @@ func getAnnotation(mgh *operatorv1alpha1.MulticlusterGlobalHub, annotationKey st
 }
 
 // IsPaused returns true if the MulticlusterGlobalHub instance is annotated as paused, and false otherwise
-func IsPaused(mgh *operatorv1alpha1.MulticlusterGlobalHub) bool {
+func IsPaused(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
 	isPausedVal := getAnnotation(mgh, constants.AnnotationMGHPause)
 	if isPausedVal != "" && strings.EqualFold(isPausedVal, "true") {
 		return true
@@ -92,7 +92,7 @@ func IsPaused(mgh *operatorv1alpha1.MulticlusterGlobalHub) bool {
 
 // SkipDBInit returns true if the MulticlusterGlobalHub instance is annotated as skipping database initialization,
 // and false otherwise, used in dev/test environment
-func SkipDBInit(mgh *operatorv1alpha1.MulticlusterGlobalHub) bool {
+func SkipDBInit(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
 	toSkipDBInit := getAnnotation(mgh, constants.AnnotationMGHSkipDBInit)
 	if toSkipDBInit != "" && strings.EqualFold(toSkipDBInit, "true") {
 		return true
@@ -102,11 +102,11 @@ func SkipDBInit(mgh *operatorv1alpha1.MulticlusterGlobalHub) bool {
 }
 
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
-func GetImageOverridesConfigmap(mgh *operatorv1alpha1.MulticlusterGlobalHub) string {
+func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, constants.AnnotationImageOverridesCM)
 }
 
-func SetImageOverrides(mgh *operatorv1alpha1.MulticlusterGlobalHub, cm *corev1.ConfigMap) error {
+func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub, cm *corev1.ConfigMap) error {
 	// first check for environment variables containing the 'OPERAND_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)

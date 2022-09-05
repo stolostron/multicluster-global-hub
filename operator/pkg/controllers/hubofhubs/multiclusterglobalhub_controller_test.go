@@ -33,10 +33,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	operatorv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/apis/operator/v1alpha1"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
@@ -44,7 +46,6 @@ import (
 var _ = Describe("MulticlusterGlobalHub controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
-		MGHNamespace         = "default"
 		MGHName              = "test-mgh"
 		StorageSecretName    = "storage-secret"
 		TransportSecretName  = "transport-secret"
@@ -60,6 +61,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 		It("Should create Multicluster Global Hub resources when MGH instance is created", func() {
 			By("By creating a new MGH instance")
 			ctx := context.Background()
+
 			By("By creating fake storage secret and transport secret")
 			storageSecret := &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
@@ -68,7 +70,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      StorageSecretName,
-					Namespace: MGHNamespace,
+					Namespace: config.GetDefaultNamespace(),
 				},
 				Data: map[string][]byte{
 					"database_uri": []byte("postgres://postgres:testpwd@hoh-primary.hoh-postgres.svc:/hoh"),
@@ -84,7 +86,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      TransportSecretName,
-					Namespace: MGHNamespace,
+					Namespace: config.GetDefaultNamespace(),
 				},
 				Data: map[string][]byte{
 					"CA":               []byte(kafkaCA),
@@ -94,45 +96,111 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
 
-			mgh := &operatorv1alpha1.MulticlusterGlobalHub{
+			mgh := &operatorv1alpha2.MulticlusterGlobalHub{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.open-cluster-management.io/v1alpha1",
+					APIVersion: "operator.open-cluster-management.io/v1alpha2",
 					Kind:       "MulticlusterGlobalHub",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
-					Namespace: MGHNamespace,
+					Namespace: config.GetDefaultNamespace(),
 					Annotations: map[string]string{
 						constants.AnnotationMGHSkipDBInit: "true",
 					},
 				},
-				Spec: operatorv1alpha1.MulticlusterGlobalHubSpec{
-					Storage: corev1.LocalObjectReference{
-						Name: StorageSecretName,
-					},
-					Transport: corev1.LocalObjectReference{
-						Name: TransportSecretName,
+				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
+					DataLayer: operatorv1alpha2.DataLayerConfig{
+						Type: "largeScale",
+						LargeScale: &operatorv1alpha2.LargeScaleConfig{
+							Kafka: corev1.LocalObjectReference{
+								Name: TransportSecretName,
+							},
+							Postgres: corev1.LocalObjectReference{
+								Name: StorageSecretName,
+							},
+						},
 					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
 			// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
-			mghLookupKey := types.NamespacedName{Namespace: MGHNamespace, Name: MGHName}
-			createdMGH := &operatorv1alpha1.MulticlusterGlobalHub{}
+			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
+			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
 
 			// get this newly created MGH instance, given that creation may not immediately happen.
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			// make sure the default values are filled
-			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha1.Full))
+			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha2.Full))
 			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
+			Expect(createdMGH.Spec.DataLayer.LargeScale.Kafka.Name).Should(Equal(TransportSecretName))
+			Expect(createdMGH.Spec.DataLayer.LargeScale.Postgres.Name).Should(Equal(StorageSecretName))
+
+			By("By checking the MGH CR database init conditions are created as expected")
+			condition.SetConditionDatabaseInit(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_TRUE)
+			Expect(condition.GetConditionStatus(createdMGH,
+				condition.CONDITION_TYPE_DATABASE_INIT)).Should(Equal(metav1.ConditionTrue))
+			Eventually(func() bool {
+				condition.SetConditionDatabaseInit(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_FALSE)
+				return condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_DATABASE_INIT) == metav1.ConditionFalse
+			}, timeout, interval).Should(BeTrue())
+			Eventually(func() bool {
+				condition.SetConditionDatabaseInit(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_UNKNOWN)
+				return condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_DATABASE_INIT) == metav1.ConditionUnknown
+			}, timeout, interval).Should(BeTrue())
+
+			By("By checking the MGH CR transport init conditions are created as expected")
+			condition.SetConditionTransportInit(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_UNKNOWN)
+			Expect(condition.GetConditionStatus(createdMGH,
+				condition.CONDITION_TYPE_TRANSPORT_INIT)).Should(Equal(metav1.ConditionUnknown))
+			Eventually(func() bool {
+				condition.SetConditionTransportInit(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_FALSE)
+				return condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_TRANSPORT_INIT) == metav1.ConditionFalse
+			}, timeout, interval).Should(BeTrue())
+			Eventually(func() bool {
+				condition.SetConditionTransportInit(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_TRUE)
+				return condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_TRANSPORT_INIT) == metav1.ConditionTrue
+			}, timeout, interval).Should(BeTrue())
+
+			By("By checking the MGH CR manager deployed conditions are created as expected")
+			condition.SetConditionManagerDeployed(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_FALSE)
+			Expect(condition.GetConditionStatus(createdMGH,
+				condition.CONDITION_TYPE_MANAGER_DEPLOY)).Should(Equal(metav1.ConditionFalse))
+			Eventually(func() bool {
+				condition.SetConditionManagerDeployed(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_TRUE)
+				return condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_MANAGER_DEPLOY) == metav1.ConditionTrue
+			}, timeout, interval).Should(BeTrue())
+			Eventually(func() bool {
+				condition.SetConditionManagerDeployed(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_UNKNOWN)
+				return condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_MANAGER_DEPLOY) == metav1.ConditionUnknown
+			}, timeout, interval).Should(BeTrue())
+
+			By("By checking the MGH CR regional hub deployed conditions are created as expected")
+			condition.SetConditionLeafHubDeployed(ctx, k8sClient, createdMGH, "test", condition.CONDITION_STATUS_TRUE)
+			Expect(condition.GetConditionStatus(createdMGH,
+				condition.CONDITION_TYPE_LEAFHUB_DEPLOY)).Should(Equal(metav1.ConditionTrue))
+			Eventually(func() bool {
+				condition.SetConditionLeafHubDeployed(ctx, k8sClient, createdMGH,
+					"test", condition.CONDITION_STATUS_FALSE)
+				return condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_LEAFHUB_DEPLOY) == metav1.ConditionFalse
+			}, timeout, interval).Should(BeTrue())
+			Eventually(func() bool {
+				condition.SetConditionLeafHubDeployed(ctx, k8sClient, createdMGH,
+					"test", condition.CONDITION_STATUS_UNKNOWN)
+				return condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_LEAFHUB_DEPLOY) == metav1.ConditionUnknown
+			}, timeout, interval).Should(BeTrue())
 
 			// create hoh render for testing
 			hohRenderer := renderer.NewHoHRenderer(fs)
@@ -165,7 +233,6 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 						gvk, objLookupKey, diff.Diff(string(unsObjYaml), string(foundObjYaml)))
 				}
 
-				fmt.Printf("desired and found %s(%s) are equal\n", gvk, objLookupKey)
 				return nil
 			}
 
@@ -181,10 +248,10 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					Namespace            string
 				}{
 					Image:                config.GetImage("multicluster_global_hub_manager"),
-					DBSecret:             mgh.Spec.Storage.Name,
+					DBSecret:             mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 					KafkaCA:              base64.RawStdEncoding.EncodeToString([]byte(kafkaCA)),
 					KafkaBootstrapServer: kafkaBootstrapServer,
-					Namespace:            MGHNamespace,
+					Namespace:            config.GetDefaultNamespace(),
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -209,7 +276,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					Namespace string
 				}{
 					Image:     config.GetImage("multicluster_global_hub_rbac"),
-					Namespace: MGHNamespace,
+					Namespace: config.GetDefaultNamespace(),
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -236,10 +303,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					Namespace: constants.HOHSystemNamespace,
 					Name:      constants.HOHConfigName,
 				}, hohConfig)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			By("By deleting the multicluster-global-hub-config configmap")
@@ -252,11 +316,36 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 					Namespace: constants.HOHSystemNamespace,
 					Name:      constants.HOHConfigName,
 				}, hohConfig)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
+
+			By("By checking the kafkaBootstrapServer")
+			server, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(server).To(Equal(kafkaBootstrapServer))
+
+			By("By checking the kafka secret is deleted")
+			Expect(k8sClient.Delete(ctx, transportSecret)).Should(Succeed())
+			_, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
+			Expect(err).To(HaveOccurred())
+
+			By("By checking setting the conditions")
+			Expect(len(createdMGH.GetConditions())).Should(BeNumerically(">", 0))
+			createdMGH.SetConditions(append(createdMGH.GetConditions(), metav1.Condition{
+				Type: "Test", Status: condition.CONDITION_STATUS_UNKNOWN, Reason: "this is a test",
+				Message: "this is a test", LastTransitionTime: metav1.Time{Time: time.Now()},
+			}))
+			conditions := createdMGH.GetConditions()
+			hasTestCondition := false
+			for _, cond := range conditions {
+				if cond.Type == "Test" {
+					Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+					Expect(cond.Reason).To(Equal("this is a test"))
+					Expect(cond.Message).To(Equal("this is a test"))
+					hasTestCondition = true
+				}
+			}
+			Expect(hasTestCondition).To(BeTrue())
 		})
 	})
 })

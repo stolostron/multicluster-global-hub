@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1alpha2
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -50,10 +50,55 @@ type MulticlusterGlobalHubSpec struct {
 	AggregationLevel AggregationLevel `json:"aggregationLevel,omitempty"` // full or minimal
 	// +kubebuilder:default:=true
 	EnableLocalPolicies bool `json:"enableLocalPolicies,omitempty"`
+	// Pull policy of the multicluster global hub images
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// Pull secret of the multicluster global hub images
+	// +optional
+	ImagePullSecret string `json:"imagePullSecret,omitempty"`
+	// Spec of NodeSelector
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// Tolerations causes all components to tolerate any taints.
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// DataLayer can be configured to use a different data layer.
+	// native: use the native data layer (default).
+	// largeScale: large scale data layer served by kafka and postgres.
+	// +optional
+	DataLayer DataLayerConfig `json:"dataLayer,omitempty"`
+}
+
+// DataLayerConfig is a discriminated union of data layer specific configuration.
+// +union
+type DataLayerConfig struct {
+	// Type is the unions discriminator.
+	// Users are expected to set this value to the name of the data layer.
+	// +unionDiscriminator
+	// +kubebuilder:validation:Enum:="native";"largeScale"
+	// +kubebuilder:validation:Required
 	// +required
-	Transport corev1.LocalObjectReference `json:"transport,omitempty"`
+	Type string `json:"type,omitempty"`
+	// Native may use a syncer to sync data from the regional hub cluster to the global hub cluster.
+	// The data is stored in the global hub kubernetes api server backed by etcd.
+	// This is not for a large scale environment.
+	// +optional
+	Native *NativeConfig `json:"native,omitempty"`
+	// LargeScale is to use kafka as transport layer and use postgres as data layer
+	// This is for a large scale environment.
+	// +optional
+	LargeScale *LargeScaleConfig `json:"largeScale,omitempty"`
+}
+
+// NativeConfig is the config of the native data layer
+type NativeConfig struct{}
+
+// LargeScaleConfig is the config of large scale data layer
+type LargeScaleConfig struct {
 	// +required
-	Storage corev1.LocalObjectReference `json:"storage,omitempty"`
+	Kafka corev1.LocalObjectReference `json:"kafka,omitempty"`
+	// +required
+	Postgres corev1.LocalObjectReference `json:"postgres,omitempty"`
 }
 
 // MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
