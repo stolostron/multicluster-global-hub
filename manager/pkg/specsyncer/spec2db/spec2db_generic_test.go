@@ -2,19 +2,34 @@ package spec2db_test
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	managerschema "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-var _ = Describe("controller", Ordered, func() {
+const (
+	TEST_SCHEMA = "spec"
+	TEST_TABLE  = "configs"
+)
+
+var _ = Describe("spec to database controller", Ordered, func() {
 	var mgr ctrl.Manager
 	var postgresSQL *postgresql.PostgreSQL
+	var kubeClient client.Client
 
 	BeforeAll(func() {
 		By("Creating the Manager")
@@ -28,15 +43,17 @@ var _ = Describe("controller", Ordered, func() {
 		By("Add to Scheme")
 		err = managerschema.AddToScheme(mgr.GetScheme())
 		Expect(err).NotTo(HaveOccurred())
+		kubeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kubeClient).NotTo(BeNil())
 
-		By("Adding the controllers to the manager")
-		Expect(postgresURI).NotTo(BeNil())
-		fmt.Println(postgresURI)
-
+		By("Connect to the database")
 		postgresSQL, err = postgresql.NewPostgreSQL(postgresURI)
 		Expect(err).NotTo(HaveOccurred())
-		// controller.AddHubOfHubsConfigController(mgr, postgresSQL)
+		Expect(postgresSQL).NotTo(BeNil())
 
+		By("Adding the controllers to the manager")
+		controller.AddHubOfHubsConfigController(mgr, postgresSQL)
 		go func() {
 			defer GinkgoRecover()
 			err = mgr.Start(ctx)
@@ -47,17 +64,90 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 	})
 
-	It("get the table from postgres", func() {
-		rows, err := postgresSQL.GetConn().Query(ctx, "select * from pg_tables")
-		Expect(err).NotTo(HaveOccurred())
-		defer rows.Close()
-		for rows.Next() {
-			columnValues, _ := rows.Values()
-			for _, v := range columnValues {
-				fmt.Printf(" %v ", v)
+	It("get the spec.configs table from database", func() {
+		Eventually(func() error {
+			rows, err := postgresSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
+			Expect(err).ToNot(HaveOccurred())
+			defer rows.Close()
+			for rows.Next() {
+				columnValues, _ := rows.Values()
+				schema := columnValues[0]
+				table := columnValues[1]
+				if schema == TEST_SCHEMA && table == TEST_TABLE {
+					return nil
+				}
 			}
-			fmt.Println("")
-		}
+			return fmt.Errorf("failed to get table %s.%s", TEST_SCHEMA, TEST_TABLE)
+		}, 2*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
+	})
+
+	It("create the configmap", func() {
+		By(fmt.Sprintf("Create Namespace: %s \n", constants.HOHSystemNamespace))
+		Eventually(func() error {
+			err := kubeClient.Get(ctx, types.NamespacedName{Name: constants.HOHSystemNamespace}, &corev1.Namespace{})
+			if err != nil && !errors.IsNotFound(err) {
+				return err
+			}
+			if errors.IsNotFound(err) {
+				if err = kubeClient.Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: constants.HOHSystemNamespace,
+					},
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+		By(fmt.Sprintf("Create ConfigMap: %s.%s", constants.HOHSystemNamespace, constants.HOHConfigName))
+		Eventually(func() error {
+			err := kubeClient.Get(ctx, types.NamespacedName{
+				Namespace: constants.HOHSystemNamespace,
+				Name:      constants.HOHConfigName,
+			}, &corev1.ConfigMap{})
+			if err != nil && !errors.IsNotFound(err) {
+				return err
+			}
+			if errors.IsNotFound(err) {
+				if err = kubeClient.Create(ctx, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: constants.HOHSystemNamespace,
+						Name:      constants.HOHConfigName,
+						Labels: map[string]string{
+							commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+						},
+					},
+					Data: map[string]string{
+						"aggregationLevel":    "full",
+						"enableLocalPolicies": "true",
+					},
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	})
+
+	It("get configmap from database", func() {
+		Eventually(func() error {
+			rows, err := postgresSQL.GetConn().Query(ctx, fmt.Sprintf("SELECT payload FROM %s.%s", TEST_SCHEMA, TEST_TABLE))
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				configMap := &corev1.ConfigMap{}
+				if err := rows.Scan(configMap); err != nil {
+					return err
+				}
+				if constants.HOHConfigName == configMap.Name {
+					return nil
+				}
+			}
+			return fmt.Errorf("not find configmap in database")
+		}, 2*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	AfterAll(func() {
