@@ -324,6 +324,29 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			server, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(server).To(Equal(kafkaBootstrapServer))
+
+			By("By checking the kafka secret is deleted")
+			Expect(k8sClient.Delete(ctx, transportSecret)).Should(Succeed())
+			_, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
+			Expect(err).To(HaveOccurred())
+
+			By("By checking setting the conditions")
+			Expect(len(createdMGH.GetConditions())).Should(BeNumerically(">", 0))
+			createdMGH.SetConditions(append(createdMGH.GetConditions(), metav1.Condition{
+				Type: "Test", Status: condition.CONDITION_STATUS_UNKNOWN, Reason: "this is a test",
+				Message: "this is a test", LastTransitionTime: metav1.Time{Time: time.Now()},
+			}))
+			conditions := createdMGH.GetConditions()
+			hasTestCondition := false
+			for _, cond := range conditions {
+				if cond.Type == "Test" {
+					Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+					Expect(cond.Reason).To(Equal("this is a test"))
+					Expect(cond.Message).To(Equal("this is a test"))
+					hasTestCondition = true
+				}
+			}
+			Expect(hasTestCondition).To(BeTrue())
 		})
 	})
 })
