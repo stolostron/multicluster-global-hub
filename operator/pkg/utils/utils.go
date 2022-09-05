@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -89,7 +88,6 @@ func RemoveDuplicates(elements []string) []string {
 func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) (string, string, error) {
-	fmt.Println("GetKafkaConfig is called")
 	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
 		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
 	if err != nil {

@@ -233,7 +233,6 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 						gvk, objLookupKey, diff.Diff(string(unsObjYaml), string(foundObjYaml)))
 				}
 
-				fmt.Printf("desired and found %s(%s) are equal\n", gvk, objLookupKey)
 				return nil
 			}
 
@@ -321,13 +320,11 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			By("By checking the kafkaBootstrapServer")
-			fmt.Println("checking the kafkaBootstrapServer")
 			server, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(server).To(Equal(kafkaBootstrapServer))
 
 			By("By checking the kafka secret is deleted")
-			fmt.Println("checking the kafkaBootstrapServer while the secret is deleted")
 			Expect(k8sClient.Delete(ctx, transportSecret)).Should(Succeed())
 			_, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
 			Expect(err).To(HaveOccurred())
