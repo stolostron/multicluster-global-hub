@@ -1,18 +1,21 @@
 package spec2db_test
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
+	"os/user"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
+	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	tc "github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -20,12 +23,12 @@ import (
 )
 
 var (
-	testenv          *envtest.Environment
-	cfg              *rest.Config
-	ctx              context.Context
-	cancel           context.CancelFunc
-	postgreContainer tc.Container
-	postgresURI      string
+	testenv        *envtest.Environment
+	cfg            *rest.Config
+	ctx            context.Context
+	cancel         context.CancelFunc
+	postgreCommand *exec.Cmd
+	postgresURI    string
 )
 
 func TestSpec2db(t *testing.T) {
@@ -45,7 +48,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	postgreContainer, postgresURI = getPostgreContainer(ctx)
+	postgreCommand, err = getPostgreCommand()
+	Expect(err).NotTo(HaveOccurred())
+
+	postgresURI = fmt.Sprintf("postgres://postgres:postgres@localhost:5432/%s", "hoh")
 })
 
 var _ = AfterSuite(func() {
@@ -59,49 +65,89 @@ var _ = AfterSuite(func() {
 	err = testenv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 
-	postgreContainer.Terminate(ctx)
+	postgreCommand.Process.Signal(syscall.SIGTERM)
+	postgreCommand.Wait()
 })
 
-func getPostgreContainer(ctx context.Context) (tc.Container, string) {
-	// Prepare the database with container-go: https://golang.testcontainers.org/quickstart/gotest
-	user := "user"
-	password := "pass"
-	database := "hoh"
+func getPostgreCommand() (*exec.Cmd, error) {
+	testUser := "noroot"
 
-	workingDir, err := os.Getwd()
-	Expect(err).NotTo(HaveOccurred())
-	databaseDir := strings.Replace(workingDir, "manager/pkg/specsyncer/spec2db", "operator/pkg/controllers/hubofhubs/database", 1)
+	// create noroot user
+	_, err := user.Lookup(testUser)
+	if err != nil && strings.Contains(err.Error(), "unknown user") {
+		_, err = exec.Command("useradd", "-m", testUser).Output()
+		return nil, err
+	} else if err != nil {
+		return nil, err
+	}
 
-	postgresPort := nat.Port("5432/tcp")
-	postgresContainer, err := tc.GenericContainer(context.Background(),
-		tc.GenericContainerRequest{
-			ContainerRequest: tc.ContainerRequest{
-				Image:        "postgres:14.1-alpine",
-				ExposedPorts: []string{postgresPort.Port()},
-				Env: map[string]string{
-					"POSTGRES_PASSWORD": password,
-					"POSTGRES_USER":     user,
-					"POSTGRES_DB":       database,
-				},
-				Mounts: tc.ContainerMounts{{
-					Source: tc.GenericBindMountSource{
-						HostPath: databaseDir,
-					},
-					Target:   "/docker-entrypoint-initdb.d",
-					ReadOnly: true,
-				}},
-				WaitingFor: wait.ForAll(
-					wait.ForLog("database system is ready to accept connections"),
-					wait.ForListeningPort(postgresPort),
-				),
-			},
-			Started: true,
-		})
+	// grant privilege to the user
+	_, err = exec.Command("usermod", "-G", "root", testUser).Output()
+	if err != nil {
+		return nil, err
+	}
 
-	Expect(err).NotTo(HaveOccurred())
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	projectDir := strings.Replace(currentDir, "/manager/pkg/specsyncer/spec2db", "", 1)
+	file := "test/pkg/postgre/main.go"
+	cmd := exec.Command("su", "-c", fmt.Sprintf("cd %s && /usr/local/go/bin/go run %s", projectDir, file), "-", testUser)
 
-	hostPort, err := postgresContainer.MappedPort(ctx, postgresPort)
-	Expect(err).NotTo(HaveOccurred())
-	postgresURI := fmt.Sprintf("postgres://%s:%s@localhost:%s/%s", user, password, hostPort.Port(), database)
-	return postgresContainer, postgresURI
+	outPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return cmd, err
+	}
+	errPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return cmd, err
+	}
+	outPipeReader := bufio.NewReader(outPipe)
+	errPipReader := bufio.NewReader(errPipe)
+
+	err = cmd.Start()
+	if err != nil {
+		return cmd, err
+	}
+
+	go func() {
+		for {
+			line, err := errPipReader.ReadString('\n')
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				fmt.Printf("error reading file %s", err)
+				break
+			}
+			fmt.Print(line)
+		}
+	}()
+
+	postgreChan := make(chan string, 1)
+	go func() {
+		for {
+			line, err := outPipeReader.ReadString('\n')
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				fmt.Printf("error reading file %s", err)
+				break
+			}
+			if strings.Contains(line, "postgres started") {
+				postgreChan <- line
+			} else {
+				fmt.Print(line)
+			}
+		}
+	}()
+
+	// wait database to be ready
+	select {
+	case done := <-postgreChan:
+		fmt.Printf("database: %s", done)
+		return cmd, nil
+	case <-time.After(10 * time.Second):
+		return cmd, fmt.Errorf("waiting for database initialization timeout")
+	}
 }
