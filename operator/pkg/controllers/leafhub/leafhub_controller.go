@@ -285,7 +285,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 
 	if managedCluster.GetLabels()[commonconstants.RegionalHubTypeLabelKey] ==
 		commonconstants.RegionalHubTypeNoHubInstall {
-		// this is for e2e testing only. In e2e tests, we install ocm in leaf hub.
+		// TODO: need to handle the case that import the existing hub cluster as a regional hub of the global hub.
 		err := applyHoHAgentWork(ctx, r.Client, r.KubeClient, log, mgh, managedClusterName)
 		if err != nil {
 			return err
@@ -313,7 +313,16 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
-
+	// update the annotation to indicate that the managed cluster is a regional hub cluster
+	// and it is managed by the global hub
+	val, ok := annotations[commonconstants.ManagedClusterManagedByAnnotation]
+	if !ok || val != commonconstants.GlobalHubOwnerLabelVal {
+		annotations[commonconstants.ManagedClusterManagedByAnnotation] = commonconstants.GlobalHubOwnerLabelVal
+		managedCluster.SetAnnotations(annotations)
+		if err := r.Client.Update(ctx, managedCluster); err != nil {
+			return err
+		}
+	}
 	// apply ManagedClusterAddons
 	return applyManagedClusterAddon(ctx, r.Client, log, managedClusterName, hostingClusterName,
 		fmt.Sprintf("%s-%s", hostingNamespace, hostedClusterName))
@@ -401,8 +410,7 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 		}
 	}
 
-	isChannelServiceReady, channelServiceIP :=
-		findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
+	isChannelServiceReady, channelServiceIP := findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
 	if !isChannelServiceReady {
 		log.Info("channel service is not ready, won't apply the multicluster-global-hub-agent manifestwork")
 		return nil

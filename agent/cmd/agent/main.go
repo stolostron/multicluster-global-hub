@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
@@ -196,6 +197,10 @@ func createManager(consumer consumer.Consumer, producer producer.Producer,
 
 	if err := statusController.AddControllers(mgr, producer, *environmentManager, incarnation); err != nil {
 		return nil, fmt.Errorf("failed to add status syncer: %w", err)
+	}
+
+	if err := controllers.AddControllers(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
 	if err := lease.AddHoHLeaseUpdater(mgr, environmentManager.PodNameSpace,
