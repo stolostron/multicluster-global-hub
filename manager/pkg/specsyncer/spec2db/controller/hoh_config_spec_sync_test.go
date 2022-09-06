@@ -101,7 +101,9 @@ var _ = Describe("spec to database controller", Ordered, func() {
 	It("create the configmap", func() {
 		By(fmt.Sprintf("Create Namespace: %s \n", constants.HOHSystemNamespace))
 		Eventually(func() error {
-			err := kubeClient.Get(ctx, types.NamespacedName{Name: constants.HOHSystemNamespace}, &corev1.Namespace{})
+			err := kubeClient.Get(ctx, types.NamespacedName{
+				Name: constants.HOHSystemNamespace,
+			}, &corev1.Namespace{})
 			if err != nil && !errors.IsNotFound(err) {
 				return err
 			}
@@ -149,7 +151,8 @@ var _ = Describe("spec to database controller", Ordered, func() {
 
 	It("get configmap from database", func() {
 		Eventually(func() error {
-			rows, err := postgresSQL.GetConn().Query(ctx, fmt.Sprintf("SELECT payload FROM %s.%s", TEST_SCHEMA, TEST_TABLE))
+			rows, err := postgresSQL.GetConn().Query(ctx,
+				fmt.Sprintf("SELECT payload FROM %s.%s", TEST_SCHEMA, TEST_TABLE))
 			if err != nil {
 				return err
 			}
@@ -159,7 +162,8 @@ var _ = Describe("spec to database controller", Ordered, func() {
 				if err := rows.Scan(configMap); err != nil {
 					return err
 				}
-				if constants.HOHConfigName == configMap.Name && constants.HOHSystemNamespace == configMap.Namespace {
+				if constants.HOHConfigName == configMap.Name &&
+					constants.HOHSystemNamespace == configMap.Namespace {
 					return nil
 				}
 			}

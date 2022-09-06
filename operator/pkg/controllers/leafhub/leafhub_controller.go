@@ -234,17 +234,6 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 		}
 
 		hostingNamespace = hypershiftDeploymentInstance.Spec.HostingNamespace
-
-		// for hypershift hosted managedcluster, add leafhub annotation
-		// TODO: remove this after UI supports this
-		val, ok := annotations[commonconstants.ManagedClusterManagedByAnnotation]
-		if !ok || val != commonconstants.GlobalHubOwnerLabelVal {
-			annotations[commonconstants.ManagedClusterManagedByAnnotation] = commonconstants.GlobalHubOwnerLabelVal
-			managedCluster.SetAnnotations(annotations)
-			if err := r.Client.Update(ctx, managedCluster); err != nil {
-				return err
-			}
-		}
 	}
 
 	// managedcluster is being deleted
@@ -285,7 +274,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 
 	if managedCluster.GetLabels()[commonconstants.RegionalHubTypeLabelKey] ==
 		commonconstants.RegionalHubTypeNoHubInstall {
-		// TODO: need to handle the case that import the existing hub cluster as a regional hub of the global hub.
+		// need to handle the case that import the existing hub cluster as a regional hub of the global hub.
 		err := applyHoHAgentWork(ctx, r.Client, r.KubeClient, log, mgh, managedClusterName)
 		if err != nil {
 			return err
@@ -317,6 +306,9 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 	// and it is managed by the global hub
 	val, ok := annotations[commonconstants.ManagedClusterManagedByAnnotation]
 	if !ok || val != commonconstants.GlobalHubOwnerLabelVal {
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
 		annotations[commonconstants.ManagedClusterManagedByAnnotation] = commonconstants.GlobalHubOwnerLabelVal
 		managedCluster.SetAnnotations(annotations)
 		if err := r.Client.Update(ctx, managedCluster); err != nil {

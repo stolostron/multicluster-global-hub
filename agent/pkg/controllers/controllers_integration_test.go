@@ -5,17 +5,22 @@ package controllers_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/client-go/kubernetes"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
+)
+
+const (
+	MCHVersion = "2.6.0"
 )
 
 var _ = Describe("controller", Ordered, func() {
@@ -33,11 +38,7 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Adding the controllers to the manager")
-		Expect(controllers.AddControllers(mgr)).NotTo(HaveOccurred())
-
-		kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
-		Expect(err).NotTo(HaveOccurred())
-		Expect(controllers.InitResources(ctx, kubeClient)).NotTo(HaveOccurred())
+		Expect(controllers.AddToManager(mgr)).NotTo(HaveOccurred())
 
 		go func() {
 			defer GinkgoRecover()
@@ -48,88 +49,69 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 	})
 
-	It("clusterrole testing", func() {
-		By("Having the ClusterRole created")
-		clusterrole := &rbacv1.ClusterRole{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
-			Name: controllers.HubOfHubsClusterRoleName,
-		},
-			clusterrole)).NotTo(HaveOccurred())
-		Expect(clusterrole.GetName()).To(Equal(controllers.HubOfHubsClusterRoleName))
-
-		By("Expect the ClusterRole re-created")
-		Expect(mgr.GetClient().Delete(ctx, clusterrole)).NotTo(HaveOccurred())
-		time.Sleep(1 * time.Second)
-		newClusterrole := &rbacv1.ClusterRole{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
-			Name: controllers.HubOfHubsClusterRoleName,
-		},
-			newClusterrole)).NotTo(HaveOccurred())
-		Expect(newClusterrole.GetName()).To(Equal(controllers.HubOfHubsClusterRoleName))
-		Expect(clusterrole.GetResourceVersion()).NotTo(
-			Equal(newClusterrole.GetResourceVersion()))
-
-		By("Expect the ClusterRole no change")
-		newClusterrole.Rules = append(newClusterrole.Rules, rbacv1.PolicyRule{
-			Resources: []string{
-				"configmaps",
+	It("clusterclaim testing", func() {
+		By("Create MCH instance to trigger reconciliation")
+		Expect(mgr.GetClient().Create(ctx, &mchv1.MultiClusterHub{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "MultiClusterHub",
+				APIVersion: "operator.open-cluster-management.io/v1",
 			},
-			Verbs: []string{
-				"create",
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "multiclusterhub",
+				Namespace: "default",
 			},
-			APIGroups: []string{""},
-		})
-		Expect(mgr.GetClient().Update(ctx, newClusterrole)).NotTo(HaveOccurred())
-		time.Sleep(1 * time.Second)
-		finalClusterrole := &rbacv1.ClusterRole{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
-			Name: controllers.HubOfHubsClusterRoleName,
-		},
-			finalClusterrole)).NotTo(HaveOccurred())
-		Expect(equality.Semantic.DeepEqual(clusterrole.Rules, finalClusterrole.Rules)).To(BeTrue())
-		Expect(finalClusterrole.GetResourceVersion()).NotTo(
-			Equal(newClusterrole.GetResourceVersion()))
-	})
+			Spec: mchv1.MultiClusterHubSpec{},
+		})).NotTo(HaveOccurred())
 
-	It("clusterrolebinding testing", func() {
-		By("Having the ClusterRoleBing created")
-		clusterrolebinding := &rbacv1.ClusterRoleBinding{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
-			Name: controllers.HubOfHubsClusterRoleName,
-		},
-			clusterrolebinding)).NotTo(HaveOccurred())
-		Expect(clusterrolebinding.GetName()).To(Equal(controllers.HubOfHubsClusterRoleName))
+		mch := &mchv1.MultiClusterHub{}
+		Eventually(func() bool {
+			err := mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name:      "multiclusterhub",
+				Namespace: "default",
+			}, mch)
+			return err == nil
+		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 
-		By("Expect the ClusterRoleBing re-created")
-		Expect(mgr.GetClient().Delete(ctx, clusterrolebinding)).NotTo(HaveOccurred())
-		time.Sleep(1 * time.Second)
-		newClusterroleBinding := &rbacv1.ClusterRoleBinding{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
-			Name: controllers.HubOfHubsClusterRoleName,
-		},
-			newClusterroleBinding)).NotTo(HaveOccurred())
-		Expect(newClusterroleBinding.GetName()).To(
-			Equal(controllers.HubOfHubsClusterRoleName))
-		Expect(clusterrolebinding.GetResourceVersion()).NotTo(
-			Equal(newClusterroleBinding.GetResourceVersion()))
+		mch.Status = mchv1.MultiClusterHubStatus{CurrentVersion: MCHVersion}
+		Expect(mgr.GetClient().Status().Update(ctx, mch)).NotTo(HaveOccurred())
 
-		By("Expect the ClusterRoleBinding no change")
-		newClusterroleBinding.Subjects = append(newClusterroleBinding.Subjects, rbacv1.Subject{
-			Kind:      "ServiceAccount",
-			Name:      "klusterlet-sa",
-			Namespace: "open-cluster-management-agent",
-		})
-		Expect(mgr.GetClient().Update(ctx, newClusterroleBinding)).NotTo(HaveOccurred())
-		time.Sleep(1 * time.Second)
-		finalClusterroleBinding := &rbacv1.ClusterRoleBinding{}
-		Expect(mgr.GetClient().Get(ctx, client.ObjectKey{
-			Name: controllers.HubOfHubsClusterRoleName,
-		},
-			finalClusterroleBinding)).NotTo(HaveOccurred())
-		Expect(equality.Semantic.DeepEqual(clusterrolebinding.Subjects,
-			finalClusterroleBinding.Subjects)).To(BeTrue())
-		Expect(finalClusterroleBinding.GetResourceVersion()).NotTo(
-			Equal(newClusterroleBinding.GetResourceVersion()))
+		By("Expect clusterClaim to be created")
+		clusterClaim := &clustersv1alpha1.ClusterClaim{}
+		Eventually(func() bool {
+			err := mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name: "version.open-cluster-management.io",
+			}, clusterClaim)
+			return err == nil
+		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+		Expect(clusterClaim.Spec.Value).Should(Equal(MCHVersion))
+
+		By("Expect clusterClaim version to be updated")
+		mch.Status = mchv1.MultiClusterHubStatus{CurrentVersion: "2.7.0"}
+		Expect(mgr.GetClient().Status().Update(ctx, mch)).NotTo(HaveOccurred())
+		clusterClaim = &clustersv1alpha1.ClusterClaim{}
+		Eventually(func() bool {
+			err := mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name: "version.open-cluster-management.io",
+			}, clusterClaim)
+			return err == nil && clusterClaim.Spec.Value == "2.7.0"
+		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+		By("Expect clusterClaim to be re-created once it is deleted")
+		Expect(mgr.GetClient().Delete(context.Background(), &clustersv1alpha1.ClusterClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "version.open-cluster-management.io",
+			},
+		})).NotTo(HaveOccurred())
+
+		newClusterClaim := &clustersv1alpha1.ClusterClaim{}
+		Eventually(func() bool {
+			err := mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name: "version.open-cluster-management.io",
+			}, newClusterClaim)
+			fmt.Fprintf(GinkgoWriter, "the old ClusterClaim: %v\n", clusterClaim)
+			fmt.Fprintf(GinkgoWriter, "the new ClusterClaim: %v\n", newClusterClaim)
+			return err == nil && clusterClaim.GetResourceVersion() != newClusterClaim.GetResourceVersion()
+		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 	})
 
 	AfterAll(func() {

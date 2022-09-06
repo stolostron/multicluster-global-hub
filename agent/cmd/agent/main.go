@@ -9,12 +9,15 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	v1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiRuntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	clustersV1 "open-cluster-management.io/api/cluster/v1"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	clustersV1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policiesV1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementRulesV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -199,7 +202,7 @@ func createManager(consumer consumer.Consumer, producer producer.Producer,
 		return nil, fmt.Errorf("failed to add status syncer: %w", err)
 	}
 
-	if err := controllers.AddControllers(mgr); err != nil {
+	if err := controllers.AddToManager(mgr); err != nil {
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
@@ -221,8 +224,17 @@ func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
 		return fmt.Errorf("failed to add clusterv1beta1 scheme: %w", err)
 	}
 
+	if err := clustersv1alpha1.Install(runtimeScheme); err != nil {
+		return fmt.Errorf("failed to add clustersv1alpha1 scheme: %w", err)
+	}
+
+	if err := apiextensionsv1.AddToScheme(runtimeScheme); err != nil {
+		return fmt.Errorf("failed to add apiextensionsv1 scheme: %w", err)
+	}
+
 	schemeBuilders := []*scheme.Builder{
 		policiesV1.SchemeBuilder, placementRulesV1.SchemeBuilder, appsV1alpha1.SchemeBuilder,
+		mchv1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {

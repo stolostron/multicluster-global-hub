@@ -9,10 +9,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// AddControllers adds all the render controllers to the Manager.
-func AddControllers(mgr ctrl.Manager) error {
+// AddToManager adds all the render controllers to the Manager.
+func AddToManager(mgr ctrl.Manager) error {
 	addControllerFunctions := []func(ctrl.Manager) error{
-		AddClusterClaimController,
+		AddCustomResourceDefinitionsController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
