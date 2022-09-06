@@ -120,6 +120,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	dynamicClient, err := dynamic.NewForConfig(k8sManager.GetConfig())
+	Expect(err).ToNot(HaveOccurred())
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
 
