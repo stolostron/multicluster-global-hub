@@ -80,10 +80,12 @@ func getPostgreCommand(username string) (*exec.Cmd, error) {
 	// create noroot user
 	_, err := user.Lookup(username)
 	if err != nil && !strings.Contains(err.Error(), "unknown user") {
+		fmt.Printf("failed to lookup user: %s", err.Error())
 		return nil, err
 	}
 	if err != nil {
 		if err = exec.Command("useradd", "-m", username).Run(); err != nil {
+			fmt.Printf("failed to create user: %s", err.Error())
 			return nil, err
 		}
 	}
@@ -91,18 +93,20 @@ func getPostgreCommand(username string) (*exec.Cmd, error) {
 	// grant privilege to the user
 	err = exec.Command("usermod", "-G", "root", username).Run()
 	if err != nil {
-		fmt.Printf("grant pivilege err %s", err.Error())
+		fmt.Printf("failed to add permission to user: %s", err.Error())
 		return nil, err
 	}
 
 	currentDir, err := os.Getwd()
 	if err != nil {
+		fmt.Printf("failed to get current dir: %s", err.Error())
 		return nil, err
 	}
 	projectDir := strings.Replace(currentDir, "/manager/pkg/specsyncer/spec2db", "", 1)
 	file := "test/pkg/postgre/main.go"
 	goBytes, err := exec.Command("which", "go").Output()
 	if err != nil {
+		fmt.Printf("failed to get go binary dir: %s", err.Error())
 		return nil, err
 	}
 	goBin := strings.Replace(string(goBytes), "\n", "", 1)
@@ -110,10 +114,12 @@ func getPostgreCommand(username string) (*exec.Cmd, error) {
 
 	outPipe, err := cmd.StdoutPipe()
 	if err != nil {
+		fmt.Printf("failed to set stdout pipe: %s", err.Error())
 		return cmd, err
 	}
 	errPipe, err := cmd.StderrPipe()
 	if err != nil {
+		fmt.Printf("failed to set stderr pipe: %s", err.Error())
 		return cmd, err
 	}
 	outPipeReader := bufio.NewReader(outPipe)
@@ -121,6 +127,7 @@ func getPostgreCommand(username string) (*exec.Cmd, error) {
 
 	err = cmd.Start()
 	if err != nil {
+		fmt.Printf("failed to start postgres command: %s", err.Error())
 		return cmd, err
 	}
 
