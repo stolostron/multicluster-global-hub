@@ -76,19 +76,22 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-func getPostgreCommand(testUser string) (*exec.Cmd, error) {
+func getPostgreCommand(username string) (*exec.Cmd, error) {
 	// create noroot user
-	_, err := user.Lookup(testUser)
-	if err != nil && strings.Contains(err.Error(), "unknown user") {
-		err = exec.Command("useradd", "-m", testUser).Run()
+	_, err := user.Lookup(username)
+	if err != nil && !strings.Contains(err.Error(), "unknown user") {
 		return nil, err
-	} else if err != nil {
-		return nil, err
+	}
+	if err != nil {
+		if err = exec.Command("useradd", "-m", username).Run(); err != nil {
+			return nil, err
+		}
 	}
 
 	// grant privilege to the user
-	err = exec.Command("usermod", "-G", "root", testUser).Run()
+	err = exec.Command("usermod", "-G", "root", username).Run()
 	if err != nil {
+		fmt.Printf("grant pivilege err %s", err.Error())
 		return nil, err
 	}
 
@@ -103,7 +106,7 @@ func getPostgreCommand(testUser string) (*exec.Cmd, error) {
 		return nil, err
 	}
 	goBin := strings.Replace(string(goBytes), "\n", "", 1)
-	cmd := exec.Command("su", "-c", fmt.Sprintf("cd %s && %s run %s", projectDir, goBin, file), "-", testUser)
+	cmd := exec.Command("su", "-c", fmt.Sprintf("cd %s && %s run %s", projectDir, goBin, file), "-", username)
 
 	outPipe, err := cmd.StdoutPipe()
 	if err != nil {
@@ -157,7 +160,7 @@ func getPostgreCommand(testUser string) (*exec.Cmd, error) {
 	case done := <-postgreChan:
 		fmt.Printf("database: %s", done)
 		return cmd, nil
-	case <-time.After(10 * time.Second):
+	case <-time.After(1 * time.Minute):
 		return cmd, fmt.Errorf("waiting for database initialization timeout")
 	}
 }
