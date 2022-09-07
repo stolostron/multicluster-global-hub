@@ -293,7 +293,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 			return err
 		}
 	} else {
-		pm, err := getPackageManifestConfig(ctx, r.DynamicClient, log)
+		pm, err := GetPackageManifestConfig(ctx, r.DynamicClient, log)
 		if err != nil {
 			return err
 		}

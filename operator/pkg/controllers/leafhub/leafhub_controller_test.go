@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package leafhub
+package leafhub_test
 
 import (
 	"context"
@@ -36,6 +36,7 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	leafhubcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/leafhub"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -153,7 +154,7 @@ var _ = Describe("LeafHub controller", Ordered, func() {
 
 		// set fake packagemenifestwork configuration
 		By("By setting a fake packagemanifest configuration")
-		setPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
+		leafhubcontroller.SetPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
 			"stable-2.0", "multicluster-engine.v2.0.1",
 			map[string]string{"multiclusterhub-operator": "example.com/registration-operator:test"},
 			map[string]string{"registration-operator": "example.com/registration-operator:test"})

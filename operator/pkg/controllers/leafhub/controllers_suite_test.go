@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package leafhub
+package leafhub_test
 
 import (
 	"context"
@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	leafhubcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/leafhub"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -124,7 +125,7 @@ var _ = BeforeSuite(func() {
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&LeafHubReconciler{
+	err = (&leafhubcontroller.LeafHubReconciler{
 		DynamicClient: dynamicClient,
 		KubeClient:    kubeClient,
 		Client:        k8sManager.GetClient(),

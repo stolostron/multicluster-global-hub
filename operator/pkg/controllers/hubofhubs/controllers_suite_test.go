@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package hubofhubs
+package hubofhubs_test
 
 import (
 	"context"
@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -121,7 +122,7 @@ var _ = BeforeSuite(func() {
 	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&MulticlusterGlobalHubReconciler{
+	err = (&hubofhubscontroller.MulticlusterGlobalHubReconciler{
 		Manager:    k8sManager,
 		Client:     k8sManager.GetClient(),
 		KubeClient: kubeClient,
