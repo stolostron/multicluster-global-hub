@@ -31,6 +31,10 @@ var (
 	postgresURI    string
 )
 
+const (
+	TEST_USER = "noroot"
+)
+
 func TestSpec2db(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Spec2db Suite")
@@ -48,10 +52,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	postgreCommand, err = getPostgreCommand()
+	postgreCommand, err = getPostgreCommand(TEST_USER)
 	Expect(err).NotTo(HaveOccurred())
 
-	postgresURI = fmt.Sprintf("postgres://postgres:postgres@localhost:5432/%s", "hoh")
+	postgresURI = fmt.Sprintf("postgres://postgres:postgres@localhost:5432/%s?sslmode=disable", "hoh")
 })
 
 var _ = AfterSuite(func() {
@@ -65,24 +69,25 @@ var _ = AfterSuite(func() {
 	err = testenv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 
-	postgreCommand.Process.Signal(syscall.SIGTERM)
-	postgreCommand.Wait()
+	err = postgreCommand.Process.Signal(syscall.SIGTERM)
+	Expect(err).NotTo(HaveOccurred())
+	// make sure the child process(postgre) is terminated
+	err = exec.Command("pkill", "-u", TEST_USER).Run()
+	Expect(err).NotTo(HaveOccurred())
 })
 
-func getPostgreCommand() (*exec.Cmd, error) {
-	testUser := "noroot"
-
+func getPostgreCommand(testUser string) (*exec.Cmd, error) {
 	// create noroot user
 	_, err := user.Lookup(testUser)
 	if err != nil && strings.Contains(err.Error(), "unknown user") {
-		_, err = exec.Command("useradd", "-m", testUser).Output()
+		err = exec.Command("useradd", "-m", testUser).Run()
 		return nil, err
 	} else if err != nil {
 		return nil, err
 	}
 
 	// grant privilege to the user
-	_, err = exec.Command("usermod", "-G", "root", testUser).Output()
+	err = exec.Command("usermod", "-G", "root", testUser).Run()
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +98,12 @@ func getPostgreCommand() (*exec.Cmd, error) {
 	}
 	projectDir := strings.Replace(currentDir, "/manager/pkg/specsyncer/spec2db", "", 1)
 	file := "test/pkg/postgre/main.go"
-	cmd := exec.Command("su", "-c", fmt.Sprintf("cd %s && /usr/local/go/bin/go run %s", projectDir, file), "-", testUser)
+	goBytes, err := exec.Command("which", "go").Output()
+	if err != nil {
+		return nil, err
+	}
+	goBin := strings.Replace(string(goBytes), "\n", "", 1)
+	cmd := exec.Command("su", "-c", fmt.Sprintf("cd %s && %s run %s", projectDir, goBin, file), "-", testUser)
 
 	outPipe, err := cmd.StdoutPipe()
 	if err != nil {

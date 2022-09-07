@@ -18,7 +18,7 @@ func main() {
 	fmt.Println(" # postgres started")
 
 	if err != nil {
-		panic(err)
+		os.Exit(1)
 	}
 
 	signalChan := make(chan os.Signal, 1)
@@ -38,6 +38,8 @@ loop:
 		}
 	}
 
-	database.Stop()
+	if err = database.Stop(); err != nil {
+		os.Exit(1)
+	}
 	fmt.Println(" # postgres process is ended!")
 }
