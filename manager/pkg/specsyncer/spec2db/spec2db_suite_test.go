@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,16 +24,15 @@ import (
 )
 
 var (
-	testenv        *envtest.Environment
-	cfg            *rest.Config
-	ctx            context.Context
-	cancel         context.CancelFunc
-	postgreCommand *exec.Cmd
-	postgresURI    string
+	testenv     *envtest.Environment
+	cfg         *rest.Config
+	ctx         context.Context
+	cancel      context.CancelFunc
+	testPostgre *TestPostgre
 )
 
 const (
-	TEST_USER = "noroot"
+	defaultUsername = "noroot"
 )
 
 func TestSpec2db(t *testing.T) {
@@ -52,10 +52,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	postgreCommand, err = getPostgreCommand(TEST_USER)
+	testPostgre, err = NewTestPostgre()
 	Expect(err).NotTo(HaveOccurred())
-
-	postgresURI = fmt.Sprintf("postgres://postgres:postgres@localhost:5432/%s?sslmode=disable", "hoh")
 })
 
 var _ = AfterSuite(func() {
@@ -68,16 +66,74 @@ var _ = AfterSuite(func() {
 	}
 	err = testenv.Stop()
 	Expect(err).NotTo(HaveOccurred())
-
-	err = postgreCommand.Process.Signal(syscall.SIGTERM)
-	Expect(err).NotTo(HaveOccurred())
-	// make sure the child process(postgre) is terminated
-	err = exec.Command("pkill", "-u", TEST_USER).Run()
+	err = testPostgre.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
 
+type TestPostgre struct {
+	command  *exec.Cmd
+	embedded *embeddedpostgres.EmbeddedPostgres
+	rootUser bool
+	URI      string
+	username string
+}
+
+func NewTestPostgre() (*TestPostgre, error) {
+	pg := &TestPostgre{}
+	currentuser, err := user.Current()
+	if err != nil {
+		fmt.Printf("failed to get current user: %s", err.Error())
+		return nil, err
+	}
+	if currentuser.Username == "root" {
+		pg.rootUser = true
+		pg.username = defaultUsername
+		if pg.command, err = getPostgreCommand(defaultUsername); err != nil {
+			fmt.Printf("failed to get PostgreCommand: %s", err.Error())
+			return pg, err
+		}
+	} else {
+		pg.rootUser = false
+		pg.username = currentuser.Username
+		pg.embedded = embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().Database("hoh"))
+		if err = pg.embedded.Start(); err != nil {
+			fmt.Printf("failed to get embeddedPostgre: %s", err.Error())
+			return pg, err
+		}
+	}
+	pg.URI = fmt.Sprintf("postgres://postgres:postgres@localhost:5432/%s?sslmode=disable", "hoh")
+	return pg, nil
+}
+
+func (pg *TestPostgre) Stop() error {
+	if pg.command != nil {
+		if err := pg.command.Process.Signal(syscall.SIGTERM); err != nil {
+			fmt.Printf("failed to terminate cmd processes: %s", err.Error())
+			return err
+		}
+
+		// make sure the child process(postgre) is terminated
+		if err := exec.Command("pkill", "-u", pg.username).Run(); err != nil {
+			fmt.Printf("failed to terminate user(%s) processes: %s", pg.username, err.Error())
+			return err
+		}
+
+		// delete the testuser
+		if err := exec.Command("userdel", "-rf", pg.username).Run(); err != nil {
+			fmt.Printf("failed to delete user(%s): %s", pg.username, err.Error())
+			return err
+		}
+	}
+	if pg.embedded != nil {
+		if err := pg.embedded.Stop(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func getPostgreCommand(username string) (*exec.Cmd, error) {
-	// create noroot user
+	// create user
 	_, err := user.Lookup(username)
 	if err != nil && !strings.Contains(err.Error(), "unknown user") {
 		fmt.Printf("failed to lookup user: %s", err.Error())

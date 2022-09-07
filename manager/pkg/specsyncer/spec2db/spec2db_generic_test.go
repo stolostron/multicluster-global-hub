@@ -48,7 +48,7 @@ var _ = Describe("spec to database controller", Ordered, func() {
 		Expect(kubeClient).NotTo(BeNil())
 
 		By("Connect to the database")
-		postgresSQL, err = postgresql.NewPostgreSQL(postgresURI)
+		postgresSQL, err = postgresql.NewPostgreSQL(testPostgre.URI)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(postgresSQL).NotTo(BeNil())
 
