@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package hubofhubs
+package hubofhubs_test
 
 import (
 	"context"
+	"embed"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -43,6 +44,9 @@ import (
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
+
+//go:embed manifests
+var testFS embed.FS
 
 var _ = Describe("MulticlusterGlobalHub controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
@@ -193,7 +197,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// create hoh render for testing
-			hohRenderer := renderer.NewHoHRenderer(fs)
+			hohRenderer := renderer.NewHoHRenderer(testFS)
 
 			checkResourceExistence := func(ctx context.Context, k8sClient client.Client, unsObj *unstructured.Unstructured,
 			) error {
