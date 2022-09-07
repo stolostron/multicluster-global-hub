@@ -1,0 +1,107 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations: null
+  labels:
+    app: nginx
+    env: dev
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      annotations:
+        app.kubernetes.io/name: nginx
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - image: docker.io/nginx:stable
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+        name: nginx
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 250m
+            memory: 64Mi
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      serviceAccountName: nginx
+      tolerations:
+      - effect: ""
+        key: example-key
+        operator: Exists
+        value: NoSchedule
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  annotations: null
+  labels:
+    app: nginx
+    env: dev
+  name: nginx
+spec:
+  maxReplicas: 4
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 50
+    type: Resource
+  - resource:
+      name: memory
+      targetAverageUtilization: 60
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: null
+  labels:
+    app: nginx
+    env: dev
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+---
+apiVersion: v1
+imagePullSecrets:
+- name: image-pull-secret
+kind: ServiceAccount
+metadata:
+  annotations: null
+  labels:
+    app: nginx
+    env: dev
+  name: nginx

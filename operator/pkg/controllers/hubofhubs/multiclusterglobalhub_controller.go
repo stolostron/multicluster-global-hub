@@ -195,7 +195,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", func(component string) (interface{}, error) {
+	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image     string
 			Namespace string
@@ -230,7 +230,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
-	managerObjects, err := hohRenderer.Render("manifests/manager", func(component string) (interface{}, error) {
+	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                string
 			DBSecret             string

@@ -1,0 +1,34 @@
+{{- if .Autoscaling.Enabled}}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx
+  labels:
+    {{- range $key, $value := .Labels}}
+    "{{$key}}": "{{$value}}"
+    {{- end}}
+  annotations:
+    {{- range $key, $value := .Annotations}}
+    "{{$key}}": "{{$value}}"
+    {{- end}}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx
+  minReplicas: {{.Autoscaling.MinReplicas}}
+  maxReplicas: {{.Autoscaling.MaxReplicas}}
+  metrics:
+    {{- if .Autoscaling.TargetCPUUtilizationPercentage}}
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{.Autoscaling.TargetCPUUtilizationPercentage}}
+    {{- end}}
+    {{- if .Autoscaling.TargetMemoryUtilizationPercentage}}
+    - type: Resource
+      resource:
+        name: memory
+        targetAverageUtilization: {{.Autoscaling.TargetMemoryUtilizationPercentage}}
+    {{- end}}
+{{- end}}
