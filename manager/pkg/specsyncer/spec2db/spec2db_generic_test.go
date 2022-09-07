@@ -35,7 +35,7 @@ var _ = Describe("spec to database controller", Ordered, func() {
 		By("Creating the Manager")
 		var err error
 		mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-			MetricsBindAddress: ":8081",
+			MetricsBindAddress: ":8083",
 			Scheme:             scheme.Scheme,
 		})
 		Expect(err).NotTo(HaveOccurred())
