@@ -228,8 +228,8 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}
 
 			By("By checking the multicluster-global-hub-manager resources are created as expected")
-			managerObjects, err := hohRenderer.Render("manifests/manager", func(
-				component string,
+			managerObjects, err := hohRenderer.Render("manifests/manager", "", func(
+				profile string,
 			) (interface{}, error) {
 				return struct {
 					Image                string
@@ -259,8 +259,8 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			By("By checking the multicluster-global-hub-rbac resources are created as expected")
-			hohRBACObjects, err := hohRenderer.Render("manifests/rbac", func(
-				component string,
+			hohRBACObjects, err := hohRenderer.Render("manifests/rbac", "", func(
+				profile string,
 			) (interface{}, error) {
 				return struct {
 					Image     string

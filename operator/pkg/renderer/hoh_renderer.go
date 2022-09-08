@@ -30,18 +30,18 @@ func NewHoHRenderer(manifestFS embed.FS) Renderer {
 	}
 }
 
-func (r *HoHRenderer) Render(component string, getConfigValuesFunc GetConfigValuesFunc) (
+func (r *HoHRenderer) Render(component, profile string, getConfigValuesFunc GetConfigValuesFunc) (
 	[]*unstructured.Unstructured, error,
 ) {
-	return r.RenderWithFilter(component, "", getConfigValuesFunc)
+	return r.RenderWithFilter(component, profile, "", getConfigValuesFunc)
 }
 
-func (r *HoHRenderer) RenderWithFilter(component, filter string, getConfigValuesFunc GetConfigValuesFunc) (
+func (r *HoHRenderer) RenderWithFilter(component, profile, filter string, getConfigValuesFunc GetConfigValuesFunc) (
 	[]*unstructured.Unstructured, error,
 ) {
 	var unstructuredObjs []*unstructured.Unstructured
 
-	configValues, err := getConfigValuesFunc(component)
+	configValues, err := getConfigValuesFunc(profile)
 	if err != nil {
 		return unstructuredObjs, err
 	}
@@ -92,62 +92,6 @@ func (r *HoHRenderer) RenderWithFilter(component, filter string, getConfigValues
 				})
 			}
 		}
-	}
-
-	return unstructuredObjs, nil
-}
-
-func (r *HoHRenderer) RenderForCluster(cluster, component string,
-	getClusterConfigValuesFunc GetClusterConfigValuesFunc,
-) ([]*unstructured.Unstructured, error) {
-	return r.RenderForClusterWithFilter(cluster, component, "", getClusterConfigValuesFunc)
-}
-
-func (r *HoHRenderer) RenderForClusterWithFilter(cluster, component, filter string,
-	getClusterConfigValuesFunc GetClusterConfigValuesFunc,
-) ([]*unstructured.Unstructured, error) {
-	var unstructuredObjs []*unstructured.Unstructured
-
-	configValues, err := getClusterConfigValuesFunc(cluster, component)
-	if err != nil {
-		return unstructuredObjs, err
-	}
-
-	templateFiles, err := getTemplateFiles(r.manifestFS, component, filter)
-	if err != nil {
-		return unstructuredObjs, err
-	}
-	if len(templateFiles) == 0 {
-		return unstructuredObjs, fmt.Errorf("no template files found")
-	}
-
-	for _, template := range templateFiles {
-		templateContent, err := r.manifestFS.ReadFile(template)
-		if err != nil {
-			return unstructuredObjs, err
-		}
-
-		if len(templateContent) == 0 {
-			continue
-		}
-
-		raw := assets.MustCreateAssetFromTemplate(template, templateContent, configValues).Data
-		object, _, err := r.decoder.Decode(raw, nil, nil)
-		if err != nil {
-			if runtime.IsMissingKind(err) {
-				continue
-			}
-			return unstructuredObjs, err
-		}
-
-		unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
-		if err != nil {
-			return unstructuredObjs, err
-		}
-
-		unstructuredObjs = append(unstructuredObjs, &unstructured.Unstructured{
-			Object: unstructuredObj,
-		})
 	}
 
 	return unstructuredObjs, nil

@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels:
+    {{- range $key, $value := .Labels}}
+    "{{$key}}": "{{$value}}"
+    {{- end}}
+  annotations:
+    {{- range $key, $value := .Annotations}}
+    "{{$key}}": "{{$value}}"
+    {{- end}}
+spec:
+  {{- if not .Autoscaling.Enabled}}
+  replicas: {{.Replicas}}
+  {{- end}}
+  selector:
+    matchLabels:
+      {{- range $key, $value := .PodLabels}}
+      "{{$key}}": "{{$value}}"
+      {{- end}}
+  template:
+    metadata:
+      annotations:
+        {{- range $key, $value := .PodAnnotations}}
+        "{{$key}}": "{{$value}}"
+        {{- end}}
+      labels:
+        {{- range $key, $value := .PodLabels}}
+        "{{$key}}": "{{$value}}"
+        {{- end}}
+    spec:
+      # imagePullSecrets:
+      # {{- range .Image.PullSecrets}}
+      # - name: {{.}}
+      # {{- end}}
+      {{- if .ServiceAccount.Create}}
+      serviceAccountName: "{{.ServiceAccount.Name}}"
+      {{- else}}
+      serviceAccountName: default
+      {{- end}}
+      securityContext:
+        {{- range $key, $value := .PodSecurityContext}}
+        "{{$key}}": {{$value}}
+        {{- end}}
+      containers:
+        - name: nginx
+          image: "{{.Image.Repository}}:{{.Image.Tag}}"
+          imagePullPolicy: "{{.Image.PullPolicy}}"
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- range $key, $value := .Resources}}
+            "{{$key}}":
+              {{- range $k, $v := $value}}
+              "{{$k}}": "{{$v}}"
+              {{- end}}
+            {{- end}}
+      nodeSelector:
+        {{- range $key, $value := .NodeSelector}}
+        "{{$key}}": "{{$value}}"
+        {{- end}}
+      tolerations:
+        {{- range .Tolerations}}
+        - key: "{{.Key}}"
+          operator: "{{.Operator}}"
+          value: "{{.Value}}"
+          effect: "{{.Effect}}"
+        {{- end}}
