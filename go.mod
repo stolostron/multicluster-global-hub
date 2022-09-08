@@ -6,6 +6,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/confluentinc/confluent-kafka-go v1.8.2
 	github.com/deckarep/golang-set v1.8.0
+	github.com/fergusstrange/embedded-postgres v1.17.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-logr/logr v1.2.3
 	github.com/jackc/pgx/v4 v4.16.1
@@ -90,6 +91,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
+	github.com/lib/pq v1.10.6
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
@@ -110,6 +112,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.4.5 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/yashtewari/glob-intersection v0.1.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
