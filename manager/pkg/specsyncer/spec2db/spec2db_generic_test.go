@@ -48,7 +48,7 @@ var _ = Describe("spec to database controller", Ordered, func() {
 		Expect(kubeClient).NotTo(BeNil())
 
 		By("Connect to the database")
-		postgresSQL, err = postgresql.NewPostgreSQL(testPostgre.URI)
+		postgresSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(postgresSQL).NotTo(BeNil())
 
@@ -78,7 +78,7 @@ var _ = Describe("spec to database controller", Ordered, func() {
 		`)
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Check the table is created")
+		By("Check whether the table is created")
 		Eventually(func() error {
 			rows, err := postgresSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
 			if err != nil {

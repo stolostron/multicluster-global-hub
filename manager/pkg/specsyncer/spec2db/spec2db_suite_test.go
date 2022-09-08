@@ -24,11 +24,11 @@ import (
 )
 
 var (
-	testenv     *envtest.Environment
-	cfg         *rest.Config
-	ctx         context.Context
-	cancel      context.CancelFunc
-	testPostgre *TestPostgre
+	testenv      *envtest.Environment
+	cfg          *rest.Config
+	ctx          context.Context
+	cancel       context.CancelFunc
+	testPostgres *TestPostgres
 )
 
 const (
@@ -52,7 +52,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	testPostgre, err = NewTestPostgre()
+	testPostgres, err = NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
 })
 
@@ -66,11 +66,11 @@ var _ = AfterSuite(func() {
 	}
 	err = testenv.Stop()
 	Expect(err).NotTo(HaveOccurred())
-	err = testPostgre.Stop()
+	err = testPostgres.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
 
-type TestPostgre struct {
+type TestPostgres struct {
 	command  *exec.Cmd
 	embedded *embeddedpostgres.EmbeddedPostgres
 	rootUser bool
@@ -78,13 +78,14 @@ type TestPostgre struct {
 	username string
 }
 
-func NewTestPostgre() (*TestPostgre, error) {
-	pg := &TestPostgre{}
+func NewTestPostgres() (*TestPostgres, error) {
+	pg := &TestPostgres{}
 	currentuser, err := user.Current()
 	if err != nil {
 		fmt.Printf("failed to get current user: %s", err.Error())
 		return nil, err
 	}
+	// if the current is root user, then it creates a noroot user and start a postgres process
 	if currentuser.Username == "root" {
 		pg.rootUser = true
 		pg.username = defaultUsername
@@ -105,7 +106,7 @@ func NewTestPostgre() (*TestPostgre, error) {
 	return pg, nil
 }
 
-func (pg *TestPostgre) Stop() error {
+func (pg *TestPostgres) Stop() error {
 	if pg.command != nil {
 		if err := pg.command.Process.Signal(syscall.SIGTERM); err != nil {
 			fmt.Printf("failed to terminate cmd processes: %s", err.Error())
@@ -159,7 +160,7 @@ func getPostgreCommand(username string) (*exec.Cmd, error) {
 		return nil, err
 	}
 	projectDir := strings.Replace(currentDir, "/manager/pkg/specsyncer/spec2db", "", 1)
-	file := "test/pkg/postgre/main.go"
+	file := "test/pkg/postgres/main.go"
 	goBytes, err := exec.Command("which", "go").Output()
 	if err != nil {
 		fmt.Printf("failed to get go binary dir: %s", err.Error())
