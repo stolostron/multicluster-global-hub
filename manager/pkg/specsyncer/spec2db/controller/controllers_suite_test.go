@@ -1,4 +1,4 @@
-package spec2db_test
+package controller_test
 
 import (
 	"bufio"
@@ -159,7 +159,7 @@ func getPostgreCommand(username string) (*exec.Cmd, error) {
 		fmt.Printf("failed to get current dir: %s", err.Error())
 		return nil, err
 	}
-	projectDir := strings.Replace(currentDir, "/manager/pkg/specsyncer/spec2db", "", 1)
+	projectDir := strings.Replace(currentDir, "/manager/pkg/specsyncer/spec2db/controller", "", 1)
 	file := "test/pkg/postgres/main.go"
 	goBytes, err := exec.Command("which", "go").Output()
 	if err != nil {

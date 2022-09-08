@@ -1,4 +1,4 @@
-package spec2db_test
+package controller_test
 
 import (
 	"fmt"
