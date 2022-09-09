@@ -24,6 +24,8 @@ const (
 
 	POLICY_LABEL_KEY   = "global-policy"
 	POLICY_LABEL_VALUE = "test"
+	POLICY_NAME        = "policy-limitrange"
+	POLICY_NAMESPACE   = "default"
 )
 
 var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
@@ -32,8 +34,6 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	var managedClusterName1 string
 	var managedClusterName2 string
 	var appClient client.Client
-	policyName := "policy-limitrange"
-	policyNamespace := "default"
 
 	BeforeAll(func() {
 		By("Get token for the non-k8s-api")
@@ -107,7 +107,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPolicyStatus(appClient, policyName, policyNamespace)
+			status, err := getPolicyStatus(appClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
@@ -132,7 +132,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPolicyStatus(appClient, policyName, policyNamespace)
+			status, err := getPolicyStatus(appClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
@@ -180,7 +180,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the policy is added")
 		Eventually(func() error {
-			status, err := getPolicyStatus(appClient, policyName, policyNamespace)
+			status, err := getPolicyStatus(appClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
@@ -214,14 +214,14 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the policy is removed from the managedclusterName1")
 		Eventually(func() error {
-			status, err := getPolicyStatus(appClient, policyName, policyNamespace)
+			status, err := getPolicyStatus(appClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
 			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusterName1 {
 					return fmt.Errorf("the cluster %s policy(%s)should be removed",
-						managedClusterName1, policyName)
+						managedClusterName1, POLICY_NAME)
 				}
 			}
 			return nil
