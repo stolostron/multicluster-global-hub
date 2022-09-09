@@ -10,22 +10,31 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	mghv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
 const (
-	TIMEOUT          = 1 * time.Minute
-	INTERVAL         = 2 * time.Second
+	TIMEOUT          = 2 * time.Minute
+	INTERVAL         = 5 * time.Second
 	REGINAL_HUB_NAME = "kind-hub1"
 )
 
@@ -57,6 +66,12 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		clusterv1beta1.AddToScheme(scheme)
 		policiesv1.AddToScheme(scheme)
 		clusterv1.AddToScheme(scheme)
+		corev1.AddToScheme(scheme)
+		applicationv1beta1.AddToScheme(scheme)
+		appsubv1.SchemeBuilder.AddToScheme(scheme)
+		chnv1.AddToScheme(scheme)
+		placementrulesv1.AddToScheme(scheme)
+		mghv1alpha2.AddToScheme(scheme)
 		runtimeClient, err = clients.ControllerRuntimeClient(scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -147,12 +162,30 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 	It("delete multiclusterglobalhub", func() {
 		By("Check whether multiclusterglobalhub is exists")
+		mgh := &mghv1alpha2.MulticlusterGlobalHub{}
+		err := runtimeClient.Get(ctx, types.NamespacedName{
+			Namespace: "open-cluster-management",
+			Name:      "multiclusterglobalhub",
+		}, mgh)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Delete multiclusterglobalhub")
+		err = runtimeClient.Delete(ctx, mgh, &client.DeleteOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Check whether multiclusterglobalhub is deleted")
 		Eventually(func() error {
-			return nil
+			err = runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: "open-cluster-management",
+				Name:      "multiclusterglobalhub",
+			}, mgh)
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			if err == nil {
+				return fmt.Errorf("multiclusterglobalhub should be deleted")
+			}
+			return err
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
@@ -169,9 +202,8 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			if err := runtimeClient.List(ctx, clusterRoleList, listOpts...); err != nil {
 				return err
 			}
-			for idx := range clusterRoleList.Items {
-				name := clusterRoleList.Items[idx].GetName()
-				fmt.Printf("clusterrole: %s \n", name)
+			if len(clusterRoleList.Items) > 0 {
+				return fmt.Errorf("clusterroles has not been deleted")
 			}
 			return nil
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
@@ -182,9 +214,8 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			if err := runtimeClient.List(ctx, clusterRoleBindingList, listOpts...); err != nil {
 				return err
 			}
-			for idx := range clusterRoleBindingList.Items {
-				name := clusterRoleBindingList.Items[idx].GetName()
-				fmt.Printf("clusterrolebinding: %s \n", name)
+			if len(clusterRoleBindingList.Items) > 0 {
+				return fmt.Errorf("clusterrolebindings has not been deleted")
 			}
 			return nil
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
@@ -196,11 +227,9 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 				return err
 			}
 			for idx := range placements.Items {
-				namespace := placements.Items[idx].GetNamespace()
-				name := placements.Items[idx].GetName()
-				finalizers := placements.Items[idx].GetFinalizers()
-				fmt.Printf("placement: %s - %s: %v \n", namespace, name, finalizers)
-				// commonconstants.GlobalHubCleanupFinalizer
+				if controllerutil.ContainsFinalizer(&placements.Items[idx], commonconstants.GlobalHubCleanupFinalizer) {
+					return fmt.Errorf("finalizer hasn't be deleted from obj: %s", placements.Items[idx].GetName())
+				}
 			}
 			return nil
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
@@ -212,10 +241,9 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 				return err
 			}
 			for idx := range managedclustersets.Items {
-				namespace := managedclustersets.Items[idx].GetNamespace()
-				name := managedclustersets.Items[idx].GetName()
-				finalizers := managedclustersets.Items[idx].GetFinalizers()
-				fmt.Printf("managedclusterset: %s - %s: %v \n", namespace, name, finalizers)
+				if controllerutil.ContainsFinalizer(&managedclustersets.Items[idx], commonconstants.GlobalHubCleanupFinalizer) {
+					return fmt.Errorf("finalizer hasn't be deleted from obj: %s", managedclustersets.Items[idx].GetName())
+				}
 			}
 			return nil
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
@@ -228,83 +256,241 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 				return err
 			}
 			for idx := range managedclustersetbindings.Items {
-				namespace := managedclustersetbindings.Items[idx].GetNamespace()
-				name := managedclustersetbindings.Items[idx].GetName()
-				finalizers := managedclustersetbindings.Items[idx].GetFinalizers()
-				fmt.Printf("managedclustersetbindings: %s - %s: %v \n", namespace, name, finalizers)
+				if controllerutil.ContainsFinalizer(&managedclustersetbindings.Items[idx],
+					commonconstants.GlobalHubCleanupFinalizer) {
+					return fmt.Errorf("finalizer hasn't be deleted from obj: %s", managedclustersetbindings.Items[idx].GetName())
+				}
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+	})
+
+	It("prune the namespaced resources", func() {
+		By("Delete the mgh configmap")
+		Eventually(func() error {
+			existingMghConfigMap := &corev1.ConfigMap{}
+			err := runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: constants.HOHSystemNamespace,
+				Name:      constants.HOHConfigName,
+			}, existingMghConfigMap)
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("configmap should be deleted: %s - %s", constants.HOHSystemNamespace, constants.HOHConfigName)
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+
+		By("Delete the mgh configmap namespace")
+		Eventually(func() error {
+			err := runtimeClient.Get(ctx, types.NamespacedName{
+				Name: constants.HOHSystemNamespace,
+			}, &corev1.Namespace{})
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("namespace should be deleted: %s", constants.HOHSystemNamespace)
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+	})
+
+	It("prune application", func() {
+		By("Delete the application finalizer")
+		Eventually(func() error {
+			applications := &applicationv1beta1.ApplicationList{}
+			if err := runtimeClient.List(ctx, applications, &client.ListOptions{}); err != nil {
+				return err
+			}
+			for idx := range applications.Items {
+				if controllerutil.ContainsFinalizer(&applications.Items[idx], commonconstants.GlobalHubCleanupFinalizer) {
+					return fmt.Errorf("finalizer hasn't be deleted from app: %s", applications.Items[idx].GetName())
+				}
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+
+		By("Delete the appsub finalizer")
+		Eventually(func() error {
+			appsubs := &appsubv1.SubscriptionList{}
+			if err := runtimeClient.List(ctx, appsubs, &client.ListOptions{}); err != nil {
+				return err
+			}
+			for idx := range appsubs.Items {
+				if controllerutil.ContainsFinalizer(&appsubs.Items[idx], commonconstants.GlobalHubCleanupFinalizer) {
+					return fmt.Errorf("finalizer hasn't be deleted from appsub: %s", appsubs.Items[idx].GetName())
+				}
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+
+		By("Delete the channel finalizer")
+		Eventually(func() error {
+			channels := &chnv1.ChannelList{}
+			if err := runtimeClient.List(ctx, channels, &client.ListOptions{}); err != nil {
+				return err
+			}
+			for idx := range channels.Items {
+				if controllerutil.ContainsFinalizer(&channels.Items[idx], commonconstants.GlobalHubCleanupFinalizer) {
+					return fmt.Errorf("finalizer hasn't be deleted from channels obj: %s", channels.Items[idx].GetName())
+				}
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+
+		By("Delete the palcementrules(policy and app) finalizer")
+		Eventually(func() error {
+			palcementrules := &placementrulesv1.PlacementRuleList{}
+			if err := runtimeClient.List(ctx, palcementrules, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+				return err
+			}
+			for idx := range palcementrules.Items {
+				if controllerutil.ContainsFinalizer(&palcementrules.Items[idx], commonconstants.GlobalHubCleanupFinalizer) {
+					return fmt.Errorf("finalizer hasn't be deleted from palcementrules obj: %s",
+						palcementrules.Items[idx].GetName())
+				}
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+	})
+
+	It("prune policy", func() {
+		By("Delete the policies finalizer")
+		Eventually(func() error {
+			policies := &policiesv1.PolicyList{}
+			if err := runtimeClient.List(ctx, policies, &client.ListOptions{}); err != nil {
+				return err
+			}
+			for idx := range policies.Items {
+				if controllerutil.ContainsFinalizer(&policies.Items[idx], commonconstants.GlobalHubCleanupFinalizer) {
+					return fmt.Errorf("finalizer hasn't be deleted from policies obj: %s", policies.Items[idx].GetName())
+				}
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+
+		By("Delete the placementbindings finalizer")
+		Eventually(func() error {
+			placementbindings := &policiesv1.PlacementBindingList{}
+			if err := runtimeClient.List(ctx, placementbindings, &client.ListOptions{}); err != nil {
+				return err
+			}
+			for idx := range placementbindings.Items {
+				if controllerutil.ContainsFinalizer(&placementbindings.Items[idx], commonconstants.GlobalHubCleanupFinalizer) {
+					return fmt.Errorf("finalizer hasn't be deleted from placementbindings obj: %s",
+						placementbindings.Items[idx].GetName())
+				}
 			}
 			return nil
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
 	AfterAll(func() {
-		// By("Remove from clusters")
-		// patches := []patch{
-		// 	{
-		// 		Op:    "remove",
-		// 		Path:  "/metadata/labels/" + APP_LABEL_KEY,
-		// 		Value: APP_LABEL_VALUE,
-		// 	},
-		// }
-		// Eventually(func() error {
-		// 	err := updateClusterLabel(httpClient, patches, token, managedClusterName1)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	return nil
-		// }, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
-		// Eventually(func() error {
-		// 	err := updateClusterLabel(httpClient, patches, token, managedClusterName2)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	return nil
-		// }, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
-		// By("Remove the appsub resource")
-		// Eventually(func() error {
-		// 	_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", APP_SUB_YAML)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	return nil
-		// }, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
-		// By("Delete policy")
-		// patches := []patch{
-		// 	{
-		// 		Op:    "remove",
-		// 		Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
-		// 		Value: POLICY_LABEL_VALUE,
-		// 	},
-		// }
-		// Eventually(func() error {
-		// 	err := updateClusterLabel(httpClient, patches, token, managedClusterName2)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	return nil
-		// }, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
-		// By("Delete the inforce policy")
-		// _, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", INFORM_POLICY_YAML)
-		// Expect(err).ShouldNot(HaveOccurred())
-
-		// >>>> policy
-		// check ReginalHub: Policy, PlacementRule(default: placement-policy-limitrange), PlacementBinding
-		// check Managedcluster: Policy
-		policyInfoBytes, err := clients.Kubectl(REGINAL_HUB_NAME, "get", "policy", "-n open-cluster-management")
-		if err != nil {
-			fmt.Printf("get reginal policy err %s", err.Error())
+		By("Remove app label from cluster1")
+		patches := []patch{
+			{
+				Op:    "remove",
+				Path:  "/metadata/labels/" + APP_LABEL_KEY,
+				Value: APP_LABEL_VALUE,
+			},
 		}
-		fmt.Printf("get reginal policy: %s", string(policyInfoBytes))
-		if strings.Contains(string(policyInfoBytes), "No resources found") {
-			fmt.Println("not find resources")
-		}
+		Eventually(func() error {
+			err := updateClusterLabel(httpClient, patches, token, managedClusterName1)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 
-		// >>>> application
+		By("Remove policy label from cluster2")
+		patches = []patch{
+			{
+				Op:    "remove",
+				Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
+				Value: POLICY_LABEL_VALUE,
+			},
+		}
+		Eventually(func() error {
+			err := updateClusterLabel(httpClient, patches, token, managedClusterName2)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+
+		By("Remove the appsub resource")
+		Eventually(func() error {
+			_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", APP_SUB_YAML)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 		// check ReginalHub: application/ appsub/ channel/ placementrule(helloworld: helloworld-placement)
 		// check managedcluster: appsub
+		By("Check application is deleted from managedcluster1 and reginalcluster")
+		Eventually(func() error {
+			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "application"); err != nil {
+				return err
+			}
+			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "appsub"); err != nil {
+				return err
+			}
+			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "channel"); err != nil {
+				return err
+			}
+			if err := checkDeletedResource(clients, managedClusterName1, "appsub"); err != nil {
+				return err
+			}
+			if err := checkDeletedResource(clients, managedClusterName1, "appsubstatus"); err != nil {
+				return err
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+
+		By("Delete policy")
+		Eventually(func() error {
+			_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", INFORM_POLICY_YAML)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+
+		// check ReginalHub: Policy, PlacementRule(default: placement-policy-limitrange), PlacementBinding
+		// check Managedcluster: Policy
+		By("Check policy is deleted from managedcluster2 and reginalcluster")
+		Eventually(func() error {
+			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "policy"); err != nil {
+				return err
+			}
+			// include app placementrule
+			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "placementrule"); err != nil {
+				return err
+			}
+			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "placementbinding"); err != nil {
+				return err
+			}
+			if err := checkDeletedResource(clients, managedClusterName2, "policy"); err != nil {
+				return err
+			}
+			return nil
+		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 })
+
+func checkDeletedResource(clients utils.Client, clustername string, resouce string) error {
+	resourceBytes, err := clients.Kubectl(clustername, "get", resouce, "-A")
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if strings.Contains(string(resourceBytes), "No resources found") {
+		return nil
+	}
+	return fmt.Errorf("resource(%s) has not beend deleted from clustername(%s)", resouce, clustername)
+}
