@@ -57,10 +57,11 @@ type Image struct {
 }
 
 type Tolerations []struct {
-	Key      string `json:"key,omitempty"`
-	Operator string `json:"operator,omitempty"`
-	Value    string `json:"value,omitempty"`
-	Effect   string `json:"effect,omitempty"`
+	Key               string `json:"key,omitempty"`
+	Operator          string `json:"operator,omitempty"`
+	Value             string `json:"value,omitempty"`
+	Effect            string `json:"effect,omitempty"`
+	TolerationSeconds int    `json:"tolerationSeconds,omitempty"`
 }
 
 type Ingress struct {
@@ -273,7 +274,7 @@ var _ = Describe("Render", func() {
 			Expect(err).To(BeNil())
 
 			tempFile, err := ioutil.TempFile("", fmt.Sprintf("%s-%s-", profile, filter))
-			// defer os.Remove(tempFile.Name())
+			defer os.Remove(tempFile.Name())
 
 			for _, unsObj := range nginxObjects {
 				unsObjYaml, err := yaml.Marshal(unsObj)
