@@ -41,7 +41,10 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - kind: MulticlusterGlobalHub
+    - description: MulticlusterGlobalHub is the Schema for the multiclusterglobalhubs
+        API
+      displayName: Multicluster Global Hub
+      kind: MulticlusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha2
   description: "Multicluster Global Hub Operator defines the configuration for multicluster

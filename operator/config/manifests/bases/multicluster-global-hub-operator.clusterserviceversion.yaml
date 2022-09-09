@@ -24,7 +24,7 @@ spec:
       displayName: Multicluster Global Hub
       kind: MulticlusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
-      version: v1alpha1
+      version: v1alpha2
   description: "Multicluster Global Hub Operator defines the configuration for multicluster
     global hub installation and upgrade with one custom resource.\n\n## Prerequisites\n\n-
     Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.5 or later needs

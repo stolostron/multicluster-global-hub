@@ -15,6 +15,6 @@ resources:
   domain: open-cluster-management.io
   group: operator
   kind: MulticlusterGlobalHub
-  path: github.com/stolostron/multicluster-global-hub-operator/apis/operator/v1alpha1
-  version: v1alpha1
+  path: github.com/stolostron/multicluster-global-hub-operator/apis/operator/v1alpha2
+  version: v1alpha2
 version: "3"
