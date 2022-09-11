@@ -199,7 +199,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.Context, log logr.Logger) error {
 	log.Info("clean up the applicaton fnalizer")
 	applications := &applicationv1beta1.ApplicationList{}
-	if err := r.Client.List(ctx, applications, &client.ListOptions{}); err != nil && !errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, applications, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range applications.Items {
