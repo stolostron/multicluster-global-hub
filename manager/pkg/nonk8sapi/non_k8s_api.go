@@ -43,46 +43,34 @@ type nonK8sApiServer struct {
 	svr             *http.Server
 }
 
-func readCertificates(nonK8sAPIServerConfig *NonK8sAPIServerConfig) ([]byte, []byte, tls.Certificate, error) {
+func readCertificates(nonK8sAPIServerConfig *NonK8sAPIServerConfig) ([]byte, tls.Certificate, error) {
 	var (
-		clusterAPICABundle    []byte
-		authorizationCABundle []byte
-		certificate           tls.Certificate
+		clusterAPICABundle []byte
+		certificate        tls.Certificate
 	)
 
 	if nonK8sAPIServerConfig.ClusterAPICABundlePath != "" {
 		clusterAPICABundle, err := ioutil.ReadFile(nonK8sAPIServerConfig.ClusterAPICABundlePath)
 		if err != nil {
-			return clusterAPICABundle, authorizationCABundle, certificate,
+			return clusterAPICABundle, certificate,
 				fmt.Errorf("%w: %s", errFailedToLoadCertificate,
 					nonK8sAPIServerConfig.ClusterAPICABundlePath)
 		}
 	}
 
-	if nonK8sAPIServerConfig.AuthorizationCABundlePath != "" {
-		authorizationCABundle, err := ioutil.ReadFile(
-			nonK8sAPIServerConfig.AuthorizationCABundlePath)
-		if err != nil {
-			return clusterAPICABundle, authorizationCABundle, certificate,
-				fmt.Errorf("%w: %s", errFailedToLoadCertificate,
-					nonK8sAPIServerConfig.AuthorizationCABundlePath)
-		}
-	}
-
 	certificate, err := tls.LoadX509KeyPair(nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
 	if err != nil {
-		return clusterAPICABundle, authorizationCABundle, certificate,
-			fmt.Errorf("%w: %s/%s", errFailedToLoadCertificate,
-				nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
+		return clusterAPICABundle, certificate, fmt.Errorf("%w: %s/%s", errFailedToLoadCertificate,
+			nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
 	}
 
-	return clusterAPICABundle, authorizationCABundle, certificate, nil
+	return clusterAPICABundle, certificate, nil
 }
 
 // AddNonK8sApiServer adds the non-k8s-api-server to the Manager.
 func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) error {
 	// read the certificate of non-k8s-api server
-	clusterAPICABundle, authorizationCABundle, _, err := readCertificates(nonK8sAPIServerConfig)
+	clusterAPICABundle, _, err := readCertificates(nonK8sAPIServerConfig)
 	if err != nil {
 		return fmt.Errorf("failed to read certificates: %w", err)
 	}
@@ -91,10 +79,8 @@ func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig 
 	router.Use(authentication.Authentication(nonK8sAPIServerConfig.ClusterAPIURL, clusterAPICABundle))
 
 	routerGroup := router.Group(nonK8sAPIServerConfig.ServerBasePath)
-	routerGroup.GET("/managedclusters", managedclusters.List(
-		nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
-	routerGroup.PATCH("/managedclusters/:cluster",
-		managedclusters.Patch(nonK8sAPIServerConfig.AuthorizationURL, authorizationCABundle, database.GetConn()))
+	routerGroup.GET("/managedclusters", managedclusters.List(database.GetConn()))
+	routerGroup.PATCH("/managedclusters/:cluster", managedclusters.Patch(database.GetConn()))
 
 	err = mgr.Add(&nonK8sApiServer{
 		log: ctrl.Log.WithName("non-k8s-api-server"),

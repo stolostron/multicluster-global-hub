@@ -29,7 +29,6 @@ spec:
             - --kafka-ssl-ca={{.KafkaCA}}
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)
-            - --authorization-cabundle-path=/multicluster-global-hub-rbac-ca/service-ca.crt
             - --cluster-api-cabundle-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
             - --server-certificate-path=/certs/tls.crt
             - --server-key-path=/certs/tls.key
@@ -47,15 +46,9 @@ spec:
                   key: database_uri
           volumeMounts:
             - readOnly: true
-              mountPath: /multicluster-global-hub-rbac-ca
-              name: multicluster-global-hub-rbac-ca
-            - readOnly: true
               mountPath: /certs
               name: certs
       volumes:
-        - name: multicluster-global-hub-rbac-ca
-          configMap:
-            name: multicluster-global-hub-rbac-ca-bundle
         - name: certs
           secret:
             secretName: multicluster-global-hub-manager-certs

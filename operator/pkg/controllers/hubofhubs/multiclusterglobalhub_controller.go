@@ -195,24 +195,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	hohRBACObjects, err := hohRenderer.Render("manifests/rbac", "", func(profile string) (interface{}, error) {
-		return struct {
-			Image     string
-			Namespace string
-		}{
-			Image:     config.GetImage("multicluster_global_hub_rbac"),
-			Namespace: config.GetDefaultNamespace(),
-		}, nil
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err = r.manipulateObj(ctx, hohDeployer, mapper, hohRBACObjects, mgh,
-		condition.SetConditionRBACDeployed, log); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// retrieve bootstrapserver and CA of kafka from secret
 	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, r.KubeClient, mgh)
 	if err != nil {
@@ -466,32 +448,15 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		},
 	}
 
-	opaDataPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return false
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetName() == "opa-data" {
-				return false
-			}
-			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() // only requeue when spec change
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return true
-		},
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha2.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
-		// watch owned secret, opa-data secret is an exception.
-		Owns(&corev1.Secret{}, builder.WithPredicates(opaDataPred)).
+		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).
 		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
 		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
 		Owns(&networkingv1.Ingress{}, builder.WithPredicates(ownPred)).
-		Owns(&networkingv1.NetworkPolicy{}, builder.WithPredicates(ownPred)).
 		// secondary watch for configmap
 		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
