@@ -36,6 +36,25 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
 		commonconstants.GlobalHubCleanupFinalizer) {
 
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+		if err := r.Client.Update(context.TODO(), mgh); err != nil {
+			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
+			return true, err
+		}
+		log.Info("finalizer is removed from multiclusterglobalhub resource")
+
+		// clean up namesapced resources, eg. mgh system namespace, etc
+		if err := r.pruneNamespacedResources(ctx, log); err != nil {
+			log.Error(err, "failed to remove namespaced resources")
+			return true, err
+		}
+
+		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
+		if err := r.pruneGlobalResources(ctx, log); err != nil {
+			log.Error(err, "failed to remove global resources")
+			return true, err
+		}
+
 		// clean up the application finalizer
 		if err := r.pruneApplicationFinalizer(ctx, log); err != nil {
 			log.Error(err, "failed to remove application finalizer")
@@ -47,26 +66,6 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 			log.Error(err, "failed to remove policy finalizer")
 			return true, err
 		}
-
-		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
-		if err := r.pruneGlobalResources(ctx, log); err != nil {
-			log.Error(err, "failed to remove global resources")
-			return true, err
-		}
-
-		// clean up namesapced resources, eg. mgh system namespace, etc
-		if err := r.pruneNamespacedResources(ctx, log); err != nil {
-			log.Error(err, "failed to remove namespaced resources")
-			return true, err
-		}
-
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(),
-			commonconstants.GlobalHubCleanupFinalizer))
-		if err := r.Client.Update(context.TODO(), mgh); err != nil {
-			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
-			return true, err
-		}
-		log.Info("finalizer is removed from multiclusterglobalhub resource")
 		return true, nil
 	}
 
@@ -94,7 +93,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 
 	log.Info("clean up the ClusterRole")
 	clusterRoleList := &rbacv1.ClusterRoleList{}
-	if err := r.Client.List(ctx, clusterRoleList, listOpts...); err != nil && !errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, clusterRoleList, listOpts...); err != nil {
 		return err
 	}
 	for idx := range clusterRoleList.Items {
@@ -105,7 +104,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 
 	log.Info("clean up the ClusterRoleBinding")
 	clusterRoleBindingList := &rbacv1.ClusterRoleBindingList{}
-	if err := r.Client.List(ctx, clusterRoleBindingList, listOpts...); err != nil && !errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, clusterRoleBindingList, listOpts...); err != nil {
 		return err
 	}
 	for idx := range clusterRoleBindingList.Items {
@@ -116,7 +115,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 
 	log.Info("clean up the palcement finalizer")
 	placements := &clusterv1beta1.PlacementList{}
-	if err := r.Client.List(ctx, placements, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, placements, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range placements.Items {
@@ -128,7 +127,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 
 	log.Info("clean up the managedclusterset finalizer")
 	managedclustersets := &clusterv1beta1.ManagedClusterSetList{}
-	if err := r.Client.List(ctx, managedclustersets, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, managedclustersets, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range managedclustersets.Items {
@@ -140,7 +139,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 
 	log.Info("clean up the managedclustersetbinding finalizer")
 	managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
-	if err := r.Client.List(ctx, managedclustersetbindings, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range managedclustersetbindings.Items {
@@ -199,7 +198,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.Context, log logr.Logger) error {
 	log.Info("clean up the applicaton fnalizer")
 	applications := &applicationv1beta1.ApplicationList{}
-	if err := r.Client.List(ctx, applications, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, applications, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range applications.Items {
@@ -211,7 +210,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 
 	log.Info("clean up the application subscription finalizer")
 	appsubs := &appsubv1.SubscriptionList{}
-	if err := r.Client.List(ctx, appsubs, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, appsubs, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range appsubs.Items {
@@ -223,7 +222,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 
 	log.Info("clean up the applicatoin channel finalizer")
 	channels := &chnv1.ChannelList{}
-	if err := r.Client.List(ctx, channels, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, channels, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range channels.Items {
@@ -235,7 +234,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 
 	log.Info("clean up the application placementrule finalizer")
 	palcementrules := &placementrulesv1.PlacementRuleList{}
-	if err := r.Client.List(ctx, palcementrules, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, palcementrules, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range palcementrules.Items {
@@ -252,7 +251,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneApplicationFinalizer(ctx context.
 func (r *MulticlusterGlobalHubReconciler) prunePolicyFinalizer(ctx context.Context, log logr.Logger) error {
 	log.Info("clean up the placementbindings finalizer")
 	placementbindings := &policyv1.PlacementBindingList{}
-	if err := r.Client.List(ctx, placementbindings, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, placementbindings, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range placementbindings.Items {
@@ -264,7 +263,7 @@ func (r *MulticlusterGlobalHubReconciler) prunePolicyFinalizer(ctx context.Conte
 
 	log.Info("clean up the policies finalizer")
 	policies := &policyv1.PolicyList{}
-	if err := r.Client.List(ctx, policies, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+	if err := r.Client.List(ctx, policies, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range policies.Items {

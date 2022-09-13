@@ -27,11 +27,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -41,6 +47,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
@@ -48,7 +55,7 @@ import (
 //go:embed manifests
 var testFS embed.FS
 
-var _ = Describe("MulticlusterGlobalHub controller", func() {
+var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
 		MGHName              = "test-mgh"
@@ -62,8 +69,10 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 		interval = time.Millisecond * 250
 	)
 
+	var mgh *operatorv1alpha2.MulticlusterGlobalHub
+
 	Context("When create MGH Instance", func() {
-		It("Should create Multicluster Global Hub resources when MGH instance is created", func() {
+		It("Should create Multicluster Global Hub resources", func() {
 			ctx := context.Background()
 
 			By("By creating a fake storage secret secret")
@@ -94,7 +103,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
 
 			By("By creating a new MGH instance")
-			mgh := &operatorv1alpha2.MulticlusterGlobalHub{
+			mgh = &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
@@ -282,7 +291,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			By("By deleting the owned objects by the MGH instance and checking it can be recreated")
-			for _, obj := range append(managerObjects) {
+			for _, obj := range managerObjects {
 				obj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 				Expect(k8sClient.Delete(ctx, obj)).Should(Succeed())
 				Eventually(func() bool {
@@ -292,10 +301,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 						Namespace: obj.GetNamespace(),
 						Name:      obj.GetName(),
 					}, unsObj)
-					if err != nil {
-						return false
-					}
-					return true
+					return err == nil
 				}, timeout, interval).Should(BeTrue())
 			}
 
@@ -321,20 +327,209 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 
 			By("By checking the test condition")
 			Expect(createdMGH.GetConditions()).To(ContainElement(testCondition))
+		})
+	})
 
-			// delete the testing MGH instance
+	Context("When delete the MGH Instance", func() {
+		It("add finalizer to resouces", func() {
+			By("By creating a finalizer placement")
+			testPlacement := &clusterv1beta1.Placement{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-placement-1",
+					Namespace:  config.GetDefaultNamespace(),
+					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				},
+				Spec: clusterv1beta1.PlacementSpec{},
+			}
+			Expect(k8sClient.Create(ctx, testPlacement, &client.CreateOptions{})).Should(Succeed())
+
+			By("By creating a finalizer application")
+			testApplication := &applicationv1beta1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-application-1",
+					Namespace:  config.GetDefaultNamespace(),
+					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				},
+				Spec: applicationv1beta1.ApplicationSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app": "nginx-app-details"},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, testApplication, &client.CreateOptions{})).Should(Succeed())
+
+			By("By creating a finalizer policy")
+			testPolicy := &policyv1.Policy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-policy-1",
+					Namespace:  config.GetDefaultNamespace(),
+					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				},
+				Spec: policyv1.PolicySpec{
+					Disabled:        true,
+					PolicyTemplates: []*policyv1.PolicyTemplate{},
+				},
+			}
+			Expect(k8sClient.Create(ctx, testPolicy, &client.CreateOptions{})).Should(Succeed())
+
+			By("By creating a finalizer palcementrule")
+			testPlacementrule := &placementrulesv1.PlacementRule{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-placementrule-1",
+					Namespace:  config.GetDefaultNamespace(),
+					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				},
+				Spec: placementrulesv1.PlacementRuleSpec{
+					SchedulerName: "test-schedulerName",
+				},
+			}
+			Expect(k8sClient.Create(ctx, testPlacementrule, &client.CreateOptions{})).Should(Succeed())
+
+			By("By creating a finalizer managedclustersetbinding")
+			testManagedClusterSetBinding := &clusterv1beta1.ManagedClusterSetBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-managedclustersetbinding-1",
+					Namespace:  config.GetDefaultNamespace(),
+					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				},
+				Spec: clusterv1beta1.ManagedClusterSetBindingSpec{
+					ClusterSet: "test-clusterset",
+				},
+			}
+			Expect(k8sClient.Create(ctx, testManagedClusterSetBinding, &client.CreateOptions{})).Should(Succeed())
+
+			By("By creating a finalizer channel")
+			testChannel := &chnv1.Channel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-channel-1",
+					Namespace:  config.GetDefaultNamespace(),
+					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				},
+				Spec: chnv1.ChannelSpec{
+					Type:               chnv1.ChannelTypeGit,
+					Pathname:           config.GetDefaultNamespace(),
+					InsecureSkipVerify: true,
+				},
+			}
+			Expect(k8sClient.Create(ctx, testChannel, &client.CreateOptions{})).Should(Succeed())
+		})
+
+		It("delete the MGH Instance", func() {
 			By("By deleting the testing MGH instance")
 			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
 
-			// check the multicluster-global-hub-config configmap is deleted
 			By("By checking the multicluster-global-hub-config configmap is deleted")
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: constants.HOHSystemNamespace,
 					Name:      constants.HOHConfigName,
-				}, hohConfig)
+				}, &corev1.ConfigMap{})
 				return errors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
+
+			By("By checking the clusterrole is deleted")
+			Eventually(func() error {
+				listOpts := []client.ListOption{
+					client.MatchingLabels(map[string]string{
+						commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+					}),
+				}
+				clusterRoleList := &rbacv1.ClusterRoleList{}
+				if err := k8sClient.List(ctx, clusterRoleList, listOpts...); err != nil {
+					return err
+				}
+				if len(clusterRoleList.Items) > 0 {
+					return fmt.Errorf("the clusterrole has not been removed")
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("By checking the palcement finalizer is deleted")
+			Eventually(func() error {
+				placements := &clusterv1beta1.PlacementList{}
+				if err := k8sClient.List(ctx, placements, &client.ListOptions{}); err != nil {
+					return err
+				}
+				for idx := range placements.Items {
+					if utils.Contains(placements.Items[idx].GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
+						return fmt.Errorf("the placements finalizer has not been removed")
+					}
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("By checking the application finalizer is deleted")
+			Eventually(func() error {
+				applications := &applicationv1beta1.ApplicationList{}
+				if err := k8sClient.List(ctx, applications, &client.ListOptions{}); err != nil {
+					return err
+				}
+				for idx := range applications.Items {
+					if utils.Contains(applications.Items[idx].GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
+						return fmt.Errorf("the applications finalizer has not been removed")
+					}
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("By checking the placementrule finalizer is deleted")
+			Eventually(func() error {
+				placementrules := &placementrulesv1.PlacementRuleList{}
+				if err := k8sClient.List(ctx, placementrules, &client.ListOptions{}); err != nil {
+					return err
+				}
+				for idx := range placementrules.Items {
+					if utils.Contains(placementrules.Items[idx].GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
+						return fmt.Errorf("the placementrules finalizer has not been removed")
+					}
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("By checking the managedclustersetbinding finalizer is deleted")
+			Eventually(func() error {
+				managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
+				if err := k8sClient.List(ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
+					return err
+				}
+				for idx := range managedclustersetbindings.Items {
+					if utils.Contains(managedclustersetbindings.Items[idx].GetFinalizers(),
+						commonconstants.GlobalHubCleanupFinalizer) {
+						return fmt.Errorf("the managedclustersetbindings finalizer has not been removed")
+					}
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("By checking the channel finalizer is deleted")
+			Eventually(func() error {
+				channels := &chnv1.ChannelList{}
+				if err := k8sClient.List(ctx, channels, &client.ListOptions{}); err != nil {
+					return err
+				}
+				for idx := range channels.Items {
+					if utils.Contains(channels.Items[idx].GetFinalizers(),
+						commonconstants.GlobalHubCleanupFinalizer) {
+						return fmt.Errorf("the channels finalizer has not been removed")
+					}
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("By checking the policy finalizer is deleted")
+			Eventually(func() error {
+				policies := &policyv1.PolicyList{}
+				if err := k8sClient.List(ctx, policies, &client.ListOptions{}); err != nil {
+					return err
+				}
+				for idx := range policies.Items {
+					if utils.Contains(policies.Items[idx].GetFinalizers(),
+						commonconstants.GlobalHubCleanupFinalizer) {
+						return fmt.Errorf("the policies finalizer has not been removed")
+					}
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			// check the owned objects are deleted
 			// comment the following test cases becase there is no gc controller in envtest
