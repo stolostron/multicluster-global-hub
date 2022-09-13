@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -282,7 +281,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			By("By deleting the owned objects by the MGH instance and checking it can be recreated")
-			for _, obj := range append(managerObjects) {
+			for _, obj := range managerObjects {
 				obj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 				Expect(k8sClient.Delete(ctx, obj)).Should(Succeed())
 				Eventually(func() bool {
@@ -292,10 +291,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 						Namespace: obj.GetNamespace(),
 						Name:      obj.GetName(),
 					}, unsObj)
-					if err != nil {
-						return false
-					}
-					return true
+					return err == nil
 				}, timeout, interval).Should(BeTrue())
 			}
 
@@ -321,20 +317,6 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 
 			By("By checking the test condition")
 			Expect(createdMGH.GetConditions()).To(ContainElement(testCondition))
-
-			// delete the testing MGH instance
-			By("By deleting the testing MGH instance")
-			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
-
-			// check the multicluster-global-hub-config configmap is deleted
-			By("By checking the multicluster-global-hub-config configmap is deleted")
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: constants.HOHSystemNamespace,
-					Name:      constants.HOHConfigName,
-				}, hohConfig)
-				return errors.IsNotFound(err)
-			}, timeout, interval).Should(BeTrue())
 
 			// check the owned objects are deleted
 			// comment the following test cases becase there is no gc controller in envtest
