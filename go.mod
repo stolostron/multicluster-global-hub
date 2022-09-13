@@ -40,14 +40,8 @@ require (
 )
 
 require (
-	github.com/aws/aws-sdk-go v1.43.16 // indirect
-	github.com/containerd/containerd v1.6.6 // indirect
-	github.com/docker/cli v20.10.17+incompatible // indirect
-	github.com/docker/docker v20.10.17+incompatible // indirect
-	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799 // indirect
-	github.com/stretchr/testify v1.8.0 // indirect
+	github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 // indirect
 )
 
 require (
@@ -115,7 +109,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152
 	github.com/openshift/hypershift v0.0.0-20220719064944-685115caee6b // indirect
 	github.com/operator-framework/operator-registry v1.17.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

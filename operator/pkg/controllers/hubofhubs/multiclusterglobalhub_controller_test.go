@@ -26,7 +26,6 @@ import (
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/open-horizon/edge-utilities/logger/log"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -56,7 +55,7 @@ import (
 //go:embed manifests
 var testFS embed.FS
 
-var _ = Describe("MulticlusterGlobalHub controller", func() {
+var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
 		MGHName              = "test-mgh"
@@ -70,8 +69,10 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 		interval = time.Millisecond * 250
 	)
 
+	var mgh *operatorv1alpha2.MulticlusterGlobalHub
+
 	Context("When create MGH Instance", func() {
-		It("Should create Multicluster Global Hub resources when MGH instance is created", func() {
+		It("Should create Multicluster Global Hub resources", func() {
 			ctx := context.Background()
 
 			By("By creating a fake storage secret secret")
@@ -102,7 +103,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
 
 			By("By creating a new MGH instance")
-			mgh := &operatorv1alpha2.MulticlusterGlobalHub{
+			mgh = &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
@@ -326,7 +327,11 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 
 			By("By checking the test condition")
 			Expect(createdMGH.GetConditions()).To(ContainElement(testCondition))
+		})
+	})
 
+	Context("When delete the MGH Instance", func() {
+		It("add finalizer to resouces", func() {
 			By("By creating a finalizer placement")
 			testPlacement := &clusterv1beta1.Placement{
 				ObjectMeta: metav1.ObjectMeta{
@@ -407,24 +412,23 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, testChannel, &client.CreateOptions{})).Should(Succeed())
+		})
 
-			// delete the testing MGH instance
+		It("delete the MGH Instance", func() {
 			By("By deleting the testing MGH instance")
 			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
 
-			// check the multicluster-global-hub-config configmap is deleted
 			By("By checking the multicluster-global-hub-config configmap is deleted")
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: constants.HOHSystemNamespace,
 					Name:      constants.HOHConfigName,
-				}, hohConfig)
+				}, &corev1.ConfigMap{})
 				return errors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 
 			By("By checking the clusterrole is deleted")
 			Eventually(func() error {
-				log.Info("clean up multicluster-global-hub global resources")
 				listOpts := []client.ListOption{
 					client.MatchingLabels(map[string]string{
 						commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
