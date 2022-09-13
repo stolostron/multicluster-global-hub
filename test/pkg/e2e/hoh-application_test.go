@@ -226,7 +226,7 @@ func checkAppsubreport(appClient client.Client, expectDeployNum int, expectClust
 	if err != nil {
 		return err
 	}
-	if deployNum == expectDeployNum && clusterNum >= len(expectClusterNames) {
+	if deployNum >= expectDeployNum && clusterNum >= len(expectClusterNames) {
 		matchedClusterNum := 0
 		for _, expectClusterName := range expectClusterNames {
 			for _, res := range appsubreport.Results {

@@ -36,6 +36,13 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
 		commonconstants.GlobalHubCleanupFinalizer) {
 
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+		if err := r.Client.Update(context.TODO(), mgh); err != nil {
+			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
+			return true, err
+		}
+		log.Info("finalizer is removed from multiclusterglobalhub resource")
+
 		// clean up namesapced resources, eg. mgh system namespace, etc
 		if err := r.pruneNamespacedResources(ctx, log); err != nil {
 			log.Error(err, "failed to remove namespaced resources")
@@ -59,13 +66,6 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 			log.Error(err, "failed to remove policy finalizer")
 			return true, err
 		}
-
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
-		if err := r.Client.Update(context.TODO(), mgh); err != nil {
-			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
-			return true, err
-		}
-		log.Info("finalizer is removed from multiclusterglobalhub resource")
 		return true, nil
 	}
 
