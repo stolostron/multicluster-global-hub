@@ -26,8 +26,11 @@ import (
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/open-horizon/edge-utilities/logger/log"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +43,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
@@ -317,6 +321,44 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 
 			By("By checking the test condition")
 			Expect(createdMGH.GetConditions()).To(ContainElement(testCondition))
+
+			// delete the testing MGH instance
+			By("By deleting the testing MGH instance")
+			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
+
+			// check the multicluster-global-hub-config configmap is deleted
+			By("By checking the multicluster-global-hub-config configmap is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Namespace: constants.HOHSystemNamespace,
+					Name:      constants.HOHConfigName,
+				}, hohConfig)
+				return errors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+
+			By("By checking the open-cluster-management-global-hub-system namespace is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.HOHSystemNamespace}, &corev1.Namespace{})
+				return errors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+
+			By("By checking the clusterrole is deleted")
+			Eventually(func() error {
+				log.Info("clean up multicluster-global-hub global resources")
+				listOpts := []client.ListOption{
+					client.MatchingLabels(map[string]string{
+						commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+					}),
+				}
+				clusterRoleList := &rbacv1.ClusterRoleList{}
+				if err := k8sClient.List(ctx, clusterRoleList, listOpts...); err != nil {
+					return err
+				}
+				if len(clusterRoleList.Items) > 0 {
+					return fmt.Errorf("the clusterrole has not been removed")
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			// check the owned objects are deleted
 			// comment the following test cases becase there is no gc controller in envtest

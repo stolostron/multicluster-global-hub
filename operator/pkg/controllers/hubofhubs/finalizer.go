@@ -36,6 +36,18 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
 		commonconstants.GlobalHubCleanupFinalizer) {
 
+		// clean up namesapced resources, eg. mgh system namespace, etc
+		if err := r.pruneNamespacedResources(ctx, log); err != nil {
+			log.Error(err, "failed to remove namespaced resources")
+			return true, err
+		}
+
+		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
+		if err := r.pruneGlobalResources(ctx, log); err != nil {
+			log.Error(err, "failed to remove global resources")
+			return true, err
+		}
+
 		// clean up the application finalizer
 		if err := r.pruneApplicationFinalizer(ctx, log); err != nil {
 			log.Error(err, "failed to remove application finalizer")
@@ -48,20 +60,7 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 			return true, err
 		}
 
-		// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
-		if err := r.pruneGlobalResources(ctx, log); err != nil {
-			log.Error(err, "failed to remove global resources")
-			return true, err
-		}
-
-		// clean up namesapced resources, eg. mgh system namespace, etc
-		if err := r.pruneNamespacedResources(ctx, log); err != nil {
-			log.Error(err, "failed to remove namespaced resources")
-			return true, err
-		}
-
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(),
-			commonconstants.GlobalHubCleanupFinalizer))
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
 		if err := r.Client.Update(context.TODO(), mgh); err != nil {
 			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
 			return true, err
