@@ -90,8 +90,8 @@ var _ = Describe("LeafHub controller", Ordered, func() {
 				Name: MGHName,
 			},
 			Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
-				DataLayer: operatorv1alpha2.DataLayerConfig{
-					Type: "largeScale",
+				DataLayer: &operatorv1alpha2.DataLayerConfig{
+					Type: operatorv1alpha2.LargeScale,
 					LargeScale: &operatorv1alpha2.LargeScaleConfig{
 						Kafka: corev1.LocalObjectReference{
 							Name: TransportSecretName,

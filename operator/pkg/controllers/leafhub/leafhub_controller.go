@@ -52,8 +52,6 @@ import (
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-const failedConditionMsg = "failed to set condition(%s): %w"
-
 // hubClusters defines internal map that stores hub clusters
 type hubClusters struct {
 	sync.RWMutex
@@ -143,7 +141,7 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			if !shouldPruneAll {
 				if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, mgh,
 					req.NamespacedName.Name, condition.CONDITION_STATUS_FALSE); conditionError != nil {
-					return ctrl.Result{}, fmt.Errorf(failedConditionMsg,
+					return ctrl.Result{}, condition.FailToSetConditionError(
 						condition.CONDITION_STATUS_FALSE, conditionError)
 				}
 			}
@@ -153,7 +151,7 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			condition.CONDITION_TYPE_LEAFHUB_DEPLOY) {
 			if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, mgh, req.NamespacedName.Name,
 				condition.CONDITION_STATUS_TRUE); conditionError != nil {
-				return ctrl.Result{}, fmt.Errorf(failedConditionMsg,
+				return ctrl.Result{}, condition.FailToSetConditionError(
 					condition.CONDITION_STATUS_TRUE, conditionError)
 			}
 		}
@@ -163,7 +161,7 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err := r.reconcileMulticlusterGlobalHub(ctx, req, mgh, shouldPruneAll, log); err != nil {
 		if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, mgh, "",
 			condition.CONDITION_STATUS_FALSE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf(failedConditionMsg,
+			return ctrl.Result{}, condition.FailToSetConditionError(
 				condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return ctrl.Result{}, err
@@ -173,7 +171,7 @@ func (r *LeafHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		condition.CONDITION_TYPE_LEAFHUB_DEPLOY) {
 		if conditionError := condition.SetConditionLeafHubDeployed(ctx, r.Client, mgh, req.NamespacedName.Name,
 			condition.CONDITION_STATUS_TRUE); conditionError != nil {
-			return ctrl.Result{}, fmt.Errorf(failedConditionMsg,
+			return ctrl.Result{}, condition.FailToSetConditionError(
 				condition.CONDITION_STATUS_TRUE, conditionError)
 		}
 	}

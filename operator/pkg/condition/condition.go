@@ -73,6 +73,11 @@ type SetConditionFunc func(ctx context.Context, c client.Client,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	status metav1.ConditionStatus) error
 
+func FailToSetConditionError(condition string, err error) error {
+	return fmt.Errorf("failed to set condition(%s): %w",
+		condition, err)
+}
+
 func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {

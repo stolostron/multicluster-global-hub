@@ -83,12 +83,14 @@ spec:
                       not for a large scale environment.
                     type: object
                   type:
-                    description: Type is the unions discriminator. Users are expected
-                      to set this value to the name of the data layer.
+                    description: DataLayerType specifies the type of data layer that
+                      global hub stores and transports the data.
                     enum:
                     - native
                     - largeScale
                     type: string
+                required:
+                - type
                 type: object
               enableLocalPolicies:
                 default: true
@@ -144,6 +146,8 @@ spec:
                       type: string
                   type: object
                 type: array
+            required:
+            - dataLayer
             type: object
           status:
             description: MulticlusterGlobalHubStatus defines the observed state of

@@ -69,51 +69,107 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		interval = time.Millisecond * 250
 	)
 
-	var mgh *operatorv1alpha2.MulticlusterGlobalHub
-
-	Context("When create MGH Instance", func() {
-		It("Should create Multicluster Global Hub resources", func() {
+	Context("When create MGH Instance without native data layer type", func() {
+		It("Should not add finalizer to MGH instance and not deploy anything", func() {
 			ctx := context.Background()
-
-			By("By creating a fake storage secret secret")
-			storageSecret := &corev1.Secret{
+			By("By creating a new MGH instance with native data layer type")
+			mgh := &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      StorageSecretName,
+					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
 				},
-				Data: map[string][]byte{
-					"database_uri": []byte("postgres://postgres:testpwd@hoh-primary.hoh-postgres.svc:/hoh"),
+				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
+					DataLayer: &operatorv1alpha2.DataLayerConfig{
+						Type:   operatorv1alpha2.Native,
+						Native: &operatorv1alpha2.NativeConfig{},
+					},
 				},
-				Type: corev1.SecretTypeOpaque,
 			}
-			Expect(k8sClient.Create(ctx, storageSecret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
-			By("By creating a fake transport secret")
-			transportSecret := &corev1.Secret{
+			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
+			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
+			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
+
+			// get this newly created MGH instance, given that creation may not immediately happen.
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// make sure the default values are filled
+			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha2.Full))
+			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
+
+			// check finalizer is not added to MGH instance
+			By("By checking finalizer is not added to MGH instance")
+			Expect(createdMGH.GetFinalizers()).Should(BeNil())
+
+			// delete the testing MGH instance with native data layer type
+			By("By deleting the testing MGH instance with native data layer type")
+			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
+		})
+	})
+
+	Context("When create MGH instance with invalid large scale data layer type", func() {
+		It("Should not add finalizer to MGH instance and not deploy anything", func() {
+			ctx := context.Background()
+			// create a testing MGH instance with invalid large scale data layer setting
+			By("By creating a new MGH instance with invalid large scale data layer setting")
+			mgh := &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      TransportSecretName,
+					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
 				},
-				Data: map[string][]byte{
-					"CA":               []byte(kafkaCA),
-					"bootstrap_server": []byte(kafkaBootstrapServer),
+				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
+					DataLayer: &operatorv1alpha2.DataLayerConfig{
+						Type:       operatorv1alpha2.LargeScale,
+						LargeScale: &operatorv1alpha2.LargeScaleConfig{},
+					},
 				},
-				Type: corev1.SecretTypeOpaque,
 			}
-			Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
-			By("By creating a new MGH instance")
-			mgh = &operatorv1alpha2.MulticlusterGlobalHub{
+			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
+			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
+			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
+
+			// get this newly created MGH instance, given that creation may not immediately happen.
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// make sure the default values are filled
+			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha2.Full))
+			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
+
+			// check finalizer is not added to MGH instance
+			By("By checking finalizer is not added to MGH instance")
+			Expect(createdMGH.GetFinalizers()).Should(BeNil())
+
+			// delete the testing MGH instance with invalid large scale data layer setting
+			By("By deleting the testing MGH instance with invalid large scale data layer setting")
+			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
+		})
+	})
+
+	Context("When create MGH instance with reference to nonexisting image override configmap", func() {
+		It("Should add finalizer to MGH instance but not deploy anything", func() {
+			ctx := context.Background()
+			// create a testing MGH instance with reference to nonexisting image override configmap
+			By("By creating a new MGH instance with reference to nonexisting image override configmap")
+			mgh := &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
 					Annotations: map[string]string{
-						constants.AnnotationMGHSkipDBInit: "true",
+						constants.AnnotationImageOverridesCM: "noexisting-cm",
 					},
 				},
 				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
-					DataLayer: operatorv1alpha2.DataLayerConfig{
-						Type: "largeScale",
+					DataLayer: &operatorv1alpha2.DataLayerConfig{
+						Type: operatorv1alpha2.LargeScale,
 						LargeScale: &operatorv1alpha2.LargeScaleConfig{
 							Kafka: corev1.LocalObjectReference{
 								Name: TransportSecretName,
@@ -127,7 +183,92 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}
 			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
-			// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
+			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
+			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
+			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
+
+			// get this newly created MGH instance, given that creation may not immediately happen.
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// make sure the default values are filled
+			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha2.Full))
+			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
+
+			// check finalizer is added to MGH instance
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+				return err == nil && len(createdMGH.GetFinalizers()) > 0
+			}, timeout, interval).Should(BeTrue())
+
+			// delete the testing MGH instance with reference to nonexisting image override configmap
+			By("By deleting the testing MGH instance with reference to nonexisting image override configmap")
+			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
+
+			// check MGH instance is deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+				return errors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+		})
+	})
+
+	Context("When create MGH instance with large scale data layer type", func() {
+		ctx := context.Background()
+		storageSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: StorageSecretName,
+			},
+			Data: map[string][]byte{
+				"database_uri": []byte("postgres://postgres:testpwd@hoh-primary.hoh-postgres.svc:/hoh"),
+			},
+			Type: corev1.SecretTypeOpaque,
+		}
+		transportSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: TransportSecretName,
+			},
+			Data: map[string][]byte{
+				"CA":               []byte(kafkaCA),
+				"bootstrap_server": []byte(kafkaBootstrapServer),
+			},
+			Type: corev1.SecretTypeOpaque,
+		}
+		mgh := &operatorv1alpha2.MulticlusterGlobalHub{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: MGHName,
+			},
+			Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
+				DataLayer: &operatorv1alpha2.DataLayerConfig{
+					Type: operatorv1alpha2.LargeScale,
+					LargeScale: &operatorv1alpha2.LargeScaleConfig{
+						Kafka: corev1.LocalObjectReference{
+							Name: TransportSecretName,
+						},
+						Postgres: corev1.LocalObjectReference{
+							Name: StorageSecretName,
+						},
+					},
+				},
+			},
+		}
+		It("Should add finalizer to MGH instance but fail to init database when MCH instance is created", func() {
+			By("By creating a fake storage secret secret")
+			storageSecret.SetNamespace(config.GetDefaultNamespace())
+			Expect(k8sClient.Create(ctx, storageSecret)).Should(Succeed())
+
+			By("By creating a fake transport secret")
+			transportSecret.SetNamespace(config.GetDefaultNamespace())
+			Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
+
+			// create a testing MGH instance with valid large scale data layer setting
+			By("By creating a new MGH instance without skipping databse initialization")
+			mgh.SetNamespace(config.GetDefaultNamespace())
+			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
+
+			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
 			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
 
@@ -142,6 +283,39 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 			Expect(createdMGH.Spec.DataLayer.LargeScale.Kafka.Name).Should(Equal(TransportSecretName))
 			Expect(createdMGH.Spec.DataLayer.LargeScale.Postgres.Name).Should(Equal(StorageSecretName))
+
+			By("By checking the MGH CR database init failure condition is added as expected")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+				return err == nil && condition.ContainConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_DATABASE_INIT, metav1.ConditionFalse)
+			}, timeout, interval).Should(BeTrue())
+		})
+
+		It("Should create Multicluster Global Hub resources when MGH instance is created", func() {
+			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
+			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
+			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
+
+			// get this newly created MGH instance, given that creation may not immediately happen.
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			Expect(k8sClient.Get(ctx, mghLookupKey, createdMGH)).Should(Succeed())
+			// update the testing MGH instance by skipping database initialization
+			By("By updating the MGH instance with skipping database initialization")
+			createdMGH.SetAnnotations(map[string]string{
+				constants.AnnotationMGHSkipDBInit: "true",
+			})
+			Expect(k8sClient.Update(ctx, createdMGH)).Should(Succeed())
+
+			// get this newly created MGH instance, given that creation may not immediately happen.
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
 
 			By("By checking the MGH CR database init conditions are created as expected")
 			condition.SetConditionDatabaseInit(ctx, k8sClient, createdMGH, condition.CONDITION_STATUS_TRUE)
@@ -260,7 +434,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				for _, unsObj := range managerObjects {
 					err := checkResourceExistence(ctx, k8sClient, unsObj)
 					if err != nil {
-						fmt.Printf("failed to check manager resource: %v\n", err)
 						return false
 					}
 				}
@@ -317,21 +490,24 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 			By("By setting a test condition")
 			Expect(len(createdMGH.GetConditions())).Should(BeNumerically(">", 0))
+			testConditionType := "Test"
+			testConditionReason := "ThisIsATest"
+			testConditionMesage := "this is a test"
 			testCondition := metav1.Condition{
-				Type: "Test", Status: condition.CONDITION_STATUS_UNKNOWN,
-				Reason:             "ThisIsATest",
-				Message:            "this is a test",
+				Type:               testConditionType,
+				Status:             condition.CONDITION_STATUS_UNKNOWN,
+				Reason:             testConditionReason,
+				Message:            testConditionMesage,
 				LastTransitionTime: metav1.Time{Time: time.Now()},
 			}
 			createdMGH.SetConditions(append(createdMGH.GetConditions(), testCondition))
 
-			By("By checking the test condition")
-			Expect(createdMGH.GetConditions()).To(ContainElement(testCondition))
+			By("By checking the test condition is added to MGH instance")
+			Expect(condition.ContainConditionStatusReason(createdMGH, testConditionType, testConditionReason,
+				condition.CONDITION_STATUS_UNKNOWN)).Should(BeTrue())
 		})
-	})
 
-	Context("When delete the MGH Instance", func() {
-		It("add finalizer to resouces", func() {
+		It("Should remove finalizers added to MGH consumer resources", func() {
 			By("By creating a finalizer placement")
 			testPlacement := &clusterv1beta1.Placement{
 				ObjectMeta: metav1.ObjectMeta{
@@ -396,7 +572,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ClusterSet: "test-clusterset",
 				},
 			}
-			Expect(k8sClient.Create(ctx, testManagedClusterSetBinding, &client.CreateOptions{})).Should(Succeed())
+			Expect(k8sClient.Create(ctx, testManagedClusterSetBinding,
+				&client.CreateOptions{})).Should(Succeed())
 
 			By("By creating a finalizer channel")
 			testChannel := &chnv1.Channel{
@@ -412,9 +589,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, testChannel, &client.CreateOptions{})).Should(Succeed())
-		})
 
-		It("delete the MGH Instance", func() {
 			By("By deleting the testing MGH instance")
 			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
 
@@ -451,7 +626,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range placements.Items {
-					if utils.Contains(placements.Items[idx].GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
+					if utils.Contains(placements.Items[idx].GetFinalizers(),
+						commonconstants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the placements finalizer has not been removed")
 					}
 				}
@@ -465,7 +641,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range applications.Items {
-					if utils.Contains(applications.Items[idx].GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
+					if utils.Contains(applications.Items[idx].GetFinalizers(),
+						commonconstants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the applications finalizer has not been removed")
 					}
 				}
@@ -479,7 +656,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range placementrules.Items {
-					if utils.Contains(placementrules.Items[idx].GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
+					if utils.Contains(placementrules.Items[idx].GetFinalizers(),
+						commonconstants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the placementrules finalizer has not been removed")
 					}
 				}

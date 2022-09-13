@@ -32,6 +32,17 @@ const (
 	Minimal AggregationLevel = "minimal"
 )
 
+// DataLayerType specifies the type of data layer that global hub stores and transports the data.
+// +kubebuilder:validation:Enum:="native";"largeScale"
+type DataLayerType string
+
+const (
+	// Native is a DataLayerType using kubernetes native stoorage and event subscription
+	Native DataLayerType = "native"
+	// LargeScale is a DataLayerType using external high performance data storage and transport layer
+	LargeScale DataLayerType = "largeScale"
+)
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=mgh
@@ -65,20 +76,17 @@ type MulticlusterGlobalHubSpec struct {
 	// DataLayer can be configured to use a different data layer.
 	// native: use the native data layer (default).
 	// largeScale: large scale data layer served by kafka and postgres.
-	// +optional
-	DataLayer DataLayerConfig `json:"dataLayer,omitempty"`
+	// +kubebuilder:validation:Required
+	DataLayer *DataLayerConfig `json:"dataLayer"`
 }
 
 // DataLayerConfig is a discriminated union of data layer specific configuration.
 // +union
 type DataLayerConfig struct {
-	// Type is the unions discriminator.
-	// Users are expected to set this value to the name of the data layer.
 	// +unionDiscriminator
-	// +kubebuilder:validation:Enum:="native";"largeScale"
 	// +kubebuilder:validation:Required
-	// +required
-	Type string `json:"type,omitempty"`
+	Type DataLayerType `json:"type"`
+
 	// Native may use a syncer to sync data from the regional hub cluster to the global hub cluster.
 	// The data is stored in the global hub kubernetes api server backed by etcd.
 	// This is not for a large scale environment.
@@ -95,9 +103,9 @@ type NativeConfig struct{}
 
 // LargeScaleConfig is the config of large scale data layer
 type LargeScaleConfig struct {
-	// +required
+	// +optional
 	Kafka corev1.LocalObjectReference `json:"kafka,omitempty"`
-	// +required
+	// +optional
 	Postgres corev1.LocalObjectReference `json:"postgres,omitempty"`
 }
 
