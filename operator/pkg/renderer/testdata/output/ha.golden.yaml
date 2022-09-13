@@ -59,12 +59,13 @@ spec:
         runAsUser: 1001
       serviceAccountName: nginx
       tolerations:
-      - effect: ""
-        key: example-key
+      - key: node.kubernetes.io/unreachable
+        value: ""
         operator: Exists
-        value: NoSchedule
+        effect: NoExecute
+        tolerationSeconds: 6000
 ---
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   annotations: null
@@ -77,11 +78,15 @@ spec:
   metrics:
   - resource:
       name: cpu
-      targetAverageUtilization: 50
+      target:
+        type: Utilization
+        averageUtilization: 50
     type: Resource
   - resource:
       name: memory
-      targetAverageUtilization: 60
+      target:
+        type: Utilization
+        averageUtilization: 60
     type: Resource
   minReplicas: 2
   scaleTargetRef:

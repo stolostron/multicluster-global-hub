@@ -31,9 +31,10 @@ resources:
 nodeSelector:
   node-role.kubernetes.io/worker: ""
 tolerations:
-- key: example-key
+- key: node.kubernetes.io/unreachable
   operator: Exists
-  value: NoSchedule
+  effect: NoExecute
+  tolerationSeconds: 6000
 
 servicePort: 8080
 ingress:

@@ -1,0 +1,13 @@
+apiVersion: operator.open-cluster-management.io/v1alpha2
+kind: MulticlusterGlobalHub
+metadata:
+  name: multiclusterglobalhub
+  namespace: default
+spec:
+  dataLayer:
+    type: largeScale
+    largeScale:
+      kafka:
+        name: transport-secret
+      postgres:
+        name: storage-secret

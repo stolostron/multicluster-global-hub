@@ -60,10 +60,11 @@ spec:
         runAsUser: 1001
       serviceAccountName: nginx
       tolerations:
-      - effect: ""
-        key: example-key
+      - key: node.kubernetes.io/unreachable
+        value: ""
         operator: Exists
-        value: NoSchedule
+        effect: NoExecute
+        tolerationSeconds: 6000
 ---
 apiVersion: v1
 kind: Service
