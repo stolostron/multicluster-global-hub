@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/authentication"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
 )
 
@@ -38,31 +37,13 @@ const (
 )
 
 // List middleware.
-func List(authorizationURL string, authorizationCABundle []byte,
-	dbConnectionPool *pgxpool.Pool,
-) gin.HandlerFunc {
+func List(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	customResourceColumnDefinitions := util.GetCustomResourceColumnDefinitions(crdName,
 		clusterv1.GroupVersion.Version)
 
 	return func(ginCtx *gin.Context) {
-		user, isCorrectType := ginCtx.MustGet(authentication.UserKey).(string)
-		if !isCorrectType {
-			fmt.Fprintf(gin.DefaultWriter, "unable to get user from context")
-
-			user = "Unknown"
-		}
-
-		groups, isCorrectType := ginCtx.MustGet(authentication.GroupsKey).([]string)
-		if !isCorrectType {
-			fmt.Fprintf(gin.DefaultWriter, "unable to get groups from context")
-
-			groups = []string{}
-		}
-
-		fmt.Fprintf(gin.DefaultWriter, "got authenticated user: %v\n", user)
-		fmt.Fprintf(gin.DefaultWriter, "user groups: %v\n", groups)
-
-		query := sqlQuery(user, groups, authorizationURL, authorizationCABundle)
+		query := "SELECT payload FROM status.managed_clusters WHERE TRUE" +
+			" ORDER BY payload -> 'metadata' ->> 'name'"
 		fmt.Fprintf(gin.DefaultWriter, "query: %v\n", query)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
@@ -72,12 +53,6 @@ func List(authorizationURL string, authorizationCABundle []byte,
 
 		handleRows(ginCtx, query, dbConnectionPool, customResourceColumnDefinitions)
 	}
-}
-
-func sqlQuery(user string, groups []string, authorizationURL string, authorizationCABundle []byte) string {
-	return "SELECT payload FROM status.managed_clusters WHERE TRUE AND " +
-		filterByAuthorization(user, groups, authorizationURL, authorizationCABundle, gin.DefaultWriter) +
-		" ORDER BY payload -> 'metadata' ->> 'name'"
 }
 
 func handleRowsForWatch(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Pool) {

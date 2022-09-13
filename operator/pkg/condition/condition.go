@@ -52,13 +52,6 @@ const (
 	CONDITION_MESSAGE_TRANSPORT_INIT = "Transport has been initialized"
 )
 
-// NOTE: the status of RBACDeployed can only be True; otherwise there is no condition
-const (
-	CONDITION_TYPE_RBAC_DEPLOY    = "RBACDeployed"
-	CONDITION_REASON_RBAC_DEPLOY  = "RBACDeployed"
-	CONDITION_MESSAGE_RBAC_DEPLOY = "Multicluster Global Hub RBAC Deployed"
-)
-
 // NOTE: the status of ManagerDeployed can only be True; otherwise there is no condition
 const (
 	CONDITION_TYPE_MANAGER_DEPLOY    = "ManagerDeployed"
@@ -92,13 +85,6 @@ func SetConditionTransportInit(ctx context.Context, c client.Client, mgh *operat
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_TRANSPORT_INIT, status,
 		CONDITION_REASON_TRANSPORT_INIT, CONDITION_MESSAGE_TRANSPORT_INIT)
-}
-
-func SetConditionRBACDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
-	status metav1.ConditionStatus,
-) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RBAC_DEPLOY, status,
-		CONDITION_REASON_RBAC_DEPLOY, CONDITION_MESSAGE_RBAC_DEPLOY)
 }
 
 func SetConditionManagerDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,

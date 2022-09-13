@@ -12,8 +12,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
-
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/authentication"
 )
 
 var (
@@ -29,24 +27,8 @@ type patch struct {
 }
 
 // Patch middleware.
-func Patch(authorizationURL string, authorizationCABundle []byte,
-	dbConnectionPool *pgxpool.Pool,
-) gin.HandlerFunc {
+func Patch(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
-		user, isCorrectType := ginCtx.MustGet(authentication.UserKey).(string)
-		if !isCorrectType {
-			fmt.Fprintf(gin.DefaultWriter, "unable to get user from context")
-
-			user = "Unknown"
-		}
-
-		groups, isCorrectType := ginCtx.MustGet(authentication.GroupsKey).([]string)
-		if !isCorrectType {
-			fmt.Fprintf(gin.DefaultWriter, "unable to get groups from context")
-
-			groups = []string{}
-		}
-
 		cluster := ginCtx.Param("cluster")
 
 		fmt.Fprintf(gin.DefaultWriter, "patch for cluster: %s\n", cluster)
@@ -54,13 +36,6 @@ func Patch(authorizationURL string, authorizationCABundle []byte,
 		hubCluster := ginCtx.Query("hubCluster")
 
 		fmt.Fprintf(gin.DefaultWriter, "patch for hub cluster: %s\n", hubCluster)
-
-		if !isAuthorized(user, groups, authorizationURL, authorizationCABundle,
-			dbConnectionPool, cluster, hubCluster) {
-			ginCtx.JSON(http.StatusForbidden, gin.H{
-				"status": "the current user cannot patch the cluster",
-			})
-		}
 
 		var patches []patch
 
@@ -216,25 +191,6 @@ func getKeys(aMap map[string]struct{}) []string {
 	}
 
 	return keys
-}
-
-func isAuthorized(user string, groups []string, authorizationURL string, authorizationCABundle []byte,
-	dbConnectionPool *pgxpool.Pool, cluster, hubCluster string,
-) bool {
-	query := fmt.Sprintf(
-		"SELECT COUNT(payload) from status.managed_clusters WHERE payload -> 'metadata' ->> 'name' = '%s' AND leaf_hub_name = '%s' AND %s",
-		cluster, hubCluster, filterByAuthorization(user, groups, authorizationURL,
-			authorizationCABundle, gin.DefaultWriter))
-
-	var count int64
-
-	err := dbConnectionPool.QueryRow(context.TODO(), query).Scan(&count)
-	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in quering managed clusters: %v\n", err)
-		return false
-	}
-
-	return count > 0
 }
 
 func getLabels(ginCtx *gin.Context, patches []patch) (map[string]string, map[string]struct{}, error) {

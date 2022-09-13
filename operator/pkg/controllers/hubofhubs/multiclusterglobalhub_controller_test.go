@@ -258,35 +258,6 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			By("By checking the multicluster-global-hub-rbac resources are created as expected")
-			hohRBACObjects, err := hohRenderer.Render("manifests/rbac", "", func(
-				profile string,
-			) (interface{}, error) {
-				return struct {
-					Image     string
-					Namespace string
-				}{
-					Image:     config.GetImage("multicluster_global_hub_rbac"),
-					Namespace: config.GetDefaultNamespace(),
-				}, nil
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			Eventually(func() bool {
-				for _, unsObj := range hohRBACObjects {
-					if unsObj.GetName() == "opa-data" {
-						// skip opa-data secret check
-						continue
-					}
-					err := checkResourceExistence(ctx, k8sClient, unsObj)
-					if err != nil {
-						fmt.Printf("failed to check rbac resource: %v\n", err)
-						return false
-					}
-				}
-				return true
-			}, timeout, interval).Should(BeTrue())
-
 			By("By checking the multicluster-global-hub-config configmap is created")
 			hohConfig := &corev1.ConfigMap{}
 			Eventually(func() bool {
@@ -311,7 +282,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			By("By deleting the owned objects by the MGH instance and checking it can be recreated")
-			for _, obj := range append(managerObjects, hohRBACObjects...) {
+			for _, obj := range append(managerObjects) {
 				obj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 				Expect(k8sClient.Delete(ctx, obj)).Should(Succeed())
 				Eventually(func() bool {
@@ -368,7 +339,7 @@ var _ = Describe("MulticlusterGlobalHub controller", func() {
 			// check the owned objects are deleted
 			// comment the following test cases becase there is no gc controller in envtest
 			// see: https://book.kubebuilder.io/reference/envtest.html#testing-considerations
-			// for _, obj := range append(managerObjects, hohRBACObjects...) {
+			// for _, obj := range managerObjects {
 			// 	Eventually(func() bool {
 			// 		unsObj := &unstructured.Unstructured{}
 			// 		unsObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())

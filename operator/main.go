@@ -138,9 +138,6 @@ func main() {
 			&networkingv1.Ingress{}: {
 				Label: labelSelector,
 			},
-			&networkingv1.NetworkPolicy{}: {
-				Label: labelSelector,
-			},
 			&clusterv1.ManagedCluster{}: {
 				Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
 			},
