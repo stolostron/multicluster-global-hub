@@ -15,10 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 )
 
-const (
-	failedConditionMsg = "failed to set condition(%s): %w"
-)
-
 //go:embed database
 var databaseFS embed.FS
 
@@ -44,6 +40,10 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 	databaseURI := string(postgreSecret.Data["database_uri"])
 	conn, err := pgx.Connect(ctx, databaseURI)
 	if err != nil {
+		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_FALSE)
+		if conditionError != nil {
+			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, conditionError)
+		}
 		return fmt.Errorf("failed to connect to postgres: %w", err)
 	}
 	defer conn.Close(ctx)
@@ -69,7 +69,7 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 	if err != nil {
 		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_FALSE)
 		if conditionError != nil {
-			return fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_FALSE, conditionError)
+			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, conditionError)
 		}
 		return fmt.Errorf("failed to walk database directory: %w", err)
 	}
@@ -77,7 +77,7 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 	log.Info("Database initialized")
 	err = condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_TRUE)
 	if err != nil {
-		return fmt.Errorf(failedConditionMsg, condition.CONDITION_STATUS_TRUE, err)
+		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
 	}
 	return nil
 }
