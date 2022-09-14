@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -386,111 +385,4 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			return nil
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
-
-	AfterAll(func() {
-		By("Remove app label from cluster1")
-		patches := []patch{
-			{
-				Op:    "remove",
-				Path:  "/metadata/labels/" + APP_LABEL_KEY,
-				Value: APP_LABEL_VALUE,
-			},
-		}
-		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterName1)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
-
-		By("Remove policy label from cluster2")
-		patches = []patch{
-			{
-				Op:    "remove",
-				Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
-				Value: POLICY_LABEL_VALUE,
-			},
-		}
-		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterName2)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
-
-		By("Remove the appsub resource")
-		Eventually(func() error {
-			_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", APP_SUB_YAML)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
-		// check ReginalHub: application/ appsub/ channel/ placementrule(helloworld: helloworld-placement)
-		// check managedcluster: appsub
-		By("Check application is deleted from managedcluster1 and reginalcluster")
-		Eventually(func() error {
-			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "application"); err != nil {
-				return err
-			}
-			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "appsub"); err != nil {
-				return err
-			}
-			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "channel"); err != nil {
-				return err
-			}
-			if err := checkDeletedResource(clients, managedClusterName1, "appsub"); err != nil {
-				return err
-			}
-			if err := checkDeletedResource(clients, managedClusterName1, "appsubstatus"); err != nil {
-				return err
-			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
-
-		By("Delete policy")
-		Eventually(func() error {
-			_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", INFORM_POLICY_YAML)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
-
-		// check ReginalHub: Policy, PlacementRule(default: placement-policy-limitrange), PlacementBinding
-		// check Managedcluster: Policy
-		By("Check policy is deleted from managedcluster2 and reginalcluster")
-		Eventually(func() error {
-			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "policy"); err != nil {
-				return err
-			}
-			// include app placementrule
-			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "placementrule"); err != nil {
-				return err
-			}
-			if err := checkDeletedResource(clients, REGINAL_HUB_NAME, "placementbinding"); err != nil {
-				return err
-			}
-			if err := checkDeletedResource(clients, managedClusterName2, "policy"); err != nil {
-				return err
-			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
-	})
 })
-
-func checkDeletedResource(clients utils.Client, clustername string, resouce string) error {
-	resourceBytes, err := clients.Kubectl(clustername, "get", resouce, "-A")
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if strings.Contains(string(resourceBytes), "No resources found") {
-		return nil
-	}
-	return fmt.Errorf("resource(%s) has not beend deleted from clustername(%s)", resouce, clustername)
-}
