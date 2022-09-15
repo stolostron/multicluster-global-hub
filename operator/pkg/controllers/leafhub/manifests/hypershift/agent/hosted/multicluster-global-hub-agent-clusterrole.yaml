@@ -129,3 +129,30 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - operator.open-cluster-management.io
+  resources:
+  - multiclusterhubs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - clusterclaims
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

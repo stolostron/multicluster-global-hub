@@ -64,6 +64,7 @@ const (
 	// identify the resource is managed by
 	GlobalHubOwnerLabelKey   = "global-hub.open-cluster-management.io/managed-by"
 	GlobalHubOwnerLabelVal   = "global-hub"
+	HoHAgentOwnerLabelValue  = "global-hub-agent"
 	HoHOperatorOwnerLabelVal = "multicluster-global-hub-operator"
 
 	// identify the resource is a local-resource

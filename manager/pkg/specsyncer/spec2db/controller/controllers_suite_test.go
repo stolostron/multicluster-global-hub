@@ -96,7 +96,8 @@ func NewTestPostgres() (*TestPostgres, error) {
 	} else {
 		pg.rootUser = false
 		pg.username = currentuser.Username
-		pg.embedded = embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().Database("hoh"))
+		pg.embedded = embeddedpostgres.NewDatabase(
+			embeddedpostgres.DefaultConfig().Database("hoh"))
 		if err = pg.embedded.Start(); err != nil {
 			fmt.Printf("failed to get embeddedPostgre: %s", err.Error())
 			return pg, err

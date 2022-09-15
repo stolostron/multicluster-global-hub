@@ -112,6 +112,9 @@ function initManaged() {
     if [[ $hub =~ "kind" ]]; then
       sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" > "${joinCommand}-named"
       sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" | bash
+      if [ $? -ne 0 ]; then
+        sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" | bash
+      fi
     else
       sed -e "s;<cluster_name>;${managed};" "$joinCommand" > "${joinCommand}-named"
       sed -e "s;<cluster_name>;${managed};" "$joinCommand" | bash
