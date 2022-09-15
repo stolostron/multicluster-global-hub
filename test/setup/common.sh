@@ -378,3 +378,21 @@ function connectMicroshift() {
     docker network connect $microshiftContainerNetwork $invokeContainerName
   fi
 }
+
+function waitSecretToBeReady() {
+  secretName=$1
+  secretNamespace=$2
+  ready=$(kubectl get secret $secretName -n $secretNamespace --ignore-not-found=true)
+  seconds=200
+  while [[ $seconds -gt 0 && -z "$ready" ]]; do
+    echo "wait secret: $secretNamespace - $secretName to be ready..."
+    sleep 5
+    seconds=$((seconds - 5))
+    ready=$(kubectl get secret $secretName -n $secretNamespace --ignore-not-found=true)
+  done
+  if [[ $seconds == 0 ]]; then
+    echo "failed(timeout) to create secret: $secretNamespace - $secretName!"
+    exit 1
+  fi
+  echo "secret: $secretNamespace - $secretName is ready!"
+}
