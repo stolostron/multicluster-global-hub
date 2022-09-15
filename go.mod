@@ -40,6 +40,7 @@ require (
 )
 
 require (
+	github.com/containerd/containerd v1.5.13 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 // indirect
 )
@@ -156,4 +157,5 @@ replace (
 	github.com/google/gnostic => github.com/google/gnostic v0.5.7-v3refs
 	k8s.io/client-go => k8s.io/client-go v0.24.2
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42
+	sigs.k8s.io/cluster-api-provider-kubevirt => github.com/openshift/cluster-api-provider-kubevirt v0.0.0-20211223062810-ef64d5ff1cde
 )
