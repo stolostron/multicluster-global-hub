@@ -53,7 +53,8 @@ var _ = Describe("spec to database controller", Ordered, func() {
 		Expect(postgresSQL).NotTo(BeNil())
 
 		By("Adding the controllers to the manager")
-		controller.AddHubOfHubsConfigController(mgr, postgresSQL)
+		err = controller.AddHubOfHubsConfigController(mgr, postgresSQL)
+		Expect(err).NotTo(HaveOccurred())
 		go func() {
 			defer GinkgoRecover()
 			err = mgr.Start(ctx)

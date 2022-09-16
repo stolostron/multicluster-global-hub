@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	set "github.com/deckarep/golang-set"
@@ -111,10 +110,12 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 		}
 
 		addedManagedClusterNames.Add(managedCluster.GetName())
-		sendWatchEvent(&metav1.WatchEvent{
+		if err := util.SendWatchEvent(&metav1.WatchEvent{
 			Type:   "ADDED",
 			Object: runtime.RawExtension{Object: managedCluster},
-		}, writer)
+		}, writer); err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+		}
 	}
 
 	managedClusterNamesToDelete := previouslyAddedManagedClusterNames.Difference(addedManagedClusterNames)
@@ -135,11 +136,12 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 			Kind:    "ManagedCluster",
 		})
 		managedClusterToDelete.SetName(managedClusterNameToDeleteAsString)
-		sendWatchEvent(&metav1.WatchEvent{
+		if err := util.SendWatchEvent(&metav1.WatchEvent{
 			Type:   "DELETED",
 			Object: runtime.RawExtension{Object: managedClusterToDelete},
-		},
-			writer)
+		}, writer); err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+		}
 	}
 
 	managedClusterNamesToAdd := addedManagedClusterNames.Difference(previouslyAddedManagedClusterNames)
@@ -155,28 +157,6 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 	}
 
 	writer.(http.Flusher).Flush()
-}
-
-func sendWatchEvent(watchEvent *metav1.WatchEvent, writer io.Writer) {
-	json, err := json.Marshal(watchEvent)
-	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in json marshalling: %v\n", err)
-		return
-	}
-
-	_, err = writer.Write(json)
-
-	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in writing response: %v\n", err)
-		return
-	}
-
-	_, err = writer.Write([]byte("\n"))
-
-	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in writing response: %v\n", err)
-		return
-	}
 }
 
 func handleRows(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Pool,
@@ -202,7 +182,7 @@ func handleRows(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Poo
 		managedClusters = append(managedClusters, managedCluster)
 	}
 
-	if shouldReturnAsTable(ginCtx) {
+	if util.ShouldReturnAsTable(ginCtx) {
 		fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")
 
 		tableConvertor, err := tableconvertor.New(customResourceColumnDefinitions)
@@ -211,7 +191,7 @@ func handleRows(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Poo
 			return
 		}
 
-		managedClustersList, err := wrapInList(managedClusters)
+		managedClustersList, err := wrapObjectsInList(managedClusters)
 		if err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in wrapping managed clusters in a list: %v\n", err)
 			return
@@ -233,8 +213,8 @@ func handleRows(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Poo
 	ginCtx.JSON(http.StatusOK, managedClusters)
 }
 
-func wrapInList(managedClusters []*clusterv1.ManagedCluster) (*corev1.List, error) {
-	list := corev1.List{
+func wrapObjectsInList(managedClusters []*clusterv1.ManagedCluster) (*corev1.List, error) {
+	list := &corev1.List{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "List",
 			APIVersion: "v1",
@@ -242,36 +222,21 @@ func wrapInList(managedClusters []*clusterv1.ManagedCluster) (*corev1.List, erro
 		ListMeta: metav1.ListMeta{},
 	}
 
-	for _, cluster := range managedClusters {
+	for _, managedCluster := range managedClusters {
 		// adopted from
 		// https://github.com/kubernetes/kubectl/blob/4da03973dd2fcd4645f20ac669d8a73cb017ff39/pkg/cmd/get/get.go#L786
-		clusterData, err := json.Marshal(cluster)
+		managedClusterData, err := json.Marshal(managedCluster)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshall cluster: %w", err)
+			return nil, fmt.Errorf("failed to marshall object: %w", err)
 		}
 
-		convertedCluster, err := runtime.Decode(unstructured.UnstructuredJSONScheme, clusterData)
+		convertedObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, managedClusterData)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode: %w", err)
+			return nil, fmt.Errorf("failed to decode with unstructured JSON scheme : %w", err)
 		}
 
-		list.Items = append(list.Items, runtime.RawExtension{Object: convertedCluster})
+		list.Items = append(list.Items, runtime.RawExtension{Object: convertedObj})
 	}
 
-	return &list, nil
-}
-
-func shouldReturnAsTable(ginCtx *gin.Context) bool {
-	acceptTableHeader := fmt.Sprintf("application/json;as=Table;v=%s;g=%s",
-		metav1.SchemeGroupVersion.Version, metav1.GroupName)
-
-	// implement the real negotiation logic here (with weights)
-	// see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
-	for _, accepted := range strings.Split(ginCtx.GetHeader("Accept"), ",") {
-		if strings.HasPrefix(accepted, acceptTableHeader) {
-			return true
-		}
-	}
-
-	return false
+	return list, nil
 }
