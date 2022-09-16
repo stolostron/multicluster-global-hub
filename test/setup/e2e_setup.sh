@@ -64,10 +64,10 @@ hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED"
 kubectl config use-context $CTX_HUB >> $LOG
 
 # wait kafka to be ready
-waitSecretToBeReady ${TRANSPORT_SECRET_NAME:-"transport-secret"} "open-cluster-management"
+waitKafkaToBeReady
 
 # wait postgres to be ready
-waitSecretToBeReady ${STORAGE_SECRET_NAME:-"storage-secret"} "open-cluster-management"
+waitPostgresToBeReady
 
 # deploy hoh
 # need the following labels to enable deploying agent in leaf hub cluster
