@@ -17,6 +17,7 @@ const (
 
 // UpdateObject function updates a given k8s object.
 func UpdateObject(ctx context.Context, k8sClient client.Client, obj *unstructured.Unstructured) error {
+	delete(obj.Object, "status")
 	objectBytes, err := obj.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("failed to update object - %w", err)
