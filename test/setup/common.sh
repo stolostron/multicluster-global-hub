@@ -378,3 +378,57 @@ function connectMicroshift() {
     docker network connect $microshiftContainerNetwork $invokeContainerName
   fi
 }
+
+function waitSecretToBeReady() {
+  secretName=$1
+  secretNamespace=$2
+  ready=$(kubectl get secret $secretName -n $secretNamespace --ignore-not-found=true)
+  seconds=200
+  while [[ $seconds -gt 0 && -z "$ready" ]]; do
+    echo "wait secret: $secretNamespace - $secretName to be ready..."
+    sleep 5
+    seconds=$((seconds - 5))
+    ready=$(kubectl get secret $secretName -n $secretNamespace --ignore-not-found=true)
+  done
+  if [[ $seconds == 0 ]]; then
+    echo "failed(timeout) to create secret: $secretNamespace - $secretName!"
+    exit 1
+  fi
+  echo "secret: $secretNamespace - $secretName is ready!"
+}
+
+function waitKafkaToBeReady() {
+  clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found)
+  SECOND=0
+  while [ -z "$clusterIsReady" ]; do
+    if [ $SECOND -gt 600 ]; then
+      echo "Timeout waiting for deploying kafka.kafka.strimzi.io/kafka-brokers-cluster"
+      exit 1
+    fi
+    echo "Waiting for kafka cluster to become available"
+    sleep 5
+    (( SECOND = SECOND + 5 ))
+    clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found)
+  done
+  echo "Kafka cluster is ready"
+  waitSecretToBeReady ${TRANSPORT_SECRET_NAME:-"transport-secret"} "open-cluster-management"
+  echo "Kafka secret is ready"
+}
+
+function waitPostgresToBeReady() {
+  clusterIsReady=$(kubectl -n hoh-postgres get PostgresCluster/hoh -o jsonpath={.status.instances..readyReplicas} --ignore-not-found)
+  SECOND=0
+  while [ -z "$clusterIsReady" || ${clusterIsReady} -lt 1 ]; do
+    if [ $SECOND -gt 600 ]; then
+      echo "Timeout waiting for deploying PostgresCluster/hoh"
+      exit 1
+    fi
+    echo "Waiting for Postgres cluster to become available"
+    sleep 5
+    (( SECOND = SECOND + 5 ))
+    clusterIsReady=$(kubectl -n hoh-postgres get PostgresCluster/hoh -o jsonpath={.status.instances..readyReplicas} --ignore-not-found)
+  done
+  echo "Postgres cluster is ready"
+  waitSecretToBeReady ${STORAGE_SECRET_NAME:-"storage-secret"} "open-cluster-management"
+  echo "Postgres secret is ready"
+}
