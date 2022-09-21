@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -11,15 +12,31 @@ import (
 )
 
 func main() {
+	var postgresPort uint32 = 5432
+
+	if len(os.Args) > 1 {
+		intVar, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			fmt.Printf("invalid port: %v\n", err)
+			os.Exit(1)
+		}
+		if intVar < 1024 || intVar > 65535 {
+			fmt.Println("invalid port value, should in the range of 1024 - 65535")
+			os.Exit(1)
+		}
+
+		postgresPort = uint32(intVar)
+	}
+
 	fmt.Println(" # postgres process is running!")
 
-	database := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().Database("hoh"))
-	err := database.Start()
-	fmt.Println(" # postgres started")
-
-	if err != nil {
+	database := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().Port(postgresPort).Database("hoh"))
+	if err := database.Start(); err != nil {
+		fmt.Printf("failed to start embedded postgres: %v", err)
 		os.Exit(1)
 	}
+
+	fmt.Println(" # postgres started")
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1, syscall.SIGUSR2)
@@ -38,7 +55,7 @@ loop:
 		}
 	}
 
-	if err = database.Stop(); err != nil {
+	if err := database.Stop(); err != nil {
 		os.Exit(1)
 	}
 	fmt.Println(" # postgres process is ended!")
