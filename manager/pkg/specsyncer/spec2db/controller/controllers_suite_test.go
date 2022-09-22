@@ -88,10 +88,10 @@ var _ = BeforeSuite(func() {
 	Expect(postgresSQL).NotTo(BeNil())
 
 	By("Adding the controllers to the manager")
-	controller.AddHubOfHubsConfigController(mgr, postgresSQL)
-	controller.AddApplicationController(mgr, postgresSQL)
-	controller.AddChannelController(mgr, postgresSQL)
-	controller.AddSubscriptionController(mgr, postgresSQL)
+	Expect(controller.AddHubOfHubsConfigController(mgr, postgresSQL)).Should(Succeed())
+	Expect(controller.AddApplicationController(mgr, postgresSQL)).Should(Succeed())
+	Expect(controller.AddChannelController(mgr, postgresSQL)).Should(Succeed())
+	Expect(controller.AddSubscriptionController(mgr, postgresSQL)).Should(Succeed())
 	go func() {
 		defer GinkgoRecover()
 		err = mgr.Start(ctx)
