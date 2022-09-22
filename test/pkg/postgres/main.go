@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -30,7 +31,20 @@ func main() {
 
 	fmt.Println(" # postgres process is running!")
 
-	database := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().Port(postgresPort).Database("hoh"))
+	postgresDataPath, err := os.UserHomeDir()
+	if err != nil || postgresDataPath == "" {
+		postgresDataPath = os.TempDir()
+	}
+	postgresDataPath = filepath.Join(postgresDataPath,
+		fmt.Sprintf(".embedded-postgres-go-%d", postgresPort),
+		"extracted")
+	postgresConfig := embeddedpostgres.DefaultConfig()
+	postgresConfig = postgresConfig.Port(postgresPort)
+	postgresConfig = postgresConfig.RuntimePath(postgresDataPath)
+	postgresConfig = postgresConfig.BinariesPath(postgresDataPath)
+	postgresConfig = postgresConfig.DataPath(filepath.Join(postgresDataPath, "data"))
+	database := embeddedpostgres.NewDatabase(
+		postgresConfig.Database("hoh"))
 	if err := database.Start(); err != nil {
 		fmt.Printf("failed to start embedded postgres: %v", err)
 		os.Exit(1)
