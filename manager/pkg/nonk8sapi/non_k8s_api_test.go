@@ -1,0 +1,896 @@
+// Copyright (c) 2022 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+
+package nonk8sapi_test
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
+)
+
+type TestResponseRecorder struct {
+	*httptest.ResponseRecorder
+	closeChannel chan bool
+}
+
+func (r *TestResponseRecorder) CloseNotify() <-chan bool {
+	return r.closeChannel
+}
+
+func (r *TestResponseRecorder) closeClient() {
+	r.closeChannel <- true
+}
+
+func CreateTestResponseRecorder() *TestResponseRecorder {
+	return &TestResponseRecorder{
+		httptest.NewRecorder(),
+		make(chan bool, 1),
+	}
+}
+
+var _ = Describe("Nonk8s API Server", Ordered, func() {
+	var postgresSQL *postgresql.PostgreSQL
+	var router *gin.Engine
+	var plc1ID string
+
+	BeforeAll(func() {
+		var err error
+
+		By("Create connection to the database")
+		postgresSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(postgresSQL).NotTo(BeNil())
+
+		By("Create test tables in the database")
+		_, err = postgresSQL.GetConn().Exec(ctx, `
+			CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+			CREATE SCHEMA IF NOT EXISTS spec;
+			CREATE SCHEMA IF NOT EXISTS status;
+
+			DO $$ BEGIN
+				CREATE TYPE status.compliance_type AS ENUM (
+					'compliant',
+					'non_compliant',
+					'unknown'
+				);
+			EXCEPTION
+				WHEN duplicate_object THEN null;
+			END $$;
+
+			DO $$ BEGIN
+				CREATE TYPE status.error_type AS ENUM (
+					'disconnected',
+					'none'
+				);
+			EXCEPTION
+				WHEN duplicate_object THEN null;
+			END $$;
+
+			CREATE TABLE IF NOT EXISTS status.managed_clusters (
+				leaf_hub_name character varying(63) NOT NULL,
+				payload jsonb NOT NULL,
+				error status.error_type NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS spec.managed_clusters_labels (
+				leaf_hub_name character varying(63) DEFAULT ''::character varying NOT NULL,
+				managed_cluster_name character varying(63) NOT NULL,
+				labels jsonb DEFAULT '{}'::jsonb NOT NULL,
+				deleted_label_keys jsonb DEFAULT '[]'::jsonb NOT NULL,
+				updated_at timestamp without time zone DEFAULT now() NOT NULL,
+				version bigint DEFAULT 0 NOT NULL,
+				CONSTRAINT managed_clusters_labels_version_check CHECK ((version >= 0))
+			);
+			CREATE TABLE IF NOT EXISTS spec.policies (
+				id uuid NOT NULL,
+				payload jsonb NOT NULL,
+				created_at timestamp without time zone DEFAULT now() NOT NULL,
+				updated_at timestamp without time zone DEFAULT now() NOT NULL,
+				deleted boolean DEFAULT false NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS spec.placementrules (
+				id uuid NOT NULL,
+				payload jsonb NOT NULL,
+				created_at timestamp without time zone DEFAULT now() NOT NULL,
+				updated_at timestamp without time zone DEFAULT now() NOT NULL,
+				deleted boolean DEFAULT false NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS spec.placementbindings (
+				id uuid NOT NULL,
+				payload jsonb NOT NULL,
+				created_at timestamp without time zone DEFAULT now() NOT NULL,
+				updated_at timestamp without time zone DEFAULT now() NOT NULL,
+				deleted boolean DEFAULT false NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS status.placementrules (
+				id uuid NOT NULL,
+				leaf_hub_name character varying(63) NOT NULL,
+				payload jsonb NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS status.compliance (
+				id uuid NOT NULL,
+				cluster_name character varying(63) NOT NULL,
+				leaf_hub_name character varying(63) NOT NULL,
+				error status.error_type NOT NULL,
+				compliance status.compliance_type NOT NULL
+			);
+		`)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Set up nonk8s-api server router")
+		router, err = nonk8sapi.SetupRouter(postgresSQL, &nonk8sapi.NonK8sAPIServerConfig{
+			ServerBasePath: "/global-hub-api",
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("Should be able to list managed clusters", func() {
+		hub1, mc1, mc2 := "hub1", `
+{
+	"kind": "ManagedCluster",
+	"apiVersion": "cluster.open-cluster-management.io/v1",
+	"metadata": {
+		"creationTimestamp": null,
+		"name": "mc1",
+		"labels": {
+			"cloud": "Other",
+			"name": "mc1",
+			"vendor": "Other"
+		},
+		"annotations": {
+			"global-hub.open-cluster-management.io/managed-by": "hub1",
+			"open-cluster-management/created-via": "other"
+		}
+	},
+	"spec": {
+		"hubAcceptsClient": true,
+		"leaseDurationSeconds": 60
+	},
+	"status": {
+		"conditions": null,
+		"version": {}
+	}
+}
+`, `
+{
+	"kind": "ManagedCluster",
+	"apiVersion": "cluster.open-cluster-management.io/v1",
+	"metadata": {
+		"creationTimestamp": null,
+		"name": "mc2",
+		"labels": {
+			"cloud": "Other",
+			"name": "mc2",
+			"vendor": "Other"
+		},
+		"annotations": {
+			"global-hub.open-cluster-management.io/managed-by": "hub1",
+			"open-cluster-management/created-via": "other"
+		}
+	},
+	"spec": {
+		"hubAcceptsClient": true,
+		"leaseDurationSeconds": 60
+	},
+	"status": {
+		"conditions": null,
+		"version": {}
+	}
+}
+`
+
+		By("Insert testing managed clusters")
+		_, err := postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO status.managed_clusters (leaf_hub_name,payload,error) VALUES ($1, $2, 'none');`,
+			hub1,
+			mc1)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO status.managed_clusters (leaf_hub_name,payload,error) VALUES ($1, $2, 'none');`,
+			hub1,
+			mc2)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Check the managedcclusters can be listed")
+		w1 := httptest.NewRecorder()
+		req1, err := http.NewRequest("GET", "/global-hub-api/managedclusters", nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w1, req1)
+		Expect(w1.Code).To(Equal(200))
+		Expect(w1.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s,%s]", mc1, mc2)))
+
+		By("Check the managedcclusters can be listed as table response")
+		mclTable := `
+{
+	"kind": "Table",
+	"apiVersion": "meta.k8s.io/v1",
+	"metadata": {},
+	"columnDefinitions": [
+		{
+		"name": "Name",
+		"type": "string",
+		"format": "name",
+		"description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+		"priority": 0
+		},
+		{
+		"name": "Age",
+		"type": "date",
+		"format": "",
+		"description": "Custom resource definition column (in JSONPath format): .metadata.creationTimestamp",
+		"priority": 0
+		}
+	],
+	"rows": [
+		{
+		"cells": [
+			"mc1",
+			null
+		],
+		"object": {
+			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"kind": "ManagedCluster",
+			"metadata": {
+			"annotations": {
+				"global-hub.open-cluster-management.io/managed-by": "hub1",
+				"open-cluster-management/created-via": "other"
+			},
+			"creationTimestamp": null,
+			"labels": {
+				"cloud": "Other",
+				"name": "mc1",
+				"vendor": "Other"
+			},
+			"name": "mc1"
+			},
+			"spec": {
+			"hubAcceptsClient": true,
+			"leaseDurationSeconds": 60
+			},
+			"status": {
+			"conditions": null,
+			"version": {}
+			}
+		}
+		},
+		{
+		"cells": [
+			"mc2",
+			null
+		],
+		"object": {
+			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"kind": "ManagedCluster",
+			"metadata": {
+			"annotations": {
+				"global-hub.open-cluster-management.io/managed-by": "hub1",
+				"open-cluster-management/created-via": "other"
+			},
+			"creationTimestamp": null,
+			"labels": {
+				"cloud": "Other",
+				"name": "mc2",
+				"vendor": "Other"
+			},
+			"name": "mc2"
+			},
+			"spec": {
+			"hubAcceptsClient": true,
+			"leaseDurationSeconds": 60
+			},
+			"status": {
+			"conditions": null,
+			"version": {}
+			}
+		}
+		}
+	]
+}
+`
+		w2 := httptest.NewRecorder()
+		req2, err := http.NewRequest("GET", "/global-hub-api/managedclusters", nil)
+		Expect(err).ToNot(HaveOccurred())
+		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		router.ServeHTTP(w2, req2)
+		Expect(w2.Code).To(Equal(200))
+		Expect(w2.Body.String()).Should(MatchJSON(mclTable))
+
+		By("Check the managedcclusters can be listed with watch")
+		w3 := CreateTestResponseRecorder()
+		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+		defer cancelFunc()
+		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
+			"/global-hub-api/managedclusters?watch", nil)
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			router.ServeHTTP(w3, req3)
+		}()
+		// wait loop for client cancel the request
+		for {
+			select {
+			case <-timeoutCtx.Done():
+				return
+			default:
+				time.Sleep(4 * time.Second)
+				Expect(w3.Code).To(Equal(200))
+				// Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s,%s]", mc1, mc2)))
+			}
+		}
+	})
+
+	It("Should be able to patch label(s) for managed cluster", func() {
+		By("Patch managed cluster")
+		w := httptest.NewRecorder()
+		jsonPatchStr := []byte(`[
+			{
+				"op":    "add",
+				"path":  "/metadata/labels/foo",
+				"value": "bar"
+			}
+		]`)
+		req, err := http.NewRequest("PATCH",
+			"/global-hub-api/managedclusters/mc1?hubCluster=hub1",
+			bytes.NewBuffer(jsonPatchStr))
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w, req)
+		Expect(w.Code).To(Equal(200))
+
+		By("Check the label for the managed cluster is patched")
+		Eventually(func() bool {
+			var labels map[string]string
+			err = postgresSQL.GetConn().QueryRow(ctx,
+				"SELECT labels from spec.managed_clusters_labels "+
+					"WHERE managed_cluster_name = $1 AND leaf_hub_name = $2;",
+				"mc1", "hub1").Scan(&labels)
+			return err == nil && labels["foo"] == "bar"
+		}, 10*time.Second, 2*time.Second).Should(BeTrue())
+	})
+
+	It("Should be able to list policies", func() {
+		plc1ID = uuid.New().String()
+		pr1ID, pb1ID := uuid.New().String(), uuid.New().String()
+		policy1, expectedPolicy1, placementrule1, placementbinding1 := `
+{
+	"apiVersion": "policy.open-cluster-management.io/v1",
+	"kind": "Policy",
+	"metadata": {
+		"name": "policy-config-audit",
+		"namespace": "default",
+		"annotations": {
+			"policy.open-cluster-management.io/standards": "NIST SP 800-53",
+			"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
+			"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records"
+		}
+	},
+	"spec": {
+		"remediationAction": "inform",
+		"disabled": false,
+		"policy-templates": [
+			{
+				"objectDefinition": {
+					"apiVersion": "policy.open-cluster-management.io/v1",
+					"kind": "ConfigurationPolicy",
+					"metadata": {
+						"name": "policy-config-audit"
+					},
+					"spec": {
+						"remediationAction": "inform",
+						"severity": "low",
+						"object-templates": [
+							{
+								"complianceType": "musthave",
+								"objectDefinition": {
+									"apiVersion": "config.openshift.io/v1",
+									"kind": "APIServer",
+									"metadata": {
+										"name": "cluster"
+									},
+									"spec": {
+										"audit": {
+											"customRules": [
+												{
+													"group": "system:authenticated:oauth",
+													"profile": "WriteRequestBodies"
+												},
+												{
+													"group": "system:authenticated",
+													"profile": "AllRequestBodies"
+												}
+											]
+										},
+										"profile": "Default"
+									}
+								}
+							}
+						]
+					}
+				}
+			}
+		]
+	},
+	"status": {}
+}
+`, `
+{
+	"apiVersion": "policy.open-cluster-management.io/v1",
+	"kind": "Policy",
+	"metadata": {
+		"name": "policy-config-audit",
+		"namespace": "default",
+		"creationTimestamp": null,
+		"annotations": {
+			"policy.open-cluster-management.io/standards": "NIST SP 800-53",
+			"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
+			"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records"
+		}
+	},
+	"spec": {
+		"remediationAction": "inform",
+		"disabled": false,
+		"policy-templates": [
+			{
+				"objectDefinition": {
+					"apiVersion": "policy.open-cluster-management.io/v1",
+					"kind": "ConfigurationPolicy",
+					"metadata": {
+						"name": "policy-config-audit"
+					},
+					"spec": {
+						"remediationAction": "inform",
+						"severity": "low",
+						"object-templates": [
+							{
+								"complianceType": "musthave",
+								"objectDefinition": {
+									"apiVersion": "config.openshift.io/v1",
+									"kind": "APIServer",
+									"metadata": {
+										"name": "cluster"
+									},
+									"spec": {
+										"audit": {
+											"customRules": [
+												{
+													"group": "system:authenticated:oauth",
+													"profile": "WriteRequestBodies"
+												},
+												{
+													"group": "system:authenticated",
+													"profile": "AllRequestBodies"
+												}
+											]
+										},
+										"profile": "Default"
+									}
+								}
+							}
+						]
+					}
+				}
+			}
+		]
+	},
+	"status": {
+		"placement": [
+			{
+				"placementBinding": "binding-config-audit",
+				"placementRule": "placement-config-audit"
+			}
+		],
+		"status": [
+			{
+				"compliant": "NonCompliant",
+				"clustername": "mc1",
+				"clusternamespace": "mc1"
+			},
+			{
+				"compliant": "Compliant",
+				"clustername": "mc2",
+				"clusternamespace": "mc2"
+			}
+		],
+		"compliant": "NonCompliant"
+	}
+}
+`, `
+{
+    "apiVersion": "apps.open-cluster-management.io/v1",
+    "kind": "PlacementRule",
+    "metadata": {
+        "name": "placement-config-audit",
+		"namespace": "default"
+    },
+    "spec": {
+        "clusterConditions": [
+            {
+                "status": "True",
+                "type": "ManagedClusterConditionAvailable"
+            }
+        ],
+        "clusterSelector": {
+            "matchExpressions": [
+                {
+                    "key": "environment"
+                }
+            ]
+        }
+    },
+    "operator": "In",
+    "values": [
+        "dev"
+    ]
+}
+`, `
+{
+    "apiVersion": "policy.open-cluster-management.io/v1",
+    "kind": "PlacementBinding",
+    "metadata": {
+        "name": "binding-config-audit",
+		"namespace": "default"
+    },
+    "placementRef": {
+        "name": "placement-config-audit",
+        "kind": "PlacementRule",
+        "apiGroup": "apps.open-cluster-management.io"
+    },
+    "subjects": [
+        {
+            "name": "policy-config-audit",
+            "kind": "Policy",
+            "apiGroup": "policy.open-cluster-management.io"
+        }
+    ]
+}
+`
+
+		By("Insert testing policy")
+		_, err := postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO spec.policies (id,payload) VALUES($1, $2);`, plc1ID, policy1)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Insert testing placementrule")
+		_, err = postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO spec.placementrules (id,payload) VALUES($1, $2);`, pr1ID, placementrule1)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Insert testing placementbinding")
+		_, err = postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO spec.placementbindings (id,payload) VALUES($1, $2);`, pb1ID, placementbinding1)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Insert testing compliances")
+		_, err = postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO status.compliance (id,cluster_name,leaf_hub_name,error,compliance)
+			VALUES($1,'mc1','hub1','none','non_compliant');`,
+			plc1ID)
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO status.compliance (id,cluster_name,leaf_hub_name,error,compliance)
+			VALUES($1,'mc2','hub1','none','compliant');`,
+			plc1ID)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Check the policies can be listed")
+		w1 := httptest.NewRecorder()
+		req1, err := http.NewRequest("GET", "/global-hub-api/policies", nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w1, req1)
+		Expect(w1.Code).To(Equal(200))
+		Expect(w1.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", expectedPolicy1)))
+
+		By("Check the policies can be listed as table response")
+		plcTable := `
+{
+	"kind": "Table",
+	"apiVersion": "meta.k8s.io/v1",
+	"metadata": {},
+	"columnDefinitions": [
+		{
+		"name": "Name",
+		"type": "string",
+		"format": "name",
+		"description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+		"priority": 0
+		},
+		{
+		"name": "Age",
+		"type": "date",
+		"format": "",
+		"description": "Custom resource definition column (in JSONPath format): .metadata.creationTimestamp",
+		"priority": 0
+		}
+	],
+	"rows": [
+		{
+		"cells": [
+			"policy-config-audit",
+			null
+		],
+		"object": {
+			"apiVersion": "policy.open-cluster-management.io/v1",
+			"kind": "Policy",
+			"metadata": {
+			"annotations": {
+				"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
+				"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records",
+				"policy.open-cluster-management.io/standards": "NIST SP 800-53"
+			},
+			"creationTimestamp": null,
+			"name": "policy-config-audit",
+			"namespace": "default"
+			},
+			"spec": {
+			"disabled": false,
+			"policy-templates": [
+				{
+				"objectDefinition": {
+					"apiVersion": "policy.open-cluster-management.io/v1",
+					"kind": "ConfigurationPolicy",
+					"metadata": {
+					"name": "policy-config-audit"
+					},
+					"spec": {
+					"object-templates": [
+						{
+						"complianceType": "musthave",
+						"objectDefinition": {
+							"apiVersion": "config.openshift.io/v1",
+							"kind": "APIServer",
+							"metadata": {
+							"name": "cluster"
+							},
+							"spec": {
+							"audit": {
+								"customRules": [
+								{
+									"group": "system:authenticated:oauth",
+									"profile": "WriteRequestBodies"
+								},
+								{
+									"group": "system:authenticated",
+									"profile": "AllRequestBodies"
+								}
+								]
+							},
+							"profile": "Default"
+							}
+						}
+						}
+					],
+					"remediationAction": "inform",
+					"severity": "low"
+					}
+				}
+				}
+			],
+			"remediationAction": "inform"
+			},
+			"status": {
+			"compliant": "NonCompliant",
+			"placement": [
+				{
+				"placementBinding": "binding-config-audit",
+				"placementRule": "placement-config-audit"
+				}
+			],
+			"status": [
+				{
+				"clustername": "mc1",
+				"clusternamespace": "mc1",
+				"compliant": "NonCompliant"
+				},
+				{
+				"clustername": "mc2",
+				"clusternamespace": "mc2",
+				"compliant": "Compliant"
+				}
+			]
+			}
+		}
+		}
+	]
+}
+`
+		w2 := httptest.NewRecorder()
+		req2, err := http.NewRequest("GET", "/global-hub-api/policies", nil)
+		Expect(err).ToNot(HaveOccurred())
+		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		router.ServeHTTP(w2, req2)
+		Expect(w2.Code).To(Equal(200))
+		Expect(w2.Body.String()).Should(MatchJSON(plcTable))
+
+		By("Check the policies can be listed with watch")
+		w3 := CreateTestResponseRecorder()
+		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+		defer cancelFunc()
+		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
+			"/global-hub-api/policies?watch", nil)
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			router.ServeHTTP(w3, req3)
+		}()
+		// wait loop for client cancel the request
+		for {
+			select {
+			case <-timeoutCtx.Done():
+				return
+			default:
+				time.Sleep(4 * time.Second)
+				Expect(w3.Code).To(Equal(200))
+				// Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", expectedPolicy1)))
+			}
+		}
+	})
+
+	It("Should be able to get policy status", func() {
+		expectedPolicyStatus1 := `
+{
+	"apiVersion": "policy.open-cluster-management.io/v1",
+	"kind": "Policy",
+	"metadata": {
+		"name": "policy-config-audit",
+		"namespace": "default",
+		"creationTimestamp": null,
+		"annotations": {
+			"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
+			"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records",
+			"policy.open-cluster-management.io/standards": "NIST SP 800-53"
+		}
+	},
+	"spec": {
+		"disabled": false,
+		"policy-templates": null
+	},
+	"status": {
+		"placement": [
+			{
+				"placementBinding": "binding-config-audit",
+				"placementRule": "placement-config-audit"
+			}
+		],
+		"status": [
+			{
+				"compliant": "NonCompliant",
+				"clustername": "mc1",
+				"clusternamespace": "mc1"
+			},
+			{
+				"compliant": "Compliant",
+				"clustername": "mc2",
+				"clusternamespace": "mc2"
+			}
+		],
+		"compliant": "NonCompliant"
+	}
+}
+`
+
+		By("Check the policy status can be retrieved with policy ID")
+		w1 := httptest.NewRecorder()
+		req1, err := http.NewRequest("GET", fmt.Sprintf(
+			"/global-hub-api/policies/%s/status", plc1ID), nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w1, req1)
+		Expect(w1.Code).To(Equal(200))
+		Expect(w1.Body.String()).Should(MatchJSON(fmt.Sprintf("%s", expectedPolicyStatus1)))
+
+		By("Check the policy status can be retrieved with policy ID as table reponse")
+		plcTable := `
+{
+	"kind": "Table",
+	"apiVersion": "meta.k8s.io/v1",
+	"metadata": {},
+	"columnDefinitions": [
+		{
+		"name": "Name",
+		"type": "string",
+		"format": "name",
+		"description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+		"priority": 0
+		},
+		{
+		"name": "Age",
+		"type": "date",
+		"format": "",
+		"description": "Custom resource definition column (in JSONPath format): .metadata.creationTimestamp",
+		"priority": 0
+		}
+	],
+	"rows": [
+		{
+		"cells": [
+			"policy-config-audit",
+			null
+		],
+		"object": {
+			"kind": "Policy",
+			"apiVersion": "policy.open-cluster-management.io/v1",
+			"metadata": {
+			"name": "policy-config-audit",
+			"namespace": "default",
+			"creationTimestamp": null,
+			"annotations": {
+				"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
+				"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records",
+				"policy.open-cluster-management.io/standards": "NIST SP 800-53"
+			}
+			},
+			"spec": {
+			"disabled": false,
+			"policy-templates": null
+			},
+			"status": {
+			"placement": [
+				{
+				"placementBinding": "binding-config-audit",
+				"placementRule": "placement-config-audit"
+				}
+			],
+			"status": [
+				{
+				"compliant": "NonCompliant",
+				"clustername": "mc1",
+				"clusternamespace": "mc1"
+				},
+				{
+				"compliant": "Compliant",
+				"clustername": "mc2",
+				"clusternamespace": "mc2"
+				}
+			],
+			"compliant": "NonCompliant"
+			}
+		}
+		}
+	]
+}
+`
+		w2 := httptest.NewRecorder()
+		req2, err := http.NewRequest("GET", fmt.Sprintf(
+			"/global-hub-api/policies/%s/status", plc1ID), nil)
+		Expect(err).ToNot(HaveOccurred())
+		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		router.ServeHTTP(w2, req2)
+		Expect(w2.Code).To(Equal(200))
+		Expect(w2.Body.String()).Should(MatchJSON(plcTable))
+
+		By("Check the policies can be listed with watch")
+		w3 := CreateTestResponseRecorder()
+		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+		defer cancelFunc()
+		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
+			fmt.Sprintf("/global-hub-api/policies/%s/status?watch", plc1ID), nil)
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			router.ServeHTTP(w3, req3)
+		}()
+		// wait loop for client cancel the request
+		for {
+			select {
+			case <-timeoutCtx.Done():
+				return
+			default:
+				time.Sleep(4 * time.Second)
+				Expect(w3.Code).To(Equal(200))
+				// Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("%s", expectedPolicyStatus1)))
+			}
+		}
+	})
+
+	AfterAll(func() {
+		cancel()
+		postgresSQL.Stop()
+	})
+})
