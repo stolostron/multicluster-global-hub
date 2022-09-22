@@ -4,6 +4,7 @@ const (
 	// HohSystemNamespace - Hub of Hubs dedicated namespace.
 	HohSystemNamespace = "open-cluster-management-global-hub-system"
 	HoHConfigName      = "multicluster-global-hub-config"
+	HOHInstanceKind    = "MulticlusterGlobalHub"
 )
 
 // message types

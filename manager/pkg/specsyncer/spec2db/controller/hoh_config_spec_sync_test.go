@@ -10,62 +10,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-const (
-	TEST_SCHEMA = "spec"
-	TEST_TABLE  = "configs"
-)
+var _ = Describe("configmaps to database controller", func() {
+	const testSchema = "spec"
+	const testTable = "configs"
 
-var _ = Describe("spec to database controller", Ordered, func() {
-	var mgr ctrl.Manager
-	var postgresSQL *postgresql.PostgreSQL
-	var kubeClient client.Client
-
-	BeforeAll(func() {
-		By("Creating the Manager")
-		var err error
-		mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-			MetricsBindAddress: "0", // disable the metrics serving
-			Scheme:             scheme.Scheme,
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Add to Scheme")
-		err = managerscheme.AddToScheme(mgr.GetScheme())
-		Expect(err).NotTo(HaveOccurred())
-		kubeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(kubeClient).NotTo(BeNil())
-
-		By("Connect to the database")
-		postgresSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(postgresSQL).NotTo(BeNil())
-
-		By("Adding the controllers to the manager")
-		err = controller.AddHubOfHubsConfigController(mgr, postgresSQL)
-		Expect(err).NotTo(HaveOccurred())
-		go func() {
-			defer GinkgoRecover()
-			err = mgr.Start(ctx)
-			Expect(err).ToNot(HaveOccurred(), "failed to run manager")
-		}()
-
-		By("Waiting for the manager to be ready")
-		Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
-	})
-
-	It("get the spec.configs table from database", func() {
+	BeforeEach(func() {
 		By("Creating test table in the database")
 		_, err := postgresSQL.GetConn().Exec(ctx, `
 			CREATE SCHEMA IF NOT EXISTS spec;
@@ -78,7 +32,6 @@ var _ = Describe("spec to database controller", Ordered, func() {
 			);
 		`)
 		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the table is created")
 		Eventually(func() error {
 			rows, err := postgresSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
@@ -90,17 +43,16 @@ var _ = Describe("spec to database controller", Ordered, func() {
 				columnValues, _ := rows.Values()
 				schema := columnValues[0]
 				table := columnValues[1]
-				if schema == TEST_SCHEMA && table == TEST_TABLE {
+				if schema == testSchema && table == testTable {
 					return nil
 				}
-				fmt.Printf("table %s.%s \n", schema, table)
 			}
-			return fmt.Errorf("failed to create test table %s.%s", TEST_SCHEMA, TEST_TABLE)
+			return fmt.Errorf("failed to create test table %s.%s", testSchema, testTable)
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("create the configmap", func() {
-		By(fmt.Sprintf("Create Namespace: %s \n", constants.HOHSystemNamespace))
+	It("synchronize ConfigMap instance to database", func() {
+		By("Create Namespace for ConfigMap instance")
 		Eventually(func() error {
 			err := kubeClient.Get(ctx, types.NamespacedName{
 				Name: constants.HOHSystemNamespace,
@@ -120,7 +72,7 @@ var _ = Describe("spec to database controller", Ordered, func() {
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-		By(fmt.Sprintf("Create ConfigMap: %s.%s", constants.HOHSystemNamespace, constants.HOHConfigName))
+		By("Create ConfigMap")
 		Eventually(func() error {
 			err := kubeClient.Get(ctx, types.NamespacedName{
 				Namespace: constants.HOHSystemNamespace,
@@ -148,12 +100,10 @@ var _ = Describe("spec to database controller", Ordered, func() {
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-	})
 
-	It("get configmap from database", func() {
+		By("Check the ConfigMap instance is synchronized to database")
 		Eventually(func() error {
-			rows, err := postgresSQL.GetConn().Query(ctx,
-				fmt.Sprintf("SELECT payload FROM %s.%s", TEST_SCHEMA, TEST_TABLE))
+			rows, err := postgresSQL.GetConn().Query(ctx, fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
 			if err != nil {
 				return err
 			}
@@ -168,12 +118,7 @@ var _ = Describe("spec to database controller", Ordered, func() {
 					return nil
 				}
 			}
-			return fmt.Errorf("not find configmap in database")
+			return fmt.Errorf("not find ConfigMap instance in database")
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-	})
-
-	AfterAll(func() {
-		cancel()
-		postgresSQL.Stop()
 	})
 })
