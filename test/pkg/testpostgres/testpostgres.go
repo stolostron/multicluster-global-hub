@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -48,10 +50,22 @@ func NewTestPostgres() (*TestPostgres, error) {
 			return pg, err
 		}
 	} else {
+		postgresDataPath, err := os.UserHomeDir()
+		if err != nil || postgresDataPath == "" {
+			postgresDataPath = os.TempDir()
+		}
+		postgresDataPath = filepath.Join(postgresDataPath,
+			fmt.Sprintf(".embedded-postgres-go-%d", postgresPort),
+			"extracted")
 		pg.rootUser = false
 		pg.username = currentUser.Username
+		posggresConfig := embeddedpostgres.DefaultConfig()
+		posggresConfig = posggresConfig.Port(postgresPort)
+		posggresConfig = posggresConfig.RuntimePath(postgresDataPath)
+		posggresConfig = posggresConfig.BinariesPath(postgresDataPath)
+		posggresConfig = posggresConfig.DataPath(filepath.Join(postgresDataPath, "data"))
 		pg.embedded = embeddedpostgres.NewDatabase(
-			embeddedpostgres.DefaultConfig().Port(postgresPort).Database("hoh"))
+			posggresConfig.Database("hoh"))
 		if err = pg.embedded.Start(); err != nil {
 			fmt.Printf("failed to get embeddedPostgres: %s", err.Error())
 			return pg, err
