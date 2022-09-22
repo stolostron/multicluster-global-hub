@@ -19,10 +19,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const (
-	defaultUsername = "noroot"
-)
-
 type TestPostgres struct {
 	command  *exec.Cmd
 	embedded *embeddedpostgres.EmbeddedPostgres
@@ -33,7 +29,7 @@ type TestPostgres struct {
 
 func NewTestPostgres() (*TestPostgres, error) {
 	pg := &TestPostgres{}
-	currentuser, err := user.Current()
+	currentUser, err := user.Current()
 	if err != nil {
 		fmt.Printf("failed to get current user: %s", err.Error())
 		return nil, err
@@ -42,21 +38,22 @@ func NewTestPostgres() (*TestPostgres, error) {
 	// generate random postgres port
 	postgresPort := uint32(rand.Intn(65535-1024) + 1024)
 
-	// if the current is root user, then it creates a noroot user and start a postgres process
-	if currentuser.Username == "root" {
+	// if the current is root user, then it creates a non-root user and start a postgres process
+	if currentUser.Username == "root" {
 		pg.rootUser = true
-		pg.username = defaultUsername
-		if pg.command, err = getPostgreCommand(defaultUsername, postgresPort); err != nil {
-			fmt.Printf("failed to get PostgreCommand: %s", err.Error())
+		// unit tests are running in parallel, test user name can't conflict
+		pg.username = fmt.Sprintf("non-root-%d", postgresPort)
+		if pg.command, err = getPostgresCommand(pg.username, postgresPort); err != nil {
+			fmt.Printf("failed to get PostgresCommand: %s", err.Error())
 			return pg, err
 		}
 	} else {
 		pg.rootUser = false
-		pg.username = currentuser.Username
+		pg.username = currentUser.Username
 		pg.embedded = embeddedpostgres.NewDatabase(
 			embeddedpostgres.DefaultConfig().Port(postgresPort).Database("hoh"))
 		if err = pg.embedded.Start(); err != nil {
-			fmt.Printf("failed to get embeddedPostgre: %s", err.Error())
+			fmt.Printf("failed to get embeddedPostgres: %s", err.Error())
 			return pg, err
 		}
 	}
@@ -71,13 +68,13 @@ func (pg *TestPostgres) Stop() error {
 			return err
 		}
 
-		// make sure the child process(postgre) is terminated
+		// make sure the child process(postgres) is terminated
 		if err := exec.Command("pkill", "-u", pg.username).Run(); err != nil {
 			fmt.Printf("failed to terminate user(%s) processes: %s", pg.username, err.Error())
 			return err
 		}
 
-		// delete the testuser
+		// delete the testUser
 		if err := exec.Command("userdel", "-rf", pg.username).Run(); err != nil {
 			fmt.Printf("failed to delete user(%s): %s", pg.username, err.Error())
 			return err
@@ -91,7 +88,7 @@ func (pg *TestPostgres) Stop() error {
 	return nil
 }
 
-func getPostgreCommand(username string, postgresPort uint32) (*exec.Cmd, error) {
+func getPostgresCommand(username string, postgresPort uint32) (*exec.Cmd, error) {
 	// create user
 	_, err := user.Lookup(username)
 	if err != nil && !strings.Contains(err.Error(), "unknown user") {
@@ -159,7 +156,7 @@ func getPostgreCommand(username string, postgresPort uint32) (*exec.Cmd, error) 
 		}
 	}()
 
-	postgreChan := make(chan string, 1)
+	postgresChan := make(chan string, 1)
 	go func() {
 		for {
 			line, err := outPipeReader.ReadString('\n')
@@ -170,7 +167,7 @@ func getPostgreCommand(username string, postgresPort uint32) (*exec.Cmd, error) 
 				break
 			}
 			if strings.Contains(line, "postgres started") {
-				postgreChan <- line
+				postgresChan <- line
 			} else {
 				fmt.Print(line)
 			}
@@ -179,7 +176,7 @@ func getPostgreCommand(username string, postgresPort uint32) (*exec.Cmd, error) 
 
 	// wait database to be ready
 	select {
-	case done := <-postgreChan:
+	case done := <-postgresChan:
 		fmt.Printf("database: %s", done)
 		return cmd, nil
 	case <-time.After(1 * time.Minute):

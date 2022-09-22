@@ -14,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	managerschema "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -41,7 +41,7 @@ var _ = Describe("spec to database controller", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Add to Scheme")
-		err = managerschema.AddToScheme(mgr.GetScheme())
+		err = managerscheme.AddToScheme(mgr.GetScheme())
 		Expect(err).NotTo(HaveOccurred())
 		kubeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 		Expect(err).NotTo(HaveOccurred())
