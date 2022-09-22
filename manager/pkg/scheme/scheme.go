@@ -17,7 +17,7 @@ import (
 	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	mghoperatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	mghv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 )
 
 // AddToScheme adds all the resources to be processed to the Scheme.
@@ -34,7 +34,7 @@ func AddToScheme(runtimeScheme *runtime.Scheme) error {
 		channelv1.SchemeBuilder,
 		appsubv1.SchemeBuilder,
 		appv1beta1.SchemeBuilder,
-		mghoperatorv1alpha2.SchemeBuilder,
+		mghv1alpha2.SchemeBuilder,
 	}
 
 	for _, schemeInstallFunc := range schemeInstallFuncs {
