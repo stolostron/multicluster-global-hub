@@ -210,15 +210,111 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w1.Code).To(Equal(200))
 		Expect(w1.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s,%s]", mc1, mc2)))
 
+		By("Check the managedcclusters can be listed as table response")
+		mclTable := `
+{
+	"kind": "Table",
+	"apiVersion": "meta.k8s.io/v1",
+	"metadata": {},
+	"columnDefinitions": [
+		{
+		"name": "Name",
+		"type": "string",
+		"format": "name",
+		"description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+		"priority": 0
+		},
+		{
+		"name": "Age",
+		"type": "date",
+		"format": "",
+		"description": "Custom resource definition column (in JSONPath format): .metadata.creationTimestamp",
+		"priority": 0
+		}
+	],
+	"rows": [
+		{
+		"cells": [
+			"mc1",
+			null
+		],
+		"object": {
+			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"kind": "ManagedCluster",
+			"metadata": {
+			"annotations": {
+				"global-hub.open-cluster-management.io/managed-by": "hub1",
+				"open-cluster-management/created-via": "other"
+			},
+			"creationTimestamp": null,
+			"labels": {
+				"cloud": "Other",
+				"name": "mc1",
+				"vendor": "Other"
+			},
+			"name": "mc1"
+			},
+			"spec": {
+			"hubAcceptsClient": true,
+			"leaseDurationSeconds": 60
+			},
+			"status": {
+			"conditions": null,
+			"version": {}
+			}
+		}
+		},
+		{
+		"cells": [
+			"mc2",
+			null
+		],
+		"object": {
+			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"kind": "ManagedCluster",
+			"metadata": {
+			"annotations": {
+				"global-hub.open-cluster-management.io/managed-by": "hub1",
+				"open-cluster-management/created-via": "other"
+			},
+			"creationTimestamp": null,
+			"labels": {
+				"cloud": "Other",
+				"name": "mc2",
+				"vendor": "Other"
+			},
+			"name": "mc2"
+			},
+			"spec": {
+			"hubAcceptsClient": true,
+			"leaseDurationSeconds": 60
+			},
+			"status": {
+			"conditions": null,
+			"version": {}
+			}
+		}
+		}
+	]
+}
+`
+		w2 := httptest.NewRecorder()
+		req2, err := http.NewRequest("GET", "/global-hub-api/managedclusters", nil)
+		Expect(err).ToNot(HaveOccurred())
+		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		router.ServeHTTP(w2, req2)
+		Expect(w2.Code).To(Equal(200))
+		Expect(w2.Body.String()).Should(MatchJSON(mclTable))
+
 		By("Check the managedcclusters can be listed with watch")
-		w2 := CreateTestResponseRecorder()
+		w3 := CreateTestResponseRecorder()
 		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 		defer cancelFunc()
-		req2, err := http.NewRequestWithContext(timeoutCtx, "GET",
+		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
 			"/global-hub-api/managedclusters?watch", nil)
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
-			router.ServeHTTP(w2, req2)
+			router.ServeHTTP(w3, req3)
 		}()
 		// wait loop for client cancel the request
 		for {
@@ -227,8 +323,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				return
 			default:
 				time.Sleep(4 * time.Second)
-				Expect(w2.Code).To(Equal(200))
-				// Expect(w2.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s,%s]", mc1, mc2)))
+				Expect(w3.Code).To(Equal(200))
+				// Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s,%s]", mc1, mc2)))
 			}
 		}
 	})
@@ -494,25 +590,146 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w1.Code).To(Equal(200))
 		Expect(w1.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", expectedPolicy1)))
 
+		By("Check the policies can be listed as table response")
+		plcTable := `
+{
+	"kind": "Table",
+	"apiVersion": "meta.k8s.io/v1",
+	"metadata": {},
+	"columnDefinitions": [
+		{
+		"name": "Name",
+		"type": "string",
+		"format": "name",
+		"description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+		"priority": 0
+		},
+		{
+		"name": "Age",
+		"type": "date",
+		"format": "",
+		"description": "Custom resource definition column (in JSONPath format): .metadata.creationTimestamp",
+		"priority": 0
+		}
+	],
+	"rows": [
+		{
+		"cells": [
+			"policy-config-audit",
+			null
+		],
+		"object": {
+			"apiVersion": "policy.open-cluster-management.io/v1",
+			"kind": "Policy",
+			"metadata": {
+			"annotations": {
+				"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
+				"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records",
+				"policy.open-cluster-management.io/standards": "NIST SP 800-53"
+			},
+			"creationTimestamp": null,
+			"name": "policy-config-audit",
+			"namespace": "default"
+			},
+			"spec": {
+			"disabled": false,
+			"policy-templates": [
+				{
+				"objectDefinition": {
+					"apiVersion": "policy.open-cluster-management.io/v1",
+					"kind": "ConfigurationPolicy",
+					"metadata": {
+					"name": "policy-config-audit"
+					},
+					"spec": {
+					"object-templates": [
+						{
+						"complianceType": "musthave",
+						"objectDefinition": {
+							"apiVersion": "config.openshift.io/v1",
+							"kind": "APIServer",
+							"metadata": {
+							"name": "cluster"
+							},
+							"spec": {
+							"audit": {
+								"customRules": [
+								{
+									"group": "system:authenticated:oauth",
+									"profile": "WriteRequestBodies"
+								},
+								{
+									"group": "system:authenticated",
+									"profile": "AllRequestBodies"
+								}
+								]
+							},
+							"profile": "Default"
+							}
+						}
+						}
+					],
+					"remediationAction": "inform",
+					"severity": "low"
+					}
+				}
+				}
+			],
+			"remediationAction": "inform"
+			},
+			"status": {
+			"compliant": "NonCompliant",
+			"placement": [
+				{
+				"placementBinding": "binding-config-audit",
+				"placementRule": "placement-config-audit"
+				}
+			],
+			"status": [
+				{
+				"clustername": "mc1",
+				"clusternamespace": "mc1",
+				"compliant": "NonCompliant"
+				},
+				{
+				"clustername": "mc2",
+				"clusternamespace": "mc2",
+				"compliant": "Compliant"
+				}
+			]
+			}
+		}
+		}
+	]
+}
+`
+		w2 := httptest.NewRecorder()
+		req2, err := http.NewRequest("GET", "/global-hub-api/policies", nil)
+		Expect(err).ToNot(HaveOccurred())
+		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		router.ServeHTTP(w2, req2)
+		Expect(w2.Code).To(Equal(200))
+		Expect(w2.Body.String()).Should(MatchJSON(plcTable))
+
 		By("Check the policies can be listed with watch")
-		w2 := CreateTestResponseRecorder()
-		timeoutCtx1, cancelFunc1 := context.WithTimeout(ctx, 5*time.Second)
-		defer cancelFunc1()
-		req2, err := http.NewRequestWithContext(timeoutCtx1, "GET",
+		w3 := CreateTestResponseRecorder()
+		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+		defer cancelFunc()
+		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
 			"/global-hub-api/policies?watch", nil)
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
-			router.ServeHTTP(w2, req2)
+			router.ServeHTTP(w3, req3)
 		}()
 		// wait loop for client cancel the request
 		for {
 			select {
-			case <-timeoutCtx1.Done():
+			case <-timeoutCtx.Done():
 				return
 			default:
 				time.Sleep(4 * time.Second)
-				Expect(w2.Code).To(Equal(200))
-				// Expect(w2.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", expectedPolicy1)))
+				Expect(w3.Code).To(Equal(200))
+				// Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", expectedPolicy1)))
 			}
 		}
 	})
@@ -561,33 +778,113 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 `
 
 		By("Check the policy status can be retrieved with policy ID")
-		w3 := httptest.NewRecorder()
-		req3, err := http.NewRequest("GET", fmt.Sprintf(
+		w1 := httptest.NewRecorder()
+		req1, err := http.NewRequest("GET", fmt.Sprintf(
 			"/global-hub-api/policies/%s/status", plc1ID), nil)
 		Expect(err).ToNot(HaveOccurred())
-		router.ServeHTTP(w3, req3)
-		Expect(w3.Code).To(Equal(200))
-		Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("%s", expectedPolicyStatus1)))
+		router.ServeHTTP(w1, req1)
+		Expect(w1.Code).To(Equal(200))
+		Expect(w1.Body.String()).Should(MatchJSON(fmt.Sprintf("%s", expectedPolicyStatus1)))
+
+		By("Check the policy status can be retrieved with policy ID as table reponse")
+		plcTable := `
+{
+	"kind": "Table",
+	"apiVersion": "meta.k8s.io/v1",
+	"metadata": {},
+	"columnDefinitions": [
+		{
+		"name": "Name",
+		"type": "string",
+		"format": "name",
+		"description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+		"priority": 0
+		},
+		{
+		"name": "Age",
+		"type": "date",
+		"format": "",
+		"description": "Custom resource definition column (in JSONPath format): .metadata.creationTimestamp",
+		"priority": 0
+		}
+	],
+	"rows": [
+		{
+		"cells": [
+			"policy-config-audit",
+			null
+		],
+		"object": {
+			"kind": "Policy",
+			"apiVersion": "policy.open-cluster-management.io/v1",
+			"metadata": {
+			"name": "policy-config-audit",
+			"namespace": "default",
+			"creationTimestamp": null,
+			"annotations": {
+				"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
+				"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records",
+				"policy.open-cluster-management.io/standards": "NIST SP 800-53"
+			}
+			},
+			"spec": {
+			"disabled": false,
+			"policy-templates": null
+			},
+			"status": {
+			"placement": [
+				{
+				"placementBinding": "binding-config-audit",
+				"placementRule": "placement-config-audit"
+				}
+			],
+			"status": [
+				{
+				"compliant": "NonCompliant",
+				"clustername": "mc1",
+				"clusternamespace": "mc1"
+				},
+				{
+				"compliant": "Compliant",
+				"clustername": "mc2",
+				"clusternamespace": "mc2"
+				}
+			],
+			"compliant": "NonCompliant"
+			}
+		}
+		}
+	]
+}
+`
+		w2 := httptest.NewRecorder()
+		req2, err := http.NewRequest("GET", fmt.Sprintf(
+			"/global-hub-api/policies/%s/status", plc1ID), nil)
+		Expect(err).ToNot(HaveOccurred())
+		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		router.ServeHTTP(w2, req2)
+		Expect(w2.Code).To(Equal(200))
+		Expect(w2.Body.String()).Should(MatchJSON(plcTable))
 
 		By("Check the policies can be listed with watch")
-		w4 := CreateTestResponseRecorder()
-		timeoutCtx2, cancelFunc2 := context.WithTimeout(ctx, 5*time.Second)
-		defer cancelFunc2()
-		req4, err := http.NewRequestWithContext(timeoutCtx2, "GET",
+		w3 := CreateTestResponseRecorder()
+		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+		defer cancelFunc()
+		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
 			fmt.Sprintf("/global-hub-api/policies/%s/status?watch", plc1ID), nil)
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
-			router.ServeHTTP(w4, req4)
+			router.ServeHTTP(w3, req3)
 		}()
 		// wait loop for client cancel the request
 		for {
 			select {
-			case <-timeoutCtx2.Done():
+			case <-timeoutCtx.Done():
 				return
 			default:
 				time.Sleep(4 * time.Second)
-				Expect(w4.Code).To(Equal(200))
-				// Expect(w4.Body.String()).Should(MatchJSON(fmt.Sprintf("%s", expectedPolicyStatus1)))
+				Expect(w3.Code).To(Equal(200))
+				// Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("%s", expectedPolicyStatus1)))
 			}
 		}
 	})
