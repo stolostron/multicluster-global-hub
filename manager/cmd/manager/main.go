@@ -19,6 +19,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
@@ -37,6 +38,7 @@ import (
 	statustransport "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
 	statuskafka "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/kafka"
 	statussyncservice "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/syncservice"
+	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 )
 
@@ -438,6 +440,10 @@ func doMain() int {
 		log.Error(err, "failed to create manager")
 		return 1
 	}
+
+	hookServer := mgr.GetWebhookServer()
+	log.Info("registering webhooks to the webhook server")
+	hookServer.Register("/mutating", &webhook.Admission{Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()}})
 
 	log.Info("Starting the Cmd.")
 
