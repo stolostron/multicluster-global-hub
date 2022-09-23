@@ -8,6 +8,7 @@ WORKDIR /workspace
 COPY go.mod go.sum ./
 COPY ./manager/ ./manager/
 COPY ./pkg/ ./pkg/
+COPY ./operator ./operator/
 
 RUN go build -o bin/manager ./manager/cmd/manager/main.go
 
