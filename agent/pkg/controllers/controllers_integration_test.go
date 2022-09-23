@@ -34,7 +34,9 @@ var _ = Describe("controller", Ordered, func() {
 	It("create a manager", func() {
 		By("Creating the Manager")
 		var err error
-		mgr, err = ctrl.NewManager(cfg, ctrl.Options{})
+		mgr, err = ctrl.NewManager(cfg, ctrl.Options{
+			MetricsBindAddress: "0", // disable the metrics serving
+		})
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Adding the controllers to the manager")
