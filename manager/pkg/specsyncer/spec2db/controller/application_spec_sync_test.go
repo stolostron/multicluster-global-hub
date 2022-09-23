@@ -51,10 +51,10 @@ var _ = Describe("application to database controller", func() {
 	})
 
 	It("filter application with MGH OwnerReferences", func() {
-		By("Create application foo1 instance with OwnerReference")
+		By("Create application app1 instance with OwnerReference")
 		filteredApp := &appv1beta1.Application{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo1",
+				Name:      "app1",
 				Namespace: config.GetDefaultNamespace(),
 			},
 			Spec: appv1beta1.ApplicationSpec{},
@@ -62,10 +62,10 @@ var _ = Describe("application to database controller", func() {
 		Expect(controllerutil.SetControllerReference(mghInstance, filteredApp, mgr.GetScheme()))
 		Expect(kubeClient.Create(ctx, filteredApp)).Should(Succeed())
 
-		By("Create application foo2 instance without OwnerReference")
+		By("Create application app2 instance without OwnerReference")
 		expectedApp := &appv1beta1.Application{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo2",
+				Name:      "app2",
 				Namespace: config.GetDefaultNamespace(),
 			},
 			Spec: appv1beta1.ApplicationSpec{},
