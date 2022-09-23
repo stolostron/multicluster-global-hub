@@ -69,7 +69,7 @@ var _ = BeforeSuite(func() {
 
 	By("Create controller manager")
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress: ":8083",
+		MetricsBindAddress: "0", // disable the metrics serving
 		Scheme:             scheme.Scheme,
 	})
 	Expect(err).NotTo(HaveOccurred())

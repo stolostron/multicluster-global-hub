@@ -8,7 +8,9 @@ WORKDIR /workspace
 COPY go.mod go.sum ./
 COPY ./manager/ ./manager/
 COPY ./pkg/ ./pkg/
-COPY ./operator ./operator/
+# add the operator modules to avoid the following error when build the manager binary
+# "no required module provides package github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+COPY ./operator ./operator/ 
 
 RUN go build -o bin/manager ./manager/cmd/manager/main.go
 
