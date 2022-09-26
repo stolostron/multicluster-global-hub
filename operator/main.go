@@ -22,6 +22,7 @@ import (
 
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -80,6 +81,7 @@ func init() {
 	utilruntime.Must(placementrulesv1.AddToScheme(scheme))
 	utilruntime.Must(policyv1.AddToScheme(scheme))
 	utilruntime.Must(applicationv1beta1.AddToScheme(scheme))
+	utilruntime.Must(admissionregistrationv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -148,6 +150,9 @@ func main() {
 				Label: labelSelector,
 			},
 			&addonv1alpha1.ManagedClusterAddOn{}: {
+				Label: labelSelector,
+			},
+			&admissionregistrationv1.MutatingWebhookConfiguration{}: {
 				Label: labelSelector,
 			},
 		},

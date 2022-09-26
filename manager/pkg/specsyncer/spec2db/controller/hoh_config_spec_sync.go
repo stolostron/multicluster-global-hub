@@ -30,7 +30,7 @@ func AddHubOfHubsConfigController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			tableName:      "configs",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &corev1.ConfigMap{} },
-			cleanStatus:    cleanConfigStatus,
+			cleanObject:    cleanConfigStatus,
 			areEqual:       areConfigsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add hoh config controller to the manager: %w", err)

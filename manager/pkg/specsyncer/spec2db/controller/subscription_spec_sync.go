@@ -35,7 +35,7 @@ func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			tableName:      "subscriptions",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &subscriptionv1.Subscription{} },
-			cleanStatus:    cleanSubscriptionStatus,
+			cleanObject:    cleanSubscriptionStatus,
 			areEqual:       areSubscriptionsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add subscription controller to the manager: %w", err)

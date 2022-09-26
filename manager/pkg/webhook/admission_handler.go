@@ -5,10 +5,16 @@ package webhook
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var log = logf.Log.WithName("admission-handler")
@@ -20,8 +26,51 @@ type AdmissionHandler struct {
 }
 
 func (a *AdmissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	log.Info("admission webhook is called", "name", req.Name, "namespace", req.Namespace, "kind", req.Kind.Kind, "operation", req.Operation)
-	return admission.PatchResponseFromRaw(req.Object.Raw, req.Object.Raw)
+	log.Info("admission webhook is called", "name", req.Name, "namespace",
+		req.Namespace, "kind", req.Kind.Kind, "operation", req.Operation)
+
+	if req.Kind.Kind == "Placement" {
+		placement := &clusterv1beta1.Placement{}
+		err := a.decoder.Decode(req, placement)
+		if err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+
+		key := constants.GlobalHubLocalResource
+		_, found := placement.Labels[key]
+		if !found {
+			if placement.Annotations == nil {
+				placement.Annotations = map[string]string{}
+			}
+			placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] = "true"
+
+			marshaledPlacement, err := json.Marshal(placement)
+			if err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
+			return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPlacement)
+		}
+	} else if req.Kind.Kind == "PlacementRule" {
+		placementrule := &placementrulesv1.PlacementRule{}
+		err := a.decoder.Decode(req, placementrule)
+		if err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+
+		key := constants.GlobalHubLocalResource
+		_, found := placementrule.Labels[key]
+		if !found {
+			placementrule.Spec.SchedulerName = constants.GlobalHubSchedulerName
+
+			marshaledPlacementRule, err := json.Marshal(placementrule)
+			if err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
+			return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPlacementRule)
+		}
+	}
+
+	return admission.Allowed("")
 }
 
 // AdmissionHandler implements admission.DecoderInjector.

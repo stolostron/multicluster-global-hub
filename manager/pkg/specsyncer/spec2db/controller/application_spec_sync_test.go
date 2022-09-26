@@ -7,9 +7,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 )
 
 var _ = Describe("application to database controller", func() {
@@ -61,7 +61,8 @@ var _ = Describe("application to database controller", func() {
 		Expect(kubeClient.Create(ctx, instance)).Should(Succeed())
 
 		Eventually(func() error {
-			rows, err := postgresSQL.GetConn().Query(ctx, fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
+			rows, err := postgresSQL.GetConn().Query(ctx,
+				fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
 			if err != nil {
 				return err
 			}
@@ -72,7 +73,8 @@ var _ = Describe("application to database controller", func() {
 					return err
 				}
 				fmt.Printf("spec.applications: %s - %s \n", syncedApp.Namespace, syncedApp.Name)
-				if syncedApp.GetNamespace() == instance.GetNamespace() && syncedApp.GetName() == instance.GetName() {
+				if syncedApp.GetNamespace() == instance.GetNamespace() &&
+					syncedApp.GetName() == instance.GetName() {
 					return nil
 				}
 			}

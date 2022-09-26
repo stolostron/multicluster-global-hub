@@ -26,7 +26,7 @@ type genericSpecToDBReconciler struct {
 	tableName      string
 	finalizerName  string
 	createInstance func() client.Object
-	cleanStatus    func(client.Object)
+	cleanObject    func(client.Object)
 	areEqual       func(client.Object, client.Object) bool
 }
 
@@ -168,7 +168,7 @@ func (r *genericSpecToDBReconciler) cleanInstance(instance client.Object) client
 
 	delete(instance.GetAnnotations(), "kubectl.kubernetes.io/last-applied-configuration")
 
-	r.cleanStatus(instance)
+	r.cleanObject(instance)
 
 	return instance
 }

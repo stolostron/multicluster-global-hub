@@ -20,9 +20,11 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/go-logr/logr"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -104,6 +106,7 @@ type MulticlusterGlobalHubReconciler struct {
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=get;list;watch;create;update;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -303,7 +306,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 	if err != nil {
 		return err
 	}
-
 	if err = r.manipulateObj(ctx, hohDeployer, mapper, managerObjects, mgh,
 		condition.SetConditionManagerDeployed, log); err != nil {
 		return err
@@ -482,6 +484,33 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		},
 	}
 
+	webhookPred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectNew.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal {
+				new := e.ObjectNew.(*admissionregistrationv1.MutatingWebhookConfiguration)
+				old := e.ObjectOld.(*admissionregistrationv1.MutatingWebhookConfiguration)
+				if len(new.Webhooks) != len(old.Webhooks) ||
+					new.Webhooks[0].Name != old.Webhooks[0].Name ||
+					!reflect.DeepEqual(new.Webhooks[0].AdmissionReviewVersions,
+						old.Webhooks[0].AdmissionReviewVersions) ||
+					!reflect.DeepEqual(new.Webhooks[0].Rules, old.Webhooks[0].Rules) ||
+					!reflect.DeepEqual(new.Webhooks[0].ClientConfig.Service, old.Webhooks[0].ClientConfig.Service) {
+					return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+				}
+				return false
+			}
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
+				commonconstants.HoHOperatorOwnerLabelVal
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha2.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
@@ -491,6 +520,13 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
 		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
 		Owns(&networkingv1.Ingress{}, builder.WithPredicates(ownPred)).
+		Watches(&source.Kind{Type: &admissionregistrationv1.MutatingWebhookConfiguration{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetHoHMGHNamespacedName()},
+				}
+			}), builder.WithPredicates(webhookPred)).
 		// secondary watch for configmap
 		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {

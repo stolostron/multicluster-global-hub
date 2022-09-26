@@ -12,5 +12,9 @@ spec:
   ports:
   - port: 8080
     name: http
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+    name: webhook-server
   selector:
     name: multicluster-global-hub-manager

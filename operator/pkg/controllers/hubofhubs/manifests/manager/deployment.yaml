@@ -44,6 +44,10 @@ spec:
                 secretKeyRef:
                   name: "{{.DBSecret}}"
                   key: database_uri
+          ports:
+          - containerPort: 9443
+            name: webhook-server
+            protocol: TCP
           volumeMounts:
             - readOnly: true
               mountPath: /certs

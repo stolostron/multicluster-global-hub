@@ -48,7 +48,7 @@ var _ = Describe("configmaps to database controller", func() {
 				}
 			}
 			return fmt.Errorf("failed to create test table %s.%s", testSchema, testTable)
-		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+		}, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("synchronize ConfigMap instance to database", func() {
@@ -99,11 +99,12 @@ var _ = Describe("configmaps to database controller", func() {
 				}
 			}
 			return nil
-		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Check the ConfigMap instance is synchronized to database")
 		Eventually(func() error {
-			rows, err := postgresSQL.GetConn().Query(ctx, fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
+			rows, err := postgresSQL.GetConn().Query(ctx,
+				fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
 			if err != nil {
 				return err
 			}
@@ -118,7 +119,7 @@ var _ = Describe("configmaps to database controller", func() {
 					return nil
 				}
 			}
-			return fmt.Errorf("not find ConfigMap instance in database")
-		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			return fmt.Errorf("not find configmap in database")
+		}, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 })

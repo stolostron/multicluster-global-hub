@@ -38,7 +38,7 @@ func AddManagedClusterSetBindingController(mgr ctrl.Manager, specDB db.SpecDB) e
 			createInstance: func() client.Object {
 				return &clusterv1beta1.ManagedClusterSetBinding{}
 			},
-			cleanStatus: cleanManagedClusterSetBindingsStatus,
+			cleanObject: cleanManagedClusterSetBindingsStatus,
 			areEqual:    areManagedClusterSetBindingsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add managed cluster set binding controller to the manager: %w", err)

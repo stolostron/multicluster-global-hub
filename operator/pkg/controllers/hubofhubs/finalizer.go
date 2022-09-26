@@ -36,7 +36,8 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
 		commonconstants.GlobalHubCleanupFinalizer) {
 
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(),
+			commonconstants.GlobalHubCleanupFinalizer))
 		if err := r.Client.Update(context.TODO(), mgh); err != nil {
 			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
 			return true, err

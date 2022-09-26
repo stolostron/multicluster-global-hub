@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -22,10 +23,9 @@ import (
 
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 )
 
 var (
@@ -55,7 +55,7 @@ var _ = BeforeSuite(func() {
 	var err error
 	testenv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "test", "crd"),
+			filepath.Join("..", "..", "..", "..", "..", "pkg", "testdata", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -67,9 +67,8 @@ var _ = BeforeSuite(func() {
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Create controller manager")
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress: "0", // disable the metrics serving
+		MetricsBindAddress: "0",
 		Scheme:             scheme.Scheme,
 	})
 	Expect(err).NotTo(HaveOccurred())
@@ -89,10 +88,7 @@ var _ = BeforeSuite(func() {
 	Expect(postgresSQL).NotTo(BeNil())
 
 	By("Adding the controllers to the manager")
-	Expect(controller.AddHubOfHubsConfigController(mgr, postgresSQL)).Should(Succeed())
-	Expect(controller.AddApplicationController(mgr, postgresSQL)).Should(Succeed())
-	Expect(controller.AddChannelController(mgr, postgresSQL)).Should(Succeed())
-	Expect(controller.AddSubscriptionController(mgr, postgresSQL)).Should(Succeed())
+	Expect(spec2db.AddSpec2DBControllers(mgr, postgresSQL)).Should(Succeed())
 	go func() {
 		defer GinkgoRecover()
 		err = mgr.Start(ctx)

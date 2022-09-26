@@ -36,7 +36,7 @@ func AddPlacementRuleController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			tableName:      "placementrules",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &placementrulev1.PlacementRule{} },
-			cleanStatus:    cleanPlacementRuleStatus,
+			cleanObject:    cleanPlacementRuleObject,
 			areEqual:       arePlacementRulesEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add placement rule controller to the manager: %w", err)
@@ -45,12 +45,14 @@ func AddPlacementRuleController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	return nil
 }
 
-func cleanPlacementRuleStatus(instance client.Object) {
+func cleanPlacementRuleObject(instance client.Object) {
 	placementRule, ok := instance.(*placementrulev1.PlacementRule)
 
 	if !ok {
 		panic("wrong instance passed to cleanPlacementRuleStatus: not a PlacementRule")
 	}
+	// reset to empty so that the placementrule scheduler can take over
+	placementRule.Spec.SchedulerName = ""
 
 	placementRule.Status = placementrulev1.PlacementRuleStatus{}
 }

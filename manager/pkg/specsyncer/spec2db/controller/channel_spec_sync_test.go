@@ -7,10 +7,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 var _ = Describe("channels to database controller", func() {
@@ -62,7 +62,8 @@ var _ = Describe("channels to database controller", func() {
 				Pathname: "test-path",
 			},
 		}
-		Expect(controllerutil.SetControllerReference(multiclusterhub, filteredChannel, mgr.GetScheme()))
+		Expect(controllerutil.SetControllerReference(multiclusterhub, filteredChannel,
+			mgr.GetScheme())).NotTo(HaveOccurred())
 		Expect(kubeClient.Create(ctx, filteredChannel)).Should(Succeed())
 
 		By("Create channel ch2 instance without OwnerReference")
@@ -80,7 +81,8 @@ var _ = Describe("channels to database controller", func() {
 
 		Eventually(func() error {
 			expectedChannelSynced := false
-			rows, err := postgresSQL.GetConn().Query(ctx, fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
+			rows, err := postgresSQL.GetConn().Query(ctx,
+				fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
 			if err != nil {
 				return err
 			}

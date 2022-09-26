@@ -73,9 +73,12 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
+		KubeAPIServerFlags: []string{
+			"--disable-admission-plugins=ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook",
+		},
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "testdata", "crd"),
+			filepath.Join("..", "..", "..", "..", "pkg", "testdata", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}

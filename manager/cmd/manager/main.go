@@ -443,7 +443,9 @@ func doMain() int {
 
 	hookServer := mgr.GetWebhookServer()
 	log.Info("registering webhooks to the webhook server")
-	hookServer.Register("/mutating", &webhook.Admission{Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()}})
+	hookServer.Register("/mutating", &webhook.Admission{
+		Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()},
+	})
 
 	log.Info("Starting the Cmd.")
 

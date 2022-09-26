@@ -35,7 +35,7 @@ func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			tableName:      "channels",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &channelv1.Channel{} },
-			cleanStatus:    cleanChannelStatus,
+			cleanObject:    cleanChannelStatus,
 			areEqual:       areChannelsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add channel controller to the manager: %w", err)
