@@ -68,6 +68,8 @@ make docker-build docker-push IMG=<some-registry>/multicluster-global-hub-operat
 make deploy IMG=<some-registry>/multicluster-global-hub-operator:<tag>
 ```
 
+_Note:_ Specify `TARGET_NAMESPACE` environment variable if you're trying to deploy the operator into another namespace rather than `open-cluster-management`, keep in mind the namespace must be the ACM installation namespace.
+
 4. Install instance of custom resource:
 
 ```bash
