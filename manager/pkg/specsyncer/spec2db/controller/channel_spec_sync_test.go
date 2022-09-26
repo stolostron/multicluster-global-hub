@@ -50,7 +50,7 @@ var _ = Describe("channels to database controller", func() {
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("filter channel with MGH OwnerReferences", func() {
+	It("filter channel with MCH OwnerReferences", func() {
 		By("Create channel ch1 instance with OwnerReference")
 		filteredChannel := &channelv1.Channel{
 			ObjectMeta: metav1.ObjectMeta{
@@ -62,7 +62,7 @@ var _ = Describe("channels to database controller", func() {
 				Pathname: "test-path",
 			},
 		}
-		Expect(controllerutil.SetControllerReference(mghInstance, filteredChannel, mgr.GetScheme()))
+		Expect(controllerutil.SetControllerReference(multiclusterhub, filteredChannel, mgr.GetScheme()))
 		Expect(kubeClient.Create(ctx, filteredChannel)).Should(Succeed())
 
 		By("Create channel ch2 instance without OwnerReference")
@@ -97,7 +97,7 @@ var _ = Describe("channels to database controller", func() {
 				}
 				if syncedChannel.GetNamespace() == filteredChannel.GetNamespace() &&
 					syncedChannel.GetName() == filteredChannel.GetName() {
-					return fmt.Errorf("channel(%s) with OwnerReference(MGH) should't be synchronized to database",
+					return fmt.Errorf("channel(%s) with OwnerReference(MCH) should't be synchronized to database",
 						filteredChannel.GetName())
 				}
 			}

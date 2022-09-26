@@ -22,7 +22,7 @@ func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {
 		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
 			ownerReferences := obj.GetOwnerReferences()
 			for _, reference := range ownerReferences {
-				if kind := reference.Kind; kind == constants.HOHInstanceKind {
+				if kind := reference.Kind; kind == constants.MultiClusterHubKind {
 					return false
 				}
 			}

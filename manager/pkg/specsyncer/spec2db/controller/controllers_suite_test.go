@@ -23,21 +23,21 @@ import (
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
-	mghv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 )
 
 var (
-	testenv      *envtest.Environment
-	cfg          *rest.Config
-	ctx          context.Context
-	cancel       context.CancelFunc
-	testPostgres *testpostgres.TestPostgres
-	mgr          ctrl.Manager
-	postgresSQL  *postgresql.PostgreSQL
-	kubeClient   client.Client
-	mghInstance  *mghv1alpha2.MulticlusterGlobalHub
+	testenv         *envtest.Environment
+	cfg             *rest.Config
+	ctx             context.Context
+	cancel          context.CancelFunc
+	testPostgres    *testpostgres.TestPostgres
+	mgr             ctrl.Manager
+	postgresSQL     *postgresql.PostgreSQL
+	kubeClient      client.Client
+	multiclusterhub *mchv1.MultiClusterHub
 )
 
 func TestSpec2db(t *testing.T) {
@@ -76,6 +76,7 @@ var _ = BeforeSuite(func() {
 
 	By("Add to Scheme")
 	Expect(managerscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
+	Expect(mchv1.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
 
 	By("Get kubeClient")
 	kubeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
@@ -102,23 +103,18 @@ var _ = BeforeSuite(func() {
 	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 
 	By("Create MGH instance")
-	mghInstance = &mghv1alpha2.MulticlusterGlobalHub{
+	multiclusterhub = &mchv1.MultiClusterHub{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "multicluster-global-hub",
+			Name:      "multiclusterhub",
 			Namespace: config.GetDefaultNamespace(),
 		},
-		Spec: mghv1alpha2.MulticlusterGlobalHubSpec{
-			DataLayer: &mghv1alpha2.DataLayerConfig{
-				Type:   mghv1alpha2.Native,
-				Native: &mghv1alpha2.NativeConfig{},
-			},
-		},
+		Spec: mchv1.MultiClusterHubSpec{},
 	}
-	Expect(kubeClient.Create(ctx, mghInstance)).Should(Succeed())
+	Expect(kubeClient.Create(ctx, multiclusterhub)).Should(Succeed())
 	Expect(kubeClient.Get(ctx, types.NamespacedName{
-		Namespace: mghInstance.GetNamespace(),
-		Name:      mghInstance.GetName(),
-	}, mghInstance)).Should(Succeed())
+		Namespace: multiclusterhub.GetNamespace(),
+		Name:      multiclusterhub.GetName(),
+	}, multiclusterhub)).Should(Succeed())
 })
 
 var _ = AfterSuite(func() {

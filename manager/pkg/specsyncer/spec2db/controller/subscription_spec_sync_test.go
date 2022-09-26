@@ -50,7 +50,7 @@ var _ = Describe("subscriptions to database controller", func() {
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("filter subscription with MGH OwnerReferences", func() {
+	It("filter subscription with MCH OwnerReferences", func() {
 		By("Create subscription sub1 instance with OwnerReference")
 		filteredSubscription := &appsubv1.Subscription{
 			ObjectMeta: metav1.ObjectMeta{
@@ -61,7 +61,7 @@ var _ = Describe("subscriptions to database controller", func() {
 				Channel: "test-channel",
 			},
 		}
-		Expect(controllerutil.SetControllerReference(mghInstance, filteredSubscription, mgr.GetScheme()))
+		Expect(controllerutil.SetControllerReference(multiclusterhub, filteredSubscription, mgr.GetScheme()))
 		Expect(kubeClient.Create(ctx, filteredSubscription)).Should(Succeed())
 
 		By("Create channel sub2 instance without OwnerReference")
@@ -95,7 +95,7 @@ var _ = Describe("subscriptions to database controller", func() {
 				}
 				if syncedSubscription.GetNamespace() == filteredSubscription.GetNamespace() &&
 					syncedSubscription.GetName() == filteredSubscription.GetName() {
-					return fmt.Errorf("subscription(%s) with OwnerReference(MGH) should't be synchronized to database",
+					return fmt.Errorf("subscription(%s) with OwnerReference(MCH) should't be synchronized to database",
 						filteredSubscription.GetName())
 				}
 			}

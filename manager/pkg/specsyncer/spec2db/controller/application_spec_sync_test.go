@@ -10,7 +10,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 var _ = Describe("application to database controller", func() {
@@ -50,30 +49,18 @@ var _ = Describe("application to database controller", func() {
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("filter application with MGH OwnerReferences", func() {
+	It("Synchronize application to database", func() {
 		By("Create application app1 instance with OwnerReference")
-		filteredApp := &appv1beta1.Application{
+		instance := &appv1beta1.Application{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "app1",
 				Namespace: config.GetDefaultNamespace(),
 			},
 			Spec: appv1beta1.ApplicationSpec{},
 		}
-		Expect(controllerutil.SetControllerReference(mghInstance, filteredApp, mgr.GetScheme()))
-		Expect(kubeClient.Create(ctx, filteredApp)).Should(Succeed())
-
-		By("Create application app2 instance without OwnerReference")
-		expectedApp := &appv1beta1.Application{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "app2",
-				Namespace: config.GetDefaultNamespace(),
-			},
-			Spec: appv1beta1.ApplicationSpec{},
-		}
-		Expect(kubeClient.Create(ctx, expectedApp)).Should(Succeed())
+		Expect(kubeClient.Create(ctx, instance)).Should(Succeed())
 
 		Eventually(func() error {
-			expectedAppSynced := false
 			rows, err := postgresSQL.GetConn().Query(ctx, fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
 			if err != nil {
 				return err
@@ -85,19 +72,11 @@ var _ = Describe("application to database controller", func() {
 					return err
 				}
 				fmt.Printf("spec.applications: %s - %s \n", syncedApp.Namespace, syncedApp.Name)
-				if syncedApp.GetNamespace() == expectedApp.GetNamespace() && syncedApp.GetName() == expectedApp.GetName() {
-					expectedAppSynced = true
-				}
-				if syncedApp.GetNamespace() == filteredApp.GetNamespace() && syncedApp.GetName() == filteredApp.GetName() {
-					return fmt.Errorf("app(%s) with OwnerReference(MGH) should't be synchronized to database",
-						filteredApp.GetName())
+				if syncedApp.GetNamespace() == instance.GetNamespace() && syncedApp.GetName() == instance.GetName() {
+					return nil
 				}
 			}
-			if expectedAppSynced {
-				return nil
-			} else {
-				return fmt.Errorf("not find app(%s) in database", expectedApp.GetName())
-			}
+			return fmt.Errorf("not find app(%s) in database", instance.GetName())
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 })

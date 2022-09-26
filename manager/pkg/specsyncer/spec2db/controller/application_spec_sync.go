@@ -10,7 +10,6 @@ import (
 	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -19,15 +18,6 @@ import (
 func AddApplicationController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&appv1beta1.Application{}).
-		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
-			ownerReferences := obj.GetOwnerReferences()
-			for _, reference := range ownerReferences {
-				if kind := reference.Kind; kind == constants.HOHInstanceKind {
-					return false
-				}
-			}
-			return true
-		})).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
