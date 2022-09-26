@@ -16,8 +16,6 @@ import (
 	appsubv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
-
-	mghv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 )
 
 // AddToScheme adds all the resources to be processed to the Scheme.
@@ -34,7 +32,6 @@ func AddToScheme(runtimeScheme *runtime.Scheme) error {
 		channelv1.SchemeBuilder,
 		appsubv1.SchemeBuilder,
 		appv1beta1.SchemeBuilder,
-		mghv1alpha2.SchemeBuilder,
 	}
 
 	for _, schemeInstallFunc := range schemeInstallFuncs {
