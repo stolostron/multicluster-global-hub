@@ -3,26 +3,41 @@ package controller_test
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 )
 
 var (
-	testenv      *envtest.Environment
-	cfg          *rest.Config
-	ctx          context.Context
-	cancel       context.CancelFunc
-	testPostgres *testpostgres.TestPostgres
+	testenv         *envtest.Environment
+	cfg             *rest.Config
+	ctx             context.Context
+	cancel          context.CancelFunc
+	testPostgres    *testpostgres.TestPostgres
+	mgr             ctrl.Manager
+	postgresSQL     *postgresql.PostgreSQL
+	kubeClient      client.Client
+	multiclusterhub *mchv1.MultiClusterHub
 )
 
 func TestSpec2db(t *testing.T) {
@@ -36,14 +51,70 @@ var _ = BeforeSuite(func() {
 
 	ctx, cancel = context.WithCancel(context.Background())
 
+	By("Prepare envtest environment")
 	var err error
-	testenv = &envtest.Environment{}
+	testenv = &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "test", "crd"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
 	cfg, err = testenv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
+	By("Create test postgres")
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
+
+	By("Create controller manager")
+	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
+		MetricsBindAddress: "0", // disable the metrics serving
+		Scheme:             scheme.Scheme,
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Add to Scheme")
+	Expect(managerscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
+	Expect(mchv1.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
+
+	By("Get kubeClient")
+	kubeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(kubeClient).NotTo(BeNil())
+
+	By("Connect to the database")
+	postgresSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(postgresSQL).NotTo(BeNil())
+
+	By("Adding the controllers to the manager")
+	Expect(controller.AddHubOfHubsConfigController(mgr, postgresSQL)).Should(Succeed())
+	Expect(controller.AddApplicationController(mgr, postgresSQL)).Should(Succeed())
+	Expect(controller.AddChannelController(mgr, postgresSQL)).Should(Succeed())
+	Expect(controller.AddSubscriptionController(mgr, postgresSQL)).Should(Succeed())
+	go func() {
+		defer GinkgoRecover()
+		err = mgr.Start(ctx)
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	}()
+
+	By("Waiting for the manager to be ready")
+	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
+	By("Create MGH instance")
+	multiclusterhub = &mchv1.MultiClusterHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "multiclusterhub",
+			Namespace: config.GetDefaultNamespace(),
+		},
+		Spec: mchv1.MultiClusterHubSpec{},
+	}
+	Expect(kubeClient.Create(ctx, multiclusterhub)).Should(Succeed())
+	Expect(kubeClient.Get(ctx, types.NamespacedName{
+		Namespace: multiclusterhub.GetNamespace(),
+		Name:      multiclusterhub.GetName(),
+	}, multiclusterhub)).Should(Succeed())
 })
 
 var _ = AfterSuite(func() {
@@ -54,8 +125,8 @@ var _ = AfterSuite(func() {
 	if err != nil {
 		time.Sleep(4 * time.Second)
 	}
-	err = testenv.Stop()
-	Expect(err).NotTo(HaveOccurred())
-	err = testPostgres.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	cancel()
+	postgresSQL.Stop()
+	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
+	Expect(testenv.Stop()).NotTo(HaveOccurred())
 })

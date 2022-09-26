@@ -19,8 +19,14 @@ import (
 func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&subscriptionv1.Subscription{}).
-		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
-			return object.GetNamespace() != "open-cluster-management"
+		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+			ownerReferences := obj.GetOwnerReferences()
+			for _, reference := range ownerReferences {
+				if kind := reference.Kind; kind == constants.MultiClusterHubKind {
+					return false
+				}
+			}
+			return true
 		})).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
+	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -17,14 +17,14 @@ import (
 
 func AddApplicationController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&applicationv1beta1.Application{}).
+		For(&appv1beta1.Application{}).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
 			log:            ctrl.Log.WithName("applications-spec-syncer"),
 			tableName:      "applications",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
-			createInstance: func() client.Object { return &applicationv1beta1.Application{} },
+			createInstance: func() client.Object { return &appv1beta1.Application{} },
 			cleanStatus:    cleanApplicationStatus,
 			areEqual:       areApplicationsEqual,
 		}); err != nil {
@@ -35,17 +35,17 @@ func AddApplicationController(mgr ctrl.Manager, specDB db.SpecDB) error {
 }
 
 func cleanApplicationStatus(instance client.Object) {
-	application, ok := instance.(*applicationv1beta1.Application)
+	application, ok := instance.(*appv1beta1.Application)
 	if !ok {
 		panic("wrong instance passed to cleanApplicationStatus: not an Application")
 	}
 
-	application.Status = applicationv1beta1.ApplicationStatus{}
+	application.Status = appv1beta1.ApplicationStatus{}
 }
 
 func areApplicationsEqual(instance1, instance2 client.Object) bool {
-	application1, ok1 := instance1.(*applicationv1beta1.Application)
-	application2, ok2 := instance2.(*applicationv1beta1.Application)
+	application1, ok1 := instance1.(*appv1beta1.Application)
+	application2, ok2 := instance2.(*appv1beta1.Application)
 
 	if !ok1 || !ok2 {
 		return false

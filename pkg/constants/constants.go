@@ -2,8 +2,9 @@ package constants
 
 const (
 	// HohSystemNamespace - Hub of Hubs dedicated namespace.
-	HohSystemNamespace = "open-cluster-management-global-hub-system"
-	HoHConfigName      = "multicluster-global-hub-config"
+	HohSystemNamespace  = "open-cluster-management-global-hub-system"
+	HoHConfigName       = "multicluster-global-hub-config"
+	MultiClusterHubKind = "MultiClusterHub"
 )
 
 // message types
