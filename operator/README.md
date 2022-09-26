@@ -12,7 +12,7 @@ The operator of multicluster global hub (see: https://github.com/stolostron/mult
 kubectl create secret generic storage-secret -n "open-cluster-management" \
     --from-literal=database_uri=<postgresql-uri> 
 ```
-> You can run this sample script `config/samples/storage/deploy_postgres.sh` to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically.
+> You can run this sample script `config/samples/storage/deploy_postgres.sh` to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script.
 
 4. Kafka is installed and two topics `spec` and `status` are created, also a secret with name `transport-secret` that contains the kafka access information should be created in `open-cluster-management` namespace:
 
@@ -21,7 +21,7 @@ kubectl create secret generic transport-secret -n "open-cluster-management" \
     --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \
     --from-literal=CA=<CA-for-kafka-server>
 ```
-> As above, You can run this sample script `config/samples/transport/deploy_kafka.sh` to install kafka in kafka namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically.
+> As above, You can run this sample script `config/samples/transport/deploy_kafka.sh` to install kafka in kafka namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script.
 
 ## Getting started
 
@@ -42,6 +42,8 @@ make docker-build docker-push IMG=<some-registry>/multicluster-global-hub-operat
 ```bash
 make deploy IMG=<some-registry>/multicluster-global-hub-operator:<tag>
 ```
+
+_Note:_ Specify `TARGET_NAMESPACE` environment variable if you're trying to deploy the operator into another namespace rather than `open-cluster-management`, keep in mind the namespace must be the ACM installation namespace.
 
 3. Install Instances of Custom Resource:
 
