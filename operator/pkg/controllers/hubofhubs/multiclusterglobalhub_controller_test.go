@@ -483,7 +483,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() error {
 				mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: "multicluster-global-hub-manager",
+					Name: "multicluster-global-hub-mutator",
 				}, mutatingWebhookConfiguration); err != nil {
 					return err
 				}
@@ -510,7 +510,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() bool {
 				newMutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: "multicluster-global-hub-manager",
+					Name: "multicluster-global-hub-mutator",
 				}, newMutatingWebhookConfiguration); err != nil {
 					return false
 				}
@@ -521,7 +521,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() error {
 				mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: "multicluster-global-hub-manager",
+					Name: "multicluster-global-hub-mutator",
 				}, mutatingWebhookConfiguration); err != nil {
 					return err
 				}
@@ -536,7 +536,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() bool {
 				mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: "multicluster-global-hub-manager",
+					Name: "multicluster-global-hub-mutator",
 				}, mutatingWebhookConfiguration); err != nil {
 					return false
 				}
@@ -547,7 +547,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() error {
 				mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "multicluster-global-hub-manager",
+						Name: "multicluster-global-hub-mutator",
 					},
 				}
 				if err := k8sClient.Delete(ctx, mutatingWebhookConfiguration); err != nil {
@@ -560,7 +560,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() error {
 				newMutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: "multicluster-global-hub-manager",
+					Name: "multicluster-global-hub-mutator",
 				}, newMutatingWebhookConfiguration); err != nil {
 					return err
 				}

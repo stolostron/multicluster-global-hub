@@ -66,6 +66,9 @@ envsubst < ${currentDir}/components/mgh-images-config.yaml | kubectl apply -f - 
 envsubst < ${currentDir}/components/mgh-v1alpha2-cr.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
 
+kubectl patch clustermanager cluster-manager --type merge -p '{"spec":{"placementImagePullSpec":"quay.io/open-cluster-management/placement:latest"}}'
+echo "HoH images is updated!"
+
 kubectl apply -f ${currentDir}/components/manager-service-local.yaml -n "$namespace"
 echo "HoH manager nodeport service is ready!"
 

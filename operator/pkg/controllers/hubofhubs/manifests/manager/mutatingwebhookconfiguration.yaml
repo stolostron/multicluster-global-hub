@@ -1,7 +1,7 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: multicluster-global-hub-manager
+  name: multicluster-global-hub-mutator
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
 webhooks:
@@ -10,7 +10,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: multicluster-global-hub-manager
+      name: multicluster-global-hub-webhook
       namespace: {{.Namespace}}
       port: 443
       path: /mutating

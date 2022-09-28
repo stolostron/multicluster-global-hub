@@ -12,6 +12,21 @@ spec:
   ports:
   - port: 8080
     name: http
+  selector:
+    name: multicluster-global-hub-manager
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: multicluster-global-hub-webhook
+  namespace: {{.Namespace}}
+  labels:
+    name: multicluster-global-hub-webhook
+    service: multicluster-global-hub-webhook
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: multicluster-global-hub-webhook-certs
+spec:
+  ports:
   - port: 443
     protocol: TCP
     targetPort: 9443

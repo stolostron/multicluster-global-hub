@@ -88,7 +88,7 @@ func initializeWebhookInEnvironment() {
 		MutatingWebhooks: []*admissionv1.MutatingWebhookConfiguration{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "multicluster-global-hub-manager",
+					Name: "multicluster-global-hub-mutator",
 				},
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "MutatingWebhookConfiguration",
@@ -122,7 +122,7 @@ func initializeWebhookInEnvironment() {
 						SideEffects:   &noSideEffectsV1,
 						ClientConfig: admissionv1.WebhookClientConfig{
 							Service: &admissionv1.ServiceReference{
-								Name:      "multicluster-global-hub-manager",
+								Name:      "multicluster-global-hub-mutator",
 								Namespace: config.GetDefaultNamespace(),
 								Path:      &webhookPathV1,
 							},

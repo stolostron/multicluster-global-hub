@@ -49,10 +49,16 @@ spec:
             name: webhook-server
             protocol: TCP
           volumeMounts:
-            - readOnly: true
-              mountPath: /certs
-              name: certs
+          - readOnly: true
+            mountPath: /certs
+            name: certs
+          - mountPath: /webhook-certs
+            name: webhook-certs
+            readOnly: true
       volumes:
-        - name: certs
-          secret:
-            secretName: multicluster-global-hub-manager-certs
+      - name: certs
+        secret:
+          secretName: multicluster-global-hub-manager-certs
+      - name: webhook-certs
+        secret:
+          secretName: multicluster-global-hub-webhook-certs

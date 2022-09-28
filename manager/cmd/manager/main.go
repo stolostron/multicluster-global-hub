@@ -45,6 +45,8 @@ import (
 const (
 	metricsHost                        = "0.0.0.0"
 	metricsPort                  int32 = 8384
+	webhookPort                        = 9443
+	webhookCertDir                     = "/webhook-certs"
 	kafkaTransportTypeName             = "kafka"
 	syncServiceTransportTypeName       = "sync-service"
 	leaderElectionLockName             = "multicluster-global-hub-lock"
@@ -296,6 +298,8 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.managerNamespace,
 		LeaderElectionID:        leaderElectionLockName,
+		Port:                    webhookPort,
+		CertDir:                 webhookCertDir,
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
