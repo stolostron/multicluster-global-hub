@@ -66,6 +66,7 @@ envsubst < ${currentDir}/components/mgh-images-config.yaml | kubectl apply -f - 
 envsubst < ${currentDir}/components/mgh-v1alpha2-cr.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
 
+kubectl patch deployment governance-policy-propagator -n open-cluster-management -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0"}]}}}}'
 kubectl patch clustermanager cluster-manager --type merge -p '{"spec":{"placementImagePullSpec":"quay.io/open-cluster-management/placement:latest"}}'
 echo "HoH images is updated!"
 
@@ -102,3 +103,8 @@ while [[ -z $(kubectl get deploy -n $namespace multicluster-global-hub-agent --c
   (( SECOND = SECOND + 2 ))
 done;
 kubectl --context kind-$LEAF_HUB_NAME wait deployment -n $namespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s
+
+# Need to hack here to fix the microshift issue - https://github.com/openshift/microshift/issues/660
+kubectl annotate mutatingwebhookconfiguration multicluster-global-hub-mutator service.beta.openshift.io/inject-cabundle-
+ca=$(kubectl get secret multicluster-global-hub-webhook-certs -n $namespace -o jsonpath="{.data.tls\.crt}")
+kubectl patch mutatingwebhookconfiguration multicluster-global-hub-mutator -n $namespace -p "{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"$ca\"}}]}"
