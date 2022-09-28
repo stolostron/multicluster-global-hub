@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -28,6 +29,10 @@ func (c *placementBindingController) Reconcile(ctx context.Context, request ctrl
 
 	instance := &policyv1.PlacementBinding{}
 	err := c.client.Get(ctx, request.NamespacedName, instance)
+	if errors.IsNotFound(err) {
+		reqLogger.Info("the placementbinding is not found")
+		return ctrl.Result{}, nil
+	}
 	if err != nil {
 		reqLogger.Error(err, "Reconciliation failed")
 		return ctrl.Result{}, err
