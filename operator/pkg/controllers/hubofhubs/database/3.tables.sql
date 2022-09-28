@@ -354,26 +354,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS compliance_leaf_hub_policy_cluster_idx ON stat
 
 CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats USING btree (leaf_hub_name);
 
-CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_name_idx ON status.managed_clusters USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'name'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_uid_idx ON status.managed_clusters USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
 
 CREATE INDEX IF NOT EXISTS managed_clusters_metadata_name_idx ON status.managed_clusters USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS placementdecisions_leaf_hub_name_and_payload_name_namespace_idx ON status.placementdecisions USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS placementdecisions_leaf_hub_name_and_payload_id_namespace_idx ON status.placementdecisions USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
 CREATE INDEX IF NOT EXISTS placementdecisions_payload_name_and_namespace_idx ON status.placementdecisions USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_and_payload_name_namespace_idx ON status.placementrules USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_and_payload_id_namespace_idx ON status.placementrules USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
 CREATE INDEX IF NOT EXISTS placementrules_payload_name_and_namespace_idx ON status.placementrules USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS placements_leaf_hub_name_and_payload_name_namespace_idx ON status.placements USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS placements_leaf_hub_name_and_payload_id_namespace_idx ON status.placements USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
 CREATE INDEX IF NOT EXISTS placements_payload_name_and_namespace_idx ON status.placements USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS subscription_reports_leaf_hub_name_and_payload_name_namespace_idx ON status.subscription_reports USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS subscription_reports_leaf_hub_name_and_payload_id_namespace_idx ON status.subscription_reports USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
 CREATE INDEX IF NOT EXISTS subscription_reports_payload_name_and_namespace_idx ON status.subscription_reports USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS subscription_statuses_leaf_hub_name_and_payload_name_namespace_idx ON status.subscription_statuses USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS subscription_statuses_leaf_hub_name_and_payload_id_namespace_idx ON status.subscription_statuses USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
 CREATE INDEX IF NOT EXISTS subscription_statuses_payload_name_and_namespace_idx ON status.subscription_statuses USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
