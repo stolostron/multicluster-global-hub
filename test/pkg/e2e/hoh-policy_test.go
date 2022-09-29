@@ -282,11 +282,11 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	})
 
 	AfterAll(func() {
-		By("Delete the inform policy from global hub")
+		By("Delete the enforce policy from global hub")
 		_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", ENFORCE_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		By("Check the inform policy is deleted from regional hub")
+		By("Check the enforce policy is deleted from regional hub")
 		Eventually(func() error {
 			_, err := getPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
 			if errors.IsNotFound(err) {
