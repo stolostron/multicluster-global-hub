@@ -708,6 +708,24 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return nil
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
+			By("By checking the mutatingwebhookconfiguration is deleted")
+			Eventually(func() error {
+				listOpts := []client.ListOption{
+					client.MatchingLabels(map[string]string{
+						commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+					}),
+				}
+				webhookList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
+				if err := k8sClient.List(ctx, webhookList, listOpts...); err != nil {
+					return err
+				}
+
+				if len(webhookList.Items) > 0 {
+					return fmt.Errorf("the mutatingwebhookconfiguration has not been removed")
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
 			By("By checking the placement finalizer is deleted")
 			Eventually(func() error {
 				placements := &clusterv1beta1.PlacementList{}
