@@ -63,7 +63,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		By("Get the appsubreport client")
 		scheme := runtime.NewScheme()
 		appsv1alpha1.AddToScheme(scheme)
-		appClient, err = clients.ControllerRuntimeClient(scheme)
+		appClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 

@@ -24,7 +24,7 @@ import (
 type Client interface {
 	KubeClient() kubernetes.Interface
 	KubeDynamicClient() dynamic.Interface
-	ControllerRuntimeClient(scheme *runtime.Scheme) (runClient.Client, error)
+	ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error)
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
 	HubClusterName() string
@@ -41,8 +41,8 @@ func NewTestClient(opt Options) *client {
 	}
 }
 
-func (c *client) ControllerRuntimeClient(scheme *runtime.Scheme) (runClient.Client, error) {
-	cfg, err := c.RestConfig(c.HubClusterName())
+func (c *client) ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error) {
+	cfg, err := c.RestConfig(clusterName)
 	if err != nil {
 		return nil, err
 	}
