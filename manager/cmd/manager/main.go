@@ -19,6 +19,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
@@ -37,12 +38,15 @@ import (
 	statustransport "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
 	statuskafka "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/kafka"
 	statussyncservice "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/syncservice"
+	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 )
 
 const (
 	metricsHost                        = "0.0.0.0"
 	metricsPort                  int32 = 8384
+	webhookPort                        = 9443
+	webhookCertDir                     = "/webhook-certs"
 	kafkaTransportTypeName             = "kafka"
 	syncServiceTransportTypeName       = "sync-service"
 	leaderElectionLockName             = "multicluster-global-hub-lock"
@@ -294,6 +298,8 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.managerNamespace,
 		LeaderElectionID:        leaderElectionLockName,
+		Port:                    webhookPort,
+		CertDir:                 webhookCertDir,
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
@@ -438,6 +444,12 @@ func doMain() int {
 		log.Error(err, "failed to create manager")
 		return 1
 	}
+
+	hookServer := mgr.GetWebhookServer()
+	log.Info("registering webhooks to the webhook server")
+	hookServer.Register("/mutating", &webhook.Admission{
+		Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()},
+	})
 
 	log.Info("Starting the Cmd.")
 

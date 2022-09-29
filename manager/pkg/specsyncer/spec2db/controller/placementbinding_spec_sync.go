@@ -36,7 +36,7 @@ func AddPlacementBindingController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			tableName:      "placementbindings",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &policyv1.PlacementBinding{} },
-			cleanStatus:    cleanPlacementBindingStatus,
+			cleanObject:    cleanPlacementBindingStatus,
 			areEqual:       arePlacementBindingsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add placement binding controller to the manager: %w", err)

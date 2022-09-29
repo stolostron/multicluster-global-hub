@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -27,7 +27,7 @@ func AddPlacementController(mgr ctrl.Manager, specDB db.SpecDB) error {
 		},
 	})
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&clusterv1alpha1.Placement{}).
+		For(&clusterv1beta1.Placement{}).
 		WithEventFilter(placementPredicate).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
@@ -35,8 +35,8 @@ func AddPlacementController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			log:            ctrl.Log.WithName("placements-spec-syncer"),
 			tableName:      "placements",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
-			createInstance: func() client.Object { return &clusterv1alpha1.Placement{} },
-			cleanStatus:    cleanPlacementStatus,
+			createInstance: func() client.Object { return &clusterv1beta1.Placement{} },
+			cleanObject:    cleanPlacementObject,
 			areEqual:       arePlacementsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add placement controller to the manager: %w", err)
@@ -45,19 +45,24 @@ func AddPlacementController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	return nil
 }
 
-func cleanPlacementStatus(instance client.Object) {
-	placement, ok := instance.(*clusterv1alpha1.Placement)
+func cleanPlacementObject(instance client.Object) {
+	placement, ok := instance.(*clusterv1beta1.Placement)
 
 	if !ok {
 		panic("wrong instance passed to cleanPlacementStatus: not a Placement")
 	}
 
-	placement.Status = clusterv1alpha1.PlacementStatus{}
+	if placement.Annotations != nil {
+		// remove the annotation so that the placement controller can take over
+		delete(placement.Annotations, clusterv1beta1.PlacementDisableAnnotation)
+	}
+
+	placement.Status = clusterv1beta1.PlacementStatus{}
 }
 
 func arePlacementsEqual(instance1, instance2 client.Object) bool {
-	placement1, ok1 := instance1.(*clusterv1alpha1.Placement)
-	placement2, ok2 := instance2.(*clusterv1alpha1.Placement)
+	placement1, ok1 := instance1.(*clusterv1beta1.Placement)
+	placement2, ok2 := instance2.(*clusterv1beta1.Placement)
 
 	if !ok1 || !ok2 {
 		return false

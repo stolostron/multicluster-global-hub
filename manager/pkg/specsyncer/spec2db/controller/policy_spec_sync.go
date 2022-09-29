@@ -37,7 +37,7 @@ func AddPolicyController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			tableName:      "policies",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &policyv1.Policy{} },
-			cleanStatus:    cleanPolicyStatus,
+			cleanObject:    cleanPolicyStatus,
 			areEqual:       arePoliciesEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add policy controller to the manager: %w", err)

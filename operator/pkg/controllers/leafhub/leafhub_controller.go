@@ -402,7 +402,8 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 		}
 	}
 
-	isChannelServiceReady, channelServiceIP := findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
+	isChannelServiceReady, channelServiceIP :=
+		findStatusFeedbackValueFromWork(hubMgtWork, "Service", "clusterIP", "", log)
 	if !isChannelServiceReady {
 		log.Info("channel service is not ready, won't apply the multicluster-global-hub-agent manifestwork")
 		return nil

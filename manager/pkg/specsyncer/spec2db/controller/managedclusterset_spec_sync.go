@@ -36,7 +36,7 @@ func AddManagedClusterSetController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			tableName:      "managedclustersets",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &clusterv1beta1.ManagedClusterSet{} },
-			cleanStatus:    cleanManagedClusterSetStatus,
+			cleanObject:    cleanManagedClusterSetStatus,
 			areEqual:       areManagedClusterSetsEqual,
 		}); err != nil {
 		return fmt.Errorf("failed to add managed cluster set controller to the manager: %w", err)

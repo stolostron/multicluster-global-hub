@@ -26,6 +26,7 @@ import (
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -304,12 +305,13 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).Should(BeTrue())
 
 			Expect(k8sClient.Get(ctx, mghLookupKey, createdMGH)).Should(Succeed())
-			// update the testing MGH instance by skipping database initialization
+
 			By("By updating the MGH instance with skipping database initialization")
+			originMCH := createdMGH.DeepCopy()
 			createdMGH.SetAnnotations(map[string]string{
 				constants.AnnotationMGHSkipDBInit: "true",
 			})
-			Expect(k8sClient.Update(ctx, createdMGH)).Should(Succeed())
+			Expect(k8sClient.Patch(ctx, createdMGH, client.MergeFrom(originMCH))).Should(Succeed())
 
 			// get this newly created MGH instance, given that creation may not immediately happen.
 			Eventually(func() bool {
@@ -429,7 +431,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())
-
 			Eventually(func() bool {
 				for _, unsObj := range managerObjects {
 					err := checkResourceExistence(ctx, k8sClient, unsObj)
@@ -477,6 +478,94 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err == nil
 				}, timeout, interval).Should(BeTrue())
 			}
+
+			By("By modifying the mutatingwebhookconfiguration to trigger the reconcile")
+			Eventually(func() error {
+				mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: "multicluster-global-hub-mutator",
+				}, mutatingWebhookConfiguration); err != nil {
+					return err
+				}
+
+				namespacedScopeV1 := admissionregistrationv1.NamespacedScope
+				mutatingWebhookConfiguration.Webhooks[0].Rules = []admissionregistrationv1.RuleWithOperations{
+					{
+						Operations: []admissionregistrationv1.OperationType{"CREATE", "UPDATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"cluster.open-cluster-management.io"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"test"},
+							Scope:       &namespacedScopeV1,
+						},
+					},
+				}
+				if err := k8sClient.Update(ctx, mutatingWebhookConfiguration); err != nil {
+					return err
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("By checking the mutatingwebhookconfiguration is reconciled")
+			Eventually(func() bool {
+				newMutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: "multicluster-global-hub-mutator",
+				}, newMutatingWebhookConfiguration); err != nil {
+					return false
+				}
+				return len(newMutatingWebhookConfiguration.Webhooks[0].Rules) == 2
+			}, timeout, interval).Should(BeTrue())
+
+			By("Inject the caBundle to the mutatingwebhookconfiguration")
+			Eventually(func() error {
+				mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: "multicluster-global-hub-mutator",
+				}, mutatingWebhookConfiguration); err != nil {
+					return err
+				}
+				mutatingWebhookConfiguration.Webhooks[0].ClientConfig.CABundle = []byte("test")
+				if err := k8sClient.Update(ctx, mutatingWebhookConfiguration); err != nil {
+					return err
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("Check the caBundle of the mutatingwebhookconfiguration")
+			Eventually(func() bool {
+				mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: "multicluster-global-hub-mutator",
+				}, mutatingWebhookConfiguration); err != nil {
+					return false
+				}
+				return string(mutatingWebhookConfiguration.Webhooks[0].ClientConfig.CABundle) == "test"
+			}, timeout, interval).Should(BeTrue())
+
+			By("By deleting the mutatingwebhookconfiguration")
+			Eventually(func() error {
+				mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multicluster-global-hub-mutator",
+					},
+				}
+				if err := k8sClient.Delete(ctx, mutatingWebhookConfiguration); err != nil {
+					return err
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("mutatingwebhookconfiguration should be recreated")
+			Eventually(func() error {
+				newMutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: "multicluster-global-hub-mutator",
+				}, newMutatingWebhookConfiguration); err != nil {
+					return err
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			By("By checking the kafkaBootstrapServer")
 			server, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
@@ -619,7 +708,25 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return nil
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			By("By checking the palcement finalizer is deleted")
+			By("By checking the mutatingwebhookconfiguration is deleted")
+			Eventually(func() error {
+				listOpts := []client.ListOption{
+					client.MatchingLabels(map[string]string{
+						commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+					}),
+				}
+				webhookList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
+				if err := k8sClient.List(ctx, webhookList, listOpts...); err != nil {
+					return err
+				}
+
+				if len(webhookList.Items) > 0 {
+					return fmt.Errorf("the mutatingwebhookconfiguration has not been removed")
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			By("By checking the placement finalizer is deleted")
 			Eventually(func() error {
 				placements := &clusterv1beta1.PlacementList{}
 				if err := k8sClient.List(ctx, placements, &client.ListOptions{}); err != nil {

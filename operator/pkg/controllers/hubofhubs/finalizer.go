@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +37,8 @@ func (r *MulticlusterGlobalHubReconciler) recocileFinalizer(ctx context.Context,
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
 		commonconstants.GlobalHubCleanupFinalizer) {
 
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(),
+			commonconstants.GlobalHubCleanupFinalizer))
 		if err := r.Client.Update(context.TODO(), mgh); err != nil {
 			log.Error(err, "failed to remove finalizer from multiclusterglobalhub resource")
 			return true, err
@@ -113,7 +115,18 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 		}
 	}
 
-	log.Info("clean up the palcement finalizer")
+	log.Info("clean up the mutatingwebhookconfigurations")
+	webhookList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
+	if err := r.Client.List(ctx, webhookList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range webhookList.Items {
+		if err := r.Client.Delete(ctx, &webhookList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	log.Info("clean up the placement finalizer")
 	placements := &clusterv1beta1.PlacementList{}
 	if err := r.Client.List(ctx, placements, &client.ListOptions{}); err != nil {
 		return err

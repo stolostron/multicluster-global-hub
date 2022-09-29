@@ -1,0 +1,40 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: multicluster-global-hub-mutator
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: multicluster-global-hub-webhook
+      namespace: {{.Namespace}}
+      port: 443
+      path: /mutating
+    caBundle: XG4=
+  failurePolicy: Fail
+  name: global-hub.open-cluster-management.io
+  matchPolicy: Equivalent
+  sideEffects: None
+  rules:
+  - apiGroups:
+    - apps.open-cluster-management.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - placementrules
+  - apiGroups:
+    - cluster.open-cluster-management.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - placements

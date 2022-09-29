@@ -7,10 +7,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 var _ = Describe("subscriptions to database controller", func() {
@@ -61,7 +61,8 @@ var _ = Describe("subscriptions to database controller", func() {
 				Channel: "test-channel",
 			},
 		}
-		Expect(controllerutil.SetControllerReference(multiclusterhub, filteredSubscription, mgr.GetScheme()))
+		Expect(controllerutil.SetControllerReference(multiclusterhub, filteredSubscription,
+			mgr.GetScheme())).NotTo(HaveOccurred())
 		Expect(kubeClient.Create(ctx, filteredSubscription)).Should(Succeed())
 
 		By("Create channel sub2 instance without OwnerReference")
@@ -78,7 +79,8 @@ var _ = Describe("subscriptions to database controller", func() {
 
 		Eventually(func() error {
 			expectedSubscriptionSynced := false
-			rows, err := postgresSQL.GetConn().Query(ctx, fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
+			rows, err := postgresSQL.GetConn().Query(ctx,
+				fmt.Sprintf("SELECT payload FROM %s.%s", testSchema, testTable))
 			if err != nil {
 				return err
 			}
@@ -88,7 +90,8 @@ var _ = Describe("subscriptions to database controller", func() {
 				if err := rows.Scan(syncedSubscription); err != nil {
 					return err
 				}
-				fmt.Printf("spec.subscriptions: %s - %s \n", syncedSubscription.Namespace, syncedSubscription.Name)
+				fmt.Printf("spec.subscriptions: %s - %s \n",
+					syncedSubscription.Namespace, syncedSubscription.Name)
 				if syncedSubscription.GetNamespace() == expectedSubscription.GetNamespace() &&
 					syncedSubscription.GetName() == expectedSubscription.GetName() {
 					expectedSubscriptionSynced = true

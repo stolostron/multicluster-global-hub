@@ -60,17 +60,15 @@ make deploy-operator
 kubectl wait deployment -n "$namespace" multicluster-global-hub-operator --for condition=Available=True --timeout=600s
 echo "HoH operator is ready!"
 
-# patch hub-of-hubs-operator images
-kubectl patch deployment governance-policy-propagator -n open-cluster-management -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0"}]}}}}'
-kubectl patch deployment multicluster-operators-placementrule -n open-cluster-management -p '{"spec":{"template":{"spec":{"containers":[{"name":"multicluster-operators-placementrule","image":"quay.io/open-cluster-management-hub-of-hubs/multicloud-operators-subscription:v0.5.0"}]}}}}'
-kubectl patch clustermanager cluster-manager --type merge -p '{"spec":{"placementImagePullSpec":"quay.io/open-cluster-management-hub-of-hubs/placement:v0.5.0@sha256:04ba75acdbe4c5b480013f04f5824f828683bc44e9acd6a17600504afc9b6bbe"}}'
-echo "HoH images is updated!"
-
 export TRANSPORT_SECRET_NAME="transport-secret"
 export STORAGE_SECRET_NAME="storage-secret"
 envsubst < ${currentDir}/components/mgh-images-config.yaml | kubectl apply -f - -n "$namespace"
 envsubst < ${currentDir}/components/mgh-v1alpha2-cr.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
+
+kubectl patch deployment governance-policy-propagator -n open-cluster-management -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0"}]}}}}'
+kubectl patch clustermanager cluster-manager --type merge -p '{"spec":{"placementImagePullSpec":"quay.io/open-cluster-management/placement:latest"}}'
+echo "HoH images is updated!"
 
 kubectl apply -f ${currentDir}/components/manager-service-local.yaml -n "$namespace"
 echo "HoH manager nodeport service is ready!"
@@ -105,3 +103,8 @@ while [[ -z $(kubectl get deploy -n $namespace multicluster-global-hub-agent --c
   (( SECOND = SECOND + 2 ))
 done;
 kubectl --context kind-$LEAF_HUB_NAME wait deployment -n $namespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s
+
+# Need to hack here to fix the microshift issue - https://github.com/openshift/microshift/issues/660
+kubectl annotate mutatingwebhookconfiguration multicluster-global-hub-mutator service.beta.openshift.io/inject-cabundle-
+ca=$(kubectl get secret multicluster-global-hub-webhook-certs -n $namespace -o jsonpath="{.data.tls\.crt}")
+kubectl patch mutatingwebhookconfiguration multicluster-global-hub-mutator -n $namespace -p "{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"$ca\"}}]}"

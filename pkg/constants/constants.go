@@ -51,6 +51,9 @@ const (
 
 	// ControlInfoMsgKey - control info message key.
 	ControlInfoMsgKey = "ControlInfo"
+
+	// GlobalHubSchedulerName - placementrule scheduler name.
+	GlobalHubSchedulerName = "global-hub"
 )
 
 // store all the labels
