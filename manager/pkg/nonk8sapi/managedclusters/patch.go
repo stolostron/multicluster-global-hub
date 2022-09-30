@@ -26,16 +26,23 @@ type patch struct {
 	Value string `json:"value"`
 }
 
-// Patch middleware.
-func Patch(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
+// PatchManagedCluster middleware
+func PatchManagedCluster(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
-		cluster := ginCtx.Param("cluster")
+		clusterID := ginCtx.Param("clusterID")
 
-		fmt.Fprintf(gin.DefaultWriter, "patch for cluster: %s\n", cluster)
+		fmt.Fprintf(gin.DefaultWriter, "patch for cluster with ID: %s\n", clusterID)
 
-		hubCluster := ginCtx.Query("hubCluster")
+		var leafHubName, managedClusterName string
+		if err := dbConnectionPool.QueryRow(context.TODO(), `SELECT leaf_hub_name, payload->'metadata'->>'name'
+			FROM status.managed_clusters WHERE payload->'metadata'->>'uid'=$1`,
+			clusterID).Scan(&leafHubName, &managedClusterName); err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "failed to get leaf hub and manged cluster name: %s\n", err.Error())
+			return
+		}
 
-		fmt.Fprintf(gin.DefaultWriter, "patch for hub cluster: %s\n", hubCluster)
+		fmt.Fprintf(gin.DefaultWriter, "patch for managed cluster: %s -leaf hub: %s\n",
+			managedClusterName, leafHubName)
 
 		var patches []patch
 
@@ -57,7 +64,8 @@ func Patch(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		retryAttempts := optimisticConcurrencyRetryAttempts
 
 		for retryAttempts > 0 {
-			err = updateLabels(cluster, hubCluster, labelsToAdd, labelsToRemove, dbConnectionPool)
+			err = updateLabels(clusterID, leafHubName, managedClusterName, labelsToAdd,
+				labelsToRemove, dbConnectionPool)
 			if err == nil {
 				break
 			}
@@ -72,16 +80,15 @@ func Patch(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
-func updateLabels(cluster, hubCluster string, labelsToAdd map[string]string, labelsToRemove map[string]struct{},
-	dbConnectionPool *pgxpool.Pool,
+func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd map[string]string,
+	labelsToRemove map[string]struct{}, dbConnectionPool *pgxpool.Pool,
 ) error {
 	if len(labelsToAdd) == 0 && len(labelsToRemove) == 0 {
 		return nil
 	}
 
 	rows, err := dbConnectionPool.Query(context.TODO(),
-		"SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE managed_cluster_name = $1 AND leaf_hub_name = $2",
-		cluster, hubCluster)
+		"SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE id = $1", clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to read from managed_clusters_labels: %w", err)
 	}
@@ -89,9 +96,9 @@ func updateLabels(cluster, hubCluster string, labelsToAdd map[string]string, lab
 
 	if !rows.Next() { // insert the labels
 		_, err := dbConnectionPool.Exec(context.TODO(),
-			`INSERT INTO spec.managed_clusters_labels (leaf_hub_name, managed_cluster_name, labels,
-			deleted_label_keys, version, updated_at) values($1, $2, $3::jsonb, $4::jsonb, 0, now())`,
-			hubCluster, cluster, labelsToAdd, getKeys(labelsToRemove))
+			`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, managed_cluster_name, labels,
+			deleted_label_keys, version, updated_at) values($1, $2, $3, $4::jsonb, $5::jsonb, 0, now())`,
+			clusterID, leafHubName, managedClusterName, labelsToAdd, getKeys(labelsToRemove))
 		if err != nil {
 			return fmt.Errorf("failed to insert into the managed_clusters_labels table: %w", err)
 		}
@@ -110,22 +117,22 @@ func updateLabels(cluster, hubCluster string, labelsToAdd map[string]string, lab
 		return fmt.Errorf("failed to scan a row: %w", err)
 	}
 
-	err = updateRow(cluster, hubCluster, labelsToAdd, currentLabelsToAdd, labelsToRemove, getMap(currentLabelsToRemoveSlice),
-		version, dbConnectionPool)
+	err = updateRow(clusterID, labelsToAdd, currentLabelsToAdd, labelsToRemove,
+		getMap(currentLabelsToRemoveSlice), version, dbConnectionPool)
 	if err != nil {
 		return fmt.Errorf("failed to update managed_clusters_labels table: %w", err)
 	}
 
 	// assumimg there is a single row
 	if rows.Next() {
-		fmt.Fprintf(gin.DefaultWriter, "Warning: more than one row for cluster %s\n", cluster)
+		fmt.Fprintf(gin.DefaultWriter, "Warning: more than one row for cluster with ID %s\n", clusterID)
 	}
 
 	return nil
 }
 
-func updateRow(cluster, hubCluster string, labelsToAdd map[string]string, currentLabelsToAdd map[string]string,
-	labelsToRemove map[string]struct{}, currentLabelsToRemove map[string]struct{},
+func updateRow(clusterID string, labelsToAdd, currentLabelsToAdd map[string]string,
+	labelsToRemove, currentLabelsToRemove map[string]struct{},
 	version int64, dbConnectionPool *pgxpool.Pool,
 ) error {
 	newLabelsToAdd := make(map[string]string)
@@ -157,8 +164,8 @@ func updateRow(cluster, hubCluster string, labelsToAdd map[string]string, curren
 		deleted_label_keys = $2::jsonb,
 		version = version + 1,
 		updated_at = now()
-		WHERE managed_cluster_name=$3 AND leaf_hub_name=$4 AND version=$5`,
-		newLabelsToAdd, getKeys(newLabelsToRemove), cluster, hubCluster, version)
+		WHERE id=$3 AND version=$4`,
+		newLabelsToAdd, getKeys(newLabelsToRemove), clusterID, version)
 	if err != nil {
 		return fmt.Errorf("failed to update a row: %w", err)
 	}

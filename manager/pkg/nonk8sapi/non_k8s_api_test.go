@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 )
 
@@ -84,6 +85,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				error status.error_type NOT NULL
 			);
 			CREATE TABLE IF NOT EXISTS spec.managed_clusters_labels (
+				id uuid NOT NULL,
 				leaf_hub_name character varying(63) DEFAULT ''::character varying NOT NULL,
 				managed_cluster_name character varying(63) NOT NULL,
 				labels jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -141,11 +143,11 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	"kind": "ManagedCluster",
 	"apiVersion": "cluster.open-cluster-management.io/v1",
 	"metadata": {
+		"uid": "2aa5547c-c172-47ed-b70b-db468c84d327",
 		"creationTimestamp": null,
 		"name": "mc1",
 		"labels": {
 			"cloud": "Other",
-			"name": "mc1",
 			"vendor": "Other"
 		},
 		"annotations": {
@@ -167,11 +169,11 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	"kind": "ManagedCluster",
 	"apiVersion": "cluster.open-cluster-management.io/v1",
 	"metadata": {
+		"uid": "18c9e13c-4488-4dcd-a5ac-1196093abbc0",
 		"creationTimestamp": null,
 		"name": "mc2",
 		"labels": {
 			"cloud": "Other",
-			"name": "mc2",
 			"vendor": "Other"
 		},
 		"annotations": {
@@ -202,13 +204,38 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			mc2)
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Check the managedcclusters can be listed")
+		By("Check the managedcclusters can be listed without parameters")
 		w1 := httptest.NewRecorder()
 		req1, err := http.NewRequest("GET", "/global-hub-api/managedclusters", nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
-		Expect(w1.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s,%s]", mc1, mc2)))
+		managedClusterListFormatStr := `
+{
+	"kind": "ManagedClusterList",
+	"apiVersion": "cluster.open-cluster-management.io/v1",
+	"metadata": {
+		"continue": "eyJsYXN0TmFtZSI6Im1jMiIsImxhc3RVSUQiOiIxOGM5ZTEzYy00NDg4LTRkY2QtYTVhYy0xMTk2MDkzYWJiYzAifQ"
+	},
+	"items": [
+		%s,
+		%s
+		]
+}`
+		Expect(w1.Body.String()).Should(MatchJSON(
+			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
+
+		By("Check the managedcclusters can be listed with limit and labelSelector")
+		w2 := httptest.NewRecorder()
+		req2, err := http.NewRequest("GET",
+			"/global-hub-api/managedclusters?"+
+				"limit=2&labelSelector=cloud%3DOther%2Cvendor%21%3DOpenshift%2C%21testnokey%2Cvendor",
+			nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w2, req2)
+		Expect(w2.Code).To(Equal(200))
+		Expect(w2.Body.String()).Should(MatchJSON(
+			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
 
 		By("Check the managedcclusters can be listed as table response")
 		mclTable := `
@@ -242,6 +269,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			"apiVersion": "cluster.open-cluster-management.io/v1",
 			"kind": "ManagedCluster",
 			"metadata": {
+			"uid": "2aa5547c-c172-47ed-b70b-db468c84d327",
 			"annotations": {
 				"global-hub.open-cluster-management.io/managed-by": "hub1",
 				"open-cluster-management/created-via": "other"
@@ -249,7 +277,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			"creationTimestamp": null,
 			"labels": {
 				"cloud": "Other",
-				"name": "mc1",
 				"vendor": "Other"
 			},
 			"name": "mc1"
@@ -273,6 +300,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			"apiVersion": "cluster.open-cluster-management.io/v1",
 			"kind": "ManagedCluster",
 			"metadata": {
+			"uid": "18c9e13c-4488-4dcd-a5ac-1196093abbc0",
 			"annotations": {
 				"global-hub.open-cluster-management.io/managed-by": "hub1",
 				"open-cluster-management/created-via": "other"
@@ -280,7 +308,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			"creationTimestamp": null,
 			"labels": {
 				"cloud": "Other",
-				"name": "mc2",
 				"vendor": "Other"
 			},
 			"name": "mc2"
@@ -298,23 +325,23 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	]
 }
 `
-		w2 := httptest.NewRecorder()
-		req2, err := http.NewRequest("GET", "/global-hub-api/managedclusters", nil)
+		w3 := httptest.NewRecorder()
+		req3, err := http.NewRequest("GET", "/global-hub-api/managedclusters", nil)
 		Expect(err).ToNot(HaveOccurred())
-		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
-		router.ServeHTTP(w2, req2)
-		Expect(w2.Code).To(Equal(200))
-		Expect(w2.Body.String()).Should(MatchJSON(mclTable))
+		req3.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		router.ServeHTTP(w3, req3)
+		Expect(w3.Code).To(Equal(200))
+		Expect(w3.Body.String()).Should(MatchJSON(mclTable))
 
 		By("Check the managedcclusters can be listed with watch")
-		w3 := CreateTestResponseRecorder()
+		w4 := CreateTestResponseRecorder()
 		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 		defer cancelFunc()
-		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
+		req4, err := http.NewRequestWithContext(timeoutCtx, "GET",
 			"/global-hub-api/managedclusters?watch", nil)
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
-			router.ServeHTTP(w3, req3)
+			router.ServeHTTP(w4, req4)
 		}()
 		// wait loop for client cancel the request
 		for {
@@ -323,8 +350,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				return
 			default:
 				time.Sleep(4 * time.Second)
-				Expect(w3.Code).To(Equal(200))
-				// Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s,%s]", mc1, mc2)))
+				Expect(w4.Code).To(Equal(200))
+				// Expect(w4.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s,%s]", mc1, mc2)))
 			}
 		}
 	})
@@ -340,7 +367,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			}
 		]`)
 		req, err := http.NewRequest("PATCH",
-			"/global-hub-api/managedclusters/mc1?hubCluster=hub1",
+			"/global-hub-api/managedclusters/2aa5547c-c172-47ed-b70b-db468c84d327",
 			bytes.NewBuffer(jsonPatchStr))
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w, req)
@@ -351,8 +378,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			var labels map[string]string
 			err = postgresSQL.GetConn().QueryRow(ctx,
 				"SELECT labels from spec.managed_clusters_labels "+
-					"WHERE managed_cluster_name = $1 AND leaf_hub_name = $2;",
-				"mc1", "hub1").Scan(&labels)
+					"WHERE id = $1;", "2aa5547c-c172-47ed-b70b-db468c84d327").Scan(&labels)
 			return err == nil && labels["foo"] == "bar"
 		}, 10*time.Second, 2*time.Second).Should(BeTrue())
 	})
@@ -371,6 +397,10 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			"policy.open-cluster-management.io/standards": "NIST SP 800-53",
 			"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
 			"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records"
+		},
+		"labels": {
+			"env": "production",
+			"foo": "bar"
 		}
 	},
 	"spec": {
@@ -433,6 +463,10 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			"policy.open-cluster-management.io/standards": "NIST SP 800-53",
 			"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
 			"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records"
+		},
+		"labels": {
+			"env": "production",
+			"foo": "bar"
 		}
 	},
 	"spec": {
@@ -500,6 +534,10 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				"clusternamespace": "mc2"
 			}
 		],
+		"summary": {
+			"complianceClusterNumber": 1,
+			"nonComplianceClusterNumber": 1
+		},
 		"compliant": "NonCompliant"
 	}
 }
@@ -582,13 +620,39 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			plc1ID)
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Check the policies can be listed")
+		By("Check the policies can be listed without parameters")
 		w1 := httptest.NewRecorder()
 		req1, err := http.NewRequest("GET", "/global-hub-api/policies", nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
-		Expect(w1.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", expectedPolicy1)))
+		continueToken, err := util.EncodeContinue("policy-config-audit", plc1ID)
+		Expect(err).ToNot(HaveOccurred())
+		policyListFormatStr := `
+{
+	"kind": "PolicyList",
+	"apiVersion": "policy.open-cluster-management.io/v1",
+	"metadata": {
+		"continue": "%s"
+	},
+	"items": [
+		%s
+		]
+}`
+		Expect(w1.Body.String()).Should(MatchJSON(
+			fmt.Sprintf(policyListFormatStr, continueToken, expectedPolicy1)))
+
+		By("Check the policies can be listed with limit and labelSelector")
+		w2 := httptest.NewRecorder()
+		req2, err := http.NewRequest("GET",
+			"/global-hub-api/policies?"+
+				"labelSelector=foo%3Dbar%2Cenv%21%3Ddev%2C%21testnokey%2Cfoo",
+			nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w2, req2)
+		Expect(w2.Code).To(Equal(200))
+		Expect(w2.Body.String()).Should(MatchJSON(
+			fmt.Sprintf(policyListFormatStr, continueToken, expectedPolicy1)))
 
 		By("Check the policies can be listed as table response")
 		plcTable := `
@@ -626,6 +690,10 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
 				"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records",
 				"policy.open-cluster-management.io/standards": "NIST SP 800-53"
+			},
+			"labels": {
+				"env": "production",
+				"foo": "bar"
 			},
 			"creationTimestamp": null,
 			"name": "policy-config-audit",
@@ -696,30 +764,34 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				"clusternamespace": "mc2",
 				"compliant": "Compliant"
 				}
-			]
+			],
+			"summary": {
+				"complianceClusterNumber": 1,
+				"nonComplianceClusterNumber": 1
+			}
 			}
 		}
 		}
 	]
 }
 `
-		w2 := httptest.NewRecorder()
-		req2, err := http.NewRequest("GET", "/global-hub-api/policies", nil)
+		w3 := httptest.NewRecorder()
+		req3, err := http.NewRequest("GET", "/global-hub-api/policies", nil)
 		Expect(err).ToNot(HaveOccurred())
-		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
-		router.ServeHTTP(w2, req2)
-		Expect(w2.Code).To(Equal(200))
-		Expect(w2.Body.String()).Should(MatchJSON(plcTable))
+		req3.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		router.ServeHTTP(w3, req3)
+		Expect(w3.Code).To(Equal(200))
+		Expect(w3.Body.String()).Should(MatchJSON(plcTable))
 
 		By("Check the policies can be listed with watch")
-		w3 := CreateTestResponseRecorder()
+		w4 := CreateTestResponseRecorder()
 		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 		defer cancelFunc()
-		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
+		req4, err := http.NewRequestWithContext(timeoutCtx, "GET",
 			"/global-hub-api/policies?watch", nil)
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
-			router.ServeHTTP(w3, req3)
+			router.ServeHTTP(w4, req4)
 		}()
 		// wait loop for client cancel the request
 		for {
@@ -728,8 +800,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				return
 			default:
 				time.Sleep(4 * time.Second)
-				Expect(w3.Code).To(Equal(200))
-				// Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", expectedPolicy1)))
+				Expect(w4.Code).To(Equal(200))
+				// Expect(w4.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", expectedPolicy1)))
 			}
 		}
 	})
@@ -747,11 +819,11 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
 			"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records",
 			"policy.open-cluster-management.io/standards": "NIST SP 800-53"
+		},
+		"labels": {
+			"env": "production",
+			"foo": "bar"
 		}
-	},
-	"spec": {
-		"disabled": false,
-		"policy-templates": null
 	},
 	"status": {
 		"placement": [
@@ -772,6 +844,10 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				"clusternamespace": "mc2"
 			}
 		],
+		"summary": {
+			"complianceClusterNumber": 1,
+			"nonComplianceClusterNumber": 1
+		},
 		"compliant": "NonCompliant"
 	}
 }
@@ -825,11 +901,11 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
 				"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records",
 				"policy.open-cluster-management.io/standards": "NIST SP 800-53"
-			}
 			},
-			"spec": {
-			"disabled": false,
-			"policy-templates": null
+			"labels": {
+				"env": "production",
+				"foo": "bar"
+			}
 			},
 			"status": {
 			"placement": [
@@ -850,7 +926,11 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				"clusternamespace": "mc2"
 				}
 			],
-			"compliant": "NonCompliant"
+			"compliant": "NonCompliant",
+			"summary": {
+				"complianceClusterNumber": 1,
+				"nonComplianceClusterNumber": 1
+			}
 			}
 		}
 		}
@@ -866,7 +946,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w2.Code).To(Equal(200))
 		Expect(w2.Body.String()).Should(MatchJSON(plcTable))
 
-		By("Check the policies can be listed with watch")
+		By("Check the policy status can be retrieved with watch")
 		w3 := CreateTestResponseRecorder()
 		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 		defer cancelFunc()

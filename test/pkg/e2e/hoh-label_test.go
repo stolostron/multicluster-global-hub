@@ -130,7 +130,7 @@ func getLeafHubName(managedClusterName string) string {
 }
 
 func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCluster, error) {
-	managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
+	managedClusterUrl := fmt.Sprintf("%s/multicloud/global-hub-api/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 func getManagedClusterByName(client *http.Client, token, managedClusterName string) (
 	*clusterv1.ManagedCluster, error,
 ) {
-	managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters",
+	managedClusterUrl := fmt.Sprintf("%s/multicloud/global-hub-api/managedclusters",
 		testOptions.HubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
@@ -196,7 +196,7 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 }
 
 func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterName string) error {
-	updateLabelUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters/%s",
+	updateLabelUrl := fmt.Sprintf("%s/multicloud/global-hub-api/managedclusters/%s",
 		testOptions.HubCluster.Nonk8sApiServer, managedClusterName)
 	// set method and body
 	jsonBody, err := json.Marshal(patches)

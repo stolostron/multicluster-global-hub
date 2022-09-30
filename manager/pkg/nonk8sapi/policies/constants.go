@@ -14,8 +14,6 @@ const (
 const (
 	policyQuery = `SELECT payload FROM spec.policies WHERE deleted = FALSE AND id=$1
 		ORDER BY payload -> 'metadata' ->> 'name'`
-	policiesQuery = `SELECT id, payload FROM spec.policies WHERE deleted = FALSE
-		ORDER BY payload -> 'metadata' ->> 'name'`
 	policyComplianceQuery = `SELECT cluster_name,leaf_hub_name,compliance FROM status.compliance
 		WHERE id=$1 ORDER BY leaf_hub_name, cluster_name`
 	policyMappingQuery = `SELECT p.payload -> 'metadata' ->> 'name' AS policy,

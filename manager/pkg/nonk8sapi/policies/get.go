@@ -15,14 +15,15 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
 )
 
-// GetStatus middleware.
-func GetStatus(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
+// GetPolicyStatus middleware
+func GetPolicyStatus(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		policyID := ginCtx.Param("policyID")
 		fmt.Fprintf(gin.DefaultWriter, "getting status for policy: %s\n", policyID)
@@ -55,19 +56,19 @@ func handlePolicyForWatch(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, p
 	ctx, cancelContext := context.WithCancel(context.Background())
 	defer cancelContext()
 
-	prePolicy, err := queryPolicyStatus(dbConnectionPool, policyID,
+	preUnstrPolicy, err := queryPolicyStatus(dbConnectionPool, policyID,
 		policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 	}
 
 	// no need to return policy spec
-	prePolicy.Spec = policyv1.PolicySpec{}
+	delete(preUnstrPolicy.Object, "spec")
 
 	// send init watch event
 	if err := util.SendWatchEvent(&metav1.WatchEvent{
 		Type:   "UPDATED",
-		Object: runtime.RawExtension{Object: prePolicy},
+		Object: runtime.RawExtension{Object: preUnstrPolicy},
 	}, writer); err != nil {
 		fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 	}
@@ -88,33 +89,35 @@ func handlePolicyForWatch(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, p
 			}
 
 			doHandlePolicyForWatch(ctx, writer, dbConnectionPool, policyID, policyQuery, policyMappingQuery,
-				policyComplianceQuery, prePolicy)
+				policyComplianceQuery, preUnstrPolicy)
 		}
 	}
 }
 
-func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, dbConnectionPool *pgxpool.Pool,
-	policyID, policyQuery, policyMappingQuery, policyComplianceQuery string, prePolicy *policyv1.Policy,
+func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, dbConnectionPool *pgxpool.Pool, policyID,
+	policyQuery, policyMappingQuery, policyComplianceQuery string, preUnstrPolicy *unstructured.Unstructured,
 ) {
-	curPolicy, err := queryPolicyStatus(dbConnectionPool, policyID,
+	curUnstrPolicy, err := queryPolicyStatus(dbConnectionPool, policyID,
 		policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, "error in getting policy status with policy ID(%s): %v", policyID, err)
 	}
 
-	if !apiequality.Semantic.DeepDerivative(curPolicy.Status, prePolicy.Status) {
+	curPolicyStatusObj := curUnstrPolicy.Object["status"].(map[string]interface{})
+	prePolicyStatusObj := preUnstrPolicy.Object["status"].(map[string]interface{})
+	if !apiequality.Semantic.DeepDerivative(curPolicyStatusObj, prePolicyStatusObj) {
 		// no need to return policy spec
-		curPolicy.Spec = policyv1.PolicySpec{}
+		delete(curUnstrPolicy.Object, "spec")
 
 		if err := util.SendWatchEvent(&metav1.WatchEvent{
 			Type:   "UPDATED",
-			Object: runtime.RawExtension{Object: curPolicy},
+			Object: runtime.RawExtension{Object: curUnstrPolicy},
 		}, writer); err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
 
 		// set policy
-		prePolicy = curPolicy
+		preUnstrPolicy = curUnstrPolicy
 	}
 
 	writer.(http.Flusher).Flush()
@@ -123,14 +126,14 @@ func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, dbCo
 func handlePolicy(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyID, policyQuery, policyMappingQuery,
 	policyComplianceQuery string, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
-	policy, err := queryPolicyStatus(dbConnectionPool, policyID,
+	unstrPolicy, err := queryPolicyStatus(dbConnectionPool, policyID,
 		policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 	}
 
-	// no need to return policy spec
-	policy.Spec = policyv1.PolicySpec{}
+	// no need to return unstrPolicy spec
+	delete(unstrPolicy.Object, "spec")
 
 	if util.ShouldReturnAsTable(ginCtx) {
 		fmt.Fprintf(gin.DefaultWriter, "returning policy as table...\n")
@@ -141,7 +144,7 @@ func handlePolicy(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyID,
 			return
 		}
 
-		table, err := tableConvertor.ConvertToTable(context.TODO(), policy, nil)
+		table, err := tableConvertor.ConvertToTable(context.TODO(), unstrPolicy, nil)
 		if err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
 			return
@@ -154,33 +157,36 @@ func handlePolicy(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyID,
 		return
 	}
 
-	ginCtx.JSON(http.StatusOK, policy)
+	ginCtx.JSON(http.StatusOK, unstrPolicy)
 }
 
 func queryPolicyStatus(dbConnectionPool *pgxpool.Pool, policyID, policyQuery, policyMappingQuery,
 	policyComplianceQuery string,
-) (*policyv1.Policy, error) {
+) (*unstructured.Unstructured, error) {
 	var err error
 	policy := &policyv1.Policy{}
 
 	policyMatches, err = getPolicyMatches(dbConnectionPool, policyMappingQuery)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
-		return policy, err
+		return &unstructured.Unstructured{}, err
 	}
 
 	err = dbConnectionPool.QueryRow(context.TODO(), policyQuery, policyID).Scan(policy)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyFailureFormatMsg, err)
-		return policy, err
+		return &unstructured.Unstructured{}, err
 	}
 
 	compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(dbConnectionPool,
 		policyComplianceQuery, policyID)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
-		return policy, err
+		return &unstructured.Unstructured{}, err
 	}
 
-	return assemblePolicyStatus(policy, policyMatches, compliancePerClusterStatuses, hasNonCompliantClusters), nil
+	unstrPolicy, err := assemblePolicyStatus(policy, policyMatches,
+		compliancePerClusterStatuses, hasNonCompliantClusters)
+
+	return &unstrPolicy, err
 }

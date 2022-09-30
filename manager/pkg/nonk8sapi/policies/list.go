@@ -33,6 +33,11 @@ var dbEnumToPolicyComplianceStateMap = map[string]policyv1.ComplianceState{
 	dbEnumNonCompliant: policyv1.NonCompliant,
 }
 
+type policySummary struct {
+	ComplianceClusterNumber    int32 `json:"complianceClusterNumber,omitempty"`
+	NonComplianceClusterNumber int32 `json:"nonComplianceClusterNumber,omitempty"`
+}
+
 type policyMatch struct {
 	policy           string
 	placementrule    string
@@ -44,9 +49,64 @@ var (
 	customResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(crdName, clusterv1.GroupVersion.Version)
 )
 
-// List middleware.
-func List(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
+// ListPolicies middleware
+func ListPolicies(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
+		labelSelector := ginCtx.Query("labelSelector")
+
+		selectorInSql := ""
+
+		if labelSelector != "" {
+			var err error
+			selectorInSql, err = util.ParseLabelSelector(labelSelector)
+			if err != nil {
+				fmt.Fprintf(gin.DefaultWriter, "failed to parse label selector: %s\n", err.Error())
+				return
+			}
+		}
+
+		fmt.Fprintf(gin.DefaultWriter, "parsed selector: %s\n", selectorInSql)
+
+		limit := ginCtx.Query("limit")
+		fmt.Fprintf(gin.DefaultWriter, "limit: %v\n", limit)
+
+		lastPolicyName, lastPolicyUID := "", ""
+
+		continueToken := ginCtx.Query("continue")
+		if continueToken != "" {
+			fmt.Fprintf(gin.DefaultWriter, "continue: %v\n", continueToken)
+
+			var err error
+			lastPolicyName, lastPolicyUID, err = util.DecodeContinue(continueToken)
+			if err != nil {
+				fmt.Fprintf(gin.DefaultWriter, "failed to decode continue token: %s\n", err.Error())
+				return
+			}
+		}
+
+		fmt.Fprintf(gin.DefaultWriter,
+			"last returned policy name: %s, last returned policy] UID: %s\n",
+			lastPolicyName,
+			lastPolicyUID)
+
+		// build query condition for paging
+		LastResourceCompareCondition := fmt.Sprintf(
+			"(payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') > ('%s', '%s') ",
+			lastPolicyName,
+			lastPolicyUID)
+
+		// build final query
+		policiesQuery := "SELECT id, payload FROM spec.policies WHERE " +
+			LastResourceCompareCondition +
+			selectorInSql +
+			" ORDER BY payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid'"
+
+		// add limit
+		if limit != "" {
+			policiesQuery += fmt.Sprintf(" LIMIT %s", limit)
+		}
+		fmt.Fprintf(gin.DefaultWriter, "query: %v\n", policiesQuery)
+
 		fmt.Fprintf(gin.DefaultWriter, "policies query: %v\n", policiesQuery)
 		fmt.Fprintf(gin.DefaultWriter, "policy compliance query with policy ID: %v\n", policyComplianceQuery)
 		fmt.Fprintf(gin.DefaultWriter, "policy&placementbinding&placementrule mapping query: %v\n", policyMappingQuery)
@@ -226,10 +286,16 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policie
 
 	defer policyRows.Close()
 
-	policies := []*policyv1.Policy{}
-	for policyRows.Next() {
-		policyID, policy := "", &policyv1.Policy{}
+	unstrPolicyList := &unstructured.UnstructuredList{
+		Object: map[string]interface{}{
+			"kind":       "PolicyList",
+			"apiVersion": "policy.open-cluster-management.io/v1",
+		},
+		Items: []unstructured.Unstructured{},
+	}
 
+	policyID, policy := "", &policyv1.Policy{}
+	for policyRows.Next() {
 		if err := policyRows.Scan(&policyID, policy); err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in scanning a policy: %v\n", err)
 			continue
@@ -242,9 +308,23 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policie
 			continue
 		}
 
-		policies = append(policies,
-			assemblePolicyStatus(policy, policyMatches, compliancePerClusterStatuses, hasNonCompliantClusters))
+		unstrPolicy, err := assemblePolicyStatus(policy, policyMatches,
+			compliancePerClusterStatuses, hasNonCompliantClusters)
+		if err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in assemble status: %v\n", err)
+			continue
+		}
+
+		unstrPolicyList.Items = append(unstrPolicyList.Items, unstrPolicy)
 	}
+
+	continueToken, err := util.EncodeContinue(policy.GetName(), string(policyID))
+	if err != nil {
+		fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
+		return
+	}
+
+	unstrPolicyList.SetContinue(continueToken)
 
 	if util.ShouldReturnAsTable(ginCtx) {
 		fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")
@@ -255,7 +335,7 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policie
 			return
 		}
 
-		policiesList, err := wrapObjectsInList(policies)
+		policiesList, err := wrapObjectsInList(unstrPolicyList.Items)
 		if err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in wrapping policies in a list: %v\n", err)
 			return
@@ -274,7 +354,7 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policie
 		return
 	}
 
-	ginCtx.JSON(http.StatusOK, policies)
+	ginCtx.JSON(http.StatusOK, unstrPolicyList)
 }
 
 // getPolicyMatches returns array of policy & placementbinding & placementrule mapping and error.
@@ -342,7 +422,7 @@ func getComplianceStatus(dbConnectionPool *pgxpool.Pool, policyComplianceQuery, 
 
 func assemblePolicyStatus(policy *policyv1.Policy, policyMatches []*policyMatch,
 	compliancePerClusterStatuses []*policyv1.CompliancePerClusterStatus, hasNonCompliantClusters bool,
-) *policyv1.Policy {
+) (unstructured.Unstructured, error) {
 	policy.Status.Placement = []*policyv1.Placement{}
 	for _, pm := range policyMatches {
 		if pm.policy == policy.GetName() {
@@ -362,10 +442,36 @@ func assemblePolicyStatus(policy *policyv1.Policy, policyMatches []*policyMatch,
 		policy.Status.ComplianceState = policyv1.Compliant
 	}
 
-	return policy
+	unstrPolicyObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policy)
+	if err != nil {
+		return unstructured.Unstructured{}, err
+	}
+
+	unstrPolicy := unstructured.Unstructured{
+		Object: unstrPolicyObj,
+	}
+
+	policyStatusObj := unstrPolicy.Object["status"].(map[string]interface{})
+
+	var complianceClusterNumber, nonComplianceClusterNumber int32 = 0, 0
+	for _, compliancePerClusterStatus := range compliancePerClusterStatuses {
+		if compliancePerClusterStatus.ComplianceState == policyv1.Compliant {
+			complianceClusterNumber += 1
+		} else if compliancePerClusterStatus.ComplianceState == policyv1.NonCompliant {
+			nonComplianceClusterNumber += 1
+		}
+	}
+
+	// policy status summary information
+	policyStatusObj["summary"] = policySummary{
+		ComplianceClusterNumber:    complianceClusterNumber,
+		NonComplianceClusterNumber: nonComplianceClusterNumber,
+	}
+
+	return unstrPolicy, nil
 }
 
-func wrapObjectsInList(policies []*policyv1.Policy) (*corev1.List, error) {
+func wrapObjectsInList(uns []unstructured.Unstructured) (*corev1.List, error) {
 	list := &corev1.List{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "List",
@@ -374,15 +480,15 @@ func wrapObjectsInList(policies []*policyv1.Policy) (*corev1.List, error) {
 		ListMeta: metav1.ListMeta{},
 	}
 
-	for _, policy := range policies {
+	for _, instrObj := range uns {
 		// adopted from
 		// https://github.com/kubernetes/kubectl/blob/4da03973dd2fcd4645f20ac669d8a73cb017ff39/pkg/cmd/get/get.go#L786
-		policyData, err := json.Marshal(policy)
+		instrObjBytes, err := json.Marshal(&instrObj) //nolint:gosec
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshall object: %w", err)
 		}
 
-		convertedObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, policyData)
+		convertedObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, instrObjBytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode with unstructured JSON scheme : %w", err)
 		}
