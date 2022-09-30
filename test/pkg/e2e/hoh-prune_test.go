@@ -71,7 +71,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		chnv1.AddToScheme(scheme)
 		placementrulesv1.AddToScheme(scheme)
 		mghv1alpha2.AddToScheme(scheme)
-		runtimeClient, err = clients.ControllerRuntimeClient(scheme)
+		runtimeClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Get managed cluster name")

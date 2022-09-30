@@ -418,7 +418,7 @@ function waitKafkaToBeReady() {
 function waitPostgresToBeReady() {
   clusterIsReady=$(kubectl -n hoh-postgres get PostgresCluster/hoh -o jsonpath={.status.instances..readyReplicas} --ignore-not-found)
   SECOND=0
-  while [ -z "$clusterIsReady" || ${clusterIsReady} -lt 1 ]; do
+  while [[ -z "$clusterIsReady" || "$clusterIsReady" -lt 1 ]]; do
     if [ $SECOND -gt 600 ]; then
       echo "Timeout waiting for deploying PostgresCluster/hoh"
       exit 1

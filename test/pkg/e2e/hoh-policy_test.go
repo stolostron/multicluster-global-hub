@@ -9,6 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -33,7 +35,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	var httpClient *http.Client
 	var managedClusterName1 string
 	var managedClusterName2 string
-	var appClient client.Client
+	var globalClient client.Client
+	var regionalClient client.Client
 
 	BeforeAll(func() {
 		By("Get token for the non-k8s-api")
@@ -62,11 +65,14 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		By("Get the appsubreport client")
 		scheme := runtime.NewScheme()
 		policiesv1.AddToScheme(scheme)
-		appClient, err = clients.ControllerRuntimeClient(scheme)
+		corev1.AddToScheme(scheme)
+		globalClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
+		Expect(err).ShouldNot(HaveOccurred())
+		regionalClient, err = clients.ControllerRuntimeClient((clients.LeafHubClusterName()), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
-	It("add the label to a managedcluster for the policy", func() {
+	It("add the label to a managedcluster1 for the policy", func() {
 		patches := []patch{
 			{
 				Op:    "add", // or remove
@@ -98,6 +104,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	})
 
 	It("create a inform policy for the labeled cluster", func() {
+		By("Create the inform policy in global hub")
 		Eventually(func() error {
 			_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", INFORM_POLICY_YAML)
 			if err != nil {
@@ -106,8 +113,25 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
+		By("Check the inform policy in global hub")
 		Eventually(func() error {
-			status, err := getPolicyStatus(appClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
+			if err != nil {
+				return err
+			}
+			for _, policyInfo := range status.Status {
+				if policyInfo.ClusterName == managedClusterName1 {
+					if policyInfo.ComplianceState == policiesv1.NonCompliant {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterName1)
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+
+		By("Check the inform policy in regional hub")
+		Eventually(func() error {
+			status, err := getPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
@@ -132,7 +156,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPolicyStatus(appClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
@@ -178,9 +202,25 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			return fmt.Errorf("the label %s: %s is not exist", POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
-		By("Check the policy is added")
+		By("Check the policy is created in global hub")
 		Eventually(func() error {
-			status, err := getPolicyStatus(appClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
+			if err != nil {
+				return err
+			}
+			for _, policyInfo := range status.Status {
+				if policyInfo.ClusterName == managedClusterName2 {
+					if policyInfo.ComplianceState == policiesv1.Compliant {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterName2)
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+
+		By("Check the policy is created in regional hub")
+		Eventually(func() error {
+			status, err := getPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
@@ -196,7 +236,21 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	})
 
 	It("remove managedcluster1 policy by deleting label", func() {
-		By("remove the label from the managedclusterName1")
+		By("Check the policy is created in managedcluster1")
+		Eventually(func() error {
+			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
+			if err != nil {
+				return err
+			}
+			for _, policyInfo := range status.Status {
+				if policyInfo.ClusterName == managedClusterName1 {
+					return nil
+				}
+			}
+			return fmt.Errorf("the policy should be in the managedcluster1")
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+
+		By("remove the label from the managedcluster1")
 		patches := []patch{
 			{
 				Op:    "remove",
@@ -212,16 +266,15 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-		By("Check the policy is removed from the managedclusterName1")
+		By("Check the policy is removed from the managedcluster1")
 		Eventually(func() error {
-			status, err := getPolicyStatus(appClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
 			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusterName1 {
-					return fmt.Errorf("the cluster %s policy(%s)should be removed",
-						managedClusterName1, POLICY_NAME)
+					return fmt.Errorf("the cluster %s policy(%s)should be removed", managedClusterName1, POLICY_NAME)
 				}
 			}
 			return nil
@@ -229,20 +282,21 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	})
 
 	AfterAll(func() {
-		By("Delete the enforced policy")
+		By("Delete the enforce policy from global hub")
 		_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", ENFORCE_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		By("Delete the LimitRange CR from managedcluster1 and managedcluster2")
-		deleteInfo, err := clients.Kubectl(managedClusterName1, "delete", "LimitRange", "container-mem-limit-range")
-		Expect(err).ShouldNot(HaveOccurred())
-		klog.V(5).Info(managedClusterName1, ": ", deleteInfo)
-
-		deleteInfo, err = clients.Kubectl(managedClusterName2, "delete", "LimitRange", "container-mem-limit-range")
-		Expect(err).ShouldNot(HaveOccurred())
-		klog.V(5).Info(managedClusterName2, ": ", deleteInfo)
-
-		// TODO: clyang82 should check the policy is deleted in managed clusters of the regional hub cluster
+		By("Check the enforce policy is deleted from regional hub")
+		Eventually(func() error {
+			_, err := getPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("the policy should be removed from regional hub")
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 		By("Delete the label from managedcluster2")
 		patches := []patch{
@@ -259,12 +313,21 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			}
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Delete the LimitRange CR from managedcluster1 and managedcluster2")
+		deleteInfo, err := clients.Kubectl(managedClusterName1, "delete", "LimitRange", "container-mem-limit-range")
+		Expect(err).ShouldNot(HaveOccurred())
+		klog.V(5).Info(managedClusterName1, ": ", deleteInfo)
+
+		deleteInfo, err = clients.Kubectl(managedClusterName2, "delete", "LimitRange", "container-mem-limit-range")
+		Expect(err).ShouldNot(HaveOccurred())
+		klog.V(5).Info(managedClusterName2, ": ", deleteInfo)
 	})
 })
 
-func getPolicyStatus(appClient client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
+func getPolicyStatus(client client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
 	policy := &policiesv1.Policy{}
-	err := appClient.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, policy)
+	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, policy)
 	if err != nil {
 		return nil, err
 	}
