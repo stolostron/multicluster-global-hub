@@ -1,4 +1,4 @@
-package test
+package testkafka
 
 import (
 	"context"
@@ -159,16 +159,16 @@ func (c *KafkaTestConsumer) lookupHeaderValue(msg *kafka.Message, headerKey stri
 	return nil, false
 }
 
-func (c *KafkaTestConsumer) decompressPayload(payload []byte, msgCompressorType compressor.CompressionType) ([]byte, error) {
-	msgCompressor, found := c.compressorsMap[msgCompressorType]
+func (c *KafkaTestConsumer) decompressPayload(payload []byte, compressType compressor.CompressionType) ([]byte, error) {
+	msgCompressor, found := c.compressorsMap[compressType]
 	if !found {
-		newCompressor, err := compressor.NewCompressor(msgCompressorType)
+		newCompressor, err := compressor.NewCompressor(compressType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create compressor: %w", err)
 		}
 
 		msgCompressor = newCompressor
-		c.compressorsMap[msgCompressorType] = msgCompressor
+		c.compressorsMap[compressType] = msgCompressor
 	}
 
 	decompressedBytes, err := msgCompressor.Decompress(payload)

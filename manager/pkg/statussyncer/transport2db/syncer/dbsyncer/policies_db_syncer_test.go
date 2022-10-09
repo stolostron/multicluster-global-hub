@@ -22,7 +22,8 @@ var _ = Describe("Policies", Ordered, func() {
 	const testTable = "compliance"
 	const leafHubName = "hub1"
 
-	It("create status policy database table", func() {
+	BeforeAll(func() {
+		By("Create status compliance table in database")
 		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
 			CREATE SCHEMA IF NOT EXISTS status;
 			DO $$ BEGIN
@@ -71,7 +72,7 @@ var _ = Describe("Policies", Ordered, func() {
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("delete policy from database", func() {
+	It("delete the expired policy from database", func() {
 		deletedPolicyId := "b8b3e164-477e-4be1-a870-992265f31f7d"
 		createdPolicyId := "d9347b09-bb46-4e2b-91ea-513e83ab9ea7"
 		By("Add an expired policy to the database")

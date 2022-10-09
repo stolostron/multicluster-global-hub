@@ -27,8 +27,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
-	teststatuskafka "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/test"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/testkafka"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -87,7 +87,7 @@ var _ = BeforeSuite(func() {
 		false, stats) // manage all Conflation Units
 
 	kafkaMessageChan = make(chan *kafka.Message)
-	statusTransport, err = teststatuskafka.NewKafkaTestConsumer(kafkaMessageChan, conflationManager, stats,
+	statusTransport, err = testkafka.NewKafkaTestConsumer(kafkaMessageChan, conflationManager, stats,
 		ctrl.Log.WithName("kafka-consumer"))
 	Expect(err).NotTo(HaveOccurred())
 	statusTransport.Start()
