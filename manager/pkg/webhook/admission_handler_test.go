@@ -66,9 +66,13 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			}
 
 			Eventually(func() bool {
-				c.Create(ctx, testPlacement, &client.CreateOptions{})
+				if err := c.Create(ctx, testPlacement, &client.CreateOptions{}); err != nil {
+					return false
+				}
 				placement := &clusterv1beta1.Placement{}
-				c.Get(ctx, client.ObjectKeyFromObject(testPlacement), placement)
+				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacement), placement); err != nil {
+					return false
+				}
 				return placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] == "true"
 			}, 1*time.Second, 5*time.Second).Should(BeTrue())
 		})
@@ -86,9 +90,13 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			}
 
 			Eventually(func() bool {
-				c.Create(ctx, testPlacement, &client.CreateOptions{})
+				if err := c.Create(ctx, testPlacement, &client.CreateOptions{}); err != nil {
+					return false
+				}
 				placement := &clusterv1beta1.Placement{}
-				c.Get(ctx, client.ObjectKeyFromObject(testPlacement), placement)
+				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacement), placement); err != nil {
+					return false
+				}
 				return placement.Annotations == nil
 			}, 1*time.Second, 5*time.Second).Should(BeTrue())
 		})
@@ -103,9 +111,13 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			}
 
 			Eventually(func() bool {
-				c.Create(ctx, testPlacementRule, &client.CreateOptions{})
+				if err := c.Create(ctx, testPlacementRule, &client.CreateOptions{}); err != nil {
+					return false
+				}
 				placementrule := &placementrulesv1.PlacementRule{}
-				c.Get(ctx, client.ObjectKeyFromObject(testPlacementRule), placementrule)
+				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacementRule), placementrule); err != nil {
+					return false
+				}
 				return placementrule.Spec.SchedulerName == constants.GlobalHubSchedulerName
 			}, 1*time.Second, 5*time.Second).Should(BeTrue())
 		})
@@ -123,9 +135,13 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			}
 
 			Eventually(func() bool {
-				c.Create(ctx, testPlacementRule, &client.CreateOptions{})
+				if err := c.Create(ctx, testPlacementRule, &client.CreateOptions{}); err != nil {
+					return false
+				}
 				placementrule := &placementrulesv1.PlacementRule{}
-				c.Get(ctx, client.ObjectKeyFromObject(testPlacementRule), placementrule)
+				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacementRule), placementrule); err != nil {
+					return false
+				}
 				return placementrule.Spec.SchedulerName != constants.GlobalHubSchedulerName
 			}, 1*time.Second, 5*time.Second).Should(BeTrue())
 		})
