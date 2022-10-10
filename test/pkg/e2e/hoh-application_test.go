@@ -34,6 +34,8 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 	var httpClient *http.Client
 	var managedClusterName1 string
 	var managedClusterName2 string
+	var managedClusterUID1 string
+	var managedClusterUID2 string
 	var appClient client.Client
 
 	BeforeAll(func() {
@@ -57,6 +59,8 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			}
 			managedClusterName1 = managedClusters[0].Name
 			managedClusterName2 = managedClusters[1].Name
+			managedClusterUID1 = string(managedClusters[0].GetUID())
+			managedClusterUID2 = string(managedClusters[1].GetUID())
 			return nil
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
@@ -78,7 +82,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		}
 
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterName1)
+			err := updateClusterLabel(httpClient, patches, token, managedClusterUID1)
 			if err != nil {
 				return err
 			}
@@ -128,7 +132,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				},
 			}
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, token, managedClusterName2)
+				err := updateClusterLabel(httpClient, patches, token, managedClusterUID2)
 				if err != nil {
 					return err
 				}
@@ -178,7 +182,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterName1)
+			err := updateClusterLabel(httpClient, patches, token, managedClusterUID1)
 			if err != nil {
 				return err
 			}
@@ -186,7 +190,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterName2)
+			err := updateClusterLabel(httpClient, patches, token, managedClusterUID2)
 			if err != nil {
 				return err
 			}

@@ -483,7 +483,7 @@ func wrapObjectsInList(uns []unstructured.Unstructured) (*corev1.List, error) {
 	for _, instrObj := range uns {
 		// adopted from
 		// https://github.com/kubernetes/kubectl/blob/4da03973dd2fcd4645f20ac669d8a73cb017ff39/pkg/cmd/get/get.go#L786
-		instrObjBytes, err := json.Marshal(&instrObj) //nolint:gosec
+		instrObjBytes, err := json.Marshal(&instrObj) // #nosec G601
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshall object: %w", err)
 		}

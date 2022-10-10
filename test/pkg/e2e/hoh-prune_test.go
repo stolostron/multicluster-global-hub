@@ -43,6 +43,8 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 	var httpClient *http.Client
 	var managedClusterName1 string
 	var managedClusterName2 string
+	var managedClusterUID1 string
+	var managedClusterUID2 string
 	var token string
 
 	BeforeAll(func() {
@@ -82,6 +84,8 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			managedClusterName1 = managedClusters[0].Name
 			managedClusterName2 = managedClusters[1].Name
+			managedClusterUID1 = string(managedClusters[0].GetUID())
+			managedClusterUID2 = string(managedClusters[1].GetUID())
 			return nil
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
@@ -96,7 +100,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			},
 		}
 		Eventually(func() error {
-			if err := updateClusterLabel(httpClient, patches, token, managedClusterName1); err != nil {
+			if err := updateClusterLabel(httpClient, patches, token, managedClusterUID1); err != nil {
 				return err
 			}
 			return nil
@@ -127,7 +131,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterName2)
+			err := updateClusterLabel(httpClient, patches, token, managedClusterUID2)
 			if err != nil {
 				return err
 			}
