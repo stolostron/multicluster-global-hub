@@ -18,5 +18,5 @@ spec:
             name: multicluster-global-hub-manager
             port:
               number: 8080
-        path: /multicloud/hub-of-hubs-nonk8s-api
+        path: /multicloud/global-hub-api
         pathType: ImplementationSpecific

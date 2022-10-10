@@ -18,6 +18,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/authentication"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/managedclusters"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/policies"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 )
 
@@ -26,13 +27,11 @@ const secondsToFinishOnShutdown = 5
 var errFailedToLoadCertificate = errors.New("failed to load certificate/key")
 
 type NonK8sAPIServerConfig struct {
-	ClusterAPIURL             string
-	ClusterAPICABundlePath    string
-	AuthorizationURL          string
-	AuthorizationCABundlePath string
-	ServerCertificatePath     string
-	ServerKeyPath             string
-	ServerBasePath            string
+	ClusterAPIURL          string
+	ClusterAPICABundlePath string
+	ServerCertificatePath  string
+	ServerKeyPath          string
+	ServerBasePath         string
 }
 
 // nonK8sApiServer defines the non-k8s-api-server
@@ -69,18 +68,10 @@ func readCertificates(nonK8sAPIServerConfig *NonK8sAPIServerConfig) ([]byte, tls
 
 // AddNonK8sApiServer adds the non-k8s-api-server to the Manager.
 func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) error {
-	// read the certificate of non-k8s-api server
-	clusterAPICABundle, _, err := readCertificates(nonK8sAPIServerConfig)
+	router, err := SetupRouter(database, nonK8sAPIServerConfig)
 	if err != nil {
-		return fmt.Errorf("failed to read certificates: %w", err)
+		return err
 	}
-
-	router := gin.Default()
-	router.Use(authentication.Authentication(nonK8sAPIServerConfig.ClusterAPIURL, clusterAPICABundle))
-
-	routerGroup := router.Group(nonK8sAPIServerConfig.ServerBasePath)
-	routerGroup.GET("/managedclusters", managedclusters.List(database.GetConn()))
-	routerGroup.PATCH("/managedclusters/:cluster", managedclusters.Patch(database.GetConn()))
 
 	err = mgr.Add(&nonK8sApiServer{
 		log: ctrl.Log.WithName("non-k8s-api-server"),
@@ -97,6 +88,29 @@ func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig 
 	}
 
 	return nil
+}
+
+// SetupRouter set up router for nonk8s apiserver
+func SetupRouter(database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) (*gin.Engine, error) {
+	router := gin.Default()
+	// add aythentication eith openshift oauth
+	// skip authentication middleware if ClusterAPIURL is empty for testing
+	if nonK8sAPIServerConfig.ClusterAPIURL != "" {
+		clusterAPICABundle, _, err := readCertificates(nonK8sAPIServerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read certificates: %w", err)
+		}
+		router.Use(authentication.Authentication(nonK8sAPIServerConfig.ClusterAPIURL, clusterAPICABundle))
+	}
+
+	routerGroup := router.Group(nonK8sAPIServerConfig.ServerBasePath)
+	routerGroup.GET("/managedclusters", managedclusters.ListManagedClusters(database.GetConn()))
+	routerGroup.PATCH("/managedclusters/:clusterID",
+		managedclusters.PatchManagedCluster(database.GetConn()))
+	routerGroup.GET("/policies", policies.ListPolicies(database.GetConn()))
+	routerGroup.GET("/policies/:policyID/status", policies.GetPolicyStatus(database.GetConn()))
+
+	return router, nil
 }
 
 // Start runs the non-k8s-api server within given context

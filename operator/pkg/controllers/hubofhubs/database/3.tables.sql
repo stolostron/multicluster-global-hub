@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS  spec.managed_cluster_sets_tracking (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.managed_clusters_labels (
+    id uuid NOT NULL,
     leaf_hub_name character varying(63) DEFAULT ''::character varying NOT NULL,
     managed_cluster_name character varying(63) NOT NULL,
     labels jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -343,8 +344,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_id_idx ON local_s
 CREATE UNIQUE INDEX IF NOT EXISTS policies_leaf_hub_name_id_idx ON local_spec.policies USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
 
 CREATE UNIQUE INDEX IF NOT EXISTS managed_cluster_sets_tracking_cluster_set_name_and_leaf_hub_name_idx ON spec.managed_cluster_sets_tracking USING btree (cluster_set_name, leaf_hub_name);
-
-CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_labels_leaf_hub_name_and_cluster_name_idx ON spec.managed_clusters_labels USING btree (leaf_hub_name, managed_cluster_name);
 
 CREATE INDEX IF NOT EXISTS compliance_leaf_hub_cluster_idx ON status.compliance USING btree (leaf_hub_name, cluster_name);
 

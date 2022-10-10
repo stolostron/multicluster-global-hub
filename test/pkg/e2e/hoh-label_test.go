@@ -26,6 +26,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 	var token string
 	var httpClient *http.Client
 	var managedClusterName string
+	var managedClusterUID string
 
 	BeforeAll(func() {
 		By("Get token for the non-k8s-api")
@@ -43,6 +44,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 			if err != nil {
 				return err
 			}
+			managedClusterUID = string(managedClusters[0].GetUID())
 			managedClusterName = managedClusters[0].Name
 			return nil
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
@@ -58,7 +60,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 		}
 
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterName)
+			err := updateClusterLabel(httpClient, patches, token, managedClusterUID)
 			if err != nil {
 				return err
 			}
@@ -89,7 +91,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterName)
+			err := updateClusterLabel(httpClient, patches, token, managedClusterUID)
 			if err != nil {
 				return err
 			}
@@ -130,7 +132,7 @@ func getLeafHubName(managedClusterName string) string {
 }
 
 func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCluster, error) {
-	managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
+	managedClusterUrl := fmt.Sprintf("%s/multicloud/global-hub-api/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
@@ -147,22 +149,22 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 		return nil, err
 	}
 
-	var managedClusters []clusterv1.ManagedCluster
-	err = json.Unmarshal(body, &managedClusters)
+	var managedClusterList clusterv1.ManagedClusterList
+	err = json.Unmarshal(body, &managedClusterList)
 	if err != nil {
 		return nil, err
 	}
-	if len(managedClusters) != 2 {
+	if len(managedClusterList.Items) != 2 {
 		return nil, fmt.Errorf("cannot get two managed clusters")
 	}
 
-	return managedClusters, nil
+	return managedClusterList.Items, nil
 }
 
 func getManagedClusterByName(client *http.Client, token, managedClusterName string) (
 	*clusterv1.ManagedCluster, error,
 ) {
-	managedClusterUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters",
+	managedClusterUrl := fmt.Sprintf("%s/multicloud/global-hub-api/managedclusters",
 		testOptions.HubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
@@ -180,13 +182,13 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 		return nil, err
 	}
 
-	var managedClusters []clusterv1.ManagedCluster
-	err = json.Unmarshal(body, &managedClusters)
+	var managedClusterList clusterv1.ManagedClusterList
+	err = json.Unmarshal(body, &managedClusterList)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, managedCluster := range managedClusters {
+	for _, managedCluster := range managedClusterList.Items {
 		if managedCluster.Name == managedClusterName {
 			return &managedCluster, nil
 		}
@@ -195,9 +197,9 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 	return nil, nil
 }
 
-func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterName string) error {
-	updateLabelUrl := fmt.Sprintf("%s/multicloud/hub-of-hubs-nonk8s-api/managedclusters/%s",
-		testOptions.HubCluster.Nonk8sApiServer, managedClusterName)
+func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterID string) error {
+	updateLabelUrl := fmt.Sprintf("%s/multicloud/global-hub-api/managedclusters/%s",
+		testOptions.HubCluster.Nonk8sApiServer, managedClusterID)
 	// set method and body
 	jsonBody, err := json.Marshal(patches)
 	if err != nil {
@@ -211,11 +213,6 @@ func updateClusterLabel(client *http.Client, patches []patch, token, managedClus
 	// add header
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	req.Header.Add("Accept", "application/json")
-
-	// add query
-	q := req.URL.Query()
-	q.Add("hubCluster", getLeafHubName(managedClusterName))
-	req.URL.RawQuery = q.Encode()
 
 	// do request
 	response, err := client.Do(req)
