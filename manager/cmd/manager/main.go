@@ -163,7 +163,7 @@ func parseFlags() (*hohManagerConfig, error) {
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerKeyPath, "server-key-path",
 		"/certs/tls.key", "The private key path for nonK8s API server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerBasePath, "server-base-path",
-		"/multicloud/global-hub-api", "The base path for nonK8s API server.")
+		"/global-hub-api/v1", "The base path for nonK8s API server.")
 
 	// add flags for logger
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())

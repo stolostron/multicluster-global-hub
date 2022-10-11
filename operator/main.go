@@ -20,13 +20,13 @@ import (
 	"flag"
 	"os"
 
+	routev1 "github.com/openshift/api/route/v1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -68,6 +68,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(operatorsv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1beta1.AddToScheme(scheme))
@@ -137,7 +138,7 @@ func main() {
 			&rbacv1.ClusterRoleBinding{}: {
 				Label: labelSelector,
 			},
-			&networkingv1.Ingress{}: {
+			&routev1.Route{}: {
 				Label: labelSelector,
 			},
 			&clusterv1.ManagedCluster{}: {

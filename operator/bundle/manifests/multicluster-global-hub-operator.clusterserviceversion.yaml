@@ -391,28 +391,6 @@ spec:
           - patch
           - update
         - apiGroups:
-          - networking.k8s.io
-          resources:
-          - ingresses
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - networking.k8s.io
-          resources:
-          - networkpolicies
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
           - operator.open-cluster-management.io
           resources:
           - multiclusterglobalhubs
@@ -501,6 +479,17 @@ spec:
           - rbac.authorization.k8s.io
           resources:
           - roles
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
           verbs:
           - create
           - delete
