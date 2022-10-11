@@ -12,7 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 )
 
-func TestCompressor(t *testing.T) {
+func TestTransportCompressor(t *testing.T) {
 	compressor, err := compressor.NewCompressor(compressor.GZip)
 	if err != nil {
 		t.Fatal(err)
