@@ -88,7 +88,8 @@ var _ = BeforeSuite(func() {
 
 	By("Create conflationReadyQueue")
 	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
-	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue, false, stats) // manage all Conflation Units
+	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"),
+		conflationReadyQueue, false, stats) // manage all Conflation Units
 
 	kafkaMessageChan = make(chan *kafka.Message)
 	statusTransport, err = testkafka.NewKafkaTestConsumer(kafkaMessageChan, conflationManager, stats,
@@ -123,7 +124,8 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
 
 	By("Add controllers to manager")
-	err = statussyncer.AddTransport2DBSyncers(mgr, dbWorkerPool, conflationManager, conflationReadyQueue, statusTransport, stats)
+	err = statussyncer.AddTransport2DBSyncers(mgr, dbWorkerPool, conflationManager,
+		conflationReadyQueue, statusTransport, stats)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")

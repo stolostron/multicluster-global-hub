@@ -85,19 +85,23 @@ var _ = Describe("Policies", Ordered, func() {
 			if complianceReady && aggregatedComplianceReady {
 				return nil
 			}
-			return fmt.Errorf("failed to create test table %s: %s and %s", testSchema, complianceTable, aggregatedComplianceTable)
+			return fmt.Errorf("failed to create test table %s: %s and %s", testSchema,
+				complianceTable, aggregatedComplianceTable)
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("delete and insert policy with ClustersPerPolicy Bundle where aggregationLevel = full", func() {
 		By("Add an expired policy to the database")
 		deletedPolicyId := "b8b3e164-477e-4be1-a870-992265f31f7d"
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (id,cluster_name,leaf_hub_name,error,compliance) VALUES($1, $2, $3, $4, $5)`, testSchema, complianceTable), deletedPolicyId, "cluster1", leafHubName, "none", "unknown")
+		_, err := transportPostgreSQL.GetConn().Exec(ctx,
+			fmt.Sprintf(`INSERT INTO %s.%s (id,cluster_name,leaf_hub_name,error,compliance) VALUES($1, $2, $3, $4, $5)`,
+				testSchema, complianceTable), deletedPolicyId, "cluster1", leafHubName, "none", "unknown")
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check the expired policy is added in database")
 		Eventually(func() error {
-			rows, err := transportPostgreSQL.GetConn().Query(ctx, fmt.Sprintf("SELECT id FROM %s.%s", testSchema, complianceTable))
+			rows, err := transportPostgreSQL.GetConn().Query(ctx,
+				fmt.Sprintf("SELECT id FROM %s.%s", testSchema, complianceTable))
 			if err != nil {
 				return err
 			}
@@ -134,7 +138,8 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the latest ClustersPerPolicy bundle with transport")
-		kafkaMessage, err := buildKafkaMessage(clustersPerPolicyTransportKey, clustersPerPolicyTransportKey, payloadBytes)
+		kafkaMessage, err := buildKafkaMessage(clustersPerPolicyTransportKey,
+			clustersPerPolicyTransportKey, payloadBytes)
 		Expect(err).ToNot(HaveOccurred())
 		kafkaMessageChan <- kafkaMessage
 
@@ -194,7 +199,8 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the delta policy bundle with transport")
-		kafkaMessage, err := buildKafkaMessage(policyDeltaComplianceTransportKey, policyDeltaComplianceTransportKey, payloadBytes)
+		kafkaMessage, err := buildKafkaMessage(policyDeltaComplianceTransportKey,
+			policyDeltaComplianceTransportKey, payloadBytes)
 		Expect(err).ToNot(HaveOccurred())
 		kafkaMessageChan <- kafkaMessage
 
@@ -264,12 +270,14 @@ var _ = Describe("Policies", Ordered, func() {
 			AppliedClusters:      3,
 		})
 		// transport bundle
-		minimalPolicyComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
+		minimalPolicyComplianceTransportKey :=
+			fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
 		payloadBytes, err := json.Marshal(transportPayload)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the policy bundle with transport")
-		kafkaMessage, err := buildKafkaMessage(minimalPolicyComplianceTransportKey, minimalPolicyComplianceTransportKey, payloadBytes)
+		kafkaMessage, err := buildKafkaMessage(minimalPolicyComplianceTransportKey,
+			minimalPolicyComplianceTransportKey, payloadBytes)
 		Expect(err).ToNot(HaveOccurred())
 		kafkaMessageChan <- kafkaMessage
 
@@ -290,7 +298,8 @@ var _ = Describe("Policies", Ordered, func() {
 					return err
 				}
 				fmt.Printf("%s %s %d %d \n", policyId, hubName, appliedClusters, nonCompliantClusters)
-				if policyId == createdPolicyId && hubName == leafHubName && appliedClusters == 3 && nonCompliantClusters == 2 {
+				if policyId == createdPolicyId && hubName == leafHubName &&
+					appliedClusters == 3 && nonCompliantClusters == 2 {
 					return nil
 				}
 			}

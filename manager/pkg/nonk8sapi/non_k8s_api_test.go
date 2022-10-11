@@ -132,7 +132,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 
 		By("Set up nonk8s-api server router")
 		router, err = nonk8sapi.SetupRouter(postgresSQL, &nonk8sapi.NonK8sAPIServerConfig{
-			ServerBasePath: "/global-hub-api",
+			ServerBasePath: "/global-hub-api/v1",
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -206,7 +206,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 
 		By("Check the managedcclusters can be listed without parameters")
 		w1 := httptest.NewRecorder()
-		req1, err := http.NewRequest("GET", "/global-hub-api/managedclusters", nil)
+		req1, err := http.NewRequest("GET", "/global-hub-api/v1/managedclusters", nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
@@ -228,7 +228,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		By("Check the managedcclusters can be listed with limit and labelSelector")
 		w2 := httptest.NewRecorder()
 		req2, err := http.NewRequest("GET",
-			"/global-hub-api/managedclusters?"+
+			"/global-hub-api/v1/managedclusters?"+
 				"limit=2&labelSelector=cloud%3DOther%2Cvendor%21%3DOpenshift%2C%21testnokey%2Cvendor",
 			nil)
 		Expect(err).ToNot(HaveOccurred())
@@ -326,7 +326,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 }
 `
 		w3 := httptest.NewRecorder()
-		req3, err := http.NewRequest("GET", "/global-hub-api/managedclusters", nil)
+		req3, err := http.NewRequest("GET", "/global-hub-api/v1/managedclusters", nil)
 		Expect(err).ToNot(HaveOccurred())
 		req3.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
 		router.ServeHTTP(w3, req3)
@@ -338,7 +338,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 		defer cancelFunc()
 		req4, err := http.NewRequestWithContext(timeoutCtx, "GET",
-			"/global-hub-api/managedclusters?watch", nil)
+			"/global-hub-api/v1/managedclusters?watch", nil)
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
 			router.ServeHTTP(w4, req4)
@@ -367,7 +367,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			}
 		]`)
 		req, err := http.NewRequest("PATCH",
-			"/global-hub-api/managedclusters/2aa5547c-c172-47ed-b70b-db468c84d327",
+			"/global-hub-api/v1/managedclusters/2aa5547c-c172-47ed-b70b-db468c84d327",
 			bytes.NewBuffer(jsonPatchStr))
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w, req)
@@ -622,7 +622,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 
 		By("Check the policies can be listed without parameters")
 		w1 := httptest.NewRecorder()
-		req1, err := http.NewRequest("GET", "/global-hub-api/policies", nil)
+		req1, err := http.NewRequest("GET", "/global-hub-api/v1/policies", nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
@@ -645,7 +645,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		By("Check the policies can be listed with limit and labelSelector")
 		w2 := httptest.NewRecorder()
 		req2, err := http.NewRequest("GET",
-			"/global-hub-api/policies?"+
+			"/global-hub-api/v1/policies?"+
 				"labelSelector=foo%3Dbar%2Cenv%21%3Ddev%2C%21testnokey%2Cfoo",
 			nil)
 		Expect(err).ToNot(HaveOccurred())
@@ -776,7 +776,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 }
 `
 		w3 := httptest.NewRecorder()
-		req3, err := http.NewRequest("GET", "/global-hub-api/policies", nil)
+		req3, err := http.NewRequest("GET", "/global-hub-api/v1/policies", nil)
 		Expect(err).ToNot(HaveOccurred())
 		req3.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
 		router.ServeHTTP(w3, req3)
@@ -788,7 +788,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 		defer cancelFunc()
 		req4, err := http.NewRequestWithContext(timeoutCtx, "GET",
-			"/global-hub-api/policies?watch", nil)
+			"/global-hub-api/v1/policies?watch", nil)
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
 			router.ServeHTTP(w4, req4)
@@ -856,7 +856,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		By("Check the policy status can be retrieved with policy ID")
 		w1 := httptest.NewRecorder()
 		req1, err := http.NewRequest("GET", fmt.Sprintf(
-			"/global-hub-api/policies/%s/status", plc1ID), nil)
+			"/global-hub-api/v1/policies/%s/status", plc1ID), nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
@@ -939,7 +939,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 `
 		w2 := httptest.NewRecorder()
 		req2, err := http.NewRequest("GET", fmt.Sprintf(
-			"/global-hub-api/policies/%s/status", plc1ID), nil)
+			"/global-hub-api/v1/policies/%s/status", plc1ID), nil)
 		Expect(err).ToNot(HaveOccurred())
 		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
 		router.ServeHTTP(w2, req2)
@@ -951,7 +951,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 		defer cancelFunc()
 		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
-			fmt.Sprintf("/global-hub-api/policies/%s/status?watch", plc1ID), nil)
+			fmt.Sprintf("/global-hub-api/v1/policies/%s/status?watch", plc1ID), nil)
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
 			router.ServeHTTP(w3, req3)

@@ -25,7 +25,7 @@ hub_api_server=$(kubectl config view -o jsonpath="{.clusters[0].cluster.server}"
 
 hub_app_domain=$(kubectl -n openshift-ingress-operator get ingresscontrollers default -ojsonpath='{.status.domain}'  --kubeconfig ${KUBECONFIG} --context ${CONTEXT})
 hub_base_domain="${hub_app_domain#apps.}"
-hub_nonk8s_api_server="https://multicloud-console.apps.${hub_base_domain}"
+hub_nonk8s_api_server="https://multicluster-global-hub-manager.apps.${hub_base_domain}"
 
 hub_namespace="open-cluster-management"
 hub_database_secret="hub-of-hubs-database-secret"

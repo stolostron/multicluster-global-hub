@@ -11,7 +11,7 @@ metadata:
 spec:
   ports:
   - port: 8080
-    name: http
+    name: api-server
   selector:
     name: multicluster-global-hub-manager
 ---
