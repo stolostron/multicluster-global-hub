@@ -19,6 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/authentication"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/managedclusters"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/policies"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/subscriptions"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 )
 
@@ -109,6 +110,8 @@ func SetupRouter(database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) (
 		managedclusters.PatchManagedCluster(database.GetConn()))
 	routerGroup.GET("/policies", policies.ListPolicies(database.GetConn()))
 	routerGroup.GET("/policies/:policyID/status", policies.GetPolicyStatus(database.GetConn()))
+	routerGroup.GET("/subscriptionreport/:subscriptionID",
+		subscriptions.GetSubscriptionReport(database.GetConn()))
 
 	return router, nil
 }
