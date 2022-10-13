@@ -117,7 +117,8 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Check the appsub is applied to the cluster")
 		Eventually(func() error {
-			return checkAppsubreport(runtimeClient, 1, []string{managedClusterName1})
+			return checkAppsubreport(runtimeClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token, 1,
+				[]string{managedClusterName1})
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
@@ -148,7 +149,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPolicyStatus(runtimeClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(runtimeClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
 			if err != nil {
 				return err
 			}

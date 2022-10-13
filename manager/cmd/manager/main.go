@@ -30,8 +30,6 @@ import (
 	specsyncservice "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport/syncservice"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statistics"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/db2status"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/status"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
@@ -338,15 +336,6 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 	if err := specsyncer.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL,
 		managerConfig.syncerConfig.deletedLabelsTrimmingInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
-	}
-
-	if err := db2status.AddDBSyncers(mgr, processPostgreSQL,
-		managerConfig.syncerConfig.statusSyncInterval); err != nil {
-		return nil, fmt.Errorf("failed to add status db syncers: %w", err)
-	}
-
-	if err := status.AddStatusControllers(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add status controller: %w", err)
 	}
 
 	if err := statussyncer.AddTransport2DBSyncers(mgr, workersPool, conflationManager, conflationReadyQueue,

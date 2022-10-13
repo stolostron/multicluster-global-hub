@@ -3,7 +3,9 @@ package tests
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -119,7 +121,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the inform policy in global hub")
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
 			if err != nil {
 				return err
 			}
@@ -135,10 +137,14 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the inform policy in regional hub")
 		Eventually(func() error {
-			status, err := getPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getRegionalPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
+
+			policyStatusStr, _ := json.MarshalIndent(status, "", "  ")
+			klog.V(5).Info(fmt.Sprintf("get policy status: %s", policyStatusStr))
+
 			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusterName1 {
 					if policyInfo.ComplianceState == policiesv1.NonCompliant {
@@ -160,7 +166,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
 			if err != nil {
 				return err
 			}
@@ -208,7 +214,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the policy is created in global hub")
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
 			if err != nil {
 				return err
 			}
@@ -224,7 +230,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the policy is created in regional hub")
 		Eventually(func() error {
-			status, err := getPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getRegionalPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
@@ -242,7 +248,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	It("remove managedcluster1 policy by deleting label", func() {
 		By("Check the policy is created in managedcluster1")
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
 			if err != nil {
 				return err
 			}
@@ -272,7 +278,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the policy is removed from the managedcluster1")
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
 			if err != nil {
 				return err
 			}
@@ -292,7 +298,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the enforce policy is deleted from regional hub")
 		Eventually(func() error {
-			_, err := getPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
+			_, err := getRegionalPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
 			if errors.IsNotFound(err) {
 				return nil
 			}
@@ -329,11 +335,50 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	})
 })
 
-func getPolicyStatus(client client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
+func getPolicyStatus(client client.Client, httpClient *http.Client, name, namespace,
+	token string,
+) (*policiesv1.PolicyStatus, error) {
 	policy := &policiesv1.Policy{}
 	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, policy)
 	if err != nil {
 		return nil, err
 	}
+
+	policyUID := string(policy.GetUID())
+	getPolicyStatusURL := fmt.Sprintf("%s/global-hub-api/v1/policies/%s/status",
+		testOptions.HubCluster.Nonk8sApiServer, policyUID)
+	req, err := http.NewRequest("GET", getPolicyStatusURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	klog.V(5).Info(fmt.Sprintf("get policy status reponse body: \n%s\n", body))
+
+	err = json.Unmarshal(body, policy)
+	if err != nil {
+		return nil, err
+	}
+
+	return &policy.Status, nil
+}
+
+func getRegionalPolicyStatus(client client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
+	policy := &policiesv1.Policy{}
+	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, policy)
+	if err != nil {
+		return nil, err
+	}
+
 	return &policy.Status, nil
 }

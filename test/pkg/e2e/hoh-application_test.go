@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -66,6 +68,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		By("Get the appsubreport client")
 		scheme := runtime.NewScheme()
+		appsv1.SchemeBuilder.AddToScheme(scheme)
 		appsv1alpha1.AddToScheme(scheme)
 		appClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -117,7 +120,8 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
-				return checkAppsubreport(appClient, 1, []string{managedClusterName1})
+				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token, 1,
+					[]string{managedClusterName1})
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
@@ -155,7 +159,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the appsub apply to the clusters")
 			Eventually(func() error {
-				return checkAppsubreport(appClient, 2, []string{
+				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token, 2, []string{
 					managedClusterName1, managedClusterName2,
 				})
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
@@ -163,7 +167,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		AfterEach(func() {
 			if CurrentSpecReport().Failed() {
-				appsubreport, err := getAppsubReport(appClient)
+				appsubreport, err := getAppsubReport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token)
 				if err == nil {
 					appsubreportStr, _ := json.MarshalIndent(appsubreport, "", "  ")
 					klog.V(5).Info("Appsubreport: ", string(appsubreportStr))
@@ -208,17 +212,49 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 	})
 })
 
-func getAppsubReport(appClient client.Client) (*appsv1alpha1.SubscriptionReport, error) {
+func getAppsubReport(appClient client.Client, httpClient *http.Client, name, namespace,
+	token string,
+) (*appsv1alpha1.SubscriptionReport, error) {
 	appsubreport := &appsv1alpha1.SubscriptionReport{}
-	err := appClient.Get(context.TODO(), types.NamespacedName{Namespace: APP_SUB_NAMESPACE, Name: APP_SUB_NAME}, appsubreport)
+	appsub := &appsv1.Subscription{}
+	err := appClient.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, appsub)
 	if err != nil {
 		return nil, err
 	}
+
+	appsubUID := string(appsub.GetUID())
+	getSubscriptionReportURL := fmt.Sprintf("%s/global-hub-api/v1/subscriptionreport/%s",
+		testOptions.HubCluster.Nonk8sApiServer, appsubUID)
+	req, err := http.NewRequest("GET", getSubscriptionReportURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	klog.V(5).Info(fmt.Sprintf("get subscription report reponse body: \n%s\n", body))
+
+	err = json.Unmarshal(body, appsubreport)
+	if err != nil {
+		return nil, err
+	}
+
 	return appsubreport, nil
 }
 
-func checkAppsubreport(appClient client.Client, expectDeployNum int, expectClusterNames []string) error {
-	appsubreport, err := getAppsubReport(appClient)
+func checkAppsubreport(appClient client.Client, httpClient *http.Client, name, namespace,
+	token string, expectDeployNum int, expectClusterNames []string,
+) error {
+	appsubreport, err := getAppsubReport(appClient, httpClient, name, namespace, token)
 	if err != nil {
 		return err
 	}

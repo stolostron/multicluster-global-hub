@@ -127,6 +127,18 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				error status.error_type NOT NULL,
 				compliance status.compliance_type NOT NULL
 			);
+			CREATE TABLE IF NOT EXISTS  spec.subscriptions (
+				id uuid NOT NULL,
+				payload jsonb NOT NULL,
+				created_at timestamp without time zone DEFAULT now() NOT NULL,
+				updated_at timestamp without time zone DEFAULT now() NOT NULL,
+				deleted boolean DEFAULT false NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS  status.subscription_reports (
+				id uuid NOT NULL,
+				leaf_hub_name character varying(63) NOT NULL,
+				payload jsonb NOT NULL
+			);
 		`)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -967,6 +979,229 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				// Expect(w3.Body.String()).Should(MatchJSON(fmt.Sprintf("%s", expectedPolicyStatus1)))
 			}
 		}
+	})
+
+	It("Should be able to get subscription report", func() {
+		appsubID, subReportHub1ID, subReportHub2ID := uuid.New().String(),
+			uuid.New().String(), uuid.New().String()
+		leafhub1, leafhub2 := "hub1", "hub2"
+		appsub, subReportHub1, subReportHub2 := `{
+	"kind": "Subscription",
+	"apiVersion": "apps.open-cluster-management.io/v1",
+	"metadata": {
+		"name": "helloworld-appsub",
+		"labels": {
+			"app": "helloworld",
+			"app.kubernetes.io/part-of": "helloworld",
+			"apps.open-cluster-management.io/reconcile-rate": "medium"
+		},
+		"namespace": "helloworld",
+		"annotations": {
+			"open-cluster-management.io/user-group": "c3lzdGVtOm1hc3RlcnMsc3lzdGVtOmF1dGhlbnRpY2F0ZWQ=",
+			"apps.open-cluster-management.io/git-path": "helloworld",
+			"open-cluster-management.io/user-identity": "c3lzdGVtOmFkbWlu",
+			"apps.open-cluster-management.io/git-branch": "main",
+			"apps.open-cluster-management.io/reconcile-option": "merge"
+		},
+		"creationTimestamp": "2022-10-13T05:58:32Z"
+	},
+	"spec": {
+		"channel": "git-application-samples-ns/git-application-samples",
+		"placement": {
+			"placementRef": {
+				"kind": "PlacementRule",
+				"name": "helloworld-placement"
+			}
+		}
+	},
+	"status": {
+		"ansiblejobs": {
+		},
+		"lastUpdateTime": null
+	}
+}`, `{
+	"kind": "SubscriptionReport",
+	"apiVersion": "apps.open-cluster-management.io/v1alpha1",
+	"metadata": {
+		"name": "helloworld-appsub",
+		"labels": {
+			"apps.open-cluster-management.io/hosting-subscription": "helloworld.helloworld-appsub"
+		},
+		"namespace": "helloworld",
+		"resourceVersion": "2633120",
+		"creationTimestamp": "2022-10-13T05:58:33Z"
+	},
+	"reportType": "Application",
+	"results": [
+		{
+			"result": "deployed",
+			"source": "mc1",
+			"timestamp": {
+				"nanos": 0,
+				"seconds": 0
+			}
+		}
+	],
+	"summary": {
+		"failed": "0",
+		"clusters": "1",
+		"deployed": "1",
+		"inProgress": "0",
+		"propagationFailed": "0"
+	},
+	"resources": [
+		{
+			"kind": "Route",
+			"name": "helloworld-app-route",
+			"namespace": "helloworld",
+			"apiVersion": "route.openshift.io/v1"
+		},
+		{
+			"kind": "Service",
+			"name": "helloworld-app-svc",
+			"namespace": "helloworld",
+			"apiVersion": "v1"
+		},
+		{
+			"kind": "Deployment",
+			"name": "helloworld-app-deploy",
+			"namespace": "helloworld",
+			"apiVersion": "apps/v1"
+		}
+	]
+}`, `{
+	"kind": "SubscriptionReport",
+	"apiVersion": "apps.open-cluster-management.io/v1alpha1",
+	"metadata": {
+		"name": "helloworld-appsub",
+		"labels": {
+			"apps.open-cluster-management.io/hosting-subscription": "helloworld.helloworld-appsub"
+		},
+		"namespace": "helloworld",
+		"resourceVersion": "2633112",
+		"creationTimestamp": "2022-10-13T05:58:31Z"
+	},
+	"reportType": "Application",
+	"results": [
+		{
+			"result": "deployed",
+			"source": "mc2",
+			"timestamp": {
+				"nanos": 0,
+				"seconds": 0
+			}
+		}
+	],
+	"summary": {
+		"failed": "0",
+		"clusters": "1",
+		"deployed": "1",
+		"inProgress": "0",
+		"propagationFailed": "0"
+	},
+	"resources": [
+		{
+			"kind": "Route",
+			"name": "helloworld-app-route",
+			"namespace": "helloworld",
+			"apiVersion": "route.openshift.io/v1"
+		},
+		{
+			"kind": "Service",
+			"name": "helloworld-app-svc",
+			"namespace": "helloworld",
+			"apiVersion": "v1"
+		},
+		{
+			"kind": "Deployment",
+			"name": "helloworld-app-deploy",
+			"namespace": "helloworld",
+			"apiVersion": "apps/v1"
+		}
+	]
+}`
+		By("Insert testing subscription")
+		_, err := postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO spec.subscriptions (id,payload) VALUES($1, $2);`, appsubID, appsub)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Insert testing subscription report for leaf hub")
+		_, err = postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO status.subscription_reports (id,leaf_hub_name,payload) VALUES($1, $2, $3);`,
+			subReportHub1ID, leafhub1, subReportHub1)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO status.subscription_reports (id,leaf_hub_name,payload) VALUES($1, $2, $3);`,
+			subReportHub2ID, leafhub2, subReportHub2)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Check the subscriptionreport can be retrieved")
+		w1 := httptest.NewRecorder()
+		req1, err := http.NewRequest("GET", fmt.Sprintf(
+			"/global-hub-api/v1/subscriptionreport/%s", appsubID), nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w1, req1)
+		Expect(w1.Code).To(Equal(200))
+		subscriptionReportStr := `{
+			"kind": "SubscriptionReport",
+			"apiVersion": "apps.open-cluster-management.io/v1alpha1",
+			"metadata": {
+			  "name": "helloworld-appsub",
+			  "namespace": "helloworld",
+			  "resourceVersion": "2633120",
+			  "creationTimestamp": "2022-10-13T05:58:33Z",
+			  "labels": {
+				"apps.open-cluster-management.io/hosting-subscription": "helloworld.helloworld-appsub"
+			  }
+			},
+			"reportType": "Application",
+			"summary": {
+			  "deployed": "2",
+			  "inProgress": "0",
+			  "failed": "0",
+			  "propagationFailed": "0",
+			  "clusters": "2"
+			},
+			"results": [
+			  {
+				"source": "mc1",
+				"timestamp": {
+				  "seconds": 0,
+				  "nanos": 0
+				},
+				"result": "deployed"
+			  },
+			  {
+				"source": "mc2",
+				"timestamp": {
+				  "seconds": 0,
+				  "nanos": 0
+				},
+				"result": "deployed"
+			  }
+			],
+			"resources": [
+			  {
+				"kind": "Route",
+				"namespace": "helloworld",
+				"name": "helloworld-app-route",
+				"apiVersion": "route.openshift.io/v1"
+			  },
+			  {
+				"kind": "Service",
+				"namespace": "helloworld",
+				"name": "helloworld-app-svc",
+				"apiVersion": "v1"
+			  },
+			  {
+				"kind": "Deployment",
+				"namespace": "helloworld",
+				"name": "helloworld-app-deploy",
+				"apiVersion": "apps/v1"
+			  }
+			]
+		  }`
+		Expect(w1.Body.String()).Should(MatchJSON(subscriptionReportStr))
 	})
 
 	AfterAll(func() {
