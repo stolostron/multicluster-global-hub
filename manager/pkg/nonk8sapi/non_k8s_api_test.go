@@ -810,6 +810,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		for {
 			select {
 			case <-timeoutCtx.Done():
+				w4.closeClient()
 				return
 			default:
 				time.Sleep(4 * time.Second)
@@ -973,6 +974,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		for {
 			select {
 			case <-timeoutCtx.Done():
+				w3.closeClient()
 				return
 			default:
 				time.Sleep(4 * time.Second)

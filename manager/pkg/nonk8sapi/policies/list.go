@@ -96,7 +96,7 @@ func ListPolicies(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 			lastPolicyUID)
 
 		// build final query
-		policiesQuery := "SELECT id, payload FROM spec.policies WHERE " +
+		policiesQuery := "SELECT id, payload FROM spec.policies WHERE deleted = FALSE AND " +
 			LastResourceCompareCondition +
 			selectorInSql +
 			" ORDER BY payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid'"
