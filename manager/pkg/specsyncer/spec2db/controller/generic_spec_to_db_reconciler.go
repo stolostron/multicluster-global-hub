@@ -158,7 +158,7 @@ func (r *genericSpecToDBReconciler) processInstanceInTheDatabase(ctx context.Con
 }
 
 func (r *genericSpecToDBReconciler) cleanInstance(instance client.Object) client.Object {
-	instance.SetUID("")
+	// instance.SetUID("")
 	instance.SetResourceVersion("")
 	instance.SetManagedFields(nil)
 	instance.SetFinalizers(nil)
