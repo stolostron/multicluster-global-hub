@@ -27,6 +27,7 @@ import (
 )
 
 const (
+	serverInternalErrorMsg                      = "internal error"
 	syncIntervalInSeconds                       = 4
 	onlyPatchOfLabelsIsImplemented              = "only patch of labels is currently implemented"
 	onlyAddOrRemoveAreImplemented               = "only add or remove operations are currently implemented"
@@ -88,7 +89,10 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		query := "SELECT payload FROM status.managed_clusters WHERE " +
 			LastResourceCompareCondition +
 			selectorInSql +
-			" ORDER BY payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid'"
+			" ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid')"
+
+		queryEnd := "SELECT payload FROM status.managed_clusters " +
+			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
 
 		// add limit
 		if limit != "" {
@@ -101,7 +105,7 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		handleRows(ginCtx, query, dbConnectionPool, customResourceColumnDefinitions)
+		handleRows(ginCtx, query, queryEnd, dbConnectionPool, customResourceColumnDefinitions)
 	}
 }
 
@@ -210,12 +214,19 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 	writer.(http.Flusher).Flush()
 }
 
-func handleRows(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Pool,
+func handleRows(ginCtx *gin.Context, query, queryEnd string, dbConnectionPool *pgxpool.Pool,
 	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
+	lastManagedCluster := &clusterv1.ManagedCluster{}
+	if err := dbConnectionPool.QueryRow(context.TODO(), queryEnd).Scan(lastManagedCluster); err != nil {
+		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
+		fmt.Fprintf(gin.DefaultWriter, "error in quering last managed cluster: %v\n", err)
+		return
+	}
+
 	rows, err := dbConnectionPool.Query(context.TODO(), query)
 	if err != nil {
-		ginCtx.String(http.StatusInternalServerError, "internal error")
+		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in quering managed clusters: %v\n", err)
 	}
 
@@ -227,7 +238,6 @@ func handleRows(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Poo
 		Items: []clusterv1.ManagedCluster{},
 	}
 	managedCluster := clusterv1.ManagedCluster{}
-
 	for rows.Next() {
 		err := rows.Scan(&managedCluster)
 		if err != nil {
@@ -238,13 +248,19 @@ func handleRows(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Poo
 		managedClusterList.Items = append(managedClusterList.Items, managedCluster)
 	}
 
-	continueToken, err := util.EncodeContinue(managedCluster.GetName(), string(managedCluster.GetUID()))
-	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
-		return
-	}
+	if managedCluster.GetName() != "" &&
+		managedCluster.GetName() != lastManagedCluster.GetName() &&
+		string(managedCluster.GetUID()) != "" &&
+		string(managedCluster.GetUID()) != string(lastManagedCluster.GetUID()) {
+		continueToken, err := util.EncodeContinue(managedCluster.GetName(), string(managedCluster.GetUID()))
+		if err != nil {
+			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
+			fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
+			return
+		}
 
-	managedClusterList.SetContinue(continueToken)
+		managedClusterList.SetContinue(continueToken)
+	}
 
 	if util.ShouldReturnAsTable(ginCtx) {
 		fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")

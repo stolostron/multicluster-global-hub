@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
@@ -46,7 +45,7 @@ type policyMatch struct {
 
 var (
 	policyMatches                   = []*policyMatch{}
-	customResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(crdName, clusterv1.GroupVersion.Version)
+	customResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(crdName, policyv1.GroupVersion.Version)
 )
 
 // ListPolicies middleware
@@ -99,7 +98,10 @@ func ListPolicies(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		policiesQuery := "SELECT id, payload FROM spec.policies WHERE deleted = FALSE AND " +
 			LastResourceCompareCondition +
 			selectorInSql +
-			" ORDER BY payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid'"
+			" ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid')"
+
+		policyQueryEnd := "SELECT id, payload FROM spec.policies " +
+			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
 
 		// add limit
 		if limit != "" {
@@ -117,8 +119,8 @@ func ListPolicies(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		handlePolicies(ginCtx, dbConnectionPool, policiesQuery, policyMappingQuery, policyComplianceQuery,
-			customResourceColumnDefinitions)
+		handlePolicies(ginCtx, dbConnectionPool, policiesQuery, policyQueryEnd, policyMappingQuery,
+			policyComplianceQuery, customResourceColumnDefinitions)
 	}
 }
 
@@ -268,9 +270,17 @@ func sendPolicyWatchEvent(dbConnectionPool *pgxpool.Pool, writer io.Writer, poli
 	}, writer)
 }
 
-func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policiesQuery, policyMappingQuery,
-	policyComplianceQuery string, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
+func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policiesQuery, policyQueryEnd,
+	policyMappingQuery, policyComplianceQuery string,
+	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
+	lastPolicyID, lastPolicy := "", &policyv1.Policy{}
+	if err := dbConnectionPool.QueryRow(context.TODO(), policyQueryEnd).Scan(&lastPolicyID, lastPolicy); err != nil {
+		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
+		fmt.Fprintf(gin.DefaultWriter, "error in quering last policy: %v\n", err)
+		return
+	}
+
 	var err error
 	policyMatches, err = getPolicyMatches(dbConnectionPool, policyMappingQuery)
 	if err != nil {
@@ -318,13 +328,18 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policie
 		unstrPolicyList.Items = append(unstrPolicyList.Items, unstrPolicy)
 	}
 
-	continueToken, err := util.EncodeContinue(policy.GetName(), string(policyID))
-	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
-		return
-	}
+	if policyID != "" &&
+		policyID != lastPolicyID &&
+		policy.GetName() != "" &&
+		policy.GetName() != lastPolicy.GetName() {
+		continueToken, err := util.EncodeContinue(policy.GetName(), string(policyID))
+		if err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
+			return
+		}
 
-	unstrPolicyList.SetContinue(continueToken)
+		unstrPolicyList.SetContinue(continueToken)
+	}
 
 	if util.ShouldReturnAsTable(ginCtx) {
 		fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")

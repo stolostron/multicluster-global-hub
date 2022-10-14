@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 )
 
@@ -226,9 +225,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 {
 	"kind": "ManagedClusterList",
 	"apiVersion": "cluster.open-cluster-management.io/v1",
-	"metadata": {
-		"continue": "eyJsYXN0TmFtZSI6Im1jMiIsImxhc3RVSUQiOiIxOGM5ZTEzYy00NDg4LTRkY2QtYTVhYy0xMTk2MDkzYWJiYzAifQ"
-	},
+	"metadata": {},
 	"items": [
 		%s,
 		%s
@@ -639,21 +636,16 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
-		continueToken, err := util.EncodeContinue("policy-config-audit", plc1ID)
-		Expect(err).ToNot(HaveOccurred())
 		policyListFormatStr := `
 {
 	"kind": "PolicyList",
 	"apiVersion": "policy.open-cluster-management.io/v1",
-	"metadata": {
-		"continue": "%s"
-	},
 	"items": [
 		%s
 		]
 }`
 		Expect(w1.Body.String()).Should(MatchJSON(
-			fmt.Sprintf(policyListFormatStr, continueToken, expectedPolicy1)))
+			fmt.Sprintf(policyListFormatStr, expectedPolicy1)))
 
 		By("Check the policies can be listed with limit and labelSelector")
 		w2 := httptest.NewRecorder()
@@ -665,7 +657,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		router.ServeHTTP(w2, req2)
 		Expect(w2.Code).To(Equal(200))
 		Expect(w2.Body.String()).Should(MatchJSON(
-			fmt.Sprintf(policyListFormatStr, continueToken, expectedPolicy1)))
+			fmt.Sprintf(policyListFormatStr, expectedPolicy1)))
 
 		By("Check the policies can be listed as table response")
 		plcTable := `
