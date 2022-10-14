@@ -45,7 +45,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	var postgresSQL *postgresql.PostgreSQL
 	var router *gin.Engine
 	var plc1ID string
-	var w4 *TestResponseRecorder
 
 	BeforeAll(func() {
 		var err error
@@ -335,7 +334,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w3.Body.String()).Should(MatchJSON(mclTable))
 
 		By("Check the managedcclusters can be listed with watch")
-		w4 = CreateTestResponseRecorder()
+		w4 := CreateTestResponseRecorder()
 		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 		defer cancelFunc()
 		req4, err := http.NewRequestWithContext(timeoutCtx, "GET",
@@ -348,6 +347,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		for {
 			select {
 			case <-timeoutCtx.Done():
+				w4.closeClient()
 				return
 			default:
 				time.Sleep(4 * time.Second)
@@ -971,7 +971,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		w4.closeClient()
 		cancel()
 		postgresSQL.Stop()
 	})
