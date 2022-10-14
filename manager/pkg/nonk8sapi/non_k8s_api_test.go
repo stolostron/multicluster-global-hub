@@ -359,6 +359,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		for {
 			select {
 			case <-timeoutCtx.Done():
+				w4.closeClient()
 				return
 			default:
 				time.Sleep(4 * time.Second)
@@ -872,7 +873,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
-		Expect(w1.Body.String()).Should(MatchJSON(fmt.Sprintf("%s", expectedPolicyStatus1)))
+		Expect(w1.Body.String()).Should(MatchJSON(expectedPolicyStatus1))
 
 		By("Check the policy status can be retrieved with policy ID as table reponse")
 		plcTable := `
