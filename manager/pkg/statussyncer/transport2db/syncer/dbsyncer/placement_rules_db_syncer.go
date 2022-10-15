@@ -3,10 +3,10 @@ package dbsyncer
 import (
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -17,9 +17,9 @@ func NewPlacementRulesDBSyncer(log logr.Logger) DBSyncer {
 		transportMsgKey:  constants.PlacementRuleMsgKey,
 		dbSchema:         db.StatusSchema,
 		dbTableName:      db.PlacementRulesTableName,
-		createBundleFunc: bundle.NewPlacementRulesBundle,
+		createBundleFunc: statusbundle.NewPlacementRulesBundle,
 		bundlePriority:   conflator.PlacementRulePriority,
-		bundleSyncMode:   status.CompleteStateMode,
+		bundleSyncMode:   bundle.CompleteStateMode,
 	}
 
 	log.Info("initialized placement-rules db syncer")

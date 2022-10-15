@@ -1,9 +1,11 @@
 package bundle
 
-import "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+import (
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+)
 
 // NewCompleteComplianceStatusBundle creates a new instance of CompleteComplianceStatusBundle.
-func NewCompleteComplianceStatusBundle() Bundle {
+func NewCompleteComplianceStatusBundle() status.Bundle {
 	return &CompleteComplianceStatusBundle{}
 }
 

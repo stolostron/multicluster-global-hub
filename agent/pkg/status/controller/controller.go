@@ -19,7 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 // AddControllers adds all the controllers to the Manager.

@@ -3,10 +3,10 @@ package dbsyncer
 import (
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -17,9 +17,9 @@ func NewSubscriptionStatusesDBSyncer(log logr.Logger) DBSyncer {
 		transportMsgKey:  constants.SubscriptionStatusMsgKey,
 		dbSchema:         db.StatusSchema,
 		dbTableName:      db.SubscriptionStatusesTableName,
-		createBundleFunc: bundle.NewSubscriptionStatusesBundle,
+		createBundleFunc: statusbundle.NewSubscriptionStatusesBundle,
 		bundlePriority:   conflator.SubscriptionStatusPriority,
-		bundleSyncMode:   status.CompleteStateMode,
+		bundleSyncMode:   bundle.CompleteStateMode,
 	}
 
 	log.Info("initialized subscription-statuses db syncer")

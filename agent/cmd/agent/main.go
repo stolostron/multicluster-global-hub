@@ -35,20 +35,19 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
-	consumer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/consumer"
-	producer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 const (
 	METRICS_HOST               = "0.0.0.0"
 	METRICS_PORT               = 9435
 	TRANSPORT_TYPE_KAFKA       = "kafka"
-	TRANSPORT_TYPE_SYNC_SVC    = "sync-service"
 	LEADER_ELECTION_ID         = "multicluster-global-hub-agent-lock"
 	HOH_LOCAL_NAMESPACE        = "open-cluster-management-global-hub-local"
 	INCARNATION_CONFIG_MAP_KEY = "incarnation"
@@ -138,19 +137,14 @@ func getConsumer(environmentManager *helper.ConfigManager,
 ) (consumer.Consumer, error) {
 	switch environmentManager.TransportType {
 	case TRANSPORT_TYPE_KAFKA:
-		kafkaConsumer, err := consumer.NewKafkaConsumer(ctrl.Log.WithName("kafka-consumer"),
-			environmentManager, genericBundleChan)
+		kafkaConsumer, err := consumer.NewKafkaConsumer(
+			40*time.Second, environmentManager.BootstrapServers, environmentManager.SslCA,
+			environmentManager.ConsumerConfig, nil,
+			nil, ctrl.Log.WithName("kafka-consumer"), genericBundleChan, environmentManager.LeafHubName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
 		return kafkaConsumer, nil
-	case TRANSPORT_TYPE_SYNC_SVC:
-		syncService, err := consumer.NewSyncService(ctrl.Log.WithName("sync-service"),
-			environmentManager, genericBundleChan)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create sync-service: %w", err)
-		}
-		return syncService, nil
 	default:
 		return nil, fmt.Errorf("environment variable %q - %q is not a valid option",
 			"TRANSPORT_TYPE", environmentManager.TransportType)
@@ -167,18 +161,12 @@ func getProducer(environmentManager *helper.ConfigManager) (producer.Producer, e
 	switch environmentManager.TransportType {
 	case TRANSPORT_TYPE_KAFKA:
 		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
-			ctrl.Log.WithName("kafka-producer"), environmentManager)
+			environmentManager.BootstrapServers, environmentManager.SslCA,
+			environmentManager.ProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
 		return kafkaProducer, nil
-	case TRANSPORT_TYPE_SYNC_SVC:
-		syncServiceProducer, err := producer.NewSyncServiceProducer(messageCompressor,
-			ctrl.Log.WithName("syncservice-producer"), environmentManager)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create sync-service producer: %w", err)
-		}
-		return syncServiceProducer, nil
 	default:
 		return nil, fmt.Errorf("environment variable %q - %q is not a valid option",
 			"TRANSPORT_TYPE", environmentManager.TransportType)

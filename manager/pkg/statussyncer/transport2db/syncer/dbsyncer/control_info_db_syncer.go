@@ -6,20 +6,22 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // NewControlInfoDBSyncer creates a new instance of ControlInfoDBSyncer.
 func NewControlInfoDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &ControlInfoDBSyncer{
 		log:              log,
-		createBundleFunc: bundle.NewControlInfoBundle,
+		createBundleFunc: statusbundle.NewControlInfoBundle,
 	}
 
 	log.Info("initialized control info db syncer")
@@ -30,12 +32,12 @@ func NewControlInfoDBSyncer(log logr.Logger) DBSyncer {
 // ControlInfoDBSyncer implements control info transport to db sync.
 type ControlInfoDBSyncer struct {
 	log              logr.Logger
-	createBundleFunc bundle.CreateBundleFunction
+	createBundleFunc status.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *ControlInfoDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
-	transportInstance.Register(&transport.BundleRegistration{
+	transportInstance.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ControlInfoMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
 		Predicate:        func() bool { return true }, // always get control info bundles
@@ -48,15 +50,15 @@ func (syncer *ControlInfoDBSyncer) RegisterBundleHandlerFunctions(
 ) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ControlInfoPriority,
-		status.CompleteStateMode,
+		bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleControlInfoBundle(ctx, bundle, dbClient)
 		},
 	))
 }
 
-func (syncer *ControlInfoDBSyncer) handleControlInfoBundle(ctx context.Context, bundle bundle.Bundle,
+func (syncer *ControlInfoDBSyncer) handleControlInfoBundle(ctx context.Context, bundle status.Bundle,
 	dbClient db.ControlInfoDB,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)

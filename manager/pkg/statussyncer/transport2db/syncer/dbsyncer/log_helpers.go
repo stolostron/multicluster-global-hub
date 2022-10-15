@@ -3,8 +3,8 @@ package dbsyncer
 import (
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 const (
@@ -12,7 +12,7 @@ const (
 	finishBundleHandlingMessage = "finished handling bundle"
 )
 
-func logBundleHandlingMessage(log logr.Logger, bundle bundle.Bundle, message string) {
+func logBundleHandlingMessage(log logr.Logger, bundle status.Bundle, message string) {
 	log.Info(message, "BundleType", helpers.GetBundleType(bundle), "LeafHubName", bundle.GetLeafHubName(),
 		"Version", bundle.GetVersion().String())
 }

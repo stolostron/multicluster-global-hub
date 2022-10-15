@@ -7,20 +7,22 @@ import (
 	"github.com/go-logr/logr"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
 func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &ManagedClustersDBSyncer{
 		log:              log,
-		createBundleFunc: bundle.NewManagedClustersStatusBundle,
+		createBundleFunc: statusbundle.NewManagedClustersStatusBundle,
 	}
 
 	log.Info("initialized managed clusters db syncer")
@@ -31,12 +33,12 @@ func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
 // ManagedClustersDBSyncer implements managed clusters db sync business logic.
 type ManagedClustersDBSyncer struct {
 	log              logr.Logger
-	createBundleFunc bundle.CreateBundleFunction
+	createBundleFunc status.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
-	transportInstance.Register(&transport.BundleRegistration{
+	transportInstance.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ManagedClustersMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
 		Predicate:        func() bool { return true }, // always get managed clusters bundles
@@ -53,15 +55,15 @@ func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportIn
 func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ManagedClustersPriority,
-		status.CompleteStateMode,
+		bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleManagedClustersBundle(ctx, bundle, dbClient)
 		},
 	))
 }
 
-func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.Bundle,
+func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle status.Bundle,
 	dbClient db.ManagedClustersStatusDB,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)

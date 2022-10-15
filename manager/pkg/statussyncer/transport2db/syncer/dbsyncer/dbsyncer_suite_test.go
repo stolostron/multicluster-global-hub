@@ -21,18 +21,18 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	producer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statistics"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/kafka/headers"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/testkafka"
+	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer/fake"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -80,7 +80,24 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Create database work pool")
-	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{})
+	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{},
+		[]string{
+			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
+			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
+			helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
+			helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
+			helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
+			helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
+			helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
+		})
 	Expect(err).NotTo(HaveOccurred())
 	dbWorkerPool, err = workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), testPostgres.URI, stats)
 	Expect(err).NotTo(HaveOccurred())
@@ -92,7 +109,7 @@ var _ = BeforeSuite(func() {
 		conflationReadyQueue, false, stats) // manage all Conflation Units
 
 	kafkaMessageChan = make(chan *kafka.Message)
-	statusTransport, err = testkafka.NewKafkaTestConsumer(kafkaMessageChan, conflationManager, stats,
+	statusTransport, err = fake.NewKafkaTestConsumer(kafkaMessageChan, conflationManager, stats,
 		ctrl.Log.WithName("kafka-consumer"))
 	Expect(err).NotTo(HaveOccurred())
 	statusTransport.Start()
@@ -156,7 +173,7 @@ var _ = AfterSuite(func() {
 })
 
 func buildKafkaMessage(key, id string, payload []byte) (*kafka.Message, error) {
-	transportMessage := &producer.Message{
+	transportMessage := &transport.Message{
 		Key:     key,
 		ID:      id, // entry.transportBundleKey
 		MsgType: constants.StatusBundle,
@@ -185,7 +202,7 @@ func buildKafkaMessage(key, id string, payload []byte) (*kafka.Message, error) {
 			Partition: 0,
 		},
 		Headers: []kafka.Header{
-			{Key: headers.CompressionType, Value: []byte(compressor.GetType())},
+			{Key: transport.CompressionType, Value: []byte(compressor.GetType())},
 		},
 		Value:         compressedTransportBytes,
 		TimestampType: 1,

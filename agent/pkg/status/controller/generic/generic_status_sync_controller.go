@@ -17,8 +17,9 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
-	producer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 const REQUEUE_PERIOD = 5 * time.Second
@@ -123,7 +124,6 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 	for _, entry := range c.orderedBundleCollection {
 		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order.
 	}
-
 	return nil
 }
 
@@ -187,7 +187,7 @@ func (c *genericStatusSyncController) syncBundles() {
 				transportMessageKey = fmt.Sprintf("%s@%d", entry.transportBundleKey, deltaStateBundle.GetTransportationID())
 			}
 
-			c.transport.SendAsync(&producer.Message{
+			c.transport.SendAsync(&transport.Message{
 				Key:     transportMessageKey,
 				ID:      entry.transportBundleKey,
 				MsgType: constants.StatusBundle,
@@ -198,6 +198,15 @@ func (c *genericStatusSyncController) syncBundles() {
 			entry.lastSentBundleVersion = *bundleVersion
 		}
 	}
+}
+
+func cleanObject(object bundle.Object) {
+	object.SetManagedFields(nil)
+	object.SetFinalizers(nil)
+	object.SetGeneration(0)
+	object.SetOwnerReferences(nil)
+	object.SetSelfLink("")
+	// object.SetClusterName("")
 }
 
 func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
@@ -231,13 +240,4 @@ func (c *genericStatusSyncController) removeFinalizer(ctx context.Context, objec
 	}
 
 	return nil
-}
-
-func cleanObject(object bundle.Object) {
-	object.SetManagedFields(nil)
-	object.SetFinalizers(nil)
-	object.SetGeneration(0)
-	object.SetOwnerReferences(nil)
-	object.SetSelfLink("")
-	// object.SetClusterName("")
 }

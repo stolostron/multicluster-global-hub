@@ -17,7 +17,6 @@ require (
 	github.com/lib/pq v1.10.6
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.20.0
-	github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232
 	github.com/openshift/api v0.0.0-20220531073726-6c4f186339a7
 	github.com/openshift/library-go v0.0.0-20220727134723-6802b30e83ba
 	github.com/operator-framework/api v0.15.0
@@ -96,7 +95,6 @@ require (
 	github.com/go-playground/validator/v10 v10.10.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
-	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gonvenience/bunt v1.3.4 // indirect
@@ -131,7 +129,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 // indirect
 	github.com/openshift/hypershift v0.0.0-20220719064944-685115caee6b // indirect
 	github.com/operator-framework/operator-registry v1.17.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

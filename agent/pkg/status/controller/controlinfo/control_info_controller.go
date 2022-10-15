@@ -13,8 +13,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/controlinfo"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 const (
@@ -103,7 +104,7 @@ func (c *LeafHubControlInfoController) syncBundle() {
 		transportMessageKey = fmt.Sprintf("%s@%d", c.transportBundleKey, deltaStateBundle.GetTransportationID())
 	}
 
-	c.transport.SendAsync(&producer.Message{
+	c.transport.SendAsync(&transport.Message{
 		Key:     transportMessageKey,
 		ID:      c.transportBundleKey,
 		MsgType: constants.StatusBundle,

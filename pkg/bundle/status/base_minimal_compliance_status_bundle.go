@@ -1,6 +1,8 @@
 package status
 
-import policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+import (
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+)
 
 // MinimalPolicyComplianceStatus holds information for minimal policy compliance status.
 type MinimalPolicyComplianceStatus struct {

@@ -1,12 +1,12 @@
 package workerpool
 
 import (
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 )
 
 // NewDBJob creates a new instance of DBJob.
-func NewDBJob(bundle bundle.Bundle, metadata *conflator.BundleMetadata, handlerFunction conflator.BundleHandlerFunc,
+func NewDBJob(bundle status.Bundle, metadata *conflator.BundleMetadata, handlerFunction conflator.BundleHandlerFunc,
 	conflationUnitResultReporter conflator.ResultReporter,
 ) *DBJob {
 	return &DBJob{
@@ -19,7 +19,7 @@ func NewDBJob(bundle bundle.Bundle, metadata *conflator.BundleMetadata, handlerF
 
 // DBJob represents the job to be run by a DBWorker from the pool.
 type DBJob struct {
-	bundle                       bundle.Bundle
+	bundle                       status.Bundle
 	bundleMetadata               *conflator.BundleMetadata
 	handlerFunc                  conflator.BundleHandlerFunc
 	conflationUnitResultReporter conflator.ResultReporter

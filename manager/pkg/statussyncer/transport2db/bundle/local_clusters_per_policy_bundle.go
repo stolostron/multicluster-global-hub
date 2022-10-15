@@ -1,7 +1,9 @@
 package bundle
 
+import "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+
 // NewLocalClustersPerPolicyBundle creates a new instance of LocalClustersPerPolicyBundle.
-func NewLocalClustersPerPolicyBundle() Bundle {
+func NewLocalClustersPerPolicyBundle() status.Bundle {
 	return &LocalClustersPerPolicyBundle{}
 }
 

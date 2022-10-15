@@ -5,7 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.
@@ -19,7 +19,7 @@ func NewGenericStatusBundle(leafHubName string, incarnation uint64, manipulateOb
 	return &GenericStatusBundle{
 		Objects:           make([]Object, 0),
 		LeafHubName:       leafHubName,
-		BundleVersion:     statusbundle.NewBundleVersion(incarnation, 0),
+		BundleVersion:     status.NewBundleVersion(incarnation, 0),
 		manipulateObjFunc: manipulateObjFunc,
 		lock:              sync.Mutex{},
 	}
@@ -29,9 +29,9 @@ func NewGenericStatusBundle(leafHubName string, incarnation uint64, manipulateOb
 // except for fields that are not relevant in the hub of hubs like finalizers, etc.
 // for bundles that require more specific behavior, it's required to implement your own status bundle struct.
 type GenericStatusBundle struct {
-	Objects           []Object                    `json:"objects"`
-	LeafHubName       string                      `json:"leafHubName"`
-	BundleVersion     *statusbundle.BundleVersion `json:"bundleVersion"`
+	Objects           []Object              `json:"objects"`
+	LeafHubName       string                `json:"leafHubName"`
+	BundleVersion     *status.BundleVersion `json:"bundleVersion"`
 	manipulateObjFunc func(obj Object)
 	lock              sync.Mutex
 }
@@ -76,7 +76,7 @@ func (bundle *GenericStatusBundle) DeleteObject(object Object) {
 }
 
 // GetBundleVersion function to get bundle version.
-func (bundle *GenericStatusBundle) GetBundleVersion() *statusbundle.BundleVersion {
+func (bundle *GenericStatusBundle) GetBundleVersion() *status.BundleVersion {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 

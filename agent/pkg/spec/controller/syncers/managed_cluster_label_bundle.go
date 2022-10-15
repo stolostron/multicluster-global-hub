@@ -16,11 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
-	consumer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	specbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	consumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 const (
@@ -60,7 +60,7 @@ func AddManagedClusterLabelsBundleSyncer(log logr.Logger, mgr ctrl.Manager, cons
 		return fmt.Errorf("failed to add managed cluster labels bundles syncer - %w", err)
 	}
 
-	consumer.Register(constants.ManagedClustersLabelsMsgKey, &bundle.CustomBundleRegistration{
+	consumer.CustomBundleRegister(constants.ManagedClustersLabelsMsgKey, &registration.CustomBundleRegistration{
 		InitBundlesResourceFunc: func() interface{} {
 			return &specbundle.ManagedClusterLabelsSpecBundle{}
 		},
