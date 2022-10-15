@@ -106,10 +106,13 @@ func SetupRouter(database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) (
 
 	routerGroup := router.Group(nonK8sAPIServerConfig.ServerBasePath)
 	routerGroup.GET("/managedclusters", managedclusters.ListManagedClusters(database.GetConn()))
-	routerGroup.PATCH("/managedclusters/:clusterID",
+	routerGroup.PATCH("/managedcluster/:clusterID",
 		managedclusters.PatchManagedCluster(database.GetConn()))
 	routerGroup.GET("/policies", policies.ListPolicies(database.GetConn()))
-	routerGroup.GET("/policies/:policyID/status", policies.GetPolicyStatus(database.GetConn()))
+	routerGroup.GET("/policy/:policyID/status", policies.GetPolicyStatus(database.GetConn()))
+	routerGroup.GET("/subscriptions", subscriptions.ListSubscriptions(database.GetConn()))
+	routerGroup.GET("/subscriptionstatus/:subscriptionID",
+		subscriptions.GetSubscriptionStatus(database.GetConn()))
 	routerGroup.GET("/subscriptionreport/:subscriptionID",
 		subscriptions.GetSubscriptionReport(database.GetConn()))
 

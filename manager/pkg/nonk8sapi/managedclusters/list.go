@@ -85,31 +85,34 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 			lastManagedClusterName,
 			lastManagedClusterUID)
 
-		// build final query
-		query := "SELECT payload FROM status.managed_clusters WHERE " +
+		// managed cluster list query order by name and uid with limit if set
+		managedClusterListQuery := "SELECT payload FROM status.managed_clusters WHERE " +
 			LastResourceCompareCondition +
 			selectorInSql +
 			" ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid')"
 
-		queryEnd := "SELECT payload FROM status.managed_clusters " +
-			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
-
 		// add limit
 		if limit != "" {
-			query += fmt.Sprintf(" LIMIT %s", limit)
+			managedClusterListQuery += fmt.Sprintf(" LIMIT %s", limit)
 		}
-		fmt.Fprintf(gin.DefaultWriter, "query: %v\n", query)
+
+		fmt.Fprintf(gin.DefaultWriter, "managedcluster list query: %v\n", managedClusterListQuery)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
-			handleRowsForWatch(ginCtx, query, dbConnectionPool)
+			handleRowsForWatch(ginCtx, managedClusterListQuery, dbConnectionPool)
 			return
 		}
 
-		handleRows(ginCtx, query, queryEnd, dbConnectionPool, customResourceColumnDefinitions)
+		// last managed cluster query order by name and uid
+		lastManagedClusterQuery := "SELECT payload FROM status.managed_clusters " +
+			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
+
+		handleRows(ginCtx, managedClusterListQuery, lastManagedClusterQuery, dbConnectionPool,
+			customResourceColumnDefinitions)
 	}
 }
 
-func handleRowsForWatch(ginCtx *gin.Context, query string, dbConnectionPool *pgxpool.Pool) {
+func handleRowsForWatch(ginCtx *gin.Context, managedClusterListQuery string, dbConnectionPool *pgxpool.Pool) {
 	writer := ginCtx.Writer
 	header := writer.Header()
 	header.Set("Transfer-Encoding", "chunked")
@@ -124,7 +127,7 @@ func handleRowsForWatch(ginCtx *gin.Context, query string, dbConnectionPool *pgx
 	// TODO - add deleted field to the status.managed_clusters table
 	// instead of holding the previously added managed clusters by memory
 	// and calculating the deleted clusters
-	previouslyAddedManagedClusterNames := set.NewSet()
+	preAddedManagedClusterNames := set.NewSet()
 
 	for {
 		select {
@@ -141,17 +144,17 @@ func handleRowsForWatch(ginCtx *gin.Context, query string, dbConnectionPool *pgx
 				return
 			}
 
-			doHandleRowsForWatch(ctx, writer, query, dbConnectionPool, previouslyAddedManagedClusterNames)
+			doHandleRowsForWatch(ctx, writer, managedClusterListQuery, dbConnectionPool, preAddedManagedClusterNames)
 		}
 	}
 }
 
-func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, dbConnectionPool *pgxpool.Pool,
-	previouslyAddedManagedClusterNames set.Set,
+func doHandleRowsForWatch(ctx context.Context, writer io.Writer, managedClusterListQuery string,
+	dbConnectionPool *pgxpool.Pool, preAddedManagedClusterNames set.Set,
 ) {
-	rows, err := dbConnectionPool.Query(ctx, query)
+	rows, err := dbConnectionPool.Query(ctx, managedClusterListQuery)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in quering managed clusters: %v\n", err)
+		fmt.Fprintf(gin.DefaultWriter, "error in quering managed cluster list: %v\n", err)
 	}
 
 	addedManagedClusterNames := set.NewSet()
@@ -173,7 +176,7 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 		}
 	}
 
-	managedClusterNamesToDelete := previouslyAddedManagedClusterNames.Difference(addedManagedClusterNames)
+	managedClusterNamesToDelete := preAddedManagedClusterNames.Difference(addedManagedClusterNames)
 
 	managedClusterNamesToDeleteIterator := managedClusterNamesToDelete.Iterator()
 	for managedClusterNameToDelete := range managedClusterNamesToDeleteIterator.C {
@@ -182,7 +185,7 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 			continue
 		}
 
-		previouslyAddedManagedClusterNames.Remove(managedClusterNameToDeleteAsString)
+		preAddedManagedClusterNames.Remove(managedClusterNameToDeleteAsString)
 
 		managedClusterToDelete := &clusterv1.ManagedCluster{}
 		managedClusterToDelete.SetGroupVersionKind(schema.GroupVersionKind{
@@ -199,7 +202,7 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 		}
 	}
 
-	managedClusterNamesToAdd := addedManagedClusterNames.Difference(previouslyAddedManagedClusterNames)
+	managedClusterNamesToAdd := addedManagedClusterNames.Difference(preAddedManagedClusterNames)
 
 	managedClusterNamesToAddIterator := managedClusterNamesToAdd.Iterator()
 	for managedClusterNameToAdd := range managedClusterNamesToAddIterator.C {
@@ -208,23 +211,23 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, query string, d
 			continue
 		}
 
-		previouslyAddedManagedClusterNames.Add(managedClusterNameToAddAsString)
+		preAddedManagedClusterNames.Add(managedClusterNameToAddAsString)
 	}
 
 	writer.(http.Flusher).Flush()
 }
 
-func handleRows(ginCtx *gin.Context, query, queryEnd string, dbConnectionPool *pgxpool.Pool,
-	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
+func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedClusterQuery string,
+	dbConnectionPool *pgxpool.Pool, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	lastManagedCluster := &clusterv1.ManagedCluster{}
-	if err := dbConnectionPool.QueryRow(context.TODO(), queryEnd).Scan(lastManagedCluster); err != nil {
+	if err := dbConnectionPool.QueryRow(context.TODO(), lastManagedClusterQuery).Scan(lastManagedCluster); err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in quering last managed cluster: %v\n", err)
 		return
 	}
 
-	rows, err := dbConnectionPool.Query(context.TODO(), query)
+	rows, err := dbConnectionPool.Query(context.TODO(), managedClusterListQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in quering managed clusters: %v\n", err)
@@ -237,8 +240,9 @@ func handleRows(ginCtx *gin.Context, query, queryEnd string, dbConnectionPool *p
 		},
 		Items: []clusterv1.ManagedCluster{},
 	}
-	managedCluster := clusterv1.ManagedCluster{}
+	lastManagedClusterName, lastManagedClusterUID := "", ""
 	for rows.Next() {
+		managedCluster := clusterv1.ManagedCluster{}
 		err := rows.Scan(&managedCluster)
 		if err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in scanning a managed cluster: %v\n", err)
@@ -246,13 +250,15 @@ func handleRows(ginCtx *gin.Context, query, queryEnd string, dbConnectionPool *p
 		}
 
 		managedClusterList.Items = append(managedClusterList.Items, managedCluster)
+		lastManagedClusterName = managedCluster.GetName()
+		lastManagedClusterUID = string(managedCluster.GetUID())
 	}
 
-	if managedCluster.GetName() != "" &&
-		managedCluster.GetName() != lastManagedCluster.GetName() &&
-		string(managedCluster.GetUID()) != "" &&
-		string(managedCluster.GetUID()) != string(lastManagedCluster.GetUID()) {
-		continueToken, err := util.EncodeContinue(managedCluster.GetName(), string(managedCluster.GetUID()))
+	if lastManagedClusterName != "" &&
+		lastManagedClusterName != lastManagedCluster.GetName() &&
+		lastManagedClusterUID != "" &&
+		lastManagedClusterUID != string(lastManagedCluster.GetUID()) {
+		continueToken, err := util.EncodeContinue(lastManagedClusterName, lastManagedClusterUID)
 		if err != nil {
 			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 			fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)

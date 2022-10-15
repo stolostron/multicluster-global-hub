@@ -198,7 +198,7 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 }
 
 func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterID string) error {
-	updateLabelUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters/%s",
+	updateLabelUrl := fmt.Sprintf("%s/global-hub-api/v1/managedcluster/%s",
 		testOptions.HubCluster.Nonk8sApiServer, managedClusterID)
 	// set method and body
 	jsonBody, err := json.Marshal(patches)
