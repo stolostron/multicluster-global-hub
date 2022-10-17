@@ -27,10 +27,6 @@ type clusterClaimController struct {
 	log    logr.Logger
 }
 
-const (
-	versionClusterClaimName = "version.open-cluster-management.io"
-)
-
 var version = ""
 
 func (c *clusterClaimController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -42,13 +38,14 @@ func (c *clusterClaimController) Reconcile(ctx context.Context, request ctrl.Req
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if version == "" {
-			return ctrl.Result{}, nil
-		}
 	}
+	// need to create/update the claim with empty value if not get the version.
+	// addon only installs ACM when version is empty.
 
 	clusterClaim := &clustersv1alpha1.ClusterClaim{}
-	err := c.client.Get(context.TODO(), client.ObjectKey{Name: versionClusterClaimName}, clusterClaim)
+	err := c.client.Get(context.TODO(), client.ObjectKey{
+		Name: constants.VersionClusterClaimName,
+	}, clusterClaim)
 	if errors.IsNotFound(err) {
 		if err := c.client.Create(context.Background(), createClusterClaim(version)); err != nil {
 			return ctrl.Result{}, err
@@ -62,7 +59,7 @@ func (c *clusterClaimController) Reconcile(ctx context.Context, request ctrl.Req
 
 	clusterClaim.Spec.Value = version
 	if err := c.client.Update(ctx, clusterClaim); err != nil {
-		reqLogger.Error(err, "failed to apply clusterClaim", "clusterClaim", versionClusterClaimName)
+		reqLogger.Error(err, "failed to apply clusterClaim", "clusterClaim", constants.VersionClusterClaimName)
 		return ctrl.Result{}, err
 	}
 	reqLogger.Info("Reconciliation complete.")
@@ -84,7 +81,7 @@ func getACMVersion(ctx context.Context, client client.Client, namespacedname typ
 func createClusterClaim(version string) *clustersv1alpha1.ClusterClaim {
 	return &clustersv1alpha1.ClusterClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: versionClusterClaimName,
+			Name: constants.VersionClusterClaimName,
 			Labels: map[string]string{
 				"velero.io/exclude-from-backup":  "true",
 				constants.GlobalHubOwnerLabelKey: constants.HoHAgentOwnerLabelValue,

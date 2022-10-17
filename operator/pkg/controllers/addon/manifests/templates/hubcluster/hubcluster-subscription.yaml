@@ -1,0 +1,16 @@
+{{ if .InstallACMHub }}
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: acm-operator-subscription
+  namespace: open-cluster-management
+  labels:
+    addon.open-cluster-management.io/hosted-manifest-location: managed
+spec:
+  channel: {{ .Channel }}
+  installPlanApproval: Automatic
+  name: advanced-cluster-management
+  source: {{ .Source }}
+  sourceNamespace: {{ .SourceNamespace }}
+  startingCSV: {{ .CurrentCSV }}
+{{ end }}

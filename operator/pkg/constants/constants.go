@@ -84,6 +84,14 @@ const (
 )
 
 const (
-	// AnnotationHostingClusterName is the annotation for indicating the hosting cluster name
-	AnnotationHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"
+	// AnnotationClusterHostingClusterName is the annotation for indicating the hosting cluster name in the cluster
+	AnnotationClusterHostingClusterName = "import.open-cluster-management.io/hosting-cluster-name"
+	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
+	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"
+	AnnotationClusterDeployMode       = "import.open-cluster-management.io/klusterlet-deploy-mode"
+
+	ClusterDeployModeHosted  = "Hosted"
+	ClusterDeployModeDefault = "Default"
+
+	HoHAgentInstallNamespace = "open-cluster-management-agent-addon"
 )
