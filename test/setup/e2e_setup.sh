@@ -54,6 +54,7 @@ hover $! "  Check connection: $LEAF_HUB_NAME -> $HUB_OF_HUB_NAME"
 
 initManaged $CTX_HUB $CTX_MANAGED 2>&1 >> $LOG &
 hover $! "  Joining $CTX_HUB - $CTX_MANAGED" 
+checkManagedCluster $CTX_HUB $CTX_MANAGED 2>&1 >> $LOG
 
 initApp $CTX_HUB $CTX_MANAGED 2>&1 >> $LOG &
 hover $! "  Enable application $CTX_HUB - $CTX_MANAGED" 

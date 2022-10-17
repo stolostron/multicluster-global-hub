@@ -432,3 +432,21 @@ function waitPostgresToBeReady() {
   waitSecretToBeReady ${STORAGE_SECRET_NAME:-"storage-secret"} "open-cluster-management"
   echo "Postgres secret is ready"
 }
+
+function checkManagedCluster() {
+  context=$1
+  cluster=$2
+  available=$(kubectl get mcl --context "$context" | grep "$cluster" |awk '{print $5}')
+  seconds=100
+  while [[ "$available" != "True" && $seconds -gt 0 ]]; do
+    echo "retry to import managed cluster $cluster to $context"
+    initManaged $context $cluster
+    available=$(kubectl get mcl --context "$context" | grep "$cluster" |awk '{print $5}')
+    sleep 5
+    seconds=$((seconds - 5))
+  done
+  if [[ "$available" != "True" ]]; then 
+    echo "failed to import managed cluster $cluster to $context"
+    exit 1
+  fi
+}
