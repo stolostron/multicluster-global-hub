@@ -29,9 +29,6 @@ spec:
             - --kafka-ssl-ca={{.KafkaCA}}
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)
-            - --cluster-api-cabundle-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-            - --server-certificate-path=/certs/tls.crt
-            - --server-key-path=/certs/tls.key
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -48,17 +45,64 @@ spec:
           - containerPort: 9443
             name: webhook-server
             protocol: TCP
+          - containerPort: 8080
+            name: http-apiserver
+            protocol: TCP
           volumeMounts:
-          - readOnly: true
-            mountPath: /certs
-            name: certs
           - mountPath: /webhook-certs
             name: webhook-certs
             readOnly: true
+        - name: oauth-proxy
+          image: "{{.ProxyImage}}"
+          imagePullPolicy: Always
+          args:
+            - --provider=openshift
+            - --https-address=:8443
+            - --http-address=
+            - --upstream=http://localhost:8080
+            - --skip-provider-button=true
+            # - '--client-id=/var/run/secrets/kubernetes.io/serviceaccount/namespace'
+            # - '--client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token'
+            - '--pass-user-bearer-token=true'
+            - '--pass-access-token=true'
+            - --openshift-sar={"resource":"namespaces","verb":"get"}
+            - --openshift-delegate-urls={"/":{"resource":"namespaces","verb":"get"}}
+            - --tls-cert=/etc/tls/private/tls.crt
+            - --tls-key=/etc/tls/private/tls.key
+            - --openshift-service-account=multicluster-global-hub-manager
+            - --cookie-secret-file=/etc/proxy/secrets/session_secret
+            - --openshift-ca=/etc/pki/tls/cert.pem
+            - --openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          ports:
+            - containerPort: 8443
+              name: oauth-proxy
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 1m
+              memory: 20Mi
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /oauth/healthz
+              port: 8443
+              scheme: HTTPS
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: apiserver-certs
+              readOnly: true
+            - mountPath: /etc/proxy/secrets
+              name: cookie-secret
       volumes:
-      - name: certs
+      - name: apiserver-certs
         secret:
           secretName: multicluster-global-hub-manager-certs
+      - name: cookie-secret
+        secret:
+          secretName: nonk8s-apiserver-cookie-secret
       - name: webhook-certs
         secret:
           secretName: multicluster-global-hub-webhook-certs

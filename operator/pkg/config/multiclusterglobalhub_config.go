@@ -45,9 +45,9 @@ type ManifestImage struct {
 var (
 	hohMGHNamespacedName = types.NamespacedName{}
 	imageOverrides       = map[string]string{
-		"multicluster_global_hub_agent":    "quay.io/stolostron/multicluster-global-hub-agent:latest",
-		"multicluster_global_hub_manager":  "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		"multicluster_global_hub_operator": "quay.io/stolostron/multicluster-global-hub-operator:latest",
+		"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
+		"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
+		"oauth_proxy":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
 	}
 )
 

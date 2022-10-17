@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	userv1 "github.com/openshift/api/user/v1"
@@ -30,6 +31,10 @@ var errUnableToAppendCABundle = errors.New("unable to append CA Bundle")
 func Authentication(clusterAPIURL string, clusterAPICABundle []byte) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		authorizationHeader := ginCtx.GetHeader("Authorization")
+		if authorizationHeader == "" {
+			forwardAccessToken := ginCtx.GetHeader("X-Forwarded-Access-Token")
+			authorizationHeader = fmt.Sprintf("Bearer %s", forwardAccessToken)
+		}
 		if !setAuthenticatedUser(ginCtx, authorizationHeader, clusterAPIURL, clusterAPICABundle) {
 			ginCtx.Header("WWW-Authenticate", "")
 			ginCtx.AbortWithStatus(http.StatusUnauthorized)
@@ -74,8 +79,13 @@ func setAuthenticatedUser(ginCtx *gin.Context, authorizationHeader string, clust
 		fmt.Fprintf(gin.DefaultWriter, "unable to create client: %v\n", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.TODO(), "GET", fmt.Sprintf("%s/apis/user.openshift.io/v1/users/~",
-		clusterAPIURL), nil)
+	authURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/users/~", clusterAPIURL)
+	if strings.Contains(clusterAPIURL, "localhost") ||
+		strings.Contains(clusterAPIURL, "127.0.0.1") {
+		authURL = clusterAPIURL
+	}
+
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", authURL, nil)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, "unable to create request: %v\n", err)
 	}

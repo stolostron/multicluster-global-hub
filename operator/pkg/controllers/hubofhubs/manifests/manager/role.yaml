@@ -1,3 +1,5 @@
+# role for multicluster-global-hub-manager, the change to this file musted be made to
+# https://github.com/stolostron/multicluster-global-hub/blob/main/operator/config/rbac/aggregated_role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

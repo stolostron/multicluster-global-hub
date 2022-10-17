@@ -27,13 +27,9 @@ import (
 )
 
 const (
-	serverInternalErrorMsg                      = "internal error"
-	syncIntervalInSeconds                       = 4
-	onlyPatchOfLabelsIsImplemented              = "only patch of labels is currently implemented"
-	onlyAddOrRemoveAreImplemented               = "only add or remove operations are currently implemented"
-	noRowsAffectedByOptimisticConcurrencyUpdate = "no rows were affected by an optimistic-concurrency update query"
-	optimisticConcurrencyRetryAttempts          = 5
-	crdName                                     = "subscriptions.apps.open-cluster-management.io"
+	serverInternalErrorMsg = "internal error"
+	syncIntervalInSeconds  = 4
+	crdName                = "subscriptions.apps.open-cluster-management.io"
 )
 
 var customResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(crdName,

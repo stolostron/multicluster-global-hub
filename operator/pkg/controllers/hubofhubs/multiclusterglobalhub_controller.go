@@ -287,15 +287,25 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, conditionError)
 	}
 
+	// generate random session secret for oauth-proxy
+	proxySessionSecret, err := utils.GeneratePassword(16)
+	if err != nil {
+		return fmt.Errorf("failed to generate random session secret for oauth-proxy: %v", err)
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                string
+			ProxyImage           string
+			ProxySessionSecret   string
 			DBSecret             string
 			KafkaCA              string
 			KafkaBootstrapServer string
 			Namespace            string
 		}{
 			Image:                config.GetImage("multicluster_global_hub_manager"),
+			ProxyImage:           config.GetImage("oauth_proxy"),
+			ProxySessionSecret:   proxySessionSecret,
 			DBSecret:             mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 			KafkaCA:              kafkaCA,
 			KafkaBootstrapServer: kafkaBootstrapServer,
