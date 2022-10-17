@@ -54,7 +54,6 @@ func ListPolicies(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		labelSelector := ginCtx.Query("labelSelector")
 
 		selectorInSql := ""
-
 		if labelSelector != "" {
 			var err error
 			selectorInSql, err = util.ParseLabelSelector(labelSelector)
@@ -69,9 +68,9 @@ func ListPolicies(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		limit := ginCtx.Query("limit")
 		fmt.Fprintf(gin.DefaultWriter, "limit: %v\n", limit)
 
-		lastPolicyName, lastPolicyUID := "", ""
-
 		continueToken := ginCtx.Query("continue")
+
+		lastPolicyName, lastPolicyUID := "", ""
 		if continueToken != "" {
 			fmt.Fprintf(gin.DefaultWriter, "continue: %v\n", continueToken)
 
@@ -94,37 +93,38 @@ func ListPolicies(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 			lastPolicyName,
 			lastPolicyUID)
 
-		// build final query
-		policiesQuery := "SELECT id, payload FROM spec.policies WHERE deleted = FALSE AND " +
+		// policy list query order by name and uid
+		policyListQuery := "SELECT id, payload FROM spec.policies WHERE deleted = FALSE AND " +
 			LastResourceCompareCondition +
 			selectorInSql +
 			" ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid')"
 
-		policyQueryEnd := "SELECT id, payload FROM spec.policies " +
-			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
-
 		// add limit
 		if limit != "" {
-			policiesQuery += fmt.Sprintf(" LIMIT %s", limit)
+			policyListQuery += fmt.Sprintf(" LIMIT %s", limit)
 		}
-		fmt.Fprintf(gin.DefaultWriter, "query: %v\n", policiesQuery)
 
-		fmt.Fprintf(gin.DefaultWriter, "policies query: %v\n", policiesQuery)
+		// last policy order by name and uid query
+		lastPolicyQuery := "SELECT id, payload FROM spec.policies " +
+			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
+
+		fmt.Fprintf(gin.DefaultWriter, "last policy query: %v\n", lastPolicyQuery)
+		fmt.Fprintf(gin.DefaultWriter, "policy list query: %v\n", policyListQuery)
 		fmt.Fprintf(gin.DefaultWriter, "policy compliance query with policy ID: %v\n", policyComplianceQuery)
 		fmt.Fprintf(gin.DefaultWriter, "policy&placementbinding&placementrule mapping query: %v\n", policyMappingQuery)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
-			handlePoliciesForWatch(ginCtx, dbConnectionPool, policiesQuery,
+			handlePoliciesForWatch(ginCtx, dbConnectionPool, policyListQuery,
 				policyMappingQuery, policyComplianceQuery)
 			return
 		}
 
-		handlePolicies(ginCtx, dbConnectionPool, policiesQuery, policyQueryEnd, policyMappingQuery,
+		handlePolicies(ginCtx, dbConnectionPool, policyListQuery, lastPolicyQuery, policyMappingQuery,
 			policyComplianceQuery, customResourceColumnDefinitions)
 	}
 }
 
-func handlePoliciesForWatch(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policiesQuery, policyMappingQuery,
+func handlePoliciesForWatch(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyListQuery, policyMappingQuery,
 	policyComplianceQuery string,
 ) {
 	writer := ginCtx.Writer
@@ -155,14 +155,14 @@ func handlePoliciesForWatch(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool,
 				return
 			}
 
-			doHandlePoliciesForWatch(ctx, writer, dbConnectionPool, policiesQuery, policyMappingQuery,
+			doHandlePoliciesForWatch(ctx, writer, dbConnectionPool, policyListQuery, policyMappingQuery,
 				policyComplianceQuery, preAddedPolicies)
 		}
 	}
 }
 
 func doHandlePoliciesForWatch(ctx context.Context, writer gin.ResponseWriter, dbConnectionPool *pgxpool.Pool,
-	policiesQuery, policyMappingQuery, policyComplianceQuery string, preAddedPolicies set.Set,
+	policyListQuery, policyMappingQuery, policyComplianceQuery string, preAddedPolicies set.Set,
 ) {
 	var err error
 	policyMatches, err = getPolicyMatches(dbConnectionPool, policyMappingQuery)
@@ -170,7 +170,7 @@ func doHandlePoliciesForWatch(ctx context.Context, writer gin.ResponseWriter, db
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
 	}
 
-	policyRows, err := dbConnectionPool.Query(ctx, policiesQuery)
+	policyRows, err := dbConnectionPool.Query(ctx, policyListQuery)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, QueryPoliciesFailureFormatMsg, err)
 	}
@@ -270,12 +270,12 @@ func sendPolicyWatchEvent(dbConnectionPool *pgxpool.Pool, writer io.Writer, poli
 	}, writer)
 }
 
-func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policiesQuery, policyQueryEnd,
+func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyListQuery, lastPolicyQuery,
 	policyMappingQuery, policyComplianceQuery string,
 	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	lastPolicyID, lastPolicy := "", &policyv1.Policy{}
-	if err := dbConnectionPool.QueryRow(context.TODO(), policyQueryEnd).Scan(&lastPolicyID, lastPolicy); err != nil {
+	if err := dbConnectionPool.QueryRow(context.TODO(), lastPolicyQuery).Scan(&lastPolicyID, lastPolicy); err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in quering last policy: %v\n", err)
 		return
@@ -288,7 +288,7 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policie
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
 	}
 
-	policyRows, err := dbConnectionPool.Query(context.TODO(), policiesQuery)
+	policyRows, err := dbConnectionPool.Query(context.TODO(), policyListQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, QueryPoliciesFailureFormatMsg, err)
@@ -303,16 +303,16 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policie
 		},
 		Items: []unstructured.Unstructured{},
 	}
-
-	policyID, policy := "", &policyv1.Policy{}
+	policyName, policyUID := "", ""
 	for policyRows.Next() {
-		if err := policyRows.Scan(&policyID, policy); err != nil {
+		policy := &policyv1.Policy{}
+		if err := policyRows.Scan(&policyUID, policy); err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in scanning a policy: %v\n", err)
 			continue
 		}
 
 		compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(dbConnectionPool,
-			policyComplianceQuery, policyID)
+			policyComplianceQuery, policyUID)
 		if err != nil {
 			fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
 			continue
@@ -326,13 +326,14 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policie
 		}
 
 		unstrPolicyList.Items = append(unstrPolicyList.Items, unstrPolicy)
+		policyName = policy.GetName()
 	}
 
-	if policyID != "" &&
-		policyID != lastPolicyID &&
-		policy.GetName() != "" &&
-		policy.GetName() != lastPolicy.GetName() {
-		continueToken, err := util.EncodeContinue(policy.GetName(), string(policyID))
+	if policyUID != "" &&
+		policyUID != lastPolicyID &&
+		policyName != "" &&
+		policyName != lastPolicy.GetName() {
+		continueToken, err := util.EncodeContinue(policyName, policyUID)
 		if err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
 			return

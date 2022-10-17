@@ -44,6 +44,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	var postgresSQL *postgresql.PostgreSQL
 	var router *gin.Engine
 	var plc1ID string
+	var sub1ID string
+	var sub2ID string
 
 	BeforeAll(func() {
 		var err error
@@ -126,14 +128,19 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				error status.error_type NOT NULL,
 				compliance status.compliance_type NOT NULL
 			);
-			CREATE TABLE IF NOT EXISTS  spec.subscriptions (
+			CREATE TABLE IF NOT EXISTS spec.subscriptions (
 				id uuid NOT NULL,
 				payload jsonb NOT NULL,
 				created_at timestamp without time zone DEFAULT now() NOT NULL,
 				updated_at timestamp without time zone DEFAULT now() NOT NULL,
 				deleted boolean DEFAULT false NOT NULL
 			);
-			CREATE TABLE IF NOT EXISTS  status.subscription_reports (
+			CREATE TABLE IF NOT EXISTS status.subscription_reports (
+				id uuid NOT NULL,
+				leaf_hub_name character varying(63) NOT NULL,
+				payload jsonb NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS  status.subscription_statuses (
 				id uuid NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
 				payload jsonb NOT NULL
@@ -377,7 +384,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			}
 		]`)
 		req, err := http.NewRequest("PATCH",
-			"/global-hub-api/v1/managedclusters/2aa5547c-c172-47ed-b70b-db468c84d327",
+			"/global-hub-api/v1/managedcluster/2aa5547c-c172-47ed-b70b-db468c84d327",
 			bytes.NewBuffer(jsonPatchStr))
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w, req)
@@ -862,7 +869,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		By("Check the policy status can be retrieved with policy ID")
 		w1 := httptest.NewRecorder()
 		req1, err := http.NewRequest("GET", fmt.Sprintf(
-			"/global-hub-api/v1/policies/%s/status", plc1ID), nil)
+			"/global-hub-api/v1/policy/%s/status", plc1ID), nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
@@ -945,7 +952,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 `
 		w2 := httptest.NewRecorder()
 		req2, err := http.NewRequest("GET", fmt.Sprintf(
-			"/global-hub-api/v1/policies/%s/status", plc1ID), nil)
+			"/global-hub-api/v1/policy/%s/status", plc1ID), nil)
 		Expect(err).ToNot(HaveOccurred())
 		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
 		router.ServeHTTP(w2, req2)
@@ -957,7 +964,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 		defer cancelFunc()
 		req3, err := http.NewRequestWithContext(timeoutCtx, "GET",
-			fmt.Sprintf("/global-hub-api/v1/policies/%s/status?watch", plc1ID), nil)
+			fmt.Sprintf("/global-hub-api/v1/policy/%s/status?watch", plc1ID), nil)
 		Expect(err).ToNot(HaveOccurred())
 		go func() {
 			router.ServeHTTP(w3, req3)
@@ -976,53 +983,370 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		}
 	})
 
-	It("Should be able to get subscription report", func() {
-		appsubID, subReportHub1ID, subReportHub2ID := uuid.New().String(),
-			uuid.New().String(), uuid.New().String()
-		leafhub1, leafhub2 := "hub1", "hub2"
-		appsub, subReportHub1, subReportHub2 := `{
-	"kind": "Subscription",
+	It("Should be able to list subscriptions", func() {
+		sub1ID, sub2ID = uuid.New().String(), uuid.New().String()
+		subscription1, subscription2 := `{
 	"apiVersion": "apps.open-cluster-management.io/v1",
+	"kind": "Subscription",
 	"metadata": {
-		"name": "helloworld-appsub",
-		"labels": {
-			"app": "helloworld",
-			"app.kubernetes.io/part-of": "helloworld",
-			"apps.open-cluster-management.io/reconcile-rate": "medium"
-		},
-		"namespace": "helloworld",
-		"annotations": {
-			"open-cluster-management.io/user-group": "c3lzdGVtOm1hc3RlcnMsc3lzdGVtOmF1dGhlbnRpY2F0ZWQ=",
-			"apps.open-cluster-management.io/git-path": "helloworld",
-			"open-cluster-management.io/user-identity": "c3lzdGVtOmFkbWlu",
-			"apps.open-cluster-management.io/git-branch": "main",
-			"apps.open-cluster-management.io/reconcile-option": "merge"
-		},
-		"creationTimestamp": "2022-10-13T05:58:32Z"
+	  "annotations": {
+		"apps.open-cluster-management.io/git-branch": "main",
+		"apps.open-cluster-management.io/git-path": "bar",
+		"apps.open-cluster-management.io/reconcile-option": "merge"
+	  },
+	  "labels": {
+		"app": "bar",
+		"app.kubernetes.io/part-of": "bar",
+		"apps.open-cluster-management.io/reconcile-rate": "medium"
+	  },
+	  "name": "bar-appsub",
+	  "namespace": "bar",
+	  "creationTimestamp": null
 	},
 	"spec": {
-		"channel": "git-application-samples-ns/git-application-samples",
-		"placement": {
-			"placementRef": {
-				"kind": "PlacementRule",
-				"name": "helloworld-placement"
-			}
+	  "channel": "git-application-samples-ns/git-application-samples",
+	  "placement": {
+		"placementRef": {
+		  "kind": "PlacementRule",
+		  "name": "bar-placement"
 		}
+	  }
 	},
 	"status": {
-		"ansiblejobs": {
-		},
-		"lastUpdateTime": null
-	}
+      "lastUpdateTime": null,
+	  "ansiblejobs": {}
+    }
 }`, `{
+	"apiVersion": "apps.open-cluster-management.io/v1",
+	"kind": "Subscription",
+	"metadata": {
+	  "annotations": {
+		"apps.open-cluster-management.io/git-branch": "main",
+		"apps.open-cluster-management.io/git-path": "foo",
+		"apps.open-cluster-management.io/reconcile-option": "merge"
+	  },
+	  "labels": {
+		"app": "foo",
+		"app.kubernetes.io/part-of": "foo",
+		"apps.open-cluster-management.io/reconcile-rate": "medium"
+	  },
+	  "name": "foo-appsub",
+	  "namespace": "foo",
+	  "creationTimestamp": null
+	},
+	"spec": {
+	  "channel": "git-application-samples-ns/git-application-samples",
+	  "placement": {
+		"placementRef": {
+		  "kind": "PlacementRule",
+		  "name": "foo-placement"
+		}
+	  }
+	},
+	"status": {
+	  "lastUpdateTime": null,
+	  "ansiblejobs": {}
+	}
+}`
+
+		By("Insert testing subscriptions")
+		_, err := postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO spec.subscriptions (id,payload) VALUES($1, $2);`, sub1ID, subscription1)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO spec.subscriptions (id,payload) VALUES($1, $2);`, sub2ID, subscription2)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Check the subscriptions can be listed without parameters")
+		w1 := httptest.NewRecorder()
+		req1, err := http.NewRequest("GET", "/global-hub-api/v1/subscriptions", nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w1, req1)
+		Expect(w1.Code).To(Equal(200))
+		subscriptionListFormatStr := `
+{
+	"kind": "SubscriptionList",
+	"apiVersion": "apps.open-cluster-management.io/v1",
+	"metadata": {},
+	"items": [
+		%s,
+		%s
+		]
+}`
+		Expect(w1.Body.String()).Should(MatchJSON(
+			fmt.Sprintf(subscriptionListFormatStr, subscription1, subscription2)))
+
+		By("Check the subscriptions can be listed with limit and labelSelector")
+		w2 := httptest.NewRecorder()
+		req2, err := http.NewRequest("GET",
+			"/global-hub-api/v1/subscriptions?"+
+				"labelSelector=app%3Dfoo%2Cenv%21%3Ddev%2C%21testnokey",
+			nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w2, req2)
+		Expect(w2.Code).To(Equal(200))
+		subscriptionListFormatStr = `
+		{
+			"kind": "SubscriptionList",
+			"apiVersion": "apps.open-cluster-management.io/v1",
+			"metadata": {},
+			"items": [
+				%s
+			]
+		}`
+		Expect(w2.Body.String()).Should(MatchJSON(
+			fmt.Sprintf(subscriptionListFormatStr, subscription2)))
+
+		By("Check the subscriptions can be listed as table response")
+		subscriptionTable := `{
+			"kind": "Table",
+			"apiVersion": "meta.k8s.io/v1",
+			"metadata": {},
+			"columnDefinitions": [
+			  {
+				"name": "Name",
+				"type": "string",
+				"format": "name",
+				"description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+				"priority": 0
+			  },
+			  {
+				"name": "Age",
+				"type": "date",
+				"format": "",
+				"description": "Custom resource definition column (in JSONPath format): .metadata.creationTimestamp",
+				"priority": 0
+			  }
+			],
+			"rows": [
+			  {
+				"cells": [
+				  "bar-appsub",
+				  null
+				],
+				"object": {
+				  "apiVersion": "apps.open-cluster-management.io/v1",
+				  "kind": "Subscription",
+				  "metadata": {
+					"annotations": {
+					  "apps.open-cluster-management.io/git-branch": "main",
+					  "apps.open-cluster-management.io/git-path": "bar",
+					  "apps.open-cluster-management.io/reconcile-option": "merge"
+					},
+					"creationTimestamp": null,
+					"labels": {
+					  "app": "bar",
+					  "app.kubernetes.io/part-of": "bar",
+					  "apps.open-cluster-management.io/reconcile-rate": "medium"
+					},
+					"name": "bar-appsub",
+					"namespace": "bar"
+				  },
+				  "spec": {
+					"channel": "git-application-samples-ns/git-application-samples",
+					"placement": {
+					  "placementRef": {
+						"kind": "PlacementRule",
+						"name": "bar-placement"
+					  }
+					}
+				  },
+				  "status": {
+					"ansiblejobs": {},
+					"lastUpdateTime": null
+				  }
+				}
+			  },
+			  {
+				"cells": [
+				  "foo-appsub",
+				  null
+				],
+				"object": {
+				  "apiVersion": "apps.open-cluster-management.io/v1",
+				  "kind": "Subscription",
+				  "metadata": {
+					"annotations": {
+					  "apps.open-cluster-management.io/git-branch": "main",
+					  "apps.open-cluster-management.io/git-path": "foo",
+					  "apps.open-cluster-management.io/reconcile-option": "merge"
+					},
+					"creationTimestamp": null,
+					"labels": {
+					  "app": "foo",
+					  "app.kubernetes.io/part-of": "foo",
+					  "apps.open-cluster-management.io/reconcile-rate": "medium"
+					},
+					"name": "foo-appsub",
+					"namespace": "foo"
+				  },
+				  "spec": {
+					"channel": "git-application-samples-ns/git-application-samples",
+					"placement": {
+					  "placementRef": {
+						"kind": "PlacementRule",
+						"name": "foo-placement"
+					  }
+					}
+				  },
+				  "status": {
+					"ansiblejobs": {},
+					"lastUpdateTime": null
+				  }
+				}
+			  }
+			]
+		  }`
+		w3 := httptest.NewRecorder()
+		req3, err := http.NewRequest("GET", "/global-hub-api/v1/subscriptions", nil)
+		Expect(err).ToNot(HaveOccurred())
+		req3.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		router.ServeHTTP(w3, req3)
+		Expect(w3.Code).To(Equal(200))
+		Expect(w3.Body.String()).Should(MatchJSON(subscriptionTable))
+
+		By("Check the subscriptions can be listed with watch")
+		w4 := CreateTestResponseRecorder()
+		timeoutCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+		defer cancelFunc()
+		req4, err := http.NewRequestWithContext(timeoutCtx, "GET",
+			"/global-hub-api/v1/subscriptions?watch", nil)
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			router.ServeHTTP(w4, req4)
+		}()
+		// wait loop for client cancel the request
+		for {
+			select {
+			case <-timeoutCtx.Done():
+				w4.closeClient()
+				return
+			default:
+				time.Sleep(4 * time.Second)
+				Expect(w4.Code).To(Equal(200))
+				// Expect(w4.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", subscription1)))
+			}
+		}
+	})
+
+	It("Should be able to get subscriptionstatus", func() {
+		subStatusHub1ID, subStatusHub2ID := uuid.New().String(), uuid.New().String()
+		leafhub1, leafhub2 := "hub1", "hub2"
+		subStatusHub1, subStatusHub2 := `{
+  "kind": "SubscriptionStatus",
+  "apiVersion": "apps.open-cluster-management.io/v1alpha1",
+  "metadata": {
+	"name": "foo-appsub",
+	"namespace": "foo",
+	"labels": {
+	  "apps.open-cluster-management.io/hosting-subscription": "foo.foo-appsub"
+	},
+	"resourceVersion": "67273",
+	"creationTimestamp": "2022-10-14T09:57:34Z"
+  },
+  "statuses": {
+	"packages": [
+		{
+			"kind": "HelmRelease",
+			"name": "foo-87e76",
+			"phase": "Deployed",
+			"namespace": "foo",
+			"apiVersion": "apps.open-cluster-management.io/v1",
+			"lastUpdateTime": "2022-10-14T09:59:15Z"
+		}
+	]
+  }
+}`, `{
+    "kind": "SubscriptionStatus",
+    "apiVersion": "apps.open-cluster-management.io/v1alpha1",
+	"metadata": {
+	  "name": "foo-appsub",
+	  "namespace": "foo",
+	  "labels": {
+		"apps.open-cluster-management.io/hosting-subscription": "foo.foo-appsub"
+	  },
+	  "resourceVersion": "67288",
+	  "creationTimestamp": "2022-10-14T09:57:12Z"
+	},
+	"statuses": {
+	  "packages": [
+		  {
+			  "kind": "HelmRelease",
+			  "name": "foo-87e76",
+			  "phase": "Deployed",
+			  "namespace": "foo",
+			  "apiVersion": "apps.open-cluster-management.io/v1",
+			  "lastUpdateTime": "2022-10-14T09:59:05Z"
+		  }
+	  ]
+	}
+  }`
+
+		By("Insert testing subscription status for leaf hub")
+		_, err := postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO status.subscription_statuses (id,leaf_hub_name,payload) VALUES($1, $2, $3);`,
+			subStatusHub1ID, leafhub1, subStatusHub1)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = postgresSQL.GetConn().Exec(ctx,
+			`INSERT INTO status.subscription_statuses (id,leaf_hub_name,payload) VALUES($1, $2, $3);`,
+			subStatusHub2ID, leafhub2, subStatusHub2)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Check the subscriptionstatus can be retrieved")
+		w1 := httptest.NewRecorder()
+		req1, err := http.NewRequest("GET", fmt.Sprintf(
+			"/global-hub-api/v1/subscriptionstatus/%s", sub2ID), nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w1, req1)
+		Expect(w1.Code).To(Equal(200))
+		subscriptionStatusStr := `{
+			"kind": "SubscriptionStatus",
+			"apiVersion": "apps.open-cluster-management.io/v1alpha1",
+			"metadata": {
+			  "name": "foo-appsub",
+			  "namespace": "foo",
+			  "resourceVersion": "67273",
+			  "creationTimestamp": "2022-10-14T09:57:34Z",
+			  "labels": {
+				"apps.open-cluster-management.io/hosting-subscription": "foo.foo-appsub"
+			  }
+			},
+			"statuses": {
+			  "packages": [
+				{
+				  "name": "foo-87e76",
+				  "apiVersion": "apps.open-cluster-management.io/v1",
+				  "kind": "HelmRelease",
+				  "namespace": "foo",
+				  "phase": "Deployed",
+				  "lastUpdateTime": "2022-10-14T09:59:15Z"
+				},
+				{
+				  "name": "foo-87e76",
+				  "apiVersion": "apps.open-cluster-management.io/v1",
+				  "kind": "HelmRelease",
+				  "namespace": "foo",
+				  "phase": "Deployed",
+				  "lastUpdateTime": "2022-10-14T09:59:05Z"
+				}
+			  ]
+			}
+		  }`
+		Expect(w1.Body.String()).Should(MatchJSON(subscriptionStatusStr))
+	})
+
+	It("Should be able to get subscriptionreport", func() {
+		subReportHub1ID, subReportHub2ID := uuid.New().String(), uuid.New().String()
+		leafhub1, leafhub2 := "hub1", "hub2"
+		subReportHub1, subReportHub2 := `{
 	"kind": "SubscriptionReport",
 	"apiVersion": "apps.open-cluster-management.io/v1alpha1",
 	"metadata": {
-		"name": "helloworld-appsub",
+		"name": "foo-appsub",
 		"labels": {
-			"apps.open-cluster-management.io/hosting-subscription": "helloworld.helloworld-appsub"
+			"apps.open-cluster-management.io/hosting-subscription": "foo.foo-appsub"
 		},
-		"namespace": "helloworld",
+		"namespace": "foo",
 		"resourceVersion": "2633120",
 		"creationTimestamp": "2022-10-13T05:58:33Z"
 	},
@@ -1047,20 +1371,20 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	"resources": [
 		{
 			"kind": "Route",
-			"name": "helloworld-app-route",
-			"namespace": "helloworld",
+			"name": "foo-app-route",
+			"namespace": "foo",
 			"apiVersion": "route.openshift.io/v1"
 		},
 		{
 			"kind": "Service",
-			"name": "helloworld-app-svc",
-			"namespace": "helloworld",
+			"name": "foo-app-svc",
+			"namespace": "foo",
 			"apiVersion": "v1"
 		},
 		{
 			"kind": "Deployment",
-			"name": "helloworld-app-deploy",
-			"namespace": "helloworld",
+			"name": "foo-app-deploy",
+			"namespace": "foo",
 			"apiVersion": "apps/v1"
 		}
 	]
@@ -1068,11 +1392,11 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	"kind": "SubscriptionReport",
 	"apiVersion": "apps.open-cluster-management.io/v1alpha1",
 	"metadata": {
-		"name": "helloworld-appsub",
+		"name": "foo-appsub",
 		"labels": {
-			"apps.open-cluster-management.io/hosting-subscription": "helloworld.helloworld-appsub"
+			"apps.open-cluster-management.io/hosting-subscription": "foo.foo-appsub"
 		},
-		"namespace": "helloworld",
+		"namespace": "foo",
 		"resourceVersion": "2633112",
 		"creationTimestamp": "2022-10-13T05:58:31Z"
 	},
@@ -1097,31 +1421,27 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	"resources": [
 		{
 			"kind": "Route",
-			"name": "helloworld-app-route",
-			"namespace": "helloworld",
+			"name": "foo-app-route",
+			"namespace": "foo",
 			"apiVersion": "route.openshift.io/v1"
 		},
 		{
 			"kind": "Service",
-			"name": "helloworld-app-svc",
-			"namespace": "helloworld",
+			"name": "foo-app-svc",
+			"namespace": "foo",
 			"apiVersion": "v1"
 		},
 		{
 			"kind": "Deployment",
-			"name": "helloworld-app-deploy",
-			"namespace": "helloworld",
+			"name": "foo-app-deploy",
+			"namespace": "foo",
 			"apiVersion": "apps/v1"
 		}
 	]
 }`
-		By("Insert testing subscription")
-		_, err := postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO spec.subscriptions (id,payload) VALUES($1, $2);`, appsubID, appsub)
-		Expect(err).ToNot(HaveOccurred())
 
 		By("Insert testing subscription report for leaf hub")
-		_, err = postgresSQL.GetConn().Exec(ctx,
+		_, err := postgresSQL.GetConn().Exec(ctx,
 			`INSERT INTO status.subscription_reports (id,leaf_hub_name,payload) VALUES($1, $2, $3);`,
 			subReportHub1ID, leafhub1, subReportHub1)
 		Expect(err).ToNot(HaveOccurred())
@@ -1133,7 +1453,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		By("Check the subscriptionreport can be retrieved")
 		w1 := httptest.NewRecorder()
 		req1, err := http.NewRequest("GET", fmt.Sprintf(
-			"/global-hub-api/v1/subscriptionreport/%s", appsubID), nil)
+			"/global-hub-api/v1/subscriptionreport/%s", sub2ID), nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
@@ -1141,12 +1461,12 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			"kind": "SubscriptionReport",
 			"apiVersion": "apps.open-cluster-management.io/v1alpha1",
 			"metadata": {
-			  "name": "helloworld-appsub",
-			  "namespace": "helloworld",
+			  "name": "foo-appsub",
+			  "namespace": "foo",
 			  "resourceVersion": "2633120",
 			  "creationTimestamp": "2022-10-13T05:58:33Z",
 			  "labels": {
-				"apps.open-cluster-management.io/hosting-subscription": "helloworld.helloworld-appsub"
+				"apps.open-cluster-management.io/hosting-subscription": "foo.foo-appsub"
 			  }
 			},
 			"reportType": "Application",
@@ -1178,20 +1498,20 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			"resources": [
 			  {
 				"kind": "Route",
-				"namespace": "helloworld",
-				"name": "helloworld-app-route",
+				"namespace": "foo",
+				"name": "foo-app-route",
 				"apiVersion": "route.openshift.io/v1"
 			  },
 			  {
 				"kind": "Service",
-				"namespace": "helloworld",
-				"name": "helloworld-app-svc",
+				"namespace": "foo",
+				"name": "foo-app-svc",
 				"apiVersion": "v1"
 			  },
 			  {
 				"kind": "Deployment",
-				"namespace": "helloworld",
-				"name": "helloworld-app-deploy",
+				"namespace": "foo",
+				"name": "foo-app-deploy",
 				"apiVersion": "apps/v1"
 			  }
 			]

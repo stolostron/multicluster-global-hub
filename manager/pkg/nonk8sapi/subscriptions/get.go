@@ -21,16 +21,37 @@ import (
 )
 
 const (
-	crdName                = "subscriptionreports.apps.open-cluster-management.io"
-	serverInternalErrorMsg = "internal error"
-	subscriptionQuery      = `SELECT payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
+	subscriptionRepostCRDName = "subscriptionreports.apps.open-cluster-management.io"
+	subscriptionStatusCRDName = "subscriptionstatuses.apps.open-cluster-management.io"
+	subscriptionQuery         = `SELECT payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
 		FROM spec.subscriptions WHERE deleted = FALSE AND id=$1`
+	subscriptionStatusQuery = `SELECT payload FROM status.subscription_statuses
+		WHERE payload->'metadata'->>'name'=$1 AND payload->'metadata'->>'namespace'=$2`
 	subscriptionReportQuery = `SELECT payload FROM status.subscription_reports
 		WHERE payload->'metadata'->>'name'=$1 AND payload->'metadata'->>'namespace'=$2`
 )
 
-var customResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(crdName,
-	appsv1alpha1.SchemeGroupVersion.Version)
+var (
+	subReportCustomResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(subscriptionRepostCRDName,
+		appsv1alpha1.SchemeGroupVersion.Version)
+	subStatusCustomResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(subscriptionStatusCRDName,
+		appsv1alpha1.SchemeGroupVersion.Version)
+)
+
+// GetSubscriptionStatus middleware
+func GetSubscriptionStatus(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
+	return func(ginCtx *gin.Context) {
+		subscriptionID := ginCtx.Param("subscriptionID")
+		fmt.Fprintf(gin.DefaultWriter, "getting subscription status for subscription: %s\n", subscriptionID)
+		fmt.Fprintf(gin.DefaultWriter, "subscription query with subscription ID: %s\n", subscriptionQuery)
+		fmt.Fprintf(gin.DefaultWriter, "subscription status query with subscription name and namespace: %v\n",
+			subscriptionStatusQuery)
+
+		handleSubscriptionStatus(ginCtx, dbConnectionPool, subscriptionID,
+			subscriptionQuery, subscriptionStatusQuery,
+			subStatusCustomResourceColumnDefinitions)
+	}
+}
 
 // GetSubscriptionReport middleware
 func GetSubscriptionReport(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
@@ -43,8 +64,42 @@ func GetSubscriptionReport(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 
 		handleSubscriptionReport(ginCtx, dbConnectionPool, subscriptionID,
 			subscriptionQuery, subscriptionReportQuery,
-			customResourceColumnDefinitions)
+			subReportCustomResourceColumnDefinitions)
 	}
+}
+
+func handleSubscriptionStatus(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, subscriptionID, subscriptionQuery,
+	subscriptionStatusQuery string, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
+) {
+	subscriptionStatus, err := getAggregatedSubscriptionStatus(dbConnectionPool, subscriptionID,
+		subscriptionQuery, subscriptionStatusQuery)
+	if err != nil {
+		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
+	}
+
+	if util.ShouldReturnAsTable(ginCtx) {
+		fmt.Fprintf(gin.DefaultWriter, "returning subscription as table...\n")
+
+		tableConvertor, err := tableconvertor.New(customResourceColumnDefinitions)
+		if err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
+			return
+		}
+
+		table, err := tableConvertor.ConvertToTable(context.TODO(), subscriptionStatus, nil)
+		if err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
+			return
+		}
+
+		table.Kind = "Table"
+		table.APIVersion = metav1.SchemeGroupVersion.String()
+		ginCtx.JSON(http.StatusOK, table)
+
+		return
+	}
+
+	ginCtx.JSON(http.StatusOK, subscriptionStatus)
 }
 
 func handleSubscriptionReport(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, subscriptionID, subscriptionQuery,
@@ -81,6 +136,48 @@ func handleSubscriptionReport(ginCtx *gin.Context, dbConnectionPool *pgxpool.Poo
 	ginCtx.JSON(http.StatusOK, subscriptionReport)
 }
 
+// returns aggregated SubscriptionStatus and error.
+func getAggregatedSubscriptionStatus(dbConnectionPool *pgxpool.Pool, subscriptionID, subscriptionQuery,
+	subscriptionStatusQuery string,
+) (*appsv1alpha1.SubscriptionStatus, error) {
+	var subscriptionStatus *appsv1alpha1.SubscriptionStatus
+	var subName, subNamespace string
+	err := dbConnectionPool.QueryRow(context.TODO(), subscriptionQuery, subscriptionID).Scan(&subName, &subNamespace)
+	if err != nil {
+		fmt.Fprintf(gin.DefaultWriter, "error in querying subscription with subscription ID(%s): %v\n", subscriptionID, err)
+		return nil, err
+	}
+
+	rows, err := dbConnectionPool.Query(context.TODO(), subscriptionStatusQuery, subName, subNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("error in querying subscription-status for subscription(%s/%s): %v\n",
+			subNamespace, subName, err)
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var leafHubSubscriptionStatus appsv1alpha1.SubscriptionStatus
+		if err := rows.Scan(&leafHubSubscriptionStatus); err != nil {
+			return nil, fmt.Errorf("error getting subscription status for leaf hub: %v\n", err)
+		}
+
+		// if not updated yet, clone a report from DB and clean it
+		if subscriptionStatus == nil {
+			subscriptionStatus = cleanSubscriptionStatusObject(leafHubSubscriptionStatus)
+			continue
+		}
+
+		// assuming that cluster names are unique across the hubs, all we need to do is a complete merge
+		subscriptionStatus.Statuses.SubscriptionStatus = append(
+			subscriptionStatus.Statuses.SubscriptionStatus,
+			leafHubSubscriptionStatus.Statuses.SubscriptionStatus...)
+	}
+
+	return subscriptionStatus, nil
+}
+
+// returns aggregated SubscriptionReport and error.
 func getAggregatedSubscriptionReport(dbConnectionPool *pgxpool.Pool, subscriptionID, subscriptionQuery,
 	subscriptionReportQuery string,
 ) (*appsv1alpha1.SubscriptionReport, error) {
@@ -94,7 +191,8 @@ func getAggregatedSubscriptionReport(dbConnectionPool *pgxpool.Pool, subscriptio
 
 	rows, err := dbConnectionPool.Query(context.TODO(), subscriptionReportQuery, subName, subNamespace)
 	if err != nil {
-		return nil, fmt.Errorf("error in querying subscription-report statuses: %v\n", err)
+		return nil, fmt.Errorf("error in querying subscription-report for subscription(%s/%s): %v\n",
+			subNamespace, subName, err)
 	}
 
 	defer rows.Close()
@@ -118,6 +216,19 @@ func getAggregatedSubscriptionReport(dbConnectionPool *pgxpool.Pool, subscriptio
 	}
 
 	return subscriptionReport, nil
+}
+
+func cleanSubscriptionStatusObject(subscriptionStatus appsv1alpha1.SubscriptionStatus,
+) *appsv1alpha1.SubscriptionStatus {
+	clone := subscriptionStatus.DeepCopy()
+	// assign annotations
+	clone.Annotations = map[string]string{}
+	// assign labels
+	clone.Labels = map[string]string{}
+	clone.Labels[appsv1.AnnotationHosting] = fmt.Sprintf("%s.%s",
+		subscriptionStatus.Namespace, subscriptionStatus.Name)
+
+	return clone
 }
 
 func cleanSubscriptionReportObject(subscriptionReport appsv1alpha1.SubscriptionReport,
