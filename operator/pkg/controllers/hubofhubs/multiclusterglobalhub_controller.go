@@ -143,7 +143,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if mgh.Spec.DataLayer == nil {
-		return ctrl.Result{}, fmt.Errorf("empty data layer type.")
+		return ctrl.Result{}, fmt.Errorf("empty data layer type")
 	}
 
 	switch mgh.Spec.DataLayer.Type {

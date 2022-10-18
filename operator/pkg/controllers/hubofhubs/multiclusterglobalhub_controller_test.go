@@ -440,7 +440,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaBootstrapServer: kafkaBootstrapServer,
 					Namespace:            config.GetDefaultNamespace(),
 					LeaseDuration:        "137",
-					RenewDeadline:        "127",
+					RenewDeadline:        "107",
 					RetryPeriod:          "26",
 				}, nil
 			})

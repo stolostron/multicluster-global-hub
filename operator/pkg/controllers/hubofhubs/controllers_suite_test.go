@@ -46,6 +46,7 @@ import (
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -125,20 +126,37 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	leaseDuration := 137 * time.Second
+	renewDeadline := 126 * time.Second
+	retryPeriod := 16 * time.Second
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress: "0", // disable the metrics serving
-		Scheme:             scheme.Scheme,
+		MetricsBindAddress:      "0", // disable the metrics serving
+		Scheme:                  scheme.Scheme,
+		LeaderElection:          true,
+		LeaderElectionNamespace: "default",
+		LeaderElectionID:        "549a8919.open-cluster-management.io",
+		LeaseDuration:           &leaseDuration,
+		RenewDeadline:           &renewDeadline,
+		RetryPeriod:             &retryPeriod,
 	})
 	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
 
+	// the leader election will be propagate to global hub manager
+	leaderElection := &commonobjects.LeaderElectionConfig{
+		LeaseDuration:  137,
+		RenewDeadline:  107,
+		RetryPeriod:    26,
+		LeaderElection: true,
+	}
 	err = (&hubofhubscontroller.MulticlusterGlobalHubReconciler{
-		Manager:    k8sManager,
-		Client:     k8sManager.GetClient(),
-		KubeClient: kubeClient,
-		Scheme:     k8sManager.GetScheme(),
+		Manager:        k8sManager,
+		Client:         k8sManager.GetClient(),
+		KubeClient:     kubeClient,
+		Scheme:         k8sManager.GetScheme(),
+		LeaderElection: leaderElection,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
