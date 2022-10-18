@@ -45,6 +45,7 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     initManaged "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG" &
     hover $! "  OCM join managed kind-hub${i}-cluster${j}" 
+    checkManagedCluster "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG"
   done
 done
 
