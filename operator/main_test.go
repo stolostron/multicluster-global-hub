@@ -10,7 +10,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -35,7 +34,7 @@ func TestLeaderElectionConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get kubeClient error %v", err)
 	}
-	ocmNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.HOHDefaultNamespace}}
+	ocmNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.HOHDefaultNamespace}}
 	_, err = kubeClient.CoreV1().Namespaces().Create(context.TODO(), ocmNamespace, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("create ocm namespace error %v", err)

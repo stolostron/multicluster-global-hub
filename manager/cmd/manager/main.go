@@ -161,10 +161,10 @@ func parseFlags() (*hohManagerConfig, error) {
 		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerBasePath, "server-base-path",
 		"/global-hub-api/v1", "The base path for nonK8s API server.")
-	pflag.IntVar(&managerConfig.electionConfig.LeaseDuration, "lease-duration", 137, "the lease duration for controller election")
-	pflag.IntVar(&managerConfig.electionConfig.RenewDeadline, "renew-deadline", 107, "the renew deadline for controller election")
-	pflag.IntVar(&managerConfig.electionConfig.RetryPeriod, "retry-period", 26, "the retry period for controller election")
-	flag.BoolVar(&managerConfig.electionConfig.LeaderElection, "leader-elect", false, "Enable leader election for controller manager")
+	pflag.IntVar(&managerConfig.electionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
+	pflag.IntVar(&managerConfig.electionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
+	pflag.IntVar(&managerConfig.electionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
+	flag.BoolVar(&managerConfig.electionConfig.LeaderElection, "leader-elect", false, "controller leader election")
 	// add flags for logger
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
