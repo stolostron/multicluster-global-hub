@@ -146,7 +146,8 @@ func applyHubSubWork(ctx context.Context, c client.Client, kubeClient kubernetes
 	if modified {
 		log.Info("updating hub subscription manifestwork",
 			"namespace", desiredHubSubWork.GetNamespace(), "name", desiredHubSubWork.GetName())
-		desiredHubSubWork.ObjectMeta.ResourceVersion = existingHubSubWork.ObjectMeta.ResourceVersion
+		desiredHubSubWork.ObjectMeta.ResourceVersion =
+			existingHubSubWork.ObjectMeta.ResourceVersion
 		return desiredHubSubWork, c.Update(ctx, desiredHubSubWork)
 	}
 
@@ -464,7 +465,8 @@ func applyHubHypershiftWorks(ctx context.Context, c client.Client, kubeClient ku
 	if !ok || acmSnapshot == "" {
 		acmDefaultImageRegistry = constants.DefaultACMDownStreamImageRegistry
 		// handle special case for governance-policy-addon-controller image
-		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController = "acm-governance-policy-addon-controller"
+		hypershiftHubConfigValues.ACM.GovernancePolicyAddonController =
+			"acm-governance-policy-addon-controller"
 	}
 	mceSnapshot, ok := mgh.GetAnnotations()[constants.AnnotationHubMCESnapshot]
 	if !ok || mceSnapshot == "" {

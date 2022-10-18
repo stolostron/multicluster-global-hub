@@ -42,10 +42,12 @@ func TestParseFlags(t *testing.T) {
 	}
 
 	if agentConfig.ElectionConfig.LeaseDuration != 137 {
-		t.Fatalf("expect --lease-duration(%d) == %d", agentConfig.ElectionConfig.LeaseDuration, 137)
+		t.Fatalf("expect --lease-duration(%d) == %d",
+			agentConfig.ElectionConfig.LeaseDuration, 137)
 	}
 
 	if agentConfig.ElectionConfig.RenewDeadline != 107 {
-		t.Fatalf("expect --lease-duration(%d) == %d", agentConfig.ElectionConfig.RenewDeadline, 107)
+		t.Fatalf("expect --lease-duration(%d) == %d",
+			agentConfig.ElectionConfig.RenewDeadline, 107)
 	}
 }

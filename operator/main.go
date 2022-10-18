@@ -32,15 +32,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -98,6 +97,7 @@ type operatorConfig struct {
 	MetricsAddress string
 	ProbeAddress   string
 	PodNamespace   string
+	LeaderElection bool
 }
 
 func main() {
@@ -205,8 +205,12 @@ func main() {
 
 func parseFlags() *operatorConfig {
 	config := &operatorConfig{}
-	flag.StringVar(&config.MetricsAddress, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&config.MetricsAddress, "metrics-bind-address", ":8080",
+		"The address the metric endpoint binds to.")
+	flag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081",
+		"The address the probe endpoint binds to.")
+	flag.BoolVar(&config.LeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. ")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -234,7 +238,7 @@ func getManager(operatorConfig *operatorConfig, electionConfig *commonobjects.Le
 		MetricsBindAddress:      operatorConfig.MetricsAddress,
 		Port:                    9443,
 		HealthProbeBindAddress:  operatorConfig.ProbeAddress,
-		LeaderElection:          true,
+		LeaderElection:          operatorConfig.LeaderElection,
 		LeaderElectionID:        "549a8919.open-cluster-management.io",
 		LeaderElectionNamespace: operatorConfig.PodNamespace,
 		LeaseDuration:           &leaseDuration,
