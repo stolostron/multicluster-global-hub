@@ -94,20 +94,14 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. ")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
+type operatorConfig struct {
+	MetricsAddress string
+	ProbeAddress   string
+	PodNamespace   string
+}
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+func main() {
+	operatorConfig := parseFlags()
 
 	// build filtered resource map
 	newCacheFunc := cache.BuilderWithOptions(cache.Options{
@@ -169,27 +163,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	electionConfig, err := GetElectionConfig(kubeClient)
+	electionConfig, err := getElectionConfig(kubeClient)
 	if err != nil {
 		setupLog.Error(err, "failed to get election config")
 		os.Exit(1)
 	}
-	leaseDuration := time.Duration(electionConfig.LeaseDuration) * time.Second
-	renewDeadline := time.Duration(electionConfig.RenewDeadline) * time.Second
-	retryPeriod := time.Duration(electionConfig.RetryPeriod) * time.Second
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "549a8919.open-cluster-management.io",
-		LeaseDuration:          &leaseDuration,
-		RenewDeadline:          &renewDeadline,
-		RetryPeriod:            &retryPeriod,
-		NewCache:               newCacheFunc,
-	})
+	mgr, err := getManager(operatorConfig, electionConfig, newCacheFunc)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -223,7 +203,49 @@ func main() {
 	}
 }
 
-func GetElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {
+func parseFlags() *operatorConfig {
+	config := &operatorConfig{}
+	flag.StringVar(&config.MetricsAddress, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	opts := zap.Options{
+		Development: true,
+	}
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	opts.BindFlags(flag.CommandLine)
+	flag.Parse()
+
+	podNamespace, found := os.LookupEnv("POD_NAMESPACE")
+	if !found {
+		podNamespace = constants.HOHDefaultNamespace
+	}
+	config.PodNamespace = podNamespace
+	return config
+}
+
+func getManager(operatorConfig *operatorConfig, electionConfig *commonobjects.LeaderElectionConfig,
+	newCacheFunc cache.NewCacheFunc,
+) (ctrl.Manager, error) {
+	leaseDuration := time.Duration(electionConfig.LeaseDuration) * time.Second
+	renewDeadline := time.Duration(electionConfig.RenewDeadline) * time.Second
+	retryPeriod := time.Duration(electionConfig.RetryPeriod) * time.Second
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:                  scheme,
+		MetricsBindAddress:      operatorConfig.MetricsAddress,
+		Port:                    9443,
+		HealthProbeBindAddress:  operatorConfig.ProbeAddress,
+		LeaderElection:          true,
+		LeaderElectionID:        "549a8919.open-cluster-management.io",
+		LeaderElectionNamespace: operatorConfig.PodNamespace,
+		LeaseDuration:           &leaseDuration,
+		RenewDeadline:           &renewDeadline,
+		RetryPeriod:             &retryPeriod,
+		NewCache:                newCacheFunc,
+	})
+	return mgr, err
+}
+
+func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {
 	config := &commonobjects.LeaderElectionConfig{
 		LeaseDuration: 137,
 		RenewDeadline: 107,
