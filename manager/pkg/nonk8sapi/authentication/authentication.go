@@ -31,9 +31,9 @@ var errUnableToAppendCABundle = errors.New("unable to append CA Bundle")
 func Authentication(clusterAPIURL string, clusterAPICABundle []byte) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		authorizationHeader := ginCtx.GetHeader("Authorization")
-		if authorizationHeader == "" {
-			forwardAccessToken := ginCtx.GetHeader("X-Forwarded-Access-Token")
-			authorizationHeader = fmt.Sprintf("Bearer %s", forwardAccessToken)
+		if authorizationHeader == "" || !strings.Contains(authorizationHeader, "Bearer") {
+			authorizationHeader = fmt.Sprintf("Bearer %s",
+				ginCtx.GetHeader("X-Forwarded-Access-Token"))
 		}
 		if !setAuthenticatedUser(ginCtx, authorizationHeader, clusterAPIURL, clusterAPICABundle) {
 			ginCtx.Header("WWW-Authenticate", "")
