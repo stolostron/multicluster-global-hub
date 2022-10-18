@@ -17,8 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
+	"strconv"
+	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
@@ -33,8 +36,10 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -52,8 +57,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
 var (
@@ -159,6 +166,21 @@ func main() {
 		},
 	})
 
+	kubeClient, err := kubernetes.NewForConfig(ctrl.GetConfigOrDie())
+	if err != nil {
+		setupLog.Error(err, "failed to create kube client")
+		os.Exit(1)
+	}
+
+	electionConfig, err := GetElectionConfig(kubeClient)
+	if err != nil {
+		setupLog.Error(err, "failed to get election config")
+		os.Exit(1)
+	}
+	leaseDuration := time.Duration(electionConfig.LeaseDuration) * time.Second
+	renewDeadline := time.Duration(electionConfig.RenewDeadline) * time.Second
+	retryPeriod := time.Duration(electionConfig.RetryPeriod) * time.Second
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -166,6 +188,9 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "549a8919.open-cluster-management.io",
+		LeaseDuration:          &leaseDuration,
+		RenewDeadline:          &renewDeadline,
+		RetryPeriod:            &retryPeriod,
 		NewCache:               newCacheFunc,
 	})
 	if err != nil {
@@ -173,17 +198,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		setupLog.Error(err, "failed to create kube client")
-		os.Exit(1)
-	}
-
 	if err = (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
-		Manager:    mgr,
-		Client:     mgr.GetClient(),
-		KubeClient: kubeClient,
-		Scheme:     mgr.GetScheme(),
+		Manager:        mgr,
+		Client:         mgr.GetClient(),
+		KubeClient:     kubeClient,
+		Scheme:         mgr.GetScheme(),
+		LeaderElection: electionConfig,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MulticlusterGlobalHub")
 		os.Exit(1)
@@ -204,4 +224,43 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func GetElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {
+	config := &commonobjects.LeaderElectionConfig{
+		LeaseDuration: 137,
+		RenewDeadline: 107,
+		RetryPeriod:   26,
+	}
+
+	leaderElectionConfigMapEnvVar := "LEADER_ELECTION_CONFIG"
+	name, found := os.LookupEnv(leaderElectionConfigMapEnvVar)
+	if !found {
+		return config, nil
+	}
+	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.HOHDefaultNamespace).Get(
+		context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	leaseDurationSec, err := strconv.Atoi(configMap.Data["leaseDuration"])
+	if err != nil {
+		return nil, err
+	}
+
+	renewDeadlineSec, err := strconv.Atoi(configMap.Data["renewDeadline"])
+	if err != nil {
+		return nil, err
+	}
+
+	retryPeriodSec, err := strconv.Atoi(configMap.Data["retryPeriod"])
+	if err != nil {
+		return nil, err
+	}
+
+	config.LeaseDuration = leaseDurationSec
+	config.RenewDeadline = renewDeadlineSec
+	config.RetryPeriod = retryPeriodSec
+	return config, nil
 }

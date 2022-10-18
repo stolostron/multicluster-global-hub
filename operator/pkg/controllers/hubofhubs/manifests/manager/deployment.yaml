@@ -29,6 +29,13 @@ spec:
             - --kafka-ssl-ca={{.KafkaCA}}
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)
+            - --cluster-api-cabundle-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            - --server-certificate-path=/certs/tls.crt
+            - --server-key-path=/certs/tls.key
+            - --leader-elect=true
+            - --lease-duration={{.LeaseDuration}}
+            - --renew-deadline={{.RenewDeadline}}
+            - --retry-period={{.RetryPeriod}}
           env:
             - name: POD_NAMESPACE
               valueFrom:
