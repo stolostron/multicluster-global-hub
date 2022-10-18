@@ -94,6 +94,18 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
           - policy.open-cluster-management.io
           resources:
           - policies
@@ -542,6 +554,8 @@ spec:
                   value: quay.io/stolostron/multicluster-global-hub-manager:latest
                 - name: OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT
                   value: quay.io/stolostron/multicluster-global-hub-agent:latest
+                - name: OPERAND_IMAGE_OAUTH_PROXY
+                  value: quay.io/stolostron/origin-oauth-proxy:4.9
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 livenessProbe:
                   httpGet:

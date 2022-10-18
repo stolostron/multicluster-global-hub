@@ -4,6 +4,20 @@ metadata:
   creationTimestamp: null
   name: multicluster-global-hub-operator-aggregated-clusterrole
 rules:
+# for oauth-proxy
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+# for oauth-proxy
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
 - apiGroups:
   - "policy.open-cluster-management.io"
   resources:

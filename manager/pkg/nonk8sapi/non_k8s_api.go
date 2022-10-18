@@ -5,7 +5,6 @@ package nonk8sapi
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -30,41 +29,28 @@ var errFailedToLoadCertificate = errors.New("failed to load certificate/key")
 type NonK8sAPIServerConfig struct {
 	ClusterAPIURL          string
 	ClusterAPICABundlePath string
-	ServerCertificatePath  string
-	ServerKeyPath          string
 	ServerBasePath         string
 }
 
 // nonK8sApiServer defines the non-k8s-api-server
 type nonK8sApiServer struct {
-	log             logr.Logger
-	certificateFile string
-	keyFile         string
-	svr             *http.Server
+	log logr.Logger
+	svr *http.Server
 }
 
-func readCertificates(nonK8sAPIServerConfig *NonK8sAPIServerConfig) ([]byte, tls.Certificate, error) {
-	var (
-		clusterAPICABundle []byte
-		certificate        tls.Certificate
-	)
+func readCertificateAuthority(nonK8sAPIServerConfig *NonK8sAPIServerConfig) ([]byte, error) {
+	var clusterAPICABundle []byte
 
 	if nonK8sAPIServerConfig.ClusterAPICABundlePath != "" {
 		clusterAPICABundle, err := ioutil.ReadFile(nonK8sAPIServerConfig.ClusterAPICABundlePath)
 		if err != nil {
-			return clusterAPICABundle, certificate,
+			return clusterAPICABundle,
 				fmt.Errorf("%w: %s", errFailedToLoadCertificate,
 					nonK8sAPIServerConfig.ClusterAPICABundlePath)
 		}
 	}
 
-	certificate, err := tls.LoadX509KeyPair(nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
-	if err != nil {
-		return clusterAPICABundle, certificate, fmt.Errorf("%w: %s/%s", errFailedToLoadCertificate,
-			nonK8sAPIServerConfig.ServerCertificatePath, nonK8sAPIServerConfig.ServerKeyPath)
-	}
-
-	return clusterAPICABundle, certificate, nil
+	return clusterAPICABundle, nil
 }
 
 // AddNonK8sApiServer adds the non-k8s-api-server to the Manager.
@@ -81,8 +67,6 @@ func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig 
 			Handler:           router,
 			ReadHeaderTimeout: time.Minute * 1,
 		},
-		certificateFile: nonK8sAPIServerConfig.ServerCertificatePath,
-		keyFile:         nonK8sAPIServerConfig.ServerKeyPath,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to add non k8s api server to the manager: %w", err)
@@ -97,9 +81,9 @@ func SetupRouter(database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) (
 	// add aythentication eith openshift oauth
 	// skip authentication middleware if ClusterAPIURL is empty for testing
 	if nonK8sAPIServerConfig.ClusterAPIURL != "" {
-		clusterAPICABundle, _, err := readCertificates(nonK8sAPIServerConfig)
+		clusterAPICABundle, err := readCertificateAuthority(nonK8sAPIServerConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read certificates: %w", err)
+			return nil, fmt.Errorf("failed to read certificates authority: %w", err)
 		}
 		router.Use(authentication.Authentication(nonK8sAPIServerConfig.ClusterAPIURL, clusterAPICABundle))
 	}
@@ -139,7 +123,7 @@ func (s *nonK8sApiServer) Start(ctx context.Context) error {
 		close(idleConnsClosed)
 	}()
 
-	if err := s.svr.ListenAndServeTLS(s.certificateFile, s.keyFile); err != nil && errors.Is(err, http.ErrServerClosed) {
+	if err := s.svr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 

@@ -10,7 +10,8 @@ metadata:
     service.beta.openshift.io/serving-cert-secret-name: multicluster-global-hub-manager-certs
 spec:
   ports:
-  - port: 8080
+  - port: 8443
+    targetPort: oauth-proxy
     name: api-server
   selector:
     name: multicluster-global-hub-manager

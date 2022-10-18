@@ -386,6 +386,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 			checkResourceExistence := func(ctx context.Context, k8sClient client.Client, unsObj *unstructured.Unstructured,
 			) error {
+				// skip session secret check because it contains random value
+				if unsObj.GetName() == "nonk8s-apiserver-cookie-secret" {
+					return nil
+				}
 				objLookupKey := types.NamespacedName{Name: unsObj.GetName(), Namespace: unsObj.GetNamespace()}
 				gvk := unsObj.GetObjectKind().GroupVersionKind()
 				foundObj := &unstructured.Unstructured{}
@@ -418,12 +422,16 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			) (interface{}, error) {
 				return struct {
 					Image                string
+					ProxyImage           string
+					ProxySessionSecret   string
 					DBSecret             string
 					KafkaCA              string
 					KafkaBootstrapServer string
 					Namespace            string
 				}{
 					Image:                config.GetImage("multicluster_global_hub_manager"),
+					ProxyImage:           config.GetImage("oauth_proxy"),
+					ProxySessionSecret:   "testing",
 					DBSecret:             mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 					KafkaCA:              base64.RawStdEncoding.EncodeToString([]byte(kafkaCA)),
 					KafkaBootstrapServer: kafkaBootstrapServer,
@@ -435,6 +443,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				for _, unsObj := range managerObjects {
 					err := checkResourceExistence(ctx, k8sClient, unsObj)
 					if err != nil {
+						fmt.Printf("error to check object(%s/%s) - %v",
+							unsObj.GetNamespace(), unsObj.GetName(), err)
 						return false
 					}
 				}

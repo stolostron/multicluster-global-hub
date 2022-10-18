@@ -5,6 +5,8 @@ package nonk8sapi_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -17,9 +19,10 @@ import (
 )
 
 var (
-	ctx          context.Context
-	cancel       context.CancelFunc
-	testPostgres *testpostgres.TestPostgres
+	ctx            context.Context
+	cancel         context.CancelFunc
+	testPostgres   *testpostgres.TestPostgres
+	testAuthServer *httptest.Server
 )
 
 func TestNonK8sAPI(t *testing.T) {
@@ -36,10 +39,27 @@ var _ = BeforeSuite(func() {
 
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
+
+	testAuthServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"kind": "User",
+			"apiVersion": "user.openshift.io/v1",
+			"metadata": {
+			  "name": "kube:admin",
+			  "creationTimestamp": null
+			},
+			"groups": [
+			  "system:authenticated",
+			  "system:cluster-admins"
+			]
+		  }`))
+	}))
 })
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	testAuthServer.Close()
 	err := testPostgres.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

@@ -42,6 +42,8 @@ spec:
           value: quay.io/stolostron/multicluster-global-hub-manager:latest
         - name: OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT
           value: quay.io/stolostron/multicluster-global-hub-agent:latest
+        - name: OPERAND_IMAGE_OAUTH_PROXY
+          value: quay.io/stolostron/origin-oauth-proxy:4.9
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:

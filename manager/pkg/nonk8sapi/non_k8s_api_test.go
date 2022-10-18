@@ -151,6 +151,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		By("Set up nonk8s-api server router")
 		router, err = nonk8sapi.SetupRouter(postgresSQL, &nonk8sapi.NonK8sAPIServerConfig{
 			ServerBasePath: "/global-hub-api/v1",
+			ClusterAPIURL:  testAuthServer.URL,
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -253,7 +254,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w2.Body.String()).Should(MatchJSON(
 			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
 
-		By("Check the managedcclusters can be listed as table response")
+		By("Check the managedcclusters can be listed as table")
 		mclTable := `
 {
 	"kind": "Table",
@@ -666,7 +667,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w2.Body.String()).Should(MatchJSON(
 			fmt.Sprintf(policyListFormatStr, expectedPolicy1)))
 
-		By("Check the policies can be listed as table response")
+		By("Check the policies can be listed as table")
 		plcTable := `
 {
 	"kind": "Table",
@@ -875,7 +876,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w1.Code).To(Equal(200))
 		Expect(w1.Body.String()).Should(MatchJSON(expectedPolicyStatus1))
 
-		By("Check the policy status can be retrieved with policy ID as table reponse")
+		By("Check the policy status can be retrieved with policy ID as table")
 		plcTable := `
 {
 	"kind": "Table",
@@ -1097,7 +1098,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w2.Body.String()).Should(MatchJSON(
 			fmt.Sprintf(subscriptionListFormatStr, subscription2)))
 
-		By("Check the subscriptions can be listed as table response")
+		By("Check the subscriptions can be listed as table")
 		subscriptionTable := `{
 			"kind": "Table",
 			"apiVersion": "meta.k8s.io/v1",

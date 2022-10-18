@@ -156,10 +156,6 @@ func parseFlags() (*hohManagerConfig, error) {
 		"https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path",
 		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerCertificatePath, "server-certificate-path",
-		"/certs/tls.crt", "The certificate path for nonK8s API server.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerKeyPath, "server-key-path",
-		"/certs/tls.key", "The private key path for nonK8s API server.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerBasePath, "server-base-path",
 		"/global-hub-api/v1", "The base path for nonK8s API server.")
 
