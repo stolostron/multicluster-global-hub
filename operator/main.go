@@ -31,6 +31,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -229,13 +230,11 @@ func GetElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 		RetryPeriod:   26,
 	}
 
-	leaderElectionConfigMapEnvVar := "LEADER_ELECTION_CONFIG"
-	name, found := os.LookupEnv(leaderElectionConfigMapEnvVar)
-	if !found {
+	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.HOHDefaultNamespace).Get(
+		context.TODO(), commonconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
 		return config, nil
 	}
-	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.HOHDefaultNamespace).Get(
-		context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

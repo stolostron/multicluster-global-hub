@@ -31,7 +31,7 @@ metadata:
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     operatorframework.io/suggested-namespace: open-cluster-management
-    operators.operatorframework.io/builder: operator-sdk-v1.23.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.23.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/stolostron/multicluster-global-hub
     support: Red Hat
@@ -556,8 +556,6 @@ spec:
                   value: quay.io/stolostron/multicluster-global-hub-agent:latest
                 - name: OPERAND_IMAGE_OAUTH_PROXY
                   value: quay.io/stolostron/origin-oauth-proxy:4.9
-                - name: LEADER_ELECTION_CONFIG
-                  value: controller-leader-election-configmap
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 livenessProbe:
                   httpGet:

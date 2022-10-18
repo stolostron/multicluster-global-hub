@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -47,7 +48,7 @@ func TestLeaderElectionConfig(t *testing.T) {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      configMapName,
+			Name:      commonconstants.ControllerLeaderElectionConfig,
 			Namespace: constants.HOHDefaultNamespace,
 		},
 		Data: map[string]string{"leaseDuration": "123", "renewDeadline": "345", "retryPeriod": "456"},

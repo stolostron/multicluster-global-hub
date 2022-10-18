@@ -146,10 +146,9 @@ var _ = BeforeSuite(func() {
 
 	// the leader election will be propagate to global hub manager
 	leaderElection := &commonobjects.LeaderElectionConfig{
-		LeaseDuration:  137,
-		RenewDeadline:  107,
-		RetryPeriod:    26,
-		LeaderElection: true,
+		LeaseDuration: 137,
+		RenewDeadline: 107,
+		RetryPeriod:   26,
 	}
 	err = (&hubofhubscontroller.MulticlusterGlobalHubReconciler{
 		Manager:        k8sManager,

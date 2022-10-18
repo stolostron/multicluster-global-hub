@@ -164,7 +164,6 @@ func parseFlags() (*hohManagerConfig, error) {
 	pflag.IntVar(&managerConfig.electionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
 	pflag.IntVar(&managerConfig.electionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
 	pflag.IntVar(&managerConfig.electionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
-	flag.BoolVar(&managerConfig.electionConfig.LeaderElection, "leader-elect", false, "controller leader election")
 	// add flags for logger
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -298,7 +297,7 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 	options := ctrl.Options{
 		Namespace:               managerConfig.watchNamespace,
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		LeaderElection:          managerConfig.electionConfig.LeaderElection,
+		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.managerNamespace,
 		LeaderElectionID:        leaderElectionLockName,
 		LeaseDuration:           &leaseDuration,

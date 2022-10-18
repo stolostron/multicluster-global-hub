@@ -44,8 +44,6 @@ spec:
           value: quay.io/stolostron/multicluster-global-hub-agent:latest
         - name: OPERAND_IMAGE_OAUTH_PROXY
           value: quay.io/stolostron/origin-oauth-proxy:4.9
-        - name: LEADER_ELECTION_CONFIG
-          value: controller-leader-election-configmap
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:

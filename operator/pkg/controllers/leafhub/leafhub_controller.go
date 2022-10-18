@@ -50,6 +50,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
 // hubClusters defines internal map that stores hub clusters
@@ -79,7 +80,8 @@ type LeafHubReconciler struct {
 	DynamicClient dynamic.Interface
 	KubeClient    kubernetes.Interface
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme         *runtime.Scheme
+	LeaderElection *commonobjects.LeaderElectionConfig
 }
 
 //+kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;update;watch
@@ -275,7 +277,7 @@ func (r *LeafHubReconciler) reconcileLeafHub(ctx context.Context, req ctrl.Reque
 	if managedCluster.GetLabels()[commonconstants.RegionalHubTypeLabelKey] ==
 		commonconstants.RegionalHubTypeNoHubInstall {
 		// need to handle the case that import the existing hub cluster as a regional hub of the global hub.
-		err := applyHoHAgentWork(ctx, r.Client, r.KubeClient, log, mgh, managedClusterName)
+		err := applyHoHAgentWork(ctx, r.Client, r.KubeClient, log, mgh, managedClusterName, r.LeaderElection)
 		if err != nil {
 			return err
 		}
@@ -380,7 +382,7 @@ func (r *LeafHubReconciler) reconcileNonHostedLeafHub(ctx context.Context, log l
 	}
 
 	// apply the multicluster-global-hub-agent manifestwork
-	return applyHoHAgentWork(ctx, r.Client, r.KubeClient, log, mgh, managedClusterName)
+	return applyHoHAgentWork(ctx, r.Client, r.KubeClient, log, mgh, managedClusterName, r.LeaderElection)
 }
 
 // reconcileHostedLeafHub reconciles the multiclusterglobalhub change
@@ -416,7 +418,7 @@ func (r *LeafHubReconciler) reconcileHostedLeafHub(ctx context.Context, log logr
 	}
 
 	// apply the multicluster-global-hub-agent manifestwork
-	return applyHoHAgentHypershiftWork(ctx, r.Client, r.KubeClient, log, mgh, hcConfig)
+	return applyHoHAgentHypershiftWork(ctx, r.Client, r.KubeClient, log, mgh, hcConfig, r.LeaderElection)
 }
 
 // reconcileMulticlusterGlobalHub reconciles the multiclusterglobalhub change

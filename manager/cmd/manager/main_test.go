@@ -15,8 +15,6 @@ func TestParseFlags(t *testing.T) {
 		"test.example.com:5432",
 		"--transport-bridge-database-url",
 		"test.example.com:5432",
-		"--leader-elect",
-		"true",
 		"--lease-duration",
 		"123",
 		"--renew-deadline",
@@ -33,10 +31,6 @@ func TestParseFlags(t *testing.T) {
 		if managerConfig.nonK8sAPIServerConfig.ServerBasePath != "/global-hub-api/v1" {
 			t.Fatalf("unexpected non-k8s-api server base path] - got '%s', want '/global-hub-api/v1'",
 				managerConfig.nonK8sAPIServerConfig.ServerBasePath)
-		}
-		if managerConfig.electionConfig.LeaderElection != true {
-			t.Fatalf("unexpected electionConfig LeaderElection] - got '%t', want 'true'",
-				managerConfig.electionConfig.LeaderElection)
 		}
 
 		if managerConfig.electionConfig.LeaseDuration != 123 {
