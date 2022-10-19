@@ -75,7 +75,23 @@ func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig 
 	return nil
 }
 
-// SetupRouter set up router for nonk8s apiserver
+// @title         Multicluster Global Hub API
+// @version       1.0.0
+// @description   This documentation is for the APIs of multicluster global hub resources for {product-title}.
+
+// @contact.name  acm-contact
+// @contact.email acm-contact@redhat.com
+// @contact.url   https://github.com/stolostron/multicluster-global-hub
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @basePath      /global-hub-api/v1
+// @schemes       http https
+// @securityDefinitions.apikey  ApiKeyAuth
+// @in                          header
+// @name                        Authorization
+// @description					Authorization with user access token
 func SetupRouter(database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) (*gin.Engine, error) {
 	router := gin.Default()
 	// add aythentication eith openshift oauth

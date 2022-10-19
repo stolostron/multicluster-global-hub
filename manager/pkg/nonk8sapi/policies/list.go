@@ -48,7 +48,23 @@ var (
 	customResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(crdName, policyv1.GroupVersion.Version)
 )
 
-// ListPolicies middleware
+// ListPolicies godoc
+// @summary list policies
+// @description list policies
+// @accept json
+// @produce json
+// @param        labelSelector    query     string  false  "list policies by label selector"
+// @param        limit            query     int     false  "maximum policy number to receive"
+// @param        continue         query     string  false  "continue token to request next request"
+// @success      200  {object}    policyv1.PolicyList
+// @failure      400
+// @failure      401
+// @failure      403
+// @failure      404
+// @failure      500
+// @failure      503
+// @security     ApiKeyAuth
+// @router /policies [get]
 func ListPolicies(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		labelSelector := ginCtx.Query("labelSelector")

@@ -26,7 +26,22 @@ type patch struct {
 	Value string `json:"value"`
 }
 
-// PatchManagedCluster middleware
+// PatchManagedCluster godoc
+// @summary patch managed cluster label
+// @description patch label for a given managed cluster
+// @accept json
+// @produce json
+// @param        clusterID    path    string    true    "Managed Cluster ID"
+// @param        patch        body    patch     true    "JSON patch that operators on managed cluster label"
+// @success      200
+// @failure      400
+// @failure      401
+// @failure      403
+// @failure      404
+// @failure      500
+// @failure      503
+// @security     ApiKeyAuth
+// @router /managedcluster/{clusterID} [patch]
 func PatchManagedCluster(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		clusterID := ginCtx.Param("clusterID")
@@ -77,6 +92,8 @@ func PatchManagedCluster(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 			ginCtx.String(http.StatusInternalServerError, "internal error")
 			fmt.Fprintf(gin.DefaultWriter, "error in updating managed cluster labels: %v\n", err)
 		}
+
+		ginCtx.String(http.StatusOK, "managed cluster label patched")
 	}
 }
 

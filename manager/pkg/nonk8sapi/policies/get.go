@@ -22,7 +22,21 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
 )
 
-// GetPolicyStatus middleware
+// GetPolicyStatus godoc
+// @summary get policy status
+// @description get status with a given policy
+// @accept json
+// @produce json
+// @param        policyID    path    string    true    "Policy ID"
+// @success      200  {object}  policyv1.Policy
+// @failure      400
+// @failure      401
+// @failure      403
+// @failure      404
+// @failure      500
+// @failure      503
+// @security     ApiKeyAuth
+// @router /policy/{policyID}/status [get]
 func GetPolicyStatus(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		policyID := ginCtx.Param("policyID")

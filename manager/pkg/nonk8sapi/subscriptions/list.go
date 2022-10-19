@@ -35,7 +35,23 @@ const (
 var customResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(crdName,
 	appsv1.SchemeGroupVersion.Version)
 
-// ListSubscriptions middleware
+// ListSubscriptions godoc
+// @summary list application subscriptions
+// @description list application subscriptions
+// @accept json
+// @produce json
+// @param        labelSelector    query     string  false  "list application subscriptions by label selector"
+// @param        limit            query     int     false  "maximum application subscription number to receive"
+// @param        continue         query     string  false  "continue token to request next request"
+// @success      200  {object}    appsv1.SubscriptionList
+// @failure      400
+// @failure      401
+// @failure      403
+// @failure      404
+// @failure      500
+// @failure      503
+// @security     ApiKeyAuth
+// @router /subscriptions [get]
 func ListSubscriptions(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		labelSelector := ginCtx.Query("labelSelector")

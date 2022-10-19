@@ -36,7 +36,23 @@ const (
 	crdName                                     = "managedclusters.cluster.open-cluster-management.io"
 )
 
-// ListManagedClusters middleware
+// ListManagedClusters godoc
+// @summary list managed clusters
+// @description list managed clusters
+// @accept json
+// @produce json
+// @param        labelSelector    query     string  false  "list managed clusters by label selector"
+// @param        limit            query     int     false  "maximum managed cluster number to receive"
+// @param        continue         query     string  false  "continue token to request next request"
+// @success      200  {object}    clusterv1.ManagedClusterList
+// @failure      400
+// @failure      401
+// @failure      403
+// @failure      404
+// @failure      500
+// @failure      503
+// @security     ApiKeyAuth
+// @router /managedclusters [get]
 func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	customResourceColumnDefinitions := util.GetCustomResourceColumnDefinitions(crdName,
 		clusterv1.GroupVersion.Version)

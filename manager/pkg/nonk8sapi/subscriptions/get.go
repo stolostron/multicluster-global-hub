@@ -38,7 +38,21 @@ var (
 		appsv1alpha1.SchemeGroupVersion.Version)
 )
 
-// GetSubscriptionStatus middleware
+// GetSubscriptionStatus godoc
+// @summary get application subscription status
+// @description get status for a given application subscription
+// @accept json
+// @produce json
+// @param        subscriptionID    path    string    true    "Subscription ID"
+// @success      200  {object}  appsv1alpha1.SubscriptionStatus
+// @failure      400
+// @failure      401
+// @failure      403
+// @failure      404
+// @failure      500
+// @failure      503
+// @security     ApiKeyAuth
+// @router /subscriptionstatus/{subscriptionID} [get]
 func GetSubscriptionStatus(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		subscriptionID := ginCtx.Param("subscriptionID")
@@ -53,7 +67,21 @@ func GetSubscriptionStatus(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
-// GetSubscriptionReport middleware
+// GetSubscriptionReport godoc
+// @summary get application subscription report
+// @description get report for a given application subscription
+// @accept json
+// @produce json
+// @param        subscriptionID    path    string    true    "Subscription ID"
+// @success      200  {object}     appsv1alpha1.SubscriptionReport
+// @failure      400
+// @failure      401
+// @failure      403
+// @failure      404
+// @failure      500
+// @failure      503
+// @security     ApiKeyAuth
+// @router /subscriptionreport/{subscriptionID} [get]
 func GetSubscriptionReport(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		subscriptionID := ginCtx.Param("subscriptionID")
