@@ -428,6 +428,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaCA              string
 					KafkaBootstrapServer string
 					Namespace            string
+					LeaseDuration        string
+					RenewDeadline        string
+					RetryPeriod          string
 				}{
 					Image:                config.GetImage("multicluster_global_hub_manager"),
 					ProxyImage:           config.GetImage("oauth_proxy"),
@@ -436,6 +439,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaCA:              base64.RawStdEncoding.EncodeToString([]byte(kafkaCA)),
 					KafkaBootstrapServer: kafkaBootstrapServer,
 					Namespace:            config.GetDefaultNamespace(),
+					LeaseDuration:        "137",
+					RenewDeadline:        "107",
+					RetryPeriod:          "26",
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())

@@ -29,6 +29,9 @@ spec:
             - --kafka-ssl-ca={{.KafkaCA}}
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)
+            - --lease-duration={{.LeaseDuration}}
+            - --renew-deadline={{.RenewDeadline}}
+            - --retry-period={{.RetryPeriod}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 
 	kafkaclient "github.com/stolostron/multicluster-global-hub/pkg/kafka"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
 const (
@@ -44,6 +45,7 @@ type ConfigManager struct {
 	StatusDeltaCountSwitchFactor int
 	Kafka                        *KafkaConfig
 	SyncService                  *SyncServiceConfig
+	ElectionConfig               *commonobjects.LeaderElectionConfig
 }
 
 func NewConfigManager() (*ConfigManager, error) {
@@ -52,8 +54,9 @@ func NewConfigManager() (*ConfigManager, error) {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	configManager := &ConfigManager{
-		Kafka:       &KafkaConfig{},
-		SyncService: &SyncServiceConfig{},
+		Kafka:          &KafkaConfig{},
+		SyncService:    &SyncServiceConfig{},
+		ElectionConfig: &commonobjects.LeaderElectionConfig{},
 	}
 
 	pflag.StringVar(&configManager.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
@@ -96,6 +99,9 @@ func NewConfigManager() (*ConfigManager, error) {
 	pflag.IntVar(&configManager.StatusDeltaCountSwitchFactor,
 		"status-delta-count-switch-factor", 100,
 		"default with 100.")
+	pflag.IntVar(&configManager.ElectionConfig.LeaseDuration, "lease-duration", 137, "leader election lease duration")
+	pflag.IntVar(&configManager.ElectionConfig.RenewDeadline, "renew-deadline", 107, "leader election renew deadline")
+	pflag.IntVar(&configManager.ElectionConfig.RetryPeriod, "retry-period", 26, "leader election retry period")
 	pflag.Parse()
 
 	if configManager.LeafHubName == "" {

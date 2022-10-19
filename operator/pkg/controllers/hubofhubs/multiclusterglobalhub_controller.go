@@ -63,6 +63,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
 //go:embed manifests
@@ -76,8 +77,9 @@ var isLeafHubControllerRunnning = false
 type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
-	KubeClient kubernetes.Interface
-	Scheme     *runtime.Scheme
+	KubeClient     kubernetes.Interface
+	Scheme         *runtime.Scheme
+	LeaderElection *commonobjects.LeaderElectionConfig
 }
 
 //+kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -141,7 +143,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if mgh.Spec.DataLayer == nil {
-		return ctrl.Result{}, fmt.Errorf("empty data layer type.")
+		return ctrl.Result{}, fmt.Errorf("empty data layer type")
 	}
 
 	switch mgh.Spec.DataLayer.Type {
@@ -170,10 +172,11 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			return ctrl.Result{}, err
 		}
 		if err := (&leafhubscontroller.LeafHubReconciler{
-			DynamicClient: dynamicClient,
-			KubeClient:    kubeClient,
-			Client:        r.Client,
-			Scheme:        r.Scheme,
+			DynamicClient:  dynamicClient,
+			KubeClient:     kubeClient,
+			Client:         r.Client,
+			Scheme:         r.Scheme,
+			LeaderElection: r.LeaderElection,
 		}).SetupWithManager(r.Manager); err != nil {
 			log.Error(err, "unable to create controller", "controller", "LeafHub")
 			return ctrl.Result{}, err
@@ -302,6 +305,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			KafkaCA              string
 			KafkaBootstrapServer string
 			Namespace            string
+			LeaseDuration        string
+			RenewDeadline        string
+			RetryPeriod          string
 		}{
 			Image:                config.GetImage("multicluster_global_hub_manager"),
 			ProxyImage:           config.GetImage("oauth_proxy"),
@@ -310,6 +316,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			KafkaCA:              kafkaCA,
 			KafkaBootstrapServer: kafkaBootstrapServer,
 			Namespace:            config.GetDefaultNamespace(),
+			LeaseDuration:        strconv.Itoa(r.LeaderElection.LeaseDuration),
+			RenewDeadline:        strconv.Itoa(r.LeaderElection.RenewDeadline),
+			RetryPeriod:          strconv.Itoa(r.LeaderElection.RetryPeriod),
 		}, nil
 	})
 	if err != nil {
@@ -351,8 +360,7 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] =
-			commonconstants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)

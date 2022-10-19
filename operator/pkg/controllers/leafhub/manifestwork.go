@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -44,6 +45,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
 //go:embed manifests/nonhypershift
@@ -93,6 +95,9 @@ type HoHAgentConfigValues struct {
 	KafkaBootstrapServer   string
 	KafkaCA                string
 	HostedClusterNamespace string // for hypershift case
+	LeaseDuration          string
+	RenewDeadline          string
+	RetryPeriod            string
 }
 
 // applyHubSubWork creates or updates the subscription manifestwork for leafhub cluster
@@ -622,6 +627,7 @@ func generateWorkManifestsFromBuffer(buf *bytes.Buffer) ([]workv1.Manifest, erro
 // applyHoHAgentWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface, log logr.Logger,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub, managedClusterName string,
+	electionConfig *commonobjects.LeaderElectionConfig,
 ) error {
 	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, mgh)
 	if err != nil {
@@ -633,6 +639,9 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernet
 		LeadHubID:            managedClusterName,
 		KafkaBootstrapServer: kafkaBootstrapServer,
 		KafkaCA:              kafkaCA,
+		LeaseDuration:        strconv.Itoa(electionConfig.LeaseDuration),
+		RenewDeadline:        strconv.Itoa(electionConfig.RenewDeadline),
+		RetryPeriod:          strconv.Itoa(electionConfig.RetryPeriod),
 	}
 
 	tpl, err := parseNonHypershiftTemplates(nonHypershiftManifestFS)
@@ -693,6 +702,7 @@ func applyHoHAgentWork(ctx context.Context, c client.Client, kubeClient kubernet
 // applyHoHAgentHypershiftWork creates or updates multicluster-global-hub-agent manifestwork
 func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, kubeClient kubernetes.Interface,
 	log logr.Logger, mgh *operatorv1alpha2.MulticlusterGlobalHub, hcConfig *config.HostedClusterConfig,
+	electionConfig *commonobjects.LeaderElectionConfig,
 ) error {
 	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, kubeClient, mgh)
 	if err != nil {
@@ -705,6 +715,9 @@ func applyHoHAgentHypershiftWork(ctx context.Context, c client.Client, kubeClien
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCA:                kafkaCA,
 		HostedClusterNamespace: fmt.Sprintf("%s-%s", hcConfig.HostingNamespace, hcConfig.HostedClusterName),
+		LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),
+		RenewDeadline:          strconv.Itoa(electionConfig.RenewDeadline),
+		RetryPeriod:            strconv.Itoa(electionConfig.RetryPeriod),
 	}
 
 	tpl, err := parseAgentHypershiftTemplates(hypershiftAgentManifestFS)

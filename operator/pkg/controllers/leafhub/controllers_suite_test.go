@@ -44,6 +44,7 @@ import (
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	leafhubcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/leafhub"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -125,11 +126,17 @@ var _ = BeforeSuite(func() {
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
 
+	leaderElection := &commonobjects.LeaderElectionConfig{
+		LeaseDuration: 137,
+		RenewDeadline: 107,
+		RetryPeriod:   26,
+	}
 	err = (&leafhubcontroller.LeafHubReconciler{
-		DynamicClient: dynamicClient,
-		KubeClient:    kubeClient,
-		Client:        k8sManager.GetClient(),
-		Scheme:        k8sManager.GetScheme(),
+		DynamicClient:  dynamicClient,
+		KubeClient:     kubeClient,
+		Client:         k8sManager.GetClient(),
+		Scheme:         k8sManager.GetScheme(),
+		LeaderElection: leaderElection,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

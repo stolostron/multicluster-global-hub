@@ -38,6 +38,7 @@ import (
 	statussyncservice "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/syncservice"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
 const (
@@ -68,6 +69,7 @@ type hohManagerConfig struct {
 	syncServiceConfig     *statussyncservice.SyncServiceConfig
 	statisticsConfig      *statistics.StatisticsConfig
 	nonK8sAPIServerConfig *nonk8sapi.NonK8sAPIServerConfig
+	electionConfig        *commonobjects.LeaderElectionConfig
 }
 
 type syncerConfig struct {
@@ -106,6 +108,7 @@ func parseFlags() (*hohManagerConfig, error) {
 		syncServiceConfig:     &statussyncservice.SyncServiceConfig{},
 		statisticsConfig:      &statistics.StatisticsConfig{},
 		nonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
+		electionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
 
 	pflag.StringVar(&managerConfig.managerNamespace, "manager-namespace", "open-cluster-management",
@@ -158,7 +161,9 @@ func parseFlags() (*hohManagerConfig, error) {
 		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerBasePath, "server-base-path",
 		"/global-hub-api/v1", "The base path for nonK8s API server.")
-
+	pflag.IntVar(&managerConfig.electionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
+	pflag.IntVar(&managerConfig.electionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
+	pflag.IntVar(&managerConfig.electionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
 	// add flags for logger
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -286,12 +291,18 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
 	statistics *statistics.Statistics,
 ) (ctrl.Manager, error) {
+	leaseDuration := time.Duration(managerConfig.electionConfig.LeaseDuration) * time.Second
+	renewDeadline := time.Duration(managerConfig.electionConfig.RenewDeadline) * time.Second
+	retryPeriod := time.Duration(managerConfig.electionConfig.RetryPeriod) * time.Second
 	options := ctrl.Options{
 		Namespace:               managerConfig.watchNamespace,
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.managerNamespace,
 		LeaderElectionID:        leaderElectionLockName,
+		LeaseDuration:           &leaseDuration,
+		RenewDeadline:           &renewDeadline,
+		RetryPeriod:             &retryPeriod,
 		Port:                    webhookPort,
 		CertDir:                 webhookCertDir,
 	}
