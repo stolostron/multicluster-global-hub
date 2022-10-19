@@ -10,6 +10,7 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-logr/logr v1.2.3
 	github.com/gonvenience/ytbx v1.4.4
+	github.com/google/uuid v1.3.0
 	github.com/homeport/dyff v1.5.5
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/kylelemons/godebug v1.1.0
@@ -26,11 +27,12 @@ require (
 	github.com/stolostron/hypershift-deployment-controller v0.0.0-20220728190014-4f85d5954f19
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20220902185016-e81ccfbecf55
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.24.3
-	k8s.io/apiextensions-apiserver v0.24.3
-	k8s.io/apimachinery v0.24.3
+	k8s.io/api v0.25.0
+	k8s.io/apiextensions-apiserver v0.25.0
+	k8s.io/apimachinery v0.25.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
+	open-cluster-management.io/addon-framework v0.4.1-0.20221019024028-8f5cec5bb19c
 	open-cluster-management.io/api v0.8.1-0.20220922101757-abd2ec6ed64f
 	open-cluster-management.io/governance-policy-propagator v0.8.0
 	open-cluster-management.io/multicloud-operators-channel v0.8.0
@@ -38,6 +40,27 @@ require (
 	sigs.k8s.io/application v0.8.3
 	sigs.k8s.io/controller-runtime v0.12.3
 	sigs.k8s.io/yaml v1.3.0
+)
+
+require (
+	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver/v3 v3.1.1 // indirect
+	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
+	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
+	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
+	github.com/fatih/structs v1.1.0 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/shopspring/decimal v1.3.1 // indirect
+	github.com/spf13/cast v1.5.0 // indirect
+	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
+	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
+	helm.sh/helm/v3 v3.9.4 // indirect
+	k8s.io/apiserver v0.25.0 // indirect
+	k8s.io/component-base v0.25.0 // indirect
 )
 
 require (
@@ -60,8 +83,6 @@ require (
 	github.com/containerd/continuity v0.2.2 // indirect
 	github.com/containerd/ttrpc v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/docker/cli v20.10.17+incompatible // indirect
-	github.com/docker/docker v20.10.17+incompatible // indirect
 	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
@@ -86,8 +107,6 @@ require (
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/uuid v1.3.0
-	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/h2non/filetype v1.1.1 // indirect
 	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
@@ -133,7 +152,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/net v0.0.0-20220726230323-06994584191e // indirect
 	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c // indirect
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.0.0-20220727055044-e65921a090b8 // indirect
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035 // indirect
 	golang.org/x/text v0.3.7 // indirect
@@ -145,22 +164,19 @@ require (
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	helm.sh/helm/v3 v3.9.4 // indirect
-	k8s.io/apiserver v0.24.3 // indirect
-	k8s.io/component-base v0.24.3 // indirect
 	k8s.io/klog/v2 v2.70.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20220627174259-011e075b9cb8 // indirect
-	k8s.io/utils v0.0.0-20220725171434-9bab9ef40391 // indirect
+	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
+	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect
 	sigs.k8s.io/cluster-api v1.1.4 // indirect
 	sigs.k8s.io/cluster-api-provider-aws v1.1.0 // indirect
 	sigs.k8s.io/cluster-api-provider-ibmcloud v0.2.3 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
 replace (
 	github.com/google/gnostic => github.com/google/gnostic v0.5.7-v3refs
-	k8s.io/client-go => k8s.io/client-go v0.24.2
+	k8s.io/client-go => k8s.io/client-go v0.25.0
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42
 	sigs.k8s.io/cluster-api-provider-kubevirt => github.com/openshift/cluster-api-provider-kubevirt v0.0.0-20211223062810-ef64d5ff1cde
 )

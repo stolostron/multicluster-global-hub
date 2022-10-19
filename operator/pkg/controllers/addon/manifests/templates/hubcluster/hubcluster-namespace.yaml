@@ -1,0 +1,8 @@
+{{ if .InstallACMHub }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: open-cluster-management
+  labels:
+    addon.open-cluster-management.io/hosted-manifest-location: managed
+{{ end }}

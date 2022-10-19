@@ -175,7 +175,7 @@ func buildManagedClusterAddon(managedClusterName, hostingClusterName, hostedClus
 
 	if hostingClusterName != "" {
 		managedClusterAddon.SetAnnotations(map[string]string{
-			constants.AnnotationHostingClusterName: hostingClusterName,
+			constants.AnnotationClusterHostingClusterName: hostingClusterName,
 		})
 		managedClusterAddon.Spec = addonv1alpha1.ManagedClusterAddOnSpec{
 			InstallNamespace: hostedClusterNamespace,

@@ -1,0 +1,11 @@
+{{ if .InstallACMHub }}
+apiVersion: operator.open-cluster-management.io/v1
+kind: MultiClusterHub
+metadata:
+  name: multiclusterhub
+  namespace: open-cluster-management
+  labels:
+    addon.open-cluster-management.io/hosted-manifest-location: managed
+spec:
+  disableHubSelfManagement: true
+{{ end }}

@@ -12,8 +12,23 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
   - update
   - watch
 - apiGroups:
@@ -63,6 +78,14 @@ rules:
 - apiGroups:
   - addon.open-cluster-management.io
   resources:
+  - addondeploymentconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - addon.open-cluster-management.io
+  resources:
   - clustermanagementaddons
   verbs:
   - create
@@ -75,15 +98,35 @@ rules:
 - apiGroups:
   - addon.open-cluster-management.io
   resources:
+  - clustermanagementaddons/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - addon.open-cluster-management.io
+  resources:
   - managedclusteraddons
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
   - update
   - watch
+- apiGroups:
+  - addon.open-cluster-management.io
+  resources:
+  - managedclusteraddons/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - addon.open-cluster-management.io
+  resources:
+  - managedclusteraddons/status
+  verbs:
+  - patch
+  - update
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
@@ -143,6 +186,41 @@ rules:
   - patch
   - update
 - apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests/approval
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - signers
+  verbs:
+  - approve
+- apiGroups:
   - cluster.open-cluster-management.io
   resources:
   - hypershiftdeployments
@@ -191,6 +269,17 @@ rules:
   - list
   - patch
   - update
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - operator.open-cluster-management.io
   resources:

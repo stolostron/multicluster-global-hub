@@ -68,6 +68,15 @@ const (
 	// NoHubAgentInstall stands up the managed cluster won't be managed by the global hub.
 	RegionalHubTypeNoHubAgentInstall = "NoHubAgentInstall"
 
+	// AgentDeployModeLabelKey is to indicate which deploy mode the agent is installed.
+	AgentDeployModeLabelKey = "global-hub.open-cluster-management.io/agent-deploy-mode"
+	// AgentDeployModeHosted is to install agent in Hosted mode
+	AgentDeployModeHosted = "Hosted"
+	// AgentDeployModeDefault is to install agent in Default mode
+	AgentDeployModeDefault = "Default"
+	// AgentDeployModeNone is to not install agent
+	AgentDeployModeNone = "None"
+
 	// identify the resource is managed by
 	GlobalHubOwnerLabelKey   = "global-hub.open-cluster-management.io/managed-by"
 	GlobalHubOwnerLabelVal   = "global-hub"
@@ -92,3 +101,10 @@ const (
 	// cleanup finalizer
 	GlobalHubCleanupFinalizer = "global-hub.open-cluster-management.io/resource-cleanup"
 )
+
+const (
+	// VersionClusterClaimName is a claim to record the ACM version
+	VersionClusterClaimName = "version.open-cluster-management.io"
+)
+
+var EnableAddon bool

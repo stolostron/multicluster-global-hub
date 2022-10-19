@@ -83,7 +83,13 @@ var _ = Describe("controller", Ordered, func() {
 			err := mgr.GetClient().Get(ctx, types.NamespacedName{
 				Name: "version.open-cluster-management.io",
 			}, clusterClaim)
-			return err == nil
+			if err != nil {
+				return false
+			}
+			if clusterClaim.Spec.Value == "" {
+				return false
+			}
+			return true
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 		Expect(clusterClaim.Spec.Value).Should(Equal(MCHVersion))
 

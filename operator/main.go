@@ -58,6 +58,7 @@ import (
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -90,7 +91,7 @@ func init() {
 	utilruntime.Must(policyv1.AddToScheme(scheme))
 	utilruntime.Must(applicationv1beta1.AddToScheme(scheme))
 	utilruntime.Must(admissionregistrationv1.AddToScheme(scheme))
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 }
 
 type operatorConfig struct {
@@ -185,7 +186,21 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "MulticlusterGlobalHub")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
+	//	commonconstants.EnableAddon = true
+	// start addon controller
+	if commonconstants.EnableAddon {
+		if err = addon.NewHoHAddonInstallReconciler(mgr.GetClient()).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create addon install controller", "controller", "MulticlusterGlobalHub")
+			os.Exit(1)
+		}
+
+		if err = mgr.Add(addon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient())); err != nil {
+			setupLog.Error(err, "unable to add addon controller", "controller", "MulticlusterGlobalHub")
+			os.Exit(1)
+		}
+	}
+
+	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
