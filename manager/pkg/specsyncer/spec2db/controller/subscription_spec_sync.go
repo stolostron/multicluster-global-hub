@@ -26,7 +26,7 @@ func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {
 					return false
 				}
 			}
-			return true
+			return obj.GetName() != "hive-clusterimagesets-subscription-fast-0"
 		})).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
