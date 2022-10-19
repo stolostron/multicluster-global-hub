@@ -31,7 +31,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 	}
 	scheme := runtime.NewScheme()
 	scheme.AddKnownTypes(policiesv1.GroupVersion, policy)
-	c := fake.NewFakeClientWithScheme(scheme)
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	controller := &genericStatusSyncController{
 		client:        c,
@@ -48,7 +48,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 		t.Fatal("Expect to report error")
 	}
 
-	//create the object
+	// create the object
 	if err := c.Create(context.TODO(), policy, &client.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//do nothing
+	// do nothing
 	if err := controller.addFinalizer(context.TODO(), policy, controller.log); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//do nothing
+	// do nothing
 	if err := controller.removeFinalizer(context.TODO(), policy, controller.log); err != nil {
 		t.Fatal(err)
 	}
