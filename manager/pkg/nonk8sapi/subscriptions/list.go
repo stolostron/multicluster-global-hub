@@ -82,7 +82,7 @@ func ListSubscriptions(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 			lastSubscriptionUID)
 
 		// the last subscription query order by subscription name and uid
-		lastSubscriptionQuery := "SELECT payload FROM spec.subscriptions " +
+		lastSubscriptionQuery := "SELECT payload FROM spec.subscriptions WHERE deleted = FALSE " +
 			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
 
 		// subscrition list query
