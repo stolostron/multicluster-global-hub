@@ -172,10 +172,11 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			return ctrl.Result{}, err
 		}
 		if err := (&leafhubscontroller.LeafHubReconciler{
-			DynamicClient: dynamicClient,
-			KubeClient:    kubeClient,
-			Client:        r.Client,
-			Scheme:        r.Scheme,
+			DynamicClient:  dynamicClient,
+			KubeClient:     kubeClient,
+			Client:         r.Client,
+			Scheme:         r.Scheme,
+			LeaderElection: r.LeaderElection,
 		}).SetupWithManager(r.Manager); err != nil {
 			log.Error(err, "unable to create controller", "controller", "LeafHub")
 			return ctrl.Result{}, err
@@ -359,8 +360,7 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] =
-			commonconstants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
