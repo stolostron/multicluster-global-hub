@@ -105,7 +105,7 @@ func ListPolicies(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		// last policy order by name and uid query
-		lastPolicyQuery := "SELECT id, payload FROM spec.policies " +
+		lastPolicyQuery := "SELECT id, payload FROM spec.policies WHERE deleted = FALSE " +
 			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
 
 		fmt.Fprintf(gin.DefaultWriter, "last policy query: %v\n", lastPolicyQuery)
