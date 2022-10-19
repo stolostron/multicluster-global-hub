@@ -110,14 +110,11 @@ function initManaged() {
     kubectl config use-context "${managed}"
     clusteradm get token --context "${hub}" | grep "clusteradm" > "$joinCommand"
     if [[ $hub =~ "kind" ]]; then
-      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" > "${joinCommand}-named"
-      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" | bash
-      if [ $? -ne 0 ]; then
-        sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup;" "$joinCommand" | bash
-      fi
+      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup --wait;" "$joinCommand" > "${joinCommand}-named"
+      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup --wait;" "$joinCommand" | bash
     else
-      sed -e "s;<cluster_name>;${managed};" "$joinCommand" > "${joinCommand}-named"
-      sed -e "s;<cluster_name>;${managed};" "$joinCommand" | bash
+      sed -e "s;<cluster_name>;${managed} --wait;" "$joinCommand" > "${joinCommand}-named"
+      sed -e "s;<cluster_name>;${managed} --wait;" "$joinCommand" | bash
     fi
     sleep 2
     kubectl scale deployment klusterlet -n open-cluster-management --replicas=1
