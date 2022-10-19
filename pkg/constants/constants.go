@@ -2,9 +2,11 @@ package constants
 
 const (
 	// HohSystemNamespace - Hub of Hubs dedicated namespace.
-	HohSystemNamespace             = "open-cluster-management-global-hub-system"
-	HoHConfigName                  = "multicluster-global-hub-config"
-	MultiClusterHubKind            = "MultiClusterHub"
+	HohSystemNamespace  = "open-cluster-management-global-hub-system"
+	HoHConfigName       = "multicluster-global-hub-config"
+	MultiClusterHubKind = "MultiClusterHub"
+	// ControllerLeaderElectionConfig allows customizing LeaseDuration, RenewDeadline and RetryPeriod
+	// for operator, manager and agent via the ConfigMap
 	ControllerLeaderElectionConfig = "controller-leader-election-configmap"
 )
 

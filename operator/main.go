@@ -209,7 +209,7 @@ func parseFlags() *operatorConfig {
 		"The address the metric endpoint binds to.")
 	flag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081",
 		"The address the probe endpoint binds to.")
-	flag.BoolVar(&config.LeaderElection, "leader-elect", false,
+	flag.BoolVar(&config.LeaderElection, "leader-election", false,
 		"Enable leader election for controller manager. ")
 	opts := zap.Options{
 		Development: true,

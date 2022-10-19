@@ -542,7 +542,7 @@ spec:
             spec:
               containers:
               - args:
-                - --leader-elect
+                - --leader-election
                 command:
                 - multicluster-global-hub-operator
                 env:
