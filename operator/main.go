@@ -38,6 +38,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -170,7 +172,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	mgr, err := getManager(operatorConfig, electionConfig, newCacheFunc)
+	mgr, err := getManager(ctrl.GetConfigOrDie(), electionConfig, newCacheFunc, operatorConfig)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -241,14 +243,14 @@ func parseFlags() *operatorConfig {
 	return config
 }
 
-func getManager(operatorConfig *operatorConfig, electionConfig *commonobjects.LeaderElectionConfig,
-	newCacheFunc cache.NewCacheFunc,
+func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderElectionConfig,
+	newCacheFunc cache.NewCacheFunc, operatorConfig *operatorConfig,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(electionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(electionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(electionConfig.RetryPeriod) * time.Second
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                  scheme,
 		MetricsBindAddress:      operatorConfig.MetricsAddress,
 		Port:                    9443,
