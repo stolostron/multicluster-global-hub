@@ -172,7 +172,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	mgr, err := getManager(operatorConfig, electionConfig, newCacheFunc, ctrl.GetConfigOrDie())
+	mgr, err := getManager(ctrl.GetConfigOrDie(), electionConfig, newCacheFunc, operatorConfig)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -243,8 +243,8 @@ func parseFlags() *operatorConfig {
 	return config
 }
 
-func getManager(operatorConfig *operatorConfig, electionConfig *commonobjects.LeaderElectionConfig,
-	newCacheFunc cache.NewCacheFunc, restConfig *rest.Config,
+func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderElectionConfig,
+	newCacheFunc cache.NewCacheFunc, operatorConfig *operatorConfig,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(electionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(electionConfig.RenewDeadline) * time.Second
