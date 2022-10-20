@@ -114,7 +114,7 @@ func TestManager(t *testing.T) {
 			},
 		},
 	})
-	_, err := getManager(operatorConfig, electionConfig, newCacheFunc)
+	_, err := getManager(operatorConfig, electionConfig, newCacheFunc, cfg)
 	if err != nil {
 		t.Fatalf("failed to create manager %v", err)
 	}
