@@ -52,6 +52,19 @@ func prepareCluster(name string, labels, annotations map[string]string,
 }
 
 var _ = Describe("addon controller", Ordered, func() {
+	BeforeAll(func() {
+		By("Create clustermanagementaddon instance")
+		clusterManagementAddon := &addonv1alpha1.ClusterManagementAddOn{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: constants.HoHClusterManagementAddonName,
+				Labels: map[string]string{
+					commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, clusterManagementAddon)).Should(Succeed())
+	})
+
 	Context("When a cluster is imported in default mode", func() {
 		It("Should create HoH agent when an OCP without deployMode label is imported", func() {
 			clusterName := fmt.Sprintf("hub-%s", rand.String(6))

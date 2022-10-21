@@ -1,7 +1,8 @@
-package addon
+package addon_test
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,14 +28,22 @@ import (
 	v1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	globalconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
+
+//go:embed manifests/templates
+//go:embed manifests/templates/agent
+//go:embed manifests/templates/hostedagent
+//go:embed manifests/templates/hubcluster
+var FS embed.FS
 
 func fakeMulticlusterGlobalHub() *v1alpha2.MulticlusterGlobalHub {
 	return &v1alpha2.MulticlusterGlobalHub{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "multiclusterglobalhub",
+			Name:      "multiclusterglobalhub",
+			Namespace: config.GetDefaultNamespace(),
 		},
 		Spec: v1alpha2.MulticlusterGlobalHubSpec{
 			DataLayer: &v1alpha2.DataLayerConfig{
@@ -56,7 +65,7 @@ func fakeKafkaSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "transport-secret",
-			Namespace: "open-cluster-management",
+			Namespace: config.GetDefaultNamespace(),
 		},
 		Data: map[string][]byte{
 			"CA":               []byte("dGVzdAo="),
@@ -119,11 +128,9 @@ func fakeManagedClusterAddon(clusterName, installNamespace string, installMode s
 }
 
 func fakeAgentAddon(t *testing.T, objects ...runtime.Object) agent.AgentAddon {
-	hohAgentAddon := HohAgentAddon{
-		ctx:        context.TODO(),
-		client:     fake.NewClientBuilder().WithScheme(testScheme).WithObjects(fakeMulticlusterGlobalHub()).Build(),
-		kubeClient: kubefake.NewSimpleClientset(objects...),
-	}
+	hohAgentAddon := addon.NewHohAgentAddon(context.TODO(),
+		fake.NewClientBuilder().WithScheme(testScheme).WithObjects(fakeMulticlusterGlobalHub()).Build(),
+		kubefake.NewSimpleClientset(objects...))
 	agentAddon, err := addonfactory.NewAgentAddonFactory(constants.HoHManagedClusterAddonName, FS, "manifests/templates").
 		WithGetValuesFuncs(hohAgentAddon.GetValues).WithScheme(testScheme).BuildTemplateAgentAddon()
 	if err != nil {
@@ -195,7 +202,7 @@ func TestManifest(t *testing.T) {
 		},
 	}
 
-	setPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
+	addon.SetPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
 		"stable-2.0", "multicluster-engine.v2.0.1",
 		map[string]string{"multiclusterhub-operator": "example.com/registration-operator:test"},
 		map[string]string{"registration-operator": "example.com/registration-operator:test"})

@@ -38,11 +38,10 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -59,8 +58,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	hubofhubsconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -104,10 +104,98 @@ type operatorConfig struct {
 }
 
 func main() {
+	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
+}
+
+func doMain(ctx context.Context, cfg *rest.Config) int {
 	operatorConfig := parseFlags()
 
 	// build filtered resource map
-	newCacheFunc := cache.BuilderWithOptions(cache.Options{
+	newCacheFunc := buildResourceFilterMap()
+
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		setupLog.Error(err, "failed to create kube client")
+		return 1
+	}
+
+	electionConfig, err := getElectionConfig(kubeClient)
+	if err != nil {
+		setupLog.Error(err, "failed to get election config")
+		return 1
+	}
+
+	mgr, err := getManager(cfg, electionConfig, newCacheFunc, operatorConfig)
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		return 1
+	}
+
+	if err = (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
+		Manager:        mgr,
+		Client:         mgr.GetClient(),
+		KubeClient:     kubeClient,
+		Scheme:         mgr.GetScheme(),
+		LeaderElection: electionConfig,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MulticlusterGlobalHub")
+		return 1
+	}
+
+	// start addon controller
+	if err = (&hubofhubsaddon.HoHAddonInstallReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create addon install controller", "controller", "MulticlusterGlobalHub")
+		return 1
+	}
+
+	if err = mgr.Add(hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient())); err != nil {
+		setupLog.Error(err, "unable to add addon controller", "controller", "MulticlusterGlobalHub")
+		return 1
+	}
+
+	// +kubebuilder:scaffold:builder
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up health check")
+		return 1
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		return 1
+	}
+
+	setupLog.Info("starting manager")
+	if err := mgr.Start(ctx); err != nil {
+		setupLog.Error(err, "problem running manager")
+		return 1
+	}
+
+	return 0
+}
+
+func parseFlags() *operatorConfig {
+	config := &operatorConfig{}
+	flag.StringVar(&config.MetricsAddress, "metrics-bind-address", ":8080",
+		"The address the metric endpoint binds to.")
+	flag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081",
+		"The address the probe endpoint binds to.")
+	flag.BoolVar(&config.LeaderElection, "leader-election", false,
+		"Enable leader election for controller manager. ")
+	opts := zap.Options{
+		Development: true,
+	}
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	opts.BindFlags(flag.CommandLine)
+	flag.Parse()
+
+	config.PodNamespace = hubofhubsconfig.GetDefaultNamespace()
+	return config
+}
+
+func buildResourceFilterMap() cache.NewCacheFunc {
+	return cache.BuilderWithOptions(cache.Options{
 		SelectorsByObject: cache.SelectorsByObject{
 			&corev1.Secret{}: {
 				Label: labelSelector,
@@ -159,88 +247,6 @@ func main() {
 			},
 		},
 	})
-
-	kubeClient, err := kubernetes.NewForConfig(ctrl.GetConfigOrDie())
-	if err != nil {
-		setupLog.Error(err, "failed to create kube client")
-		os.Exit(1)
-	}
-
-	electionConfig, err := getElectionConfig(kubeClient)
-	if err != nil {
-		setupLog.Error(err, "failed to get election config")
-		os.Exit(1)
-	}
-
-	mgr, err := getManager(ctrl.GetConfigOrDie(), electionConfig, newCacheFunc, operatorConfig)
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	if err = (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
-		Manager:        mgr,
-		Client:         mgr.GetClient(),
-		KubeClient:     kubeClient,
-		Scheme:         mgr.GetScheme(),
-		LeaderElection: electionConfig,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MulticlusterGlobalHub")
-		os.Exit(1)
-	}
-	//	commonconstants.EnableAddon = true
-	// start addon controller
-	if commonconstants.EnableAddon {
-		if err = addon.NewHoHAddonInstallReconciler(mgr.GetClient()).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create addon install controller", "controller", "MulticlusterGlobalHub")
-			os.Exit(1)
-		}
-
-		if err = mgr.Add(addon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient())); err != nil {
-			setupLog.Error(err, "unable to add addon controller", "controller", "MulticlusterGlobalHub")
-			os.Exit(1)
-		}
-	}
-
-	// +kubebuilder:scaffold:builder
-
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
-
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
-	}
-}
-
-func parseFlags() *operatorConfig {
-	config := &operatorConfig{}
-	flag.StringVar(&config.MetricsAddress, "metrics-bind-address", ":8080",
-		"The address the metric endpoint binds to.")
-	flag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081",
-		"The address the probe endpoint binds to.")
-	flag.BoolVar(&config.LeaderElection, "leader-election", false,
-		"Enable leader election for controller manager. ")
-	opts := zap.Options{
-		Development: true,
-	}
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
-
-	podNamespace, found := os.LookupEnv("POD_NAMESPACE")
-	if !found {
-		podNamespace = constants.HOHDefaultNamespace
-	}
-	config.PodNamespace = podNamespace
-	return config
 }
 
 func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderElectionConfig,

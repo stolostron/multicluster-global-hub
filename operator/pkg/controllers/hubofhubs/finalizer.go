@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/restmapper"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -111,6 +112,17 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 	}
 	for idx := range clusterRoleBindingList.Items {
 		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	log.Info("clean up the clustermanagementaddon")
+	clusterManagementAddOnList := &addonv1alpha1.ClusterManagementAddOnList{}
+	if err := r.Client.List(ctx, clusterManagementAddOnList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range clusterManagementAddOnList.Items {
+		if err := r.Client.Delete(ctx, &clusterManagementAddOnList.Items[idx]); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}

@@ -51,6 +51,14 @@ type HohAgentAddon struct {
 	dynamicClient dynamic.Interface
 }
 
+func NewHohAgentAddon(ctx context.Context, client client.Client, kubeClient kubernetes.Interface) *HohAgentAddon {
+	return &HohAgentAddon{
+		ctx:        ctx,
+		client:     client,
+		kubeClient: kubeClient,
+	}
+}
+
 func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha2.MulticlusterGlobalHub, error) {
 	mghList := &operatorv1alpha2.MulticlusterGlobalHubList{}
 	err := a.client.List(a.ctx, mghList)
@@ -90,7 +98,7 @@ func (a *HohAgentAddon) setInstallHostedMode(addon *addonapiv1alpha1.ManagedClus
 }
 
 func (a *HohAgentAddon) setACMPackageConfigs(manifestsConfig *ManifestsConfig) error {
-	pm, err := getPackageManifestConfig(a.ctx, a.dynamicClient)
+	pm, err := GetPackageManifestConfig(a.ctx, a.dynamicClient)
 	if err != nil {
 		return err
 	}
@@ -123,13 +131,13 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 
 	mgh, err := a.getMulticlusterGlobalHub()
 	if err != nil {
-		klog.Errorf("failed to get MulticlusterGlobalHub. err:%v", err)
+		klog.Errorf("failed to get MulticlusterGlobalHub. err: %v", err)
 		return nil, err
 	}
 
 	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(a.ctx, a.kubeClient, mgh)
 	if err != nil {
-		klog.Errorf("failed to get kafkaConfig. err:%v", err)
+		klog.Errorf("failed to get kafkaConfig. err: %v", err)
 		return nil, err
 	}
 

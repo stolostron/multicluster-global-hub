@@ -491,6 +491,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 						Namespace: obj.GetNamespace(),
 						Name:      obj.GetName(),
 					}, unsObj)
+					if err != nil {
+						fmt.Printf("error to check object(%s/%s) - %v",
+							obj.GetNamespace(), obj.GetName(), err)
+					}
 					return err == nil
 				}, timeout, interval).Should(BeTrue())
 			}

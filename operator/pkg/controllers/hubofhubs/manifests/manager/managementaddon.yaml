@@ -3,6 +3,8 @@ apiVersion: addon.open-cluster-management.io/v1alpha1
 kind: ClusterManagementAddOn
 metadata:
   name: multicluster-global-hub-controller
+  labels:
+    name: multicluster-global-hub-manager
 spec:
   addOnConfiguration:
     crName: ""

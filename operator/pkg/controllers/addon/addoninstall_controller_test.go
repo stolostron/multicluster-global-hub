@@ -1,7 +1,8 @@
-package addon
+package addon_test
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -9,17 +10,43 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	v1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	globalconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
+
+var kubeCfg *rest.Config
+
+func TestMain(m *testing.M) {
+	// start testEnv
+	testEnv := &envtest.Environment{}
+	var err error
+	kubeCfg, err = testEnv.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	// run testings
+	code := m.Run()
+
+	// stop testEnv
+	err = testEnv.Stop()
+	if err != nil {
+		panic(err)
+	}
+
+	os.Exit(code)
+}
 
 func fakeCluster(name, hostingCluster, addonDeployMode string) *v1.ManagedCluster {
 	cluster := &v1.ManagedCluster{
@@ -45,6 +72,17 @@ func fakeCluster(name, hostingCluster, addonDeployMode string) *v1.ManagedCluste
 	return cluster
 }
 
+func fakeHoHManagementAddon() *v1alpha1.ClusterManagementAddOn {
+	return &v1alpha1.ClusterManagementAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.HoHClusterManagementAddonName,
+			Labels: map[string]string{
+				globalconstants.GlobalHubOwnerLabelKey: globalconstants.HoHOperatorOwnerLabelVal,
+			},
+		},
+	}
+}
+
 func fakeHoHAddon(cluster, installNamespace, addonDeployMode string) *v1alpha1.ManagedClusterAddOn {
 	addon := &v1alpha1.ManagedClusterAddOn{
 		TypeMeta: metav1.TypeMeta{},
@@ -68,22 +106,25 @@ func TestHoHAddonReconciler(t *testing.T) {
 	addonTestScheme := scheme.Scheme
 	utilruntime.Must(v1.AddToScheme(addonTestScheme))
 	utilruntime.Must(v1alpha1.AddToScheme(addonTestScheme))
-	config.SetHoHMGHNamespacedName(types.NamespacedName{Namespace: "open-cluster-management", Name: "multiclusterglobalhub"})
 
-	tests := []struct {
-		name         string
-		cluster      *v1.ManagedCluster
-		addon        *v1alpha1.ManagedClusterAddOn
-		req          reconcile.Request
-		validateFunc func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error)
+	cases := []struct {
+		name            string
+		cluster         *v1.ManagedCluster
+		isMGHReady      bool
+		managementAddon *v1alpha1.ClusterManagementAddOn
+		addon           *v1alpha1.ManagedClusterAddOn
+		req             reconcile.Request
+		validateFunc    func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error)
 	}{
 		{
-			name:    "req not found",
-			cluster: fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
-			req:     reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster2"}},
+			name:            "mgh not ready",
+			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
+			isMGHReady:      false,
+			managementAddon: nil,
+			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if !errors.IsNotFound(err) {
-					t.Errorf("expected not found addon ,but got err %v", err)
+					t.Errorf("expected not found addon, but got err %v", err)
 				}
 				if addon != nil {
 					t.Errorf("expected nil addon, but got %v", addon)
@@ -91,12 +132,14 @@ func TestHoHAddonReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:    "do not create addon",
-			cluster: fakeCluster("cluster1", "", globalconstants.AgentDeployModeNone),
-			req:     reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
+			name:            "clustermanagementaddon not ready",
+			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
+			isMGHReady:      true,
+			managementAddon: nil,
+			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if !errors.IsNotFound(err) {
-					t.Errorf("expected not found addon ,but got err %v", err)
+					t.Errorf("expected not found addon, but got err %v", err)
 				}
 				if addon != nil {
 					t.Errorf("expected nil addon, but got %v", addon)
@@ -104,9 +147,41 @@ func TestHoHAddonReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:    "create addon in default mode",
-			cluster: fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
-			req:     reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
+			name:            "req not found",
+			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
+			isMGHReady:      true,
+			managementAddon: fakeHoHManagementAddon(),
+			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster2"}},
+			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
+				if !errors.IsNotFound(err) {
+					t.Errorf("expected not found addon, but got err %v", err)
+				}
+				if addon != nil {
+					t.Errorf("expected nil addon, but got %v", addon)
+				}
+			},
+		},
+		{
+			name:            "do not create addon",
+			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeNone),
+			isMGHReady:      true,
+			managementAddon: fakeHoHManagementAddon(),
+			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
+			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
+				if !errors.IsNotFound(err) {
+					t.Errorf("expected not found addon, but got err %v", err)
+				}
+				if addon != nil {
+					t.Errorf("expected nil addon, but got %v", addon)
+				}
+			},
+		},
+		{
+			name:            "create addon in default mode",
+			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
+			isMGHReady:      true,
+			managementAddon: fakeHoHManagementAddon(),
+			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if err != nil {
 					t.Errorf("failed to reconcile .%v", err)
@@ -118,9 +193,11 @@ func TestHoHAddonReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:    "create addon in hosted mode",
-			cluster: fakeCluster("cluster1", "cluster2", globalconstants.AgentDeployModeHosted),
-			req:     reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
+			name:            "create addon in hosted mode",
+			cluster:         fakeCluster("cluster1", "cluster2", globalconstants.AgentDeployModeHosted),
+			isMGHReady:      true,
+			managementAddon: fakeHoHManagementAddon(),
+			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if err != nil {
 					t.Errorf("failed to reconcile .%v", err)
@@ -135,13 +212,15 @@ func TestHoHAddonReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:    "update addon in hosted mode",
-			cluster: fakeCluster("cluster1", "cluster2", globalconstants.AgentDeployModeHosted),
-			addon:   fakeHoHAddon("cluster1", "test", ""),
-			req:     reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
+			name:            "update addon in hosted mode",
+			cluster:         fakeCluster("cluster1", "cluster2", globalconstants.AgentDeployModeHosted),
+			isMGHReady:      true,
+			managementAddon: fakeHoHManagementAddon(),
+			addon:           fakeHoHAddon("cluster1", "test", ""),
+			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if err != nil {
-					t.Errorf("failed to reconcile .%v", err)
+					t.Errorf("failed to reconcile: %v", err)
 				}
 				if addon.Spec.InstallNamespace != "open-cluster-management-cluster1-hoh-addon" {
 					t.Errorf("expected installname open-cluster-management-cluster1-hoh-addon, but got %s", addon.Spec.InstallNamespace)
@@ -154,33 +233,52 @@ func TestHoHAddonReconciler(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			objects := []client.Object{test.cluster}
-			if test.addon != nil {
-				objects = append(objects, test.addon)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			objects := []client.Object{tc.cluster}
+			if tc.managementAddon != nil {
+				objects = append(objects, tc.managementAddon)
 			}
-			r := NewHoHAddonInstallReconciler(fake.NewClientBuilder().WithScheme(
-				addonTestScheme).WithObjects(objects...).Build())
-			mgr, _ := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{})
-			_ = r.SetupWithManager(mgr)
-
-			_, err := r.Reconcile(context.TODO(), test.req)
+			if tc.addon != nil {
+				objects = append(objects, tc.addon)
+			}
+			if tc.isMGHReady {
+				config.SetHoHMGHNamespacedName(types.NamespacedName{
+					Namespace: "open-cluster-management", Name: "multiclusterglobalhub",
+				})
+			} else {
+				config.SetHoHMGHNamespacedName(types.NamespacedName{Namespace: "", Name: ""})
+			}
+			mgr, err := ctrl.NewManager(kubeCfg, ctrl.Options{
+				MetricsBindAddress: "0", // disable the metrics serving
+			})
 			if err != nil {
-				test.validateFunc(t, nil, err)
+				t.Errorf("failed to create manager: %v", err)
+			}
+			r := &hubofhubsaddon.HoHAddonInstallReconciler{
+				Client: fake.NewClientBuilder().WithScheme(addonTestScheme).WithObjects(objects...).Build(),
+			}
+			err = r.SetupWithManager(mgr)
+			if err != nil {
+				t.Errorf("failed to setup addon install controller with manager: %v", err)
+			}
+
+			_, err = r.Reconcile(context.TODO(), tc.req)
+			if err != nil {
+				tc.validateFunc(t, nil, err)
 			} else {
 				addon := &v1alpha1.ManagedClusterAddOn{}
 				err = r.Get(context.TODO(), types.NamespacedName{
-					Namespace: test.cluster.Name, Name: constants.HoHManagedClusterAddonName,
+					Namespace: tc.cluster.Name, Name: constants.HoHManagedClusterAddonName,
 				}, addon)
 				if err != nil {
 					if errors.IsNotFound(err) {
-						test.validateFunc(t, nil, err)
+						tc.validateFunc(t, nil, err)
 					} else {
-						t.Errorf("failed to get addon %s", test.cluster.Name)
+						t.Errorf("failed to get addon %s", tc.cluster.Name)
 					}
 				} else {
-					test.validateFunc(t, addon, nil)
+					tc.validateFunc(t, addon, nil)
 				}
 			}
 		})

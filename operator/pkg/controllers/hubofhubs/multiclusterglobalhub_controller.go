@@ -38,9 +38,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,7 +58,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	leafhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/leafhub"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -68,8 +67,6 @@ import (
 
 //go:embed manifests
 var fs embed.FS
-
-var isLeafHubControllerRunnning = false
 
 // var isPackageManifestControllerRunnning = false
 
@@ -108,6 +105,8 @@ type MulticlusterGlobalHubReconciler struct {
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons,verbs=create;delete;get;list;update;watch
+// +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -157,32 +156,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported data layer type: %s", mgh.Spec.DataLayer.Type)
-	}
-
-	// try to start leafhub controller if it is not running
-	if !isLeafHubControllerRunnning && !commonconstants.EnableAddon {
-		dynamicClient, err := dynamic.NewForConfig(r.Manager.GetConfig())
-		if err != nil {
-			log.Error(err, "failed to create dynamic client")
-			return ctrl.Result{}, err
-		}
-		kubeClient, err := kubernetes.NewForConfig(r.Manager.GetConfig())
-		if err != nil {
-			log.Error(err, "failed to create kube client")
-			return ctrl.Result{}, err
-		}
-		if err := (&leafhubscontroller.LeafHubReconciler{
-			DynamicClient:  dynamicClient,
-			KubeClient:     kubeClient,
-			Client:         r.Client,
-			Scheme:         r.Scheme,
-			LeaderElection: r.LeaderElection,
-		}).SetupWithManager(r.Manager); err != nil {
-			log.Error(err, "unable to create controller", "controller", "LeafHub")
-			return ctrl.Result{}, err
-		}
-		log.Info("leafhub controller is started")
-		isLeafHubControllerRunnning = true
 	}
 
 	// // try to start packagemanifest controller if it is not running
@@ -360,7 +333,8 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] =
+			commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
@@ -570,6 +544,14 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			}), builder.WithPredicates(resPred)).
 		// secondary watch for clusterrolebinding
 		Watches(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetHoHMGHNamespacedName()},
+				}
+			}), builder.WithPredicates(resPred)).
+		// secondary watch for clustermanagementaddon
+		Watches(&source.Kind{Type: &addonv1alpha1.ClusterManagementAddOn{}},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile

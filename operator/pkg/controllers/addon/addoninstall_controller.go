@@ -36,13 +36,26 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	if config.GetHoHMGHNamespacedName().Namespace == "" ||
 		config.GetHoHMGHNamespacedName().Name == "" {
-		log.Info("waiting multiclusterglobalhub instance", req.NamespacedName)
+		log.Info("waiting multiclusterglobalhub instance", "namespacedname", req.NamespacedName)
 		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
+
+	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name: constants.HoHClusterManagementAddonName,
+	}, clusterManagementAddOn)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("waiting util clustermanagementaddon is created", "namespacedname", req.NamespacedName)
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+		} else {
+			return ctrl.Result{}, err
+		}
 	}
 
 	cluster := &clusterv1.ManagedCluster{}
 	clusterName := req.NamespacedName.Name
-	err := r.Get(ctx, req.NamespacedName, cluster)
+	err = r.Get(ctx, req.NamespacedName, cluster)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -60,6 +73,9 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.HoHManagedClusterAddonName,
 			Namespace: clusterName,
+			Labels: map[string]string{
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+			},
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{
 			InstallNamespace: constants.HoHAgentInstallNamespace,
@@ -190,8 +206,4 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 			}), builder.WithPredicates(addonPred)).
 		Complete(r)
-}
-
-func NewHoHAddonInstallReconciler(client client.Client) *HoHAddonInstallReconciler {
-	return &HoHAddonInstallReconciler{Client: client}
 }

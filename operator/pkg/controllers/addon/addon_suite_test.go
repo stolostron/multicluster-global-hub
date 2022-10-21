@@ -47,7 +47,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	leafhubcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/leafhub"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -126,7 +125,9 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = addon.NewHoHAddonInstallReconciler(k8sClient).SetupWithManager(k8sManager)
+	err = (&addon.HoHAddonInstallReconciler{
+		Client: k8sClient,
+	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient))
 	Expect(err).ToNot(HaveOccurred())
@@ -218,7 +219,7 @@ func prepareBeforeTest() {
 
 	// set fake packagemenifestwork configuration
 	By("By setting a fake packagemanifest configuration")
-	leafhubcontroller.SetPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
+	addon.SetPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
 		"stable-2.0", "multicluster-engine.v2.0.1",
 		map[string]string{"multiclusterhub-operator": "example.com/registration-operator:test"},
 		map[string]string{"registration-operator": "example.com/registration-operator:test"})
