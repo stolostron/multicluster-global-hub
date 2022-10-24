@@ -18,12 +18,13 @@ import (
 	apiRuntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	clustersV1 "open-cluster-management.io/api/cluster/v1"
-	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
-	clustersV1beta1 "open-cluster-management.io/api/cluster/v1beta1"
-	policiesV1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	placementRulesV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appsV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appsubv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	runtimescheme "sigs.k8s.io/controller-runtime/pkg/scheme"
@@ -229,15 +230,15 @@ func addControllerToManager(mgr ctrl.Manager, consumer consumer.Consumer, produc
 
 func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
 	// add cluster scheme
-	if err := clustersV1.Install(runtimeScheme); err != nil {
+	if err := clusterv1.Install(runtimeScheme); err != nil {
 		return fmt.Errorf("failed to add clusterv1 scheme: %w", err)
 	}
 
-	if err := clustersV1beta1.Install(runtimeScheme); err != nil {
+	if err := clusterv1beta1.Install(runtimeScheme); err != nil {
 		return fmt.Errorf("failed to add clusterv1beta1 scheme: %w", err)
 	}
 
-	if err := clustersv1alpha1.Install(runtimeScheme); err != nil {
+	if err := clusterv1alpha1.Install(runtimeScheme); err != nil {
 		return fmt.Errorf("failed to add clustersv1alpha1 scheme: %w", err)
 	}
 
@@ -246,8 +247,9 @@ func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
 	}
 
 	schemeBuilders := []*runtimescheme.Builder{
-		policiesV1.SchemeBuilder, placementRulesV1.SchemeBuilder, appsV1alpha1.SchemeBuilder,
+		policyv1.SchemeBuilder, placementrulev1.SchemeBuilder, appsubv1alpha1.SchemeBuilder,
 		mchv1.SchemeBuilder,
+		appsubv1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {
