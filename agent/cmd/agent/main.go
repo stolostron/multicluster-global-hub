@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiRuntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	clustersV1 "open-cluster-management.io/api/cluster/v1"
 	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	clustersV1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -65,7 +66,7 @@ func doMain() int {
 		return 1
 	}
 
-	mgr, err := getControllerManager(agentConfig)
+	mgr, err := getControllerManager(ctrl.GetConfigOrDie(), agentConfig)
 	if err != nil {
 		log.Error(err, "failed the create controller manager")
 		return 1
@@ -172,7 +173,7 @@ func getProducer(environmentManager *helper.ConfigManager) (producer.Producer, e
 	}
 }
 
-func getControllerManager(agentConfig *helper.ConfigManager) (ctrl.Manager, error) {
+func getControllerManager(restConfig *rest.Config, agentConfig *helper.ConfigManager) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second
@@ -186,7 +187,7 @@ func getControllerManager(agentConfig *helper.ConfigManager) (ctrl.Manager, erro
 		RetryPeriod:             &retryPeriod,
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
+	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
