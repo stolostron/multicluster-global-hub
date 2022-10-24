@@ -9,8 +9,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/jobs"
 )
 
-var _ = Describe("PruneFinalizer", func() {
-	It("Hello World", func() {
+var _ = Describe("Prune Finalizer of Agent Resources", func() {
+	It("run the agent prune job to prune finalizer", func() {
 		fmt.Println("hello world")
 		Expect(nil).NotTo(HaveOccurred())
 
