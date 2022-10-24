@@ -118,7 +118,8 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ClustersPerPolicyPriority, bundle.CompleteStateMode, clustersPerPolicyBundleType,
 		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
-			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, database.StatusSchema, database.ComplianceTableName)
+			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient,
+				database.StatusSchema, database.ComplianceTableName)
 		},
 	))
 
@@ -134,7 +135,8 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		conflator.DeltaComplianceStatusPriority, bundle.DeltaStateMode,
 		helpers.GetBundleType(syncer.createDeltaComplianceStatusBundleFunc()),
 		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
-			return syncer.handleDeltaComplianceBundle(ctx, bundle, dbClient, database.StatusSchema, database.ComplianceTableName)
+			return syncer.handleDeltaComplianceBundle(ctx, bundle, dbClient,
+				database.StatusSchema, database.ComplianceTableName)
 		}).WithDependency(dependency.NewDependency(completeComplianceStatusBundleType, dependency.ExactMatch)))
 	// delta compliance depends on complete compliance. should be processed only when there is an exact match
 
@@ -228,7 +230,8 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(batchBuilder database.Pol
 		database.NonCompliant)
 	// handle unknown clusters of the policy
 	allClustersFromDB = syncer.handleClustersPerPolicyWithSpecificCompliance(batchBuilder, clustersFromBundle.PolicyID,
-		clustersFromBundle.UnknownComplianceClusters, allClustersFromDB, clustersFromDB.GetClusters(database.Unknown),
+		clustersFromBundle.UnknownComplianceClusters, allClustersFromDB,
+		clustersFromDB.GetClusters(database.Unknown),
 		database.Unknown)
 
 	// delete compliance status rows in the db that were not sent in the bundle (leaf hub sends only living resources)
@@ -404,7 +407,8 @@ func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Contex
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	policyIDsFromDB, err := dbClient.GetPolicyIDsByLeafHub(ctx, database.StatusSchema, database.MinimalComplianceTable, leafHubName)
+	policyIDsFromDB, err := dbClient.GetPolicyIDsByLeafHub(ctx, database.StatusSchema,
+		database.MinimalComplianceTable, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s' policies from db - %w", leafHubName, err)
 	}
@@ -415,7 +419,8 @@ func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Contex
 			continue // do not handle objects other than MinimalPolicyComplianceStatus.
 		}
 
-		if err := dbClient.InsertOrUpdateAggregatedPolicyCompliance(ctx, database.StatusSchema, database.MinimalComplianceTable,
+		if err := dbClient.InsertOrUpdateAggregatedPolicyCompliance(ctx,
+			database.StatusSchema, database.MinimalComplianceTable,
 			leafHubName, minPolicyCompliance.PolicyID, minPolicyCompliance.AppliedClusters,
 			minPolicyCompliance.NonCompliantClusters); err != nil {
 			return fmt.Errorf("failed to update minimal compliance of policy '%s', leaf hub '%s' in db - %w",
@@ -434,7 +439,8 @@ func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Contex
 			continue
 		}
 
-		if err := dbClient.DeleteAllComplianceRows(ctx, database.StatusSchema, database.MinimalComplianceTable, leafHubName,
+		if err := dbClient.DeleteAllComplianceRows(ctx, database.StatusSchema,
+			database.MinimalComplianceTable, leafHubName,
 			policyID); err != nil {
 			return fmt.Errorf("failed deleted compliance rows of policy '%s', leaf hub '%s' from db - %w",
 				policyID, leafHubName, err)

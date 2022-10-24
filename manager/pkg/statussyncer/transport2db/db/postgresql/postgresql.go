@@ -135,7 +135,9 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHub(ctx context.Context, schem
 	return result, nil
 }
 
-func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (map[string]*database.PolicyClustersSets, error) {
+func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (
+	map[string]*database.PolicyClustersSets, error,
+) {
 	result := make(map[string]*database.PolicyClustersSets)
 
 	for rows.Next() {

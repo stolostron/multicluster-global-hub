@@ -159,7 +159,8 @@ func (c *KafkaConsumer) Stop() {
 
 // Register function registers a bundle ID to a CustomBundleRegistration.
 func (c *KafkaConsumer) CustomBundleRegister(msgID string,
-	customBundleRegistration *registration.CustomBundleRegistration) {
+	customBundleRegistration *registration.CustomBundleRegistration,
+) {
 	c.customBundleIDToRegistrationMap[msgID] = customBundleRegistration
 }
 

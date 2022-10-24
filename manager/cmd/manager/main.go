@@ -235,7 +235,8 @@ func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapS
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
-		kafkaConsumer.SetCommitter(consumer.NewCommitter(transportCommonConfig.CommitterInterval,
+		kafkaConsumer.SetCommitter(consumer.NewCommitter(
+			transportCommonConfig.CommitterInterval,
 			kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
 			conflationMgr.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
 		)

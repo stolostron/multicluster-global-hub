@@ -32,7 +32,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer/fake"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -48,6 +48,7 @@ var (
 	dbWorkerPool        *workerpool.DBWorkerPool
 	statusTransport     transport.Transport
 	kafkaMessageChan    chan *kafka.Message
+	mockCluster         *kafka.MockCluster
 )
 
 func TestDbsyncer(t *testing.T) {
@@ -109,10 +110,24 @@ var _ = BeforeSuite(func() {
 		conflationReadyQueue, false, stats) // manage all Conflation Units
 
 	kafkaMessageChan = make(chan *kafka.Message)
-	statusTransport, err = fake.NewKafkaTestConsumer(kafkaMessageChan, conflationManager, stats,
+	mockCluster, err = kafka.NewMockCluster(1)
+	Expect(err).NotTo(HaveOccurred())
+
+	kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
+		ConsumerTopic: "test-topic",
+		ConsumerID:    "test-consumer",
+	}
+	kafkaConsumer, err := consumer.NewKafkaConsumer(
+		mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
 		ctrl.Log.WithName("kafka-consumer"))
 	Expect(err).NotTo(HaveOccurred())
-	statusTransport.Start()
+
+	kafkaConsumer.SetCommitter(consumer.NewCommitter(
+		1*time.Second, kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+		conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
+	)
+	kafkaConsumer.SetStatistics(stats)
+	kafkaConsumer.Start()
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -160,6 +175,7 @@ var _ = AfterSuite(func() {
 	statusTransport.Stop()
 	transportPostgreSQL.Stop()
 	dbWorkerPool.Stop()
+	mockCluster.Close()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 
 	By("Tearing down the test environment")

@@ -83,7 +83,9 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,
 	bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
-	return func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+	return func(ctx context.Context, bundle status.Bundle,
+		dbClient database.StatusTransportBridgeDB,
+	) error {
 		return syncer.handleLocalObjectsBundle(ctx, bundle, dbClient, database.LocalSpecSchema, tableName)
 	}
 }

@@ -180,7 +180,8 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 
 // Register function registers a bundle ID to a CustomBundleRegistration.
 func (c *KafkaProducer) CustomBundleRegister(msgID string,
-	customBundleRegistration *registration.CustomBundleRegistration) {
+	customBundleRegistration *registration.CustomBundleRegistration,
+) {
 	// do nothing
 }
 
