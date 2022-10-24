@@ -14,12 +14,12 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 const (
@@ -85,10 +85,12 @@ func (c *KafkaTestConsumer) BundleRegister(registration *registration.BundleRegi
 
 func (c *KafkaTestConsumer) CustomBundleRegister(msgID string,
 	customBundleRegistration *registration.CustomBundleRegistration) {
+	// do nothing
 }
 
 // SendAsync sends a message to the transport component asynchronously.
 func (c *KafkaTestConsumer) SendAsync(msg *transport.Message) {
+	// do nothing
 }
 
 func (c *KafkaTestConsumer) handleKafkaMessages(ctx context.Context) {
@@ -152,7 +154,7 @@ func (c *KafkaTestConsumer) processMessage(msg *kafka.Message) {
 
 	c.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
-	c.conflationManager.Insert(receivedBundle, newBundleMetadata(msg.TopicPartition.Partition,
+	c.conflationManager.Insert(receivedBundle, consumer.NewBundleMetadata(msg.TopicPartition.Partition,
 		msg.TopicPartition.Offset))
 }
 
@@ -188,20 +190,4 @@ func (c *KafkaTestConsumer) decompressPayload(payload []byte, compressType compr
 	}
 
 	return decompressedBytes, nil
-}
-
-// newBundleMetadata returns a new instance of BundleMetadata.
-func newBundleMetadata(partition int32, offset kafka.Offset) *bundleMetadata {
-	return &bundleMetadata{
-		BaseBundleMetadata: bundle.NewBaseBundleMetadata(),
-		partition:          partition,
-		offset:             offset,
-	}
-}
-
-// bundleMetadata wraps the info required for the associated bundle to be used for committing purposes.
-type bundleMetadata struct {
-	*bundle.BaseBundleMetadata
-	partition int32
-	offset    kafka.Offset
 }

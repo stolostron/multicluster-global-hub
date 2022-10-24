@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
@@ -16,8 +16,8 @@ const (
 // NewGenericBatchBuilder creates a new instance of PostgreSQL GenericBatchBuilder.
 func NewGenericBatchBuilder(schema string, tableName string, leafHubName string) *GenericBatchBuilder {
 	tableSpecialColumns := make(map[int]string)
-	tableSpecialColumns[genericUUIDColumnIndex] = db.UUID
-	tableSpecialColumns[genericJsonbColumnIndex] = db.Jsonb
+	tableSpecialColumns[genericUUIDColumnIndex] = database.UUID
+	tableSpecialColumns[genericJsonbColumnIndex] = database.Jsonb
 	builder := &GenericBatchBuilder{
 		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
 			genericDeleteRowKey),

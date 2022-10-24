@@ -230,12 +230,16 @@ func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapS
 	switch transportCommonConfig.TransportType {
 	case kafkaTransportTypeName:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			transportCommonConfig.CommitterInterval,
-			kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig, conflationMgr,
-			statistics, ctrl.Log.WithName("kafka-consumer"), nil, "")
+			kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig,
+			ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
+		kafkaConsumer.SetCommitter(consumer.NewCommitter(transportCommonConfig.CommitterInterval,
+			kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+			conflationMgr.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
+		)
+		kafkaConsumer.SetStatistics(statistics)
 
 		return kafkaConsumer, nil
 	default:

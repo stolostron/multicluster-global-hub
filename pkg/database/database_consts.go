@@ -1,4 +1,4 @@
-package db
+package database
 
 // db schemas.
 const (

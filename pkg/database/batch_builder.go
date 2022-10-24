@@ -1,4 +1,4 @@
-package db
+package database
 
 // BatchBuilder is an interface to build a batch that can be used to be sent to db.
 type BatchBuilder interface {

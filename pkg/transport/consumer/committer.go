@@ -11,10 +11,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 )
 
-// newCommitter returns a new instance of committer.
-func newCommitter(committerInterval time.Duration, topic string, client *kafka.Consumer,
+// NewCommitter returns a new instance of committer.
+func NewCommitter(committerInterval time.Duration, topic string, client *kafka.Consumer,
 	getBundlesMetadataFunc bundle.GetBundlesMetadataFunc, log logr.Logger,
-) (*committer, error) {
+) *committer {
 	return &committer{
 		log:                    log,
 		topic:                  topic,
@@ -22,7 +22,7 @@ func newCommitter(committerInterval time.Duration, topic string, client *kafka.C
 		getBundlesMetadataFunc: getBundlesMetadataFunc,
 		commitsMap:             make(map[int32]kafka.Offset),
 		interval:               committerInterval,
-	}, nil
+	}
 }
 
 // committer is responsible for committing offsets to transport.

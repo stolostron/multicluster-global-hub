@@ -6,6 +6,7 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
+
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -52,8 +53,10 @@ func NewConfigManager() (*ConfigManager, error) {
 	pflag.StringVar(&configManager.ProducerConfig.ProducerID, "kafka-producer-id", "",
 		"Producer Id for the kafka, default is the leaf hub name.")
 
-	pflag.StringVar(&configManager.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic", "spec", "Topic for the kafka consumer.")
-	pflag.StringVar(&configManager.ProducerConfig.ProducerTopic, "kafka-producer-topic", "status", "Topic for the kafka producer.")
+	pflag.StringVar(&configManager.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic",
+		"spec", "Topic for the kafka consumer.")
+	pflag.StringVar(&configManager.ProducerConfig.ProducerTopic, "kafka-producer-topic",
+		"status", "Topic for the kafka producer.")
 	pflag.StringVar(&configManager.PodNameSpace, "pod-namespace", "open-cluster-management",
 		"The agent running namespace, also used as leader election namespace")
 	pflag.StringVar(&configManager.TransportType, "transport-type", "kafka",

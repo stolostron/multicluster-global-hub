@@ -6,8 +6,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 )
 
-// newBundleMetadata returns a new instance of BundleMetadata.
-func newBundleMetadata(partition int32, offset kafka.Offset) *bundleMetadata {
+// NewBundleMetadata returns a new instance of BundleMetadata.
+func NewBundleMetadata(partition int32, offset kafka.Offset) *bundleMetadata {
 	return &bundleMetadata{
 		BaseBundleMetadata: bundle.NewBaseBundleMetadata(),
 		partition:          partition,

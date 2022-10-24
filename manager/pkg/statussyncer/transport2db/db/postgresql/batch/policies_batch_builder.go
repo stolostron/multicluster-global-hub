@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 // NewPoliciesBatchBuilder creates a new instance of PostgreSQL PoliciesBatchBuilder.
 func NewPoliciesBatchBuilder(schema string, tableName string, leafHubName string) *PoliciesBatchBuilder {
 	tableSpecialColumns := make(map[int]string)
-	tableSpecialColumns[policyUUIDColumnIndex] = db.UUID
+	tableSpecialColumns[policyUUIDColumnIndex] = database.UUID
 
 	builder := &PoliciesBatchBuilder{
 		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
@@ -42,22 +42,22 @@ type PoliciesBatchBuilder struct {
 	deleteClusterComplianceArgs      map[string][]interface{} // map from policyID to clusters
 }
 
-// Insert adds the given (policyID, clusterName, errorString, compliance) to the batch to be inserted to the db.
+// Insert adds the given (policyID, clusterName, errorString, compliance) to the batch to be inserted to the database.
 func (builder *PoliciesBatchBuilder) Insert(policyID string, clusterName string, errorString string,
-	compliance db.ComplianceStatus,
+	compliance database.ComplianceStatus,
 ) {
 	builder.insert(policyID, clusterName, builder.leafHubName, errorString, compliance)
 }
 
 // UpdatePolicyCompliance adds the given row args to be updated in the batch.
-func (builder *PoliciesBatchBuilder) UpdatePolicyCompliance(policyID string, compliance db.ComplianceStatus) {
+func (builder *PoliciesBatchBuilder) UpdatePolicyCompliance(policyID string, compliance database.ComplianceStatus) {
 	// use the builder base update args to implement the policy updates. for specific clusters rows use different vars.
 	builder.update(policyID, builder.leafHubName, compliance)
 }
 
 // UpdateClusterCompliance adds the given row args to be updated in the batch.
 func (builder *PoliciesBatchBuilder) UpdateClusterCompliance(policyID string, clusterName string,
-	compliance db.ComplianceStatus,
+	compliance database.ComplianceStatus,
 ) {
 	// if adding args will exceeded max args limit, create update statement from current args and zero the count/args.
 	if len(builder.updateClusterComplianceArgs)+clusterComplianceUpdateArgsCount >= maxColumnsUpdateInStatement {
@@ -75,13 +75,13 @@ func (builder *PoliciesBatchBuilder) UpdateClusterCompliance(policyID string, cl
 	builder.updateClusterComplianceRowsCount++
 }
 
-// DeletePolicy adds delete statement to the batch to delete the given policyId from db.
+// DeletePolicy adds delete statement to the batch to delete the given policyId from database.
 func (builder *PoliciesBatchBuilder) DeletePolicy(policyID string) {
 	// use the builder base delete args to implement the policy delete. for specific clusters rows use different vars.
 	builder.delete(policyID)
 }
 
-// DeleteClusterStatus adds delete statement to the batch to delete the given (policyId,clusterName) from db.
+// DeleteClusterStatus adds delete statement to the batch to delete the given (policyId,clusterName) from database.
 func (builder *PoliciesBatchBuilder) DeleteClusterStatus(policyID string, clusterName string) {
 	_, found := builder.deleteClusterComplianceArgs[policyID]
 	if !found {
@@ -119,9 +119,9 @@ func (builder *PoliciesBatchBuilder) generateUpdatePolicyComplianceStatement() s
 		builder.schema, builder.tableName))
 
 	specialColumns := make(map[int]string)
-	specialColumns[policyUUIDColumnIndex] = db.UUID
+	specialColumns[policyUUIDColumnIndex] = database.UUID
 	specialColumns[updatePolicyComplianceTypeColumnIndex] = fmt.Sprintf("%s.%s", builder.schema,
-		db.ComplianceType) // compliance column index
+		database.ComplianceType) // compliance column index
 
 	numberOfColumns := len(builder.updateArgs) / builder.updateRowsCount // total num of args divided by num of rows
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,
@@ -140,9 +140,9 @@ func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() 
 		builder.schema, builder.tableName))
 
 	specialColumns := make(map[int]string)
-	specialColumns[policyUUIDColumnIndex] = db.UUID
+	specialColumns[policyUUIDColumnIndex] = database.UUID
 	specialColumns[updateClusterComplianceTypeColumnIndex] = fmt.Sprintf("%s.%s", builder.schema,
-		db.ComplianceType) // compliance column index
+		database.ComplianceType) // compliance column index
 
 	// num of columns is total num of args divided by num of rows
 	columnCount := len(builder.updateClusterComplianceArgs) /

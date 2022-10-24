@@ -138,12 +138,14 @@ func getConsumer(environmentManager *helper.ConfigManager,
 	switch environmentManager.TransportType {
 	case TRANSPORT_TYPE_KAFKA:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			40*time.Second, environmentManager.BootstrapServers, environmentManager.SslCA,
-			environmentManager.ConsumerConfig, nil,
-			nil, ctrl.Log.WithName("kafka-consumer"), genericBundleChan, environmentManager.LeafHubName)
+			environmentManager.BootstrapServers, environmentManager.SslCA,
+			environmentManager.ConsumerConfig, ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
+
+		kafkaConsumer.SetLeafHubName(environmentManager.LeafHubName)
+		kafkaConsumer.SetGenericBundleChan(genericBundleChan)
 		return kafkaConsumer, nil
 	default:
 		return nil, fmt.Errorf("environment variable %q - %q is not a valid option",

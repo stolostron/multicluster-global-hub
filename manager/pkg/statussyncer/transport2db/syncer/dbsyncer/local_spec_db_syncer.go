@@ -9,13 +9,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -61,10 +61,10 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance
 }
 
 // RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
-// handler functions need to do "diff" between objects received in the bundle and the objects in db.
+// handler functions need to do "diff" between objects received in the bundle and the objects in database.
 // leaf hub sends only the current existing objects, and status transport bridge should understand implicitly which
 // objects were deleted.
-// therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the db.
+// therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the database.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
@@ -72,19 +72,19 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 		conflator.LocalPolicySpecPriority,
 		bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
-		syncer.handleLocalObjectsBundleWrapper(db.LocalPolicySpecTableName)))
+		syncer.handleLocalObjectsBundleWrapper(database.LocalPolicySpecTableName)))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRulesSpecPriority,
 		bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalPlacementRulesSpecBundleFunc()),
-		syncer.handleLocalObjectsBundleWrapper(db.PlacementRulesTableName)))
+		syncer.handleLocalObjectsBundleWrapper(database.PlacementRulesTableName)))
 }
 
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,
-	bundle status.Bundle, dbClient db.StatusTransportBridgeDB) error {
-	return func(ctx context.Context, bundle status.Bundle, dbClient db.StatusTransportBridgeDB) error {
-		return syncer.handleLocalObjectsBundle(ctx, bundle, dbClient, db.LocalSpecSchema, tableName)
+	bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+	return func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+		return syncer.handleLocalObjectsBundle(ctx, bundle, dbClient, database.LocalSpecSchema, tableName)
 	}
 }
 
@@ -93,7 +93,7 @@ func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName strin
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundle(ctx context.Context, bundle status.Bundle,
-	dbClient db.LocalPoliciesStatusDB, schema string, tableName string,
+	dbClient database.LocalPoliciesStatusDB, schema string, tableName string,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()

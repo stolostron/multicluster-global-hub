@@ -179,13 +179,14 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 }
 
 // Register function registers a bundle ID to a CustomBundleRegistration.
-func (c *KafkaProducer) CustomBundleRegister(msgID string, customBundleRegistration *registration.CustomBundleRegistration) {
-
+func (c *KafkaProducer) CustomBundleRegister(msgID string,
+	customBundleRegistration *registration.CustomBundleRegistration) {
+	// do nothing
 }
 
 // Register function registers a msgID to the bundle updates channel.
 func (c *KafkaProducer) BundleRegister(registration *registration.BundleRegistration) {
-
+	// do nothing
 }
 
 // Close closes the KafkaProducer.

@@ -10,10 +10,10 @@ import (
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 var _ = Describe("Policies", Ordered, func() {
@@ -156,7 +156,7 @@ var _ = Describe("Policies", Ordered, func() {
 			for rows.Next() {
 				var (
 					policyId, clusterName, leafHubName string
-					complianceStatus                   db.ComplianceStatus
+					complianceStatus                   database.ComplianceStatus
 				)
 				if err := rows.Scan(&policyId, &clusterName, &leafHubName, &complianceStatus); err != nil {
 					return err
@@ -218,7 +218,7 @@ var _ = Describe("Policies", Ordered, func() {
 			for rows.Next() {
 				var (
 					policyId, clusterName, hubName string
-					complianceStatus               db.ComplianceStatus
+					complianceStatus               database.ComplianceStatus
 				)
 				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
 					return err

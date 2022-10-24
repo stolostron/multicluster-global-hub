@@ -27,9 +27,11 @@ import (
 
 const pollTimeoutMs = 100
 
-var errHeaderNotFound = errors.New("required message header not found")
-
-var errMessageIDWrongFormat = errors.New("message ID format is bad")
+var (
+	errHeaderNotFound       = errors.New("required message header not found")
+	errMessageIDWrongFormat = errors.New("message ID format is bad")
+	parseFail               = "failed to parse bundle"
+)
 
 type KafkaConsumerConfig struct {
 	ConsumerID    string
@@ -68,11 +70,8 @@ type KafkaConsumer struct {
 }
 
 // NewConsumer creates a new instance of Consumer.
-func NewKafkaConsumer(committerInterval time.Duration, bootstrapServer, sslCA string, consumerConfig *KafkaConsumerConfig,
-	conflationManager *conflator.ConflationManager, statistics *statistics.Statistics, log logr.Logger,
-	genericBundlesChan chan *bundle.GenericBundle, leafHubName string,
+func NewKafkaConsumer(bootstrapServer, sslCA string, consumerConfig *KafkaConsumerConfig, log logr.Logger,
 ) (*KafkaConsumer, error) {
-
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       bootstrapServer,
 		"client.id":               consumerConfig.ConsumerID,
@@ -94,18 +93,6 @@ func NewKafkaConsumer(committerInterval time.Duration, bootstrapServer, sslCA st
 		return nil, fmt.Errorf("failed to create consumer: %w", err)
 	}
 
-	var committer *committer
-	if leafHubName == "" {
-		// create committer
-		committer, err = newCommitter(committerInterval, consumerConfig.ConsumerTopic, consumer,
-			conflationManager.GetBundlesMetadata, log)
-		if err != nil {
-			close(messageChan)
-			consumer.Close()
-			return nil, fmt.Errorf("failed to create committer: %w", err)
-		}
-	}
-
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	kafkaConsumer := &KafkaConsumer{
@@ -120,14 +107,9 @@ func NewKafkaConsumer(committerInterval time.Duration, bootstrapServer, sslCA st
 		cancelFunc:       cancelFunc,
 		lock:             sync.Mutex{},
 
-		leafHubName:                     leafHubName,
-		genericBundlesChan:              genericBundlesChan,
 		customBundleIDToRegistrationMap: make(map[string]*registration.CustomBundleRegistration),
 		partitionToOffsetToCommitMap:    make(map[int32]kafka.Offset),
 
-		committer:              committer,
-		conflationManager:      conflationManager,
-		statistics:             statistics,
 		msgIDToRegistrationMap: make(map[string]*registration.BundleRegistration),
 	}
 
@@ -138,6 +120,22 @@ func NewKafkaConsumer(committerInterval time.Duration, bootstrapServer, sslCA st
 	}
 
 	return kafkaConsumer, nil
+}
+
+func (c *KafkaConsumer) SetCommitter(committer *committer) {
+	c.committer = committer
+}
+
+func (c *KafkaConsumer) SetStatistics(statistics *statistics.Statistics) {
+	c.statistics = statistics
+}
+
+func (c *KafkaConsumer) SetLeafHubName(leafHubName string) {
+	c.leafHubName = leafHubName
+}
+
+func (c *KafkaConsumer) SetGenericBundleChan(genericBundlesChan chan *bundle.GenericBundle) {
+	c.genericBundlesChan = genericBundlesChan
 }
 
 // Start function starts the consumer.
@@ -160,7 +158,8 @@ func (c *KafkaConsumer) Stop() {
 }
 
 // Register function registers a bundle ID to a CustomBundleRegistration.
-func (c *KafkaConsumer) CustomBundleRegister(msgID string, customBundleRegistration *registration.CustomBundleRegistration) {
+func (c *KafkaConsumer) CustomBundleRegister(msgID string,
+	customBundleRegistration *registration.CustomBundleRegistration) {
 	c.customBundleIDToRegistrationMap[msgID] = customBundleRegistration
 }
 
@@ -170,7 +169,7 @@ func (c *KafkaConsumer) BundleRegister(registration *registration.BundleRegistra
 }
 
 func (c *KafkaConsumer) SendAsync(msg *transport.Message) {
-
+	// do nothing
 }
 
 func (c *KafkaConsumer) handleKafkaMessages(ctx context.Context) {
@@ -181,103 +180,108 @@ func (c *KafkaConsumer) handleKafkaMessages(ctx context.Context) {
 
 		case msg := <-c.messageChan:
 			c.log.Info("received message and forward to bundle chan...")
-			c.processMessage(msg)
+			if c.leafHubName == "" {
+				c.processMessageWithConflation(msg)
+			} else {
+				c.processMessage(msg)
+			}
 		}
 	}
 }
 
+func (c *KafkaConsumer) processMessageWithConflation(message *kafka.Message) {
+	compressionType := compressor.NoOp
+
+	if compressionTypeBytes, found := c.lookupHeaderValue(message, transport.CompressionType); found {
+		compressionType = compressor.CompressionType(compressionTypeBytes)
+	}
+
+	decompressedPayload, err := c.decompressPayload(message.Value, compressionType)
+	if err != nil {
+		c.logError(err, "failed to decompress bundle bytes", message)
+		return
+	}
+
+	transportMessage := &transport.Message{}
+	if err := json.Unmarshal(decompressedPayload, transportMessage); err != nil {
+		c.logError(err, "failed to parse transport message", message)
+		return
+	}
+
+	// get msgID
+	msgIDTokens := strings.Split(transportMessage.ID, ".") // object id is LH_ID.MSG_ID
+	if len(msgIDTokens) != 2 {
+		c.logError(errors.New("message ID format is bad"),
+			"expecting MessageID of format LH_ID.MSG_ID", message)
+		return
+	}
+
+	msgID := msgIDTokens[1]
+	if _, found := c.msgIDToRegistrationMap[msgID]; !found {
+		c.log.Info("no bundle-registration available, not sending bundle", "messageId", transportMessage.ID,
+			"messageType", transportMessage.MsgType, "version", transportMessage.Version)
+		// no one registered for this msg id
+		return
+	}
+
+	if !c.msgIDToRegistrationMap[msgID].Predicate() {
+		c.log.Info("predicate is false, not sending bundle", "messageId", transportMessage.ID,
+			"messageType", transportMessage.MsgType, "version", transportMessage.Version)
+
+		return // bundle-registration predicate is false, do not send the update in the channel
+	}
+
+	receivedBundle := c.msgIDToRegistrationMap[msgID].CreateBundleFunc()
+	if err := json.Unmarshal(transportMessage.Payload, receivedBundle); err != nil {
+		c.logError(err, parseFail, message)
+		return
+	}
+
+	c.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
+
+	c.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
+		message.TopicPartition.Offset))
+}
+
 func (c *KafkaConsumer) processMessage(message *kafka.Message) {
-
-	if c.leafHubName != "" {
-		if msgDestinationLeafHubBytes, found := c.lookupHeaderValue(message, transport.DestinationHub); found {
-			if string(msgDestinationLeafHubBytes) != c.leafHubName {
-				return // if destination is explicitly specified and does not match, drop bundle
-			}
-		} // if header is not found then assume broadcast
-
-		compressionTypeBytes, found := c.lookupHeaderValue(message, transport.CompressionType)
-		if !found {
-			c.logError(errors.New("compression type is missing from message description"), "failed to read bundle", message)
-			return
+	if msgDestinationLeafHubBytes, found :=
+		c.lookupHeaderValue(message, transport.DestinationHub); found {
+		if string(msgDestinationLeafHubBytes) != c.leafHubName {
+			return // if destination is explicitly specified and does not match, drop bundle
 		}
+	} // if header is not found then assume broadcast
 
-		decompressedPayload, err := c.decompressPayload(message.Value,
-			compressor.CompressionType(compressionTypeBytes))
-		if err != nil {
-			c.logError(err, "failed to decompress bundle bytes", message)
-			return
-		}
+	compressionTypeBytes, found := c.lookupHeaderValue(message, transport.CompressionType)
+	if !found {
+		c.logError(errors.New("compression type is missing from message description"), "failed to read bundle", message)
+		return
+	}
 
-		transportMessage := &transport.Message{}
-		if err := json.Unmarshal(decompressedPayload, transportMessage); err != nil {
-			c.logError(err, "failed to parse transport message", message)
-			return
-		}
+	decompressedPayload, err := c.decompressPayload(message.Value,
+		compressor.CompressionType(compressionTypeBytes))
+	if err != nil {
+		c.logError(err, "failed to decompress bundle bytes", message)
+		return
+	}
 
-		customBundleRegistration, found := c.customBundleIDToRegistrationMap[transportMessage.ID]
-		if !found { // received generic bundle
-			if err := c.syncGenericBundle(transportMessage.Payload); err != nil {
-				c.log.Error(err, "failed to parse bundle", "MessageID", transportMessage.ID,
-					"MessageType", transportMessage.MsgType, "Version", transportMessage.Version)
-			}
-			return
-		}
-		// received a custom bundle
-		if err := c.SyncCustomBundle(customBundleRegistration, transportMessage.Payload); err != nil {
-			c.log.Error(err, "failed to parse bundle", "MessageID", transportMessage.ID,
+	transportMessage := &transport.Message{}
+	if err := json.Unmarshal(decompressedPayload, transportMessage); err != nil {
+		c.logError(err, "failed to parse transport message", message)
+		return
+	}
+
+	customBundleRegistration, found := c.customBundleIDToRegistrationMap[transportMessage.ID]
+	if !found { // received generic bundle
+		if err := c.syncGenericBundle(transportMessage.Payload); err != nil {
+			c.log.Error(err, parseFail, "MessageID", transportMessage.ID,
 				"MessageType", transportMessage.MsgType, "Version", transportMessage.Version)
 		}
-	} else {
-		compressionType := compressor.NoOp
-
-		if compressionTypeBytes, found := c.lookupHeaderValue(message, transport.CompressionType); found {
-			compressionType = compressor.CompressionType(compressionTypeBytes)
-		}
-
-		decompressedPayload, err := c.decompressPayload(message.Value, compressionType)
-		if err != nil {
-			c.logError(err, "failed to decompress bundle bytes", message)
-			return
-		}
-
-		transportMessage := &transport.Message{}
-		if err := json.Unmarshal(decompressedPayload, transportMessage); err != nil {
-			c.logError(err, "failed to parse transport message", message)
-			return
-		}
-
-		// get msgID
-		msgIDTokens := strings.Split(transportMessage.ID, ".") // object id is LH_ID.MSG_ID
-		if len(msgIDTokens) != 2 {
-			c.logError(errors.New("message ID format is bad"), "expecting MessageID of format LH_ID.MSG_ID", message)
-			return
-		}
-
-		msgID := msgIDTokens[1]
-		if _, found := c.msgIDToRegistrationMap[msgID]; !found {
-			c.log.Info("no bundle-registration available, not sending bundle", "messageId", transportMessage.ID,
-				"messageType", transportMessage.MsgType, "version", transportMessage.Version)
-			// no one registered for this msg id
-			return
-		}
-
-		if !c.msgIDToRegistrationMap[msgID].Predicate() {
-			c.log.Info("predicate is false, not sending bundle", "messageId", transportMessage.ID,
-				"messageType", transportMessage.MsgType, "version", transportMessage.Version)
-
-			return // bundle-registration predicate is false, do not send the update in the channel
-		}
-
-		receivedBundle := c.msgIDToRegistrationMap[msgID].CreateBundleFunc()
-		if err := json.Unmarshal(transportMessage.Payload, receivedBundle); err != nil {
-			c.logError(err, "failed to parse bundle", message)
-			return
-		}
-
-		c.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
-
-		c.conflationManager.Insert(receivedBundle, newBundleMetadata(message.TopicPartition.Partition,
-			message.TopicPartition.Offset))
+		return
+	}
+	// received a custom bundle
+	if err := c.SyncCustomBundle(customBundleRegistration, transportMessage.Payload); err != nil {
+		c.log.Error(err, parseFail, "MessageID", transportMessage.ID,
+			"MessageType", transportMessage.MsgType, "Version", transportMessage.Version)
 	}
 }
 

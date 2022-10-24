@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/postgresql"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -36,7 +36,7 @@ type DBWorkerPool struct {
 	ctx           context.Context
 	log           logr.Logger
 	cancelContext context.CancelFunc
-	dbConnPool    db.StatusTransportBridgeDB
+	dbConnPool    database.StatusTransportBridgeDB
 	dbWorkers     chan *DBWorker // A pool of workers that are registered within the workers pool
 	statistics    *statistics.Statistics
 }

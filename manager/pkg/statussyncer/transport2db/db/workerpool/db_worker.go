@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -15,7 +15,7 @@ import (
 // jobsQueue is initialized with capacity of 1. this is done in order to make sure dispatcher isn't blocked when calling
 // to RunAsync, otherwise it will yield cpu to other go routines.
 func NewDBWorker(log logr.Logger, workerID int32, dbWorkersPool chan *DBWorker,
-	dbConnPool db.StatusTransportBridgeDB, statistics *statistics.Statistics,
+	dbConnPool database.StatusTransportBridgeDB, statistics *statistics.Statistics,
 ) *DBWorker {
 	return &DBWorker{
 		log:           log,
@@ -32,7 +32,7 @@ type DBWorker struct {
 	log           logr.Logger
 	workerID      int32
 	dbWorkersPool chan *DBWorker
-	dbConnPool    db.StatusTransportBridgeDB
+	dbConnPool    database.StatusTransportBridgeDB
 	jobsQueue     chan *DBJob
 	statistics    *statistics.Statistics
 }

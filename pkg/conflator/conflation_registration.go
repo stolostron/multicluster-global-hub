@@ -3,14 +3,14 @@ package conflator
 import (
 	"context"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/dependency"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 // BundleHandlerFunc is a function for handling a bundle.
-type BundleHandlerFunc func(context.Context, statusbundle.Bundle, db.StatusTransportBridgeDB) error
+type BundleHandlerFunc func(context.Context, statusbundle.Bundle, database.StatusTransportBridgeDB) error
 
 // NewConflationRegistration creates a new instance of ConflationRegistration.
 func NewConflationRegistration(priority ConflationPriority, syncMode bundle.BundleSyncMode, bundleType string,

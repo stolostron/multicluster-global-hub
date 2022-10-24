@@ -7,13 +7,13 @@ import (
 	"github.com/go-logr/logr"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -52,19 +52,19 @@ func (syncer *ControlInfoDBSyncer) RegisterBundleHandlerFunctions(
 		conflator.ControlInfoPriority,
 		bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient db.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
 			return syncer.handleControlInfoBundle(ctx, bundle, dbClient)
 		},
 	))
 }
 
 func (syncer *ControlInfoDBSyncer) handleControlInfoBundle(ctx context.Context, bundle status.Bundle,
-	dbClient db.ControlInfoDB,
+	dbClient database.ControlInfoDB,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	if err := dbClient.UpdateHeartbeat(ctx, db.StatusSchema, db.LeafHubHeartbeatsTableName, leafHubName); err != nil {
+	if err := dbClient.UpdateHeartbeat(ctx, database.StatusSchema, database.LeafHubHeartbeatsTableName, leafHubName); err != nil {
 		return fmt.Errorf("failed handling control info bundle of leaf hub '%s' - %w", leafHubName, err)
 	}
 
