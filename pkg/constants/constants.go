@@ -106,5 +106,3 @@ const (
 	// VersionClusterClaimName is a claim to record the ACM version
 	VersionClusterClaimName = "version.open-cluster-management.io"
 )
-
-var EnableAddon bool

@@ -25,7 +25,7 @@ type packageManifestConfig struct {
 
 var packageManifestConfigInstance = &packageManifestConfig{}
 
-func setPackageManifestConfig(acmDefaultChannel, acmCurrentCSV, mceDefaultChannel, mceCurrentCSV string,
+func SetPackageManifestConfig(acmDefaultChannel, acmCurrentCSV, mceDefaultChannel, mceCurrentCSV string,
 	acmImages, mceImages map[string]string,
 ) {
 	packageManifestConfigInstance = &packageManifestConfig{
@@ -38,7 +38,7 @@ func setPackageManifestConfig(acmDefaultChannel, acmCurrentCSV, mceDefaultChanne
 	}
 }
 
-func getPackageManifestConfig(ctx context.Context, dynClient dynamic.Interface) (*packageManifestConfig, error) {
+func GetPackageManifestConfig(ctx context.Context, dynClient dynamic.Interface) (*packageManifestConfig, error) {
 	if packageManifestConfigInstance.ACMDefaultChannel != "" &&
 		packageManifestConfigInstance.ACMCurrentCSV != "" &&
 		len(packageManifestConfigInstance.ACMImages) != 0 &&

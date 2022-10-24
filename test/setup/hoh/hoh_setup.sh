@@ -51,8 +51,12 @@ else
 fi
 
 namespace=open-cluster-management
+agenAddonNamespace=open-cluster-management-agent-addon
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
+
+# create leader election configuration
+kubectl apply -f ${currentDir}/components/leader-election-configmap.yaml -n "$namespace"
 
 cd ${rootDir}
 export IMG=$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF
@@ -91,20 +95,19 @@ while [[ -z $(kubectl get deploy -n $namespace multicluster-global-hub-manager -
 done;
 kubectl wait deployment -n $namespace multicluster-global-hub-manager --for condition=Available=True --timeout=600s
 
+# Need to hack here to fix the microshift issue - https://github.com/openshift/microshift/issues/660
+kubectl annotate mutatingwebhookconfiguration multicluster-global-hub-mutator service.beta.openshift.io/inject-cabundle-
+ca=$(kubectl get secret multicluster-global-hub-webhook-certs -n $namespace -o jsonpath="{.data.tls\.crt}")
+kubectl patch mutatingwebhookconfiguration multicluster-global-hub-mutator -n $namespace -p "{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"$ca\"}}]}"
 
 SECOND=0
-while [[ -z $(kubectl get deploy -n $namespace multicluster-global-hub-agent --context kind-$LEAF_HUB_NAME --ignore-not-found) ]]; do
+while [[ -z $(kubectl get deploy -n $agenAddonNamespace multicluster-global-hub-agent --context kind-$LEAF_HUB_NAME --ignore-not-found) ]]; do
   if [ $SECOND -gt 200 ]; then
-    echo "Timeout waiting for deploying multicluster-global-hub-agent in namespace $namespace"
+    echo "Timeout waiting for deploying multicluster-global-hub-agent in namespace $agenAddonNamespace"
     exit 1
   fi
   echo "Waiting for multicluster-global-hub-agent to be created..."
   sleep 2;
   (( SECOND = SECOND + 2 ))
 done;
-kubectl --context kind-$LEAF_HUB_NAME wait deployment -n $namespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s
-
-# Need to hack here to fix the microshift issue - https://github.com/openshift/microshift/issues/660
-kubectl annotate mutatingwebhookconfiguration multicluster-global-hub-mutator service.beta.openshift.io/inject-cabundle-
-ca=$(kubectl get secret multicluster-global-hub-webhook-certs -n $namespace -o jsonpath="{.data.tls\.crt}")
-kubectl patch mutatingwebhookconfiguration multicluster-global-hub-mutator -n $namespace -p "{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"$ca\"}}]}"
+kubectl --context kind-$LEAF_HUB_NAME wait deployment -n $agenAddonNamespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s
