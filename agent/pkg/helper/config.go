@@ -46,6 +46,7 @@ type ConfigManager struct {
 	Kafka                        *KafkaConfig
 	SyncService                  *SyncServiceConfig
 	ElectionConfig               *commonobjects.LeaderElectionConfig
+	Terminating                  bool
 }
 
 func NewConfigManager() (*ConfigManager, error) {
@@ -102,6 +103,7 @@ func NewConfigManager() (*ConfigManager, error) {
 	pflag.IntVar(&configManager.ElectionConfig.LeaseDuration, "lease-duration", 137, "leader election lease duration")
 	pflag.IntVar(&configManager.ElectionConfig.RenewDeadline, "renew-deadline", 107, "leader election renew deadline")
 	pflag.IntVar(&configManager.ElectionConfig.RetryPeriod, "retry-period", 26, "leader election retry period")
+	pflag.BoolVar(&configManager.Terminating, "terminating", false, "PreStop addon hook")
 	pflag.Parse()
 
 	if configManager.LeafHubName == "" {
