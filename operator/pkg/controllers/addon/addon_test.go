@@ -173,7 +173,7 @@ func TestManifest(t *testing.T) {
 			existingObjects:          []runtime.Object{fakeKafkaSecret()},
 			cluster:                  fakeManagedCluster("cluster1", clusterv1.ManagedClusterClaim{}),
 			addon:                    fakeManagedClusterAddon("cluster1", "", constants.ClusterDeployModeDefault),
-			expectedCount:            6,
+			expectedCount:            7,
 			expectedInstallNamespace: constants.HoHAgentInstallNamespace,
 		},
 		{
@@ -181,7 +181,7 @@ func TestManifest(t *testing.T) {
 			existingObjects:          []runtime.Object{fakeKafkaSecret()},
 			cluster:                  fakeManagedCluster("cluster1", clusterv1.ManagedClusterClaim{}),
 			addon:                    fakeManagedClusterAddon("cluster1", "hoh-agent-addon", constants.ClusterDeployModeHosted),
-			expectedCount:            10,
+			expectedCount:            11,
 			expectedInstallNamespace: "hoh-agent-addon",
 		},
 		{
@@ -191,7 +191,7 @@ func TestManifest(t *testing.T) {
 			cluster: fakeManagedCluster("cluster1",
 				fakeHubClaim(globalconstants.HubNotInstalled)),
 			addon:                    fakeManagedClusterAddon("cluster1", "addon-test", constants.ClusterDeployModeDefault),
-			expectedCount:            12,
+			expectedCount:            13,
 			expectedInstallNamespace: "addon-test",
 		},
 		{
@@ -201,7 +201,7 @@ func TestManifest(t *testing.T) {
 			cluster: fakeManagedCluster("cluster1",
 				fakeHubClaim(globalconstants.HubNotInstalled)),
 			addon:                    fakeManagedClusterAddon("cluster1", "", constants.ClusterDeployModeDefault),
-			expectedCount:            13,
+			expectedCount:            14,
 			expectedInstallNamespace: constants.HoHAgentInstallNamespace,
 		},
 		{
@@ -211,7 +211,7 @@ func TestManifest(t *testing.T) {
 			cluster: fakeManagedCluster("cluster1",
 				fakeHubClaim(globalconstants.HubNotInstalled)),
 			addon:                    fakeManagedClusterAddon("cluster1", "hoh-agent-addon", constants.ClusterDeployModeHosted),
-			expectedCount:            17,
+			expectedCount:            18,
 			expectedInstallNamespace: "hoh-agent-addon",
 		},
 	}

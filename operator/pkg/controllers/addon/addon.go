@@ -102,7 +102,6 @@ func (a *HohAgentAddon) setInstallHostedMode(addon *addonapiv1alpha1.ManagedClus
 	if annotations[constants.AnnotationAddonHostingClusterName] != "" {
 		manifestsConfig.InstallHostedMode = true
 	}
-	return
 }
 
 func (a *HohAgentAddon) setACMPackageConfigs(manifestsConfig *ManifestsConfig) error {

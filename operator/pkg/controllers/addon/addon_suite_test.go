@@ -221,10 +221,7 @@ func prepareBeforeTest() {
 	// get this newly created MGH instance, given that creation may not immediately happen.
 	Eventually(func() bool {
 		err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	}, timeout, interval).Should(BeTrue())
 
 	// set fake packagemenifestwork configuration
