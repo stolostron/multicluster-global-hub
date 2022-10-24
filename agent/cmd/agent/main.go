@@ -13,6 +13,7 @@ import (
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -22,9 +23,11 @@ import (
 	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	runtimescheme "sigs.k8s.io/controller-runtime/pkg/scheme"
@@ -54,39 +57,42 @@ const (
 )
 
 func main() {
-	os.Exit(doMain())
+	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
-func doMain() int {
+func doMain(ctx context.Context, restConfig *rest.Config) int {
 	log := initLog()
 	printVersion(log)
-	agentConfig, err := helper.NewConfigManager()
+	configManager, err := helper.NewConfigManager()
 	if err != nil {
 		log.Error(err, "failed to load environment variable")
 		return 1
 	}
 
-	mgr, err := getControllerManager(ctrl.GetConfigOrDie(), agentConfig)
-	if err != nil {
-		log.Error(err, "failed the create controller manager")
-		return 1
-	}
-
-	if agentConfig.Terminating {
-		return jobs.NewPruneJob(mgr.GetClient()).Run()
+	if configManager.Terminating {
+		if err := addToScheme(scheme.Scheme); err != nil {
+			log.Error(err, "addToScheme error")
+			return 1
+		}
+		client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
+		if err != nil {
+			log.Error(err, "failed to int controller runtime client")
+			return 1
+		}
+		return jobs.NewPruneJob(client).Run()
 	}
 
 	// transport layer initialization
 	genericBundleChan := make(chan *bundle.GenericBundle)
 	defer close(genericBundleChan)
 
-	consumer, err := getConsumer(agentConfig, genericBundleChan)
+	consumer, err := getConsumer(configManager, genericBundleChan)
 	if err != nil {
 		log.Error(err, "transport consumer initialization error")
 		return 1
 	}
-	producer, err := getProducer(agentConfig)
+	producer, err := getProducer(configManager)
 	if err != nil {
 		log.Error(err, "transport producer initialization error")
 	}
@@ -96,7 +102,8 @@ func doMain() int {
 	defer consumer.Stop()
 	defer producer.Stop()
 
-	if err = addControllerToManager(mgr, consumer, producer, agentConfig); err != nil {
+	mgr, err := createManager(consumer, producer, configManager)
+	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
 	}
@@ -174,58 +181,57 @@ func getProducer(environmentManager *helper.ConfigManager) (producer.Producer, e
 	}
 }
 
-func getControllerManager(restConfig *rest.Config, agentConfig *helper.ConfigManager) (ctrl.Manager, error) {
-	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
-	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
-	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second
+func createManager(consumer consumer.Consumer, producer producer.Producer,
+	environmentManager *helper.ConfigManager,
+) (ctrl.Manager, error) {
+	leaseDuration := time.Duration(environmentManager.ElectionConfig.LeaseDuration) * time.Second
+	renewDeadline := time.Duration(environmentManager.ElectionConfig.RenewDeadline) * time.Second
+	retryPeriod := time.Duration(environmentManager.ElectionConfig.RetryPeriod) * time.Second
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", METRICS_HOST, METRICS_PORT),
 		LeaderElection:          true,
 		LeaderElectionID:        LEADER_ELECTION_ID,
-		LeaderElectionNamespace: agentConfig.PodNameSpace,
+		LeaderElectionNamespace: environmentManager.PodNameSpace,
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
 	}
 
-	mgr, err := ctrl.NewManager(restConfig, options)
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
+
 	// add scheme
 	if err := addToScheme(mgr.GetScheme()); err != nil {
 		return nil, fmt.Errorf("failed to add a schemes: %w", err)
 	}
-	return mgr, nil
-}
 
-func addControllerToManager(mgr ctrl.Manager, consumer consumer.Consumer, producer producer.Producer,
-	agentConfig *helper.ConfigManager,
-) error {
 	// incarnation version
 	incarnation, err := getIncarnation(mgr)
 	if err != nil {
-		return fmt.Errorf("failed to get incarnation version: %w", err)
+		return nil, fmt.Errorf("failed to get incarnation version: %w", err)
 	}
 	fmt.Printf("Starting the Cmd incarnation: %d", incarnation)
 
-	if err := specController.AddSyncersToManager(mgr, consumer, *agentConfig); err != nil {
-		return fmt.Errorf("failed to add spec syncer: %w", err)
+	if err := specController.AddSyncersToManager(mgr, consumer, *environmentManager); err != nil {
+		return nil, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 
-	if err := statusController.AddControllers(mgr, producer, *agentConfig, incarnation); err != nil {
-		return fmt.Errorf("failed to add status syncer: %w", err)
+	if err := statusController.AddControllers(mgr, producer, *environmentManager, incarnation); err != nil {
+		return nil, fmt.Errorf("failed to add status syncer: %w", err)
 	}
 
 	if err := controllers.AddToManager(mgr); err != nil {
-		return fmt.Errorf("failed to add controllers: %w", err)
+		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
-	if err := lease.AddHoHLeaseUpdater(mgr, agentConfig.PodNameSpace, "multicluster-global-hub-controller"); err != nil {
-		return fmt.Errorf("failed to add lease updater: %w", err)
+	if err := lease.AddHoHLeaseUpdater(mgr, environmentManager.PodNameSpace,
+		"multicluster-global-hub-controller"); err != nil {
+		return nil, fmt.Errorf("failed to add lease updater: %w", err)
 	}
 
-	return nil
+	return mgr, nil
 }
 
 func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
@@ -247,9 +253,13 @@ func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
 	}
 
 	schemeBuilders := []*runtimescheme.Builder{
-		policyv1.SchemeBuilder, placementrulev1.SchemeBuilder, appsubv1alpha1.SchemeBuilder,
+		policyv1.SchemeBuilder,
+		placementrulev1.SchemeBuilder,
+		appsubv1alpha1.SchemeBuilder,
 		mchv1.SchemeBuilder,
 		appsubv1.SchemeBuilder,
+		appv1beta1.SchemeBuilder,
+		chnv1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {

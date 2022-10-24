@@ -1,6 +1,7 @@
 package jobs_test
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -31,9 +32,11 @@ func TestJobs(t *testing.T) {
 }
 
 var (
-	testenv           *envtest.Environment
-	cfg               *rest.Config
-	runtimeController client.Client
+	testenv       *envtest.Environment
+	cfg           *rest.Config
+	runtimeClient client.Client
+	ctx           context.Context
+	cancel        context.CancelFunc
 )
 
 var _ = BeforeSuite(func() {
@@ -48,8 +51,10 @@ var _ = BeforeSuite(func() {
 	cfg, err = testenv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
+	ctx, cancel = context.WithCancel(context.Background())
+
 	Expect(addToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	runtimeController, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	runtimeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 })
 

@@ -11,7 +11,7 @@ import (
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
+	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -129,7 +129,7 @@ func (p *PruneJob) prunePlacementResources() error {
 
 func (p *PruneJob) pruneApplication() error {
 	p.log.Info("clean up the application finalizer")
-	applications := &applicationv1beta1.ApplicationList{}
+	applications := &appv1beta1.ApplicationList{}
 	if err := p.client.List(p.ctx, applications, &client.ListOptions{}); err != nil {
 		return err
 	}

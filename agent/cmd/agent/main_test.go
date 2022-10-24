@@ -4,12 +4,11 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -34,8 +33,6 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	fmt.Println("Hello World")
-
 	// run testings
 	code := m.Run()
 
@@ -49,8 +46,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestGetControllerManager(t *testing.T) {
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
 	os.Args = []string{
 		"agent",
 		"--lease-duration",
@@ -58,28 +53,13 @@ func TestGetControllerManager(t *testing.T) {
 		"--renew-deadline",
 		"107",
 		"--leaf-hub-name",
-		"hub1",
+		"hub2",
 		"--terminating",
 		"true",
 	}
-	agentConfig, err := helper.NewConfigManager()
-	if err != nil {
-		t.Fatalf("failed to parseFlags %v", err)
-	}
-	if agentConfig.ElectionConfig.LeaseDuration != 137 {
-		t.Fatalf("expect --lease-duration(%d) == %d", agentConfig.ElectionConfig.LeaseDuration, 137)
-	}
-	if agentConfig.ElectionConfig.RenewDeadline != 107 {
-		t.Fatalf("expect --renew-deadline(%d) == %d", agentConfig.ElectionConfig.RenewDeadline, 107)
-	}
-	if !agentConfig.Terminating {
-		t.Fatalf("expect--terminating(%t) == %t", agentConfig.Terminating, true)
-	}
-	if err != nil {
-		t.Fatalf("failed to parseFlags %v", err)
-	}
-	_, err = getControllerManager(cfg, agentConfig)
-	if err != nil {
-		t.Fatalf("failed to getControllerManager %v", err)
+
+	code := doMain(context.Background(), cfg)
+	if code != 0 {
+		t.Fatalf("start doMain with error code %d", code)
 	}
 }
