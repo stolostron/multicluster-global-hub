@@ -17,6 +17,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -25,8 +26,10 @@ import (
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
@@ -47,6 +50,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -129,7 +134,12 @@ var _ = BeforeSuite(func() {
 		Client: k8sClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
-	err = k8sManager.Add(addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient))
+
+	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
+	Expect(err).ToNot(HaveOccurred())
+	electionConfig, err := getElectionConfig(kubeClient)
+	Expect(err).ToNot(HaveOccurred())
+	err = k8sManager.Add(addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient, electionConfig))
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
@@ -236,4 +246,41 @@ func prepareBeforeTest() {
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
 	})).Should(Succeed())
+}
+
+func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {
+	config := &commonobjects.LeaderElectionConfig{
+		LeaseDuration: 137,
+		RenewDeadline: 107,
+		RetryPeriod:   26,
+	}
+
+	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.HOHDefaultNamespace).Get(
+		context.TODO(), commonconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return config, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	leaseDurationSec, err := strconv.Atoi(configMap.Data["leaseDuration"])
+	if err != nil {
+		return nil, err
+	}
+
+	renewDeadlineSec, err := strconv.Atoi(configMap.Data["renewDeadline"])
+	if err != nil {
+		return nil, err
+	}
+
+	retryPeriodSec, err := strconv.Atoi(configMap.Data["retryPeriod"])
+	if err != nil {
+		return nil, err
+	}
+
+	config.LeaseDuration = leaseDurationSec
+	config.RenewDeadline = renewDeadlineSec
+	config.RetryPeriod = retryPeriodSec
+	return config, nil
 }

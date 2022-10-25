@@ -28,6 +28,9 @@ spec:
             - --transport-type=kafka
             - --kafka-bootstrap-server={{ .KafkaBootstrapServer }}
             - --kafka-ssl-ca={{ .KafkaCA }}
+            - --lease-duration={{.LeaseDuration}}
+            - --renew-deadline={{.RenewDeadline}}
+            - --retry-period={{.RetryPeriod}}
           imagePullPolicy: Always
           env:
             - name: POD_NAMESPACE

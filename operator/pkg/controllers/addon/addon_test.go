@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
@@ -128,9 +129,19 @@ func fakeManagedClusterAddon(clusterName, installNamespace string, installMode s
 }
 
 func fakeAgentAddon(t *testing.T, objects ...runtime.Object) agent.AgentAddon {
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		t.Errorf("get the kubeClient error %v", err)
+	}
+	leaderElectionConfig, err := getElectionConfig(kubeClient)
+	if err != nil {
+		t.Errorf("get the leader election config error %v", err)
+	}
 	hohAgentAddon := addon.NewHohAgentAddon(context.TODO(),
 		fake.NewClientBuilder().WithScheme(testScheme).WithObjects(fakeMulticlusterGlobalHub()).Build(),
-		kubefake.NewSimpleClientset(objects...))
+		kubefake.NewSimpleClientset(objects...),
+		leaderElectionConfig,
+	)
 	agentAddon, err := addonfactory.NewAgentAddonFactory(constants.HoHManagedClusterAddonName, FS, "manifests/templates").
 		WithGetValuesFuncs(hohAgentAddon.GetValues).WithScheme(testScheme).BuildTemplateAgentAddon()
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;watch
@@ -36,14 +37,18 @@ import (
 //+kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
 type HoHAddonController struct {
-	kubeConfig *rest.Config
-	client     client.Client
+	kubeConfig     *rest.Config
+	client         client.Client
+	leaderElection *commonobjects.LeaderElectionConfig
 }
 
-func NewHoHAddonController(kubeConfig *rest.Config, client client.Client) *HoHAddonController {
+func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
+	leaderElection *commonobjects.LeaderElectionConfig,
+) *HoHAddonController {
 	return &HoHAddonController{
-		kubeConfig: kubeConfig,
-		client:     client,
+		kubeConfig:     kubeConfig,
+		client:         client,
+		leaderElection: leaderElection,
 	}
 }
 
@@ -66,10 +71,11 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 	}
 
 	hohAgentAddon := HohAgentAddon{
-		ctx:           ctx,
-		kubeClient:    kubeClient,
-		client:        a.client,
-		dynamicClient: dynamicClient,
+		ctx:                  ctx,
+		kubeClient:           kubeClient,
+		client:               a.client,
+		dynamicClient:        dynamicClient,
+		leaderElectionConfig: a.leaderElection,
 	}
 
 	mgr, err := addonmanager.New(a.kubeConfig)
