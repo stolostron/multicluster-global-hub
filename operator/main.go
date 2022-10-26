@@ -150,7 +150,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
-	if err = mgr.Add(hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient())); err != nil {
+	if err = mgr.Add(hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(), electionConfig)); err != nil {
 		setupLog.Error(err, "unable to add addon controller", "controller", "MulticlusterGlobalHub")
 		return 1
 	}

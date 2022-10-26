@@ -8,9 +8,6 @@ import (
 	"os"
 	"testing"
 
-	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,11 +22,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 
+	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	globalconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 )
 
 //go:embed manifests/templates
@@ -127,10 +128,20 @@ func fakeManagedClusterAddon(clusterName, installNamespace string, installMode s
 	return addon
 }
 
+func fakeLeaderElectionConfig() *commonobjects.LeaderElectionConfig {
+	return &commonobjects.LeaderElectionConfig{
+		LeaseDuration: 137,
+		RenewDeadline: 107,
+		RetryPeriod:   26,
+	}
+}
+
 func fakeAgentAddon(t *testing.T, objects ...runtime.Object) agent.AgentAddon {
 	hohAgentAddon := addon.NewHohAgentAddon(context.TODO(),
 		fake.NewClientBuilder().WithScheme(testScheme).WithObjects(fakeMulticlusterGlobalHub()).Build(),
-		kubefake.NewSimpleClientset(objects...))
+		kubefake.NewSimpleClientset(objects...),
+		fakeLeaderElectionConfig(),
+	)
 	agentAddon, err := addonfactory.NewAgentAddonFactory(constants.HoHManagedClusterAddonName, FS, "manifests/templates").
 		WithGetValuesFuncs(hohAgentAddon.GetValues).WithScheme(testScheme).BuildTemplateAgentAddon()
 	if err != nil {

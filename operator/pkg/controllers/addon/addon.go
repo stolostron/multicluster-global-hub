@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	globalconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
 //go:embed manifests/templates
@@ -42,20 +44,27 @@ type ManifestsConfig struct {
 	SourceNamespace        string
 	ACMImagePullSecretData string
 	InstallHostedMode      bool
+	LeaseDuration          string
+	RenewDeadline          string
+	RetryPeriod            string
 }
 
 type HohAgentAddon struct {
-	ctx           context.Context
-	client        client.Client
-	kubeClient    kubernetes.Interface
-	dynamicClient dynamic.Interface
+	ctx                  context.Context
+	client               client.Client
+	kubeClient           kubernetes.Interface
+	dynamicClient        dynamic.Interface
+	leaderElectionConfig *commonobjects.LeaderElectionConfig
 }
 
-func NewHohAgentAddon(ctx context.Context, client client.Client, kubeClient kubernetes.Interface) *HohAgentAddon {
+func NewHohAgentAddon(ctx context.Context, client client.Client, kubeClient kubernetes.Interface,
+	leaderElectionConfig *commonobjects.LeaderElectionConfig,
+) *HohAgentAddon {
 	return &HohAgentAddon{
-		ctx:        ctx,
-		client:     client,
-		kubeClient: kubeClient,
+		ctx:                  ctx,
+		client:               client,
+		kubeClient:           kubeClient,
+		leaderElectionConfig: leaderElectionConfig,
 	}
 }
 
@@ -146,6 +155,9 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		LeafHubID:            cluster.Name,
 		KafkaBootstrapServer: kafkaBootstrapServer,
 		KafkaCA:              kafkaCA,
+		LeaseDuration:        strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
+		RenewDeadline:        strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
+		RetryPeriod:          strconv.Itoa(a.leaderElectionConfig.RetryPeriod),
 	}
 
 	if a.installACMHub(cluster) {
