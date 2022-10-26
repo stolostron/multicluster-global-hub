@@ -32,7 +32,7 @@ require (
 	k8s.io/apimachinery v0.25.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
-	open-cluster-management.io/addon-framework v0.4.1-0.20221019024028-8f5cec5bb19c
+	open-cluster-management.io/addon-framework v0.5.1-0.20221021075512-09ec61ad9d40
 	open-cluster-management.io/api v0.8.1-0.20220922101757-abd2ec6ed64f
 	open-cluster-management.io/governance-policy-propagator v0.8.0
 	open-cluster-management.io/multicloud-operators-channel v0.8.0

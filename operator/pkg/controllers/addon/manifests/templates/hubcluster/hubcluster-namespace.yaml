@@ -5,4 +5,7 @@ metadata:
   name: open-cluster-management
   labels:
     addon.open-cluster-management.io/hosted-manifest-location: managed
+    global-hub.open-cluster-management.io/managed-by: global-hub
+  annotations:
+    "addon-cluster-management.io/deletion-orphan": ""
 {{ end }}

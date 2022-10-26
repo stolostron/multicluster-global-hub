@@ -110,8 +110,8 @@ var _ = Describe("addon controller", Ordered, func() {
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{
 					{
-						Name:  commonconstants.VersionClusterClaimName,
-						Value: "",
+						Name:  commonconstants.HubClusterClaimName,
+						Value: commonconstants.HubNotInstalled,
 					},
 				},
 				clusterAvailableCondition)
@@ -261,8 +261,8 @@ var _ = Describe("addon controller", Ordered, func() {
 				},
 				[]clusterv1.ManagedClusterClaim{
 					{
-						Name:  commonconstants.VersionClusterClaimName,
-						Value: "",
+						Name:  commonconstants.HubClusterClaimName,
+						Value: commonconstants.HubNotInstalled,
 					},
 				},
 				clusterAvailableCondition)

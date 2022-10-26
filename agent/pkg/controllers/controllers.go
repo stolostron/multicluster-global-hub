@@ -12,7 +12,7 @@ import (
 // AddToManager adds all the render controllers to the Manager.
 func AddToManager(mgr ctrl.Manager) error {
 	addControllerFunctions := []func(ctrl.Manager) error{
-		AddCustomResourceDefinitionsController,
+		StartClusterClaimController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {

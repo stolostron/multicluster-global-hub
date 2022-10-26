@@ -5,6 +5,9 @@ metadata:
   name: open-cluster-management:hub-cluster-controller
   labels:
     addon.open-cluster-management.io/hosted-manifest-location: managed
+    global-hub.open-cluster-management.io/managed-by: global-hub
+  annotations:
+    "addon-cluster-management.io/deletion-orphan": ""
 rules:
 - apiGroups:
   - operators.coreos.com

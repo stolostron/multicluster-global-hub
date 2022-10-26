@@ -8,6 +8,9 @@ import (
 	"os"
 	"testing"
 
+	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,15 +25,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 
-	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	globalconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 )
 
 //go:embed manifests/templates
@@ -88,10 +88,10 @@ func fakePullSecret() *corev1.Secret {
 	}
 }
 
-func fakeVersionClaim(version string) clusterv1.ManagedClusterClaim {
+func fakeHubClaim(value string) clusterv1.ManagedClusterClaim {
 	return clusterv1.ManagedClusterClaim{
-		Name:  globalconstants.VersionClusterClaimName,
-		Value: version,
+		Name:  globalconstants.HubClusterClaimName,
+		Value: value,
 	}
 }
 
@@ -187,8 +187,9 @@ func TestManifest(t *testing.T) {
 		{
 			name:            "install agent and acm in default mode without pullsecret",
 			existingObjects: []runtime.Object{fakeKafkaSecret()},
-			// only install acm when the version claim has empty value
-			cluster:                  fakeManagedCluster("cluster1", fakeVersionClaim("")),
+			// install agent and acm when the acm hub is not found
+			cluster: fakeManagedCluster("cluster1",
+				fakeHubClaim(globalconstants.HubNotInstalled)),
 			addon:                    fakeManagedClusterAddon("cluster1", "addon-test", constants.ClusterDeployModeDefault),
 			expectedCount:            12,
 			expectedInstallNamespace: "addon-test",
@@ -196,8 +197,9 @@ func TestManifest(t *testing.T) {
 		{
 			name:            "install agent and acm in default mode with pullsecret",
 			existingObjects: []runtime.Object{fakeKafkaSecret(), fakePullSecret()},
-			// only install acm when the version claim has empty value
-			cluster:                  fakeManagedCluster("cluster1", fakeVersionClaim("")),
+			// only install acm when the acm hub is not found
+			cluster: fakeManagedCluster("cluster1",
+				fakeHubClaim(globalconstants.HubNotInstalled)),
 			addon:                    fakeManagedClusterAddon("cluster1", "", constants.ClusterDeployModeDefault),
 			expectedCount:            13,
 			expectedInstallNamespace: constants.HoHAgentInstallNamespace,
@@ -205,8 +207,9 @@ func TestManifest(t *testing.T) {
 		{
 			name:            "install agent in hosted mode and acm in default mode with pullsecret",
 			existingObjects: []runtime.Object{fakeKafkaSecret(), fakePullSecret()},
-			// only install acm when the version claim has empty value
-			cluster:                  fakeManagedCluster("cluster1", fakeVersionClaim("")),
+			// only install acm when the acm hub is not found
+			cluster: fakeManagedCluster("cluster1",
+				fakeHubClaim(globalconstants.HubNotInstalled)),
 			addon:                    fakeManagedClusterAddon("cluster1", "hoh-agent-addon", constants.ClusterDeployModeHosted),
 			expectedCount:            17,
 			expectedInstallNamespace: "hoh-agent-addon",
@@ -226,7 +229,7 @@ func TestManifest(t *testing.T) {
 				t.Fatalf("failed to get manifests. err:%v", err)
 			}
 			if len(objects) != test.expectedCount {
-				t.Errorf("expected test.expectedCount objects, but got %v", len(objects))
+				t.Errorf("expected %v objects, but got %v", test.expectedCount, len(objects))
 			}
 			for _, o := range objects {
 				switch object := o.(type) {
