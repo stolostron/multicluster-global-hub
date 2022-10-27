@@ -13,6 +13,7 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -231,7 +232,8 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 	dbConnectionPool *pgxpool.Pool, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	lastSubscription := &appsv1.Subscription{}
-	if err := dbConnectionPool.QueryRow(context.TODO(), lastSubscriptionQuery).Scan(lastSubscription); err != nil {
+	err := dbConnectionPool.QueryRow(context.TODO(), lastSubscriptionQuery).Scan(lastSubscription)
+	if err != nil && err != pgx.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in quering last subscription: %v\n", err)
 		return
@@ -265,8 +267,10 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 	}
 
 	if lastSubscriptionName != "" &&
+		lastSubscription.GetName() != "" &&
 		lastSubscriptionName != lastSubscription.GetName() &&
 		lastSubscriptionUID != "" &&
+		string(lastSubscription.GetUID()) != "" &&
 		lastSubscriptionUID != string(lastSubscription.GetUID()) {
 		continueToken, err := util.EncodeContinue(lastSubscriptionName, lastSubscriptionUID)
 		if err != nil {

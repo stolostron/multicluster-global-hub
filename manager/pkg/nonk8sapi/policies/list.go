@@ -14,6 +14,7 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -291,13 +292,13 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyL
 	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	lastPolicyID, lastPolicy := "", &policyv1.Policy{}
-	if err := dbConnectionPool.QueryRow(context.TODO(), lastPolicyQuery).Scan(&lastPolicyID, lastPolicy); err != nil {
+	err := dbConnectionPool.QueryRow(context.TODO(), lastPolicyQuery).Scan(&lastPolicyID, lastPolicy)
+	if err != nil && err != pgx.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in quering last policy: %v\n", err)
 		return
 	}
 
-	var err error
 	policyMatches, err = getPolicyMatches(dbConnectionPool, policyMappingQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
@@ -346,8 +347,10 @@ func handlePolicies(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyL
 	}
 
 	if policyUID != "" &&
+		lastPolicyID != "" &&
 		policyUID != lastPolicyID &&
 		policyName != "" &&
+		lastPolicy.GetName() != "" &&
 		policyName != lastPolicy.GetName() {
 		continueToken, err := util.EncodeContinue(policyName, policyUID)
 		if err != nil {

@@ -13,6 +13,7 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -237,7 +238,8 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	dbConnectionPool *pgxpool.Pool, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	lastManagedCluster := &clusterv1.ManagedCluster{}
-	if err := dbConnectionPool.QueryRow(context.TODO(), lastManagedClusterQuery).Scan(lastManagedCluster); err != nil {
+	err := dbConnectionPool.QueryRow(context.TODO(), lastManagedClusterQuery).Scan(lastManagedCluster)
+	if err != nil && err != pgx.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in quering last managed cluster: %v\n", err)
 		return
@@ -271,8 +273,10 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	}
 
 	if lastManagedClusterName != "" &&
+		lastManagedCluster.GetName() != "" &&
 		lastManagedClusterName != lastManagedCluster.GetName() &&
 		lastManagedClusterUID != "" &&
+		string(lastManagedCluster.GetUID()) != "" &&
 		lastManagedClusterUID != string(lastManagedCluster.GetUID()) {
 		continueToken, err := util.EncodeContinue(lastManagedClusterName, lastManagedClusterUID)
 		if err != nil {
