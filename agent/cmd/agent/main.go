@@ -34,7 +34,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/jobs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
@@ -42,6 +41,7 @@ import (
 	consumer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/consumer"
 	producer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 )
 
 const (
@@ -72,7 +72,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 
 	if configManager.Terminating {
 		if err := addToScheme(scheme.Scheme); err != nil {
-			log.Error(err, "addToScheme error")
+			log.Error(err, "failed to add to scheme")
 			return 1
 		}
 		client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
@@ -80,7 +80,11 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 			log.Error(err, "failed to int controller runtime client")
 			return 1
 		}
-		return jobs.NewPruneJob(client).Run()
+		if err := jobs.NewPruneFinalizer(ctx, client).Run(); err != nil {
+			log.Error(err, "failed to prune resources finalizer")
+			return 1
+		}
+		return 0
 	}
 
 	// transport layer initialization

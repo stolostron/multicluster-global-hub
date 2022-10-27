@@ -62,6 +62,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -141,6 +142,15 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	// Deleting the multiclusterglobalhub instance
+	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
+		commonconstants.GlobalHubCleanupFinalizer) {
+		if err := r.pruneGlobalHubResources(ctx, mgh); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
+		}
+		return ctrl.Result{}, nil
+	}
+
 	if mgh.Spec.DataLayer == nil {
 		return ctrl.Result{}, fmt.Errorf("empty data layer type")
 	}
@@ -156,6 +166,14 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported data layer type: %s", mgh.Spec.DataLayer.Type)
+	}
+
+	// Make sure the reconcile work properly, and then add finalizer to the multiclusterglobalhub instance
+	if !utils.Contains(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
+		mgh.SetFinalizers(append(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+		if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add finalizer to mgh %v", err)
+		}
 	}
 
 	// // try to start packagemanifest controller if it is not running
@@ -174,10 +192,35 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
+func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Context,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+) error {
+	mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+	if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
+		return err
+	}
+
+	// clean up namesapced resources, eg. mgh system namespace, etc
+	if err := r.pruneNamespacedResources(ctx); err != nil {
+		return err
+	}
+
+	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
+	if err := r.pruneGlobalResources(ctx); err != nil {
+		return err
+	}
+
+	// remove finalizer from app, policy and placement.
+	if err := jobs.NewPruneFinalizer(ctx, r.Client).Run(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *MulticlusterGlobalHubReconciler) reconcileNativeGlobalHub(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub, log logr.Logger,
 ) error {
-	return fmt.Errorf("native data layer is not supported yet.")
+	return fmt.Errorf("native data layer is not supported yet")
 }
 
 func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx context.Context,
@@ -188,7 +231,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 		mgh.Spec.DataLayer.LargeScale.Postgres.Name == "" ||
 		mgh.Spec.DataLayer.LargeScale.Kafka.Name == "" {
 		return fmt.Errorf("invalid settings for large scale data layer, " +
-			"storage and transport secrets are required.")
+			"storage and transport secrets are required")
 	}
 
 	// create new HoHRenderer and HoHDeployer
@@ -202,17 +245,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	// create restmapper for deployer to find GVR
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-
-	// handle gc
-	isTerminating, err := r.recocileFinalizer(ctx, mgh, hohRenderer, hohDeployer, mapper, log)
-	if err != nil {
-		return err
-	}
-
-	if isTerminating {
-		log.Info("multiclusterglobalhub is terminating, skip the reconcile")
-		return nil
-	}
 
 	// check for image overrides configmap
 	var imageOverridesConfigmap *corev1.ConfigMap
@@ -333,8 +365,7 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] =
-			commonconstants.HoHOperatorOwnerLabelVal
+		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
@@ -418,7 +449,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 	if !equality.Semantic.DeepDerivative(hohConfigMap.Data, existingHoHConfigMap.Data) ||
 		!equality.Semantic.DeepDerivative(hohConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
 		hohConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
-		if err := r.Client.Update(ctx, hohConfigMap); err != nil {
+		if err := utils.UpdateObject(ctx, r.Client, hohConfigMap); err != nil {
 			return err
 		}
 		return nil
@@ -559,4 +590,92 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 				}
 			}), builder.WithPredicates(resPred)).
 		Complete(r)
+}
+
+// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
+// cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
+func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
+	listOpts := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+		}),
+	}
+
+	clusterRoleList := &rbacv1.ClusterRoleList{}
+	if err := r.Client.List(ctx, clusterRoleList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range clusterRoleList.Items {
+		if err := r.Client.Delete(ctx, &clusterRoleList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	clusterRoleBindingList := &rbacv1.ClusterRoleBindingList{}
+	if err := r.Client.List(ctx, clusterRoleBindingList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range clusterRoleBindingList.Items {
+		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	clusterManagementAddOnList := &addonv1alpha1.ClusterManagementAddOnList{}
+	if err := r.Client.List(ctx, clusterManagementAddOnList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range clusterManagementAddOnList.Items {
+		if err := r.Client.Delete(ctx, &clusterManagementAddOnList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	webhookList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
+	if err := r.Client.List(ctx, webhookList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range webhookList.Items {
+		if err := r.Client.Delete(ctx, &webhookList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// pruneNamespacedResources tries to delete mgh resources
+func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.Context) error {
+	existingMghConfigMap := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx,
+		types.NamespacedName{
+			Namespace: constants.HOHSystemNamespace,
+			Name:      constants.HOHConfigName,
+		}, existingMghConfigMap)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	} else if err == nil {
+		// clean the finalizers added by multicluster-global-hub-manager
+		existingMghConfigMap.SetFinalizers([]string{})
+		if err := utils.UpdateObject(ctx, r.Client, existingMghConfigMap); err != nil {
+			return err
+		}
+		if err := r.Client.Delete(ctx, existingMghConfigMap); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	mghSystemNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.HOHSystemNamespace,
+			Labels: map[string]string{
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+			},
+		},
+	}
+	if err := r.Client.Delete(ctx, mghSystemNamespace); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	return nil
 }

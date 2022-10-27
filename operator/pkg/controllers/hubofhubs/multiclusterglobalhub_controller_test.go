@@ -198,11 +198,16 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha2.Full))
 			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
-			// check finalizer is added to MGH instance
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
-				return err == nil && len(createdMGH.GetFinalizers()) > 0
-			}, timeout, interval).Should(BeTrue())
+			// check finalizer should not be added to MGH instance
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, mghLookupKey, createdMGH); err != nil {
+					return err
+				}
+				if len(createdMGH.GetFinalizers()) > 0 {
+					return fmt.Errorf("the finalizer should not be added if mgh controller has an error occurred")
+				}
+				return nil
+			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			// delete the testing MGH instance with reference to nonexisting image override configmap
 			By("By deleting the testing MGH instance with reference to nonexisting image override configmap")

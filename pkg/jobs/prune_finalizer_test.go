@@ -17,11 +17,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/jobs"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 )
 
-var _ = Describe("Prune Finalizer of Agent Resources", func() {
+var _ = Describe("Prune Resource Finalizer", func() {
 	var app *appv1beta1.Application
 	var appsub *appsubv1.Subscription
 	var chn *chnv1.Channel
@@ -181,7 +181,7 @@ var _ = Describe("Prune Finalizer of Agent Resources", func() {
 
 	It("run the agent prune job to prune finalizer", func() {
 		By("Trigger the prune finalizer job")
-		job := jobs.NewPruneJob(runtimeClient)
+		job := jobs.NewPruneFinalizer(ctx, runtimeClient)
 		Expect(job).NotTo(BeNil())
 		Expect(job.Run()).Should(Equal(0))
 

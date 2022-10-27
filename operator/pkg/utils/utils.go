@@ -23,6 +23,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -96,4 +98,10 @@ func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
 
 	return string(kafkaSecret.Data["bootstrap_server"]),
 		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
+}
+
+func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.Object) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return runtimeClient.Update(ctx, obj, &client.UpdateOptions{})
+	})
 }

@@ -19,43 +19,36 @@ import (
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-type PruneJob struct {
+type PruneFinalizer struct {
 	ctx       context.Context
 	log       logr.Logger
 	client    client.Client
 	finalizer string
 }
 
-type Runnable interface {
-	Run() int
-}
-
-func NewPruneJob(runtimeClient client.Client) Runnable {
-	return &PruneJob{
-		ctx:       context.Background(),
-		log:       ctrl.Log.WithName("global-hub-agent-prune-job"),
+func NewPruneFinalizer(ctx context.Context, runtimeClient client.Client) Runnable {
+	return &PruneFinalizer{
+		ctx:       ctx,
+		log:       ctrl.Log.WithName("prune-finalizer-job"),
 		client:    runtimeClient,
 		finalizer: commonconstants.GlobalHubCleanupFinalizer,
 	}
 }
 
-func (p *PruneJob) Run() int {
+func (p *PruneFinalizer) Run() error {
 	if err := p.prunePlacementResources(); err != nil {
-		p.log.Error(err, "prune placements resources error")
-		return 1
+		return err
 	}
 	if err := p.pruneApplication(); err != nil {
-		p.log.Error(err, "prune application resources error")
-		return 1
+		return err
 	}
 	if err := p.prunePolicy(); err != nil {
-		p.log.Error(err, "prune policy resources error")
-		return 1
+		return err
 	}
-	return 0
+	return nil
 }
 
-func (p *PruneJob) pruneFinalizer(object client.Object) error {
+func (p *PruneFinalizer) pruneFinalizer(object client.Object) error {
 	if controllerutil.RemoveFinalizer(object, p.finalizer) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			return p.client.Update(p.ctx, object, &client.UpdateOptions{})
@@ -67,7 +60,7 @@ func (p *PruneJob) pruneFinalizer(object client.Object) error {
 	return nil
 }
 
-func (p *PruneJob) prunePlacementResources() error {
+func (p *PruneFinalizer) prunePlacementResources() error {
 	p.log.Info("clean up the placement finalizer")
 	placements := &clusterv1beta1.PlacementList{}
 	if err := p.client.List(p.ctx, placements, &client.ListOptions{}); err != nil {
@@ -127,7 +120,7 @@ func (p *PruneJob) prunePlacementResources() error {
 	return nil
 }
 
-func (p *PruneJob) pruneApplication() error {
+func (p *PruneFinalizer) pruneApplication() error {
 	p.log.Info("clean up the application finalizer")
 	applications := &appv1beta1.ApplicationList{}
 	if err := p.client.List(p.ctx, applications, &client.ListOptions{}); err != nil {
@@ -164,7 +157,7 @@ func (p *PruneJob) pruneApplication() error {
 	return nil
 }
 
-func (p *PruneJob) prunePolicy() error {
+func (p *PruneFinalizer) prunePolicy() error {
 	log.Info("clean up the policies finalizer")
 	policies := &policyv1.PolicyList{}
 	if err := p.client.List(p.ctx, policies, &client.ListOptions{}); err != nil {
@@ -175,6 +168,6 @@ func (p *PruneJob) prunePolicy() error {
 			return err
 		}
 	}
-	log.Info("the policy global hub finalizer are cleaned upp")
+	log.Info("the policy global hub finalizer are cleaned up")
 	return nil
 }
