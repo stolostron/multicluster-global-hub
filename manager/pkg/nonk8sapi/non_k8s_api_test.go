@@ -211,8 +211,23 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 }
 `
 
+		By("Check the empty managedcclusters can be listed without parameters")
+		w0 := httptest.NewRecorder()
+		req0, err := http.NewRequest("GET", "/global-hub-api/v1/managedclusters", nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w0, req0)
+		Expect(w0.Code).To(Equal(200))
+		managedClusterListFormatStr := `
+		{
+		"kind": "ManagedClusterList",
+		"apiVersion": "cluster.open-cluster-management.io/v1",
+		"metadata": {},
+		"items": []
+		}`
+		Expect(w0.Body.String()).Should(MatchJSON(managedClusterListFormatStr))
+
 		By("Insert testing managed clusters")
-		_, err := postgresSQL.GetConn().Exec(ctx,
+		_, err = postgresSQL.GetConn().Exec(ctx,
 			`INSERT INTO status.managed_clusters (leaf_hub_name,payload,error) VALUES ($1, $2, 'none');`,
 			hub1,
 			mc1)
@@ -229,7 +244,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
-		managedClusterListFormatStr := `
+		managedClusterListFormatStr = `
 {
 	"kind": "ManagedClusterList",
 	"apiVersion": "cluster.open-cluster-management.io/v1",
@@ -610,8 +625,22 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 }
 `
 
+		By("Check the empty policies can be listed without parameters")
+		w0 := httptest.NewRecorder()
+		req0, err := http.NewRequest("GET", "/global-hub-api/v1/policies", nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w0, req0)
+		Expect(w0.Code).To(Equal(200))
+		policyListFormatStr := `
+		{
+		"kind": "PolicyList",
+		"apiVersion": "policy.open-cluster-management.io/v1",
+		"items": []
+		}`
+		Expect(w0.Body.String()).Should(MatchJSON(policyListFormatStr))
+
 		By("Insert testing policy")
-		_, err := postgresSQL.GetConn().Exec(ctx,
+		_, err = postgresSQL.GetConn().Exec(ctx,
 			`INSERT INTO spec.policies (id,payload) VALUES($1, $2);`, plc1ID, policy1)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -644,7 +673,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
-		policyListFormatStr := `
+		policyListFormatStr = `
 {
 	"kind": "PolicyList",
 	"apiVersion": "policy.open-cluster-management.io/v1",
@@ -1050,8 +1079,23 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	}
 }`
 
+		By("Check the empty subscriptions can be listed without parameters")
+		w0 := httptest.NewRecorder()
+		req0, err := http.NewRequest("GET", "/global-hub-api/v1/subscriptions", nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w0, req0)
+		Expect(w0.Code).To(Equal(200))
+		subscriptionListFormatStr := `
+{
+	"kind": "SubscriptionList",
+	"apiVersion": "apps.open-cluster-management.io/v1",
+	"metadata": {},
+	"items": []
+}`
+		Expect(w0.Body.String()).Should(MatchJSON(subscriptionListFormatStr))
+
 		By("Insert testing subscriptions")
-		_, err := postgresSQL.GetConn().Exec(ctx,
+		_, err = postgresSQL.GetConn().Exec(ctx,
 			`INSERT INTO spec.subscriptions (id,payload) VALUES($1, $2);`, sub1ID, subscription1)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = postgresSQL.GetConn().Exec(ctx,
@@ -1064,7 +1108,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
-		subscriptionListFormatStr := `
+		subscriptionListFormatStr = `
 {
 	"kind": "SubscriptionList",
 	"apiVersion": "apps.open-cluster-management.io/v1",
