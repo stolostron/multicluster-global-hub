@@ -109,7 +109,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	}
 
 	log.Info("starting the Cmd")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
 	}
