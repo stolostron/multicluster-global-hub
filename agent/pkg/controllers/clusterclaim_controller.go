@@ -5,10 +5,12 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
@@ -27,73 +29,114 @@ type clusterClaimController struct {
 	log    logr.Logger
 }
 
-var version = ""
-
 func (c *clusterClaimController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.V(2).Info("cluster claim controller", request.NamespacedName)
 
-	if request.Namespace != "" {
-		var err error
-		version, err = getACMVersion(ctx, c.client, request.NamespacedName)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	// need to create/update the claim with empty value if not get the version.
-	// addon only installs ACM when version is empty.
-
-	clusterClaim := &clustersv1alpha1.ClusterClaim{}
-	err := c.client.Get(context.TODO(), client.ObjectKey{
-		Name: constants.VersionClusterClaimName,
-	}, clusterClaim)
-	if errors.IsNotFound(err) {
-		if err := c.client.Create(context.Background(), createClusterClaim(version)); err != nil {
-			return ctrl.Result{}, err
-		}
-		reqLogger.Info("Reconciliation complete.")
-		return ctrl.Result{}, nil
-	}
+	var err error
+	mch, err := getMCH(ctx, c.client, request.NamespacedName)
 	if err != nil {
+		reqLogger.Error(err, "failed to get MCH instance")
 		return ctrl.Result{}, err
 	}
 
-	clusterClaim.Spec.Value = version
-	if err := c.client.Update(ctx, clusterClaim); err != nil {
-		reqLogger.Error(err, "failed to apply clusterClaim", "clusterClaim", constants.VersionClusterClaimName)
+	if mch == nil {
+		return ctrl.Result{}, updateClusterClaim(ctx, c.client,
+			constants.HubClusterClaimName, constants.HubNotInstalled)
+	}
+
+	hubValue := constants.HubInstalledWithoutSelfManagement
+	if mch.GetLabels()[constants.GlobalHubOwnerLabelKey] == constants.GlobalHubOwnerLabelVal {
+		hubValue = constants.HubInstalledByHoH
+	} else if !mch.Spec.DisableHubSelfManagement {
+		hubValue = constants.HubInstalledWithSelfManagement
+	}
+	if err = updateClusterClaim(ctx, c.client, constants.HubClusterClaimName, hubValue); err != nil {
 		return ctrl.Result{}, err
 	}
-	reqLogger.Info("Reconciliation complete.")
-	return ctrl.Result{}, nil
+
+	if mch.Status.CurrentVersion != "" {
+		return ctrl.Result{}, updateClusterClaim(ctx, c.client,
+			constants.VersionClusterClaimName, mch.Status.CurrentVersion)
+	}
+
+	// requeue to wait the acm version is available
+	return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 }
 
-func getACMVersion(ctx context.Context, client client.Client, namespacedname types.NamespacedName) (string, error) {
+func getMCH(ctx context.Context, client client.Client,
+	NamespacedName types.NamespacedName,
+) (*mchv1.MultiClusterHub, error) {
+	if NamespacedName.Name == "" || NamespacedName.Namespace == "" {
+		return listMCH(ctx, client)
+	}
+
 	mch := &mchv1.MultiClusterHub{}
-	err := client.Get(ctx, namespacedname, mch)
+	err := client.Get(ctx, NamespacedName, mch)
 	if errors.IsNotFound(err) {
-		return "", nil
+		return nil, nil
+	}
+	if meta.IsNoMatchError(err) {
+		return nil, nil
 	}
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return mch.Status.CurrentVersion, nil
+	return mch, nil
 }
 
-func createClusterClaim(version string) *clustersv1alpha1.ClusterClaim {
+func listMCH(ctx context.Context, k8sClient client.Client) (*mchv1.MultiClusterHub, error) {
+	mch := &mchv1.MultiClusterHubList{}
+	err := k8sClient.List(ctx, mch)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+	if meta.IsNoMatchError(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if len(mch.Items) == 0 {
+		return nil, err
+	}
+
+	return &mch.Items[0], nil
+}
+
+func newClusterClaim(name, value string) *clustersv1alpha1.ClusterClaim {
 	return &clustersv1alpha1.ClusterClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.VersionClusterClaimName,
+			Name: name,
 			Labels: map[string]string{
 				"velero.io/exclude-from-backup":  "true",
 				constants.GlobalHubOwnerLabelKey: constants.HoHAgentOwnerLabelValue,
 			},
 		},
 		Spec: clustersv1alpha1.ClusterClaimSpec{
-			Value: version,
+			Value: value,
 		},
 	}
 }
 
-func startClusterClaimController(mgr ctrl.Manager) error {
+func updateClusterClaim(ctx context.Context, k8sClient client.Client, name, value string) error {
+	clusterClaim := &clustersv1alpha1.ClusterClaim{}
+	err := k8sClient.Get(context.TODO(), client.ObjectKey{
+		Name: name,
+	}, clusterClaim)
+	if errors.IsNotFound(err) {
+		return k8sClient.Create(context.Background(), newClusterClaim(name, value))
+	}
+	if err != nil {
+		return err
+	}
+
+	clusterClaim.Spec.Value = value
+	return k8sClient.Update(ctx, clusterClaim)
+}
+
+func StartClusterClaimController(mgr ctrl.Manager) error {
 	clusterClaimPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			constants.GlobalHubOwnerLabelKey: constants.HoHAgentOwnerLabelValue,

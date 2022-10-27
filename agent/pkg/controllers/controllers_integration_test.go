@@ -17,6 +17,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
@@ -93,6 +94,21 @@ var _ = Describe("controller", Ordered, func() {
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 		Expect(clusterClaim.Spec.Value).Should(Equal(MCHVersion))
 
+		Eventually(func() bool {
+			err := mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name: "hub.open-cluster-management.io",
+			}, clusterClaim)
+			if err != nil {
+				return false
+			}
+			if clusterClaim.Spec.Value != constants.HubInstalledWithSelfManagement {
+				return false
+			}
+			return true
+		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+		Expect(clusterClaim.Spec.Value).Should(Equal(
+			constants.HubInstalledWithSelfManagement))
+
 		By("Expect clusterClaim version to be updated")
 		mch.Status = mchv1.MultiClusterHubStatus{CurrentVersion: "2.7.0"}
 		Expect(mgr.GetClient().Status().Update(ctx, mch)).NotTo(HaveOccurred())
@@ -120,6 +136,25 @@ var _ = Describe("controller", Ordered, func() {
 			fmt.Fprintf(GinkgoWriter, "the new ClusterClaim: %v\n", newClusterClaim)
 			return err == nil && clusterClaim.GetResourceVersion() != newClusterClaim.GetResourceVersion()
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+		By("Expect hub clusterClaim is updated")
+		mch.Spec.DisableHubSelfManagement = true
+		Expect(mgr.GetClient().Update(ctx, mch)).NotTo(HaveOccurred())
+		clusterClaim = &clustersv1alpha1.ClusterClaim{}
+		Eventually(func() bool {
+			err := mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name: "hub.open-cluster-management.io",
+			}, clusterClaim)
+			if err != nil {
+				return false
+			}
+			if clusterClaim.Spec.Value != constants.HubInstalledWithoutSelfManagement {
+				return false
+			}
+			return true
+		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+		Expect(clusterClaim.Spec.Value).Should(Equal(
+			constants.HubInstalledWithoutSelfManagement))
 	})
 
 	AfterAll(func() {

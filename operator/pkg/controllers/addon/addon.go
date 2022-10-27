@@ -83,15 +83,14 @@ func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha2.Multiclust
 
 func (a *HohAgentAddon) installACMHub(cluster *clusterv1.ManagedCluster) bool {
 	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name != globalconstants.VersionClusterClaimName {
+		if claim.Name != globalconstants.HubClusterClaimName {
 			continue
 		}
 
-		// only install ACM when the versionclaim is created and has empty value
-		if claim.Value == "" {
+		if claim.Value == globalconstants.HubNotInstalled ||
+			claim.Value == globalconstants.HubInstalledByHoH {
 			return true
 		}
-		return false
 	}
 	return false
 }

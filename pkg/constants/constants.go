@@ -105,4 +105,13 @@ const (
 const (
 	// VersionClusterClaimName is a claim to record the ACM version
 	VersionClusterClaimName = "version.open-cluster-management.io"
+
+	// HubClusterClaimName is a claim to record the ACM Hub
+	HubClusterClaimName = "hub.open-cluster-management.io"
+
+	// the value of the HubClusterClaimName ClusterClaim
+	HubNotInstalled                   = "NotInstalled"
+	HubInstalledWithSelfManagement    = "InstalledWithSelfManagement"
+	HubInstalledWithoutSelfManagement = "InstalledWithoutSelfManagement"
+	HubInstalledByHoH                 = "InstalledByHoH"
 )
