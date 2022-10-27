@@ -11,11 +11,12 @@ import (
 
 // Message abstracts a message object to be used by different transport components.
 type Message struct {
-	Key     string `json:"key"`
-	ID      string `json:"id"`
-	MsgType string `json:"msgType"`
-	Version string `json:"version"`
-	Payload []byte `json:"payload"`
+	Destination string `json:"destination"`
+	Key         string `json:"key"`
+	ID          string `json:"id"`
+	MsgType     string `json:"msgType"`
+	Version     string `json:"version"`
+	Payload     []byte `json:"payload"`
 }
 
 type Config struct {

@@ -69,7 +69,7 @@ func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, sslCA s
 	return &KafkaProducer{
 		log:                  log,
 		producer:             producer,
-		messageSizeLimit:     producerConfig.MsgSizeLimitKB,
+		messageSizeLimit:     producerConfig.MsgSizeLimitKB * kiloBytesToBytes,
 		topic:                producerConfig.ProducerTopic,
 		eventSubscriptionMap: make(map[string]map[EventType]EventCallback),
 		compressor:           compressor,
@@ -134,7 +134,7 @@ func (p *KafkaProducer) SupportsDeltaBundles() bool {
 	return true
 }
 
-// SendAsync sends a message to the sync service asynchronously.
+// SendAsync sends a message to the transport asynchronously.
 func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 	msgBytes, err := json.Marshal(msg)
 	if err != nil {
@@ -156,18 +156,17 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 		{Key: transport.CompressionType, Value: []byte(p.compressor.GetType())},
 	}
 
-	// It was from manager producer. Need decide if we need it for not.
-	// msgKey := msg.ID
-	// if destinationHubName != transport.Broadcast { // set destination if specified
-	// 	msgKey = fmt.Sprintf("%s.%s", destinationHubName, msg.ID)
+	msgKey := msg.ID
+	if msg.Destination != transport.Broadcast { // set destination if specified
+		msgKey = fmt.Sprintf("%s.%s", msg.Destination, msg.ID)
 
-	// 	messageHeaders = append(messageHeaders, kafka.Header{
-	// 		Key:   headers.DestinationHub,
-	// 		Value: []byte(destinationHubName),
-	// 	})
-	// }
+		messageHeaders = append(messageHeaders, kafka.Header{
+			Key:   transport.DestinationHub,
+			Value: []byte(msg.Destination),
+		})
+	}
 
-	if err = p.produceAsync(msg.Key, p.topic, partition, messageHeaders, compressedBytes); err != nil {
+	if err = p.produceAsync(msgKey, p.topic, partition, messageHeaders, compressedBytes); err != nil {
 		p.log.Error(err, "failed to send message", "MessageKey", msg.Key, "MessageId", msg.ID,
 			"MessageType", msg.MsgType, "Version", msg.Version)
 		InvokeCallback(p.eventSubscriptionMap, string(msg.ID), DeliveryFailure)

@@ -14,6 +14,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var _ = Describe("Policies", Ordered, func() {
@@ -138,10 +139,13 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the latest ClustersPerPolicy bundle with transport")
-		kafkaMessage, err := buildKafkaMessage(clustersPerPolicyTransportKey,
-			clustersPerPolicyTransportKey, payloadBytes)
-		Expect(err).ToNot(HaveOccurred())
-		kafkaMessageChan <- kafkaMessage
+		kafkaProducer.SendAsync(&transport.Message{
+			Key:     clustersPerPolicyTransportKey,
+			ID:      clustersPerPolicyTransportKey, // entry.transportBundleKey
+			MsgType: constants.StatusBundle,
+			Version: "1.0", // entry.bundle.GetBundleVersion().String()
+			Payload: payloadBytes,
+		})
 
 		By("Check the ClustersPerPolicy policy is created and expired policy is deleted from database")
 		Eventually(func() error {
@@ -199,11 +203,13 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the delta policy bundle with transport")
-		kafkaMessage, err := buildKafkaMessage(policyDeltaComplianceTransportKey,
-			policyDeltaComplianceTransportKey, payloadBytes)
-		Expect(err).ToNot(HaveOccurred())
-		kafkaMessageChan <- kafkaMessage
-
+		kafkaProducer.SendAsync(&transport.Message{
+			Key:     policyDeltaComplianceTransportKey,
+			ID:      policyDeltaComplianceTransportKey, // entry.transportBundleKey
+			MsgType: constants.StatusBundle,
+			Version: "1.0", // entry.bundle.GetBundleVersion().String()
+			Payload: payloadBytes,
+		})
 		By("Check the delta policy bundle is only update compliance status of the existing record in database")
 		Eventually(func() error {
 			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
@@ -249,7 +255,7 @@ var _ = Describe("Policies", Ordered, func() {
 
 	It("sync the aggregated policy with MinimalPolicyCompliance bundle where aggregationLevel = minimal", func() {
 		By("Overwrite the MinimalComplianceStatusBundle Predicate function, so that the minimal bundle cloud be processed")
-		statusTransport.BundleRegister(&registration.BundleRegistration{
+		kafkaConsumer.BundleRegister(&registration.BundleRegistration{
 			MsgID:            constants.MinimalPolicyComplianceMsgKey,
 			CreateBundleFunc: statusbundle.NewMinimalComplianceStatusBundle,
 			Predicate: func() bool {
@@ -276,10 +282,13 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the policy bundle with transport")
-		kafkaMessage, err := buildKafkaMessage(minimalPolicyComplianceTransportKey,
-			minimalPolicyComplianceTransportKey, payloadBytes)
-		Expect(err).ToNot(HaveOccurred())
-		kafkaMessageChan <- kafkaMessage
+		kafkaProducer.SendAsync(&transport.Message{
+			Key:     minimalPolicyComplianceTransportKey,
+			ID:      minimalPolicyComplianceTransportKey, // entry.transportBundleKey
+			MsgType: constants.StatusBundle,
+			Version: "1.0", // entry.bundle.GetBundleVersion().String()
+			Payload: payloadBytes,
+		})
 
 		By("Check the minimal policy is synchronized to database")
 		Eventually(func() error {

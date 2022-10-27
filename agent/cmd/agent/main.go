@@ -37,7 +37,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -86,11 +85,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 0
 	}
 
-	// transport layer initialization
-	genericBundleChan := make(chan *bundle.GenericBundle)
-	defer close(genericBundleChan)
-
-	consumer, err := getConsumer(configManager, genericBundleChan)
+	consumer, err := getConsumer(configManager)
 	if err != nil {
 		log.Error(err, "transport consumer initialization error")
 		return 1
@@ -132,9 +127,7 @@ func printVersion(log logr.Logger) {
 }
 
 // function to choose transport type based on env var.
-func getConsumer(environmentManager *helper.ConfigManager,
-	genericBundleChan chan *bundle.GenericBundle,
-) (consumer.Consumer, error) {
+func getConsumer(environmentManager *helper.ConfigManager) (consumer.Consumer, error) {
 	switch environmentManager.TransportType {
 	case TRANSPORT_TYPE_KAFKA:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
@@ -143,9 +136,7 @@ func getConsumer(environmentManager *helper.ConfigManager,
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
-
 		kafkaConsumer.SetLeafHubName(environmentManager.LeafHubName)
-		kafkaConsumer.SetGenericBundleChan(genericBundleChan)
 		return kafkaConsumer, nil
 	default:
 		return nil, fmt.Errorf("environment variable %q - %q is not a valid option",

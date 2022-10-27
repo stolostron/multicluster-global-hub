@@ -17,7 +17,7 @@ type StatisticsConfig struct {
 }
 
 // NewStatistics creates a new instance of Statistics.
-func NewStatistics(log logr.Logger, statisticsConfig *StatisticsConfig, bundleTypes []string) (*Statistics, error) {
+func NewStatistics(log logr.Logger, statisticsConfig *StatisticsConfig, bundleTypes []string) *Statistics {
 	statistics := &Statistics{
 		log:           log,
 		bundleMetrics: make(map[string]*bundleMetrics),
@@ -28,7 +28,7 @@ func NewStatistics(log logr.Logger, statisticsConfig *StatisticsConfig, bundleTy
 		statistics.bundleMetrics[bundleType] = newBundleMetrics()
 	}
 
-	return statistics, nil
+	return statistics
 }
 
 // Statistics aggregates different statistics.

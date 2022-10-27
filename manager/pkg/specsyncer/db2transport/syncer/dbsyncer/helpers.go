@@ -58,11 +58,11 @@ func syncToTransport(transportObj transport.Transport, destination string, objID
 		return fmt.Errorf("failed to sync {objID: %s, destination: %s} to transport - %w", objID, destination, err)
 	}
 	transportObj.SendAsync(&transport.Message{
-		Key:     destination,
-		ID:      objID,
-		MsgType: constants.SpecBundle,
-		Version: timestamp.Format(timeFormat),
-		Payload: payloadBytes,
+		Destination: destination,
+		ID:          objID,
+		MsgType:     constants.SpecBundle,
+		Version:     timestamp.Format(timeFormat),
+		Payload:     payloadBytes,
 	})
 	return nil
 }

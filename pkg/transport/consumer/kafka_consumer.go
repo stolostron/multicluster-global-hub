@@ -28,9 +28,8 @@ import (
 const pollTimeoutMs = 100
 
 var (
-	errHeaderNotFound       = errors.New("required message header not found")
-	errMessageIDWrongFormat = errors.New("message ID format is bad")
-	parseFail               = "failed to parse bundle"
+	errHeaderNotFound = errors.New("required message header not found")
+	parseFail         = "failed to parse bundle"
 )
 
 type KafkaConsumerConfig struct {
@@ -53,7 +52,6 @@ type KafkaConsumer struct {
 	cancelFunc context.CancelFunc
 	startOnce  sync.Once
 	stopOnce   sync.Once
-	lock       sync.Mutex
 
 	// Used by agent
 	leafHubName                     string
@@ -63,10 +61,10 @@ type KafkaConsumer struct {
 	partitionToOffsetToCommitMap    map[int32]kafka.Offset // size limited at all times (low)
 
 	// Used by manager
-	committer              *committer
-	conflationManager      *conflator.ConflationManager
-	statistics             *statistics.Statistics
-	msgIDToRegistrationMap map[string]*registration.BundleRegistration
+	committer                  *committer
+	conflationManager          *conflator.ConflationManager
+	statistics                 *statistics.Statistics
+	messageIDToRegistrationMap map[string]*registration.BundleRegistration
 }
 
 // NewConsumer creates a new instance of Consumer.
@@ -79,21 +77,19 @@ func NewKafkaConsumer(bootstrapServer, sslCA string, consumerConfig *KafkaConsum
 		"auto.offset.reset":       "earliest",
 		"enable.auto.commit":      "false",
 		"socket.keepalive.enable": "true",
-		"log.connection.close":    "false", // silence spontaneous disconnection logs, kafka recovers by itself.
 	}
 	err := helpers.LoadSslToConfigMap(sslCA, kafkaConfigMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure kafka-consumer - %w", err)
 	}
 
-	messageChan := make(chan *kafka.Message)
 	consumer, err := kafka.NewConsumer(kafkaConfigMap)
 	if err != nil {
-		close(messageChan)
 		return nil, fmt.Errorf("failed to create consumer: %w", err)
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
+	messageChan := make(chan *kafka.Message)
 
 	kafkaConsumer := &KafkaConsumer{
 		log:              log,
@@ -105,12 +101,12 @@ func NewKafkaConsumer(bootstrapServer, sslCA string, consumerConfig *KafkaConsum
 		messageChan:      messageChan,
 		ctx:              ctx,
 		cancelFunc:       cancelFunc,
-		lock:             sync.Mutex{},
+
+		genericBundlesChan:         make(chan *bundle.GenericBundle),
+		messageIDToRegistrationMap: make(map[string]*registration.BundleRegistration),
 
 		customBundleIDToRegistrationMap: make(map[string]*registration.CustomBundleRegistration),
 		partitionToOffsetToCommitMap:    make(map[int32]kafka.Offset),
-
-		msgIDToRegistrationMap: make(map[string]*registration.BundleRegistration),
 	}
 
 	if err := kafkaConsumer.Subscribe(consumerConfig.ConsumerTopic); err != nil {
@@ -134,8 +130,8 @@ func (c *KafkaConsumer) SetLeafHubName(leafHubName string) {
 	c.leafHubName = leafHubName
 }
 
-func (c *KafkaConsumer) SetGenericBundleChan(genericBundlesChan chan *bundle.GenericBundle) {
-	c.genericBundlesChan = genericBundlesChan
+func (c *KafkaConsumer) SetConflationManager(conflationMgr *conflator.ConflationManager) {
+	c.conflationManager = conflationMgr
 }
 
 // Start function starts the consumer.
@@ -151,9 +147,11 @@ func (c *KafkaConsumer) Start() {
 // Stop stops the consumer.
 func (c *KafkaConsumer) Stop() {
 	c.stopOnce.Do(func() {
-		c.cancelFunc()
 		close(c.messageChan)
 		c.consumer.Close()
+		close(c.genericBundlesChan)
+		close(c.stopChan)
+		c.cancelFunc()
 	})
 }
 
@@ -166,7 +164,7 @@ func (c *KafkaConsumer) CustomBundleRegister(msgID string,
 
 // Register function registers a msgID to the bundle updates channel.
 func (c *KafkaConsumer) BundleRegister(registration *registration.BundleRegistration) {
-	c.msgIDToRegistrationMap[registration.MsgID] = registration
+	c.messageIDToRegistrationMap[registration.MsgID] = registration
 }
 
 func (c *KafkaConsumer) SendAsync(msg *transport.Message) {
@@ -181,10 +179,10 @@ func (c *KafkaConsumer) handleKafkaMessages(ctx context.Context) {
 
 		case msg := <-c.messageChan:
 			c.log.Info("received message and forward to bundle chan...")
-			if c.leafHubName == "" {
-				c.processMessageWithConflation(msg)
-			} else {
+			if c.conflationManager == nil {
 				c.processMessage(msg)
+			} else {
+				c.processMessageWithConflation(msg)
 			}
 		}
 	}
@@ -218,21 +216,21 @@ func (c *KafkaConsumer) processMessageWithConflation(message *kafka.Message) {
 	}
 
 	msgID := msgIDTokens[1]
-	if _, found := c.msgIDToRegistrationMap[msgID]; !found {
+	if _, found := c.messageIDToRegistrationMap[msgID]; !found {
 		c.log.Info("no bundle-registration available, not sending bundle", "messageId", transportMessage.ID,
 			"messageType", transportMessage.MsgType, "version", transportMessage.Version)
 		// no one registered for this msg id
 		return
 	}
 
-	if !c.msgIDToRegistrationMap[msgID].Predicate() {
+	if !c.messageIDToRegistrationMap[msgID].Predicate() {
 		c.log.Info("predicate is false, not sending bundle", "messageId", transportMessage.ID,
 			"messageType", transportMessage.MsgType, "version", transportMessage.Version)
 
 		return // bundle-registration predicate is false, do not send the update in the channel
 	}
 
-	receivedBundle := c.msgIDToRegistrationMap[msgID].CreateBundleFunc()
+	receivedBundle := c.messageIDToRegistrationMap[msgID].CreateBundleFunc()
 	if err := json.Unmarshal(transportMessage.Payload, receivedBundle); err != nil {
 		c.logError(err, parseFail, message)
 		return
@@ -363,11 +361,9 @@ func (c *KafkaConsumer) Subscribe(topic string) error {
 			case <-c.stopChan:
 				_ = c.consumer.Unsubscribe()
 				c.log.Info("stopped listening", "topic", topic)
-
 				return
-
 			default:
-				c.pollMessage()
+				c.readMessage()
 			}
 		}
 	}()
@@ -375,35 +371,33 @@ func (c *KafkaConsumer) Subscribe(topic string) error {
 	return nil
 }
 
-func (c *KafkaConsumer) pollMessage() {
-	event := c.consumer.Poll(pollTimeoutMs)
-	if event == nil {
+func (c *KafkaConsumer) readMessage() {
+	msg, err := c.consumer.ReadMessage(pollTimeoutMs)
+	if err != nil && err.(kafka.Error).Code() != kafka.ErrTimedOut {
+		c.log.Error(err, "failed to read message")
 		return
 	}
 
-	switch msg := event.(type) {
-	case *kafka.Message:
-		fragment, msgIsFragment := c.messageIsFragment(msg)
-		if !msgIsFragment {
-			// fix offset in-case msg landed on a partition with open fragment collections
-			c.messageAssembler.fixMessageOffset(msg)
-			c.messageChan <- msg
+	if msg == nil {
+		return
+	}
+	fragment, msgIsFragment := c.messageIsFragment(msg)
+	if !msgIsFragment {
+		// fix offset in-case msg landed on a partition with open fragment collections
+		c.messageAssembler.fixMessageOffset(msg)
+		c.messageChan <- msg
 
-			return
-		}
+		return
+	}
+	// wrap in fragment-info
+	fragInfo, err := c.createFragmentInfo(msg, fragment)
+	if err != nil {
+		c.log.Error(err, "failed to read message", "topic", msg.TopicPartition.Topic)
+		return
+	}
 
-		// wrap in fragment-info
-		fragInfo, err := c.createFragmentInfo(msg, fragment)
-		if err != nil {
-			c.log.Error(err, "failed to read message", "topic", msg.TopicPartition.Topic)
-			return
-		}
-
-		if assembledMessage := c.messageAssembler.processFragmentInfo(fragInfo); assembledMessage != nil {
-			c.messageChan <- assembledMessage
-		}
-	case kafka.Error:
-		c.log.Info("kafka read error", "code", msg.Code(), "error", msg.Error())
+	if assembledMessage := c.messageAssembler.processFragmentInfo(fragInfo); assembledMessage != nil {
+		c.messageChan <- assembledMessage
 	}
 }
 

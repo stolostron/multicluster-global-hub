@@ -235,6 +235,7 @@ func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapS
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
+		kafkaConsumer.SetConflationManager(conflationMgr)
 		kafkaConsumer.SetCommitter(consumer.NewCommitter(
 			transportCommonConfig.CommitterInterval,
 			kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
@@ -330,7 +331,7 @@ func doMain() int {
 	}
 
 	// create statistics
-	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"), managerConfig.statisticsConfig,
+	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), managerConfig.statisticsConfig,
 		[]string{
 			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
 			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
@@ -348,10 +349,6 @@ func doMain() int {
 			helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
 			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
 		})
-	if err != nil {
-		log.Error(err, initializationFailMsg, initializationFailKey, "statistics")
-		return 1
-	}
 
 	// db layer initialization for process user
 	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.databaseConfig.processDatabaseURL)
