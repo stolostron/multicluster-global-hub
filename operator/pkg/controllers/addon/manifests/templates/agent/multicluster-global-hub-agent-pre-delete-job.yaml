@@ -23,15 +23,15 @@ spec:
         image: {{ .HoHAgentImage }}
         imagePullPolicy: Always
         args:
-          - --zap-devel=true
-          - --pod-namespace=$(POD_NAMESPACE)
-          - --leaf-hub-name={{ .LeafHubID }}
-          - --terminating=true
+        - --zap-devel=true
+        - --pod-namespace=$(POD_NAMESPACE)
+        - --leaf-hub-name={{ .LeafHubID }}
+        - --terminating=true
         imagePullPolicy: Always
         env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                 apiVersion: v1
-                 fieldPath: metadata.namespace
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 {{- end -}}

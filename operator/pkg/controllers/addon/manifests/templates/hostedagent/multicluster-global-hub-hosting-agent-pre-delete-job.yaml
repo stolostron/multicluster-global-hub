@@ -23,15 +23,25 @@ spec:
         image: {{ .HoHAgentImage }}
         imagePullPolicy: Always
         args:
+          - --kubeconfig=/var/run/secrets/managed/kubeconfig
           - --zap-devel=true
           - --pod-namespace=$(POD_NAMESPACE)
           - --leaf-hub-name={{ .LeafHubID }}
           - --terminating=true
         imagePullPolicy: Always
         env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                 apiVersion: v1
-                 fieldPath: metadata.namespace
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /var/run/secrets/managed
+          name: kubeconfig
+          readOnly: true
+      volumes:
+      - name: kubeconfig
+        secret:
+          defaultMode: 420
+          secretName: managed-kubeconfig-secret
 {{- end -}}

@@ -123,7 +123,7 @@ func (p *PruneJob) prunePlacementResources() error {
 		}
 	}
 
-	p.log.Info("placement resources are cleaned up")
+	p.log.Info("the global hub finalizer of placement resources are cleaned up")
 	return nil
 }
 
@@ -160,7 +160,7 @@ func (p *PruneJob) pruneApplication() error {
 			return err
 		}
 	}
-	p.log.Info("multicluster-global-hub manager application are cleaned up")
+	p.log.Info("the global hub finalizer of application resources are cleaned up")
 	return nil
 }
 
@@ -175,6 +175,6 @@ func (p *PruneJob) prunePolicy() error {
 			return err
 		}
 	}
-	log.Info("multicluster-global-hub manager policy are cleaned up")
+	log.Info("the policy global hub finalizer are cleaned upp")
 	return nil
 }
