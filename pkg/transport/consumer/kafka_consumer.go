@@ -111,7 +111,7 @@ func NewKafkaConsumer(bootstrapServer, sslCA string, consumerConfig *KafkaConsum
 
 	if err := kafkaConsumer.Subscribe(consumerConfig.ConsumerTopic); err != nil {
 		close(messageChan)
-		kafkaConsumer.consumer.Close()
+		kafkaConsumer.log.Info(kafkaConsumer.consumer.Close().Error())
 		return nil, fmt.Errorf("failed to subscribe to requested topic - %v: %w", consumerConfig.ConsumerTopic, err)
 	}
 
@@ -148,10 +148,10 @@ func (c *KafkaConsumer) Start() {
 func (c *KafkaConsumer) Stop() {
 	c.stopOnce.Do(func() {
 		close(c.messageChan)
-		c.consumer.Close()
 		close(c.genericBundlesChan)
 		close(c.stopChan)
 		c.cancelFunc()
+		c.log.Info(c.consumer.Close().Error())
 	})
 }
 
