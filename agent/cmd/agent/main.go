@@ -13,19 +13,24 @@ import (
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiRuntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	clustersV1 "open-cluster-management.io/api/cluster/v1"
-	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
-	clustersV1beta1 "open-cluster-management.io/api/cluster/v1beta1"
-	policiesV1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	placementRulesV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appsV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"k8s.io/client-go/rest"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appsubv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
+	runtimescheme "sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
@@ -36,6 +41,7 @@ import (
 	consumer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/consumer"
 	producer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 )
 
 const (
@@ -51,17 +57,34 @@ const (
 )
 
 func main() {
-	os.Exit(doMain())
+	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
-func doMain() int {
+func doMain(ctx context.Context, restConfig *rest.Config) int {
 	log := initLog()
 	printVersion(log)
 	configManager, err := helper.NewConfigManager()
 	if err != nil {
 		log.Error(err, "failed to load environment variable")
 		return 1
+	}
+
+	if configManager.Terminating {
+		if err := addToScheme(scheme.Scheme); err != nil {
+			log.Error(err, "failed to add to scheme")
+			return 1
+		}
+		client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
+		if err != nil {
+			log.Error(err, "failed to int controller runtime client")
+			return 1
+		}
+		if err := jobs.NewPruneFinalizer(ctx, client).Run(); err != nil {
+			log.Error(err, "failed to prune resources finalizer")
+			return 1
+		}
+		return 0
 	}
 
 	// transport layer initialization
@@ -90,7 +113,7 @@ func doMain() int {
 	}
 
 	log.Info("starting the Cmd")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
 	}
@@ -217,15 +240,15 @@ func createManager(consumer consumer.Consumer, producer producer.Producer,
 
 func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
 	// add cluster scheme
-	if err := clustersV1.Install(runtimeScheme); err != nil {
+	if err := clusterv1.Install(runtimeScheme); err != nil {
 		return fmt.Errorf("failed to add clusterv1 scheme: %w", err)
 	}
 
-	if err := clustersV1beta1.Install(runtimeScheme); err != nil {
+	if err := clusterv1beta1.Install(runtimeScheme); err != nil {
 		return fmt.Errorf("failed to add clusterv1beta1 scheme: %w", err)
 	}
 
-	if err := clustersv1alpha1.Install(runtimeScheme); err != nil {
+	if err := clusterv1alpha1.Install(runtimeScheme); err != nil {
 		return fmt.Errorf("failed to add clustersv1alpha1 scheme: %w", err)
 	}
 
@@ -233,9 +256,14 @@ func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
 		return fmt.Errorf("failed to add apiextensionsv1 scheme: %w", err)
 	}
 
-	schemeBuilders := []*scheme.Builder{
-		policiesV1.SchemeBuilder, placementRulesV1.SchemeBuilder, appsV1alpha1.SchemeBuilder,
+	schemeBuilders := []*runtimescheme.Builder{
+		policyv1.SchemeBuilder,
+		placementrulev1.SchemeBuilder,
+		appsubv1alpha1.SchemeBuilder,
 		mchv1.SchemeBuilder,
+		appsubv1.SchemeBuilder,
+		appv1beta1.SchemeBuilder,
+		chnv1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {

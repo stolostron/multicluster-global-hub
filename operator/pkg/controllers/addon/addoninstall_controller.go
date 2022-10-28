@@ -92,7 +92,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	switch labels[commonconstants.AgentDeployModeLabelKey] {
 	case commonconstants.AgentDeployModeHosted:
 		annotations := cluster.GetAnnotations()
-		if hostingCluster, _ := annotations[constants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
+		if hostingCluster := annotations[constants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
 			addon.SetAnnotations(map[string]string{
 				constants.AnnotationAddonHostingClusterName: hostingCluster,
 			})
@@ -202,10 +202,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			if e.Object.GetName() != constants.HoHManagedClusterAddonName {
-				return false
-			}
-			return true
+			return e.Object.GetName() == constants.HoHManagedClusterAddonName
 		},
 	}
 
