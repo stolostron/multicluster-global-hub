@@ -111,8 +111,6 @@ func SetupRouter(database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) (
 	routerGroup.GET("/policies", policies.ListPolicies(database.GetConn()))
 	routerGroup.GET("/policy/:policyID/status", policies.GetPolicyStatus(database.GetConn()))
 	routerGroup.GET("/subscriptions", subscriptions.ListSubscriptions(database.GetConn()))
-	routerGroup.GET("/subscriptionstatus/:subscriptionID",
-		subscriptions.GetSubscriptionStatus(database.GetConn()))
 	routerGroup.GET("/subscriptionreport/:subscriptionID",
 		subscriptions.GetSubscriptionReport(database.GetConn()))
 
