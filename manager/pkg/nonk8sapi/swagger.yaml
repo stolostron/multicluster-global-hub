@@ -240,41 +240,6 @@ paths:
       summary: list application subscriptions
       tags:
       - apps.open-cluster-management.io
-  /subscriptionstatus/{subscriptionID}:
-    get:
-      consumes:
-      - application/json
-      description: get status for a given application subscription
-      parameters:
-      - description: Subscription ID
-        in: path
-        name: subscriptionID
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1alpha1.SubscriptionStatus'
-        "400":
-          description: Bad Request
-        "401":
-          description: Unauthorized
-        "403":
-          description: Forbidden
-        "404":
-          description: Not Found
-        "500":
-          description: Internal Server Error
-        "503":
-          description: Service Unavailable
-      security:
-      - ApiKeyAuth: []
-      summary: get application subscription status
-      tags:
-      - apps.open-cluster-management.io
   /subscriptionreport/{subscriptionID}:
     get:
       consumes:
@@ -1242,13 +1207,6 @@ definitions:
           9999-12-31T23:59:59Z inclusive.
         type: integer
     type: object
-  v1alpha1.SubscriptionClusterStatusMap:
-    properties:
-      packages:
-        items:
-          $ref: '#/definitions/v1alpha1.SubscriptionUnitStatus'
-        type: array
-    type: object
   SubscriptionReport:
     properties:
       apiVersion:
@@ -1337,53 +1295,6 @@ definitions:
         description: |-
           PropagationFailed provides the count of subscriptions that failed to propagate to a managed cluster
           +optional
-        type: string
-    type: object
-  v1alpha1.SubscriptionStatus:
-    properties:
-      apiVersion:
-        description: |-
-          APIVersion defines the versioned schema of this representation of an object.
-          Servers should convert recognized schemas to the latest internal value, and
-          may reject unrecognized values.
-          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-          +optional
-        type: string
-        default: apps.open-cluster-management.io/v1alpha1
-      kind:
-        description: |-
-          Kind is a string value representing the REST resource this object represents.
-          Servers may infer this from the endpoint the client submits requests to.
-          Cannot be updated.
-          In CamelCase.
-          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-          +optional
-        type: string
-        default: SubscriptionReport
-      metadata:
-        $ref: '#/definitions/Metadata'
-        description: |-
-          metadata for subscription report.
-      statuses:
-        $ref: '#/definitions/v1alpha1.SubscriptionClusterStatusMap'
-        description: Statuses represents all the resources deployed by the subscription
-          per cluster
-    type: object
-  v1alpha1.SubscriptionUnitStatus:
-    properties:
-      apiVersion:
-        type: string
-      kind:
-        type: string
-      lastUpdateTime:
-        type: string
-      message:
-        type: string
-      name:
-        type: string
-      namespace:
-        type: string
-      phase:
         type: string
     type: object
   AllowDenyItem:

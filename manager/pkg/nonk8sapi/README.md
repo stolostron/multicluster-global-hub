@@ -58,13 +58,7 @@ curl -sk -H "Authorization: Bearer $TOKEN" "https://$GLOBAL_HUB_API_HOST/global-
 curl -sk -H "Authorization: Bearer $TOKEN" "https://$GLOBAL_HUB_API_HOST/global-hub-api/v1/subscriptions?labelSelector=env%3Dproduction&limit=2"
 ```
 
-- Get subscription status status with subscription ID:
-
-```bash
-curl -sk -H "Authorization: Bearer $TOKEN" "https://$GLOBAL_HUB_API_HOST/global-hub-api/v1/subscriptionstatus/<sub_uid>"
-```
-
-- Get subscription report status with subscription ID:
+- Get subscription report with subscription ID:
 
 ```bash
 curl -sk -H "Authorization: Bearer $TOKEN" "https://$GLOBAL_HUB_API_HOST/global-hub-api/v1/subscriptionreport/<sub_uid>"

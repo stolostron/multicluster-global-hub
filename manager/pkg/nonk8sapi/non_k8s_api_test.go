@@ -140,11 +140,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				leaf_hub_name character varying(63) NOT NULL,
 				payload jsonb NOT NULL
 			);
-			CREATE TABLE IF NOT EXISTS  status.subscription_statuses (
-				id uuid NOT NULL,
-				leaf_hub_name character varying(63) NOT NULL,
-				payload jsonb NOT NULL
-			);
 		`)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -1228,112 +1223,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				// Expect(w4.Body.String()).Should(MatchJSON(fmt.Sprintf("[%s]", subscription1)))
 			}
 		}
-	})
-
-	It("Should be able to get subscriptionstatus", func() {
-		subStatusHub1ID, subStatusHub2ID := uuid.New().String(), uuid.New().String()
-		leafhub1, leafhub2 := "hub1", "hub2"
-		subStatusHub1, subStatusHub2 := `{
-  "kind": "SubscriptionStatus",
-  "apiVersion": "apps.open-cluster-management.io/v1alpha1",
-  "metadata": {
-	"name": "foo-appsub",
-	"namespace": "foo",
-	"labels": {
-	  "apps.open-cluster-management.io/hosting-subscription": "foo.foo-appsub"
-	},
-	"resourceVersion": "67273",
-	"creationTimestamp": "2022-10-14T09:57:34Z"
-  },
-  "statuses": {
-	"packages": [
-		{
-			"kind": "HelmRelease",
-			"name": "foo-87e76",
-			"phase": "Deployed",
-			"namespace": "foo",
-			"apiVersion": "apps.open-cluster-management.io/v1",
-			"lastUpdateTime": "2022-10-14T09:59:15Z"
-		}
-	]
-  }
-}`, `{
-    "kind": "SubscriptionStatus",
-    "apiVersion": "apps.open-cluster-management.io/v1alpha1",
-	"metadata": {
-	  "name": "foo-appsub",
-	  "namespace": "foo",
-	  "labels": {
-		"apps.open-cluster-management.io/hosting-subscription": "foo.foo-appsub"
-	  },
-	  "resourceVersion": "67288",
-	  "creationTimestamp": "2022-10-14T09:57:12Z"
-	},
-	"statuses": {
-	  "packages": [
-		  {
-			  "kind": "HelmRelease",
-			  "name": "foo-87e76",
-			  "phase": "Deployed",
-			  "namespace": "foo",
-			  "apiVersion": "apps.open-cluster-management.io/v1",
-			  "lastUpdateTime": "2022-10-14T09:59:05Z"
-		  }
-	  ]
-	}
-  }`
-
-		By("Insert testing subscription status for leaf hub")
-		_, err := postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.subscription_statuses (id,leaf_hub_name,payload) VALUES($1, $2, $3);`,
-			subStatusHub1ID, leafhub1, subStatusHub1)
-		Expect(err).ToNot(HaveOccurred())
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.subscription_statuses (id,leaf_hub_name,payload) VALUES($1, $2, $3);`,
-			subStatusHub2ID, leafhub2, subStatusHub2)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Check the subscriptionstatus can be retrieved")
-		w1 := httptest.NewRecorder()
-		req1, err := http.NewRequest("GET", fmt.Sprintf(
-			"/global-hub-api/v1/subscriptionstatus/%s", sub2ID), nil)
-		Expect(err).ToNot(HaveOccurred())
-		router.ServeHTTP(w1, req1)
-		Expect(w1.Code).To(Equal(200))
-		subscriptionStatusStr := `{
-			"kind": "SubscriptionStatus",
-			"apiVersion": "apps.open-cluster-management.io/v1alpha1",
-			"metadata": {
-			  "name": "foo-appsub",
-			  "namespace": "foo",
-			  "resourceVersion": "67273",
-			  "creationTimestamp": "2022-10-14T09:57:34Z",
-			  "labels": {
-				"apps.open-cluster-management.io/hosting-subscription": "foo.foo-appsub"
-			  }
-			},
-			"statuses": {
-			  "packages": [
-				{
-				  "name": "foo-87e76",
-				  "apiVersion": "apps.open-cluster-management.io/v1",
-				  "kind": "HelmRelease",
-				  "namespace": "foo",
-				  "phase": "Deployed",
-				  "lastUpdateTime": "2022-10-14T09:59:15Z"
-				},
-				{
-				  "name": "foo-87e76",
-				  "apiVersion": "apps.open-cluster-management.io/v1",
-				  "kind": "HelmRelease",
-				  "namespace": "foo",
-				  "phase": "Deployed",
-				  "lastUpdateTime": "2022-10-14T09:59:05Z"
-				}
-			  ]
-			}
-		  }`
-		Expect(w1.Body.String()).Should(MatchJSON(subscriptionStatusStr))
 	})
 
 	It("Should be able to get subscriptionreport", func() {

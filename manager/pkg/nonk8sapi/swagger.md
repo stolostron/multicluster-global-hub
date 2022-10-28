@@ -65,7 +65,6 @@ Access to application subscriptions
 |---------|---------|--------|---------|
 | GET | /global-hub-api/v1/subscriptionreport/{subscriptionID} | [get subscriptionreport subscription ID](#get-subscriptionreport-subscription-id) | get application subscription report |
 | GET | /global-hub-api/v1/subscriptions | [get subscriptions](#get-subscriptions) | list application subscriptions |
-| GET | /global-hub-api/v1/subscriptionstatus/{subscriptionID} | [get subscriptionstatus subscription ID](#get-subscriptionstatus-subscription-id) | get application subscription status |
   
 
 
@@ -474,82 +473,6 @@ Status: Internal Server Error
 Status: Service Unavailable
 
 ###### <span id="get-subscriptions-503-schema"></span> Schema
-
-### <span id="get-subscriptionstatus-subscription-id"></span> get application subscription status (*GetSubscriptionstatusSubscriptionID*)
-
-```
-GET /global-hub-api/v1/subscriptionstatus/{subscriptionID}
-```
-
-get status for a given application subscription
-
-#### Consumes
-  * application/json
-
-#### Produces
-  * application/json
-
-#### Security Requirements
-  * ApiKeyAuth
-
-#### Parameters
-
-| Name | Source | Type | Go type | Separator | Required | Default | Description |
-|------|--------|------|---------|-----------| :------: |---------|-------------|
-| subscriptionID | `path` | string | `string` |  | ✓ |  | Subscription ID |
-
-#### All responses
-| Code | Status | Description | Has headers | Schema |
-|------|--------|-------------|:-----------:|--------|
-| [200](#get-subscriptionstatus-subscription-id-200) | OK | OK |  | [schema](#get-subscriptionstatus-subscription-id-200-schema) |
-| [400](#get-subscriptionstatus-subscription-id-400) | Bad Request | Bad Request |  | [schema](#get-subscriptionstatus-subscription-id-400-schema) |
-| [401](#get-subscriptionstatus-subscription-id-401) | Unauthorized | Unauthorized |  | [schema](#get-subscriptionstatus-subscription-id-401-schema) |
-| [403](#get-subscriptionstatus-subscription-id-403) | Forbidden | Forbidden |  | [schema](#get-subscriptionstatus-subscription-id-403-schema) |
-| [404](#get-subscriptionstatus-subscription-id-404) | Not Found | Not Found |  | [schema](#get-subscriptionstatus-subscription-id-404-schema) |
-| [500](#get-subscriptionstatus-subscription-id-500) | Internal Server Error | Internal Server Error |  | [schema](#get-subscriptionstatus-subscription-id-500-schema) |
-| [503](#get-subscriptionstatus-subscription-id-503) | Service Unavailable | Service Unavailable |  | [schema](#get-subscriptionstatus-subscription-id-503-schema) |
-
-#### Responses
-
-
-##### <span id="get-subscriptionstatus-subscription-id-200"></span> 200 - OK
-Status: OK
-
-###### <span id="get-subscriptionstatus-subscription-id-200-schema"></span> Schema
-   
-  
-
-[V1alpha1SubscriptionStatus](#v1alpha1-subscription-status)
-
-##### <span id="get-subscriptionstatus-subscription-id-400"></span> 400 - Bad Request
-Status: Bad Request
-
-###### <span id="get-subscriptionstatus-subscription-id-400-schema"></span> Schema
-
-##### <span id="get-subscriptionstatus-subscription-id-401"></span> 401 - Unauthorized
-Status: Unauthorized
-
-###### <span id="get-subscriptionstatus-subscription-id-401-schema"></span> Schema
-
-##### <span id="get-subscriptionstatus-subscription-id-403"></span> 403 - Forbidden
-Status: Forbidden
-
-###### <span id="get-subscriptionstatus-subscription-id-403-schema"></span> Schema
-
-##### <span id="get-subscriptionstatus-subscription-id-404"></span> 404 - Not Found
-Status: Not Found
-
-###### <span id="get-subscriptionstatus-subscription-id-404-schema"></span> Schema
-
-##### <span id="get-subscriptionstatus-subscription-id-500"></span> 500 - Internal Server Error
-Status: Internal Server Error
-
-###### <span id="get-subscriptionstatus-subscription-id-500-schema"></span> Schema
-
-##### <span id="get-subscriptionstatus-subscription-id-503"></span> 503 - Service Unavailable
-Status: Service Unavailable
-
-###### <span id="get-subscriptionstatus-subscription-id-503-schema"></span> Schema
 
 ### <span id="patch-managedcluster-cluster-id"></span> patch managed cluster label (*PatchManagedclusterClusterID*)
 
@@ -1859,66 +1782,3 @@ inclusive. This field may be limited in precision depending on context. |  |
   
 
 [interface{}](#interface)
-
-### <span id="v1alpha1-subscription-cluster-status-map"></span> v1alpha1.SubscriptionClusterStatusMap
-
-
-  
-
-
-
-**Properties**
-
-| Name | Type | Go type | Required | Default | Description | Example |
-|------|------|---------|:--------:| ------- |-------------|---------|
-| packages | [][V1alpha1SubscriptionUnitStatus](#v1alpha1-subscription-unit-status)| `[]*V1alpha1SubscriptionUnitStatus` |  | |  |  |
-
-
-
-### <span id="v1alpha1-subscription-status"></span> v1alpha1.SubscriptionStatus
-
-
-  
-
-
-
-**Properties**
-
-| Name | Type | Go type | Required | Default | Description | Example |
-|------|------|---------|:--------:| ------- |-------------|---------|
-| apiVersion | string| `string` |  | `"apps.open-cluster-management.io/v1alpha1"`| APIVersion defines the versioned schema of this representation of an object.
-Servers should convert recognized schemas to the latest internal value, and
-may reject unrecognized values.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-+optional |  |
-| kind | string| `string` |  | `"SubscriptionReport"`| Kind is a string value representing the REST resource this object represents.
-Servers may infer this from the endpoint the client submits requests to.
-Cannot be updated.
-In CamelCase.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-+optional |  |
-| metadata | [Metadata](#metadata)| `Metadata` |  | | metadata for subscription report. |  |
-| statuses | [V1alpha1SubscriptionClusterStatusMap](#v1alpha1-subscription-cluster-status-map)| `V1alpha1SubscriptionClusterStatusMap` |  | | Statuses represents all the resources deployed by the subscription per cluster |  |
-
-
-
-### <span id="v1alpha1-subscription-unit-status"></span> v1alpha1.SubscriptionUnitStatus
-
-
-  
-
-
-
-**Properties**
-
-| Name | Type | Go type | Required | Default | Description | Example |
-|------|------|---------|:--------:| ------- |-------------|---------|
-| apiVersion | string| `string` |  | |  |  |
-| kind | string| `string` |  | |  |  |
-| lastUpdateTime | string| `string` |  | |  |  |
-| message | string| `string` |  | |  |  |
-| name | string| `string` |  | |  |  |
-| namespace | string| `string` |  | |  |  |
-| phase | string| `string` |  | |  |  |
-
-
