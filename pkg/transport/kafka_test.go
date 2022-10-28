@@ -206,7 +206,7 @@ var _ = Describe("Transport", Ordered, func() {
 		kafkaProducerConfig := &producer.KafkaProducerConfig{
 			ProducerTopic:  "status",
 			ProducerID:     "status-producer",
-			MsgSizeLimitKB: 100,
+			MsgSizeLimitKB: 1,
 		}
 		kafkaProducer, err := producer.NewKafkaProducer(&compressor.CompressorGZip{},
 			mockCluster.BootstrapServers(), "", kafkaProducerConfig,
@@ -253,19 +253,19 @@ var _ = Describe("Transport", Ordered, func() {
 			Predicate:        func() bool { return true }, // always get managed clusters bundles
 		})
 
-		By("Send message to create PlacementRule")
+		By("Test the size of message is greater than the message limit")
 		kafkaProducer.SendAsync(&transport.Message{
 			Key:     "hub1.ManagedClusters",
 			ID:      "hub1.ManagedClusters", // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
-			Version: "7.8", // entry.bundle.GetBundleVersion().String()
+			Version: "8.1", // entry.bundle.GetBundleVersion().String()
 			Payload: []byte(`{
 				"objects": [
 				  {
 					"kind": "ManagedCluster",
 					"apiVersion": "cluster.open-cluster-management.io/v1",
 					"metadata": {
-					  "name": "kind-hub1-cluster2"
+					  "name": "hub1-cluster1"
 					},
 					"spec": {
 					  "managedClusterClientConfigs": [
@@ -278,14 +278,70 @@ var _ = Describe("Transport", Ordered, func() {
 					  "leaseDurationSeconds": 60
 					},
 					"status": {
-			  
+					}
+				  },
+				  {
+					"kind": "ManagedCluster",
+					"apiVersion": "cluster.open-cluster-management.io/v1",
+					"metadata": {
+					  "name": "hub1-cluster2"
+					},
+					"spec": {
+					  "managedClusterClientConfigs": [
+						{
+						  "url": "https://hub1-cluster2-control-plane:6443",
+						  "caBundle": ""
+						}
+					  ],
+					  "hubAcceptsClient": true,
+					  "leaseDurationSeconds": 60
+					},
+					"status": {
+					}
+				  },
+				  {
+					"kind": "ManagedCluster",
+					"apiVersion": "cluster.open-cluster-management.io/v1",
+					"metadata": {
+					  "name": "hub1-cluster3"
+					},
+					"spec": {
+					  "managedClusterClientConfigs": [
+						{
+						  "url": "https://hub1-cluster2-control-plane:6443",
+						  "caBundle": ""
+						}
+					  ],
+					  "hubAcceptsClient": true,
+					  "leaseDurationSeconds": 60
+					},
+					"status": {
+					}
+				  },
+				  {
+					"kind": "ManagedCluster",
+					"apiVersion": "cluster.open-cluster-management.io/v1",
+					"metadata": {
+					  "name": "hub1-cluster4"
+					},
+					"spec": {
+					  "managedClusterClientConfigs": [
+						{
+						  "url": "https://hub1-cluster2-control-plane:6443",
+						  "caBundle": ""
+						}
+					  ],
+					  "hubAcceptsClient": true,
+					  "leaseDurationSeconds": 60
+					},
+					"status": {
 					}
 				  }
 				],
 				"leafHubName": "hub1",
 				"bundleVersion": {
-				  "incarnation": 7,
-				  "generation": 8
+				  "incarnation": 8,
+				  "generation": 1
 				}
 			  }`),
 		})
@@ -293,6 +349,6 @@ var _ = Describe("Transport", Ordered, func() {
 		Eventually(func() bool {
 			b, _, _, err := conflationReadyQueue.BlockingDequeue().GetNext()
 			return err == nil && b != nil
-		}, 2*time.Second, 100*time.Millisecond).Should(BeTrue())
+		}, 10*time.Second, 500*time.Millisecond).Should(BeTrue())
 	})
 })

@@ -249,9 +249,9 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(batchBuilder database.Pol
 
 // typedClustersFromDB is a set that contains the clusters from db with specific compliance status - that is
 // all compliant/nonCompliant/unknown clusters and only them.
-func (syncer *PoliciesDBSyncer) handleClustersPerPolicyWithSpecificCompliance(batchBuilder database.PoliciesBatchBuilder,
-	policyID string, typedClustersFromBundle []string, allClustersFromDB set.Set, typedClustersFromDB set.Set,
-	complianceStatus database.ComplianceStatus,
+func (syncer *PoliciesDBSyncer) handleClustersPerPolicyWithSpecificCompliance(
+	batchBuilder database.PoliciesBatchBuilder, policyID string, typedClustersFromBundle []string,
+	allClustersFromDB set.Set, typedClustersFromDB set.Set, complianceStatus database.ComplianceStatus,
 ) set.Set {
 	for _, clusterName := range typedClustersFromBundle { // go over the clusters from bundle
 		if !allClustersFromDB.Contains(clusterName) { // check if cluster not found in the db compliance table

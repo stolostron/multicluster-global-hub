@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"math"
+	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
@@ -29,7 +30,14 @@ func (assembler *kafkaMessageAssembler) processFragmentInfo(fragInfo *messageFra
 		assembler.partitionToFragmentCollectionMap[partition] = fragmentCollectionMap
 	}
 
-	fragCollection, found := fragmentCollectionMap[fragInfo.key]
+	// the key format is %s_%d
+	fragInfoKey := fragInfo.key
+	fragInfoKeyArr := strings.Split(fragInfoKey, "_")
+	if len(fragInfoKeyArr) > 1 {
+		fragInfoKey = fragInfoKeyArr[0]
+	}
+
+	fragCollection, found := fragmentCollectionMap[fragInfoKey]
 	if found && fragCollection.fragmentationTimestamp.After(fragInfo.fragmentationTimestamp) {
 		// fragment timestamp < collection timestamp got an outdated fragment
 		return nil
@@ -38,7 +46,7 @@ func (assembler *kafkaMessageAssembler) processFragmentInfo(fragInfo *messageFra
 	if !found || fragCollection.fragmentationTimestamp.Before(fragInfo.fragmentationTimestamp) {
 		// fragmentCollection not found or is hosting outdated fragments
 		fragCollection := newMessageFragmentsCollection(fragInfo.totalSize, fragInfo.fragmentationTimestamp)
-		fragmentCollectionMap[fragInfo.key] = fragCollection
+		fragmentCollectionMap[fragInfoKey] = fragCollection
 		fragCollection.add(fragInfo)
 		// update the lowest offset on partition if needed
 		assembler.addOffsetToPartition(partition, fragCollection.lowestOffset)
