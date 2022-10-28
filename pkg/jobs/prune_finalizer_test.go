@@ -183,7 +183,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 		By("Trigger the prune finalizer job")
 		job := jobs.NewPruneFinalizer(ctx, runtimeClient)
 		Expect(job).NotTo(BeNil())
-		Expect(job.Run()).Should(Equal(0))
+		Expect(job.Run()).Should(BeNil())
 
 		By("Check the finalizer is exists in application")
 		Eventually(func() bool {
