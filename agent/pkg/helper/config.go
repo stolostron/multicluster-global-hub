@@ -52,11 +52,15 @@ func NewConfigManager() (*ConfigManager, error) {
 
 	pflag.StringVar(&configManager.ProducerConfig.ProducerID, "kafka-producer-id", "",
 		"Producer Id for the kafka, default is the leaf hub name.")
+	pflag.StringVar(&configManager.ProducerConfig.ProducerTopic, "kafka-producer-topic",
+		"status", "Topic for the kafka producer.")
+	pflag.IntVar(&configManager.ProducerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 100,
+		"The limit for kafka message size in KB.")
 
 	pflag.StringVar(&configManager.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic",
 		"spec", "Topic for the kafka consumer.")
-	pflag.StringVar(&configManager.ProducerConfig.ProducerTopic, "kafka-producer-topic",
-		"status", "Topic for the kafka producer.")
+	pflag.StringVar(&configManager.ConsumerConfig.ConsumerID, "kakfa-consumer-id",
+		"multicluster-global-hub-agent", "ID for the kafka consumer.")
 	pflag.StringVar(&configManager.PodNameSpace, "pod-namespace", "open-cluster-management",
 		"The agent running namespace, also used as leader election namespace")
 	pflag.StringVar(&configManager.TransportType, "transport-type", "kafka",
@@ -68,8 +72,6 @@ func NewConfigManager() (*ConfigManager, error) {
 	pflag.StringVar(&configManager.TransportCompressionType,
 		"transport-message-compression-type", "gzip",
 		"The message compression type for transport layer, 'gzip' or 'no-op'.")
-	pflag.IntVar(&configManager.ProducerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 100,
-		"The limit for kafka message size in KB.")
 	pflag.IntVar(&configManager.StatusDeltaCountSwitchFactor,
 		"status-delta-count-switch-factor", 100,
 		"default with 100.")
