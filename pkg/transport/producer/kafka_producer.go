@@ -20,7 +20,7 @@ const (
 	kiloBytesToBytes    = 1000
 	producerFlushPeriod = 5 * int(time.Second)
 	intSize             = 4
-	MaxMessageSizeLimit = 987
+	MaxMessageSizeLimit = 1024
 )
 
 type KafkaProducerConfig struct {

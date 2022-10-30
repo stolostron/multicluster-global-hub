@@ -12,11 +12,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
-const (
-	defaultK8sClientsPoolSize = 10
-	maxMessageSizeLimit       = 1024 // to make sure that the message size is below 1 MB.
-)
-
 type ConfigManager struct {
 	LeafHubName                  string
 	PodNameSpace                 string
@@ -65,7 +60,7 @@ func NewConfigManager() (*ConfigManager, error) {
 		"The agent running namespace, also used as leader election namespace")
 	pflag.StringVar(&configManager.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'")
-	pflag.IntVar(&configManager.SpecWorkPoolSize, "consumer-worker-pool-size", defaultK8sClientsPoolSize,
+	pflag.IntVar(&configManager.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
 		"The goroutine number to propagate the bundles on managed cluster.")
 	pflag.BoolVar(&configManager.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
 		"enable hoh RBAC or not, default false")
@@ -92,9 +87,9 @@ func NewConfigManager() (*ConfigManager, error) {
 		return nil, fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
 	}
 
-	if configManager.ProducerConfig.MsgSizeLimitKB > maxMessageSizeLimit {
+	if configManager.ProducerConfig.MsgSizeLimitKB > producer.MaxMessageSizeLimit {
 		return nil, fmt.Errorf("flag kafka-message-size-limit %d must not exceed %d",
-			configManager.ProducerConfig.MsgSizeLimitKB, maxMessageSizeLimit)
+			configManager.ProducerConfig.MsgSizeLimitKB, producer.MaxMessageSizeLimit)
 	}
 	return configManager, nil
 }
