@@ -7,17 +7,17 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
 	configctl "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // AddTransport2DBSyncers performs the initial setup required before starting the runtime manager.
 // adds controllers and/or runnables to the manager, registers handler functions within the dispatcher
-//  and create bundle functions within the transport.
+//  and create bundle functions within the bundle.
 func AddTransport2DBSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
 	transport transport.Transport, statistics manager.Runnable,

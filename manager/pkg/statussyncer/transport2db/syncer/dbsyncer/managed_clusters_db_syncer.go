@@ -7,20 +7,22 @@ import (
 	"github.com/go-logr/logr"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
 func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &ManagedClustersDBSyncer{
 		log:              log,
-		createBundleFunc: bundle.NewManagedClustersStatusBundle,
+		createBundleFunc: statusbundle.NewManagedClustersStatusBundle,
 	}
 
 	log.Info("initialized managed clusters db syncer")
@@ -31,12 +33,12 @@ func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
 // ManagedClustersDBSyncer implements managed clusters db sync business logic.
 type ManagedClustersDBSyncer struct {
 	log              logr.Logger
-	createBundleFunc bundle.CreateBundleFunction
+	createBundleFunc status.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
-	transportInstance.Register(&transport.BundleRegistration{
+	transportInstance.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ManagedClustersMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
 		Predicate:        func() bool { return true }, // always get managed clusters bundles
@@ -44,37 +46,37 @@ func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportIn
 }
 
 // RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
-// handler function need to do "diff" between objects received in the bundle and the objects in db.
+// handler function need to do "diff" between objects received in the bundle and the objects in database.
 // leaf hub sends only the current existing objects, and status transport bridge should understand implicitly which
 // objects were deleted.
-// therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the db.
+// therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the database.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ManagedClustersPriority,
-		status.CompleteStateMode,
+		bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
 			return syncer.handleManagedClustersBundle(ctx, bundle, dbClient)
 		},
 	))
 }
 
-func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.ManagedClustersStatusDB,
+func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle status.Bundle,
+	dbClient database.ManagedClustersStatusDB,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	clustersFromDB, err := dbClient.GetManagedClustersByLeafHub(ctx, db.StatusSchema, db.ManagedClustersTableName,
-		leafHubName)
+	clustersFromDB, err := dbClient.GetManagedClustersByLeafHub(ctx, database.StatusSchema,
+		database.ManagedClustersTableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub managed clusters from db - %w", err)
 	}
 	// batch is per leaf hub, therefore no need to specify leafHubName in Insert/Update/Delete
-	batchBuilder := dbClient.NewManagedClustersBatchBuilder(db.StatusSchema,
-		db.ManagedClustersTableName, leafHubName)
+	batchBuilder := dbClient.NewManagedClustersBatchBuilder(database.StatusSchema,
+		database.ManagedClustersTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() {
 		cluster, ok := object.(*clusterv1.ManagedCluster)
@@ -84,7 +86,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 
 		resourceVersionFromDB, clusterExistsInDB := clustersFromDB[cluster.GetName()]
 		if !clusterExistsInDB { // cluster not found in the db table
-			batchBuilder.Insert(cluster, db.ErrorNone)
+			batchBuilder.Insert(cluster, database.ErrorNone)
 			continue
 		}
 

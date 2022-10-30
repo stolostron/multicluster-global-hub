@@ -1,9 +1,13 @@
 package bundle
 
-import clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+import (
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+)
 
 // NewPlacementDecisionsBundle creates a new instance of PlacementDecisionsBundle.
-func NewPlacementDecisionsBundle() Bundle {
+func NewPlacementDecisionsBundle() status.Bundle {
 	return &PlacementDecisionsBundle{}
 }
 

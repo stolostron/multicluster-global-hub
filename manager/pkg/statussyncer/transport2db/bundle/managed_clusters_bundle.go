@@ -2,10 +2,12 @@ package bundle
 
 import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // NewManagedClustersStatusBundle creates a new instance of ManagedClustersStatusBundle.
-func NewManagedClustersStatusBundle() Bundle {
+func NewManagedClustersStatusBundle() status.Bundle {
 	return &ManagedClustersStatusBundle{}
 }
 

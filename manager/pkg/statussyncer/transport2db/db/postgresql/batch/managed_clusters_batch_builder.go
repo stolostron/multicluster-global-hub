@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 // NewManagedClustersBatchBuilder creates a new instance of PostgreSQL ManagedClustersBatchBuilder.
 func NewManagedClustersBatchBuilder(schema string, tableName string, leafHubName string) *ManagedClustersBatchBuilder {
 	tableSpecialColumns := make(map[int]string)
-	tableSpecialColumns[managedClustersJsonbColumnIndex] = db.Jsonb
+	tableSpecialColumns[managedClustersJsonbColumnIndex] = database.Jsonb
 
 	builder := &ManagedClustersBatchBuilder{
 		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,

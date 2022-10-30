@@ -98,7 +98,7 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object bundlepkg.Object) {
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 }
 
-// GetBundleVersion function to get bundle version.
+// GetBundleVersion function to get bundle version
 func (bundle *ComplianceStatusBundle) GetBundleVersion() *statusbundle.BundleVersion {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()

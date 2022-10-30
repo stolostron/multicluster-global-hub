@@ -7,13 +7,14 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/helpers"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // genericDBSyncer implements generic status resource db sync business logic.
@@ -24,14 +25,14 @@ type genericDBSyncer struct {
 	dbSchema    string
 	dbTableName string
 
-	createBundleFunc func() bundle.Bundle
+	createBundleFunc func() status.Bundle
 	bundlePriority   conflator.ConflationPriority
-	bundleSyncMode   status.BundleSyncMode
+	bundleSyncMode   bundle.BundleSyncMode
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *genericDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
-	transportInstance.Register(&transport.BundleRegistration{
+	transportInstance.BundleRegister(&registration.BundleRegistration{
 		MsgID:            syncer.transportMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
 		Predicate:        func() bool { return true }, // always get generic status resources
@@ -39,10 +40,10 @@ func (syncer *genericDBSyncer) RegisterCreateBundleFunctions(transportInstance t
 }
 
 // RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
-// handler function need to do "diff" between objects received in the bundle and the objects in db.
+// handler function need to do "diff" between objects received in the bundle and the objects in database.
 // leaf hub sends only the current existing objects, and status transport bridge should understand implicitly which
 // objects were deleted.
-// therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the db.
+// therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the database.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *genericDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
@@ -50,14 +51,14 @@ func (syncer *genericDBSyncer) RegisterBundleHandlerFunctions(conflationManager 
 		syncer.bundlePriority,
 		syncer.bundleSyncMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
 			return syncer.handleResourcesBundle(ctx, bundle, dbClient)
 		},
 	))
 }
 
-func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.GenericStatusResourceDB,
+func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle status.Bundle,
+	dbClient database.GenericStatusResourceDB,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()

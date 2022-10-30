@@ -12,7 +12,7 @@ import (
 var errWrongType = errors.New("received invalid type")
 
 // NewDeltaComplianceStatusBundle creates a new instance of DeltaComplianceStatusBundle.
-func NewDeltaComplianceStatusBundle() Bundle {
+func NewDeltaComplianceStatusBundle() status.Bundle {
 	return &DeltaComplianceStatusBundle{}
 }
 
@@ -48,7 +48,7 @@ func (bundle *DeltaComplianceStatusBundle) GetDependencyVersion() *status.Bundle
 }
 
 // InheritEvents updates the content of this bundle with that of another older one (this bundle is the source of truth).
-func (bundle *DeltaComplianceStatusBundle) InheritEvents(olderBundle Bundle) error {
+func (bundle *DeltaComplianceStatusBundle) InheritEvents(olderBundle status.Bundle) error {
 	if olderBundle == nil {
 		return nil
 	}

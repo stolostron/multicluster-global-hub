@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/postgresql/batch"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 var (
@@ -79,7 +79,7 @@ func (p *PostgreSQL) SendBatch(ctx context.Context, batch interface{}) error {
 // NewManagedClustersBatchBuilder creates a new instance of ManagedClustersBatchBuilder.
 func (p *PostgreSQL) NewManagedClustersBatchBuilder(schema string, tableName string,
 	leafHubName string,
-) db.ManagedClustersBatchBuilder {
+) database.ManagedClustersBatchBuilder {
 	return batch.NewManagedClustersBatchBuilder(schema, tableName, leafHubName)
 }
 
@@ -101,14 +101,14 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, schema str
 // NewPoliciesBatchBuilder creates a new instance of PoliciesBatchBuilder.
 func (p *PostgreSQL) NewPoliciesBatchBuilder(schema string, tableName string,
 	leafHubName string,
-) db.PoliciesBatchBuilder {
+) database.PoliciesBatchBuilder {
 	return batch.NewPoliciesBatchBuilder(schema, tableName, leafHubName)
 }
 
 // GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
 func (p *PostgreSQL) GetComplianceStatusByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string,
-) (map[string]*db.PolicyClustersSets, error) {
+) (map[string]*database.PolicyClustersSets, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE 
 			leaf_hub_name=$1`, schema, tableName), leafHubName)
 
@@ -123,7 +123,7 @@ func (p *PostgreSQL) GetComplianceStatusByLeafHub(ctx context.Context, schema st
 // GetNonCompliantClustersByLeafHub returns a map of policies, each maps to sets of (NonCompliant,Unknown) clusters.
 func (p *PostgreSQL) GetNonCompliantClustersByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string,
-) (map[string]*db.PolicyClustersSets, error) {
+) (map[string]*database.PolicyClustersSets, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE leaf_hub_name=$1
 			 AND compliance!='compliant'`, schema, tableName), leafHubName)
 
@@ -135,13 +135,15 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHub(ctx context.Context, schem
 	return result, nil
 }
 
-func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (map[string]*db.PolicyClustersSets, error) {
-	result := make(map[string]*db.PolicyClustersSets)
+func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (
+	map[string]*database.PolicyClustersSets, error,
+) {
+	result := make(map[string]*database.PolicyClustersSets)
 
 	for rows.Next() {
 		var (
 			policyID, clusterName string
-			complianceStatus      db.ComplianceStatus
+			complianceStatus      database.ComplianceStatus
 		)
 
 		if err := rows.Scan(&policyID, &clusterName, &complianceStatus); err != nil {
@@ -150,7 +152,7 @@ func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (map[str
 
 		policyClustersSets, found := result[policyID]
 		if !found {
-			policyClustersSets = db.NewPolicyClusterSets()
+			policyClustersSets = database.NewPolicyClusterSets()
 			result[policyID] = policyClustersSets
 		}
 
@@ -181,7 +183,7 @@ func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, schema string, t
 	return result, nil
 }
 
-// InsertOrUpdateAggregatedPolicyCompliance inserts or updates aggregated policy compliance row in the db.
+// InsertOrUpdateAggregatedPolicyCompliance inserts or updates aggregated policy compliance row in the database.
 func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, schema string, tableName string,
 	leafHubName string, policyID string, appliedClusters int, nonCompliantClusters int,
 ) error {
@@ -191,13 +193,13 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 		return fmt.Errorf("failed to read from database: %w", err)
 	}
 
-	if exists { // row for (id,leaf hub) tuple exists, update to the db.
+	if exists { // row for (id,leaf hub) tuple exists, update to the database.
 		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET applied_clusters=$1,non_compliant_clusters=$2
 			 WHERE leaf_hub_name=$3 AND id=$4`, schema, tableName), appliedClusters, nonCompliantClusters, leafHubName,
 			policyID); err != nil {
 			return fmt.Errorf("failed to update compliance row in database: %w", err)
 		}
-	} else { // row for (id,leaf hub) tuple doesn't exist, insert to the db.
+	} else { // row for (id,leaf hub) tuple doesn't exist, insert to the database.
 		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (id,leaf_hub_name,applied_clusters,
 			non_compliant_clusters) values($1, $2, $3, $4)`, schema, tableName), policyID, leafHubName,
 			appliedClusters, nonCompliantClusters); err != nil {
@@ -223,7 +225,7 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string,
 // NewGenericBatchBuilder creates a new instance of GenericBatchBuilder.
 func (p *PostgreSQL) NewGenericBatchBuilder(schema string, tableName string,
 	leafHubName string,
-) db.GenericBatchBuilder {
+) database.GenericBatchBuilder {
 	return batch.NewGenericBatchBuilder(schema, tableName, leafHubName)
 }
 
@@ -245,7 +247,7 @@ func (p *PostgreSQL) GetResourceIDToVersionByLeafHub(ctx context.Context, schema
 // NewGenericLocalBatchBuilder creates a new instance of GenericLocalBatchBuilder.
 func (p *PostgreSQL) NewGenericLocalBatchBuilder(schema string, tableName string,
 	leafHubName string,
-) db.GenericLocalBatchBuilder {
+) database.GenericLocalBatchBuilder {
 	return batch.NewGenericLocalBatchBuilder(schema, tableName, leafHubName)
 }
 

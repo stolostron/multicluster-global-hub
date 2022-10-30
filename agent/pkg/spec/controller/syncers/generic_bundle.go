@@ -11,10 +11,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/rbac"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
-	consumer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	consumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // genericBundleSyncer syncs objects spec from received bundles.

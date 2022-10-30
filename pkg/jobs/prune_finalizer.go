@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/open-horizon/edge-utilities/logger/log"
 	"k8s.io/client-go/util/retry"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -94,7 +93,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 		}
 	}
 
-	log.Info("clean up the application placementrule finalizer")
+	p.log.Info("clean up the application placementrule finalizer")
 	palcementrules := &placementrulesv1.PlacementRuleList{}
 	if err := p.client.List(p.ctx, palcementrules, &client.ListOptions{}); err != nil {
 		return err
@@ -158,7 +157,7 @@ func (p *PruneFinalizer) pruneApplication() error {
 }
 
 func (p *PruneFinalizer) prunePolicy() error {
-	log.Info("clean up the policies finalizer")
+	p.log.Info("clean up the policies finalizer")
 	policies := &policyv1.PolicyList{}
 	if err := p.client.List(p.ctx, policies, &client.ListOptions{}); err != nil {
 		return err
@@ -168,6 +167,6 @@ func (p *PruneFinalizer) prunePolicy() error {
 			return err
 		}
 	}
-	log.Info("the policy global hub finalizer are cleaned up")
+	p.log.Info("the policy global hub finalizer are cleaned up")
 	return nil
 }

@@ -2,10 +2,12 @@ package bundle
 
 import (
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // NewLocalPlacementRulesBundle creates a new instance of LocalPlacementRulesBundle.
-func NewLocalPlacementRulesBundle() Bundle {
+func NewLocalPlacementRulesBundle() status.Bundle {
 	return &LocalPlacementRulesBundle{}
 }
 

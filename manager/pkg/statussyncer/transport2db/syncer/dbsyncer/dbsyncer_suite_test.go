@@ -2,7 +2,7 @@ package dbsyncer_test
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,18 +21,18 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	producer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statistics"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/kafka/headers"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/testkafka"
+	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -46,8 +46,9 @@ var (
 	testPostgres        *testpostgres.TestPostgres
 	transportPostgreSQL *postgresql.PostgreSQL
 	dbWorkerPool        *workerpool.DBWorkerPool
-	statusTransport     transport.Transport
-	kafkaMessageChan    chan *kafka.Message
+	kafkaConsumer       *consumer.KafkaConsumer
+	kafkaProducer       *producer.KafkaProducer
+	mockCluster         *kafka.MockCluster
 )
 
 func TestDbsyncer(t *testing.T) {
@@ -80,8 +81,25 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Create database work pool")
-	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{})
-	Expect(err).NotTo(HaveOccurred())
+	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{},
+		[]string{
+			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
+			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
+			helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
+			helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
+			helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
+			helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
+			helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
+		})
+
 	dbWorkerPool, err = workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), testPostgres.URI, stats)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(dbWorkerPool.Start()).Should(Succeed())
@@ -91,11 +109,40 @@ var _ = BeforeSuite(func() {
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"),
 		conflationReadyQueue, false, stats) // manage all Conflation Units
 
-	kafkaMessageChan = make(chan *kafka.Message)
-	statusTransport, err = testkafka.NewKafkaTestConsumer(kafkaMessageChan, conflationManager, stats,
+	By("Create mock kafka cluster")
+	mockCluster, err = kafka.NewMockCluster(1)
+	Expect(err).NotTo(HaveOccurred())
+	fmt.Fprintf(GinkgoWriter, "mock kafka bootstrap server address: %s\n", mockCluster.BootstrapServers())
+
+	By("Start kafka producer")
+	kafkaProducerConfig := &producer.KafkaProducerConfig{
+		ProducerTopic:  "status",
+		ProducerID:     "status-producer",
+		MsgSizeLimitKB: 1,
+	}
+	kafkaProducer, err = producer.NewKafkaProducer(&compressor.CompressorGZip{},
+		mockCluster.BootstrapServers(), "", kafkaProducerConfig,
+		ctrl.Log.WithName("kafka-producer"))
+	Expect(err).NotTo(HaveOccurred())
+	go kafkaProducer.Start()
+
+	By("Start kafka consumer")
+	kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
+		ConsumerTopic: "status",
+		ConsumerID:    "status-consumer",
+	}
+	kafkaConsumer, err = consumer.NewKafkaConsumer(
+		mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
 		ctrl.Log.WithName("kafka-consumer"))
 	Expect(err).NotTo(HaveOccurred())
-	statusTransport.Start()
+
+	kafkaConsumer.SetCommitter(consumer.NewCommitter(
+		1*time.Second, kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+		conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
+	)
+	kafkaConsumer.SetStatistics(stats)
+	kafkaConsumer.SetConflationManager(conflationManager)
+	go kafkaConsumer.Start()
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -125,7 +172,7 @@ var _ = BeforeSuite(func() {
 
 	By("Add controllers to manager")
 	err = statussyncer.AddTransport2DBSyncers(mgr, dbWorkerPool, conflationManager,
-		conflationReadyQueue, statusTransport, stats)
+		conflationReadyQueue, kafkaConsumer, stats)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")
@@ -140,9 +187,9 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	statusTransport.Stop()
 	transportPostgreSQL.Stop()
 	dbWorkerPool.Stop()
+	mockCluster.Close()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 
 	By("Tearing down the test environment")
@@ -154,42 +201,3 @@ var _ = AfterSuite(func() {
 	}
 	Expect(testenv.Stop()).NotTo(HaveOccurred())
 })
-
-func buildKafkaMessage(key, id string, payload []byte) (*kafka.Message, error) {
-	transportMessage := &producer.Message{
-		Key:     key,
-		ID:      id, // entry.transportBundleKey
-		MsgType: constants.StatusBundle,
-		Version: "0.2", // entry.bundle.GetBundleVersion().String()
-		Payload: payload,
-	}
-	transportMessageBytes, err := json.Marshal(transportMessage)
-	if err != nil {
-		return nil, err
-	}
-
-	compressor, err := compressor.NewCompressor(compressor.GZip)
-	if err != nil {
-		return nil, err
-	}
-	compressedTransportBytes, err := compressor.Compress(transportMessageBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	topic := "status"
-	kafkaMessage := &kafka.Message{
-		Key: []byte(transportMessage.Key),
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &topic,
-			Partition: 0,
-		},
-		Headers: []kafka.Header{
-			{Key: headers.CompressionType, Value: []byte(compressor.GetType())},
-		},
-		Value:         compressedTransportBytes,
-		TimestampType: 1,
-		Timestamp:     time.Now(),
-	}
-	return kafkaMessage, nil
-}

@@ -9,7 +9,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer/dbsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer/statuswatcher"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // AddDB2TransportSyncers adds the controllers that send info from DB to transport layer to the Manager.

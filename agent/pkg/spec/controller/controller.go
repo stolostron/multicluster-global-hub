@@ -10,7 +10,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
-	consumer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/consumer"
+	consumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // AddToScheme adds only resources that have to be fetched.

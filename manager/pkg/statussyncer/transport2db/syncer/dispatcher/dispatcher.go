@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 )
 
 // NewDispatcher creates a new instance of Dispatcher.

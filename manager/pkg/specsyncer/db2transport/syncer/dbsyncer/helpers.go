@@ -8,8 +8,8 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const timeFormat = "2006-01-02_15-04-05.000000"
@@ -57,9 +57,12 @@ func syncToTransport(transportObj transport.Transport, destination string, objID
 	if err != nil {
 		return fmt.Errorf("failed to sync {objID: %s, destination: %s} to transport - %w", objID, destination, err)
 	}
-
-	transportObj.SendAsync(destination, objID, constants.SpecBundle,
-		timestamp.Format(timeFormat), payloadBytes)
-
+	transportObj.SendAsync(&transport.Message{
+		Destination: destination,
+		ID:          objID,
+		MsgType:     constants.SpecBundle,
+		Version:     timestamp.Format(timeFormat),
+		Payload:     payloadBytes,
+	})
 	return nil
 }

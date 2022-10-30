@@ -9,8 +9,8 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const managedClusterLabelsDBTableName = "managed_clusters_labels"

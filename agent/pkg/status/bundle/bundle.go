@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // ErrObjectNotFound error to be used when an object is not found.
@@ -28,7 +28,7 @@ type Bundle interface {
 	// DeleteObject function to delete a single object inside a bundle.
 	DeleteObject(object Object)
 	// GetBundleVersion function to get bundle generation.
-	GetBundleVersion() *statusbundle.BundleVersion
+	GetBundleVersion() *status.BundleVersion
 }
 
 // DeltaStateBundle abstracts the logic needed from the delta-state bundle.

@@ -9,11 +9,12 @@ import (
 	. "github.com/onsi/gomega"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
-	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var _ = Describe("Policies", Ordered, func() {
@@ -121,12 +122,12 @@ var _ = Describe("Policies", Ordered, func() {
 
 		By("Build a new policy bundle in the regional hub")
 		// policy bundle
-		transportPayload := statusbundle.BaseClustersPerPolicyBundle{
-			Objects:       make([]*statusbundle.PolicyGenericComplianceStatus, 0),
+		transportPayload := status.BaseClustersPerPolicyBundle{
+			Objects:       make([]*status.PolicyGenericComplianceStatus, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: statusbundle.NewBundleVersion(1, 0),
+			BundleVersion: status.NewBundleVersion(1, 0),
 		}
-		transportPayload.Objects = append(transportPayload.Objects, &statusbundle.PolicyGenericComplianceStatus{
+		transportPayload.Objects = append(transportPayload.Objects, &status.PolicyGenericComplianceStatus{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"}, // generate record: createdPolicyId hub1-cluster1 compliant
 			NonCompliantClusters:      []string{"cluster2"}, // generate record: createdPolicyId hub1-cluster2 non_compliant
@@ -138,10 +139,13 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the latest ClustersPerPolicy bundle with transport")
-		kafkaMessage, err := buildKafkaMessage(clustersPerPolicyTransportKey,
-			clustersPerPolicyTransportKey, payloadBytes)
-		Expect(err).ToNot(HaveOccurred())
-		kafkaMessageChan <- kafkaMessage
+		kafkaProducer.SendAsync(&transport.Message{
+			Key:     clustersPerPolicyTransportKey,
+			ID:      clustersPerPolicyTransportKey, // entry.transportBundleKey
+			MsgType: constants.StatusBundle,
+			Version: "1.0", // entry.bundle.GetBundleVersion().String()
+			Payload: payloadBytes,
+		})
 
 		By("Check the ClustersPerPolicy policy is created and expired policy is deleted from database")
 		Eventually(func() error {
@@ -156,7 +160,7 @@ var _ = Describe("Policies", Ordered, func() {
 			for rows.Next() {
 				var (
 					policyId, clusterName, leafHubName string
-					complianceStatus                   db.ComplianceStatus
+					complianceStatus                   database.ComplianceStatus
 				)
 				if err := rows.Scan(&policyId, &clusterName, &leafHubName, &complianceStatus); err != nil {
 					return err
@@ -178,16 +182,16 @@ var _ = Describe("Policies", Ordered, func() {
 
 	It("update the policy status with PolicyDeltaCompliance bundle where aggregationLevel = full", func() {
 		By("Create the delta policy bundle")
-		transportPayload := statusbundle.BaseDeltaComplianceStatusBundle{
-			Objects:       make([]*statusbundle.PolicyGenericComplianceStatus, 0),
+		transportPayload := status.BaseDeltaComplianceStatusBundle{
+			Objects:       make([]*status.PolicyGenericComplianceStatus, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: statusbundle.NewBundleVersion(1, 0),
+			BundleVersion: status.NewBundleVersion(1, 0),
 		}
 		// the delta policy bundle tries to do the following action:
 		// 1. delete record: createdPolicyId hub1-cluster1 compliant
 		// 2. update record: createdPolicyId hub1-cluster2 non_compliant => createdPolicyId hub1-cluster2 compliant
 		// 3. insert record: createdPolicyId hub1-cluster3 non_compliant
-		transportPayload.Objects = append(transportPayload.Objects, &statusbundle.PolicyGenericComplianceStatus{
+		transportPayload.Objects = append(transportPayload.Objects, &status.PolicyGenericComplianceStatus{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster2"},
 			NonCompliantClusters:      []string{"cluster3"},
@@ -199,11 +203,13 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the delta policy bundle with transport")
-		kafkaMessage, err := buildKafkaMessage(policyDeltaComplianceTransportKey,
-			policyDeltaComplianceTransportKey, payloadBytes)
-		Expect(err).ToNot(HaveOccurred())
-		kafkaMessageChan <- kafkaMessage
-
+		kafkaProducer.SendAsync(&transport.Message{
+			Key:     policyDeltaComplianceTransportKey,
+			ID:      policyDeltaComplianceTransportKey, // entry.transportBundleKey
+			MsgType: constants.StatusBundle,
+			Version: "1.0", // entry.bundle.GetBundleVersion().String()
+			Payload: payloadBytes,
+		})
 		By("Check the delta policy bundle is only update compliance status of the existing record in database")
 		Eventually(func() error {
 			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
@@ -218,7 +224,7 @@ var _ = Describe("Policies", Ordered, func() {
 			for rows.Next() {
 				var (
 					policyId, clusterName, hubName string
-					complianceStatus               db.ComplianceStatus
+					complianceStatus               database.ComplianceStatus
 				)
 				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
 					return err
@@ -249,21 +255,21 @@ var _ = Describe("Policies", Ordered, func() {
 
 	It("sync the aggregated policy with MinimalPolicyCompliance bundle where aggregationLevel = minimal", func() {
 		By("Overwrite the MinimalComplianceStatusBundle Predicate function, so that the minimal bundle cloud be processed")
-		statusTransport.Register(&transport.BundleRegistration{
+		kafkaConsumer.BundleRegister(&registration.BundleRegistration{
 			MsgID:            constants.MinimalPolicyComplianceMsgKey,
-			CreateBundleFunc: bundle.NewMinimalComplianceStatusBundle,
+			CreateBundleFunc: statusbundle.NewMinimalComplianceStatusBundle,
 			Predicate: func() bool {
 				return true // syncer.config.Data["aggregationLevel"] == "minimal"
 			},
 		})
 
 		By("Create the minimal policy bundle")
-		transportPayload := statusbundle.BaseMinimalComplianceStatusBundle{
-			Objects:       make([]*statusbundle.MinimalPolicyComplianceStatus, 0),
+		transportPayload := status.BaseMinimalComplianceStatusBundle{
+			Objects:       make([]*status.MinimalPolicyComplianceStatus, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: statusbundle.NewBundleVersion(1, 0),
+			BundleVersion: status.NewBundleVersion(1, 0),
 		}
-		transportPayload.Objects = append(transportPayload.Objects, &statusbundle.MinimalPolicyComplianceStatus{
+		transportPayload.Objects = append(transportPayload.Objects, &status.MinimalPolicyComplianceStatus{
 			PolicyID:             createdPolicyId,
 			RemediationAction:    policyv1.Inform,
 			NonCompliantClusters: 2,
@@ -276,10 +282,13 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the policy bundle with transport")
-		kafkaMessage, err := buildKafkaMessage(minimalPolicyComplianceTransportKey,
-			minimalPolicyComplianceTransportKey, payloadBytes)
-		Expect(err).ToNot(HaveOccurred())
-		kafkaMessageChan <- kafkaMessage
+		kafkaProducer.SendAsync(&transport.Message{
+			Key:     minimalPolicyComplianceTransportKey,
+			ID:      minimalPolicyComplianceTransportKey, // entry.transportBundleKey
+			MsgType: constants.StatusBundle,
+			Version: "1.0", // entry.bundle.GetBundleVersion().String()
+			Payload: payloadBytes,
+		})
 
 		By("Check the minimal policy is synchronized to database")
 		Eventually(func() error {

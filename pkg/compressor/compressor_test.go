@@ -7,9 +7,9 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 
-	producer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestTransportCompressor(t *testing.T) {
@@ -38,7 +38,7 @@ func TestTransportCompressor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	transportMessage := &producer.Message{
+	transportMessage := &transport.Message{
 		ID:      "hub1.ClustersPerPolicy",
 		Key:     "hub1.ClustersPerPolicy",
 		MsgType: "StatusBundle",
@@ -83,7 +83,7 @@ func TestTransportCompressor(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	decompressTransportMsg := &producer.Message{}
+	decompressTransportMsg := &transport.Message{}
 	json.Unmarshal(decompressMessageValueBytes, decompressTransportMsg)
 
 	decompressBundle := &statusbundle.BaseClustersPerPolicyBundle{}

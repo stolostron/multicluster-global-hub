@@ -1,12 +1,12 @@
 package generic
 
 import (
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	statusbundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // NewBundleCollectionEntry creates a new instance of BundleCollectionEntry.
-func NewBundleCollectionEntry(transportBundleKey string, bundle bundle.Bundle,
+func NewBundleCollectionEntry(transportBundleKey string, bundle statusbundle.Bundle,
 	predicate func() bool,
 ) *BundleCollectionEntry {
 	return &BundleCollectionEntry{
@@ -20,7 +20,7 @@ func NewBundleCollectionEntry(transportBundleKey string, bundle bundle.Bundle,
 // BundleCollectionEntry holds information about a specific bundle.
 type BundleCollectionEntry struct {
 	transportBundleKey    string
-	bundle                bundle.Bundle
+	bundle                statusbundle.Bundle
 	predicate             func() bool
-	lastSentBundleVersion statusbundle.BundleVersion // not pointer so it does not point to the bundle's internal version
+	lastSentBundleVersion status.BundleVersion // not pointer so it does not point to the bundle's internal version
 }

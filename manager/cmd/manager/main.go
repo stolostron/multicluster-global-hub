@@ -25,33 +25,31 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
-	spectransport "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport"
-	speckafka "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport/kafka"
-	specsyncservice "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/transport/syncservice"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statistics"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/conflator"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
-	statustransport "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport"
-	statuskafka "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/kafka"
-	statussyncservice "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/transport/syncservice"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 const (
-	metricsHost                        = "0.0.0.0"
-	metricsPort                  int32 = 8384
-	webhookPort                        = 9443
-	webhookCertDir                     = "/webhook-certs"
-	kafkaTransportTypeName             = "kafka"
-	syncServiceTransportTypeName       = "sync-service"
-	leaderElectionLockName             = "multicluster-global-hub-lock"
-	initializationFailMsg              = "initialization error"
-	initializationFailKey              = "failed to initialize"
-	transportType                      = "transport-type"
+	metricsHost                  = "0.0.0.0"
+	metricsPort            int32 = 8384
+	webhookPort                  = 9443
+	webhookCertDir               = "/webhook-certs"
+	kafkaTransportTypeName       = "kafka"
+	leaderElectionLockName       = "multicluster-global-hub-lock"
+	initializationFailMsg        = "initialization error"
+	initializationFailKey        = "failed to initialize"
+	transportType                = "transport-type"
 )
 
 var (
@@ -64,9 +62,8 @@ type hohManagerConfig struct {
 	watchNamespace        string
 	syncerConfig          *syncerConfig
 	databaseConfig        *databaseConfig
-	transportCommonConfig *transportCommonConfig
+	transportCommonConfig *transport.Config
 	kafkaConfig           *kafkaConfig
-	syncServiceConfig     *statussyncservice.SyncServiceConfig
 	statisticsConfig      *statistics.StatisticsConfig
 	nonK8sAPIServerConfig *nonk8sapi.NonK8sAPIServerConfig
 	electionConfig        *commonobjects.LeaderElectionConfig
@@ -83,29 +80,22 @@ type databaseConfig struct {
 	transportBridgeDatabaseURL string
 }
 
-type transportCommonConfig struct {
-	transportType      string
-	msgCompressionType string
-	committerInterval  time.Duration
-}
-
 type kafkaConfig struct {
 	bootstrapServer string
 	SslCa           string
-	producerConfig  *speckafka.KafkaProducerConfig
-	consumerConfig  *statuskafka.KafkaConsumerConfig
+	producerConfig  *producer.KafkaProducerConfig
+	consumerConfig  *consumer.KafkaConsumerConfig
 }
 
 func parseFlags() (*hohManagerConfig, error) {
 	managerConfig := &hohManagerConfig{
 		syncerConfig:          &syncerConfig{},
 		databaseConfig:        &databaseConfig{},
-		transportCommonConfig: &transportCommonConfig{},
+		transportCommonConfig: &transport.Config{},
 		kafkaConfig: &kafkaConfig{
-			producerConfig: &speckafka.KafkaProducerConfig{},
-			consumerConfig: &statuskafka.KafkaConsumerConfig{},
+			producerConfig: &producer.KafkaProducerConfig{},
+			consumerConfig: &consumer.KafkaConsumerConfig{},
 		},
-		syncServiceConfig:     &statussyncservice.SyncServiceConfig{},
 		statisticsConfig:      &statistics.StatisticsConfig{},
 		nonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		electionConfig:        &commonobjects.LeaderElectionConfig{},
@@ -125,11 +115,11 @@ func parseFlags() (*hohManagerConfig, error) {
 		"The URL of database server for the process user.")
 	pflag.StringVar(&managerConfig.databaseConfig.transportBridgeDatabaseURL,
 		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
-	pflag.StringVar(&managerConfig.transportCommonConfig.transportType, transportType, "kafka",
-		"The transport type, 'kafka' or 'sync-service'.")
-	pflag.StringVar(&managerConfig.transportCommonConfig.msgCompressionType, "transport-message-compression-type",
+	pflag.StringVar(&managerConfig.transportCommonConfig.TransportType, transportType, "kafka",
+		"The transport type, 'kafka'.")
+	pflag.StringVar(&managerConfig.transportCommonConfig.MessageCompressionType, "transport-message-compression-type",
 		"gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
-	pflag.DurationVar(&managerConfig.transportCommonConfig.committerInterval, "transport-committer-interval",
+	pflag.DurationVar(&managerConfig.transportCommonConfig.CommitterInterval, "transport-committer-interval",
 		40*time.Second, "The committer interval for transport layer.")
 	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bootstrap-server",
 		"kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
@@ -144,15 +134,6 @@ func parseFlags() (*hohManagerConfig, error) {
 		"ID for the kafka consumer.")
 	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerTopic, "kakfa-consumer-topic", "status",
 		"Topic for the kafka consumer.")
-	pflag.StringVar(&managerConfig.syncServiceConfig.Protocol, "sync-service-protocol", "http",
-		"The protocol for sync-service communication.")
-	pflag.StringVar(&managerConfig.syncServiceConfig.CSSHost, "cloud-sync-service-host",
-		"sync-service-css.sync-service.svc.cluster.local", "The host for Cloud Sync Service.")
-	pflag.IntVar(&managerConfig.syncServiceConfig.CSSPort, "cloud-sync-service-port", 9689,
-		"The port for Cloud Sync Service.")
-	pflag.IntVar(&managerConfig.syncServiceConfig.PollingInterval,
-		"cloud-sync-service-polling-interval", 5,
-		"The polling interval in second for Cloud Sync Service.")
 	pflag.DurationVar(&managerConfig.statisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second,
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
@@ -177,9 +158,9 @@ func parseFlags() (*hohManagerConfig, error) {
 		return nil, fmt.Errorf("database url for transport-bridge user: %w", errFlagParameterEmpty)
 	}
 
-	if managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB > speckafka.MaxMessageSizeLimit {
+	if managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB > producer.MaxMessageSizeLimit {
 		return nil, fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
-			speckafka.MaxMessageSizeLimit, "kafka-message-size-limit")
+			producer.MaxMessageSizeLimit, "kafka-message-size-limit")
 	}
 
 	return managerConfig, nil
@@ -210,84 +191,69 @@ func requireInitialDependencyChecks(transportType string) bool {
 
 		// the order guarantee also guarantees that if while loading this component, a new bundle is written to a-
 		// partition, then surely its dependency was written before it (leaf-hub-status-sync on kafka guarantees).
-	case syncServiceTransportTypeName:
-		fallthrough
 	default:
 		return true
 	}
 }
 
 // function to choose spec transport type based on env var.
-func getSpecTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer, kafkaCA string,
-	kafkaProducerConfig *speckafka.KafkaProducerConfig,
-	syncServiceConfig *statussyncservice.SyncServiceConfig,
-) (spectransport.Transport, error) {
+func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCA string,
+	kafkaProducerConfig *producer.KafkaProducerConfig,
+) (transport.Transport, error) {
 	msgCompressor, err := compressor.NewCompressor(
-		compressor.CompressionType(transportCommonConfig.msgCompressionType))
+		compressor.CompressionType(transportCommonConfig.MessageCompressionType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create message-compressor: %w", err)
 	}
 
-	switch transportCommonConfig.transportType {
+	switch transportCommonConfig.TransportType {
 	case kafkaTransportTypeName:
-		kafkaProducer, err := speckafka.NewProducer(msgCompressor, kafkaBootstrapServer, kafkaCA,
+		kafkaProducer, err := producer.NewKafkaProducer(msgCompressor, kafkaBootstrapServer, kafkaCA,
 			kafkaProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
 
 		return kafkaProducer, nil
-	case syncServiceTransportTypeName:
-		syncService, err := specsyncservice.NewSyncService(msgCompressor, syncServiceConfig,
-			ctrl.Log.WithName("sync-service-for-spec"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create sync-service for spec: %w", err)
-		}
-
-		return syncService, nil
 	default:
 		return nil, fmt.Errorf("%w: %s - %s is not a valid option",
 			errFlagParameterIllegalValue, transportType,
-			transportCommonConfig.transportType)
+			transportCommonConfig.TransportType)
 	}
 }
 
 // function to choose status transport type based on env var.
-func getStatusTransport(transportCommonConfig *transportCommonConfig, kafkaBootstrapServer, kafkaCA string,
-	kafkaConsumerConfig *statuskafka.KafkaConsumerConfig, syncServiceConfig *statussyncservice.SyncServiceConfig,
+func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCA string,
+	kafkaConsumerConfig *consumer.KafkaConsumerConfig,
 	conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
-) (statustransport.Transport, error) {
-	switch transportCommonConfig.transportType {
+) (transport.Transport, error) {
+	switch transportCommonConfig.TransportType {
 	case kafkaTransportTypeName:
-		kafkaConsumer, err := statuskafka.NewConsumer(
-			transportCommonConfig.committerInterval,
-			kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig, conflationMgr,
-			statistics, ctrl.Log.WithName("kafka-consumer"))
+		kafkaConsumer, err := consumer.NewKafkaConsumer(
+			kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig,
+			ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
+		kafkaConsumer.SetConflationManager(conflationMgr)
+		kafkaConsumer.SetCommitter(consumer.NewCommitter(
+			transportCommonConfig.CommitterInterval,
+			kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+			conflationMgr.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
+		)
+		kafkaConsumer.SetStatistics(statistics)
 
 		return kafkaConsumer, nil
-	case syncServiceTransportTypeName:
-		syncService, err := statussyncservice.NewSyncService(
-			transportCommonConfig.committerInterval,
-			syncServiceConfig, conflationMgr, statistics,
-			ctrl.Log.WithName("sync-service-for-status"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create sync-service for status: %w", err)
-		}
-
-		return syncService, nil
 	default:
 		return nil, fmt.Errorf("%w: %s - %s is not a valid option",
 			errFlagParameterIllegalValue, transportType,
-			transportCommonConfig.transportType)
+			transportCommonConfig.TransportType)
 	}
 }
 
 func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 	transportBridgePostgreSQL *postgresql.PostgreSQL, workersPool *workerpool.DBWorkerPool,
-	specTransportObj spectransport.Transport, statusTransportObj statustransport.Transport,
+	specTransportObj transport.Transport, statusTransportObj transport.Transport,
 	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
 	statistics *statistics.Statistics,
 ) (ctrl.Manager, error) {
@@ -365,11 +331,24 @@ func doMain() int {
 	}
 
 	// create statistics
-	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"), managerConfig.statisticsConfig)
-	if err != nil {
-		log.Error(err, initializationFailMsg, initializationFailKey, "statistics")
-		return 1
-	}
+	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), managerConfig.statisticsConfig,
+		[]string{
+			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
+			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
+			helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
+			helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
+			helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
+			helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
+			helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
+		})
 
 	// db layer initialization for process user
 	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.databaseConfig.processDatabaseURL)
@@ -405,15 +384,14 @@ func doMain() int {
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
 	requireInitialDependencyChecks := requireInitialDependencyChecks(
-		managerConfig.transportCommonConfig.transportType)
+		managerConfig.transportCommonConfig.TransportType)
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
 		requireInitialDependencyChecks, stats) // manage all Conflation Units
 
 	// status transport layer initialization
 	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig,
 		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
-		managerConfig.kafkaConfig.consumerConfig,
-		managerConfig.syncServiceConfig, conflationManager, stats)
+		managerConfig.kafkaConfig.consumerConfig, conflationManager, stats)
 	if err != nil {
 		log.Error(err, initializationFailMsg, initializationFailKey, "status transport")
 		return 1
@@ -425,7 +403,7 @@ func doMain() int {
 	// spec transport layer initialization
 	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig,
 		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
-		managerConfig.kafkaConfig.producerConfig, managerConfig.syncServiceConfig)
+		managerConfig.kafkaConfig.producerConfig)
 	if err != nil {
 		log.Error(err, initializationFailMsg, initializationFailKey, "spec transport")
 		return 1

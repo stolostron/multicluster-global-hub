@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 // NewGenericLocalBatchBuilder creates a new instance of PostgreSQL GenericLocalBatchBuilder.
 func NewGenericLocalBatchBuilder(schema string, tableName string, leafHubName string) *GenericLocalBatchBuilder {
 	tableSpecialColumns := make(map[int]string)
-	tableSpecialColumns[genericLocalJsonbColumnIndex] = db.Jsonb
+	tableSpecialColumns[genericLocalJsonbColumnIndex] = database.Jsonb
 	builder := &GenericLocalBatchBuilder{
 		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
 			genericLocalDeleteRowKey),

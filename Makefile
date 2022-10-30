@@ -48,7 +48,7 @@ push-agent-image:
 	docker push ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG}
 
 .PHONY: unit-tests
-unit-tests: unit-tests-operator unit-tests-manager unit-tests-agent
+unit-tests: unit-tests-pkg unit-tests-operator unit-tests-manager unit-tests-agent
 
 setup_envtest:
 	GOBIN=${TMP_BIN} go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
@@ -61,6 +61,9 @@ unit-tests-manager: setup_envtest
 
 unit-tests-agent: setup_envtest
 	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./agent/... | grep -v test`
+
+unit-tests-pkg: setup_envtest
+	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./pkg/... | grep -v test`
 
 e2e-setup-dependencies: 
 	./test/setup/e2e_dependencies.sh

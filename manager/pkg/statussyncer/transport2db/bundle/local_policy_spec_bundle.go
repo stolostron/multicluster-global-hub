@@ -2,10 +2,12 @@ package bundle
 
 import (
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // NewLocalPolicySpecBundle creates a new instance of LocalPolicySpecBundle.
-func NewLocalPolicySpecBundle() Bundle {
+func NewLocalPolicySpecBundle() status.Bundle {
 	return &LocalPolicySpecBundle{}
 }
 

@@ -2,10 +2,12 @@ package bundle
 
 import (
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // NewSubscriptionStatusesBundle creates a new instance of SubscriptionStatusesBundle.
-func NewSubscriptionStatusesBundle() Bundle {
+func NewSubscriptionStatusesBundle() status.Bundle {
 	return &SubscriptionStatusesBundle{}
 }
 

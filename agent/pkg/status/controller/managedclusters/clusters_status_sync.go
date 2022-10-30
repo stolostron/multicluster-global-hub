@@ -11,8 +11,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
-	producer "github.com/stolostron/multicluster-global-hub/agent/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	producer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 const (

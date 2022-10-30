@@ -1,7 +1,9 @@
 package bundle
 
+import "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+
 // NewControlInfoBundle creates a new instance of ControlInfoBundle.
-func NewControlInfoBundle() Bundle {
+func NewControlInfoBundle() status.Bundle {
 	return &ControlInfoBundle{}
 }
 
