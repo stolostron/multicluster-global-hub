@@ -10,13 +10,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 const managedClusterLabelsDBTableName = "managed_clusters_labels"
 
 // AddManagedClusterLabelsDBToTransportSyncer adds managed-cluster labels db to transport syncer to the manager.
-func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj transport.Transport,
+func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj producer.Producer,
 	specSyncInterval time.Duration,
 ) error {
 	lastSyncTimestampPtr := &time.Time{}
@@ -38,7 +38,7 @@ func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.Spec
 
 // syncManagedClusterLabelsBundles performs the actual sync logic and returns true if bundle was committed to transport,
 // otherwise false.
-func syncManagedClusterLabelsBundles(ctx context.Context, transportObj transport.Transport, transportBundleKey string,
+func syncManagedClusterLabelsBundles(ctx context.Context, transportObj producer.Producer, transportBundleKey string,
 	specDB db.SpecDB, dbTableName string, lastSyncTimestampPtr *time.Time,
 ) (bool, error) {
 	lastUpdateTimestamp, err := specDB.GetLastUpdateTimestamp(ctx, dbTableName, false) // no resources in table

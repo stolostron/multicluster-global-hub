@@ -14,7 +14,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // NewControlInfoDBSyncer creates a new instance of ControlInfoDBSyncer.
@@ -36,7 +36,7 @@ type ControlInfoDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *ControlInfoDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
+func (syncer *ControlInfoDBSyncer) RegisterCreateBundleFunctions(transportInstance consumer.Consumer) {
 	transportInstance.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ControlInfoMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,

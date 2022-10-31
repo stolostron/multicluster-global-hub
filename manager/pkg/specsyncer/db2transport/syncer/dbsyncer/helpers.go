@@ -10,13 +10,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 const timeFormat = "2006-01-02_15-04-05.000000"
 
 // syncObjectsBundle performs the actual sync logic and returns true if bundle was committed to transport,
 // otherwise false.
-func syncObjectsBundle(ctx context.Context, transportObj transport.Transport, transportBundleKey string,
+func syncObjectsBundle(ctx context.Context, transportObj producer.Producer, transportBundleKey string,
 	specDB db.SpecDB, dbTableName string, createObjFunc bundle.CreateObjectFunction,
 	createBundleFunc bundle.CreateBundleFunction, lastSyncTimestampPtr *time.Time,
 ) (bool, error) {
@@ -50,7 +51,7 @@ func syncObjectsBundle(ctx context.Context, transportObj transport.Transport, tr
 }
 
 // syncToTransport syncs an objects bundle to transport.
-func syncToTransport(transportObj transport.Transport, destination string, objID string,
+func syncToTransport(transportObj producer.Producer, destination string, objID string,
 	timestamp *time.Time, payload interface{},
 ) error {
 	payloadBytes, err := json.Marshal(payload)

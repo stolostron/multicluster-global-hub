@@ -9,7 +9,6 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/helpers"
@@ -175,18 +174,6 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 	}
 	InvokeCallback(p.eventSubscriptionMap, string(msg.ID), DeliveryAttempt)
 	p.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType, "Version", msg.Version)
-}
-
-// Register function registers a bundle ID to a CustomBundleRegistration.
-func (c *KafkaProducer) CustomBundleRegister(msgID string,
-	customBundleRegistration *registration.CustomBundleRegistration,
-) {
-	// do nothing
-}
-
-// Register function registers a msgID to the bundle updates channel.
-func (c *KafkaProducer) BundleRegister(registration *registration.BundleRegistration) {
-	// do nothing
 }
 
 // Close closes the KafkaProducer.
