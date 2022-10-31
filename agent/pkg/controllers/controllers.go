@@ -13,6 +13,7 @@ import (
 func AddToManager(mgr ctrl.Manager) error {
 	addControllerFunctions := []func(ctrl.Manager) error{
 		StartClusterClaimController,
+		StartHubClusterClaimController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
