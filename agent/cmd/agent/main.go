@@ -172,8 +172,14 @@ func createManager(consumer consumer.Consumer, producer producer.Producer,
 	leaseDuration := time.Duration(environmentManager.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(environmentManager.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(environmentManager.ElectionConfig.RetryPeriod) * time.Second
+
+	leaderElectionConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", METRICS_HOST, METRICS_PORT),
+		LeaderElectionConfig:    leaderElectionConfig,
 		LeaderElection:          true,
 		LeaderElectionID:        LEADER_ELECTION_ID,
 		LeaderElectionNamespace: environmentManager.PodNameSpace,
