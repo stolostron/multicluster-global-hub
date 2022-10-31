@@ -12,7 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // AddTransport2DBSyncers performs the initial setup required before starting the runtime manager.
@@ -20,7 +20,7 @@ import (
 //  and create bundle functions within the bundle.
 func AddTransport2DBSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
-	transport transport.Transport, statistics manager.Runnable,
+	transport consumer.Consumer, statistics manager.Runnable,
 ) error {
 	// register config controller within the runtime manager
 	config, err := addConfigController(mgr)

@@ -17,7 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 const failedBatchFormat = "failed to perform batch - %w"
@@ -53,7 +53,7 @@ type PoliciesDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
+func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance consumer.Consumer) {
 	fullStatusPredicate := func() bool { return syncer.config.Data["aggregationLevel"] == "full" }
 	minimalStatusPredicate := func() bool {
 		return syncer.config.Data["aggregationLevel"] == "minimal"

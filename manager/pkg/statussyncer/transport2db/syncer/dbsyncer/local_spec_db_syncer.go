@@ -16,7 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // NewLocalSpecDBSyncer creates a new instance of LocalSpecDBSyncer.
@@ -42,7 +42,7 @@ type LocalSpecDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
+func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance consumer.Consumer) {
 	predicate := func() bool {
 		return syncer.config.Data["enableLocalPolicies"] == "true"
 	}

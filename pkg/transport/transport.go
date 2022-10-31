@@ -5,8 +5,6 @@ package transport
 
 import (
 	"time"
-
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 )
 
 // Message abstracts a message object to be used by different transport components.
@@ -42,15 +40,6 @@ const (
 
 // Transport is the transport layer interface to be consumed by the spec transport bridge.
 type Transport interface {
-	// CustomBundleRegister registers a bundle ID to a CustomBundleRegistration. None-registered bundles are assumed to be
-	// of type GenericBundle, and are handled by the GenericBundleSyncer.
-	CustomBundleRegister(msgID string, customBundleRegistration *registration.CustomBundleRegistration)
-
-	// BundleRegister function registers a msgID to the bundle updates channel.
-	BundleRegister(registration *registration.BundleRegistration)
-
-	// SendAsync sends a message to the transport component asynchronously.
-	SendAsync(msg *Message)
 	// Start starts the transport.
 	Start()
 	// Stop stops the transport.

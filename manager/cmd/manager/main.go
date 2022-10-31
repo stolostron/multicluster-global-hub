@@ -199,7 +199,7 @@ func requireInitialDependencyChecks(transportType string) bool {
 // function to choose spec transport type based on env var.
 func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCA string,
 	kafkaProducerConfig *producer.KafkaProducerConfig,
-) (transport.Transport, error) {
+) (producer.Producer, error) {
 	msgCompressor, err := compressor.NewCompressor(
 		compressor.CompressionType(transportCommonConfig.MessageCompressionType))
 	if err != nil {
@@ -226,7 +226,7 @@ func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapSer
 func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCA string,
 	kafkaConsumerConfig *consumer.KafkaConsumerConfig,
 	conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
-) (transport.Transport, error) {
+) (consumer.Consumer, error) {
 	switch transportCommonConfig.TransportType {
 	case kafkaTransportTypeName:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
@@ -253,7 +253,7 @@ func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapS
 
 func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 	transportBridgePostgreSQL *postgresql.PostgreSQL, workersPool *workerpool.DBWorkerPool,
-	specTransportObj transport.Transport, statusTransportObj transport.Transport,
+	specTransportObj producer.Producer, statusTransportObj consumer.Consumer,
 	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
 	statistics *statistics.Statistics,
 ) (ctrl.Manager, error) {

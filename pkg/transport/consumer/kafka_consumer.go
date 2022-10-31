@@ -167,10 +167,6 @@ func (c *KafkaConsumer) BundleRegister(registration *registration.BundleRegistra
 	c.messageIDToRegistrationMap[registration.MsgID] = registration
 }
 
-func (c *KafkaConsumer) SendAsync(msg *transport.Message) {
-	// do nothing
-}
-
 func (c *KafkaConsumer) handleKafkaMessages(ctx context.Context) {
 	for {
 		select {
