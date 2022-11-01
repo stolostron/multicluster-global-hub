@@ -293,6 +293,11 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
+	// DB worker pool initialization
+	if err := mgr.Add(workersPool); err != nil {
+		return nil, fmt.Errorf("failed to add DB worker pool: %w", err)
+	}
+
 	// status transport layer initialization
 	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig,
 		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
@@ -399,12 +404,6 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		log.Error(err, initializationFailMsg, initializationFailKey, "DBWorkerPool")
 		return 1
 	}
-
-	if err = dbWorkerPool.Start(); err != nil {
-		log.Error(err, initializationFailMsg, "failed to start", "DBWorkerPool")
-		return 1
-	}
-	defer dbWorkerPool.Stop()
 
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)

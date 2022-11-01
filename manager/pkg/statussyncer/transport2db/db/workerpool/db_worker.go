@@ -44,43 +44,40 @@ func (worker *DBWorker) RunAsync(job *DBJob) {
 }
 
 func (worker *DBWorker) start(ctx context.Context) {
-	go func() {
-		worker.log.Info("started worker", "WorkerID", worker.workerID)
+	worker.log.Info("started worker", "WorkerID", worker.workerID)
+	for {
+		// add worker into the dbWorkerPool to mark this worker as available.
+		// this is done in each iteration after the worker finished handling a job (or at startup),
+		// for receiving a new job to handle.
+		worker.dbWorkersPool <- worker
+		worker.statistics.SetNumberOfAvailableDBWorkers(len(worker.dbWorkersPool))
 
-		for {
-			// add worker into the dbWorkerPool to mark this worker as available.
-			// this is done in each iteration after the worker finished handling a job (or at startup),
-			// for receiving a new job to handle.
-			worker.dbWorkersPool <- worker
-			worker.statistics.SetNumberOfAvailableDBWorkers(len(worker.dbWorkersPool))
+		select {
+		case <-ctx.Done(): // we have received a signal to stop
+			close(worker.jobsQueue)
+			return
 
-			select {
-			case <-ctx.Done(): // we have received a signal to stop
-				close(worker.jobsQueue)
-				return
+		case job := <-worker.jobsQueue: // DBWorker received a job request.
+			worker.log.Info("received DB job", "WorkerID", worker.workerID, "BundleType",
+				helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(), "Version",
+				job.bundle.GetVersion().String())
 
-			case job := <-worker.jobsQueue: // DBWorker received a job request.
-				worker.log.Info("received DB job", "WorkerID", worker.workerID, "BundleType",
-					helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(), "Version",
-					job.bundle.GetVersion().String())
+			startTime := time.Now()
+			err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
+			worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
+			job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
 
-				startTime := time.Now()
-				err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
-				worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
-				job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
-
-				if err != nil {
-					worker.log.Error(err, "failed processing DB job", "WorkerID", worker.workerID,
-						"BundleType", helpers.GetBundleType(job.bundle),
-						"LeafHubName", job.bundle.GetLeafHubName(),
-						"Version", job.bundle.GetVersion().String())
-				} else {
-					worker.log.Info("finished processing DB job", "WorkerID", worker.workerID,
-						"BundleType", helpers.GetBundleType(job.bundle),
-						"LeafHubName", job.bundle.GetLeafHubName(),
-						"Version", job.bundle.GetVersion().String())
-				}
+			if err != nil {
+				worker.log.Error(err, "failed processing DB job", "WorkerID", worker.workerID,
+					"BundleType", helpers.GetBundleType(job.bundle),
+					"LeafHubName", job.bundle.GetLeafHubName(),
+					"Version", job.bundle.GetVersion().String())
+			} else {
+				worker.log.Info("finished processing DB job", "WorkerID", worker.workerID,
+					"BundleType", helpers.GetBundleType(job.bundle),
+					"LeafHubName", job.bundle.GetLeafHubName(),
+					"Version", job.bundle.GetVersion().String())
 			}
 		}
-	}()
+	}
 }
