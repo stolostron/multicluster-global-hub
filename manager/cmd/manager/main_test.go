@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	err = os.Setenv("AGENT_TESTING", "true")
+	err = os.Setenv("MANAGER_TESTING", "true")
 	if err != nil {
 		panic(err)
 	}
@@ -129,7 +129,7 @@ func TestManager(t *testing.T) {
 		pflag.CommandLine = pflag.NewFlagSet(tc.name, pflag.ExitOnError)
 		// we need a value to set Args[0] to cause flag begins parsing at Args[1]
 		os.Args = append([]string{tc.name}, tc.args...)
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if _, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
