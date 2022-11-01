@@ -1,43 +1,79 @@
-// Copyright (c) 2020 Red Hat, Inc.
+// Copyright (c) 2022 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
 package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/spf13/pflag"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-var cfg *rest.Config
+var (
+	cfg              *rest.Config
+	mockKafkaCluster *kafka.MockCluster
+)
 
 func TestMain(m *testing.M) {
-	// start testEnv
-	testEnv := &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
-		},
-	}
 	var err error
 	err = os.Setenv("POD_NAMESPACE", "default")
 	if err != nil {
 		panic(err)
 	}
-
-	cfg, err = testEnv.Start()
+	err = os.Setenv("AGENT_TESTING", "true")
 	if err != nil {
 		panic(err)
+	}
+
+	// start testenv
+	testenv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+
+	cfg, err = testenv.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	if cfg == nil {
+		panic(fmt.Errorf("empty kubeconfig!"))
+	}
+
+	_, err = kubernetes.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	// init mock kafka cluster
+	mockKafkaCluster, err = kafka.NewMockCluster(1)
+	if err != nil {
+		panic(err)
+	}
+
+	if mockKafkaCluster == nil {
+		panic(fmt.Errorf("empty mock kafka cluster!"))
 	}
 
 	// run testings
 	code := m.Run()
 
-	// stop testEnv
-	err = testEnv.Stop()
+	// stop mock kafka cluster
+	mockKafkaCluster.Close()
+
+	// stop testenv
+	err = testenv.Stop()
 	if err != nil {
 		panic(err)
 	}
@@ -45,21 +81,51 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestGetControllerManager(t *testing.T) {
-	os.Args = []string{
-		"agent",
-		"--lease-duration",
-		"137",
-		"--renew-deadline",
-		"107",
-		"--leaf-hub-name",
-		"hub2",
-		"--terminating",
-		"true",
-	}
+func TestAgent(t *testing.T) {
+	// the testing manipuates the os.Args to set them up for the testcases
+	// after this testing the initial args will be restored
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
 
-	code := doMain(context.Background(), cfg)
-	if code != 0 {
-		t.Fatalf("start doMain with error code %d", code)
+	cases := []struct {
+		name         string
+		args         []string
+		expectedExit int
+	}{
+		{"agent", []string{
+			"--pod-namespace",
+			"default",
+			"--lease-duration",
+			"15",
+			"--renew-deadline",
+			"10",
+			"--retry-period",
+			"2",
+			"--leaf-hub-name",
+			"hub1",
+			"--transport-type",
+			"kafka",
+			"--kafka-bootstrap-server",
+			mockKafkaCluster.BootstrapServers(),
+		}, 1},
+		{"agent-cleanup", []string{
+			"--leaf-hub-name",
+			"hub1",
+			"--terminating",
+			"true",
+		}, 0},
+	}
+	for _, tc := range cases {
+		// this call is required because otherwise flags panics, if args are set between flag.Parse call
+		pflag.CommandLine = pflag.NewFlagSet(tc.name, pflag.ExitOnError)
+		// we need a value to set Args[0] to cause flag begins parsing at Args[1]
+		os.Args = append([]string{tc.name}, tc.args...)
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		defer cancel()
+		actualExit := doMain(ctx, cfg)
+		if tc.expectedExit != actualExit {
+			t.Errorf("unexpected exit code for args: %v, expected: %v, got: %v",
+				tc.args, tc.expectedExit, actualExit)
+		}
 	}
 }

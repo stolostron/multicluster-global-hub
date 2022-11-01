@@ -1,41 +1,160 @@
-// Copyright (c) 2020 Red Hat, Inc.
+// Copyright (c) 2022 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
-func TestParseFlags(t *testing.T) {
-	os.Args = []string{
-		"manager",
-		"--process-database-url",
-		"test.example.com:5432",
-		"--transport-bridge-database-url",
-		"test.example.com:5432",
-		"--lease-duration",
-		"123",
-		"--renew-deadline",
-		"456",
-		"--retry-period",
-		"789",
+var (
+	cfg              *rest.Config
+	kubeClient       kubernetes.Interface
+	mockKafkaCluster *kafka.MockCluster
+	testPostgres     *testpostgres.TestPostgres
+)
+
+func TestMain(m *testing.M) {
+	var err error
+	err = os.Setenv("POD_NAMESPACE", "default")
+	if err != nil {
+		panic(err)
+	}
+	err = os.Setenv("AGENT_TESTING", "true")
+	if err != nil {
+		panic(err)
 	}
 
-	t.Run("manager flags parse testing", func(t *testing.T) {
-		managerConfig, err := parseFlags()
-		if err != nil {
-			t.Fatalf("flags parse error - %v", err)
-		}
-		if managerConfig.nonK8sAPIServerConfig.ServerBasePath != "/global-hub-api/v1" {
-			t.Fatalf("unexpected non-k8s-api server base path] - got '%s', want '/global-hub-api/v1'",
-				managerConfig.nonK8sAPIServerConfig.ServerBasePath)
-		}
+	// start testenv
+	testenv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
 
-		if managerConfig.electionConfig.LeaseDuration != 123 {
-			t.Fatalf("unexpected electionConfig LeaseDuration] - got '%d', want '123'",
-				managerConfig.electionConfig.LeaseDuration)
+	cfg, err = testenv.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	if cfg == nil {
+		panic(fmt.Errorf("empty kubeconfig!"))
+	}
+
+	kubeClient, err = kubernetes.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	// init mock kafka cluster
+	mockKafkaCluster, err = kafka.NewMockCluster(1)
+	if err != nil {
+		panic(err)
+	}
+
+	if mockKafkaCluster == nil {
+		panic(fmt.Errorf("empty mock kafka cluster!"))
+	}
+
+	// init test postgres
+	testPostgres, err = testpostgres.NewTestPostgres()
+	if err != nil {
+		panic(err)
+	}
+
+	// run testings
+	code := m.Run()
+
+	// stop mock kafka cluster
+	mockKafkaCluster.Close()
+
+	// stop testenv
+	err = testenv.Stop()
+	if err != nil {
+		panic(err)
+	}
+
+	os.Exit(code)
+}
+
+func TestManager(t *testing.T) {
+	// the testing manipuates the os.Args to set them up for the testcases
+	// after this testing the initial args will be restored
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	cases := []struct {
+		name         string
+		args         []string
+		expectedExit int
+	}{
+		{"manager", []string{
+			"--manager-namespace",
+			"default",
+			"--cluster-api-url",
+			"",
+			"--process-database-url",
+			testPostgres.URI,
+			"--transport-bridge-database-url",
+			testPostgres.URI,
+			"--lease-duration",
+			"15",
+			"--renew-deadline",
+			"10",
+			"--retry-period",
+			"2",
+			"--kafka-bootstrap-server",
+			mockKafkaCluster.BootstrapServers(),
+		}, 1},
+	}
+	for _, tc := range cases {
+		// this call is required because otherwise flags panics, if args are set between flag.Parse call
+		pflag.CommandLine = pflag.NewFlagSet(tc.name, pflag.ExitOnError)
+		// we need a value to set Args[0] to cause flag begins parsing at Args[1]
+		os.Args = append([]string{tc.name}, tc.args...)
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		defer cancel()
+		if _, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: constants.HohSystemNamespace,
+			},
+		}, metav1.CreateOptions{}); err != nil {
+			t.Errorf("failed to create global hub system namespace: %v", err)
 		}
-	})
+		if _, err := kubeClient.CoreV1().ConfigMaps(constants.HohSystemNamespace).Create(ctx,
+			&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.HoHConfigName,
+					Namespace: constants.HohSystemNamespace,
+					Annotations: map[string]string{
+						constants.OriginOwnerReferenceAnnotation: "testing",
+					},
+				},
+				Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
+			}, metav1.CreateOptions{}); err != nil {
+			t.Errorf("failed to create global hub configuration configmap: %v", err)
+		}
+		actualExit := doMain(ctx, cfg)
+		if tc.expectedExit != actualExit {
+			t.Errorf("unexpected exit code for args: %v, expected: %v, got: %v",
+				tc.args, tc.expectedExit, actualExit)
+		}
+	}
 }

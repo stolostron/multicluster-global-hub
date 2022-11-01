@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -251,9 +253,8 @@ func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapS
 	}
 }
 
-func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
+func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, processPostgreSQL,
 	transportBridgePostgreSQL *postgresql.PostgreSQL, workersPool *workerpool.DBWorkerPool,
-	specTransportObj producer.Producer, statusTransportObj consumer.Consumer,
 	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
 	statistics *statistics.Statistics,
 ) (ctrl.Manager, error) {
@@ -283,13 +284,42 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 			strings.Split(managerConfig.watchNamespace, ","))
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
+	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 
 	if err := scheme.AddToScheme(mgr.GetScheme()); err != nil {
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
+	}
+
+	// DB worker pool initialization
+	if err := mgr.Add(workersPool); err != nil {
+		return nil, fmt.Errorf("failed to add DB worker pool: %w", err)
+	}
+
+	// status transport layer initialization
+	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig,
+		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
+		managerConfig.kafkaConfig.consumerConfig, conflationManager, statistics)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init status transport bridge: %w", err)
+	}
+
+	// spec transport layer initialization
+	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig,
+		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
+		managerConfig.kafkaConfig.producerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
+	}
+
+	if err := mgr.Add(specTransportObj); err != nil {
+		return nil, fmt.Errorf("failed to add spec transport bridge: %w", err)
+	}
+
+	if err := mgr.Add(statusTransportObj); err != nil {
+		return nil, fmt.Errorf("failed to add status transport bridge: %w", err)
 	}
 
 	if err := nonk8sapi.AddNonK8sApiServer(mgr, processPostgreSQL,
@@ -320,7 +350,7 @@ func createManager(managerConfig *hohManagerConfig, processPostgreSQL,
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
-func doMain() int {
+func doMain(ctx context.Context, restConfig *rest.Config) int {
 	log := initializeLogger()
 	printVersion(log)
 	// create hoh manager configuration from command parameters
@@ -375,12 +405,6 @@ func doMain() int {
 		return 1
 	}
 
-	if err = dbWorkerPool.Start(); err != nil {
-		log.Error(err, initializationFailMsg, "failed to start", "DBWorkerPool")
-		return 1
-	}
-	defer dbWorkerPool.Stop()
-
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
 	requireInitialDependencyChecks := requireInitialDependencyChecks(
@@ -388,32 +412,8 @@ func doMain() int {
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
 		requireInitialDependencyChecks, stats) // manage all Conflation Units
 
-	// status transport layer initialization
-	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig,
-		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
-		managerConfig.kafkaConfig.consumerConfig, conflationManager, stats)
-	if err != nil {
-		log.Error(err, initializationFailMsg, initializationFailKey, "status transport")
-		return 1
-	}
-
-	statusTransportObj.Start()
-	defer statusTransportObj.Stop()
-
-	// spec transport layer initialization
-	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig,
-		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
-		managerConfig.kafkaConfig.producerConfig)
-	if err != nil {
-		log.Error(err, initializationFailMsg, initializationFailKey, "spec transport")
-		return 1
-	}
-
-	specTransportObj.Start()
-	defer specTransportObj.Stop()
-
-	mgr, err := createManager(managerConfig, processPostgreSQL, transportBridgePostgreSQL,
-		dbWorkerPool, specTransportObj, statusTransportObj, conflationManager, conflationReadyQueue, stats)
+	mgr, err := createManager(restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL,
+		dbWorkerPool, conflationManager, conflationReadyQueue, stats)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
@@ -427,7 +427,7 @@ func doMain() int {
 
 	log.Info("Starting the Cmd.")
 
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
 	}
@@ -436,5 +436,5 @@ func doMain() int {
 }
 
 func main() {
-	os.Exit(doMain())
+	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
 }

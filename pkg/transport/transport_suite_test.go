@@ -2,7 +2,6 @@ package transport_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -21,7 +20,6 @@ func TestTransport(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	Expect(os.Setenv("POD_NAMESPACE", "default")).To(Succeed())
 
 	By("Create mock kafka cluster")
 	var err error

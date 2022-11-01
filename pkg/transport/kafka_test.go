@@ -23,6 +23,7 @@ import (
 )
 
 var _ = Describe("Transport", Ordered, func() {
+	ctx := context.Background()
 	It("Test consumer without conflation to handle the message", func() {
 		By("Start kafka producer")
 		kafkaProducerConfig := &producer.KafkaProducerConfig{
@@ -34,7 +35,7 @@ var _ = Describe("Transport", Ordered, func() {
 			mockCluster.BootstrapServers(), "", kafkaProducerConfig,
 			ctrl.Log.WithName("kafka-producer"))
 		Expect(err).NotTo(HaveOccurred())
-		go kafkaProducer.Start()
+		go kafkaProducer.Start(ctx)
 
 		By("Start kafka consumer")
 		kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
@@ -46,7 +47,7 @@ var _ = Describe("Transport", Ordered, func() {
 			ctrl.Log.WithName("kafka-consumer"))
 		Expect(err).NotTo(HaveOccurred())
 		kafkaConsumer.SetLeafHubName("hub1")
-		go kafkaConsumer.Start()
+		go kafkaConsumer.Start(ctx)
 
 		By("Send message to create PlacementRule")
 		kafkaProducer.SendAsync(&transport.Message{
@@ -212,7 +213,7 @@ var _ = Describe("Transport", Ordered, func() {
 			mockCluster.BootstrapServers(), "", kafkaProducerConfig,
 			ctrl.Log.WithName("kafka-producer"))
 		Expect(err).NotTo(HaveOccurred())
-		go kafkaProducer.Start()
+		go kafkaProducer.Start(ctx)
 
 		By("Start kafka consumer")
 		kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
@@ -245,7 +246,7 @@ var _ = Describe("Transport", Ordered, func() {
 		)
 		kafkaConsumer.SetStatistics(stats)
 		kafkaConsumer.SetConflationManager(conflationManager)
-		go kafkaConsumer.Start()
+		go kafkaConsumer.Start(ctx)
 
 		kafkaConsumer.BundleRegister(&registration.BundleRegistration{
 			MsgID:            constants.ManagedClustersMsgKey,

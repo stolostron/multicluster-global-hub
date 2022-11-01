@@ -1,9 +1,9 @@
 package producer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -37,9 +37,6 @@ type KafkaProducer struct {
 	topic                string
 	compressor           compressor.Compressor
 	deliveryChan         chan kafka.Event
-	stopChan             chan struct{}
-	startOnce            sync.Once
-	stopOnce             sync.Once
 }
 
 // NewProducer returns a new instance of Producer object.
@@ -73,31 +70,25 @@ func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, sslCA s
 		eventSubscriptionMap: make(map[string]map[EventType]EventCallback),
 		compressor:           compressor,
 		deliveryChan:         make(chan kafka.Event),
-		stopChan:             make(chan struct{}),
 	}, nil
 }
 
 // Start starts the kafka.
-func (p *KafkaProducer) Start() {
-	p.startOnce.Do(func() {
-		go p.deliveryReportHandler()
-	})
+func (p *KafkaProducer) Start(ctx context.Context) error {
+	go p.deliveryReportHandler(ctx)
+
+	<-ctx.Done() // blocking wait until getting context cancel event
+
+	close(p.deliveryChan)
+	p.producer.Close()
+
+	return nil
 }
 
-// Stop stops the producer.
-func (p *KafkaProducer) Stop() {
-	p.stopOnce.Do(func() {
-		p.stopChan <- struct{}{}
-		close(p.deliveryChan)
-		close(p.stopChan)
-		p.producer.Close()
-	})
-}
-
-func (p *KafkaProducer) deliveryReportHandler() {
+func (p *KafkaProducer) deliveryReportHandler(ctx context.Context) {
 	for {
 		select {
-		case <-p.stopChan:
+		case <-ctx.Done():
 			return
 
 		case event := <-p.deliveryChan:

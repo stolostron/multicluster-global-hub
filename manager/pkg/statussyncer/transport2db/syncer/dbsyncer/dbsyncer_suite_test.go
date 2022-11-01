@@ -102,7 +102,6 @@ var _ = BeforeSuite(func() {
 
 	dbWorkerPool, err = workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), testPostgres.URI, stats)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(dbWorkerPool.Start()).Should(Succeed())
 
 	By("Create conflationReadyQueue")
 	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
@@ -124,7 +123,6 @@ var _ = BeforeSuite(func() {
 		mockCluster.BootstrapServers(), "", kafkaProducerConfig,
 		ctrl.Log.WithName("kafka-producer"))
 	Expect(err).NotTo(HaveOccurred())
-	go kafkaProducer.Start()
 
 	By("Start kafka consumer")
 	kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
@@ -142,7 +140,6 @@ var _ = BeforeSuite(func() {
 	)
 	kafkaConsumer.SetStatistics(stats)
 	kafkaConsumer.SetConflationManager(conflationManager)
-	go kafkaConsumer.Start()
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -174,6 +171,9 @@ var _ = BeforeSuite(func() {
 	err = statussyncer.AddTransport2DBSyncers(mgr, dbWorkerPool, conflationManager,
 		conflationReadyQueue, kafkaConsumer, stats)
 	Expect(err).ToNot(HaveOccurred())
+	Expect(mgr.Add(dbWorkerPool)).Should(Succeed())
+	Expect(mgr.Add(kafkaProducer)).Should(Succeed())
+	Expect(mgr.Add(kafkaConsumer)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {
@@ -188,7 +188,6 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	cancel()
 	transportPostgreSQL.Stop()
-	dbWorkerPool.Stop()
 	mockCluster.Close()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 

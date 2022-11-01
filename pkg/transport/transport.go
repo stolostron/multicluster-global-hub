@@ -37,11 +37,3 @@ const (
 	// Broadcast can be used as destination when a bundle should be broadcasted.
 	Broadcast = ""
 )
-
-// Transport is the transport layer interface to be consumed by the spec transport bridge.
-type Transport interface {
-	// Start starts the transport.
-	Start()
-	// Stop stops the transport.
-	Stop()
-}
