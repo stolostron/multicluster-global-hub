@@ -59,6 +59,9 @@ rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
 kubectl apply -f ${currentDir}/components/leader-election-configmap.yaml -n "$namespace"
 
 cd ${rootDir}
+# install crds
+kubectl --context kind-$LEAF_HUB_NAME apply -f ./pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+
 export IMG=$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF
 make deploy-operator 
 kubectl wait deployment -n "$namespace" multicluster-global-hub-operator --for condition=Available=True --timeout=600s
