@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
+	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -46,6 +47,7 @@ var _ = BeforeSuite(func() {
 	Expect(mchv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(clustersv1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(apiextensionsv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(operatorv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

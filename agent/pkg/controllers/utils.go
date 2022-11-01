@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -9,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
+	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -55,6 +57,22 @@ func listMCH(ctx context.Context, k8sClient client.Client) (*mchv1.MultiClusterH
 	return &mch.Items[0], nil
 }
 
+func getClusterManager(ctx context.Context, client client.Client) (*operatorv1.ClusterManager, error) {
+	clusterManager := &operatorv1.ClusterManager{}
+	namespacedName := types.NamespacedName{Name: "cluster-manager"}
+	err := client.Get(ctx, namespacedName, clusterManager)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+	if meta.IsNoMatchError(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return clusterManager, nil
+}
+
 func newClusterClaim(name, value string) *clustersv1alpha1.ClusterClaim {
 	return &clustersv1alpha1.ClusterClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -97,16 +115,32 @@ func updateClusterClaim(ctx context.Context, k8sClient client.Client, name, valu
 	return k8sClient.Update(ctx, clusterClaim)
 }
 
-func updateHubClusterClaim(ctx context.Context, k8sClient client.Client, mch *mchv1.MultiClusterHub) error {
-	if mch == nil {
-		return updateClusterClaim(ctx, k8sClient, constants.HubClusterClaimName, constants.HubNotInstalled)
+func updateHubClusterClaim(ctx context.Context, k8sClient client.Client,
+	namespacedName types.NamespacedName,
+) (*mchv1.MultiClusterHub, error) {
+	mch, err := getMCH(ctx, k8sClient, namespacedName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MCH instance. err = %v", err)
 	}
 
-	hubValue := constants.HubInstalledWithoutSelfManagement
+	hubValue := constants.HubNotInstalled
+	if mch == nil {
+		clusterManager, err := getClusterManager(ctx, k8sClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get clusterManager instance. err = %v", err)
+		}
+
+		if clusterManager != nil {
+			hubValue = constants.HubInstalledWithoutSelfManagement
+		}
+		return nil, updateClusterClaim(ctx, k8sClient, constants.HubClusterClaimName, hubValue)
+	}
+
+	hubValue = constants.HubInstalledWithoutSelfManagement
 	if mch.GetLabels()[constants.GlobalHubOwnerLabelKey] == constants.GlobalHubOwnerLabelVal {
 		hubValue = constants.HubInstalledByHoH
 	} else if !mch.Spec.DisableHubSelfManagement {
 		hubValue = constants.HubInstalledWithSelfManagement
 	}
-	return updateClusterClaim(ctx, k8sClient, constants.HubClusterClaimName, hubValue)
+	return mch, updateClusterClaim(ctx, k8sClient, constants.HubClusterClaimName, hubValue)
 }
