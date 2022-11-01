@@ -124,7 +124,6 @@ var _ = BeforeSuite(func() {
 		mockCluster.BootstrapServers(), "", kafkaProducerConfig,
 		ctrl.Log.WithName("kafka-producer"))
 	Expect(err).NotTo(HaveOccurred())
-	go kafkaProducer.Start()
 
 	By("Start kafka consumer")
 	kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
@@ -142,7 +141,6 @@ var _ = BeforeSuite(func() {
 	)
 	kafkaConsumer.SetStatistics(stats)
 	kafkaConsumer.SetConflationManager(conflationManager)
-	go kafkaConsumer.Start()
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -174,6 +172,8 @@ var _ = BeforeSuite(func() {
 	err = statussyncer.AddTransport2DBSyncers(mgr, dbWorkerPool, conflationManager,
 		conflationReadyQueue, kafkaConsumer, stats)
 	Expect(err).ToNot(HaveOccurred())
+	Expect(mgr.Add(kafkaProducer)).Should(Succeed())
+	Expect(mgr.Add(kafkaConsumer)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {

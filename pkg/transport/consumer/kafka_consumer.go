@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -48,11 +47,6 @@ type KafkaConsumer struct {
 	messageChan      chan *kafka.Message
 	messageAssembler *kafkaMessageAssembler
 
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	startOnce  sync.Once
-	stopOnce   sync.Once
-
 	// Used by agent
 	leafHubName                     string
 	genericBundlesChan              chan *bundle.GenericBundle
@@ -88,7 +82,6 @@ func NewKafkaConsumer(bootstrapServer, sslCA string, consumerConfig *KafkaConsum
 		return nil, fmt.Errorf("failed to create consumer: %w", err)
 	}
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
 	messageChan := make(chan *kafka.Message)
 
 	kafkaConsumer := &KafkaConsumer{
@@ -99,8 +92,6 @@ func NewKafkaConsumer(bootstrapServer, sslCA string, consumerConfig *KafkaConsum
 		compressorsMap:   make(map[compressor.CompressionType]compressor.Compressor),
 		topic:            consumerConfig.ConsumerTopic,
 		messageChan:      messageChan,
-		ctx:              ctx,
-		cancelFunc:       cancelFunc,
 
 		genericBundlesChan:         make(chan *bundle.GenericBundle),
 		messageIDToRegistrationMap: make(map[string]*registration.BundleRegistration),
@@ -135,24 +126,22 @@ func (c *KafkaConsumer) SetConflationManager(conflationMgr *conflator.Conflation
 }
 
 // Start function starts the consumer.
-func (c *KafkaConsumer) Start() {
-	c.startOnce.Do(func() {
-		if c.committer != nil {
-			go c.committer.start(c.ctx)
-		}
-		go c.handleKafkaMessages(c.ctx)
-	})
-}
+func (c *KafkaConsumer) Start(ctx context.Context) error {
+	if c.committer != nil {
+		go c.committer.start(ctx)
+	}
+	go c.handleKafkaMessages(ctx)
 
-// Stop stops the consumer.
-func (c *KafkaConsumer) Stop() {
-	c.stopOnce.Do(func() {
-		close(c.messageChan)
-		close(c.genericBundlesChan)
-		close(c.stopChan)
-		c.cancelFunc()
-		c.log.Info(c.consumer.Close().Error())
-	})
+	<-ctx.Done() // blocking wait until getting context cancel event
+
+	close(c.messageChan)
+	close(c.genericBundlesChan)
+	close(c.stopChan)
+	if err := c.consumer.Close(); err != nil {
+		c.log.Info(err.Error())
+	}
+
+	return nil
 }
 
 // Register function registers a bundle ID to a CustomBundleRegistration.
@@ -336,6 +325,10 @@ func (c *KafkaConsumer) lookupHeaderValue(message *kafka.Message, headerKey stri
 
 func (c *KafkaConsumer) GetGenericBundleChan() chan *bundle.GenericBundle {
 	return c.genericBundlesChan
+}
+
+func (c *KafkaConsumer) GetMessageChan() chan *kafka.Message {
+	return c.messageChan
 }
 
 // Consumer returns the wrapped Confluent KafkaConsumer.

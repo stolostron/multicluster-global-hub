@@ -85,22 +85,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 0
 	}
 
-	consumer, err := getConsumer(configManager)
-	if err != nil {
-		log.Error(err, "transport consumer initialization error")
-		return 1
-	}
-	producer, err := getProducer(configManager)
-	if err != nil {
-		log.Error(err, "transport producer initialization error")
-	}
-
-	consumer.Start()
-	producer.Start()
-	defer consumer.Stop()
-	defer producer.Stop()
-
-	mgr, err := createManager(consumer, producer, configManager)
+	mgr, err := createManager(restConfig, configManager)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
@@ -166,9 +151,7 @@ func getProducer(environmentManager *helper.ConfigManager) (producer.Producer, e
 	}
 }
 
-func createManager(consumer consumer.Consumer, producer producer.Producer,
-	environmentManager *helper.ConfigManager,
-) (ctrl.Manager, error) {
+func createManager(restConfig *rest.Config, environmentManager *helper.ConfigManager) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(environmentManager.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(environmentManager.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(environmentManager.ElectionConfig.RetryPeriod) * time.Second
@@ -188,7 +171,7 @@ func createManager(consumer consumer.Consumer, producer producer.Producer,
 		RetryPeriod:             &retryPeriod,
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
+	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
@@ -204,6 +187,24 @@ func createManager(consumer consumer.Consumer, producer producer.Producer,
 		return nil, fmt.Errorf("failed to get incarnation version: %w", err)
 	}
 	fmt.Printf("Starting the Cmd incarnation: %d", incarnation)
+
+	consumer, err := getConsumer(environmentManager)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
+	}
+
+	producer, err := getProducer(environmentManager)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize transport producer: %w", err)
+	}
+
+	if err := mgr.Add(consumer); err != nil {
+		return nil, fmt.Errorf("failed to add transport consumer: %w", err)
+	}
+
+	if err := mgr.Add(producer); err != nil {
+		return nil, fmt.Errorf("failed to add transport producer: %w", err)
+	}
 
 	if err := specController.AddSyncersToManager(mgr, consumer, *environmentManager); err != nil {
 		return nil, fmt.Errorf("failed to add spec syncer: %w", err)

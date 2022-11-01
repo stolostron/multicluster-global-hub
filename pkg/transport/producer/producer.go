@@ -4,6 +4,8 @@
 package producer
 
 import (
+	"context"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -13,9 +15,7 @@ type Producer interface {
 	// Subscribe adds a callback to be delegated when a given event occurs for a message with the given ID.
 	Subscribe(messageID string, callbacks map[EventType]EventCallback)
 	// Start starts the transport.
-	Start()
-	// Stop stops the transport.
-	Stop()
+	Start(ctx context.Context) error
 	// SupportsDeltaBundles returns true if the transport layer supports delta bundles, otherwise false.
 	SupportsDeltaBundles() bool
 }

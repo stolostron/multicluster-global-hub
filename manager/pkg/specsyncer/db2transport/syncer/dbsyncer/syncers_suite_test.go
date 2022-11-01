@@ -92,7 +92,6 @@ var _ = BeforeSuite(func() {
 		mockCluster.BootstrapServers(), "", kafkaProducerConfig,
 		ctrl.Log.WithName("kafka-producer"))
 	Expect(err).NotTo(HaveOccurred())
-	go kafkaProducer.Start()
 
 	By("Start kafka consumer")
 	kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
@@ -103,8 +102,6 @@ var _ = BeforeSuite(func() {
 		mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
 		ctrl.Log.WithName("kafka-consumer"))
 	Expect(err).NotTo(HaveOccurred())
-
-	go kafkaConsumer.Start()
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -133,6 +130,8 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
 
 	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, kafkaProducer, 1*time.Second)).Should(Succeed())
+	Expect(mgr.Add(kafkaProducer)).Should(Succeed())
+	Expect(mgr.Add(kafkaConsumer)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {
