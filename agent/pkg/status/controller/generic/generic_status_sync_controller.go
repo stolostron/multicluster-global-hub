@@ -213,7 +213,7 @@ func cleanObject(object bundle.Object) {
 
 func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
 	// if the removing finalizer label hasn't expired, then skip the adding finalizer action
-	if val, found := object.GetLabels()[commonconstants.GlobalHubRemovingFinalizer]; found {
+	if val, found := object.GetLabels()[commonconstants.GlobalHubFinalizerRemovingDeadline]; found {
 		deadline, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
@@ -221,7 +221,7 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 		if time.Now().Unix() < deadline {
 			return nil
 		} else {
-			delete(object.GetLabels(), commonconstants.GlobalHubRemovingFinalizer)
+			delete(object.GetLabels(), commonconstants.GlobalHubFinalizerRemovingDeadline)
 		}
 	}
 

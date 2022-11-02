@@ -81,7 +81,7 @@ const (
 
 	// indicate the removing the global hub finalizer, shouldn't add it back to the resource
 	// the value is a timestamp which is the expiration time of this label
-	GlobalHubRemovingFinalizer = "global-hub.open-cluster-management.io/finalizer-removing"
+	GlobalHubFinalizerRemovingDeadline = "global-hub.open-cluster-management.io/finalizer-removing-deadline"
 )
 
 // store all the annotations
