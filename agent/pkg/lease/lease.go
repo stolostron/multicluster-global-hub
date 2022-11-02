@@ -2,6 +2,7 @@ package lease
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -35,9 +36,15 @@ type leaseUpdater struct {
 
 // AddHoHLeaseUpdater creates a new LeaseUpdater instance aand add it to given manager
 func AddHoHLeaseUpdater(mgr ctrl.Manager, addonNamespace, addonName string) error {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return err
+	var config *rest.Config
+	if isAgentTesting, ok := os.LookupEnv("AGENT_TESTING"); ok && isAgentTesting == "true" {
+		config = mgr.GetConfig()
+	} else {
+		var err error
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			return err
+		}
 	}
 
 	// create new client to create or update lease, the lease is always in the cluster that pod is running
@@ -69,7 +76,7 @@ func AddHoHLeaseUpdater(mgr ctrl.Manager, addonNamespace, addonName string) erro
 
 // Start starts a goroutine to update lease to implement controller-runtime Runnable interface
 func (r *leaseUpdater) Start(ctx context.Context) error {
-	wait.JitterUntilWithContext(context.TODO(),
+	wait.JitterUntilWithContext(ctx,
 		r.reconcile,
 		time.Duration(r.leaseDurationSeconds)*time.Second,
 		leaseUpdateJitterFactor,

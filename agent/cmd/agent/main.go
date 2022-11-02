@@ -5,37 +5,21 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
-	v1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
-	apiErrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apiRuntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
-	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
-	operatorv1 "open-cluster-management.io/api/operator/v1"
-	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appsubv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
-	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	runtimescheme "sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/incarnation"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
+	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
@@ -45,14 +29,10 @@ import (
 )
 
 const (
-	METRICS_HOST               = "0.0.0.0"
-	METRICS_PORT               = 9435
-	TRANSPORT_TYPE_KAFKA       = "kafka"
-	LEADER_ELECTION_ID         = "multicluster-global-hub-agent-lock"
-	HOH_LOCAL_NAMESPACE        = "open-cluster-management-global-hub-local"
-	INCARNATION_CONFIG_MAP_KEY = "incarnation"
-	BASE10                     = 10
-	UINT64_SIZE                = 64
+	METRICS_HOST         = "0.0.0.0"
+	METRICS_PORT         = 9435
+	TRANSPORT_TYPE_KAFKA = "kafka"
+	LEADER_ELECTION_ID   = "multicluster-global-hub-agent-lock"
 )
 
 func main() {
@@ -70,7 +50,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	}
 
 	if configManager.Terminating {
-		if err := addToScheme(scheme.Scheme); err != nil {
+		if err := agentscheme.AddToScheme(scheme.Scheme); err != nil {
 			log.Error(err, "failed to add to scheme")
 			return 1
 		}
@@ -157,10 +137,17 @@ func createManager(restConfig *rest.Config, environmentManager *helper.ConfigMan
 	renewDeadline := time.Duration(environmentManager.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(environmentManager.ElectionConfig.RetryPeriod) * time.Second
 
-	leaderElectionConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
+	var leaderElectionConfig *rest.Config
+	if isAgentTesting, ok := os.LookupEnv("AGENT_TESTING"); ok && isAgentTesting == "true" {
+		leaderElectionConfig = restConfig
+	} else {
+		var err error
+		leaderElectionConfig, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", METRICS_HOST, METRICS_PORT),
 		LeaderElectionConfig:    leaderElectionConfig,
@@ -178,12 +165,12 @@ func createManager(restConfig *rest.Config, environmentManager *helper.ConfigMan
 	}
 
 	// add scheme
-	if err := addToScheme(mgr.GetScheme()); err != nil {
-		return nil, fmt.Errorf("failed to add a schemes: %w", err)
+	if err := agentscheme.AddToScheme(mgr.GetScheme()); err != nil {
+		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
 	// incarnation version
-	incarnation, err := getIncarnation(mgr)
+	incarnation, err := incarnation.GetIncarnation(mgr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get incarnation version: %w", err)
 	}
@@ -225,111 +212,4 @@ func createManager(restConfig *rest.Config, environmentManager *helper.ConfigMan
 	}
 
 	return mgr, nil
-}
-
-func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
-	// add cluster scheme
-	if err := clusterv1.Install(runtimeScheme); err != nil {
-		return fmt.Errorf("failed to add clusterv1 scheme: %w", err)
-	}
-
-	if err := clusterv1beta1.Install(runtimeScheme); err != nil {
-		return fmt.Errorf("failed to add clusterv1beta1 scheme: %w", err)
-	}
-
-	if err := clusterv1alpha1.Install(runtimeScheme); err != nil {
-		return fmt.Errorf("failed to add clustersv1alpha1 scheme: %w", err)
-	}
-
-	if err := operatorv1.Install(runtimeScheme); err != nil {
-		return fmt.Errorf("failed to add operatorv1 scheme: %w", err)
-	}
-
-	if err := apiextensionsv1.AddToScheme(runtimeScheme); err != nil {
-		return fmt.Errorf("failed to add apiextensionsv1 scheme: %w", err)
-	}
-
-	schemeBuilders := []*runtimescheme.Builder{
-		policyv1.SchemeBuilder,
-		placementrulev1.SchemeBuilder,
-		appsubv1alpha1.SchemeBuilder,
-		mchv1.SchemeBuilder,
-		appsubv1.SchemeBuilder,
-		appv1beta1.SchemeBuilder,
-		chnv1.SchemeBuilder,
-	} // add schemes
-
-	for _, schemeBuilder := range schemeBuilders {
-		if err := schemeBuilder.AddToScheme(runtimeScheme); err != nil {
-			return fmt.Errorf("failed to add scheme: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// Incarnation is a part of the version of all the messages this process will transport.
-// The motivation behind this logic is allowing the message receivers/consumers to infer that messages transmitted
-// from this instance are more recent than all other existing ones, regardless of their instance-specific generations.
-func getIncarnation(mgr ctrl.Manager) (uint64, error) {
-	k8sClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
-	if err != nil {
-		return 0, fmt.Errorf("failed to start k8s client - %w", err)
-	}
-
-	ctx := context.Background()
-	configMap := &v1.ConfigMap{}
-
-	// create hoh-local ns if missing
-	if err := helper.CreateNamespaceIfNotExist(ctx, k8sClient, HOH_LOCAL_NAMESPACE); err != nil {
-		return 0, fmt.Errorf("failed to create ns - %w", err)
-	}
-
-	// try to get ConfigMap
-	objKey := client.ObjectKey{
-		Namespace: HOH_LOCAL_NAMESPACE,
-		Name:      INCARNATION_CONFIG_MAP_KEY,
-	}
-	if err := k8sClient.Get(ctx, objKey, configMap); err != nil {
-		if !apiErrors.IsNotFound(err) {
-			return 0, fmt.Errorf("failed to get incarnation config-map - %w", err)
-		}
-
-		// incarnation ConfigMap does not exist, create it with incarnation = 0
-		configMap = createIncarnationConfigMap(0)
-		if err := k8sClient.Create(ctx, configMap); err != nil {
-			return 0, fmt.Errorf("failed to create incarnation config-map obj - %w", err)
-		}
-
-		return 0, nil
-	}
-
-	// incarnation configMap exists, get incarnation, increment it and update object
-	incarnationString, exists := configMap.Data[INCARNATION_CONFIG_MAP_KEY]
-	if !exists {
-		return 0, fmt.Errorf("configmap %s does not contain (%s)",
-			INCARNATION_CONFIG_MAP_KEY, INCARNATION_CONFIG_MAP_KEY)
-	}
-
-	lastIncarnation, err := strconv.ParseUint(incarnationString, BASE10, UINT64_SIZE)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse value of key %s in configmap %s - %w", INCARNATION_CONFIG_MAP_KEY,
-			INCARNATION_CONFIG_MAP_KEY, err)
-	}
-
-	newConfigMap := createIncarnationConfigMap(lastIncarnation + 1)
-	if err := k8sClient.Patch(ctx, newConfigMap, client.MergeFrom(configMap)); err != nil {
-		return 0, fmt.Errorf("failed to update incarnation version - %w", err)
-	}
-	return lastIncarnation + 1, nil
-}
-
-func createIncarnationConfigMap(incarnation uint64) *v1.ConfigMap {
-	return &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: HOH_LOCAL_NAMESPACE,
-			Name:      INCARNATION_CONFIG_MAP_KEY,
-		},
-		Data: map[string]string{INCARNATION_CONFIG_MAP_KEY: strconv.FormatUint(incarnation, BASE10)},
-	}
 }

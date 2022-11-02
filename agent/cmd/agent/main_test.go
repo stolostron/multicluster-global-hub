@@ -13,7 +13,6 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -49,11 +48,6 @@ func TestMain(m *testing.M) {
 
 	if cfg == nil {
 		panic(fmt.Errorf("empty kubeconfig!"))
-	}
-
-	_, err = kubernetes.NewForConfig(cfg)
-	if err != nil {
-		panic(err)
 	}
 
 	// init mock kafka cluster
@@ -92,6 +86,12 @@ func TestAgent(t *testing.T) {
 		args         []string
 		expectedExit int
 	}{
+		{"agent-cleanup", []string{
+			"--leaf-hub-name",
+			"hub1",
+			"--terminating",
+			"true",
+		}, 0},
 		{"agent", []string{
 			"--pod-namespace",
 			"default",
@@ -107,12 +107,6 @@ func TestAgent(t *testing.T) {
 			"kafka",
 			"--kafka-bootstrap-server",
 			mockKafkaCluster.BootstrapServers(),
-		}, 1},
-		{"agent-cleanup", []string{
-			"--leaf-hub-name",
-			"hub1",
-			"--terminating",
-			"true",
 		}, 0},
 	}
 	for _, tc := range cases {
@@ -120,7 +114,7 @@ func TestAgent(t *testing.T) {
 		pflag.CommandLine = pflag.NewFlagSet(tc.name, pflag.ExitOnError)
 		// we need a value to set Args[0] to cause flag begins parsing at Args[1]
 		os.Args = append([]string{tc.name}, tc.args...)
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		actualExit := doMain(ctx, cfg)
 		if tc.expectedExit != actualExit {
