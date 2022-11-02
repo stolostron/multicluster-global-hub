@@ -5,9 +5,8 @@ List all labels are used by the multicluster global hub.
 Label | Description
 --- | ----------
 global-hub.open-cluster-management.io/managed-by=`multicluster-global-hub-operator\|multicluster-global-hub-agent` | If the value is `multicluster-global-hub-operator`, it means the resources are created by the global hub operator. The global hub operator watches the resources based on this label.
-global-hub.open-cluster-management.io/regional-hub-type=`NoHubInstall\|NoHubAgentInstall` | This label is applied to the managedcluster resource. If the value is `NoHubInstall`, the global hub operator installs the global hub agent only in the managed cluster. If the value is `NoHubAgentInstall`, the managed cluster won't be managed by the global hub.
 global-hub.open-cluster-management.io/local-resource= | This label is added during creating some resources. It is used to identify the resource is only applied to global hub cluster. It won't be transfered to the regional hub clusters.
-global-hub.open-cluster-management.io/agent-deploy-mode = `Hosted\| Default\| None` | This label is used on ManagedCluster.`Hosted` means the HoH agent will be deployed on Hosting cluster. `Default` means the HoH agent will be deployed on managed cluster. `None` means the HoH agent should not be installed. 
+global-hub.open-cluster-management.io/agent-deploy-mode = `Hosted\| Default\| None` | This label is used on ManagedCluster.<br>`Hosted` means the HoH agent will be deployed on Hosting cluster.<br>`Default` means the HoH agent will be deployed on managed cluster.<br>`None` means the HoH agent should not be installed. 
 
 # Annotations
 

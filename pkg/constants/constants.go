@@ -61,13 +61,6 @@ const (
 
 // store all the labels
 const (
-	// control if need to install global-hub-agent and regional hub or not
-	RegionalHubTypeLabelKey = "global-hub.open-cluster-management.io/regional-hub-type"
-	// NoHubInstall stands up the global hub won't install ACM hub into the managed cluster
-	RegionalHubTypeNoHubInstall = "NoHubInstall"
-	// NoHubAgentInstall stands up the managed cluster won't be managed by the global hub.
-	RegionalHubTypeNoHubAgentInstall = "NoHubAgentInstall"
-
 	// AgentDeployModeLabelKey is to indicate which deploy mode the agent is installed.
 	AgentDeployModeLabelKey = "global-hub.open-cluster-management.io/agent-deploy-mode"
 	// AgentDeployModeHosted is to install agent in Hosted mode

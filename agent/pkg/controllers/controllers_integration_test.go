@@ -11,10 +11,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
+	operatorv1 "open-cluster-management.io/api/operator/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -29,10 +32,6 @@ var _ = Describe("controller", Ordered, func() {
 	var mgr ctrl.Manager
 
 	BeforeEach(func() {
-		Expect(cfg).NotTo(BeNil())
-	})
-
-	It("create a manager", func() {
 		By("Creating the Manager")
 		var err error
 		mgr, err = ctrl.NewManager(cfg, ctrl.Options{
@@ -44,12 +43,75 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(controllers.AddToManager(mgr)).NotTo(HaveOccurred())
 
 		go func() {
-			defer GinkgoRecover()
 			Expect(mgr.Start(ctx)).NotTo(HaveOccurred())
 		}()
 
 		By("Waiting for the manager to be ready")
 		Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+		cleanup(ctx, mgr.GetClient())
+	})
+
+	AfterAll(func() {
+		defer cancel()
+		cleanup(ctx, mgr.GetClient())
+	})
+	It("clusterClaim testing only clusterManager is installed", func() {
+		By("Create clusterManager instance")
+		Expect(mgr.GetClient().Create(ctx, &operatorv1.ClusterManager{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ClusterManager",
+				APIVersion: "operator.open-cluster-management.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster-manager",
+			},
+			Spec: operatorv1.ClusterManagerSpec{},
+		})).NotTo(HaveOccurred())
+
+		By("Create clusterClaim to trigger hubClaim controller")
+		Expect(mgr.GetClient().Create(ctx, &clustersv1alpha1.ClusterClaim{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ClusterClaim",
+				APIVersion: "cluster.open-cluster-management.io/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test2",
+			},
+			Spec: clustersv1alpha1.ClusterClaimSpec{},
+		})).NotTo(HaveOccurred())
+
+		clusterClaim := &clustersv1alpha1.ClusterClaim{}
+
+		Eventually(func() error {
+			return mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name: constants.HubClusterClaimName,
+			}, clusterClaim)
+		}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		Expect(clusterClaim.Spec.Value).Should(Equal(
+			constants.HubInstalledWithoutSelfManagement))
+	})
+
+	It("clusterClaim testing clusterManager and mch are not installed", func() {
+		By("Create clusterClaim to trigger hubClaim controller")
+		Expect(mgr.GetClient().Create(ctx, &clustersv1alpha1.ClusterClaim{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ClusterClaim",
+				APIVersion: "cluster.open-cluster-management.io/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+			Spec: clustersv1alpha1.ClusterClaimSpec{},
+		})).NotTo(HaveOccurred())
+
+		clusterClaim := &clustersv1alpha1.ClusterClaim{}
+
+		Eventually(func() error {
+			return mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name: constants.HubClusterClaimName,
+			}, clusterClaim)
+		}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		Expect(clusterClaim.Spec.Value).Should(Equal(constants.HubNotInstalled))
 	})
 
 	It("clusterclaim testing", func() {
@@ -156,8 +218,74 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(clusterClaim.Spec.Value).Should(Equal(
 			constants.HubInstalledWithoutSelfManagement))
 	})
-
-	AfterAll(func() {
-		defer cancel()
-	})
 })
+
+func cleanup(ctx context.Context, client client.Client) {
+	Eventually(func() error {
+		err := client.Delete(ctx, &mchv1.MultiClusterHub{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "MultiClusterHub",
+				APIVersion: "operator.open-cluster-management.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "multiclusterhub",
+				Namespace: "default",
+			},
+			Spec: mchv1.MultiClusterHubSpec{},
+		})
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+	Eventually(func() error {
+		err := client.Delete(ctx, &operatorv1.ClusterManager{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ClusterManager",
+				APIVersion: "operator.open-cluster-management.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster-manager",
+			},
+			Spec: operatorv1.ClusterManagerSpec{},
+		})
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+	Eventually(func() error {
+		err := client.Delete(ctx, &clustersv1alpha1.ClusterClaim{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ClusterClaim",
+				APIVersion: "cluster.open-cluster-management.io/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: constants.HubClusterClaimName,
+			},
+			Spec: clustersv1alpha1.ClusterClaimSpec{},
+		})
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	Eventually(func() error {
+		err := client.Delete(ctx, &clustersv1alpha1.ClusterClaim{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ClusterClaim",
+				APIVersion: "cluster.open-cluster-management.io/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: constants.VersionClusterClaimName,
+			},
+			Spec: clustersv1alpha1.ClusterClaimSpec{},
+		})
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+}

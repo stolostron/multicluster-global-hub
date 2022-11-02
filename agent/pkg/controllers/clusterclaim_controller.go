@@ -30,20 +30,13 @@ func (c *clusterClaimController) Reconcile(ctx context.Context, request ctrl.Req
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(2).Info("cluster claim controller", request.NamespacedName)
 
-	var err error
-	mch, err := getMCH(ctx, c.client, request.NamespacedName)
-	if err != nil {
-		reqLogger.Error(err, "failed to get MCH instance")
-		return ctrl.Result{}, err
-	}
-
-	err = updateHubClusterClaim(ctx, c.client, mch)
+	mch, err := updateHubClusterClaim(ctx, c.client, request.NamespacedName)
 	if err != nil {
 		reqLogger.Error(err, "failed to update Hub clusterClaim")
 		return ctrl.Result{}, err
 	}
 
-	if mch.Status.CurrentVersion != "" {
+	if mch != nil && mch.Status.CurrentVersion != "" {
 		return ctrl.Result{}, updateClusterClaim(ctx, c.client,
 			constants.VersionClusterClaimName, mch.Status.CurrentVersion)
 	}
