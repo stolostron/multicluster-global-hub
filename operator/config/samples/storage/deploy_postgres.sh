@@ -12,7 +12,7 @@ fi
 
 # install postgres operator
 POSTGRES_OPERATOR=${POSTGRES_OPERATOR:-"pgo"}
-kubectl apply -k ${currentDir}/postgres-operator
+kubectl apply --server-side -k ${currentDir}/postgres-operator
 kubectl -n postgres-operator wait --for=condition=Available Deployment/$POSTGRES_OPERATOR --timeout=1000s
 echo "$POSTGRES_OPERATOR operator is ready!"
 
