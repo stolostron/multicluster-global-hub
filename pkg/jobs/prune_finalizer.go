@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"context"
+	"strconv"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/retry"
@@ -49,6 +51,13 @@ func (p *PruneFinalizer) Run() error {
 
 func (p *PruneFinalizer) pruneFinalizer(object client.Object) error {
 	if controllerutil.RemoveFinalizer(object, p.finalizer) {
+		labels := object.GetLabels()
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		// set the removing finalizer ttl with 60 seconds
+		labels[commonconstants.GlobalHubFinalizerRemovingDeadline] = strconv.FormatInt(time.Now().Unix()+60, 10)
+		object.SetLabels(labels)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			return p.client.Update(p.ctx, object, &client.UpdateOptions{})
 		})
