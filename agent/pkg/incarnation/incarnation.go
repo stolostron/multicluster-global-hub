@@ -15,13 +15,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
-	HOH_LOCAL_NAMESPACE        = "open-cluster-management-global-hub-local"
-	INCARNATION_CONFIG_MAP_KEY = "incarnation"
-	BASE10                     = 10
-	UINT64_SIZE                = 64
+	BASE10      = 10
+	UINT64_SIZE = 64
 )
 
 // Incarnation is a part of the version of all the messages this process will transport.
@@ -37,14 +36,14 @@ func GetIncarnation(mgr ctrl.Manager) (uint64, error) {
 	configMap := &corev1.ConfigMap{}
 
 	// create hoh-local ns if missing
-	if err := helper.CreateNamespaceIfNotExist(ctx, k8sClient, HOH_LOCAL_NAMESPACE); err != nil {
+	if err := helper.CreateNamespaceIfNotExist(ctx, k8sClient, constants.GHAgentLocalNamespace); err != nil {
 		return 0, fmt.Errorf("failed to create ns - %w", err)
 	}
 
 	// try to get ConfigMap
 	objKey := client.ObjectKey{
-		Namespace: HOH_LOCAL_NAMESPACE,
-		Name:      INCARNATION_CONFIG_MAP_KEY,
+		Namespace: constants.GHAgentLocalNamespace,
+		Name:      constants.GHAgentIncarnationCMName,
 	}
 	if err := k8sClient.Get(ctx, objKey, configMap); err != nil {
 		if !apiErrors.IsNotFound(err) {
@@ -61,16 +60,16 @@ func GetIncarnation(mgr ctrl.Manager) (uint64, error) {
 	}
 
 	// incarnation configMap exists, get incarnation, increment it and update object
-	incarnationString, exists := configMap.Data[INCARNATION_CONFIG_MAP_KEY]
+	incarnationString, exists := configMap.Data[constants.GHAgentIncarnationCMKey]
 	if !exists {
 		return 0, fmt.Errorf("configmap %s does not contain (%s)",
-			INCARNATION_CONFIG_MAP_KEY, INCARNATION_CONFIG_MAP_KEY)
+			constants.GHAgentIncarnationCMKey, constants.GHAgentIncarnationCMKey)
 	}
 
 	lastIncarnation, err := strconv.ParseUint(incarnationString, BASE10, UINT64_SIZE)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse value of key %s in configmap %s - %w", INCARNATION_CONFIG_MAP_KEY,
-			INCARNATION_CONFIG_MAP_KEY, err)
+		return 0, fmt.Errorf("failed to parse value of key %s in configmap %s - %w", constants.GHAgentIncarnationCMKey,
+			constants.GHAgentIncarnationCMKey, err)
 	}
 
 	newConfigMap := CreateIncarnationConfigMap(lastIncarnation + 1)
@@ -83,9 +82,9 @@ func GetIncarnation(mgr ctrl.Manager) (uint64, error) {
 func CreateIncarnationConfigMap(incarnation uint64) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: HOH_LOCAL_NAMESPACE,
-			Name:      INCARNATION_CONFIG_MAP_KEY,
+			Namespace: constants.GHAgentLocalNamespace,
+			Name:      constants.GHAgentIncarnationCMName,
 		},
-		Data: map[string]string{INCARNATION_CONFIG_MAP_KEY: strconv.FormatUint(incarnation, BASE10)},
+		Data: map[string]string{constants.GHAgentIncarnationCMKey: strconv.FormatUint(incarnation, BASE10)},
 	}
 }

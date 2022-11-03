@@ -24,7 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func TestSetImageOverrides(t *testing.T) {
@@ -52,7 +53,7 @@ func TestSetImageOverrides(t *testing.T) {
 			},
 			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.HOHDefaultNamespace,
+					Namespace: constants.GHDefaultNamespace,
 					Name:      mghInstanceName,
 				},
 				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
@@ -79,10 +80,10 @@ func TestSetImageOverrides(t *testing.T) {
 			},
 			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.HOHDefaultNamespace,
+					Namespace: constants.GHDefaultNamespace,
 					Name:      mghInstanceName,
 					Annotations: map[string]string{
-						constants.AnnotationImageRepo: "quay.io/testing",
+						operatorconstants.AnnotationImageRepo: "quay.io/testing",
 					},
 				},
 				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
@@ -109,17 +110,17 @@ func TestSetImageOverrides(t *testing.T) {
 			},
 			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.HOHDefaultNamespace,
+					Namespace: constants.GHDefaultNamespace,
 					Name:      mghInstanceName,
 					Annotations: map[string]string{
-						constants.AnnotationImageOverridesCM: "mgh-images-config",
+						operatorconstants.AnnotationImageOverridesCM: "mgh-images-config",
 					},
 				},
 				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
 			},
 			imageOverrideCM: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.HOHDefaultNamespace,
+					Namespace: constants.GHDefaultNamespace,
 					Name:      "mgh-images-config",
 				},
 				Data: map[string]string{
@@ -167,18 +168,18 @@ func TestSetImageOverrides(t *testing.T) {
 			},
 			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.HOHDefaultNamespace,
+					Namespace: constants.GHDefaultNamespace,
 					Name:      mghInstanceName,
 					Annotations: map[string]string{
-						constants.AnnotationImageOverridesCM: "mgh-images-config",
-						constants.AnnotationImageRepo:        "quay.io/testing",
+						operatorconstants.AnnotationImageOverridesCM: "mgh-images-config",
+						operatorconstants.AnnotationImageRepo:        "quay.io/testing",
 					},
 				},
 				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
 			},
 			imageOverrideCM: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.HOHDefaultNamespace,
+					Namespace: constants.GHDefaultNamespace,
 					Name:      "mgh-images-config",
 				},
 				Data: map[string]string{

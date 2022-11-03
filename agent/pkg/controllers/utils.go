@@ -79,7 +79,7 @@ func newClusterClaim(name, value string) *clustersv1alpha1.ClusterClaim {
 			Name: name,
 			Labels: map[string]string{
 				"velero.io/exclude-from-backup":  "true",
-				constants.GlobalHubOwnerLabelKey: constants.HoHAgentOwnerLabelValue,
+				constants.GlobalHubOwnerLabelKey: constants.GHAgentOwnerLabelValue,
 			},
 		},
 		Spec: clustersv1alpha1.ClusterClaimSpec{

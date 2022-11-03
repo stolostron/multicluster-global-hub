@@ -43,15 +43,12 @@ import (
 )
 
 const (
-	metricsHost                  = "0.0.0.0"
-	metricsPort            int32 = 8384
-	webhookPort                  = 9443
-	webhookCertDir               = "/webhook-certs"
-	kafkaTransportTypeName       = "kafka"
-	leaderElectionLockName       = "multicluster-global-hub-lock"
-	initializationFailMsg        = "initialization error"
-	initializationFailKey        = "failed to initialize"
-	transportType                = "transport-type"
+	metricsHost                = "0.0.0.0"
+	metricsPort          int32 = 8384
+	webhookPort                = 9443
+	webhookCertDir             = "/webhook-certs"
+	kafkaTransportType         = "kafka"
+	leaderElectionLockID       = "multicluster-global-hub-lock"
 )
 
 var (
@@ -117,7 +114,7 @@ func parseFlags() (*hohManagerConfig, error) {
 		"The URL of database server for the process user.")
 	pflag.StringVar(&managerConfig.databaseConfig.transportBridgeDatabaseURL,
 		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
-	pflag.StringVar(&managerConfig.transportCommonConfig.TransportType, transportType, "kafka",
+	pflag.StringVar(&managerConfig.transportCommonConfig.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'.")
 	pflag.StringVar(&managerConfig.transportCommonConfig.MessageCompressionType, "transport-message-compression-type",
 		"gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
@@ -185,7 +182,7 @@ func printVersion(log logr.Logger) {
 // each type is met. Otherwise, there are no guarantees and the dependencies must be checked.
 func requireInitialDependencyChecks(transportType string) bool {
 	switch transportType {
-	case kafkaTransportTypeName:
+	case kafkaTransportType:
 		return false
 		// once kafka consumer loads up, it starts reading from the earliest un-processed bundle,
 		// as in all bundles that precede the latter have been processed, which include its dependency
@@ -209,7 +206,7 @@ func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapSer
 	}
 
 	switch transportCommonConfig.TransportType {
-	case kafkaTransportTypeName:
+	case kafkaTransportType:
 		kafkaProducer, err := producer.NewKafkaProducer(msgCompressor, kafkaBootstrapServer, kafkaCA,
 			kafkaProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
@@ -218,9 +215,8 @@ func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapSer
 
 		return kafkaProducer, nil
 	default:
-		return nil, fmt.Errorf("%w: %s - %s is not a valid option",
-			errFlagParameterIllegalValue, transportType,
-			transportCommonConfig.TransportType)
+		return nil, fmt.Errorf("%w: transport-type - %s is not a valid option",
+			errFlagParameterIllegalValue, transportCommonConfig.TransportType)
 	}
 }
 
@@ -230,7 +226,7 @@ func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapS
 	conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
 ) (consumer.Consumer, error) {
 	switch transportCommonConfig.TransportType {
-	case kafkaTransportTypeName:
+	case kafkaTransportType:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
 			kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig,
 			ctrl.Log.WithName("kafka-consumer"))
@@ -247,9 +243,8 @@ func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapS
 
 		return kafkaConsumer, nil
 	default:
-		return nil, fmt.Errorf("%w: %s - %s is not a valid option",
-			errFlagParameterIllegalValue, transportType,
-			transportCommonConfig.TransportType)
+		return nil, fmt.Errorf("%w: transport-type - %s is not a valid option",
+			errFlagParameterIllegalValue, transportCommonConfig.TransportType)
 	}
 }
 
@@ -266,7 +261,7 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.managerNamespace,
-		LeaderElectionID:        leaderElectionLockName,
+		LeaderElectionID:        leaderElectionLockID,
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
@@ -383,7 +378,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	// db layer initialization for process user
 	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.databaseConfig.processDatabaseURL)
 	if err != nil {
-		log.Error(err, initializationFailMsg, initializationFailKey, "process PostgreSQL")
+		log.Error(err, "failed to initilize process PostgreSQL")
 		return 1
 	}
 	defer processPostgreSQL.Stop()
@@ -392,7 +387,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	transportBridgePostgreSQL, err := postgresql.NewPostgreSQL(
 		managerConfig.databaseConfig.transportBridgeDatabaseURL)
 	if err != nil {
-		log.Error(err, initializationFailMsg, initializationFailKey, "transport-bridge PostgreSQL")
+		log.Error(err, "failed to initilize transport-bridge PostgreSQL")
 		return 1
 	}
 	defer transportBridgePostgreSQL.Stop()
@@ -401,7 +396,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"),
 		managerConfig.databaseConfig.transportBridgeDatabaseURL, stats)
 	if err != nil {
-		log.Error(err, initializationFailMsg, initializationFailKey, "DBWorkerPool")
+		log.Error(err, "failed to initilize DBWorkerPool")
 		return 1
 	}
 

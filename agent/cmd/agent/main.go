@@ -29,10 +29,10 @@ import (
 )
 
 const (
-	METRICS_HOST         = "0.0.0.0"
-	METRICS_PORT         = 9435
-	TRANSPORT_TYPE_KAFKA = "kafka"
-	LEADER_ELECTION_ID   = "multicluster-global-hub-agent-lock"
+	metricsHost                = "0.0.0.0"
+	metricsPort          int32 = 8384
+	kafkaTransportType         = "kafka"
+	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
 )
 
 func main() {
@@ -95,7 +95,7 @@ func printVersion(log logr.Logger) {
 // function to choose transport type based on env var.
 func getConsumer(environmentManager *helper.ConfigManager) (consumer.Consumer, error) {
 	switch environmentManager.TransportType {
-	case TRANSPORT_TYPE_KAFKA:
+	case kafkaTransportType:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
 			environmentManager.BootstrapServers, environmentManager.SslCA,
 			environmentManager.ConsumerConfig, ctrl.Log.WithName("kafka-consumer"))
@@ -118,7 +118,7 @@ func getProducer(environmentManager *helper.ConfigManager) (producer.Producer, e
 	}
 
 	switch environmentManager.TransportType {
-	case TRANSPORT_TYPE_KAFKA:
+	case kafkaTransportType:
 		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
 			environmentManager.BootstrapServers, environmentManager.SslCA,
 			environmentManager.ProducerConfig, ctrl.Log.WithName("kafka-producer"))
@@ -149,10 +149,10 @@ func createManager(restConfig *rest.Config, environmentManager *helper.ConfigMan
 	}
 
 	options := ctrl.Options{
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", METRICS_HOST, METRICS_PORT),
-		LeaderElectionConfig:    leaderElectionConfig,
+		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
-		LeaderElectionID:        LEADER_ELECTION_ID,
+		LeaderElectionConfig:    leaderElectionConfig,
+		LeaderElectionID:        leaderElectionLockID,
 		LeaderElectionNamespace: environmentManager.PodNameSpace,
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,

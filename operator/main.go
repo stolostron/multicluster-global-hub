@@ -59,10 +59,10 @@ import (
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	hubofhubsconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -71,7 +71,7 @@ var (
 	setupLog      = ctrl.Log.WithName("setup")
 	labelSelector = labels.SelectorFromSet(
 		labels.Set{
-			commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 		},
 	)
 )
@@ -279,8 +279,8 @@ func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 		RetryPeriod:   26,
 	}
 
-	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.HOHDefaultNamespace).Get(
-		context.TODO(), commonconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
+	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.GHDefaultNamespace).Get(
+		context.TODO(), operatorconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return config, nil
 	}

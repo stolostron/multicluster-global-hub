@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 type PruneFinalizer struct {
@@ -32,7 +32,7 @@ func NewPruneFinalizer(ctx context.Context, runtimeClient client.Client) Runnabl
 		ctx:       ctx,
 		log:       ctrl.Log.WithName("prune-finalizer-job"),
 		client:    runtimeClient,
-		finalizer: commonconstants.GlobalHubCleanupFinalizer,
+		finalizer: constants.GlobalHubCleanupFinalizer,
 	}
 }
 

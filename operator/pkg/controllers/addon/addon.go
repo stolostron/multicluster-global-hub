@@ -20,9 +20,9 @@ import (
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	globalconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -83,12 +83,12 @@ func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha2.Multiclust
 
 func (a *HohAgentAddon) installACMHub(cluster *clusterv1.ManagedCluster) bool {
 	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name != globalconstants.HubClusterClaimName {
+		if claim.Name != constants.HubClusterClaimName {
 			continue
 		}
 
-		if claim.Value == globalconstants.HubNotInstalled ||
-			claim.Value == globalconstants.HubInstalledByHoH {
+		if claim.Value == constants.HubNotInstalled ||
+			claim.Value == constants.HubInstalledByHoH {
 			return true
 		}
 	}
@@ -99,7 +99,7 @@ func (a *HohAgentAddon) setInstallHostedMode(addon *addonapiv1alpha1.ManagedClus
 	manifestsConfig *ManifestsConfig,
 ) {
 	annotations := addon.GetAnnotations()
-	if annotations[constants.AnnotationAddonHostingClusterName] != "" {
+	if annotations[operatorconstants.AnnotationAddonHostingClusterName] != "" {
 		manifestsConfig.InstallHostedMode = true
 	}
 }
@@ -111,11 +111,11 @@ func (a *HohAgentAddon) setACMPackageConfigs(manifestsConfig *ManifestsConfig) e
 	}
 	manifestsConfig.Channel = pm.ACMDefaultChannel
 	manifestsConfig.CurrentCSV = pm.ACMCurrentCSV
-	manifestsConfig.Source = constants.ACMSubscriptionPublicSource
-	manifestsConfig.SourceNamespace = constants.OpenshiftMarketPlaceNamespace
+	manifestsConfig.Source = operatorconstants.ACMSubscriptionPublicSource
+	manifestsConfig.SourceNamespace = operatorconstants.OpenshiftMarketPlaceNamespace
 
 	imagePullSecret, err := a.kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(a.ctx,
-		constants.DefaultImagePullSecretName, metav1.GetOptions{})
+		operatorconstants.DefaultImagePullSecretName, metav1.GetOptions{})
 	switch {
 	case err == nil:
 		imagePullSecretDataBase64 := base64.StdEncoding.EncodeToString(
@@ -133,7 +133,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 ) (addonfactory.Values, error) {
 	installNamespace := addon.Spec.InstallNamespace
 	if len(installNamespace) == 0 {
-		installNamespace = constants.HoHAgentInstallNamespace
+		installNamespace = operatorconstants.GHAgentInstallNamespace
 	}
 
 	mgh, err := a.getMulticlusterGlobalHub()

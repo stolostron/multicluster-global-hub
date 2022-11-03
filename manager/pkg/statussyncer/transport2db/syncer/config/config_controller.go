@@ -22,8 +22,8 @@ const (
 // AddConfigController creates a new instance of config controller and adds it to the manager.
 func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *corev1.ConfigMap) error {
 	if err := mgr.GetAPIReader().Get(context.Background(), client.ObjectKey{
-		Namespace: constants.HohSystemNamespace,
-		Name:      constants.HoHConfigName,
+		Namespace: constants.GHSystemNamespace,
+		Name:      constants.GHConfigCMName,
 	}, config); err != nil {
 		return fmt.Errorf("failed to read config - %w", err)
 	}
@@ -35,8 +35,8 @@ func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *corev1.Confi
 	}
 
 	configPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == constants.HohSystemNamespace &&
-			object.GetName() == constants.HoHConfigName
+		return object.GetNamespace() == constants.GHSystemNamespace &&
+			object.GetName() == constants.GHConfigCMName
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).

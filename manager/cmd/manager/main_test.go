@@ -133,16 +133,16 @@ func TestManager(t *testing.T) {
 		defer cancel()
 		if _, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: constants.HohSystemNamespace,
+				Name: constants.GHSystemNamespace,
 			},
 		}, metav1.CreateOptions{}); err != nil {
 			t.Errorf("failed to create global hub system namespace: %v", err)
 		}
-		if _, err := kubeClient.CoreV1().ConfigMaps(constants.HohSystemNamespace).Create(ctx,
+		if _, err := kubeClient.CoreV1().ConfigMaps(constants.GHSystemNamespace).Create(ctx,
 			&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.HoHConfigName,
-					Namespace: constants.HohSystemNamespace,
+					Name:      constants.GHConfigCMName,
+					Namespace: constants.GHSystemNamespace,
 					Annotations: map[string]string{
 						constants.OriginOwnerReferenceAnnotation: "testing",
 					},

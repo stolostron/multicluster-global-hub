@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var _ = Describe("placementrules controller", Ordered, func() {
@@ -38,7 +39,7 @@ var _ = Describe("placementrules controller", Ordered, func() {
 				Namespace: config.GetDefaultNamespace(),
 			},
 			Spec: placementrulev1.PlacementRuleSpec{
-				SchedulerName: "global-hub",
+				SchedulerName: constants.GlobalHubSchedulerName,
 			},
 		}
 		Expect(kubeClient.Create(ctx, testPlacementrule, &client.CreateOptions{})).ToNot(HaveOccurred())

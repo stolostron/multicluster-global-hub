@@ -37,7 +37,7 @@ func AddSyncIntervalsController(mgr ctrl.Manager, syncIntervals *SyncIntervals) 
 	}
 
 	syncIntervalsPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == constants.HohSystemNamespace &&
+		return object.GetNamespace() == constants.GHSystemNamespace &&
 			object.GetName() == STATUS_SYNC_INTERVAL_CONFIGMAP_NAME
 	})
 

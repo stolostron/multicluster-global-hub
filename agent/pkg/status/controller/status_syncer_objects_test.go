@@ -17,8 +17,8 @@ import (
 
 var globalHubConfigConfigMap = &corev1.ConfigMap{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      constants.HoHConfigName,
-		Namespace: constants.HohSystemNamespace,
+		Name:      constants.GHConfigCMName,
+		Namespace: constants.GHSystemNamespace,
 		Annotations: map[string]string{
 			constants.OriginOwnerReferenceAnnotation: "testing",
 		},

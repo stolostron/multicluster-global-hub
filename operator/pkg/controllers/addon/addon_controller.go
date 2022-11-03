@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -84,7 +84,8 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		return err
 	}
 
-	agentAddon, err := addonfactory.NewAgentAddonFactory(constants.HoHManagedClusterAddonName, FS, "manifests").
+	agentAddon, err := addonfactory.NewAgentAddonFactory(
+		operatorconstants.GHManagedClusterAddonName, FS, "manifests").
 		WithAgentHostedModeEnabledOption().
 		WithGetValuesFuncs(hohAgentAddon.GetValues).
 		WithScheme(addonScheme).

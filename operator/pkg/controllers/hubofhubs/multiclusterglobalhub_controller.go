@@ -57,11 +57,10 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
@@ -144,7 +143,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	// Deleting the multiclusterglobalhub instance
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
-		commonconstants.GlobalHubCleanupFinalizer) {
+		constants.GlobalHubCleanupFinalizer) {
 		if err := r.pruneGlobalHubResources(ctx, mgh); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
 		}
@@ -169,8 +168,8 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// Make sure the reconcile work properly, and then add finalizer to the multiclusterglobalhub instance
-	if !utils.Contains(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
-		mgh.SetFinalizers(append(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+	if !utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
+		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
 		if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to add finalizer to mgh %v", err)
 		}
@@ -195,7 +194,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
-	mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer))
+	mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
 	if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
 		return err
 	}
@@ -365,7 +364,7 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.HoHOperatorOwnerLabelVal
+		labels[constants.GlobalHubOwnerLabelKey] = constants.GHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		log.Info("Creating or updating object", "object", obj)
@@ -397,14 +396,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 ) error {
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
-			Name: constants.HOHSystemNamespace,
+			Name: constants.GHSystemNamespace,
 		}, &corev1.Namespace{}); err != nil {
 		if errors.IsNotFound(err) {
 			if err := r.Client.Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: constants.HOHSystemNamespace,
+					Name: constants.GHSystemNamespace,
 					Labels: map[string]string{
-						commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+						constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 					},
 				},
 			}); err != nil {
@@ -418,10 +417,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 	// hoh configmap
 	hohConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: constants.HOHSystemNamespace,
-			Name:      constants.HOHConfigName,
+			Namespace: constants.GHSystemNamespace,
+			Name:      constants.GHConfigCMName,
 			Labels: map[string]string{
-				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
 		Data: map[string]string{
@@ -433,8 +432,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Cont
 	existingHoHConfigMap := &corev1.ConfigMap{}
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
-			Namespace: constants.HOHSystemNamespace,
-			Name:      constants.HOHConfigName,
+			Namespace: constants.GHSystemNamespace,
+			Name:      constants.GHConfigCMName,
 		}, existingHoHConfigMap); err != nil {
 		if errors.IsNotFound(err) {
 			if err := r.Client.Create(ctx, hohConfigMap); err != nil {
@@ -493,16 +492,16 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
-				commonconstants.HoHOperatorOwnerLabelVal &&
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal &&
 				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
 				return true
 			}
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
-				commonconstants.HoHOperatorOwnerLabelVal
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
 		},
 	}
 
@@ -511,8 +510,8 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
-				commonconstants.HoHOperatorOwnerLabelVal {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal {
 				new := e.ObjectNew.(*admissionregistrationv1.MutatingWebhookConfiguration)
 				old := e.ObjectOld.(*admissionregistrationv1.MutatingWebhookConfiguration)
 				if len(new.Webhooks) != len(old.Webhooks) ||
@@ -528,8 +527,8 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetLabels()[commonconstants.GlobalHubOwnerLabelKey] ==
-				commonconstants.HoHOperatorOwnerLabelVal
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
 		},
 	}
 
@@ -597,7 +596,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
-			commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 		}),
 	}
 
@@ -649,8 +648,8 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 	existingMghConfigMap := &corev1.ConfigMap{}
 	err := r.Client.Get(ctx,
 		types.NamespacedName{
-			Namespace: constants.HOHSystemNamespace,
-			Name:      constants.HOHConfigName,
+			Namespace: constants.GHSystemNamespace,
+			Name:      constants.GHConfigCMName,
 		}, existingMghConfigMap)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
@@ -667,9 +666,9 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 
 	mghSystemNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.HOHSystemNamespace,
+			Name: constants.GHSystemNamespace,
 			Labels: map[string]string{
-				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
 	}

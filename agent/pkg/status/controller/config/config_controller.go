@@ -35,8 +35,8 @@ func AddConfigController(mgr ctrl.Manager, configObject *corev1.ConfigMap) error
 	}
 
 	hohNamespacePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == constants.HohSystemNamespace &&
-			object.GetName() == constants.HoHConfigName
+		return object.GetNamespace() == constants.GHSystemNamespace &&
+			object.GetName() == constants.GHConfigCMName
 	})
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)

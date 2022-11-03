@@ -20,8 +20,8 @@ func AddHubOfHubsConfigController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.ConfigMap{}).
 		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
-			return object.GetNamespace() == constants.HohSystemNamespace &&
-				object.GetName() == constants.HoHConfigName
+			return object.GetNamespace() == constants.GHSystemNamespace &&
+				object.GetName() == constants.GHConfigCMName
 		})).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),

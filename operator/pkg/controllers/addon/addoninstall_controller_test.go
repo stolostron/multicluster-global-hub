@@ -20,9 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	globalconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var kubeCfg *rest.Config
@@ -50,21 +50,20 @@ func TestMain(m *testing.M) {
 
 func fakeCluster(name, hostingCluster, addonDeployMode string) *v1.ManagedCluster {
 	cluster := &v1.ManagedCluster{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: v1.ManagedClusterSpec{},
 	}
 	labels := map[string]string{
-		globalconstants.AgentDeployModeLabelKey: addonDeployMode,
+		operatorconstants.GHAgentDeployModeLabelKey: addonDeployMode,
 	}
 	cluster.SetLabels(labels)
 
 	if hostingCluster != "" {
 		annotations := map[string]string{
-			constants.AnnotationClusterDeployMode:         constants.ClusterDeployModeHosted,
-			constants.AnnotationClusterHostingClusterName: hostingCluster,
+			operatorconstants.AnnotationClusterDeployMode:         operatorconstants.ClusterDeployModeHosted,
+			operatorconstants.AnnotationClusterHostingClusterName: hostingCluster,
 		}
 		cluster.SetAnnotations(annotations)
 	}
@@ -75,9 +74,9 @@ func fakeCluster(name, hostingCluster, addonDeployMode string) *v1.ManagedCluste
 func fakeHoHManagementAddon() *v1alpha1.ClusterManagementAddOn {
 	return &v1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.HoHClusterManagementAddonName,
+			Name: operatorconstants.GHClusterManagementAddonName,
 			Labels: map[string]string{
-				globalconstants.GlobalHubOwnerLabelKey: globalconstants.HoHOperatorOwnerLabelVal,
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
 	}
@@ -85,9 +84,8 @@ func fakeHoHManagementAddon() *v1alpha1.ClusterManagementAddOn {
 
 func fakeHoHAddon(cluster, installNamespace, addonDeployMode string) *v1alpha1.ManagedClusterAddOn {
 	addon := &v1alpha1.ManagedClusterAddOn{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.HoHManagedClusterAddonName,
+			Name:      operatorconstants.GHManagedClusterAddonName,
 			Namespace: cluster,
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{
@@ -95,8 +93,8 @@ func fakeHoHAddon(cluster, installNamespace, addonDeployMode string) *v1alpha1.M
 		},
 	}
 
-	if addonDeployMode == constants.ClusterDeployModeHosted {
-		addon.SetAnnotations(map[string]string{constants.AnnotationAddonHostingClusterName: "hostingcluster"})
+	if addonDeployMode == operatorconstants.ClusterDeployModeHosted {
+		addon.SetAnnotations(map[string]string{operatorconstants.AnnotationAddonHostingClusterName: "hostingcluster"})
 	}
 
 	return addon
@@ -118,7 +116,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 	}{
 		{
 			name:            "mgh not ready",
-			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
+			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
 			isMGHReady:      false,
 			managementAddon: nil,
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
@@ -133,7 +131,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 		},
 		{
 			name:            "clustermanagementaddon not ready",
-			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
+			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
 			isMGHReady:      true,
 			managementAddon: nil,
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
@@ -148,7 +146,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 		},
 		{
 			name:            "req not found",
-			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
+			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
 			isMGHReady:      true,
 			managementAddon: fakeHoHManagementAddon(),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster2"}},
@@ -163,7 +161,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 		},
 		{
 			name:            "do not create addon",
-			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeNone),
+			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeNone),
 			isMGHReady:      true,
 			managementAddon: fakeHoHManagementAddon(),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
@@ -178,7 +176,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 		},
 		{
 			name:            "create addon in default mode",
-			cluster:         fakeCluster("cluster1", "", globalconstants.AgentDeployModeDefault),
+			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
 			isMGHReady:      true,
 			managementAddon: fakeHoHManagementAddon(),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
@@ -186,15 +184,16 @@ func TestHoHAddonReconciler(t *testing.T) {
 				if err != nil {
 					t.Errorf("failed to reconcile .%v", err)
 				}
-				if addon.Spec.InstallNamespace != constants.HoHAgentInstallNamespace {
+				if addon.Spec.InstallNamespace != operatorconstants.GHAgentInstallNamespace {
 					t.Errorf("expected installname %s, but got %s",
-						constants.HoHAgentInstallNamespace, addon.Spec.InstallNamespace)
+						operatorconstants.GHAgentInstallNamespace, addon.Spec.InstallNamespace)
 				}
 			},
 		},
 		{
-			name:            "create addon in hosted mode",
-			cluster:         fakeCluster("cluster1", "cluster2", globalconstants.AgentDeployModeHosted),
+			name: "create addon in hosted mode",
+			cluster: fakeCluster("cluster1", "cluster2",
+				operatorconstants.GHAgentDeployModeHosted),
 			isMGHReady:      true,
 			managementAddon: fakeHoHManagementAddon(),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
@@ -205,15 +204,16 @@ func TestHoHAddonReconciler(t *testing.T) {
 				if addon.Spec.InstallNamespace != "open-cluster-management-cluster1-hoh-addon" {
 					t.Errorf("expected installname open-cluster-management-cluster1-hoh-addon, but got %s", addon.Spec.InstallNamespace)
 				}
-				if addon.Annotations[constants.AnnotationAddonHostingClusterName] != "cluster2" {
+				if addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName] != "cluster2" {
 					t.Errorf("expected hosting cluster cluster2, but got %s",
-						addon.Annotations[constants.AnnotationAddonHostingClusterName])
+						addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName])
 				}
 			},
 		},
 		{
-			name:            "update addon in hosted mode",
-			cluster:         fakeCluster("cluster1", "cluster2", globalconstants.AgentDeployModeHosted),
+			name: "update addon in hosted mode",
+			cluster: fakeCluster("cluster1", "cluster2",
+				operatorconstants.GHAgentDeployModeHosted),
 			isMGHReady:      true,
 			managementAddon: fakeHoHManagementAddon(),
 			addon:           fakeHoHAddon("cluster1", "test", ""),
@@ -225,9 +225,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 				if addon.Spec.InstallNamespace != "open-cluster-management-cluster1-hoh-addon" {
 					t.Errorf("expected installname open-cluster-management-cluster1-hoh-addon, but got %s", addon.Spec.InstallNamespace)
 				}
-				if addon.Annotations[constants.AnnotationAddonHostingClusterName] != "cluster2" {
+				if addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName] != "cluster2" {
 					t.Errorf("expected hosting cluster cluster2, but got %s",
-						addon.Annotations[constants.AnnotationAddonHostingClusterName])
+						addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName])
 				}
 			},
 		},
@@ -269,7 +269,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 			} else {
 				addon := &v1alpha1.ManagedClusterAddOn{}
 				err = r.Get(context.TODO(), types.NamespacedName{
-					Namespace: tc.cluster.Name, Name: constants.HoHManagedClusterAddonName,
+					Namespace: tc.cluster.Name, Name: operatorconstants.GHManagedClusterAddonName,
 				}, addon)
 				if err != nil {
 					if errors.IsNotFound(err) {

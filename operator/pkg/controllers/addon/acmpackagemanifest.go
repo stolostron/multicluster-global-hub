@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
 type packageManifestConfig struct {
@@ -55,14 +55,14 @@ func GetPackageManifestConfig(ctx context.Context, dynClient dynamic.Interface) 
 	})
 
 	packageManifestList, err := pmClient.List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("catalog=%s", constants.ACMSubscriptionPublicSource),
+		LabelSelector: fmt.Sprintf("catalog=%s", operatorconstants.ACMSubscriptionPublicSource),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	for _, pm := range packageManifestList.Items {
-		if pm.GetName() == constants.ACMPackageManifestName {
+		if pm.GetName() == operatorconstants.ACMPackageManifestName {
 			klog.V(2).Info("found ACM PackageManifest")
 			acmDefaultChannel, acmCurrentCSV, ACMImages, err := getSinglePackageManifestConfig(pm)
 			if err != nil {
@@ -73,7 +73,7 @@ func GetPackageManifestConfig(ctx context.Context, dynClient dynamic.Interface) 
 			packageManifestConfigInstance.ACMCurrentCSV = acmCurrentCSV
 			packageManifestConfigInstance.ACMImages = ACMImages
 		}
-		if pm.GetName() == constants.MCEPackageManifestName {
+		if pm.GetName() == operatorconstants.MCEPackageManifestName {
 			klog.V(2).Info("found MCE PackageManifest")
 			mceDefaultChannel, mceCurrentCSV, MCEImages, err := getSinglePackageManifestConfig(pm)
 			if err != nil {

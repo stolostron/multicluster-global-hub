@@ -58,10 +58,6 @@ var _ = Describe("controller", Ordered, func() {
 	It("clusterClaim testing only clusterManager is installed", func() {
 		By("Create clusterManager instance")
 		Expect(mgr.GetClient().Create(ctx, &operatorv1.ClusterManager{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ClusterManager",
-				APIVersion: "operator.open-cluster-management.io/v1",
-			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cluster-manager",
 			},
@@ -70,10 +66,6 @@ var _ = Describe("controller", Ordered, func() {
 
 		By("Create clusterClaim to trigger hubClaim controller")
 		Expect(mgr.GetClient().Create(ctx, &clustersv1alpha1.ClusterClaim{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ClusterClaim",
-				APIVersion: "cluster.open-cluster-management.io/v1alpha1",
-			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test2",
 			},
@@ -94,10 +86,6 @@ var _ = Describe("controller", Ordered, func() {
 	It("clusterClaim testing clusterManager and mch are not installed", func() {
 		By("Create clusterClaim to trigger hubClaim controller")
 		Expect(mgr.GetClient().Create(ctx, &clustersv1alpha1.ClusterClaim{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ClusterClaim",
-				APIVersion: "cluster.open-cluster-management.io/v1alpha1",
-			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
 			},
@@ -117,10 +105,6 @@ var _ = Describe("controller", Ordered, func() {
 	It("clusterclaim testing", func() {
 		By("Create MCH instance to trigger reconciliation")
 		Expect(mgr.GetClient().Create(ctx, &mchv1.MultiClusterHub{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "MultiClusterHub",
-				APIVersion: "operator.open-cluster-management.io/v1",
-			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "multiclusterhub",
 				Namespace: "default",
@@ -144,7 +128,7 @@ var _ = Describe("controller", Ordered, func() {
 		clusterClaim := &clustersv1alpha1.ClusterClaim{}
 		Eventually(func() bool {
 			err := mgr.GetClient().Get(ctx, types.NamespacedName{
-				Name: "version.open-cluster-management.io",
+				Name: constants.VersionClusterClaimName,
 			}, clusterClaim)
 			if err != nil {
 				return false
@@ -158,7 +142,7 @@ var _ = Describe("controller", Ordered, func() {
 
 		Eventually(func() bool {
 			err := mgr.GetClient().Get(ctx, types.NamespacedName{
-				Name: "hub.open-cluster-management.io",
+				Name: constants.HubClusterClaimName,
 			}, clusterClaim)
 			if err != nil {
 				return false
@@ -177,7 +161,7 @@ var _ = Describe("controller", Ordered, func() {
 		clusterClaim = &clustersv1alpha1.ClusterClaim{}
 		Eventually(func() bool {
 			err := mgr.GetClient().Get(ctx, types.NamespacedName{
-				Name: "version.open-cluster-management.io",
+				Name: constants.VersionClusterClaimName,
 			}, clusterClaim)
 			return err == nil && clusterClaim.Spec.Value == "2.7.0"
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
@@ -185,14 +169,14 @@ var _ = Describe("controller", Ordered, func() {
 		By("Expect clusterClaim to be re-created once it is deleted")
 		Expect(mgr.GetClient().Delete(context.Background(), &clustersv1alpha1.ClusterClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "version.open-cluster-management.io",
+				Name: constants.VersionClusterClaimName,
 			},
 		})).NotTo(HaveOccurred())
 
 		newClusterClaim := &clustersv1alpha1.ClusterClaim{}
 		Eventually(func() bool {
 			err := mgr.GetClient().Get(ctx, types.NamespacedName{
-				Name: "version.open-cluster-management.io",
+				Name: constants.VersionClusterClaimName,
 			}, newClusterClaim)
 			fmt.Fprintf(GinkgoWriter, "the old ClusterClaim: %v\n", clusterClaim)
 			fmt.Fprintf(GinkgoWriter, "the new ClusterClaim: %v\n", newClusterClaim)
@@ -205,7 +189,7 @@ var _ = Describe("controller", Ordered, func() {
 		clusterClaim = &clustersv1alpha1.ClusterClaim{}
 		Eventually(func() bool {
 			err := mgr.GetClient().Get(ctx, types.NamespacedName{
-				Name: "hub.open-cluster-management.io",
+				Name: constants.HubClusterClaimName,
 			}, clusterClaim)
 			if err != nil {
 				return false
@@ -223,10 +207,6 @@ var _ = Describe("controller", Ordered, func() {
 func cleanup(ctx context.Context, client client.Client) {
 	Eventually(func() error {
 		err := client.Delete(ctx, &mchv1.MultiClusterHub{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "MultiClusterHub",
-				APIVersion: "operator.open-cluster-management.io/v1",
-			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "multiclusterhub",
 				Namespace: "default",
@@ -241,10 +221,6 @@ func cleanup(ctx context.Context, client client.Client) {
 
 	Eventually(func() error {
 		err := client.Delete(ctx, &operatorv1.ClusterManager{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ClusterManager",
-				APIVersion: "operator.open-cluster-management.io/v1",
-			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cluster-manager",
 			},
@@ -258,10 +234,6 @@ func cleanup(ctx context.Context, client client.Client) {
 
 	Eventually(func() error {
 		err := client.Delete(ctx, &clustersv1alpha1.ClusterClaim{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ClusterClaim",
-				APIVersion: "cluster.open-cluster-management.io/v1alpha1",
-			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: constants.HubClusterClaimName,
 			},
@@ -274,10 +246,6 @@ func cleanup(ctx context.Context, client client.Client) {
 	}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	Eventually(func() error {
 		err := client.Delete(ctx, &clustersv1alpha1.ClusterClaim{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ClusterClaim",
-				APIVersion: "cluster.open-cluster-management.io/v1alpha1",
-			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: constants.VersionClusterClaimName,
 			},

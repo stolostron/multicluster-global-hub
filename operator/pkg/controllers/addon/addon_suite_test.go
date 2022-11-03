@@ -48,9 +48,9 @@ import (
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	// +kubebuilder:scaffold:imports
 )
@@ -235,7 +235,7 @@ func prepareBeforeTest() {
 	By("By creating a fake image pull secret")
 	Expect(k8sClient.Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.DefaultImagePullSecretName,
+			Name:      operatorconstants.DefaultImagePullSecretName,
 			Namespace: config.GetDefaultNamespace(),
 		},
 		Data: map[string][]byte{
@@ -252,8 +252,8 @@ func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 		RetryPeriod:   26,
 	}
 
-	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.HOHDefaultNamespace).Get(
-		context.TODO(), commonconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
+	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.GHDefaultNamespace).Get(
+		context.TODO(), operatorconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return config, nil
 	}
