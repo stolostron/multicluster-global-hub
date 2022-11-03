@@ -27,9 +27,9 @@ import (
 
 	v1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	globalconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -41,7 +41,6 @@ var FS embed.FS
 
 func fakeMulticlusterGlobalHub() *v1alpha2.MulticlusterGlobalHub {
 	return &v1alpha2.MulticlusterGlobalHub{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "multiclusterglobalhub",
 			Namespace: config.GetDefaultNamespace(),
@@ -78,9 +77,8 @@ func fakeKafkaSecret() *corev1.Secret {
 
 func fakePullSecret() *corev1.Secret {
 	return &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.DefaultImagePullSecretName,
+			Name:      operatorconstants.DefaultImagePullSecretName,
 			Namespace: config.GetDefaultNamespace(),
 		},
 		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte("dGVzdAo=")},
@@ -90,14 +88,13 @@ func fakePullSecret() *corev1.Secret {
 
 func fakeHubClaim(value string) clusterv1.ManagedClusterClaim {
 	return clusterv1.ManagedClusterClaim{
-		Name:  globalconstants.HubClusterClaimName,
+		Name:  constants.HubClusterClaimName,
 		Value: value,
 	}
 }
 
 func fakeManagedCluster(name string, claim clusterv1.ManagedClusterClaim) *clusterv1.ManagedCluster {
 	return &clusterv1.ManagedCluster{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
@@ -110,9 +107,8 @@ func fakeManagedCluster(name string, claim clusterv1.ManagedClusterClaim) *clust
 
 func fakeManagedClusterAddon(clusterName, installNamespace string, installMode string) *v1alpha1.ManagedClusterAddOn {
 	addon := &v1alpha1.ManagedClusterAddOn{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.HoHManagedClusterAddonName,
+			Name:      operatorconstants.GHManagedClusterAddonName,
 			Namespace: clusterName,
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{},
@@ -121,7 +117,7 @@ func fakeManagedClusterAddon(clusterName, installNamespace string, installMode s
 		addon.Spec.InstallNamespace = installNamespace
 	}
 	switch installMode {
-	case constants.ClusterDeployModeHosted:
+	case operatorconstants.ClusterDeployModeHosted:
 		addon.SetAnnotations(map[string]string{"addon.open-cluster-management.io/hosting-cluster-name": "hostingCluster"})
 	}
 
@@ -142,7 +138,8 @@ func fakeAgentAddon(t *testing.T, objects ...runtime.Object) agent.AgentAddon {
 		kubefake.NewSimpleClientset(objects...),
 		fakeLeaderElectionConfig(),
 	)
-	agentAddon, err := addonfactory.NewAgentAddonFactory(constants.HoHManagedClusterAddonName, FS, "manifests/templates").
+	agentAddon, err := addonfactory.NewAgentAddonFactory(
+		operatorconstants.GHManagedClusterAddonName, FS, "manifests/templates").
 		WithGetValuesFuncs(hohAgentAddon.GetValues).WithScheme(testScheme).BuildTemplateAgentAddon()
 	if err != nil {
 		t.Fatalf("failed to create agent addon. err:%v", err)
@@ -169,18 +166,20 @@ func TestManifest(t *testing.T) {
 		expectedInstallNamespace string
 	}{
 		{
-			name:                     "install agent in default mode",
-			existingObjects:          []runtime.Object{fakeKafkaSecret()},
-			cluster:                  fakeManagedCluster("cluster1", clusterv1.ManagedClusterClaim{}),
-			addon:                    fakeManagedClusterAddon("cluster1", "", constants.ClusterDeployModeDefault),
+			name:            "install agent in default mode",
+			existingObjects: []runtime.Object{fakeKafkaSecret()},
+			cluster:         fakeManagedCluster("cluster1", clusterv1.ManagedClusterClaim{}),
+			addon: fakeManagedClusterAddon("cluster1", "",
+				operatorconstants.ClusterDeployModeDefault),
 			expectedCount:            7,
-			expectedInstallNamespace: constants.HoHAgentInstallNamespace,
+			expectedInstallNamespace: operatorconstants.GHAgentInstallNamespace,
 		},
 		{
-			name:                     "install agent in hosted mode",
-			existingObjects:          []runtime.Object{fakeKafkaSecret()},
-			cluster:                  fakeManagedCluster("cluster1", clusterv1.ManagedClusterClaim{}),
-			addon:                    fakeManagedClusterAddon("cluster1", "hoh-agent-addon", constants.ClusterDeployModeHosted),
+			name:            "install agent in hosted mode",
+			existingObjects: []runtime.Object{fakeKafkaSecret()},
+			cluster:         fakeManagedCluster("cluster1", clusterv1.ManagedClusterClaim{}),
+			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
+				operatorconstants.ClusterDeployModeHosted),
 			expectedCount:            11,
 			expectedInstallNamespace: "hoh-agent-addon",
 		},
@@ -189,8 +188,9 @@ func TestManifest(t *testing.T) {
 			existingObjects: []runtime.Object{fakeKafkaSecret()},
 			// install agent and acm when the acm hub is not found
 			cluster: fakeManagedCluster("cluster1",
-				fakeHubClaim(globalconstants.HubNotInstalled)),
-			addon:                    fakeManagedClusterAddon("cluster1", "addon-test", constants.ClusterDeployModeDefault),
+				fakeHubClaim(constants.HubNotInstalled)),
+			addon: fakeManagedClusterAddon("cluster1", "addon-test",
+				operatorconstants.ClusterDeployModeDefault),
 			expectedCount:            13,
 			expectedInstallNamespace: "addon-test",
 		},
@@ -199,18 +199,20 @@ func TestManifest(t *testing.T) {
 			existingObjects: []runtime.Object{fakeKafkaSecret(), fakePullSecret()},
 			// only install acm when the acm hub is not found
 			cluster: fakeManagedCluster("cluster1",
-				fakeHubClaim(globalconstants.HubNotInstalled)),
-			addon:                    fakeManagedClusterAddon("cluster1", "", constants.ClusterDeployModeDefault),
+				fakeHubClaim(constants.HubNotInstalled)),
+			addon: fakeManagedClusterAddon("cluster1", "",
+				operatorconstants.ClusterDeployModeDefault),
 			expectedCount:            14,
-			expectedInstallNamespace: constants.HoHAgentInstallNamespace,
+			expectedInstallNamespace: operatorconstants.GHAgentInstallNamespace,
 		},
 		{
 			name:            "install agent in hosted mode and acm in default mode with pullsecret",
 			existingObjects: []runtime.Object{fakeKafkaSecret(), fakePullSecret()},
 			// only install acm when the acm hub is not found
 			cluster: fakeManagedCluster("cluster1",
-				fakeHubClaim(globalconstants.HubNotInstalled)),
-			addon:                    fakeManagedClusterAddon("cluster1", "hoh-agent-addon", constants.ClusterDeployModeHosted),
+				fakeHubClaim(constants.HubNotInstalled)),
+			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
+				operatorconstants.ClusterDeployModeHosted),
 			expectedCount:            18,
 			expectedInstallNamespace: "hoh-agent-addon",
 		},
@@ -235,7 +237,7 @@ func TestManifest(t *testing.T) {
 				switch object := o.(type) {
 				case *appsv1.Deployment:
 					if object.GetNamespace() != test.expectedInstallNamespace {
-						t.Errorf("expected namespace constants.HOHAgentInstallNamespace, but got %v", object.GetNamespace())
+						t.Errorf("expected namespace operatorconstants.HOHAgentInstallNamespace, but got %v", object.GetNamespace())
 					}
 					image := object.Spec.Template.Spec.Containers[0].Image
 					if image == "" {

@@ -5,7 +5,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -17,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 )
 
@@ -38,7 +37,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "app1",
 				Namespace:  "default",
-				Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 		}
 		Expect(runtimeClient.Create(ctx, app)).NotTo(HaveOccurred())
@@ -51,7 +50,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "appsub1",
 				Namespace:  "default",
-				Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 		}
 		Expect(runtimeClient.Create(ctx, appsub)).NotTo(HaveOccurred())
@@ -64,7 +63,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "channel1",
 				Namespace:  "default",
-				Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: chnv1.ChannelSpec{
 				Type:               chnv1.ChannelTypeGit,
@@ -82,7 +81,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "placementrule1",
 				Namespace:  "default",
-				Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: placementrulesv1.PlacementRuleSpec{
 				SchedulerName: "test-schedulerName",
@@ -98,7 +97,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "placement1",
 				Namespace:  "default",
-				Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: clusterv1beta1.PlacementSpec{},
 		}
@@ -112,7 +111,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "policy1",
 				Namespace:  "default",
-				Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: policyv1.PolicySpec{
 				Disabled:        true,
@@ -129,7 +128,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "test-managedclustersetbinding-1",
 				Namespace:  "default",
-				Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: clusterv1beta1.ManagedClusterSetBindingSpec{
 				ClusterSet: "test-clusterset",
@@ -145,7 +144,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "test-managedclusterset-1",
 				Namespace:  "default",
-				Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 		}
 		Expect(runtimeClient.Create(ctx, managedClusterSet)).NotTo(HaveOccurred())
@@ -158,7 +157,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "test-placementbinding-1",
 				Namespace:  "default",
-				Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			PlacementRef: policyv1.PlacementSubject{
 				APIGroup: "cluster.open-cluster-management.io",
@@ -240,5 +239,5 @@ func containGlobalFinalizer(object client.Object) bool {
 	if err != nil {
 		return false
 	}
-	return controllerutil.ContainsFinalizer(object, commonconstants.GlobalHubCleanupFinalizer)
+	return controllerutil.ContainsFinalizer(object, constants.GlobalHubCleanupFinalizer)
 }

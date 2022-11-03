@@ -48,7 +48,7 @@ func (c *clusterClaimController) Reconcile(ctx context.Context, request ctrl.Req
 func StartClusterClaimController(mgr ctrl.Manager) error {
 	clusterClaimPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			constants.GlobalHubOwnerLabelKey: constants.HoHAgentOwnerLabelValue,
+			constants.GlobalHubOwnerLabelKey: constants.GHAgentOwnerLabelValue,
 		},
 	})
 	return ctrl.NewControllerManagedBy(mgr).

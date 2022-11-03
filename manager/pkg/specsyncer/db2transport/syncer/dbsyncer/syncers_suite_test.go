@@ -118,12 +118,12 @@ var _ = BeforeSuite(func() {
 	Expect(managerscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
 
 	By("Create the global hub ConfigMap with aggregationLevel=full and enableLocalPolicies=true")
-	mghSystemNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.HohSystemNamespace}}
+	mghSystemNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
 	Expect(kubeClient.Create(ctx, mghSystemNamespace)).Should(Succeed())
 	mghSystemConfigMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.HoHConfigName,
-			Namespace: constants.HohSystemNamespace,
+			Name:      constants.GHConfigCMName,
+			Namespace: constants.GHSystemNamespace,
 		},
 		Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
 	}

@@ -143,14 +143,14 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient).NotTo(BeNil())
 
 	By("Create global hub system namespace")
-	mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.HohSystemNamespace}}
+	mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
 	Expect(kubeClient.Create(ctx, mghSystemNamespace)).Should(Succeed())
 
 	By("Create configmap that contains the agent sync-intervals configurations")
 	syncerIntervalsConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sync-intervals",
-			Namespace: constants.HohSystemNamespace,
+			Namespace: constants.GHSystemNamespace,
 		},
 		Data: map[string]string{"control_info": "5s", "managed_clusters": "5s", "policies": "5s"},
 	}

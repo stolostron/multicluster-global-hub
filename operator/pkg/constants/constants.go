@@ -17,57 +17,13 @@ limitations under the License.
 package constants
 
 const (
-	HOHDefaultNamespace        = "open-cluster-management"
-	HOHSystemNamespace         = "open-cluster-management-global-hub-system"
-	HOHConfigName              = "multicluster-global-hub-config"
-	LocalClusterName           = "local-cluster"
-	DefaultImagePullSecretName = "multiclusterhub-operator-pull-secret"
+	// ControllerLeaderElectionConfig allows customizing LeaseDuration, RenewDeadline and RetryPeriod
+	// for operator, manager and agent via the ConfigMap
+	ControllerLeaderElectionConfig = "controller-leader-election-configmap"
 )
 
+// annotations for MGH CR
 const (
-	HoHClusterManagementAddonName        = "multicluster-global-hub-controller"
-	HoHClusterManagementAddonDisplayName = "Multicluster Global Hub Controller"
-	HoHClusterManagementAddonDescription = "Multicluster Global Hub Controller " +
-		"manages multicluster-global-hub components."
-	HoHManagedClusterAddonName        = "multicluster-global-hub-controller"
-	HoHManagedClusterAddonDisplayName = "Multicluster Global Hub Controller"
-	HoHManagedClusterAddonDescription = "Multicluster Global Hub Controller " +
-		"manages multicluster-global-hub components."
-)
-
-const (
-	HOHHubSubscriptionWorkSuffix = "mgh-hub-subscription"
-	HoHHubMCHWorkSuffix          = "mgh-hub-mch"
-	HoHHostingHubWorkSuffix      = "mgh-hub-hosting"
-	HoHHostedHubWorkSuffix       = "mgh-hub-hosted"
-	HoHHostingAgentWorkSuffix    = "mgh-agent-hosting"
-	HoHHostedAgentWorkSuffix     = "mgh-agent-hosted"
-	HoHAgentWorkSuffix           = "mgh-agent"
-)
-
-const (
-	WorkPostponeDeleteAnnotationKey = "open-cluster-management/postpone-delete"
-	OpenshiftMarketPlaceNamespace   = "openshift-marketplace"
-	ACMSubscriptionPublicSource     = "redhat-operators"
-	ACMSubscriptionPrivateSource    = "acm-custom-registry"
-	ACMPackageManifestName          = "advanced-cluster-management"
-	MCEPackageManifestName          = "multicluster-engine"
-)
-
-const (
-	DefaultACMUpstreamImageRegistry   = "quay.io/stolostron"
-	DefaultMCEUpstreamImageRegistry   = "quay.io/stolostron"
-	DefaultACMDownStreamImageRegistry = "registry.redhat.io/rhacm2"
-	DefaultMCEDownStreamImageRegistry = "registry.redhat.io/multicluster-engine"
-)
-
-const (
-	// AnnotationHubACMSnapshot sits in MulticlusterGlobalHub annotations
-	// to identify the ACM image snapshot for regional hub
-	AnnotationHubACMSnapshot = "mgh-hub-ACM-snapshot"
-	// AnnotationHubMCESnapshot sits in MulticlusterGlobalHub annotations
-	// to identify the MCE image snapshot for regional hub
-	AnnotationHubMCESnapshot = "mgh-hub-MCE-snapshot"
 	// AnnotationMCHPause sits in MulticlusterGlobalHub annotations
 	// to identify if the MulticlusterGlobalHub is paused or not
 	AnnotationMGHPause = "mgh-pause"
@@ -83,15 +39,41 @@ const (
 	MGHOperandImagePrefix = "OPERAND_IMAGE_"
 )
 
+// hub installation constants
 const (
-	// AnnotationClusterHostingClusterName is the annotation for indicating the hosting cluster name in the cluster
-	AnnotationClusterHostingClusterName = "import.open-cluster-management.io/hosting-cluster-name"
+	LocalClusterName           = "local-cluster"
+	DefaultImagePullSecretName = "multiclusterhub-operator-pull-secret"
+
+	OpenshiftMarketPlaceNamespace = "openshift-marketplace"
+	ACMSubscriptionPublicSource   = "redhat-operators"
+	ACMSubscriptionPrivateSource  = "acm-custom-registry"
+	ACMPackageManifestName        = "advanced-cluster-management"
+	MCEPackageManifestName        = "multicluster-engine"
+)
+
+// global hub agent constants
+const (
+	GHClusterManagementAddonName = "multicluster-global-hub-controller"
+	GHManagedClusterAddonName    = "multicluster-global-hub-controller"
+)
+
+const (
 	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
 	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"
-	AnnotationClusterDeployMode       = "import.open-cluster-management.io/klusterlet-deploy-mode"
+	// AnnotationClusterHostingClusterName is the annotation for indicating the hosting cluster name in the cluster
+	AnnotationClusterHostingClusterName        = "import.open-cluster-management.io/hosting-cluster-name"
+	AnnotationClusterDeployMode                = "import.open-cluster-management.io/klusterlet-deploy-mode"
+	AnnotationClusterKlusterletDeployNamespace = "import.open-cluster-management.io/klusterlet-namespace"
+	ClusterDeployModeHosted                    = "Hosted"
+	ClusterDeployModeDefault                   = "Default"
 
-	ClusterDeployModeHosted  = "Hosted"
-	ClusterDeployModeDefault = "Default"
-
-	HoHAgentInstallNamespace = "open-cluster-management-agent-addon"
+	// GHAgentDeployModeLabelKey is to indicate which deploy mode the agent is installed.
+	GHAgentDeployModeLabelKey = "global-hub.open-cluster-management.io/agent-deploy-mode"
+	// GHAgentDeployModeHosted is to install agent in Hosted mode
+	GHAgentDeployModeHosted = "Hosted"
+	// GHAgentDeployModeDefault is to install agent in Default mode
+	GHAgentDeployModeDefault = "Default"
+	// GHAgentDeployModeNone is to not install agent
+	GHAgentDeployModeNone   = "None"
+	GHAgentInstallNamespace = "open-cluster-management-agent-addon"
 )

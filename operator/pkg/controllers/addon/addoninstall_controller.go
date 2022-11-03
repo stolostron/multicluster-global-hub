@@ -22,8 +22,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 type HoHAddonInstallReconciler struct {
@@ -42,7 +42,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
 	err := r.Get(ctx, types.NamespacedName{
-		Name: constants.HoHClusterManagementAddonName,
+		Name: operatorconstants.GHClusterManagementAddonName,
 	}, clusterManagementAddOn)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -71,30 +71,30 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	addon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.HoHManagedClusterAddonName,
+			Name:      operatorconstants.GHManagedClusterAddonName,
 			Namespace: clusterName,
 			Labels: map[string]string{
-				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{
-			InstallNamespace: constants.HoHAgentInstallNamespace,
+			InstallNamespace: operatorconstants.GHAgentInstallNamespace,
 		},
 	}
 
 	// install addon in open-cluster-management-global-hub-system ns if the cluster has local-cluster.
 	switch getHub(cluster) {
-	case commonconstants.HubInstalledWithSelfManagement:
-		addon.Spec.InstallNamespace = constants.HOHSystemNamespace
+	case constants.HubInstalledWithSelfManagement:
+		addon.Spec.InstallNamespace = constants.GHSystemNamespace
 	}
 
 	labels := cluster.GetLabels()
-	switch labels[commonconstants.AgentDeployModeLabelKey] {
-	case commonconstants.AgentDeployModeHosted:
+	switch labels[operatorconstants.GHAgentDeployModeLabelKey] {
+	case operatorconstants.GHAgentDeployModeHosted:
 		annotations := cluster.GetAnnotations()
-		if hostingCluster := annotations[constants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
+		if hostingCluster := annotations[operatorconstants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
 			addon.SetAnnotations(map[string]string{
-				constants.AnnotationAddonHostingClusterName: hostingCluster,
+				operatorconstants.AnnotationAddonHostingClusterName: hostingCluster,
 			})
 			addon.Spec.InstallNamespace = fmt.Sprintf(
 				"open-cluster-management-%s-hoh-addon", clusterName)
@@ -102,14 +102,14 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			return ctrl.Result{}, fmt.Errorf("failed to get hosting cluster name "+
 				"when addon in %s is installed in hosted mode", clusterName)
 		}
-	case commonconstants.AgentDeployModeNone:
+	case operatorconstants.GHAgentDeployModeNone:
 		return ctrl.Result{}, nil
 	}
 
 	existingAddon := &v1alpha1.ManagedClusterAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
 		Namespace: clusterName,
-		Name:      constants.HoHManagedClusterAddonName,
+		Name:      operatorconstants.GHManagedClusterAddonName,
 	}, existingAddon)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -118,8 +118,8 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	if existingAddon.GetAnnotations()[constants.AnnotationAddonHostingClusterName] !=
-		addon.GetAnnotations()[constants.AnnotationAddonHostingClusterName] ||
+	if existingAddon.GetAnnotations()[operatorconstants.AnnotationAddonHostingClusterName] !=
+		addon.GetAnnotations()[operatorconstants.AnnotationAddonHostingClusterName] ||
 		existingAddon.Spec.InstallNamespace != addon.Spec.InstallNamespace {
 		existingAddon.SetAnnotations(addon.Annotations)
 		existingAddon.Spec.InstallNamespace = addon.Spec.InstallNamespace
@@ -131,7 +131,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 func getHub(cluster *clusterv1.ManagedCluster) string {
 	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name != commonconstants.HubClusterClaimName {
+		if claim.Name != constants.HubClusterClaimName {
 			continue
 		}
 
@@ -145,26 +145,28 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
-				e.Object.GetName() == constants.LocalClusterName ||
+				e.Object.GetName() == operatorconstants.LocalClusterName ||
 				!meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				return false
 			}
 
-			if e.Object.GetLabels()[commonconstants.AgentDeployModeLabelKey] == commonconstants.AgentDeployModeNone {
+			if e.Object.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey] ==
+				operatorconstants.GHAgentDeployModeNone {
 				return false
 			}
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			if e.ObjectNew.GetLabels()["vendor"] != "OpenShift" ||
-				e.ObjectNew.GetName() == constants.LocalClusterName ||
+				e.ObjectNew.GetName() == operatorconstants.LocalClusterName ||
 				!meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				return false
 			}
 
-			if e.ObjectNew.GetLabels()[commonconstants.AgentDeployModeLabelKey] == commonconstants.AgentDeployModeNone {
+			if e.ObjectNew.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey] ==
+				operatorconstants.GHAgentDeployModeNone {
 				return false
 			}
 			if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
@@ -175,13 +177,14 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
-				e.Object.GetName() == constants.LocalClusterName ||
+				e.Object.GetName() == operatorconstants.LocalClusterName ||
 				!meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
 				return false
 			}
 
-			if e.Object.GetLabels()[commonconstants.AgentDeployModeLabelKey] == commonconstants.AgentDeployModeNone {
+			if e.Object.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey] ==
+				operatorconstants.GHAgentDeployModeNone {
 				return false
 			}
 			return true
@@ -193,7 +196,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetName() != constants.HoHManagedClusterAddonName {
+			if e.ObjectNew.GetName() != operatorconstants.GHManagedClusterAddonName {
 				return false
 			}
 			if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
@@ -202,7 +205,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetName() == constants.HoHManagedClusterAddonName
+			return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
 		},
 	}
 

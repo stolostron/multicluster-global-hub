@@ -86,10 +86,6 @@ func initializeWebhookInEnvironment() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "multicluster-global-hub-mutator",
 				},
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "MutatingWebhookConfiguration",
-					APIVersion: "admissionregistration.k8s.io/v1",
-				},
 				Webhooks: []admissionv1.MutatingWebhook{
 					{
 						Name: "global-hub.open-cluster-management.io",

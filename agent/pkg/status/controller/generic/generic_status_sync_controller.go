@@ -18,7 +18,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
@@ -50,7 +50,7 @@ func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, producer p
 		log:                     ctrl.Log.WithName(logName),
 		transport:               producer,
 		orderedBundleCollection: orderedBundleCollection,
-		finalizerName:           commonconstants.GlobalHubCleanupFinalizer,
+		finalizerName:           constants.GlobalHubCleanupFinalizer,
 		createBundleObjFunc:     createObjFunc,
 		resolveSyncIntervalFunc: resolveSyncIntervalFunc,
 		lock:                    sync.Mutex{},
@@ -179,7 +179,7 @@ func (c *genericStatusSyncController) syncBundles() {
 			if err != nil {
 				c.log.Error(
 					fmt.Errorf("sync object from type %s with id %s - %w",
-						commonconstants.StatusBundle, entry.transportBundleKey, err),
+						constants.StatusBundle, entry.transportBundleKey, err),
 					"failed to sync bundle")
 			}
 
@@ -191,7 +191,7 @@ func (c *genericStatusSyncController) syncBundles() {
 			c.transport.SendAsync(&transport.Message{
 				Key:     transportMessageKey,
 				ID:      entry.transportBundleKey,
-				MsgType: commonconstants.StatusBundle,
+				MsgType: constants.StatusBundle,
 				Version: entry.bundle.GetBundleVersion().String(),
 				Payload: payloadBytes,
 			})
@@ -212,7 +212,7 @@ func cleanObject(object bundle.Object) {
 
 func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
 	// if the removing finalizer label hasn't expired, then skip the adding finalizer action
-	if val, found := object.GetLabels()[commonconstants.GlobalHubFinalizerRemovingDeadline]; found {
+	if val, found := object.GetLabels()[constants.GlobalHubFinalizerRemovingDeadline]; found {
 		deadline, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
@@ -220,7 +220,7 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 		if time.Now().Unix() < deadline {
 			return nil
 		} else {
-			delete(object.GetLabels(), commonconstants.GlobalHubFinalizerRemovingDeadline)
+			delete(object.GetLabels(), constants.GlobalHubFinalizerRemovingDeadline)
 		}
 	}
 

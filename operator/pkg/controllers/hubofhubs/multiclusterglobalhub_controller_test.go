@@ -45,10 +45,10 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
@@ -165,7 +165,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
 					Annotations: map[string]string{
-						constants.AnnotationImageOverridesCM: "noexisting-cm",
+						operatorconstants.AnnotationImageOverridesCM: "noexisting-cm",
 					},
 				},
 				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
@@ -314,7 +314,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By updating the MGH instance with skipping database initialization")
 			originMCH := createdMGH.DeepCopy()
 			createdMGH.SetAnnotations(map[string]string{
-				constants.AnnotationMGHSkipDBInit: "true",
+				operatorconstants.AnnotationMGHSkipDBInit: "true",
 			})
 			Expect(k8sClient.Patch(ctx, createdMGH, client.MergeFrom(originMCH))).Should(Succeed())
 
@@ -466,8 +466,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			hohConfig := &corev1.ConfigMap{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: constants.HOHSystemNamespace,
-					Name:      constants.HOHConfigName,
+					Namespace: constants.GHSystemNamespace,
+					Name:      constants.GHConfigCMName,
 				}, hohConfig)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
@@ -479,8 +479,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() bool {
 				hohConfig := &corev1.ConfigMap{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: constants.HOHSystemNamespace,
-					Name:      constants.HOHConfigName,
+					Namespace: constants.GHSystemNamespace,
+					Name:      constants.GHConfigCMName,
 				}, hohConfig)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
@@ -627,7 +627,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-placement-1",
 					Namespace:  config.GetDefaultNamespace(),
-					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: clusterv1beta1.PlacementSpec{},
 			}
@@ -638,7 +638,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-application-1",
 					Namespace:  config.GetDefaultNamespace(),
-					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: applicationv1beta1.ApplicationSpec{
 					Selector: &metav1.LabelSelector{
@@ -653,7 +653,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-policy-1",
 					Namespace:  config.GetDefaultNamespace(),
-					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: policyv1.PolicySpec{
 					Disabled:        true,
@@ -667,7 +667,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-placementrule-1",
 					Namespace:  config.GetDefaultNamespace(),
-					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: placementrulesv1.PlacementRuleSpec{
 					SchedulerName: "test-schedulerName",
@@ -680,7 +680,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-managedclustersetbinding-1",
 					Namespace:  config.GetDefaultNamespace(),
-					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: clusterv1beta1.ManagedClusterSetBindingSpec{
 					ClusterSet: "test-clusterset",
@@ -694,7 +694,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-channel-1",
 					Namespace:  config.GetDefaultNamespace(),
-					Finalizers: []string{commonconstants.GlobalHubCleanupFinalizer},
+					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: chnv1.ChannelSpec{
 					Type:               chnv1.ChannelTypeGit,
@@ -710,8 +710,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By checking the multicluster-global-hub-config configmap is deleted")
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: constants.HOHSystemNamespace,
-					Name:      constants.HOHConfigName,
+					Namespace: constants.GHSystemNamespace,
+					Name:      constants.GHConfigCMName,
 				}, &corev1.ConfigMap{})
 				return errors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
@@ -720,7 +720,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() error {
 				listOpts := []client.ListOption{
 					client.MatchingLabels(map[string]string{
-						commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+						constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 					}),
 				}
 				clusterRoleList := &rbacv1.ClusterRoleList{}
@@ -737,7 +737,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() error {
 				listOpts := []client.ListOption{
 					client.MatchingLabels(map[string]string{
-						commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+						constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 					}),
 				}
 				webhookList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
@@ -759,7 +759,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				for idx := range placements.Items {
 					if utils.Contains(placements.Items[idx].GetFinalizers(),
-						commonconstants.GlobalHubCleanupFinalizer) {
+						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the placements finalizer has not been removed")
 					}
 				}
@@ -774,7 +774,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				for idx := range applications.Items {
 					if utils.Contains(applications.Items[idx].GetFinalizers(),
-						commonconstants.GlobalHubCleanupFinalizer) {
+						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the applications finalizer has not been removed")
 					}
 				}
@@ -789,7 +789,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				for idx := range placementrules.Items {
 					if utils.Contains(placementrules.Items[idx].GetFinalizers(),
-						commonconstants.GlobalHubCleanupFinalizer) {
+						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the placementrules finalizer has not been removed")
 					}
 				}
@@ -804,7 +804,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				for idx := range managedclustersetbindings.Items {
 					if utils.Contains(managedclustersetbindings.Items[idx].GetFinalizers(),
-						commonconstants.GlobalHubCleanupFinalizer) {
+						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the managedclustersetbindings finalizer has not been removed")
 					}
 				}
@@ -819,7 +819,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				for idx := range channels.Items {
 					if utils.Contains(channels.Items[idx].GetFinalizers(),
-						commonconstants.GlobalHubCleanupFinalizer) {
+						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the channels finalizer has not been removed")
 					}
 				}
@@ -834,7 +834,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				for idx := range policies.Items {
 					if utils.Contains(policies.Items[idx].GetFinalizers(),
-						commonconstants.GlobalHubCleanupFinalizer) {
+						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the policies finalizer has not been removed")
 					}
 				}

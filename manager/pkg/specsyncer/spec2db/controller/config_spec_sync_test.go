@@ -11,8 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var _ = Describe("configmaps to database controller", func() {
@@ -55,7 +54,7 @@ var _ = Describe("configmaps to database controller", func() {
 		By("Create Namespace for ConfigMap instance")
 		Eventually(func() error {
 			err := kubeClient.Get(ctx, types.NamespacedName{
-				Name: constants.HOHSystemNamespace,
+				Name: constants.GHSystemNamespace,
 			}, &corev1.Namespace{})
 			if err != nil && !errors.IsNotFound(err) {
 				return err
@@ -63,7 +62,7 @@ var _ = Describe("configmaps to database controller", func() {
 			if errors.IsNotFound(err) {
 				if err = kubeClient.Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: constants.HOHSystemNamespace,
+						Name: constants.GHSystemNamespace,
 					},
 				}); err != nil {
 					return err
@@ -75,8 +74,8 @@ var _ = Describe("configmaps to database controller", func() {
 		By("Create ConfigMap")
 		Eventually(func() error {
 			err := kubeClient.Get(ctx, types.NamespacedName{
-				Namespace: constants.HOHSystemNamespace,
-				Name:      constants.HOHConfigName,
+				Namespace: constants.GHSystemNamespace,
+				Name:      constants.GHConfigCMName,
 			}, &corev1.ConfigMap{})
 			if err != nil && !errors.IsNotFound(err) {
 				return err
@@ -84,10 +83,10 @@ var _ = Describe("configmaps to database controller", func() {
 			if errors.IsNotFound(err) {
 				if err = kubeClient.Create(ctx, &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace: constants.HOHSystemNamespace,
-						Name:      constants.HOHConfigName,
+						Namespace: constants.GHSystemNamespace,
+						Name:      constants.GHConfigCMName,
 						Labels: map[string]string{
-							commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+							constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 						},
 					},
 					Data: map[string]string{
@@ -114,8 +113,8 @@ var _ = Describe("configmaps to database controller", func() {
 				if err := rows.Scan(configMap); err != nil {
 					return err
 				}
-				if constants.HOHConfigName == configMap.Name &&
-					constants.HOHSystemNamespace == configMap.Namespace {
+				if constants.GHConfigCMName == configMap.Name &&
+					constants.GHSystemNamespace == configMap.Namespace {
 					return nil
 				}
 			}

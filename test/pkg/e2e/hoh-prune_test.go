@@ -26,8 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	mghv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
@@ -196,7 +195,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 	It("prune the global resources", func() {
 		listOpts := []client.ListOption{
 			client.MatchingLabels(map[string]string{
-				commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			}),
 		}
 
@@ -232,7 +231,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for idx := range placements.Items {
 				if controllerutil.ContainsFinalizer(&placements.Items[idx],
-					commonconstants.GlobalHubCleanupFinalizer) {
+					constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("finalizer hasn't be deleted from obj: %s", placements.Items[idx].GetName())
 				}
 			}
@@ -247,7 +246,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for idx := range managedclustersets.Items {
 				if controllerutil.ContainsFinalizer(&managedclustersets.Items[idx],
-					commonconstants.GlobalHubCleanupFinalizer) {
+					constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("finalizer hasn't be deleted from obj: %s",
 						managedclustersets.Items[idx].GetName())
 				}
@@ -264,7 +263,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for idx := range managedclustersetbindings.Items {
 				if controllerutil.ContainsFinalizer(&managedclustersetbindings.Items[idx],
-					commonconstants.GlobalHubCleanupFinalizer) {
+					constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("finalizer hasn't be deleted from obj: %s",
 						managedclustersetbindings.Items[idx].GetName())
 				}
@@ -278,8 +277,8 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		Eventually(func() error {
 			existingMghConfigMap := &corev1.ConfigMap{}
 			err := runtimeClient.Get(ctx, types.NamespacedName{
-				Namespace: constants.HOHSystemNamespace,
-				Name:      constants.HOHConfigName,
+				Namespace: constants.GHSystemNamespace,
+				Name:      constants.GHConfigCMName,
 			}, existingMghConfigMap)
 			if errors.IsNotFound(err) {
 				return nil
@@ -288,13 +287,13 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 				return err
 			}
 			return fmt.Errorf("configmap should be deleted: %s - %s",
-				constants.HOHSystemNamespace, constants.HOHConfigName)
+				constants.GHSystemNamespace, constants.GHConfigCMName)
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 
 		By("Delete the mgh configmap namespace")
 		Eventually(func() error {
 			err := runtimeClient.Get(ctx, types.NamespacedName{
-				Name: constants.HOHSystemNamespace,
+				Name: constants.GHSystemNamespace,
 			}, &corev1.Namespace{})
 			if errors.IsNotFound(err) {
 				return nil
@@ -302,7 +301,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			if err != nil {
 				return err
 			}
-			return fmt.Errorf("namespace should be deleted: %s", constants.HOHSystemNamespace)
+			return fmt.Errorf("namespace should be deleted: %s", constants.GHSystemNamespace)
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
@@ -315,7 +314,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for idx := range applications.Items {
 				if controllerutil.ContainsFinalizer(&applications.Items[idx],
-					commonconstants.GlobalHubCleanupFinalizer) {
+					constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("finalizer hasn't be deleted from app: %s", applications.Items[idx].GetName())
 				}
 			}
@@ -330,7 +329,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for idx := range appsubs.Items {
 				if controllerutil.ContainsFinalizer(&appsubs.Items[idx],
-					commonconstants.GlobalHubCleanupFinalizer) {
+					constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("finalizer hasn't be deleted from appsub: %s", appsubs.Items[idx].GetName())
 				}
 			}
@@ -345,7 +344,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for idx := range channels.Items {
 				if controllerutil.ContainsFinalizer(&channels.Items[idx],
-					commonconstants.GlobalHubCleanupFinalizer) {
+					constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("finalizer hasn't be deleted from channels obj: %s", channels.Items[idx].GetName())
 				}
 			}
@@ -360,7 +359,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for idx := range palcementrules.Items {
 				if controllerutil.ContainsFinalizer(&palcementrules.Items[idx],
-					commonconstants.GlobalHubCleanupFinalizer) {
+					constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("finalizer hasn't be deleted from palcementrules obj: %s",
 						palcementrules.Items[idx].GetName())
 				}
@@ -378,7 +377,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for idx := range policies.Items {
 				if controllerutil.ContainsFinalizer(&policies.Items[idx],
-					commonconstants.GlobalHubCleanupFinalizer) {
+					constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("finalizer hasn't be deleted from policies obj: %s", policies.Items[idx].GetName())
 				}
 			}
@@ -393,7 +392,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for idx := range placementbindings.Items {
 				if controllerutil.ContainsFinalizer(&placementbindings.Items[idx],
-					commonconstants.GlobalHubCleanupFinalizer) {
+					constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("finalizer hasn't be deleted from placementbindings obj: %s",
 						placementbindings.Items[idx].GetName())
 				}

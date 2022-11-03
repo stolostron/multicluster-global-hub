@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func TestAddRemoveFinalizer(t *testing.T) {
@@ -30,7 +30,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 			Name:      namespacedName.Name,
 			Namespace: namespacedName.Namespace,
 			Labels: map[string]string{
-				commonconstants.GlobalHubFinalizerRemovingDeadline: strconv.FormatInt(time.Now().Unix()+5, 10),
+				constants.GlobalHubFinalizerRemovingDeadline: strconv.FormatInt(time.Now().Unix()+5, 10),
 			},
 		},
 		Spec: policiesv1.PolicySpec{},
@@ -42,7 +42,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 	controller := &genericStatusSyncController{
 		client:        c,
 		log:           ctrl.Log.WithName("test-controller"),
-		finalizerName: commonconstants.GlobalHubCleanupFinalizer,
+		finalizerName: constants.GlobalHubCleanupFinalizer,
 		lock:          sync.Mutex{},
 	}
 
@@ -65,8 +65,8 @@ func TestAddRemoveFinalizer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if controllerutil.ContainsFinalizer(runtimePolicy, commonconstants.GlobalHubCleanupFinalizer) {
-		t.Fatalf("Should not add the finalizer to policy %s", commonconstants.GlobalHubCleanupFinalizer)
+	if controllerutil.ContainsFinalizer(runtimePolicy, constants.GlobalHubCleanupFinalizer) {
+		t.Fatalf("Should not add the finalizer to policy %s", constants.GlobalHubCleanupFinalizer)
 	}
 
 	time.Sleep(6 * time.Second)
@@ -80,8 +80,8 @@ func TestAddRemoveFinalizer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !controllerutil.ContainsFinalizer(runtimePolicy, commonconstants.GlobalHubCleanupFinalizer) {
-		t.Fatalf("Expect to have the finalizer %s", commonconstants.GlobalHubCleanupFinalizer)
+	if !controllerutil.ContainsFinalizer(runtimePolicy, constants.GlobalHubCleanupFinalizer) {
+		t.Fatalf("Expect to have the finalizer %s", constants.GlobalHubCleanupFinalizer)
 	}
 
 	if err := controller.deleteObjectAndFinalizer(context.TODO(), policy, controller.log); err != nil {
@@ -98,15 +98,15 @@ func TestAddRemoveFinalizer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if controllerutil.ContainsFinalizer(runtimePolicy, commonconstants.GlobalHubCleanupFinalizer) {
-		t.Fatalf("Expect no finalizer %s", commonconstants.GlobalHubCleanupFinalizer)
+	if controllerutil.ContainsFinalizer(runtimePolicy, constants.GlobalHubCleanupFinalizer) {
+		t.Fatalf("Expect no finalizer %s", constants.GlobalHubCleanupFinalizer)
 	}
 
 	if err := c.Delete(context.TODO(), policy, &client.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
-	controllerutil.AddFinalizer(policy, commonconstants.GlobalHubCleanupFinalizer)
+	controllerutil.AddFinalizer(policy, constants.GlobalHubCleanupFinalizer)
 	if err := controller.removeFinalizer(context.TODO(), policy, controller.log); err == nil {
 		t.Fatal("Expect to report error")
 	}

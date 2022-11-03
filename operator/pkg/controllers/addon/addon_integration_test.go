@@ -15,8 +15,8 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var clusterAvailableCondition = metav1.Condition{
@@ -56,9 +56,9 @@ var _ = Describe("addon controller", Ordered, func() {
 		By("Create clustermanagementaddon instance")
 		clusterManagementAddon := &addonv1alpha1.ClusterManagementAddOn{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: constants.HoHClusterManagementAddonName,
+				Name: operatorconstants.GHClusterManagementAddonName,
 				Labels: map[string]string{
-					commonconstants.GlobalHubOwnerLabelKey: commonconstants.HoHOperatorOwnerLabelVal,
+					constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 				},
 			},
 		}
@@ -68,7 +68,8 @@ var _ = Describe("addon controller", Ordered, func() {
 	Context("When a cluster is imported in default mode", func() {
 		It("Should create HoH agent when an OCP without deployMode label is imported", func() {
 			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
-			workName := fmt.Sprintf("addon-%s-deploy-0", constants.HoHManagedClusterAddonName)
+			workName := fmt.Sprintf("addon-%s-deploy-0",
+				operatorconstants.GHManagedClusterAddonName)
 
 			By("By preparing an OCP Managed Clusters")
 			prepareCluster(clusterName,
@@ -81,7 +82,7 @@ var _ = Describe("addon controller", Ordered, func() {
 			addon := &addonv1alpha1.ManagedClusterAddOn{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{
-					Name:      constants.HoHManagedClusterAddonName,
+					Name:      operatorconstants.GHManagedClusterAddonName,
 					Namespace: clusterName,
 				}, addon)
 			}, timeout, interval).ShouldNot(HaveOccurred())
@@ -102,7 +103,8 @@ var _ = Describe("addon controller", Ordered, func() {
 
 		It("Should create HoH agent and ACM when an OCP is imported", func() {
 			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
-			workName := fmt.Sprintf("addon-%s-deploy-0", constants.HoHManagedClusterAddonName)
+			workName := fmt.Sprintf("addon-%s-deploy-0",
+				operatorconstants.GHManagedClusterAddonName)
 
 			By("By preparing an OCP Managed Clusters")
 			prepareCluster(clusterName,
@@ -110,8 +112,8 @@ var _ = Describe("addon controller", Ordered, func() {
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{
 					{
-						Name:  commonconstants.HubClusterClaimName,
-						Value: commonconstants.HubNotInstalled,
+						Name:  constants.HubClusterClaimName,
+						Value: constants.HubNotInstalled,
 					},
 				},
 				clusterAvailableCondition)
@@ -120,7 +122,7 @@ var _ = Describe("addon controller", Ordered, func() {
 			addon := &addonv1alpha1.ManagedClusterAddOn{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{
-					Name:      constants.HoHManagedClusterAddonName,
+					Name:      operatorconstants.GHManagedClusterAddonName,
 					Namespace: clusterName,
 				}, addon)
 			}, timeout, interval).ShouldNot(HaveOccurred())
@@ -142,16 +144,17 @@ var _ = Describe("addon controller", Ordered, func() {
 		It("Should create HoH addon when an OCP with deploy mode = default is imported in hosted mode", func() {
 			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 			hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6))
-			workName := fmt.Sprintf("addon-%s-deploy-0", constants.HoHManagedClusterAddonName)
+			workName := fmt.Sprintf("addon-%s-deploy-0",
+				operatorconstants.GHManagedClusterAddonName)
 
 			By("By preparing clusters")
 			prepareCluster(clusterName,
 				map[string]string{
-					"vendor":                                "OpenShift",
-					commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeDefault,
+					"vendor": "OpenShift",
+					operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,
 				},
 				map[string]string{
-					constants.AnnotationClusterHostingClusterName: hostingClusterName,
+					operatorconstants.AnnotationClusterHostingClusterName: hostingClusterName,
 				},
 				[]clusterv1.ManagedClusterClaim{},
 				clusterAvailableCondition)
@@ -164,7 +167,7 @@ var _ = Describe("addon controller", Ordered, func() {
 			addon := &addonv1alpha1.ManagedClusterAddOn{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{
-					Name:      constants.HoHManagedClusterAddonName,
+					Name:      operatorconstants.GHManagedClusterAddonName,
 					Namespace: clusterName,
 				}, addon)
 			}, timeout, interval).ShouldNot(HaveOccurred())
@@ -186,26 +189,27 @@ var _ = Describe("addon controller", Ordered, func() {
 		It("Should create HoH addon when an OCP with deploy mode = Hosted is imported in hosted mode", func() {
 			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 			hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6))
-			workName := fmt.Sprintf("addon-%s-deploy-0", constants.HoHManagedClusterAddonName)
+			workName := fmt.Sprintf("addon-%s-deploy-0",
+				operatorconstants.GHManagedClusterAddonName)
 			hostingWorkName := fmt.Sprintf("addon-%s-deploy-hosting-%s-0",
-				constants.HoHManagedClusterAddonName, clusterName)
+				operatorconstants.GHManagedClusterAddonName, clusterName)
 			By("By preparing clusters")
 			prepareCluster(clusterName,
 				map[string]string{
-					"vendor":                                "OpenShift",
-					commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeHosted,
+					"vendor": "OpenShift",
+					operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeHosted,
 				},
 				map[string]string{
-					"import.open-cluster-management.io/klusterlet-deploy-mode": "Hosted",
-					"import.open-cluster-management.io/klusterlet-namespace":   "open-cluster-management-hub1",
-					"import.open-cluster-management.io/hosting-cluster-name":   hostingClusterName,
+					operatorconstants.AnnotationClusterDeployMode:                operatorconstants.ClusterDeployModeHosted,
+					operatorconstants.AnnotationClusterKlusterletDeployNamespace: "open-cluster-management-hub1",
+					operatorconstants.AnnotationClusterHostingClusterName:        hostingClusterName,
 				},
 				[]clusterv1.ManagedClusterClaim{},
 				clusterAvailableCondition)
 			prepareCluster(hostingClusterName,
 				map[string]string{
-					"vendor":                                "OpenShift",
-					commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeNone,
+					"vendor": "OpenShift",
+					operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeNone,
 				},
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{},
@@ -214,12 +218,12 @@ var _ = Describe("addon controller", Ordered, func() {
 			addon := &addonv1alpha1.ManagedClusterAddOn{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{
-					Name:      constants.HoHManagedClusterAddonName,
+					Name:      operatorconstants.GHManagedClusterAddonName,
 					Namespace: clusterName,
 				}, addon)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(addon.GetAnnotations()[constants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
+			Expect(addon.GetAnnotations()[operatorconstants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
 
 			By("By checking the agent manifestworks are created for the newly created managed cluster")
 			work := &workv1.ManifestWork{}
@@ -245,31 +249,32 @@ var _ = Describe("addon controller", Ordered, func() {
 		It("Should create HoH agent and ACM when an OCP with deploy mode = Hosted is imported in hosted mode", func() {
 			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 			hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6))
-			workName := fmt.Sprintf("addon-%s-deploy-0", constants.HoHManagedClusterAddonName)
+			workName := fmt.Sprintf("addon-%s-deploy-0",
+				operatorconstants.GHManagedClusterAddonName)
 			hostingWorkName := fmt.Sprintf("addon-%s-deploy-hosting-%s-0",
-				constants.HoHManagedClusterAddonName, clusterName)
+				operatorconstants.GHManagedClusterAddonName, clusterName)
 			By("By preparing clusters")
 			prepareCluster(clusterName,
 				map[string]string{
-					"vendor":                                "OpenShift",
-					commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeHosted,
+					"vendor": "OpenShift",
+					operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeHosted,
 				},
 				map[string]string{
-					"import.open-cluster-management.io/klusterlet-deploy-mode": "Hosted",
-					"import.open-cluster-management.io/klusterlet-namespace":   "open-cluster-management-hub1",
-					"import.open-cluster-management.io/hosting-cluster-name":   hostingClusterName,
+					operatorconstants.AnnotationClusterDeployMode:                operatorconstants.ClusterDeployModeHosted,
+					operatorconstants.AnnotationClusterKlusterletDeployNamespace: "open-cluster-management-hub1",
+					operatorconstants.AnnotationClusterHostingClusterName:        hostingClusterName,
 				},
 				[]clusterv1.ManagedClusterClaim{
 					{
-						Name:  commonconstants.HubClusterClaimName,
-						Value: commonconstants.HubNotInstalled,
+						Name:  constants.HubClusterClaimName,
+						Value: constants.HubNotInstalled,
 					},
 				},
 				clusterAvailableCondition)
 			prepareCluster(hostingClusterName,
 				map[string]string{
-					"vendor":                                "OpenShift",
-					commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeNone,
+					"vendor": "OpenShift",
+					operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeNone,
 				},
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{},
@@ -278,12 +283,12 @@ var _ = Describe("addon controller", Ordered, func() {
 			addon := &addonv1alpha1.ManagedClusterAddOn{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{
-					Name:      constants.HoHManagedClusterAddonName,
+					Name:      operatorconstants.GHManagedClusterAddonName,
 					Namespace: clusterName,
 				}, addon)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(addon.GetAnnotations()[constants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
+			Expect(addon.GetAnnotations()[operatorconstants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
 
 			By("By checking the agent manifestworks are created for the newly created managed cluster")
 			work := &workv1.ManifestWork{}
@@ -310,8 +315,8 @@ var _ = Describe("addon controller", Ordered, func() {
 			clusterName1 := fmt.Sprintf("hub-non-ocp-%s", rand.String(6))
 			prepareCluster(clusterName1,
 				map[string]string{
-					"vendor":                                "GCP",
-					commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeDefault,
+					"vendor": "GCP",
+					operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,
 				},
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{},
@@ -320,8 +325,8 @@ var _ = Describe("addon controller", Ordered, func() {
 			clusterName2 := fmt.Sprintf("hub-ocp-mode-none-%s", rand.String(6))
 			prepareCluster(clusterName2,
 				map[string]string{
-					"vendor":                                "OpenShift",
-					commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeNone,
+					"vendor": "OpenShift",
+					operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeNone,
 				},
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{},
@@ -330,17 +335,17 @@ var _ = Describe("addon controller", Ordered, func() {
 			clusterName3 := fmt.Sprintf("hub-ocp-no-condtion-%s", rand.String(6))
 			prepareCluster(clusterName3,
 				map[string]string{
-					"vendor":                                "OpenShift",
-					commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeDefault,
+					"vendor": "OpenShift",
+					operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,
 				},
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{},
 			)
 			By("By preparing a local cluster")
-			clusterName4 := "local-cluster"
+			clusterName4 := operatorconstants.LocalClusterName
 			prepareCluster(clusterName4, map[string]string{
-				"vendor":                                "OpenShift",
-				commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeDefault,
+				"vendor": "OpenShift",
+				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,
 			},
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{},
@@ -349,8 +354,8 @@ var _ = Describe("addon controller", Ordered, func() {
 			clusterName5 := fmt.Sprintf("hub-ocp-mode-none-%s", rand.String(6))
 			prepareCluster(clusterName5,
 				map[string]string{
-					"vendor":                                "OpenShift",
-					commonconstants.AgentDeployModeLabelKey: commonconstants.AgentDeployModeHosted,
+					"vendor": "OpenShift",
+					operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeHosted,
 				},
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{},

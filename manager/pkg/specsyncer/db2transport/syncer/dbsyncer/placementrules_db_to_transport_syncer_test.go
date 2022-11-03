@@ -14,7 +14,6 @@ import (
 )
 
 var _ = Describe("PlacementRules", Ordered, func() {
-
 	BeforeAll(func() {
 		By("Create spec placementrule table in database")
 		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
