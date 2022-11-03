@@ -28,7 +28,7 @@ spec:
             - --enforce-hoh-rbac=false
             - --transport-type=kafka
             - --kafka-bootstrap-server={{ .KafkaBootstrapServer }}
-            - --kafka-ssl-ca={{ .KafkaCA }}
+            - --kafka-ca-path=/kafka-ca/ca.crt
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
@@ -51,9 +51,15 @@ spec:
           - mountPath: /var/run/secrets/managed
             name: kubeconfig
             readOnly: true
+          - mountPath: /kafka-ca
+            name: kafka-ca
+            readOnly: true
       volumes:
       - name: kubeconfig
         secret:
           defaultMode: 420
           secretName: managed-kubeconfig-secret
+      - name: kafka-ca
+        secret:
+          secretName: kafka-ca-secret
 {{- end -}}

@@ -27,10 +27,5 @@ RUN  /usr/local/scripts/user_setup
 RUN microdnf update && \
     microdnf clean all
 
-# allow user to fully control the /opt/kafka directory (for transport certificates)
-RUN mkdir /opt/kafka
-RUN chown ${USER_UID}:0 /opt/kafka
-RUN chmod 0775 /opt/kafka
-
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/agent"]

@@ -62,7 +62,7 @@ type KafkaConsumer struct {
 }
 
 // NewConsumer creates a new instance of Consumer.
-func NewKafkaConsumer(bootstrapServer, sslCA string, consumerConfig *KafkaConsumerConfig, log logr.Logger,
+func NewKafkaConsumer(bootstrapServer, caPath string, consumerConfig *KafkaConsumerConfig, log logr.Logger,
 ) (*KafkaConsumer, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       bootstrapServer,
@@ -72,7 +72,7 @@ func NewKafkaConsumer(bootstrapServer, sslCA string, consumerConfig *KafkaConsum
 		"enable.auto.commit":      "false",
 		"socket.keepalive.enable": "true",
 	}
-	err := helpers.LoadSslToConfigMap(sslCA, kafkaConfigMap)
+	err := helpers.LoadCACertToConfigMap(caPath, kafkaConfigMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure kafka-consumer - %w", err)
 	}

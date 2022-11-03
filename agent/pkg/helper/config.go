@@ -21,7 +21,7 @@ type ConfigManager struct {
 	SpecEnforceHohRbac           bool
 	StatusDeltaCountSwitchFactor int
 	BootstrapServers             string
-	SslCA                        string
+	KafkaCAPath                  string
 	ProducerConfig               *producer.KafkaProducerConfig
 	ConsumerConfig               *consumer.KafkaConsumerConfig
 	ElectionConfig               *commonobjects.LeaderElectionConfig
@@ -42,16 +42,14 @@ func NewConfigManager() (*ConfigManager, error) {
 	pflag.StringVar(&configManager.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
 	pflag.StringVar(&configManager.BootstrapServers, "kafka-bootstrap-server", "",
 		"The bootstrap server for kafka.")
-	pflag.StringVar(&configManager.SslCA, "kafka-ssl-ca", "",
-		"The authentication to connect to the kafka.")
-
+	pflag.StringVar(&configManager.KafkaCAPath, "kafka-ca-path", "",
+		"The certificate path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&configManager.ProducerConfig.ProducerID, "kafka-producer-id", "",
 		"Producer Id for the kafka, default is the leaf hub name.")
 	pflag.StringVar(&configManager.ProducerConfig.ProducerTopic, "kafka-producer-topic",
 		"status", "Topic for the kafka producer.")
 	pflag.IntVar(&configManager.ProducerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 100,
 		"The limit for kafka message size in KB.")
-
 	pflag.StringVar(&configManager.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic",
 		"spec", "Topic for the kafka consumer.")
 	pflag.StringVar(&configManager.ConsumerConfig.ConsumerID, "kakfa-consumer-id",

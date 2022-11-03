@@ -36,7 +36,7 @@ type ManifestsConfig struct {
 	HoHAgentImage          string
 	LeafHubID              string
 	KafkaBootstrapServer   string
-	KafkaCA                string
+	KafkaCACert            string
 	InstallACMHub          bool
 	Channel                string
 	CurrentCSV             string
@@ -142,7 +142,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(a.ctx, a.kubeClient, mgh)
+	kafkaBootstrapServer, kafkaCACert, err := utils.GetKafkaConfig(a.ctx, a.kubeClient, mgh)
 	if err != nil {
 		klog.Errorf("failed to get kafkaConfig. err: %v", err)
 		return nil, err
@@ -152,7 +152,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		HoHAgentImage:        config.GetImage("multicluster_global_hub_agent"),
 		LeafHubID:            cluster.Name,
 		KafkaBootstrapServer: kafkaBootstrapServer,
-		KafkaCA:              kafkaCA,
+		KafkaCACert:          kafkaCACert,
 		LeaseDuration:        strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
 		RenewDeadline:        strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
 		RetryPeriod:          strconv.Itoa(a.leaderElectionConfig.RetryPeriod),

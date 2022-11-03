@@ -66,7 +66,7 @@ bootstrapServers=$(kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath=
 kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' > $currentDir/kafka-cert.pem
 kubectl create secret generic ${transportSecret} -n $TARGET_NAMESPACE \
     --from-literal=bootstrap_server=$bootstrapServers \
-    --from-file=CA=$currentDir/kafka-cert.pem
+    --from-file=ca.crt=$currentDir/kafka-cert.pem
 
 rm $currentDir/kafka-cert.pem
 echo "transport secret is ready in $TARGET_NAMESPACE namespace!"
