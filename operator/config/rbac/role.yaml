@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: multicluster-global-hub-operator-role
+  name: open-cluster-management:multicluster-global-hub-operator-role
 rules:
 - apiGroups:
   - ""

@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: multiclusterglobalhub-viewer-role
+  name: open-cluster-management:multiclusterglobalhub-viewer-role
 rules:
 - apiGroups:
   - operator.open-cluster-management.io
