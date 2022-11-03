@@ -56,7 +56,8 @@ func (p *PruneFinalizer) pruneFinalizer(object client.Object) error {
 			labels = map[string]string{}
 		}
 		// set the removing finalizer ttl with 60 seconds
-		labels[commonconstants.GlobalHubFinalizerRemovingDeadline] = strconv.FormatInt(time.Now().Unix()+60, 10)
+		labels[constants.GlobalHubFinalizerRemovingDeadline] =
+			strconv.FormatInt(time.Now().Unix()+60, 10)
 		object.SetLabels(labels)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			return p.client.Update(p.ctx, object, &client.UpdateOptions{})

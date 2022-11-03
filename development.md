@@ -69,6 +69,14 @@ Currently we do not publish any metrics.
 
 Currently we do not use health/ready checks.
 
+### Constants
+
+Global constants that can be used by global hub operator, manager and agent should be defined in [pkg/constants/constants.go](pkg/constants/constants.go). Operator constants that can only be used by operator should be defined in [operator/pkg/constants/constants.go](operator/pkg/constants/constants.go).
+
+When a new constant is defined, constant should be reflect the usage of the constant, for example, `GlobalHubOwnerLabelKey` is the constant of label key added to resources managed by global hub.
+
+Also make sure the new constant goes to correct section, if no section is suitable for the new constant, create new section and add comments for the section and new constant usage.
+
 ## Build
 
 * [Makefile](https://github.com/stolostron/multicluster-global-hub/blob/main/Makefile)
