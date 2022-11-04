@@ -6,8 +6,6 @@ const (
 	GHDefaultNamespace = "open-cluster-management"
 	// GHSystemNamespace defines global hub system namespace
 	GHSystemNamespace = "open-cluster-management-global-hub-system"
-	// GHAgentLocalNamespace defines global hub agent local namespace
-	GHAgentLocalNamespace = "open-cluster-management-global-hub-local"
 	// GHConfigCMName is the name of configmap that stores important global hub settings
 	// eg. aggregationLevel and enableLocalPolicy.
 	GHConfigCMName = "multicluster-global-hub-config"
