@@ -1,11 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: open-cluster-management:multicluster-global-hub-operator-aggregated-clusterrolebinding
+  name: multicluster-global-hub-operator-aggregated-clusterrolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: open-cluster-management:multicluster-global-hub-operator-aggregated-clusterrole
+  name: multicluster-global-hub-operator-aggregated-clusterrole
 subjects:
 - kind: ServiceAccount
   name: multicluster-global-hub-operator
