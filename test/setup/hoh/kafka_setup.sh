@@ -14,8 +14,7 @@ kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f ${currentDir}/components/kafka-community-operator.yaml
   
 # wait until operator is ready
-operatorName=${operatorName:-"strimzi-cluster-operator-v0.23.0"}
-operatorDeployed=$(kubectl -n kafka get Deployment/$operatorName --ignore-not-found)
+operatorDeployed=$(kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true)
 SECOND=0
 while [ -z "$operatorDeployed" ]; do
   if [ $SECOND -gt 600 ]; then
@@ -25,9 +24,8 @@ while [ -z "$operatorDeployed" ]; do
   echo "Waiting for strimzi-cluster-operator to become available"
   sleep 10
   (( SECOND = SECOND + 10 ))
-  operatorDeployed=$(kubectl -n kafka get Deployment/$operatorName --ignore-not-found)
+  operatorDeployed=$(kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true)
 done
-kubectl -n kafka wait --for=condition=Available Deployment/$operatorName --timeout=600s
 
 kubectl apply -f ${currentDir}/components/kafka-community-cluster.yaml
 # wati Kafka cluster CR
