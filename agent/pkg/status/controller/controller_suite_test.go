@@ -157,7 +157,7 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient.Create(ctx, syncerIntervalsConfigMap)).Should(Succeed())
 
 	By("Get agent incarnation from manager")
-	incarnation, err := incarnation.GetIncarnation(mgr)
+	incarnation, err := incarnation.GetIncarnation(mgr, "default")
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add controllers to manager")
