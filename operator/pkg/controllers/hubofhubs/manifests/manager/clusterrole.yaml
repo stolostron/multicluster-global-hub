@@ -3,7 +3,7 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: multicluster-global-hub-manager
+  name: open-cluster-management:multicluster-global-hub-manager
   labels:
     name: multicluster-global-hub-manager
 rules:
