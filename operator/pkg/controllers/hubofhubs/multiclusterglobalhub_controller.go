@@ -280,7 +280,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 	}
 
 	// retrieve bootstrapserver and CA of kafka from secret
-	kafkaBootstrapServer, kafkaCA, err := utils.GetKafkaConfig(ctx, r.KubeClient, mgh)
+	kafkaBootstrapServer, kafkaCACert, err := utils.GetKafkaConfig(ctx, r.KubeClient, mgh)
 	if err != nil {
 		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh,
 			condition.CONDITION_STATUS_FALSE); conditionError != nil {
@@ -306,7 +306,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			ProxyImage           string
 			ProxySessionSecret   string
 			DBSecret             string
-			KafkaCA              string
+			KafkaCACert          string
 			KafkaBootstrapServer string
 			Namespace            string
 			LeaseDuration        string
@@ -317,7 +317,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			ProxyImage:           config.GetImage("oauth_proxy"),
 			ProxySessionSecret:   proxySessionSecret,
 			DBSecret:             mgh.Spec.DataLayer.LargeScale.Postgres.Name,
-			KafkaCA:              kafkaCA,
+			KafkaCACert:          kafkaCACert,
 			KafkaBootstrapServer: kafkaBootstrapServer,
 			Namespace:            config.GetDefaultNamespace(),
 			LeaseDuration:        strconv.Itoa(r.LeaderElection.LeaseDuration),

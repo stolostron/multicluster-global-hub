@@ -81,7 +81,7 @@ type databaseConfig struct {
 
 type kafkaConfig struct {
 	bootstrapServer string
-	SslCa           string
+	caPath          string
 	producerConfig  *producer.KafkaProducerConfig
 	consumerConfig  *consumer.KafkaConsumerConfig
 }
@@ -122,7 +122,8 @@ func parseFlags() (*hohManagerConfig, error) {
 		40*time.Second, "The committer interval for transport layer.")
 	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bootstrap-server",
 		"kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
-	pflag.StringVar(&managerConfig.kafkaConfig.SslCa, "kafka-ssl-ca", "", "The CA for kafka bootstrap server.")
+	pflag.StringVar(&managerConfig.kafkaConfig.caPath, "kafka-ca-path", "",
+		"The certificate path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerID, "kakfa-producer-id",
 		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerTopic, "kakfa-producer-topic",
@@ -196,7 +197,7 @@ func requireInitialDependencyChecks(transportType string) bool {
 }
 
 // function to choose spec transport type based on env var.
-func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCA string,
+func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCAPath string,
 	kafkaProducerConfig *producer.KafkaProducerConfig,
 ) (producer.Producer, error) {
 	msgCompressor, err := compressor.NewCompressor(
@@ -207,7 +208,7 @@ func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapSer
 
 	switch transportCommonConfig.TransportType {
 	case kafkaTransportType:
-		kafkaProducer, err := producer.NewKafkaProducer(msgCompressor, kafkaBootstrapServer, kafkaCA,
+		kafkaProducer, err := producer.NewKafkaProducer(msgCompressor, kafkaBootstrapServer, kafkaCAPath,
 			kafkaProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
@@ -221,14 +222,14 @@ func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapSer
 }
 
 // function to choose status transport type based on env var.
-func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCA string,
+func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCAPath string,
 	kafkaConsumerConfig *consumer.KafkaConsumerConfig,
 	conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
 ) (consumer.Consumer, error) {
 	switch transportCommonConfig.TransportType {
 	case kafkaTransportType:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			kafkaBootstrapServer, kafkaCA, kafkaConsumerConfig,
+			kafkaBootstrapServer, kafkaCAPath, kafkaConsumerConfig,
 			ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
@@ -295,7 +296,7 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 
 	// status transport layer initialization
 	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig,
-		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
+		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.caPath,
 		managerConfig.kafkaConfig.consumerConfig, conflationManager, statistics)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init status transport bridge: %w", err)
@@ -303,7 +304,7 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 
 	// spec transport layer initialization
 	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig,
-		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.SslCa,
+		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.caPath,
 		managerConfig.kafkaConfig.producerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)

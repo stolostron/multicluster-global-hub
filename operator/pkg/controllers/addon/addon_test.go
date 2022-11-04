@@ -171,7 +171,7 @@ func TestManifest(t *testing.T) {
 			cluster:         fakeManagedCluster("cluster1", clusterv1.ManagedClusterClaim{}),
 			addon: fakeManagedClusterAddon("cluster1", "",
 				operatorconstants.ClusterDeployModeDefault),
-			expectedCount:            7,
+			expectedCount:            8,
 			expectedInstallNamespace: operatorconstants.GHAgentInstallNamespace,
 		},
 		{
@@ -180,7 +180,7 @@ func TestManifest(t *testing.T) {
 			cluster:         fakeManagedCluster("cluster1", clusterv1.ManagedClusterClaim{}),
 			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
 				operatorconstants.ClusterDeployModeHosted),
-			expectedCount:            11,
+			expectedCount:            12,
 			expectedInstallNamespace: "hoh-agent-addon",
 		},
 		{
@@ -191,7 +191,7 @@ func TestManifest(t *testing.T) {
 				fakeHubClaim(constants.HubNotInstalled)),
 			addon: fakeManagedClusterAddon("cluster1", "addon-test",
 				operatorconstants.ClusterDeployModeDefault),
-			expectedCount:            13,
+			expectedCount:            14,
 			expectedInstallNamespace: "addon-test",
 		},
 		{
@@ -202,7 +202,7 @@ func TestManifest(t *testing.T) {
 				fakeHubClaim(constants.HubNotInstalled)),
 			addon: fakeManagedClusterAddon("cluster1", "",
 				operatorconstants.ClusterDeployModeDefault),
-			expectedCount:            14,
+			expectedCount:            15,
 			expectedInstallNamespace: operatorconstants.GHAgentInstallNamespace,
 		},
 		{
@@ -213,7 +213,7 @@ func TestManifest(t *testing.T) {
 				fakeHubClaim(constants.HubNotInstalled)),
 			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
 				operatorconstants.ClusterDeployModeHosted),
-			expectedCount:            18,
+			expectedCount:            19,
 			expectedInstallNamespace: "hoh-agent-addon",
 		},
 	}

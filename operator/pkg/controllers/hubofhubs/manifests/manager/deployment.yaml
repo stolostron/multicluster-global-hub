@@ -26,7 +26,7 @@ spec:
             - --watch-namespace=$(WATCH_NAMESPACE)
             - --transport-type=kafka
             - --kafka-bootstrap-server={{.KafkaBootstrapServer}}
-            - --kafka-ssl-ca={{.KafkaCA}}
+            - --kafka-ca-path=/kafka-ca/ca.crt
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)
             - --lease-duration={{.LeaseDuration}}
@@ -54,6 +54,9 @@ spec:
           volumeMounts:
           - mountPath: /webhook-certs
             name: webhook-certs
+            readOnly: true
+          - mountPath: /kafka-ca
+            name: kafka-ca
             readOnly: true
         - name: oauth-proxy
           image: "{{.ProxyImage}}"
@@ -94,11 +97,11 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           volumeMounts:
-            - mountPath: /etc/tls/private
-              name: apiserver-certs
-              readOnly: true
-            - mountPath: /etc/proxy/secrets
-              name: cookie-secret
+          - mountPath: /etc/tls/private
+            name: apiserver-certs
+            readOnly: true
+          - mountPath: /etc/proxy/secrets
+            name: cookie-secret
       volumes:
       - name: apiserver-certs
         secret:
@@ -106,6 +109,9 @@ spec:
       - name: cookie-secret
         secret:
           secretName: nonk8s-apiserver-cookie-secret
+      - name: kafka-ca
+        secret:
+          secretName: kafka-ca-secret
       - name: webhook-certs
         secret:
           secretName: multicluster-global-hub-webhook-certs

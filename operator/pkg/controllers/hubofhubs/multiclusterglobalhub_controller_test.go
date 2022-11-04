@@ -62,7 +62,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		MGHName              = "test-mgh"
 		StorageSecretName    = "storage-secret"
 		TransportSecretName  = "transport-secret"
-		kafkaCA              = "foobar"
+		kafkaCACert          = "foobar"
 		kafkaBootstrapServer = "https://test-kafka.example.com"
 
 		timeout  = time.Second * 10
@@ -237,7 +237,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				Name: TransportSecretName,
 			},
 			Data: map[string][]byte{
-				"CA":               []byte(kafkaCA),
+				"ca.crt":           []byte(kafkaCACert),
 				"bootstrap_server": []byte(kafkaBootstrapServer),
 			},
 			Type: corev1.SecretTypeOpaque,
@@ -391,8 +391,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 			checkResourceExistence := func(ctx context.Context, k8sClient client.Client, unsObj *unstructured.Unstructured,
 			) error {
-				// skip session secret check because it contains random value
-				if unsObj.GetName() == "nonk8s-apiserver-cookie-secret" {
+				// skip session secret and kafka-ca secret check because they contain random value
+				if unsObj.GetName() == "nonk8s-apiserver-cookie-secret" || unsObj.GetName() == "kafka-ca-secret" {
 					return nil
 				}
 				objLookupKey := types.NamespacedName{Name: unsObj.GetName(), Namespace: unsObj.GetNamespace()}
@@ -430,7 +430,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ProxyImage           string
 					ProxySessionSecret   string
 					DBSecret             string
-					KafkaCA              string
+					KafkaCACert          string
 					KafkaBootstrapServer string
 					Namespace            string
 					LeaseDuration        string
@@ -441,7 +441,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ProxyImage:           config.GetImage("oauth_proxy"),
 					ProxySessionSecret:   "testing",
 					DBSecret:             mgh.Spec.DataLayer.LargeScale.Postgres.Name,
-					KafkaCA:              base64.RawStdEncoding.EncodeToString([]byte(kafkaCA)),
+					KafkaCACert:          base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
 					KafkaBootstrapServer: kafkaBootstrapServer,
 					Namespace:            config.GetDefaultNamespace(),
 					LeaseDuration:        "137",

@@ -97,7 +97,7 @@ func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
 	}
 
 	return string(kafkaSecret.Data["bootstrap_server"]),
-		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["CA"]), nil
+		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["ca.crt"]), nil
 }
 
 func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.Object) error {

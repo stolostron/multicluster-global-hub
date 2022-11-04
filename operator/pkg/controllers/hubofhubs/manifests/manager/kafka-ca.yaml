@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kafka-ca-secret
+  namespace: {{.Namespace}}
+  labels:
+    name: multicluster-global-hub-manager
+type: Opaque
+data:
+  "ca.crt": "{{.KafkaCACert}}"

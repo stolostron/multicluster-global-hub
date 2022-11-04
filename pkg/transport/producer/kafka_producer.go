@@ -40,7 +40,7 @@ type KafkaProducer struct {
 }
 
 // NewProducer returns a new instance of Producer object.
-func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, sslCA string,
+func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, caPath string,
 	producerConfig *KafkaProducerConfig, log logr.Logger,
 ) (*KafkaProducer, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
@@ -52,7 +52,7 @@ func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, sslCA s
 		"log.connection.close":    "false", // silence spontaneous disconnection logs, kafka recovers by itself.
 	}
 
-	err := helpers.LoadSslToConfigMap(sslCA, kafkaConfigMap)
+	err := helpers.LoadCACertToConfigMap(caPath, kafkaConfigMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure kafka-producer - %w", err)
 	}

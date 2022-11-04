@@ -97,7 +97,7 @@ func getConsumer(environmentManager *helper.ConfigManager) (consumer.Consumer, e
 	switch environmentManager.TransportType {
 	case kafkaTransportType:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			environmentManager.BootstrapServers, environmentManager.SslCA,
+			environmentManager.BootstrapServers, environmentManager.KafkaCAPath,
 			environmentManager.ConsumerConfig, ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
@@ -120,7 +120,7 @@ func getProducer(environmentManager *helper.ConfigManager) (producer.Producer, e
 	switch environmentManager.TransportType {
 	case kafkaTransportType:
 		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
-			environmentManager.BootstrapServers, environmentManager.SslCA,
+			environmentManager.BootstrapServers, environmentManager.KafkaCAPath,
 			environmentManager.ProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
