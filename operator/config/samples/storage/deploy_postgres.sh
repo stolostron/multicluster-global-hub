@@ -1,49 +1,37 @@
 #!/bin/bash
 KUBECONFIG=${1:-$KUBECONFIG}
-currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-TARGET_NAMESPACE=${TARGET_NAMESPACE:-"open-cluster-management"}
+currentDir="$( cd "$( dirname "$0" )" && pwd )"
+rootDir="$(cd "$(dirname "$0")/../../../.." ; pwd -P)"
+source $rootDir/test/setup/common.sh
+
+# step1: check storage secret
+targetNamespace=${TARGET_NAMESPACE:-"open-cluster-management"}
 storageSecret=${STORAGE_SECRET_NAME:-"storage-secret"}
-ready=$(kubectl get secret $storageSecret -n $TARGET_NAMESPACE --ignore-not-found=true)
+ready=$(kubectl get secret $storageSecret -n $targetNamespace --ignore-not-found=true)
 if [ ! -z "$ready" ]; then
   echo "storageSecret $storageSecret already exists in $TARGET_NAMESPACE namespace"
   exit 0
 fi
 
-# install postgres operator
-POSTGRES_OPERATOR=${POSTGRES_OPERATOR:-"pgo"}
+# step2: deploy postgres operator pgo
 kubectl apply --server-side -k ${currentDir}/postgres-operator
-kubectl -n postgres-operator wait --for=condition=Available Deployment/$POSTGRES_OPERATOR --timeout=1000s
-echo "$POSTGRES_OPERATOR operator is ready!"
+waitAppear "kubectl get pods -n postgres-operator | grep pgo | grep Running || true"
+# kubectl -n postgres-operator wait --for=condition=Available Deployment/"pgo" --timeout=1000s
 
-# deploy postgres cluster
+# step3: deploy  postgres cluster
+kubectl apply -k ${currentDir}/postgres-cluster
+waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
+
+# step4: generate storage secret
 pgnamespace="hoh-postgres"
 userSecret="hoh-pguser-postgres"
-
-kubectl apply -k ${currentDir}/postgres-cluster
-matched=$(kubectl get secret $userSecret -n $pgnamespace --ignore-not-found=true)
-SECOND=0
-while [ -z "$matched" ]; do
-  if [ $SECOND -gt 300 ]; then
-    echo "Timeout waiting for creating $secret"
-    exit 1
-  fi
-  echo "Waiting for secret $userSecret to be created in pgnamespace $pgnamespace"
-  matched=$(kubectl get secret $userSecret -n $pgnamespace --ignore-not-found=true)
-  sleep 5
-  (( SECOND = SECOND + 5 ))
-done
-echo "Postgres is ready!"
-
-# create usersecret for postgres
 databaseHost="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "host" | base64decode}}')"
 databasePort="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "port" | base64decode}}')"
 databaseUser="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "user" | base64decode}}')"
 databasePassword="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "password" | base64decode}}')"
 databasePassword=$(printf %s "$databasePassword" |jq -sRr @uri)
 
-databaseUri="postgres://${databaseUser}:${databasePassword}@${databaseHost}:${pgAdminPort}/hoh"
-
-kubectl create secret generic $storageSecret -n $TARGET_NAMESPACE \
-    --from-literal=database_uri=$databaseUri
-echo "storage secret is ready in $TARGET_NAMESPACE namespace!"
+kubectl create secret generic $storageSecret -n $targetNamespace \
+    --from-literal=database_uri="postgres://${databaseUser}:${databasePassword}@${databaseHost}:${pgAdminPort}/hoh"
+echo "storage secret is ready in $targetNamespace namespace!"
