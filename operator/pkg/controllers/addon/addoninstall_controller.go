@@ -78,14 +78,8 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			},
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{
-			InstallNamespace: operatorconstants.GHAgentInstallNamespace,
+			InstallNamespace: constants.GHSystemNamespace,
 		},
-	}
-
-	// install addon in open-cluster-management-global-hub-system ns if the cluster has local-cluster.
-	switch getHub(cluster) {
-	case constants.HubInstalledWithSelfManagement:
-		addon.Spec.InstallNamespace = constants.GHSystemNamespace
 	}
 
 	labels := cluster.GetLabels()
@@ -127,17 +121,6 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func getHub(cluster *clusterv1.ManagedCluster) string {
-	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name != constants.HubClusterClaimName {
-			continue
-		}
-
-		return claim.Value
-	}
-	return ""
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -55,10 +55,9 @@ const (
 	HubClusterClaimName = "hub.open-cluster-management.io"
 
 	// the value of the HubClusterClaimName ClusterClaim
-	HubNotInstalled                   = "NotInstalled"
-	HubInstalledWithSelfManagement    = "InstalledWithSelfManagement"
-	HubInstalledWithoutSelfManagement = "InstalledWithoutSelfManagement"
-	HubInstalledByHoH                 = "InstalledByHoH"
+	HubNotInstalled         = "NotInstalled"
+	HubInstalledByUser      = "InstalledByUser"
+	HubInstalledByGlobalHub = "InstalledByGlobalHub"
 )
 
 // message types

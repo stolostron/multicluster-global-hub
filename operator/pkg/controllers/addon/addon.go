@@ -88,7 +88,7 @@ func (a *HohAgentAddon) installACMHub(cluster *clusterv1.ManagedCluster) bool {
 		}
 
 		if claim.Value == constants.HubNotInstalled ||
-			claim.Value == constants.HubInstalledByHoH {
+			claim.Value == constants.HubInstalledByGlobalHub {
 			return true
 		}
 	}
