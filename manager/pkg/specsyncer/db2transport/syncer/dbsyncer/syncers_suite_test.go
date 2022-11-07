@@ -27,6 +27,8 @@ import (
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
+	specbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -35,17 +37,18 @@ import (
 )
 
 var (
-	testenv             *envtest.Environment
-	cfg                 *rest.Config
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	mgr                 ctrl.Manager
-	kubeClient          client.Client
-	testPostgres        *testpostgres.TestPostgres
-	transportPostgreSQL *postgresql.PostgreSQL
-	kafkaConsumer       *consumer.KafkaConsumer
-	kafkaProducer       *producer.KafkaProducer
-	mockCluster         *kafka.MockCluster
+	testenv                 *envtest.Environment
+	cfg                     *rest.Config
+	ctx                     context.Context
+	cancel                  context.CancelFunc
+	mgr                     ctrl.Manager
+	kubeClient              client.Client
+	testPostgres            *testpostgres.TestPostgres
+	transportPostgreSQL     *postgresql.PostgreSQL
+	kafkaConsumer           *consumer.KafkaConsumer
+	kafkaProducer           *producer.KafkaProducer
+	mockCluster             *kafka.MockCluster
+	customBundleUpdatesChan = make(chan interface{})
 )
 
 func TestSpecSyncer(t *testing.T) {
@@ -130,7 +133,17 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
 
 	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, kafkaProducer, 1*time.Second)).Should(Succeed())
+
 	Expect(mgr.Add(kafkaProducer)).Should(Succeed())
+
+	kafkaConsumer.SetLeafHubName(leafhubName)
+	// register custom bundle update channel for managed cluster label updates
+	kafkaConsumer.CustomBundleRegister(constants.ManagedClustersLabelsMsgKey, &registration.CustomBundleRegistration{
+		InitBundlesResourceFunc: func() interface{} {
+			return &specbundle.ManagedClusterLabelsSpecBundle{}
+		},
+		BundleUpdatesChan: customBundleUpdatesChan,
+	})
 	Expect(mgr.Add(kafkaConsumer)).Should(Succeed())
 
 	By("Start the manager")
