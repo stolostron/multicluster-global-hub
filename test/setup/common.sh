@@ -447,3 +447,35 @@ function checkManagedCluster() {
     exit 1
   fi
 }
+
+waitDisappear() {
+  command=$1
+  seconds=${2:-"300"}
+  while [ -n "$(eval $command)" ]; do 
+    if [ $seconds -lt 0 ]; then
+      echo "timout for waiting: $command"
+      exit 1
+    fi 
+    echo "waiting for null $command"
+    sleep 3
+    (( seconds = seconds - 3 ))
+  done
+  echo "> $command"
+  eval $command
+}
+
+waitAppear() {
+  command=$1
+  seconds=${2:-"300"}
+  while [ -z "$(eval $command)" ]; do 
+    if [ $seconds -lt 0 ]; then
+      echo "timout for waiting: $command"
+      exit 1
+    fi 
+    echo "waiting for not null: $command"
+    sleep 2
+    (( seconds = seconds - 2 ))
+  done
+  echo "> $command"
+  eval $command
+}
