@@ -1,8 +1,8 @@
 #!/bin/bash
 
 KUBECONFIG=${1:-$KUBECONFIG}
-currentDir="$( cd "$( dirname "$0" )" && pwd )"
-rootDir="$(cd "$(dirname "$0")/../../../.." ; pwd -P)"
+currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+rootDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." ; pwd -P)"
 source $rootDir/test/setup/common.sh
 
 # step1: check the transport-secret

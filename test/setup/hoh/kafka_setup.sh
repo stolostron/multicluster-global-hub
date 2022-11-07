@@ -2,8 +2,8 @@
 #!/bin/bash
 
 KUBECONFIG=${1:-$KUBECONFIG}
-currentDir="$( cd "$( dirname "$0" )" && pwd )"
-setupDir="$(cd "$(dirname "$0")/.." ; pwd -P)"
+currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+setupDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." ; pwd -P)"
 source "$setupDir/common.sh"
 
 # check the transport secret

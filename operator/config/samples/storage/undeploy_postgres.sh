@@ -1,7 +1,7 @@
 #!/bin/bash
 
-currentDir="$( cd "$( dirname "$0" )" && pwd )"
-rootDir="$(cd "$(dirname "$0")/../../../.." ; pwd -P)"
+currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+rootDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." ; pwd -P)"
 source $rootDir/test/setup/common.sh
 
 # step1: delete transport secret

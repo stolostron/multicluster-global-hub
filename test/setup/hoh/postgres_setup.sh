@@ -2,7 +2,7 @@
 
 KUBECONFIG=${1:-$KUBECONFIG}
 
-rootDir="$(cd "$(dirname "$0")/../../.." ; pwd -P)"
+rootDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." ; pwd -P)"
 postgresDir="$rootDir/operator/config/samples/storage"
 
 bash $postgresDir/deploy_postgres.sh $KUBECONFIG
