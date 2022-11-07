@@ -37,7 +37,7 @@ require (
 	open-cluster-management.io/multicloud-operators-channel v0.8.0
 	open-cluster-management.io/multicloud-operators-subscription v0.8.0
 	sigs.k8s.io/application v0.8.3
-	sigs.k8s.io/controller-runtime v0.12.3
+	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -47,6 +47,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect

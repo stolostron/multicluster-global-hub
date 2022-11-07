@@ -170,7 +170,7 @@ func createManager(restConfig *rest.Config, environmentManager *helper.ConfigMan
 	}
 
 	// incarnation version
-	incarnation, err := incarnation.GetIncarnation(mgr)
+	incarnation, err := incarnation.GetIncarnation(mgr, environmentManager.PodNameSpace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get incarnation version: %w", err)
 	}

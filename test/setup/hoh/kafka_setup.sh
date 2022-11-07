@@ -18,7 +18,7 @@ fi
 # deploy kafka operator
 kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f ${currentDir}/components/kafka-community-operator.yaml
-waitAppear "kubectl get pods -n kafka | grep strimzi-cluster-operator | grep Running || true"
+waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true"
 echo "Kafka operator is ready"
 
 # deploy kafka cluster

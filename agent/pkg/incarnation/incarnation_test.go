@@ -83,7 +83,7 @@ func TestIncarnation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			gotIncarnation, err := incarnation.GetIncarnation(mgr)
+			gotIncarnation, err := incarnation.GetIncarnation(mgr, "default")
 			if err != tc.expectedErr || gotIncarnation != tc.expectedIncarnation {
 				t.Errorf("%s:\nexpected incarnation & err:\n%+v\n%v\ngot incarnation & err \n%+v\n%v",
 					tc.desc, tc.expectedIncarnation, tc.expectedErr, gotIncarnation, err)
