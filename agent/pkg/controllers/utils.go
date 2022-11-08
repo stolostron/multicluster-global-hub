@@ -131,16 +131,14 @@ func updateHubClusterClaim(ctx context.Context, k8sClient client.Client,
 		}
 
 		if clusterManager != nil {
-			hubValue = constants.HubInstalledWithoutSelfManagement
+			hubValue = constants.HubInstalledByUser
 		}
 		return nil, updateClusterClaim(ctx, k8sClient, constants.HubClusterClaimName, hubValue)
 	}
 
-	hubValue = constants.HubInstalledWithoutSelfManagement
+	hubValue = constants.HubInstalledByUser
 	if mch.GetLabels()[constants.GlobalHubOwnerLabelKey] == constants.GlobalHubOwnerLabelVal {
-		hubValue = constants.HubInstalledByHoH
-	} else if !mch.Spec.DisableHubSelfManagement {
-		hubValue = constants.HubInstalledWithSelfManagement
+		hubValue = constants.HubInstalledByGlobalHub
 	}
 	return mch, updateClusterClaim(ctx, k8sClient, constants.HubClusterClaimName, hubValue)
 }
