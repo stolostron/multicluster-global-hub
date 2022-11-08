@@ -10,14 +10,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var _ = Describe("leaf hubs heartbeats", Ordered, func() {
 	const (
-		testSchema      = "status"
-		heartbeatsTable = "leaf_hub_heartbeats"
-		leafHubName     = "hub1"
+		testSchema  = database.StatusSchema
+		testTable   = database.LeafHubHeartbeatsTableName
+		leafHubName = "hub1"
 	)
 
 	BeforeAll(func() {
@@ -43,15 +44,15 @@ var _ = Describe("leaf hubs heartbeats", Ordered, func() {
 				columnValues, _ := rows.Values()
 				schema := columnValues[0]
 				table := columnValues[1]
-				if schema == testSchema && table == heartbeatsTable {
+				if schema == testSchema && table == testTable {
 					return nil
 				}
 			}
-			return fmt.Errorf("failed to create table %s.%s", testSchema, heartbeatsTable)
+			return fmt.Errorf("failed to create table %s.%s", testSchema, testTable)
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("sync the control info bundle", func() {
+	It("sync ControlInfo bundle", func() {
 		By("Create ControlInfo bundle")
 		controlInfoBundle := &Bundle{
 			LeafHubName:   leafHubName,
@@ -79,23 +80,23 @@ var _ = Describe("leaf hubs heartbeats", Ordered, func() {
 
 		By("Check the heartbeats table")
 		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT leaf_hub_name,last_timestamp FROM %s.%s", testSchema, heartbeatsTable)
+			querySql := fmt.Sprintf("SELECT leaf_hub_name,last_timestamp FROM %s.%s", testSchema, testTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err
 			}
 			defer rows.Close()
 			for rows.Next() {
-				var name string
+				var hubName string
 				var timestamp *time.Time
-				if err := rows.Scan(&name, &timestamp); err != nil {
+				if err := rows.Scan(&hubName, &timestamp); err != nil {
 					return err
 				}
-				if name == controlInfoBundle.LeafHubName {
+				if hubName == controlInfoBundle.LeafHubName {
 					return nil
 				}
 			}
-			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, heartbeatsTable)
+			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testTable)
 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 })

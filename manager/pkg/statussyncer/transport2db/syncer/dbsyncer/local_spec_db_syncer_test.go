@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,14 +20,15 @@ import (
 
 var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 	const (
-		testSchema         = "local_spec"
-		policyTable        = "policies"
+		testSchema         = database.LocalSpecSchema
+		testTable          = database.LocalPolicySpecTableName
 		placementRuleTable = "placementrules"
 		leafHubName        = "hub1"
+		messageKey         = constants.LocalPolicySpecMsgKey
 	)
 
 	BeforeAll(func() {
-		By("Create leaf_hub_heartbeats table in database")
+		By("Create local spec table in database")
 		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
 			CREATE SCHEMA IF NOT EXISTS local_spec;
 			CREATE TABLE IF NOT EXISTS  local_spec.placementrules (
@@ -58,20 +60,20 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 				columnValues, _ := rows.Values()
 				schema := columnValues[0]
 				table := columnValues[1]
-				if schema == testSchema && (table == policyTable || table == placementRuleTable) {
+				if schema == testSchema && (table == testTable || table == placementRuleTable) {
 					expectedCount++
 				}
 			}
 			if expectedCount == 2 {
 				return nil
 			}
-			return fmt.Errorf("failed to create table %s.%s and %s.%s", testSchema, policyTable,
+			return fmt.Errorf("failed to create table %s.%s and %s.%s", testSchema, testTable,
 				testSchema, placementRuleTable)
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("sync the local policy bundle", func() {
-		By("Create localPolicySpec bundle")
+	It("sync LocalPolicySpec bundle", func() {
+		By("Create LocalPolicySpec bundle")
 		policy := &policiesv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testLocalPolicy",
@@ -79,7 +81,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 			},
 			Spec: policiesv1.PolicySpec{},
 		}
-		localPolicyStatusBundle := &GenericStatusBundle{
+		statusBundle := &GenericStatusBundle{
 			Objects:       make([]Object, 0),
 			LeafHubName:   leafHubName,
 			BundleVersion: status.NewBundleVersion(0, 0),
@@ -92,20 +94,20 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 			},
 			lock: sync.Mutex{},
 		}
-		localPolicyStatusBundle.Objects = append(localPolicyStatusBundle.Objects, policy)
+		statusBundle.Objects = append(statusBundle.Objects, policy)
 
 		By("Create transport message")
 		// increment the version
-		localPolicyStatusBundle.BundleVersion.Generation++
-		payloadBytes, err := json.Marshal(localPolicyStatusBundle)
+		statusBundle.BundleVersion.Generation++
+		payloadBytes, err := json.Marshal(statusBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPolicySpecMsgKey)
+		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, messageKey)
 		transportMessage := &transport.Message{
-			Key:     localPolicySpecTransportKey,
-			ID:      localPolicySpecTransportKey,
+			Key:     transportMessageKey,
+			ID:      transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: localPolicyStatusBundle.BundleVersion.String(),
+			Version: statusBundle.BundleVersion.String(),
 			Payload: payloadBytes,
 		}
 
@@ -114,25 +116,25 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 
 		By("Check the local policy table")
 		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT leaf_hub_name,payload FROM %s.%s", testSchema, policyTable)
+			querySql := fmt.Sprintf("SELECT leaf_hub_name,payload FROM %s.%s", testSchema, testTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err
 			}
 			defer rows.Close()
 			for rows.Next() {
-				var leaf_hub_name string
+				var hubName string
 				policy := policiesv1.Policy{}
-				if err := rows.Scan(&leaf_hub_name, &policy); err != nil {
+				if err := rows.Scan(&hubName, &policy); err != nil {
 					return err
 				}
-				if leaf_hub_name == localPolicyStatusBundle.LeafHubName &&
-					policy.Name == localPolicyStatusBundle.Objects[0].GetName() {
+				if hubName == statusBundle.LeafHubName &&
+					policy.Name == statusBundle.Objects[0].GetName() {
 					return nil
 				}
 			}
 
-			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, policyTable)
+			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testTable)
 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 })
