@@ -16,7 +16,7 @@ import (
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 )
 
-var _ = Describe("SubscriptionStatuesDbSyncer", Ordered, func() {
+var _ = Describe("SubscriptionStatusDbSyncer", Ordered, func() {
 	const (
 		leafHubName = "hub1"
 		testSchema  = database.StatusSchema
@@ -25,7 +25,7 @@ var _ = Describe("SubscriptionStatuesDbSyncer", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create subscription reports table in database")
+		By("Create subscription status table in database")
 		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
 			CREATE SCHEMA IF NOT EXISTS status;
 			CREATE TABLE IF NOT EXISTS  status.subscription_statuses (

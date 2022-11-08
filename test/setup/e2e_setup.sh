@@ -65,10 +65,10 @@ hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED"
 kubectl config use-context $CTX_HUB >> $LOG
 
 # wait kafka to be ready
-waitKafkaToBeReady
+waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 600
 
 # wait postgres to be ready
-waitPostgresToBeReady
+waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true" 600
 
 # deploy hoh
 # need the following labels to enable deploying agent in leaf hub cluster
