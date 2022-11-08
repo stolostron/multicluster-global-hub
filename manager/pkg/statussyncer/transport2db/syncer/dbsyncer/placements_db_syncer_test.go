@@ -8,34 +8,31 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 )
 
-var _ = Describe("PlacementDecisionsDbSyncer", Ordered, func() {
+var _ = Describe("PlacementDbSyncer", Ordered, func() {
 	const (
 		leafHubName = "hub1"
 		testSchema  = database.StatusSchema
-		testTable   = database.PlacementDecisionsTableName
-		messageKey  = constants.PlacementDecisionMsgKey
+		testTable   = database.PlacementsTableName
+		messageKey  = constants.PlacementMsgKey
 	)
 
 	BeforeAll(func() {
-		By("Create placementdecisions table in database")
+		By("Create placements table in database")
 		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
 			CREATE SCHEMA IF NOT EXISTS status;
-			CREATE TABLE IF NOT EXISTS  status.placementdecisions (
+			CREATE TABLE IF NOT EXISTS  status.placements (
 				id uuid NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
 				payload jsonb NOT NULL
 			);
-			CREATE UNIQUE INDEX IF NOT EXISTS placementdecisions_leaf_hub_name_and_payload_id_namespace_idx ON status.placementdecisions USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
-			CREATE INDEX IF NOT EXISTS placementdecisions_payload_name_and_namespace_idx ON status.placementdecisions USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 		`)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -58,11 +55,11 @@ var _ = Describe("PlacementDecisionsDbSyncer", Ordered, func() {
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("sync the PlacementDecision bundle", func() {
-		By("Create PlacementDecision bundle")
-		obj := &clustersv1beta1.PlacementDecision{
+	It("sync the Placements bundle", func() {
+		By("Create Placements bundle")
+		obj := &clustersv1beta1.Placement{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "testPlacementDecision",
+				Name:      "testPlacements",
 				Namespace: "default",
 				Annotations: map[string]string{
 					constants.OriginOwnerReferenceAnnotation: "2aa5547c-c172-47ed-b70b-db468c84d327",
@@ -106,12 +103,12 @@ var _ = Describe("PlacementDecisionsDbSyncer", Ordered, func() {
 			defer rows.Close()
 			for rows.Next() {
 				var hubName string
-				placementDecision := clustersv1beta1.PlacementDecision{}
-				if err := rows.Scan(&hubName, &placementDecision); err != nil {
+				placement := clustersv1beta1.Placement{}
+				if err := rows.Scan(&hubName, &placement); err != nil {
 					return err
 				}
 				if hubName == statusBundle.LeafHubName &&
-					placementDecision.Name == statusBundle.Objects[0].GetName() {
+					placement.Name == statusBundle.Objects[0].GetName() {
 					return nil
 				}
 			}

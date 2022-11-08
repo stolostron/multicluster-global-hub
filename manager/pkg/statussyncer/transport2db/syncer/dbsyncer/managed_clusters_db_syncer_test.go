@@ -26,7 +26,7 @@ var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create leaf_hub_heartbeats table in database")
+		By("Create managed_clusters table in database")
 		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
 			CREATE SCHEMA IF NOT EXISTS status;
 			DO $$ BEGIN
