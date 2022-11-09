@@ -18,12 +18,12 @@ fi
 # deploy kafka operator
 kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f ${currentDir}/components/kafka-community-operator.yaml
-waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 600
+waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
 echo "Kafka operator is ready"
 
 # deploy kafka cluster
 kubectl apply -f ${currentDir}/components/kafka-community-cluster.yaml
-waitAppear "kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found" 600
+waitAppear "kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found" 1200
 echo "Kafka cluster is ready"
 
 waitAppear "kubectl get kafkatopic spec -n kafka --ignore-not-found | grep spec || true"
