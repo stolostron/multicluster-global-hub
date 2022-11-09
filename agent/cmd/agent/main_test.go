@@ -13,12 +13,18 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var (
 	cfg              *rest.Config
+	kubeClient       kubernetes.Interface
 	mockKafkaCluster *kafka.MockCluster
 )
 
@@ -58,6 +64,19 @@ func TestMain(m *testing.M) {
 
 	if mockKafkaCluster == nil {
 		panic(fmt.Errorf("empty mock kafka cluster!"))
+	}
+
+	kubeClient, err = kubernetes.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := kubeClient.CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.GHSystemNamespace,
+		},
+	}, metav1.CreateOptions{}); err != nil {
+		panic(err)
 	}
 
 	// run testings
