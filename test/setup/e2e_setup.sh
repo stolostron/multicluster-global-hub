@@ -65,7 +65,7 @@ hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED"
 kubectl config use-context $CTX_HUB >> $LOG
 
 # wait kafka to be ready
-waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 600
+waitAppear "kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}'" 600
 
 # wait postgres to be ready
 waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true" 600
