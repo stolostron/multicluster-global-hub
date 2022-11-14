@@ -4,10 +4,13 @@
 package incarnation_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -15,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/incarnation"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var (
@@ -51,6 +55,14 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	if _, err := kubeClient.CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.GHSystemNamespace,
+		},
+	}, metav1.CreateOptions{}); err != nil {
+		panic(err)
+	}
+
 	// run testings
 	code := m.Run()
 
@@ -83,7 +95,7 @@ func TestIncarnation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			gotIncarnation, err := incarnation.GetIncarnation(mgr, "default")
+			gotIncarnation, err := incarnation.GetIncarnation(mgr)
 			if err != tc.expectedErr || gotIncarnation != tc.expectedIncarnation {
 				t.Errorf("%s:\nexpected incarnation & err:\n%+v\n%v\ngot incarnation & err \n%+v\n%v",
 					tc.desc, tc.expectedIncarnation, tc.expectedErr, gotIncarnation, err)
