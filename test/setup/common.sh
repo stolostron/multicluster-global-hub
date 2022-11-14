@@ -450,13 +450,13 @@ function checkManagedCluster() {
 
 waitDisappear() {
   command=$1
-  seconds=${2:-"300"}
+  seconds=${2:-"600"}
   while [ -n "$(eval $command)" ]; do 
     if [ $seconds -lt 0 ]; then
-      echo "timout for waiting: $command"
+      echo "timout for disappearing[$seconds]: $command"
       exit 1
     fi 
-    echo "waiting for null $command"
+    echo "waiting to disappear[$seconds]: $command"
     sleep 3
     (( seconds = seconds - 3 ))
   done
@@ -466,13 +466,13 @@ waitDisappear() {
 
 waitAppear() {
   command=$1
-  seconds=${2:-"300"}
+  seconds=${2:-"600"}
   while [ -z "$(eval $command)" ]; do 
     if [ $seconds -lt 0 ]; then
-      echo "timout for waiting: $command"
+      echo "timout for appearing[$seconds]: $command"
       exit 1
     fi 
-    echo "waiting for not null: $command"
+    echo "waiting to appear[$seconds]: $command"
     sleep 2
     (( seconds = seconds - 2 ))
   done

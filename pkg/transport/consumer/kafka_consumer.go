@@ -165,9 +165,9 @@ func (c *KafkaConsumer) handleKafkaMessages(ctx context.Context) {
 		case msg := <-c.messageChan:
 			c.log.Info("received message and forward to bundle chan...")
 			if c.conflationManager == nil {
-				c.processMessage(msg)
+				c.processMessage(msg) // agent consumer
 			} else {
-				c.processMessageWithConflation(msg)
+				c.processMessageWithConflation(msg) // manager consumer
 			}
 		}
 	}
@@ -228,8 +228,7 @@ func (c *KafkaConsumer) processMessageWithConflation(message *kafka.Message) {
 }
 
 func (c *KafkaConsumer) processMessage(message *kafka.Message) {
-	if msgDestinationLeafHubBytes, found :=
-		c.lookupHeaderValue(message, transport.DestinationHub); found {
+	if msgDestinationLeafHubBytes, found := c.lookupHeaderValue(message, transport.DestinationHub); found {
 		if string(msgDestinationLeafHubBytes) != c.leafHubName {
 			return // if destination is explicitly specified and does not match, drop bundle
 		}
