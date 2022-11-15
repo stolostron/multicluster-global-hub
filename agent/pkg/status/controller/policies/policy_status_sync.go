@@ -25,10 +25,12 @@ const (
 )
 
 // AddPoliciesStatusController adds policies status controller to the manager.
-func AddPoliciesStatusController(mgr ctrl.Manager, producer producer.Producer, env helper.ConfigManager,
-	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
+func AddPoliciesStatusController(mgr ctrl.Manager, producer producer.Producer, leafHubName string,
+	statusDeltaCountSwitchFactor int, incarnation uint64, hubOfHubsConfig *corev1.ConfigMap,
+	syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
-	bundleCollection, err := createBundleCollection(producer, env, incarnation, hubOfHubsConfig)
+	bundleCollection, err := createBundleCollection(producer, leafHubName,
+		statusDeltaCountSwitchFactor, incarnation, hubOfHubsConfig)
 	if err != nil {
 		return fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
@@ -52,12 +54,9 @@ func AddPoliciesStatusController(mgr ctrl.Manager, producer producer.Producer, e
 	return nil
 }
 
-func createBundleCollection(pro producer.Producer, env helper.ConfigManager, incarnation uint64,
-	hubOfHubsConfig *corev1.ConfigMap,
+func createBundleCollection(pro producer.Producer, leafHubName string, statusDeltaCountSwitchFactor int,
+	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap,
 ) ([]*generic.BundleCollectionEntry, error) {
-	deltaSentCountSwitchFactor := env.StatusDeltaCountSwitchFactor
-	leafHubName := env.LeafHubName
-
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
@@ -75,7 +74,7 @@ func createBundleCollection(pro producer.Producer, env helper.ConfigManager, inc
 	// apply a hybrid sync manager on the (full aggregation) compliance bundles
 	completeComplianceStatusBundleCollectionEntry, deltaComplianceStatusBundleCollectionEntry,
 		err := getHybridComplianceBundleCollectionEntries(pro, leafHubName, incarnation, fullStatusPredicate,
-		clustersPerPolicyBundle, deltaSentCountSwitchFactor)
+		clustersPerPolicyBundle, statusDeltaCountSwitchFactor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize hybrid sync manager - %w", err)
 	}

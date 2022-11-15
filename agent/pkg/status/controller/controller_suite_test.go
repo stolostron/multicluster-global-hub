@@ -25,7 +25,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	agenthelper "github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/incarnation"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
@@ -45,7 +44,6 @@ var (
 	cancel        context.CancelFunc
 	mgr           ctrl.Manager
 	kubeClient    client.Client
-	agentConfig   agenthelper.ConfigManager
 	mockCluster   *kafka.MockCluster
 	kafkaConsumer *consumer.KafkaConsumer
 	kafkaProducer *producer.KafkaProducer
@@ -80,11 +78,6 @@ func TestControllers(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	ctx, cancel = context.WithCancel(context.TODO())
-
-	By("Init agent configuration")
-	agentConfig := agenthelper.ConfigManager{
-		LeafHubName: leafHubName,
-	}
 
 	By("Prepare envtest environment")
 	var err error
@@ -161,7 +154,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add controllers to manager")
-	err = statusController.AddControllers(mgr, kafkaProducer, agentConfig, incarnation)
+	err = statusController.AddControllers(mgr, kafkaProducer, leafHubName, 100, incarnation)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add kafka producer to manager")

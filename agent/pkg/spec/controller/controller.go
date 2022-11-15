@@ -7,7 +7,6 @@ import (
 	clustersv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
 	consumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -23,15 +22,17 @@ func AddToScheme(scheme *runtime.Scheme) error {
 }
 
 // AddSpecSyncers adds spec syncers to the Manager.
-func AddSyncersToManager(manager ctrl.Manager, consumer consumer.Consumer, configManager helper.ConfigManager) error {
+func AddSyncersToManager(manager ctrl.Manager, consumer consumer.Consumer, specWorkPoolSize int,
+	specEnforceHohRbac bool,
+) error {
 	workerPool, err := workers.AddWorkerPool(ctrl.Log.WithName("workers-pool"),
-		configManager.SpecWorkPoolSize, manager)
+		specWorkPoolSize, manager)
 	if err != nil {
 		return fmt.Errorf("failed to add worker pool to runtime manager: %w", err)
 	}
 
 	if err = syncers.AddGenericBundleSyncer(ctrl.Log.WithName("generic-bundle-syncer"), manager,
-		configManager.SpecEnforceHohRbac, consumer, workerPool); err != nil {
+		specEnforceHohRbac, consumer, workerPool); err != nil {
 		return fmt.Errorf("failed to add bundles spec syncer to runtime manager: %w", err)
 	}
 

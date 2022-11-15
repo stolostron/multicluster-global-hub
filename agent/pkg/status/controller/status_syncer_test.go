@@ -304,7 +304,7 @@ var _ = Describe("Agent Status Syncer", Ordered, func() {
 		Expect(kubeClient.Status().Patch(ctx, testGlobalPolicy,
 			client.MergeFrom(testGlobalPolicyCopy))).ToNot(HaveOccurred())
 
-		By("Check the global policy complete compliance bundle with updated compliance status can be read from kafka consumer")
+		By("Check the global policy delta compliance bundle with updated compliance status can be read from kafka consumer")
 		Eventually(func() bool {
 			msg, _ := <-kafkaConsumer.GetMessageChan()
 			partition, offset, msgID, receivedBundle, err := processKafkaMessage(msg)
@@ -313,12 +313,12 @@ var _ = Describe("Agent Status Syncer", Ordered, func() {
 			}
 			fmt.Printf("========== received msgID: %s\n", msgID)
 			fmt.Printf("========== received bundle: %v\n", receivedBundle)
-			if msgID != constants.PolicyCompleteComplianceMsgKey {
+			if msgID != constants.PolicyDeltaComplianceMsgKey {
 				fmt.Printf("========== unexpected msgID, want %s, got: %s\n",
-					constants.PolicyCompleteComplianceMsgKey, msgID)
+					constants.PolicyDeltaComplianceMsgKey, msgID)
 				return false
 			}
-			if msgID == constants.PolicyCompleteComplianceMsgKey {
+			if msgID == constants.PolicyDeltaComplianceMsgKey {
 				topicPartition := kafka.TopicPartition{
 					Topic:     &statusTopic,
 					Partition: partition,
@@ -330,28 +330,29 @@ var _ = Describe("Agent Status Syncer", Ordered, func() {
 					fmt.Printf("========== failed to commit kaka message: %v\n", err)
 					return false
 				}
-				policyCompleteComplianceStatusBundle, ok :=
-					receivedBundle.(*statusbundle.CompleteComplianceStatusBundle)
+				policyDeltaComplianceStatusBundle, ok :=
+					receivedBundle.(*statusbundle.DeltaComplianceStatusBundle)
 				if !ok {
-					fmt.Printf("========== unexpected received bundle type, want CompleteComplianceStatusBundle\n")
+					fmt.Printf("========== unexpected received bundle type, want DeltaComplianceStatusBundle\n")
 					return false
 				}
-				policyCompleteComplianceStatusObjs := policyCompleteComplianceStatusBundle.GetObjects()
-				if len(policyCompleteComplianceStatusObjs) != 1 {
+				policyDeltaComplianceStatusObjs := policyDeltaComplianceStatusBundle.GetObjects()
+				if len(policyDeltaComplianceStatusObjs) != 1 {
 					fmt.Printf("========== unexpected object number in received bundle, want 1, got %d\n",
-						len(policyCompleteComplianceStatusObjs))
+						len(policyDeltaComplianceStatusObjs))
 					return false
 				}
-				policyCompleteComplianceStatus := policyCompleteComplianceStatusObjs[0].(*status.PolicyCompleteComplianceStatus)
-				if len(policyCompleteComplianceStatus.NonCompliantClusters) != 1 ||
-					len(policyCompleteComplianceStatus.UnknownComplianceClusters) != 0 {
-					fmt.Printf("========== unexpected compliance status: %v\n", policyCompleteComplianceStatus)
+				policyGenericComplianceStatus := policyDeltaComplianceStatusObjs[0].(*status.PolicyGenericComplianceStatus)
+				if len(policyGenericComplianceStatus.CompliantClusters) != 1 ||
+					len(policyGenericComplianceStatus.NonCompliantClusters) != 0 ||
+					len(policyGenericComplianceStatus.UnknownComplianceClusters) != 0 {
+					fmt.Printf("========== unexpected compliance status: %v\n", policyGenericComplianceStatus)
 					return false
 				}
-				if policyCompleteComplianceStatus.NonCompliantClusters[0] != "hub1-mc3" {
-					fmt.Printf("========== unexpected noncompliance cluster name: %v\n", policyCompleteComplianceStatus)
-					return false
-				}
+				// if policyGenericComplianceStatus.NonCompliantClusters[0] != "hub1-mc3" {
+				// 	fmt.Printf("========== unexpected noncompliance cluster name: %v\n", policyGenericComplianceStatus)
+				// 	return false
+				// }
 			}
 			return true
 		}, 30*time.Second, 1*time.Second).Should(BeTrue())

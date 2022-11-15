@@ -9,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
 	configCtrl "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/controlinfo"
@@ -23,8 +22,8 @@ import (
 )
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(mgr ctrl.Manager, pro producer.Producer,
-	configManager helper.ConfigManager, incarnation uint64,
+func AddControllers(mgr ctrl.Manager, pro producer.Producer, leafHubName string,
+	statusDeltaCountSwitchFactor int, incarnation uint64,
 ) error {
 	config := &corev1.ConfigMap{}
 	if err := configCtrl.AddConfigController(mgr, config); err != nil {
@@ -36,7 +35,7 @@ func AddControllers(mgr ctrl.Manager, pro producer.Producer,
 		return fmt.Errorf("failed to add SyncIntervals controller: %w", err)
 	}
 
-	if err := policies.AddPoliciesStatusController(mgr, pro, configManager,
+	if err := policies.AddPoliciesStatusController(mgr, pro, leafHubName, statusDeltaCountSwitchFactor,
 		incarnation, config, syncIntervals); err != nil {
 		return fmt.Errorf("failed to add PoliciesStatusController controller: %w", err)
 	}
@@ -55,7 +54,7 @@ func AddControllers(mgr ctrl.Manager, pro producer.Producer,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, pro, configManager.LeafHubName, incarnation, config, syncIntervals); err != nil {
+		if err := addControllerFunction(mgr, pro, leafHubName, incarnation, config, syncIntervals); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
 	}
