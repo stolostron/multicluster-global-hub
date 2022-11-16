@@ -16,15 +16,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 )
 
 var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 	const (
-		testSchema         = database.LocalSpecSchema
-		testTable          = database.LocalPolicySpecTableName
-		placementRuleTable = "placementrules"
-		leafHubName        = "hub1"
-		messageKey         = constants.LocalPolicySpecMsgKey
+		testSchema                   = database.LocalSpecSchema
+		testPolicyTable              = database.LocalPolicySpecTableName
+		testPlacementRuleTable       = database.PlacementRulesTableName
+		placementRuleTable           = "placementrules"
+		leafHubName                  = "hub1"
+		localPolicyMessageKey        = constants.LocalPolicySpecMsgKey
+		localPlacementRuleMessageKey = constants.LocalPlacementRulesMsgKey
 	)
 
 	BeforeAll(func() {
@@ -60,20 +63,20 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 				columnValues, _ := rows.Values()
 				schema := columnValues[0]
 				table := columnValues[1]
-				if schema == testSchema && (table == testTable || table == placementRuleTable) {
+				if schema == testSchema && (table == testPolicyTable || table == placementRuleTable) {
 					expectedCount++
 				}
 			}
 			if expectedCount == 2 {
 				return nil
 			}
-			return fmt.Errorf("failed to create table %s.%s and %s.%s", testSchema, testTable,
+			return fmt.Errorf("failed to create table %s.%s and %s.%s", testSchema, testPolicyTable,
 				testSchema, placementRuleTable)
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("sync LocalPolicySpec bundle", func() {
-		By("Create LocalPolicySpec bundle")
+	It("sync LocalPolicyBundle to database", func() {
+		By("Create LocalPolicyBundle")
 		policy := &policiesv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testLocalPolicy",
@@ -102,7 +105,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 		payloadBytes, err := json.Marshal(statusBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, messageKey)
+		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, localPolicyMessageKey)
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
 			ID:      transportMessageKey,
@@ -116,7 +119,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 
 		By("Check the local policy table")
 		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT leaf_hub_name,payload FROM %s.%s", testSchema, testTable)
+			querySql := fmt.Sprintf("SELECT leaf_hub_name,payload FROM %s.%s", testSchema, testPolicyTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err
@@ -134,7 +137,73 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 				}
 			}
 
-			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testTable)
+			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testPolicyTable)
+		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+	})
+
+	It("sync LocalPlacementRuleBundle to database", func() {
+		By("Create LocalPlacementRuleBundle")
+		testPlacementrule := &placementrulev1.PlacementRule{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-placementrule-1",
+				Namespace: "default",
+			},
+			Spec: placementrulev1.PlacementRuleSpec{
+				SchedulerName: constants.GlobalHubSchedulerName,
+			},
+		}
+		statusBundle := &GenericStatusBundle{
+			Objects:       make([]Object, 0),
+			LeafHubName:   leafHubName,
+			BundleVersion: status.NewBundleVersion(0, 0),
+			manipulateObjFunc: func(object Object) {
+				placementRule, ok := object.(*placementrulev1.PlacementRule)
+				if !ok {
+					panic("Wrong instance passed to clean policy function, not a Policy")
+				}
+				placementRule.Status = placementrulev1.PlacementRuleStatus{}
+			},
+			lock: sync.Mutex{},
+		}
+		statusBundle.Objects = append(statusBundle.Objects, testPlacementrule)
+
+		By("Create transport message")
+		// increment the version
+		statusBundle.BundleVersion.Generation++
+		payloadBytes, err := json.Marshal(statusBundle)
+		Expect(err).ShouldNot(HaveOccurred())
+
+		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, localPlacementRuleMessageKey)
+		By("Sync message with transport")
+		kafkaProducer.SendAsync(&transport.Message{
+			Key:     transportMessageKey,
+			ID:      transportMessageKey,
+			MsgType: constants.StatusBundle,
+			Version: statusBundle.BundleVersion.String(),
+			Payload: payloadBytes,
+		})
+
+		By("Check the local placementrule table")
+		Eventually(func() error {
+			querySql := fmt.Sprintf("SELECT leaf_hub_name,payload FROM %s.%s", testSchema, testPlacementRuleTable)
+			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var hubName string
+				placementrule := placementrulev1.PlacementRule{}
+				if err := rows.Scan(&hubName, &placementrule); err != nil {
+					return err
+				}
+				if hubName == statusBundle.LeafHubName &&
+					placementrule.Name == statusBundle.Objects[0].GetName() {
+					return nil
+				}
+			}
+
+			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testPlacementRuleTable)
 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 })
