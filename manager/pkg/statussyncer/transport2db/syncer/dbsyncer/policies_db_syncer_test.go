@@ -125,7 +125,7 @@ var _ = Describe("Policies", Ordered, func() {
 		transportPayload := status.BaseClustersPerPolicyBundle{
 			Objects:       make([]*status.PolicyGenericComplianceStatus, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(1, 0),
+			BundleVersion: status.NewBundleVersion(2, 0),
 		}
 		transportPayload.Objects = append(transportPayload.Objects, &status.PolicyGenericComplianceStatus{
 			PolicyID:                  createdPolicyId,
@@ -165,7 +165,7 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &leafHubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("id(%s) %s-%s: %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("ClustersPerPolicy: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId {
 					createdPolicyCount++
 				}
@@ -180,12 +180,76 @@ var _ = Describe("Policies", Ordered, func() {
 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("update the policy status with PolicyDeltaCompliance bundle where aggregationLevel = full", func() {
+	It("update the policy status with complete and delta bundle where aggregationLevel = full", func() {
+		By("Create a complete compliance bundle")
+		transportCompletePayload := status.BaseCompleteComplianceStatusBundle{
+			Objects:           make([]*status.PolicyCompleteComplianceStatus, 0),
+			LeafHubName:       leafHubName,
+			BundleVersion:     status.NewBundleVersion(6, 0),
+			BaseBundleVersion: status.NewBundleVersion(2, 0),
+		}
+		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
+		// hub1-cluster2 non_compliant => hub1-cluster2 compliant
+		transportCompletePayload.Objects = append(transportCompletePayload.Objects, &status.PolicyCompleteComplianceStatus{
+			PolicyID:                  createdPolicyId,
+			NonCompliantClusters:      []string{"cluster1"},
+			UnknownComplianceClusters: []string{"cluster3"},
+		})
+		// transport bundle
+		policyCompleteComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
+		completePayloadBytes, err := json.Marshal(transportCompletePayload)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Synchronize the complete policy bundle with transport")
+		kafkaProducer.SendAsync(&transport.Message{
+			Key:     policyCompleteComplianceTransportKey,
+			ID:      policyCompleteComplianceTransportKey, // entry.transportBundleKey
+			MsgType: constants.StatusBundle,
+			Version: "1.0", // entry.bundle.GetBundleVersion().String()
+			Payload: completePayloadBytes,
+		})
+
+		By("Check the complete bundle updated all the policy status in the database")
+		Eventually(func() error {
+			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
+			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			cluster1Updated := false
+			cluster2Updated := false
+			for rows.Next() {
+				var (
+					policyId, clusterName, hubName string
+					complianceStatus               database.ComplianceStatus
+				)
+				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
+					return err
+				}
+				fmt.Printf("CompleteCompliance: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				if policyId == createdPolicyId && hubName == leafHubName {
+					if clusterName == "cluster1" && complianceStatus == "non_compliant" {
+						cluster1Updated = true
+					}
+					if clusterName == "cluster2" && complianceStatus == "compliant" {
+						cluster2Updated = true
+					}
+				}
+			}
+			// check deletion do not take effect
+			if cluster1Updated && cluster2Updated {
+				return nil
+			}
+			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, complianceTable)
+		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+
 		By("Create the delta policy bundle")
 		transportPayload := status.BaseDeltaComplianceStatusBundle{
-			Objects:       make([]*status.PolicyGenericComplianceStatus, 0),
-			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(1, 0),
+			Objects:           make([]*status.PolicyGenericComplianceStatus, 0),
+			LeafHubName:       leafHubName,
+			BundleVersion:     status.NewBundleVersion(1, 0),
+			BaseBundleVersion: status.NewBundleVersion(6, 0),
 		}
 		// the delta policy bundle tries to do the following action:
 		// 1. delete record: createdPolicyId hub1-cluster1 compliant
@@ -193,7 +257,7 @@ var _ = Describe("Policies", Ordered, func() {
 		// 3. insert record: createdPolicyId hub1-cluster3 non_compliant
 		transportPayload.Objects = append(transportPayload.Objects, &status.PolicyGenericComplianceStatus{
 			PolicyID:                  createdPolicyId,
-			CompliantClusters:         []string{"cluster2"},
+			CompliantClusters:         []string{"cluster1"},
 			NonCompliantClusters:      []string{"cluster3"},
 			UnknownComplianceClusters: make([]string, 0),
 		})
@@ -210,6 +274,7 @@ var _ = Describe("Policies", Ordered, func() {
 			Version: "1.0", // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
 		})
+
 		By("Check the delta policy bundle is only update compliance status of the existing record in database")
 		Eventually(func() error {
 			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
@@ -229,24 +294,84 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("id(%s) %s-%s: %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("DeltaCompliance1: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId && hubName == leafHubName {
 					// delete record: createdPolicyId hub1 cluster1 compliant
 					if clusterName == "cluster1" && complianceStatus == "compliant" {
-						isDeleted = false
-					}
-					// update record: createdPolicyId hub1-cluster2 non_compliant => createdPolicyId hub1-cluster2 compliant
-					if clusterName == "cluster2" && complianceStatus == "compliant" {
 						isUpdated = true
 					}
+					// update record: createdPolicyId hub1-cluster2 non_compliant => createdPolicyId hub1-cluster2 compliant
+					if clusterName == "cluster2" {
+						isDeleted = false
+					}
 					// insert record: createdPolicyId hub1-cluster3 non_compliant
-					if clusterName == "cluster3" && complianceStatus == "non_compliant" {
+					if clusterName == "cluster3" {
 						isInserted = true
 					}
 				}
 			}
 			// check deletion and creation do not take effect
 			if !isDeleted && !isInserted && isUpdated {
+				return nil
+			}
+			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, complianceTable)
+		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+
+		// update the hub1-cluster1 compliant to noncompliant with DeltaComplianceBundle
+		By("Create another updated delta policy bundle")
+		transportPayload = status.BaseDeltaComplianceStatusBundle{
+			Objects:           make([]*status.PolicyGenericComplianceStatus, 0),
+			LeafHubName:       leafHubName,
+			BundleVersion:     status.NewBundleVersion(1, 1), // increase bundle version
+			BaseBundleVersion: status.NewBundleVersion(6, 0), // keep the base bundle version = complete bundle version
+		}
+		// the delta policy bundle will only update the cluster1 status and doesn't remove cluster2
+		transportPayload.Objects = append(transportPayload.Objects, &status.PolicyGenericComplianceStatus{
+			PolicyID:                  createdPolicyId,
+			CompliantClusters:         []string{},
+			NonCompliantClusters:      []string{"cluster1"},
+			UnknownComplianceClusters: make([]string, 0),
+		})
+		// transport bundle
+		policyDeltaComplianceTransportKey = fmt.Sprintf("%s.%s", leafHubName, constants.PolicyDeltaComplianceMsgKey)
+		payloadBytes, err = json.Marshal(transportPayload)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Synchronize the updated delta policy bundle with transport")
+		kafkaProducer.SendAsync(&transport.Message{
+			Key:     policyDeltaComplianceTransportKey,
+			ID:      policyDeltaComplianceTransportKey, // entry.transportBundleKey
+			MsgType: constants.StatusBundle,
+			Version: "1.0", // entry.bundle.GetBundleVersion().String()
+			Payload: payloadBytes,
+		})
+
+		By("Check the updated delta policy bundle is synchronized to database")
+		Eventually(func() error {
+			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
+			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			isUpdated := false
+			for rows.Next() {
+				var (
+					policyId, clusterName, hubName string
+					complianceStatus               database.ComplianceStatus
+				)
+				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
+					return err
+				}
+				fmt.Printf("DeltaCompliance2: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				if policyId == createdPolicyId && hubName == leafHubName {
+					// update record: createdPolicyId hub1 cluster1 compliant => createdPolicyId hub1 cluster1 noncompliant
+					if clusterName == "cluster1" && complianceStatus == "non_compliant" {
+						isUpdated = true
+					}
+				}
+			}
+			if isUpdated {
 				return nil
 			}
 			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, complianceTable)
@@ -276,8 +401,7 @@ var _ = Describe("Policies", Ordered, func() {
 			AppliedClusters:      3,
 		})
 		// transport bundle
-		minimalPolicyComplianceTransportKey :=
-			fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
+		minimalPolicyComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
 		payloadBytes, err := json.Marshal(transportPayload)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -306,7 +430,7 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &hubName, &appliedClusters, &nonCompliantClusters); err != nil {
 					return err
 				}
-				fmt.Printf("%s %s %d %d \n", policyId, hubName, appliedClusters, nonCompliantClusters)
+				fmt.Printf("MinimalCompliance: id(%s) %s %d %d \n", policyId, hubName, appliedClusters, nonCompliantClusters)
 				if policyId == createdPolicyId && hubName == leafHubName &&
 					appliedClusters == 3 && nonCompliantClusters == 2 {
 					return nil
