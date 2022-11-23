@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
@@ -57,6 +58,7 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -144,6 +146,16 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	// Deleting the multiclusterglobalhub instance
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
 		constants.GlobalHubCleanupFinalizer) {
+		// delete ClusterManagementAddon firstly to trigger clean up addons.
+		if err := r.deleteClusterManagementAddon(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// prune the hub resources until all addons are cleaned up
+		if !r.allAddonDeleted(ctx) {
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+		}
+
 		if err := r.pruneGlobalHubResources(ctx, mgh); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
 		}
@@ -677,4 +689,33 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 	}
 
 	return nil
+}
+
+func (r *MulticlusterGlobalHubReconciler) deleteClusterManagementAddon(ctx context.Context) error {
+	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: operatorconstants.GHClusterManagementAddonName,
+		},
+	}
+	if err := r.Client.Delete(ctx, clusterManagementAddOn); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (r *MulticlusterGlobalHubReconciler) allAddonDeleted(ctx context.Context) bool {
+	addonList := &addonv1alpha1.ManagedClusterAddOnList{}
+	listOptions := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+		}),
+	}
+	if err := r.List(ctx, addonList, listOptions...); err != nil {
+		return false
+	}
+
+	return len(addonList.Items) == 0
 }

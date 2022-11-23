@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -32,11 +33,11 @@ type HoHAddonInstallReconciler struct {
 
 func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
-	log.Info("Reconciling", "namespacedname", req.NamespacedName)
+	log.V(2).Info("Reconciling", "namespacedname", req.NamespacedName)
 
 	if config.GetHoHMGHNamespacedName().Namespace == "" ||
 		config.GetHoHMGHNamespacedName().Name == "" {
-		log.Info("waiting multiclusterglobalhub instance", "namespacedname", req.NamespacedName)
+		log.V(2).Info("waiting multiclusterglobalhub instance", "namespacedname", req.NamespacedName)
 		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	}
 
@@ -46,11 +47,25 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}, clusterManagementAddOn)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("waiting util clustermanagementaddon is created", "namespacedname", req.NamespacedName)
+			log.V(2).Info("waiting util clustermanagementaddon is created", "namespacedname", req.NamespacedName)
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		} else {
 			return ctrl.Result{}, err
 		}
+	}
+	if !clusterManagementAddOn.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
+	mghList := &operatorv1alpha2.MulticlusterGlobalHubList{}
+	if err = r.List(ctx, mghList); err != nil {
+		return ctrl.Result{}, err
+	}
+	if len(mghList.Items) == 0 {
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
+	if !mghList.Items[0].DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
 	}
 
 	cluster := &clusterv1.ManagedCluster{}
