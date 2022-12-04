@@ -243,7 +243,7 @@ var _ = Describe("addon controller", Ordered, func() {
 				}, hostingWork)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(6))
+			Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(5))
 		})
 
 		It("Should create HoH agent and ACM when an OCP with deploy mode = Hosted is imported in hosted mode", func() {
@@ -308,7 +308,7 @@ var _ = Describe("addon controller", Ordered, func() {
 				}, hostingWork)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(6))
+			Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(5))
 		})
 		It("Should not create HoH addon in these cases", func() {
 			By("By preparing a non-OCP with deployMode label Managed Clusters")

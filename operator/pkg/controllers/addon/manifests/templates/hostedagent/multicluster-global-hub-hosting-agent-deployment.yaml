@@ -58,7 +58,7 @@ spec:
       - name: kubeconfig
         secret:
           defaultMode: 420
-          secretName: managed-kubeconfig-secret
+          secretName: external-managed-kubeconfig
       - name: kafka-ca
         secret:
           secretName: kafka-ca-secret

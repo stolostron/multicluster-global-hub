@@ -5,6 +5,8 @@ metadata:
   name: multicluster-global-hub-controller
   labels:
     name: multicluster-global-hub-manager
+  annotations:
+    skip-creation-if-exist: "true"
 spec:
   addOnConfiguration:
     crName: ""

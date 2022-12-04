@@ -44,5 +44,5 @@ spec:
       - name: kubeconfig
         secret:
           defaultMode: 420
-          secretName: managed-kubeconfig-secret
+          secretName: external-managed-kubeconfig
 {{- end -}}

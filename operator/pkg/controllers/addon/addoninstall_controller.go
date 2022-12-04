@@ -106,7 +106,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				operatorconstants.AnnotationAddonHostingClusterName: hostingCluster,
 			})
 			addon.Spec.InstallNamespace = fmt.Sprintf(
-				"open-cluster-management-%s-hoh-addon", clusterName)
+				"klusterlet-%s", clusterName)
 		} else {
 			return ctrl.Result{}, fmt.Errorf("failed to get hosting cluster name "+
 				"when addon in %s is installed in hosted mode", clusterName)
