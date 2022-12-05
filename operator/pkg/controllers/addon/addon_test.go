@@ -180,7 +180,7 @@ func TestManifest(t *testing.T) {
 			cluster:         fakeManagedCluster("cluster1", clusterv1.ManagedClusterClaim{}),
 			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
 				operatorconstants.ClusterDeployModeHosted),
-			expectedCount:            12,
+			expectedCount:            11,
 			expectedInstallNamespace: "hoh-agent-addon",
 		},
 		{
@@ -213,7 +213,7 @@ func TestManifest(t *testing.T) {
 				fakeHubClaim(constants.HubNotInstalled)),
 			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
 				operatorconstants.ClusterDeployModeHosted),
-			expectedCount:            19,
+			expectedCount:            18,
 			expectedInstallNamespace: "hoh-agent-addon",
 		},
 	}

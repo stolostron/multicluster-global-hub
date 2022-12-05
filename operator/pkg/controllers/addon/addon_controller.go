@@ -14,6 +14,7 @@ import (
 	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
+	addonv1alpha1client "open-cluster-management.io/api/client/addon/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
@@ -34,7 +35,7 @@ import (
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;update;get;list;watch;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=create;update;get;list;watch;delete;deletecollection;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;update;get;list;watch;delete;deletecollection;patch
-//+kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
+// +kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
 type HoHAddonController struct {
 	kubeConfig     *rest.Config
@@ -70,6 +71,12 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		return err
 	}
 
+	addonClient, err := addonv1alpha1client.NewForConfig(a.kubeConfig)
+	if err != nil {
+		klog.Errorf("failed to create addon client. err:%v", err)
+		return err
+	}
+
 	hohAgentAddon := HohAgentAddon{
 		ctx:                  ctx,
 		kubeClient:           kubeClient,
@@ -87,7 +94,13 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 	agentAddon, err := addonfactory.NewAgentAddonFactory(
 		operatorconstants.GHManagedClusterAddonName, FS, "manifests").
 		WithAgentHostedModeEnabledOption().
-		WithGetValuesFuncs(hohAgentAddon.GetValues).
+		WithGetValuesFuncs(hohAgentAddon.GetValues,
+			addonfactory.GetValuesFromAddonAnnotation,
+			addonfactory.GetAddOnDeloymentConfigValues(
+				addonfactory.NewAddOnDeloymentConfigGetter(addonClient),
+				addonfactory.ToAddOnDeloymentConfigValues,
+				addonfactory.ToAddOnCustomizedVariableValues,
+			)).
 		WithScheme(addonScheme).
 		BuildTemplateAgentAddon()
 	if err != nil {

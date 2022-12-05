@@ -211,8 +211,8 @@ func TestHoHAddonReconciler(t *testing.T) {
 				if err != nil {
 					t.Errorf("failed to reconcile .%v", err)
 				}
-				if addon.Spec.InstallNamespace != "open-cluster-management-cluster1-hoh-addon" {
-					t.Errorf("expected installname open-cluster-management-cluster1-hoh-addon, but got %s", addon.Spec.InstallNamespace)
+				if addon.Spec.InstallNamespace != "klusterlet-cluster1" {
+					t.Errorf("expected installname klusterlet-cluster1, but got %s", addon.Spec.InstallNamespace)
 				}
 				if addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName] != "cluster2" {
 					t.Errorf("expected hosting cluster cluster2, but got %s",
@@ -232,8 +232,8 @@ func TestHoHAddonReconciler(t *testing.T) {
 				if err != nil {
 					t.Errorf("failed to reconcile: %v", err)
 				}
-				if addon.Spec.InstallNamespace != "open-cluster-management-cluster1-hoh-addon" {
-					t.Errorf("expected installname open-cluster-management-cluster1-hoh-addon, but got %s", addon.Spec.InstallNamespace)
+				if addon.Spec.InstallNamespace != "klusterlet-cluster1" {
+					t.Errorf("expected installname klusterlet-cluster1, but got %s", addon.Spec.InstallNamespace)
 				}
 				if addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName] != "cluster2" {
 					t.Errorf("expected hosting cluster cluster2, but got %s",

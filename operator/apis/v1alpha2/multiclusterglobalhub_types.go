@@ -43,8 +43,8 @@ const (
 	LargeScale DataLayerType = "largeScale"
 )
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=mgh
 // MulticlusterGlobalHub is the Schema for the multiclusterglobalhubs API
 type MulticlusterGlobalHub struct {
@@ -115,7 +115,7 @@ type MulticlusterGlobalHubStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 // MulticlusterGlobalHubList contains a list of MulticlusterGlobalHub
 type MulticlusterGlobalHubList struct {
 	metav1.TypeMeta `json:",inline"`
