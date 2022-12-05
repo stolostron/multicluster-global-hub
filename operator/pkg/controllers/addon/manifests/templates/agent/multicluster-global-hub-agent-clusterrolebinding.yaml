@@ -1,9 +1,10 @@
+{{- if not .InstallHostedMode -}}
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: open-cluster-management:multicluster-global-hub-agent
   labels:
-    addon.open-cluster-management.io/hosted-manifest-location: managed
+    addon.open-cluster-management.io/hosted-manifest-location: none
 subjects:
 - kind: ServiceAccount
   name: multicluster-global-hub-agent
@@ -12,3 +13,4 @@ roleRef:
   kind: ClusterRole
   name: open-cluster-management:multicluster-global-hub-agent
   apiGroup: rbac.authorization.k8s.io
+{{- end -}}

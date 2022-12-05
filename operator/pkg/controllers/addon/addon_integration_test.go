@@ -138,7 +138,7 @@ var _ = Describe("addon controller", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(14))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(16))
 		})
 
 		It("Should create HoH addon when an OCP with deploy mode = default is imported in hosted mode", func() {
@@ -234,7 +234,7 @@ var _ = Describe("addon controller", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(5))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(2))
 			hostingWork := &workv1.ManifestWork{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{
@@ -299,7 +299,7 @@ var _ = Describe("addon controller", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(12))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(11))
 			hostingWork := &workv1.ManifestWork{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{
