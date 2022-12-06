@@ -1,9 +1,10 @@
+{{- if not .InstallHostedMode -}}
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: open-cluster-management:multicluster-global-hub-agent
   labels:
-    addon.open-cluster-management.io/hosted-manifest-location: managed
+    addon.open-cluster-management.io/hosted-manifest-location: none
 rules:
 - apiGroups:
   - "app.k8s.io"
@@ -159,3 +160,4 @@ rules:
   - patch
   - update
   - watch
+{{- end -}}

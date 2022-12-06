@@ -47,6 +47,8 @@ type ManifestsConfig struct {
 	LeaseDuration          string
 	RenewDeadline          string
 	RetryPeriod            string
+	KlusterletNamespace    string
+	KlusterletWorkSA       string
 }
 
 type HohAgentAddon struct {
@@ -95,13 +97,25 @@ func (a *HohAgentAddon) installACMHub(cluster *clusterv1.ManagedCluster) bool {
 	return false
 }
 
-func (a *HohAgentAddon) setInstallHostedMode(addon *addonapiv1alpha1.ManagedClusterAddOn,
+func (a *HohAgentAddon) setInstallHostedMode(cluster *clusterv1.ManagedCluster,
 	manifestsConfig *ManifestsConfig,
 ) {
-	annotations := addon.GetAnnotations()
-	if annotations[operatorconstants.AnnotationAddonHostingClusterName] != "" {
-		manifestsConfig.InstallHostedMode = true
+	annotations := cluster.GetAnnotations()
+	labels := cluster.GetLabels()
+	if annotations[operatorconstants.AnnotationClusterDeployMode] !=
+		operatorconstants.ClusterDeployModeHosted {
+		return
 	}
+	if labels[operatorconstants.GHAgentDeployModeLabelKey] !=
+		operatorconstants.GHAgentDeployModeHosted {
+		return
+	}
+
+	manifestsConfig.InstallHostedMode = true
+	if annotations[operatorconstants.AnnotationClusterKlusterletDeployNamespace] != "" {
+		manifestsConfig.KlusterletNamespace = annotations[operatorconstants.AnnotationClusterKlusterletDeployNamespace]
+	}
+	manifestsConfig.KlusterletWorkSA = fmt.Sprintf("klusterlet-%s-work-sa", cluster.GetName())
 }
 
 func (a *HohAgentAddon) setACMPackageConfigs(manifestsConfig *ManifestsConfig) error {
@@ -156,6 +170,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		LeaseDuration:        strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
 		RenewDeadline:        strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
 		RetryPeriod:          strconv.Itoa(a.leaderElectionConfig.RetryPeriod),
+		KlusterletNamespace:  "open-cluster-management-agent",
+		KlusterletWorkSA:     "klusterlet-work-sa",
 	}
 
 	if a.installACMHub(cluster) {
@@ -165,7 +181,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		}
 	}
 
-	a.setInstallHostedMode(addon, &manifestsConfig)
+	a.setInstallHostedMode(cluster, &manifestsConfig)
 
 	return addonfactory.StructToValues(manifestsConfig), nil
 }

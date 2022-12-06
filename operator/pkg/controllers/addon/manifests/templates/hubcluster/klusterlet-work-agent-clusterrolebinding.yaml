@@ -1,0 +1,14 @@
+{{ if .InstallACMHub }}
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: open-cluster-management:klusterlet-work:agent-addition:mgh
+subjects:
+  - kind: ServiceAccount
+    name: {{ .KlusterletWorkSA }}
+    namespace: {{ .KlusterletNamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: open-cluster-management:klusterlet-work:agent:mgh
+{{ end }}

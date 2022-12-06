@@ -97,9 +97,8 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		},
 	}
 
-	labels := cluster.GetLabels()
-	switch labels[operatorconstants.GHAgentDeployModeLabelKey] {
-	case operatorconstants.GHAgentDeployModeHosted:
+	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
+	if deployMode == operatorconstants.GHAgentDeployModeHosted {
 		annotations := cluster.GetAnnotations()
 		if hostingCluster := annotations[operatorconstants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
 			addon.SetAnnotations(map[string]string{
@@ -111,8 +110,6 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			return ctrl.Result{}, fmt.Errorf("failed to get hosting cluster name "+
 				"when addon in %s is installed in hosted mode", clusterName)
 		}
-	case operatorconstants.GHAgentDeployModeNone:
-		return ctrl.Result{}, nil
 	}
 
 	existingAddon := &v1alpha1.ManagedClusterAddOn{}
@@ -121,10 +118,17 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		Name:      operatorconstants.GHManagedClusterAddonName,
 	}, existingAddon)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return ctrl.Result{}, r.Create(ctx, addon)
+		if !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, err
+		if deployMode == operatorconstants.GHAgentDeployModeNone {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, r.Create(ctx, addon)
+	}
+
+	if deployMode == operatorconstants.GHAgentDeployModeNone {
+		return ctrl.Result{}, r.Delete(ctx, addon)
 	}
 
 	if existingAddon.GetAnnotations()[operatorconstants.AnnotationAddonHostingClusterName] !=
@@ -149,10 +153,6 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return false
 			}
 
-			if e.Object.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey] ==
-				operatorconstants.GHAgentDeployModeNone {
-				return false
-			}
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -160,11 +160,6 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				e.ObjectNew.GetName() == operatorconstants.LocalClusterName ||
 				!meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
-				return false
-			}
-
-			if e.ObjectNew.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey] ==
-				operatorconstants.GHAgentDeployModeNone {
 				return false
 			}
 			if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
@@ -181,10 +176,6 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return false
 			}
 
-			if e.Object.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey] ==
-				operatorconstants.GHAgentDeployModeNone {
-				return false
-			}
 			return true
 		},
 	}
