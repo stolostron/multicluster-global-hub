@@ -190,7 +190,7 @@ function initApp() {
     else
       echo "Deploying the the subscription add-on to the managed cluster: $managed"
       kubectl config use-context "${hub}"
-      clusteradm addon enable --name application-manager --cluster "${managed}"
+      clusteradm addon enable --names application-manager --clusters "${managed}"
       sleep 5
       (( SECOND = SECOND + 5 ))
     fi
