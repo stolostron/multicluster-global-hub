@@ -27,6 +27,7 @@ spec:
             - --transport-type=kafka
             - --kafka-bootstrap-server={{.KafkaBootstrapServer}}
             - --kafka-ca-path=/kafka-ca/ca.crt
+            - --transport-message-compression-type={{.MessageCompressionType}}
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)
             - --lease-duration={{.LeaseDuration}}

@@ -37,6 +37,7 @@ type ManifestsConfig struct {
 	LeafHubID              string
 	KafkaBootstrapServer   string
 	KafkaCACert            string
+	MessageCompressionType string
 	InstallACMHub          bool
 	Channel                string
 	CurrentCSV             string
@@ -163,15 +164,16 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 
 	manifestsConfig := ManifestsConfig{
-		HoHAgentImage:        config.GetImage("multicluster_global_hub_agent"),
-		LeafHubID:            cluster.Name,
-		KafkaBootstrapServer: kafkaBootstrapServer,
-		KafkaCACert:          kafkaCACert,
-		LeaseDuration:        strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
-		RenewDeadline:        strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
-		RetryPeriod:          strconv.Itoa(a.leaderElectionConfig.RetryPeriod),
-		KlusterletNamespace:  "open-cluster-management-agent",
-		KlusterletWorkSA:     "klusterlet-work-sa",
+		HoHAgentImage:          config.GetImage("multicluster_global_hub_agent"),
+		LeafHubID:              cluster.Name,
+		KafkaBootstrapServer:   kafkaBootstrapServer,
+		KafkaCACert:            kafkaCACert,
+		MessageCompressionType: string(mgh.Spec.MessageCompressionType),
+		LeaseDuration:          strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
+		RenewDeadline:          strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
+		RetryPeriod:            strconv.Itoa(a.leaderElectionConfig.RetryPeriod),
+		KlusterletNamespace:    "open-cluster-management-agent",
+		KlusterletWorkSA:       "klusterlet-work-sa",
 	}
 
 	if a.installACMHub(cluster) {

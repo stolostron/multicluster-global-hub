@@ -426,27 +426,29 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				profile string,
 			) (interface{}, error) {
 				return struct {
-					Image                string
-					ProxyImage           string
-					ProxySessionSecret   string
-					DBSecret             string
-					KafkaCACert          string
-					KafkaBootstrapServer string
-					Namespace            string
-					LeaseDuration        string
-					RenewDeadline        string
-					RetryPeriod          string
+					Image                  string
+					ProxyImage             string
+					ProxySessionSecret     string
+					DBSecret               string
+					KafkaCACert            string
+					KafkaBootstrapServer   string
+					MessageCompressionType string
+					Namespace              string
+					LeaseDuration          string
+					RenewDeadline          string
+					RetryPeriod            string
 				}{
-					Image:                config.GetImage("multicluster_global_hub_manager"),
-					ProxyImage:           config.GetImage("oauth_proxy"),
-					ProxySessionSecret:   "testing",
-					DBSecret:             mgh.Spec.DataLayer.LargeScale.Postgres.Name,
-					KafkaCACert:          base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
-					KafkaBootstrapServer: kafkaBootstrapServer,
-					Namespace:            config.GetDefaultNamespace(),
-					LeaseDuration:        "137",
-					RenewDeadline:        "107",
-					RetryPeriod:          "26",
+					Image:                  config.GetImage("multicluster_global_hub_manager"),
+					ProxyImage:             config.GetImage("oauth_proxy"),
+					ProxySessionSecret:     "testing",
+					DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
+					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
+					KafkaBootstrapServer:   kafkaBootstrapServer,
+					MessageCompressionType: string(mgh.Spec.MessageCompressionType),
+					Namespace:              config.GetDefaultNamespace(),
+					LeaseDuration:          "137",
+					RenewDeadline:          "107",
+					RetryPeriod:            "26",
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())

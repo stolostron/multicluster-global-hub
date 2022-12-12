@@ -28,6 +28,7 @@ spec:
             - --transport-type=kafka
             - --kafka-bootstrap-server={{ .KafkaBootstrapServer }}
             - --kafka-ca-path=/kafka-ca/ca.crt
+            - --transport-message-compression-type={{.MessageCompressionType}}
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
