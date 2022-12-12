@@ -124,7 +124,7 @@ func (r *leaseUpdater) updateLease(ctx context.Context) error {
 }
 
 func (r *leaseUpdater) reconcile(ctx context.Context) {
-	r.log.Info("lease updater is reconciling", "namespace", r.leaseNamespace, "name", r.leaseName)
+	r.log.V(2).Info("lease updater is reconciling", "namespace", r.leaseNamespace, "name", r.leaseName)
 	for _, f := range r.healthCheckFuncs {
 		if !f() {
 			// if a healthy check fails, do not update lease.
@@ -136,7 +136,7 @@ func (r *leaseUpdater) reconcile(ctx context.Context) {
 		r.log.Error(err, "failed to update lease", "namespace", r.leaseNamespace, "name", r.leaseName)
 	}
 
-	r.log.Info("lease is created or updated", "namespace", r.leaseNamespace, "name", r.leaseName)
+	r.log.V(2).Info("lease is created or updated", "namespace", r.leaseNamespace, "name", r.leaseName)
 }
 
 // checkAddonPodFunc checks whether the agent pod is running

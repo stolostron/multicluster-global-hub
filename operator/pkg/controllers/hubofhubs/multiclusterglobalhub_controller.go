@@ -314,27 +314,29 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
-			Image                string
-			ProxyImage           string
-			ProxySessionSecret   string
-			DBSecret             string
-			KafkaCACert          string
-			KafkaBootstrapServer string
-			Namespace            string
-			LeaseDuration        string
-			RenewDeadline        string
-			RetryPeriod          string
+			Image                  string
+			ProxyImage             string
+			ProxySessionSecret     string
+			DBSecret               string
+			KafkaCACert            string
+			KafkaBootstrapServer   string
+			MessageCompressionType string
+			Namespace              string
+			LeaseDuration          string
+			RenewDeadline          string
+			RetryPeriod            string
 		}{
-			Image:                config.GetImage("multicluster_global_hub_manager"),
-			ProxyImage:           config.GetImage("oauth_proxy"),
-			ProxySessionSecret:   proxySessionSecret,
-			DBSecret:             mgh.Spec.DataLayer.LargeScale.Postgres.Name,
-			KafkaCACert:          kafkaCACert,
-			KafkaBootstrapServer: kafkaBootstrapServer,
-			Namespace:            config.GetDefaultNamespace(),
-			LeaseDuration:        strconv.Itoa(r.LeaderElection.LeaseDuration),
-			RenewDeadline:        strconv.Itoa(r.LeaderElection.RenewDeadline),
-			RetryPeriod:          strconv.Itoa(r.LeaderElection.RetryPeriod),
+			Image:                  config.GetImage("multicluster_global_hub_manager"),
+			ProxyImage:             config.GetImage("oauth_proxy"),
+			ProxySessionSecret:     proxySessionSecret,
+			DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
+			KafkaCACert:            kafkaCACert,
+			KafkaBootstrapServer:   kafkaBootstrapServer,
+			MessageCompressionType: string(mgh.Spec.MessageCompressionType),
+			Namespace:              config.GetDefaultNamespace(),
+			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
+			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
+			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
 		}, nil
 	})
 	if err != nil {
