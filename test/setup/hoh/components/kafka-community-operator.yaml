@@ -15,7 +15,7 @@ metadata:
   name: strimzi-kafka-operator
   namespace: kafka
 spec:
-  channel: strimzi-0.31.x
+  channel: strimzi-0.32.x
   name: strimzi-kafka-operator
   source: operatorhubio-catalog
   sourceNamespace: olm
