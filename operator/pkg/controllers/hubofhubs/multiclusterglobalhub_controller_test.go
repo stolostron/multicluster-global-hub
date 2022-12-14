@@ -422,6 +422,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}
 
 			By("By checking the multicluster-global-hub-manager resources are created as expected")
+			messageCompressionType := string(mgh.Spec.MessageCompressionType)
+			if messageCompressionType == "" {
+				messageCompressionType = string(operatorv1alpha2.GzipCompressType)
+			}
 			managerObjects, err := hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {
@@ -444,7 +448,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
 					KafkaBootstrapServer:   kafkaBootstrapServer,
-					MessageCompressionType: string(mgh.Spec.MessageCompressionType),
+					MessageCompressionType: messageCompressionType,
 					Namespace:              config.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",

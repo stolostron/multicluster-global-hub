@@ -163,12 +163,17 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
+	messageCompressionType := string(mgh.Spec.MessageCompressionType)
+	if messageCompressionType == "" {
+		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
+	}
+
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          config.GetImage("multicluster_global_hub_agent"),
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCACert:            kafkaCACert,
-		MessageCompressionType: string(mgh.Spec.MessageCompressionType),
+		MessageCompressionType: messageCompressionType,
 		LeaseDuration:          strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
 		RenewDeadline:          strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
 		RetryPeriod:            strconv.Itoa(a.leaderElectionConfig.RetryPeriod),
