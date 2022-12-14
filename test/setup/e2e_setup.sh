@@ -27,7 +27,7 @@ source ${CURRENT_DIR}/microshift/microshift_setup.sh "$HUB_OF_HUB_NAME" 2>&1 >> 
 hover $! "1 Prepare top hub cluster $HUB_OF_HUB_NAME"
 
 # isolate the hub kubeconfig
-HOH_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HOH_KUBECONFIG"
+export HOH_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HOH_KUBECONFIG"
 kubectl config view --context=${CTX_HUB} --minify --flatten > ${HOH_KUBECONFIG}
 
 # enable olm
@@ -65,8 +65,8 @@ hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED"
 kubectl config use-context $CTX_HUB >> $LOG
 
 # wait kafka to be ready
-waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
-waitAppear "kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' --ignore-not-found=true" 1200
+waitAppear "kubectl --kubeconfig=$HOH_KUBECONFIG get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
+waitAppear "kubectl --kubeconfig=$HOH_KUBECONFIG get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' --ignore-not-found=true" 1200
 
 # wait postgres to be ready
 waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
