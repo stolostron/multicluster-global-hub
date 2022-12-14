@@ -312,6 +312,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 		return fmt.Errorf("failed to generate random session secret for oauth-proxy: %v", err)
 	}
 
+	messageCompressionType := string(mgh.Spec.MessageCompressionType)
+	if messageCompressionType == "" {
+		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                  string
@@ -332,7 +337,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 			KafkaCACert:            kafkaCACert,
 			KafkaBootstrapServer:   kafkaBootstrapServer,
-			MessageCompressionType: string(mgh.Spec.MessageCompressionType),
+			MessageCompressionType: messageCompressionType,
 			Namespace:              config.GetDefaultNamespace(),
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
