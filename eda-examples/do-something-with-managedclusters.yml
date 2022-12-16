@@ -1,0 +1,19 @@
+---
+- hosts: localhost # from local to connect regional hubs
+  connection: local
+  tasks:
+  # - debug:
+  #     msg: "Got {{ event.id }} from global hub: {{ item | to_yaml }}"
+  #   with_items: "{{ (event.payload | b64decode | from_json).objects }}"
+  - when: '"hub1" in event.id' # match the regional hub id
+    with_items: "{{ (event.payload | b64decode | from_json).objects }}"
+    kubernetes.core.k8s:
+      kubeconfig: /path/to/hub1-kubeconfig # connected to regional hub, it can use other connection options
+      definition: "{{ item | to_yaml }}" # retrieve the managed cluster 
+      state: present
+  # - when: '"hub2" in event.id'
+  #   with_items: "{{ (event.payload | b64decode | from_json).objects }}"
+  #   kubernetes.core.k8s:
+  #     kubeconfig: /path/to/hub2-kubeconfig
+  #     definition: "{{ item | to_yaml }}"
+  #     state: present

@@ -1,0 +1,21 @@
+---
+- name: Listen for policy compliance events from kafka
+  hosts: all
+  sources:
+    - ansible.eda.kafka:
+        host: kafka-brokers-cluster-kafka-external-bootstrap-kafka.apps.obs-hub-of-hubs-aws-410-sno-n756t.scale.red-chesterfield.com
+        port: 443
+        topic: status
+        group_id: ansible-eda
+        offset: latest
+  rules:
+    - name: Say PolicyCompleteCompliance
+      condition: event.id == "hub1.PolicyCompleteCompliance" 
+      action:
+        run_playbook:
+          name: do-something-with-policy-compliance.yml
+    - name: Say PolicyDeltaCompliance
+      condition: event.id == "hub1.PolicyDeltaCompliance"
+      action:
+        run_playbook:
+          name: do-something-with-policy-compliance.yml

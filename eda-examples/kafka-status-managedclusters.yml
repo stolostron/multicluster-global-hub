@@ -1,0 +1,16 @@
+---
+- name: Listen for managedcluster events from kafka
+  hosts: all
+  sources:
+    - ansible.eda.kafka:
+        host: test.kfaka.example.com
+        port: 443
+        topic: status
+        offset: latest
+  rules:
+    - name: Match managedcluster events
+      # condition: '"ManagedClusters" in event.id' # ansible EDA doesn't support this for now.
+      condition: event.id == "hub1.ManagedClusters" # currently no info about the operation type in the event
+      action:
+        run_playbook:
+          name: do-something-with-managedclusters.yml

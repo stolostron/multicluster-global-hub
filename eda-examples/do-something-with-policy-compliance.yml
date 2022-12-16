@@ -1,0 +1,29 @@
+---
+- hosts: localhost
+  connection: local
+  tasks:
+  - when: '"hub1" in event.id'
+    debug:
+      msg: "Got nonCompliantClusters from hub1: {{ item.1 }}"
+    with_subelements:
+    - "{{ (event.payload | b64decode | from_json).objects }}"
+    - "nonCompliantClusters"
+  - when: '"hub1" in event.id'
+    with_subelements:
+    - "{{ (event.payload | b64decode | from_json).objects }}"
+    - "nonCompliantClusters"
+    kubernetes.core.k8s:
+      kubeconfig: /root/ocp/cluster1-kubeconfig # connected to managed cluster, it can use other connection options
+      definition:
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: nginx-pod
+          namespace: default
+        spec:
+          containers:
+          - name: nginx
+            image: nginx:1.18.0
+            ports:
+            - containerPort: 80 
+      state: present

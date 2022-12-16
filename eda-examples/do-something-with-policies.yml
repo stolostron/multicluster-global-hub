@@ -1,0 +1,5 @@
+- hosts: localhost
+  connection: local
+  tasks:
+    - debug:
+        msg: "Captured {{ event.id }} from global hub: {{ event.payload | b64decode }}"

@@ -1,0 +1,16 @@
+---
+- name: Listen for policy events from kafka
+  hosts: all
+  sources:
+    - ansible.eda.kafka:
+        host: test.kfaka.example.com
+        port: 443
+        topic: spec
+        group_id: hub1
+        offset: latest
+  rules:
+    - name: Say Policies
+      condition: event.id == "Policies"
+      action:
+        run_playbook:
+          name: do-something-with-policies.yml
