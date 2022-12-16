@@ -49,7 +49,7 @@ spec:
       version: v1alpha2
   description: "Multicluster Global Hub Operator defines the configuration for multicluster
     global hub installation and upgrade with one custom resource.\n\n## Prerequisites\n\n-
-    Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.5 or later needs
+    Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs
     to be installed.\n- PostgreSQL needs to be installed and you must create database
     for the multicluster global hub. You must create a secret named postgresql-secret
     that contains the database access credential in `open-cluster-management` namespace.
