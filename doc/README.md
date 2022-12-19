@@ -38,7 +38,7 @@ The agent is running in the regional hub clusters. It is responsible to sync-up 
 2. Click the Operators -> OperatorHub icon in the left navigation panel.
 3. Search for the `multicluster global hub operator`.
 4. Click the `multicluster global hub operator` to start the installation. You will see the prerequisites for the installation:
-    - Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.5 or later needs to be installed.
+    - Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed.
     - PostgreSQL needs to be installed and you must create database for the multicluster global hub
     - Kafka needs to be installed, and you must create two topics: spec and status.
 > Note: There are sample scripts provided to allow you to install PostgreSQL and Kafka easily.
