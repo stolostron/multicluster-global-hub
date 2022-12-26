@@ -51,17 +51,9 @@ _Note:_ Specify `TARGET_NAMESPACE` environment variable if you're trying to depl
 kubectl apply -k config/samples/
 ```
 
-### Uninstall CRD
+### Undeploy from the cluster
 
-To delete the CRD from the cluster:
-
-```bash
-make uninstall
-```
-
-### Undeploy controller
-
-Undeploy the controller from the cluster:
+Undeploy the controller and CRD from the cluster:
 
 ```bash
 make undeploy
