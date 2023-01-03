@@ -86,14 +86,10 @@ kubectl delete mgh --all
 
 2. Delete the multicluster-global-hub-operator:
 
+_Note:_ This will delete Multicluster Global Hub Operator and the CRD from the cluster.
+
 ```bash
 make undeploy
-```
-
-3. To delete the multicluster global hub CRD from the cluster:
-
-```bash
-make uninstall
 ```
 
 # Contributing
