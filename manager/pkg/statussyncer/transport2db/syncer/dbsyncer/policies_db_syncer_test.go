@@ -17,7 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var _ = Describe("Policies", Ordered, func() {
+var _ = Describe("Policies", Ordered, Focus, func() {
 	const (
 		testSchema                = "status"
 		complianceTable           = "compliance"
@@ -212,6 +212,7 @@ var _ = Describe("Policies", Ordered, func() {
 		By("Check the complete bundle updated all the policy status in the database")
 		Eventually(func() error {
 			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
+			fmt.Printf("CompleteCompliance: Query from the %s.%s \n", testSchema, complianceTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err
@@ -251,16 +252,19 @@ var _ = Describe("Policies", Ordered, func() {
 			BundleVersion:     status.NewBundleVersion(1, 0),
 			BaseBundleVersion: status.NewBundleVersion(6, 0),
 		}
-		// the delta policy bundle tries to do the following action:
-		// 1. delete record: createdPolicyId hub1-cluster1 compliant
-		// 2. update record: createdPolicyId hub1-cluster2 non_compliant => createdPolicyId hub1-cluster2 compliant
-		// 3. insert record: createdPolicyId hub1-cluster3 non_compliant
+		// before send the delta bundle:
+		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 non_compliant
+		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
 		transportPayload.Objects = append(transportPayload.Objects, &status.PolicyGenericComplianceStatus{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"},
 			NonCompliantClusters:      []string{"cluster3"},
 			UnknownComplianceClusters: make([]string, 0),
 		})
+		// expect:
+		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 compliant
+		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
+
 		// transport bundle
 		policyDeltaComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyDeltaComplianceMsgKey)
 		payloadBytes, err := json.Marshal(transportPayload)
@@ -278,6 +282,7 @@ var _ = Describe("Policies", Ordered, func() {
 		By("Check the delta policy bundle is only update compliance status of the existing record in database")
 		Eventually(func() error {
 			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
+			fmt.Printf("DeltaCompliance1: Query from the %s.%s \n", testSchema, complianceTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err
@@ -325,13 +330,19 @@ var _ = Describe("Policies", Ordered, func() {
 			BundleVersion:     status.NewBundleVersion(1, 1), // increase bundle version
 			BaseBundleVersion: status.NewBundleVersion(6, 0), // keep the base bundle version = complete bundle version
 		}
-		// the delta policy bundle will only update the cluster1 status and doesn't remove cluster2
+		// before send the delta bundle:
+		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 compliant
+		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
 		transportPayload.Objects = append(transportPayload.Objects, &status.PolicyGenericComplianceStatus{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{},
 			NonCompliantClusters:      []string{"cluster1"},
 			UnknownComplianceClusters: make([]string, 0),
 		})
+		// expect:
+		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
+		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 non_compliant
+
 		// transport bundle
 		policyDeltaComplianceTransportKey = fmt.Sprintf("%s.%s", leafHubName, constants.PolicyDeltaComplianceMsgKey)
 		payloadBytes, err = json.Marshal(transportPayload)
@@ -349,6 +360,7 @@ var _ = Describe("Policies", Ordered, func() {
 		By("Check the updated delta policy bundle is synchronized to database")
 		Eventually(func() error {
 			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
+			fmt.Printf("DeltaCompliance2: Query from the %s.%s \n", testSchema, complianceTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err
