@@ -17,7 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var _ = Describe("Policies", Ordered, Focus, func() {
+var _ = Describe("Policies", Ordered, func() {
 	const (
 		testSchema                = "status"
 		complianceTable           = "compliance"
