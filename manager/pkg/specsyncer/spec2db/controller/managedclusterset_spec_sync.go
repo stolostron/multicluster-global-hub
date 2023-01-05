@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -27,7 +27,7 @@ func AddManagedClusterSetController(mgr ctrl.Manager, specDB db.SpecDB) error {
 		},
 	})
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&clusterv1beta1.ManagedClusterSet{}).
+		For(&clusterv1beta2.ManagedClusterSet{}).
 		WithEventFilter(managedclustersetPredicate).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
@@ -35,7 +35,7 @@ func AddManagedClusterSetController(mgr ctrl.Manager, specDB db.SpecDB) error {
 			log:            ctrl.Log.WithName("managedclustersets-spec-syncer"),
 			tableName:      "managedclustersets",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
-			createInstance: func() client.Object { return &clusterv1beta1.ManagedClusterSet{} },
+			createInstance: func() client.Object { return &clusterv1beta2.ManagedClusterSet{} },
 			cleanObject:    cleanManagedClusterSetStatus,
 			areEqual:       areManagedClusterSetsEqual,
 		}); err != nil {
@@ -46,18 +46,18 @@ func AddManagedClusterSetController(mgr ctrl.Manager, specDB db.SpecDB) error {
 }
 
 func cleanManagedClusterSetStatus(instance client.Object) {
-	managedClusterSet, ok := instance.(*clusterv1beta1.ManagedClusterSet)
+	managedClusterSet, ok := instance.(*clusterv1beta2.ManagedClusterSet)
 
 	if !ok {
 		panic("wrong instance passed to cleanManagedClusterSetStatus: not a ManagedClusterSet")
 	}
 
-	managedClusterSet.Status = clusterv1beta1.ManagedClusterSetStatus{}
+	managedClusterSet.Status = clusterv1beta2.ManagedClusterSetStatus{}
 }
 
 func areManagedClusterSetsEqual(instance1, instance2 client.Object) bool {
-	managedClusterSet1, ok1 := instance1.(*clusterv1beta1.ManagedClusterSet)
-	managedClusterSet2, ok2 := instance2.(*clusterv1beta1.ManagedClusterSet)
+	managedClusterSet1, ok1 := instance1.(*clusterv1beta2.ManagedClusterSet)
+	managedClusterSet2, ok2 := instance2.(*clusterv1beta2.ManagedClusterSet)
 
 	if !ok1 || !ok2 {
 		return false

@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -682,13 +683,13 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(k8sClient.Create(ctx, testPlacementrule, &client.CreateOptions{})).Should(Succeed())
 
 			By("By creating a finalizer managedclustersetbinding")
-			testManagedClusterSetBinding := &clusterv1beta1.ManagedClusterSetBinding{
+			testManagedClusterSetBinding := &clusterv1beta2.ManagedClusterSetBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-managedclustersetbinding-1",
 					Namespace:  config.GetDefaultNamespace(),
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
-				Spec: clusterv1beta1.ManagedClusterSetBindingSpec{
+				Spec: clusterv1beta2.ManagedClusterSetBindingSpec{
 					ClusterSet: "test-clusterset",
 				},
 			}
@@ -804,7 +805,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 			By("By checking the managedclustersetbinding finalizer is deleted")
 			Eventually(func() error {
-				managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
+				managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
 				if err := k8sClient.List(ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
 					return err
 				}

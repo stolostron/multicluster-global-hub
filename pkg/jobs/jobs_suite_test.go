@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
-	apiRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"open-cluster-management.io/api/client/cluster/clientset/versioned/scheme"
@@ -62,7 +62,7 @@ var _ = AfterSuite(func() {
 	Expect(testenv.Stop()).To(Succeed())
 })
 
-func addToScheme(runtimeScheme *apiRuntime.Scheme) error {
+func addToScheme(runtimeScheme *runtime.Scheme) error {
 	schemeBuilders := []*runtimescheme.Builder{
 		policyv1.SchemeBuilder,
 		placementrulev1.SchemeBuilder,

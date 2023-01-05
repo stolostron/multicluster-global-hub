@@ -6,7 +6,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
@@ -24,7 +24,7 @@ const (
 func AddManagedClusterSetsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj producer.Producer,
 	specSyncInterval time.Duration,
 ) error {
-	createObjFunc := func() metav1.Object { return &clusterv1beta1.ManagedClusterSet{} }
+	createObjFunc := func() metav1.Object { return &clusterv1beta2.ManagedClusterSet{} }
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{

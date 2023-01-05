@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -28,8 +29,8 @@ var _ = Describe("Prune Resource Finalizer", func() {
 	var placement *clusterv1beta1.Placement
 	var placementbinding *policyv1.PlacementBinding
 	var policy *policyv1.Policy
-	var managedClusterSetBinding *clusterv1beta1.ManagedClusterSetBinding
-	var managedClusterSet *clusterv1beta1.ManagedClusterSet
+	var managedClusterSetBinding *clusterv1beta2.ManagedClusterSetBinding
+	var managedClusterSet *clusterv1beta2.ManagedClusterSet
 
 	BeforeEach(func() {
 		By("Create application instance with global hub finalizer")
@@ -124,13 +125,13 @@ var _ = Describe("Prune Resource Finalizer", func() {
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		By("Create managedclustersetbinding instance with global hub finalizer")
-		managedClusterSetBinding = &clusterv1beta1.ManagedClusterSetBinding{
+		managedClusterSetBinding = &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "test-managedclustersetbinding-1",
 				Namespace:  "default",
 				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
-			Spec: clusterv1beta1.ManagedClusterSetBindingSpec{
+			Spec: clusterv1beta2.ManagedClusterSetBindingSpec{
 				ClusterSet: "test-clusterset",
 			},
 		}
@@ -140,7 +141,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		By("Create managedclusterset instance with global hub finalizer")
-		managedClusterSet = &clusterv1beta1.ManagedClusterSet{
+		managedClusterSet = &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "test-managedclusterset-1",
 				Namespace:  "default",
