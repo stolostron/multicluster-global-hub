@@ -25,6 +25,7 @@ spec:
             - '--zap-devel=true'
             - --pod-namespace=$(POD_NAMESPACE)
             - --leaf-hub-name={{ .LeafHubID }}
+            - --kakfa-consumer-id={{ .LeafHubID }}
             - --enforce-hoh-rbac=false
             - --transport-type=kafka
             - --kafka-bootstrap-server={{ .KafkaBootstrapServer }}
