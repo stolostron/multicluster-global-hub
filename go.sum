@@ -2455,10 +2455,10 @@ modernc.org/strutil v1.0.0/go.mod h1:lstksw84oURvj9y3tn8lGvRxyRC1S2+g5uuIzNfIOBs
 modernc.org/xc v1.0.0/go.mod h1:mRNCo0bvLjGhHO9WsyuKVU4q0ceiDDDoEeWDJHrNx8I=
 open-cluster-management.io/addon-framework v0.5.1-0.20221207035227-64204bec3525 h1:n8TqX08l2yVevOoHwXuYtoqi7dXzMB18prA3jUkJZCo=
 open-cluster-management.io/addon-framework v0.5.1-0.20221207035227-64204bec3525/go.mod h1:Fymctw1tnmCTXnmAMgc0zdHetAw6UaiAsj1S6w5VW6s=
-open-cluster-management.io/api v0.8.1-0.20220922101757-abd2ec6ed64f h1:jICP+I2K3n5wPxeV22aT2mSRC31EE6RNINKnDZfDJ5Q=
-open-cluster-management.io/api v0.8.1-0.20220922101757-abd2ec6ed64f/go.mod h1:+OEARSAl2jIhuLItUcS30UgLA3khmA9ihygLVxzEn+U=
-open-cluster-management.io/governance-policy-propagator v0.8.0 h1:rWDHz4JglAq3/5cLHtN6mSYmOuvPo0fq5DDCzJW73zQ=
-open-cluster-management.io/governance-policy-propagator v0.8.0/go.mod h1:cHcn2tv8bUUFDIY0KcZmx5MskEFn2RoAm90oQAIPFMA=
+open-cluster-management.io/api v0.9.0 h1:JQidCTMY3RdS0m3UDP24j6ykNpxWJ20LEdNtbxJApxo=
+open-cluster-management.io/api v0.9.0/go.mod h1:+OEARSAl2jIhuLItUcS30UgLA3khmA9ihygLVxzEn+U=
+open-cluster-management.io/governance-policy-propagator v0.9.0 h1:85JxyaUaZb39ZAVBoWQil5nKyIOycqVnQhrZ8gvwaZo=
+open-cluster-management.io/governance-policy-propagator v0.9.0/go.mod h1:qANM1Ww0i7fN90ZDsN9CmPWyRq5kL5ZhuFpBG4MzzDY=
 open-cluster-management.io/multicloud-operators-channel v0.8.0 h1:2Cr7AiIWc4maVnhBI2MagNc1YF3UU/VHHCrlSpG3Yr8=
 open-cluster-management.io/multicloud-operators-channel v0.8.0/go.mod h1:E2Y3/mDp+U6glXp+LMn27ViRJ4BsHwJ6QzDLeENEJmc=
 open-cluster-management.io/multicloud-operators-subscription v0.8.0 h1:0YRrUErVU6K6xwExGNaCMF//FOfJT6XyeHAvSbZNEiY=

@@ -17,7 +17,8 @@ import (
 
 // AddTransport2DBSyncers performs the initial setup required before starting the runtime manager.
 // adds controllers and/or runnables to the manager, registers handler functions within the dispatcher
-//  and create bundle functions within the bundle.
+//
+//	and create bundle functions within the bundle.
 func AddTransport2DBSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
 	transport consumer.Consumer, statistics manager.Runnable,

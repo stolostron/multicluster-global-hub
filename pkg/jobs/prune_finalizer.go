@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/retry"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -82,7 +83,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 	}
 
 	p.log.Info("clean up the managedclusterset finalizer")
-	managedclustersets := &clusterv1beta1.ManagedClusterSetList{}
+	managedclustersets := &clusterv1beta2.ManagedClusterSetList{}
 	if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
 		return err
 	}
@@ -93,7 +94,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 	}
 
 	p.log.Info("clean up the managedclustersetbinding finalizer")
-	managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
+	managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
 	if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
 		return err
 	}

@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -27,7 +27,7 @@ func AddManagedClusterSetBindingController(mgr ctrl.Manager, specDB db.SpecDB) e
 		},
 	})
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&clusterv1beta1.ManagedClusterSetBinding{}).
+		For(&clusterv1beta2.ManagedClusterSetBinding{}).
 		WithEventFilter(managedclustersetbindingPredicate).
 		Complete(&genericSpecToDBReconciler{
 			client:        mgr.GetClient(),
@@ -36,7 +36,7 @@ func AddManagedClusterSetBindingController(mgr ctrl.Manager, specDB db.SpecDB) e
 			tableName:     "managedclustersetbindings",
 			finalizerName: constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object {
-				return &clusterv1beta1.ManagedClusterSetBinding{}
+				return &clusterv1beta2.ManagedClusterSetBinding{}
 			},
 			cleanObject: cleanManagedClusterSetBindingsStatus,
 			areEqual:    areManagedClusterSetBindingsEqual,
@@ -48,7 +48,7 @@ func AddManagedClusterSetBindingController(mgr ctrl.Manager, specDB db.SpecDB) e
 }
 
 func cleanManagedClusterSetBindingsStatus(instance client.Object) {
-	_, ok := instance.(*clusterv1beta1.ManagedClusterSetBinding)
+	_, ok := instance.(*clusterv1beta2.ManagedClusterSetBinding)
 	// ManagedClusterSetBinding has no status
 	if !ok {
 		panic("wrong instance passed to cleanManagedClusterSetBindingsStatus: not a ManagedClusterSetBinding")
@@ -56,8 +56,8 @@ func cleanManagedClusterSetBindingsStatus(instance client.Object) {
 }
 
 func areManagedClusterSetBindingsEqual(instance1, instance2 client.Object) bool {
-	managedClusterSetBinding1, ok1 := instance1.(*clusterv1beta1.ManagedClusterSetBinding)
-	managedClusterSetBinding2, ok2 := instance2.(*clusterv1beta1.ManagedClusterSetBinding)
+	managedClusterSetBinding1, ok1 := instance1.(*clusterv1beta2.ManagedClusterSetBinding)
+	managedClusterSetBinding2, ok2 := instance2.(*clusterv1beta2.ManagedClusterSetBinding)
 
 	if !ok1 || !ok2 {
 		return false

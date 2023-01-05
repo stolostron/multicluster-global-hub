@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -64,6 +65,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		appsv1alpha1.AddToScheme(scheme)
 		rbacv1.AddToScheme(scheme)
 		clusterv1beta1.AddToScheme(scheme)
+		clusterv1beta2.AddToScheme(scheme)
 		policiesv1.AddToScheme(scheme)
 		clusterv1.AddToScheme(scheme)
 		corev1.AddToScheme(scheme)
@@ -240,7 +242,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Delete managedclusterset finalizer")
 		Eventually(func() error {
-			managedclustersets := &clusterv1beta1.ManagedClusterSetList{}
+			managedclustersets := &clusterv1beta2.ManagedClusterSetList{}
 			if err := runtimeClient.List(ctx, managedclustersets, &client.ListOptions{}); err != nil {
 				return err
 			}
@@ -256,7 +258,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Delete managedclustersetbinding finalizer")
 		Eventually(func() error {
-			managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
+			managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
 			if err := runtimeClient.List(ctx, managedclustersetbindings, &client.ListOptions{}); err != nil &&
 				!errors.IsNotFound(err) {
 				return err

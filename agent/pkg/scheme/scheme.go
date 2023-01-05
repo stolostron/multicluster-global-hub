@@ -11,6 +11,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -27,6 +28,7 @@ func AddToScheme(runtimeScheme *runtime.Scheme) error {
 		clusterv1.Install,
 		clusterv1alpha1.Install,
 		clusterv1beta1.Install,
+		clusterv1beta2.Install,
 		operatorv1.Install,
 	}
 
