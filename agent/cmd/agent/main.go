@@ -28,6 +28,7 @@ import (
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 const (
@@ -47,15 +48,15 @@ type regionalHubConfig struct {
 	StatusDeltaCountSwitchFactor int
 	BootstrapServers             string
 	KafkaCAPath                  string
-	ProducerConfig               *producer.KafkaProducerConfig
-	ConsumerConfig               *consumer.KafkaConsumerConfig
+	ProducerConfig               *protocol.KafkaProducerConfig
+	ConsumerConfig               *protocol.KafkaConsumerConfig
 	ElectionConfig               *commonobjects.LeaderElectionConfig
 	Terminating                  bool
 }
 
 var defaultRegionalHubConfig = &regionalHubConfig{
-	ConsumerConfig: &consumer.KafkaConsumerConfig{},
-	ProducerConfig: &producer.KafkaProducerConfig{},
+	ConsumerConfig: &protocol.KafkaConsumerConfig{},
+	ProducerConfig: &protocol.KafkaProducerConfig{},
 	ElectionConfig: &commonobjects.LeaderElectionConfig{},
 }
 

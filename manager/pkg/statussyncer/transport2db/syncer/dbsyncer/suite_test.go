@@ -33,6 +33,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -114,7 +115,7 @@ var _ = BeforeSuite(func() {
 	fmt.Fprintf(GinkgoWriter, "mock kafka bootstrap server address: %s\n", mockCluster.BootstrapServers())
 
 	By("Start kafka producer")
-	kafkaProducerConfig := &producer.KafkaProducerConfig{
+	kafkaProducerConfig := &protocol.KafkaProducerConfig{
 		ProducerTopic:  "status",
 		ProducerID:     "status-producer",
 		MsgSizeLimitKB: 1,
@@ -125,7 +126,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Start kafka consumer")
-	kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
+	kafkaConsumerConfig := &protocol.KafkaConsumerConfig{
 		ConsumerTopic: "status",
 		ConsumerID:    "status-consumer",
 	}

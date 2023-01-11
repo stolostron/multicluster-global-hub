@@ -5,6 +5,15 @@ package transport
 
 import (
 	"time"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+)
+
+type TransportType string
+
+const (
+	Kafka  TransportType = "kafka"
+	GoChan               = "gochan"
 )
 
 // Message abstracts a message object to be used by different transport components.
@@ -17,10 +26,12 @@ type Message struct {
 	Payload     []byte `json:"payload"`
 }
 
-type Config struct {
+type TransportConfig struct {
 	TransportType          string
 	MessageCompressionType string
 	CommitterInterval      time.Duration
+	KafkaConfig            *protocol.KafkaConfig
+	Extends                map[string]interface{}
 }
 
 const (
@@ -36,4 +47,13 @@ const (
 	FragmentationTimestamp = "fragmentation-timestamp"
 	// Broadcast can be used as destination when a bundle should be broadcasted.
 	Broadcast = ""
+)
+
+const (
+	metricsHost                = "0.0.0.0"
+	metricsPort          int32 = 8384
+	webhookPort                = 9443
+	webhookCertDir             = "/webhook-certs"
+	kafkaTransportType         = "kafka"
+	leaderElectionLockID       = "multicluster-global-hub-lock"
 )

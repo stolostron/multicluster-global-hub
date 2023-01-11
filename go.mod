@@ -3,7 +3,9 @@ module github.com/stolostron/multicluster-global-hub
 go 1.18
 
 require (
+	github.com/Shopify/sarama v1.25.0
 	github.com/cenkalti/backoff/v4 v4.1.3
+	github.com/cloudevents/sdk-go/v2 v2.13.0
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/deckarep/golang-set v1.8.0
 	github.com/fergusstrange/embedded-postgres v1.17.0
@@ -46,18 +48,31 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
+	github.com/eapache/go-resiliency v1.2.0 // indirect
+	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
+	github.com/eapache/queue v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
+	github.com/hashicorp/go-uuid v1.0.1 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/jcmturner/gofork v0.0.0-20190328161633-dc7c13fece03 // indirect
+	github.com/klauspost/compress v1.15.1 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
+	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
+	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
+	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect
+	gopkg.in/jcmturner/gokrb5.v7 v7.2.3 // indirect
+	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
 	helm.sh/helm/v3 v3.9.4 // indirect
 	k8s.io/apiserver v0.26.0 // indirect
 	k8s.io/component-base v0.26.0 // indirect
@@ -79,6 +94,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.13.0
 	github.com/containerd/cgroups v1.0.3 // indirect
 	github.com/containerd/continuity v0.2.2 // indirect
 	github.com/containerd/ttrpc v1.1.0 // indirect
