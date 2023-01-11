@@ -12,7 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 )
 
 // AddPlacementsDBToTransportSyncer adds placement db to transport syncer to the manager.
-func AddPlacementsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj producer.Producer,
+func AddPlacementsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer transport.Producer,
 	specSyncInterval time.Duration,
 ) error {
 	createObjFunc := func() metav1.Object { return &clusterv1beta1.Placement{} }
@@ -31,7 +31,7 @@ func AddPlacementsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transp
 		log:            ctrl.Log.WithName("placements-db-to-transport-syncer"),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
-			return syncObjectsBundle(ctx, transportObj, placementsMsgKey, specDB, placementsTableName,
+			return syncObjectsBundle(ctx, producer, placementsMsgKey, specDB, placementsTableName,
 				createObjFunc, bundle.NewBaseObjectsBundle, lastSyncTimestampPtr)
 		},
 	}); err != nil {

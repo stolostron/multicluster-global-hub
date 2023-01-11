@@ -12,6 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 const (
@@ -41,7 +42,7 @@ type KafkaProducer struct {
 
 // NewProducer returns a new instance of Producer object.
 func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, caPath string,
-	producerConfig *KafkaProducerConfig, log logr.Logger,
+	producerConfig *protocol.KafkaProducerConfig, log logr.Logger,
 ) (*KafkaProducer, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       bootstrapServer,

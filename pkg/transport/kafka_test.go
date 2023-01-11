@@ -20,13 +20,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 var _ = Describe("Transport", Ordered, func() {
 	ctx := context.Background()
 	It("Test consumer without conflation to handle the message", func() {
 		By("Start kafka producer")
-		kafkaProducerConfig := &producer.KafkaProducerConfig{
+		kafkaProducerConfig := &protocol.KafkaProducerConfig{
 			ProducerTopic:  "spec",
 			ProducerID:     "spec-producer",
 			MsgSizeLimitKB: 100,
@@ -38,7 +39,7 @@ var _ = Describe("Transport", Ordered, func() {
 		go kafkaProducer.Start(ctx)
 
 		By("Start kafka consumer")
-		kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
+		kafkaConsumerConfig := &protocol.KafkaConsumerConfig{
 			ConsumerTopic: "spec",
 			ConsumerID:    "spec-consumer",
 		}
@@ -204,7 +205,7 @@ var _ = Describe("Transport", Ordered, func() {
 
 	It("Test consumer with conflation to handle the message", func() {
 		By("Start kafka producer")
-		kafkaProducerConfig := &producer.KafkaProducerConfig{
+		kafkaProducerConfig := &protocol.KafkaProducerConfig{
 			ProducerTopic:  "status",
 			ProducerID:     "status-producer",
 			MsgSizeLimitKB: 1,
@@ -216,7 +217,7 @@ var _ = Describe("Transport", Ordered, func() {
 		go kafkaProducer.Start(ctx)
 
 		By("Start kafka consumer")
-		kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
+		kafkaConsumerConfig := &protocol.KafkaConsumerConfig{
 			ConsumerTopic: "status",
 			ConsumerID:    "status-consumer",
 		}
