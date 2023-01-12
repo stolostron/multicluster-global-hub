@@ -3,6 +3,7 @@ package workerpool
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 
@@ -54,7 +55,12 @@ func (pool *DBWorkerPool) Start(ctx context.Context) error {
 }
 
 // Acquire tries to acquire an available worker. if no worker is available, blocking until a worker becomes available.
-func (pool *DBWorkerPool) Acquire() *DBWorker {
+func (pool *DBWorkerPool) Acquire() (*DBWorker, error) {
 	pool.statistics.SetNumberOfAvailableDBWorkers(len(pool.dbWorkers))
-	return <-pool.dbWorkers
+	select {
+	case res := <-pool.dbWorkers:
+		return res, nil
+	case <-time.After(10 * time.Second):
+		return nil, fmt.Errorf("timeout to get the DBWorker")
+	}
 }
