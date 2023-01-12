@@ -48,7 +48,11 @@ func (dispatcher *Dispatcher) dispatch(ctx context.Context) {
 
 		default: // as long as context wasn't cancelled, continue and try to read bundles to process
 			conflationUnit := dispatcher.conflationReadyQueue.BlockingDequeue() // blocking if no CU has ready bundle
-			dbWorker := dispatcher.dbWorkerPool.Acquire()                       // blocking if no worker available
+			dbWorker, err := dispatcher.dbWorkerPool.Acquire()
+			if err != nil {
+				dispatcher.log.Error(err, "failed to get dbWorker")
+				continue
+			}
 
 			bundle, bundleMetadata, handlerFunction, err := conflationUnit.GetNext()
 			if err != nil {
