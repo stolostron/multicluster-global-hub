@@ -15,7 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
-const MaxMessageSize = 1024
+const MessageSizeLimitKB = 5
 
 type Producer interface {
 	Send(ctx context.Context, message *Message) error
@@ -60,38 +60,22 @@ func NewGenericProducer(transportConfig *TransportConfig) (*GenericProducer, err
 }
 
 func (p *GenericProducer) Send(ctx context.Context, msg *Message) error {
-	chunks := p.splitPayloadIntoChunks(MaxMessageSize, msg.Payload)
+	// TODO: split the large message to chunk
+	if len(msg.Payload) > MessageSizeLimitKB*1000 {
+		return fmt.Errorf("message payload size exceeded the limit of %d KB", MessageSizeLimitKB)
+	}
+	event := cloudevents.NewEvent()
+	event.SetSpecVersion(cloudevents.VersionV1)
+	event.SetSource("global-hub-manager")
+	event.SetID(msg.ID)
+	event.SetType(msg.MsgType)
+	event.SetExtension("version", msg.Version)
+	event.SetExtension("key", msg.Key)
+	event.SetExtension("destination", msg.Destination)
+	event.SetData(cloudevents.ApplicationJSON, msg.Payload)
 
-	for index, chunk := range chunks {
-		event := cloudevents.NewEvent()
-		event.SetSpecVersion(cloudevents.VersionV1)
-		event.SetSource("global-hub-manager")
-		event.SetID(msg.ID)
-		event.SetType(msg.MsgType)
-		event.SetExtension("version", msg.Version)
-		event.SetExtension("key", msg.Key)
-		event.SetExtension("destination", msg.Destination)
-		event.SetExtension("size", len(chunks))
-		event.SetExtension("offset", index+1)
-		event.SetData(cloudevents.ApplicationJSON, chunk)
-
-		if result := p.client.Send(ctx, event); cloudevents.IsUndelivered(result) {
-			return fmt.Errorf("failed to send: %v", result)
-		}
-		p.log.Info("send message(): ", "id", event.ID(), "type", event.Type(), "size", len(chunks), "offset", index+1)
+	if result := p.client.Send(ctx, event); cloudevents.IsUndelivered(result) {
+		return fmt.Errorf("failed to send: %v", result)
 	}
 	return nil
-}
-
-func (p *GenericProducer) splitPayloadIntoChunks(maxMessageSize int, payload []byte) [][]byte {
-	chunks := make([][]byte, 0, (len(payload)/maxMessageSize)+1)
-	var chunk []byte
-	for len(payload) >= maxMessageSize {
-		chunk, payload = payload[:maxMessageSize], payload[maxMessageSize:]
-		chunks = append(chunks, chunk)
-	}
-	if len(payload) > 0 {
-		chunks = append(chunks, payload)
-	}
-	return chunks
 }
