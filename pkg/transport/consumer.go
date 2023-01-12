@@ -61,11 +61,9 @@ func NewGenericConsumer(transportConfig *TransportConfig) (*GenericConsumer, err
 
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	err := c.client.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) {
-		// TODO: process message
-		fmt.Printf("%s", event)
+		// TODO: consumer the large message by chunk
 		c.eventChan <- &event
 	})
-	// todo close channel and other resource
 	if err != nil {
 		return fmt.Errorf("failed to start Receiver: %w", err)
 	}

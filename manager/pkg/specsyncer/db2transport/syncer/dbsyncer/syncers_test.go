@@ -178,7 +178,10 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 		// retrieve bundle from bundle channel
 		event := <-consumer.GetMessageChan()
+
+		fmt.Println("========================================")
 		fmt.Printf("%s", event)
+
 		// genericBundle := <-kafkaConsumer.GetGenericBundleChan()
 		// fmt.Printf("========== received bundle: %+v\n", genericBundle)
 		// fmt.Printf("========== received bundle objects length: %d\n", len(genericBundle.Objects))
