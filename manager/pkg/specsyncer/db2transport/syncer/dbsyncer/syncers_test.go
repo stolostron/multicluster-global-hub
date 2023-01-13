@@ -4,8 +4,6 @@
 package dbsyncer_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -177,10 +175,10 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// retrieve bundle from bundle channel
-		event := <-consumer.GetMessageChan()
+		<-consumer.GetMessageChan()
 
-		fmt.Println("========================================")
-		fmt.Printf("%s", event)
+		// fmt.Println("========================================")
+		// fmt.Printf("%s", event)
 
 		// genericBundle := <-kafkaConsumer.GetGenericBundleChan()
 		// fmt.Printf("========== received bundle: %+v\n", genericBundle)

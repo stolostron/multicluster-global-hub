@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"context"
 	"time"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
@@ -12,9 +13,19 @@ import (
 type TransportType string
 
 const (
-	Kafka  TransportType = "kafka"
-	GoChan               = "gochan"
+	Kafka TransportType = "kafka"
+	Chan  TransportType = "chan" // only for test
 )
+
+type Consumer interface {
+	// It will start the underlying receiver protocol as it has been configured. This call is blocking
+	Start(ctx context.Context) error
+}
+
+type Producer interface {
+	Send(ctx context.Context, message *Message) error
+	// TODO: Do we need the stop method to shut down the protocol(kafka)
+}
 
 // Message abstracts a message object to be used by different transport components.
 type Message struct {

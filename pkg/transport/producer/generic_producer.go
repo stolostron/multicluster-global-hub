@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package transport
+package producer
 
 import (
 	"context"
@@ -12,38 +12,33 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
-const MessageSizeLimitKB = 5
-
-type Producer interface {
-	Send(ctx context.Context, message *Message) error
-	// TODO: Do we need the stop method to shut down the protocol(kafka)
-}
-
 type GenericProducer struct {
-	log    logr.Logger
-	client cloudevents.Client
+	log              logr.Logger
+	client           cloudevents.Client
+	messageSizeLimit int // message size limit in bytes
 }
 
-func NewGenericProducer(transportConfig *TransportConfig) (*GenericProducer, error) {
+func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericProducer, error) {
 	var sender interface{}
 	switch transportConfig.TransportType {
-	case string(Kafka):
+	case string(transport.Kafka):
 		var err error
 		sender, err = protocol.NewKafkaSender(transportConfig.KafkaConfig)
 		if err != nil {
 			return nil, err
 		}
-	case string(GoChan): // this go chan protocol is only use for test
+	case string(transport.Chan): // this go chan protocol is only use for test
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
 		}
-		if _, found := transportConfig.Extends[string(GoChan)]; !found {
-			transportConfig.Extends[string(GoChan)] = gochan.New()
+		if _, found := transportConfig.Extends[string(transport.Chan)]; !found {
+			transportConfig.Extends[string(transport.Chan)] = gochan.New()
 		}
-		sender = transportConfig.Extends[string(GoChan)]
+		sender = transportConfig.Extends[string(transport.Chan)]
 	default:
 		return nil, fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}
@@ -54,15 +49,16 @@ func NewGenericProducer(transportConfig *TransportConfig) (*GenericProducer, err
 	}
 
 	return &GenericProducer{
-		log:    ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
-		client: client,
+		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		client:           client,
+		messageSizeLimit: transportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB * kiloBytesToBytes,
 	}, nil
 }
 
-func (p *GenericProducer) Send(ctx context.Context, msg *Message) error {
+func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) error {
 	// TODO: split the large message to chunk
-	if len(msg.Payload) > MessageSizeLimitKB*1000 {
-		return fmt.Errorf("message payload size exceeded the limit of %d KB", MessageSizeLimitKB)
+	if len(msg.Payload) > p.messageSizeLimit {
+		return fmt.Errorf("message payload size exceeded the limit of %d byte", p.messageSizeLimit)
 	}
 	event := cloudevents.NewEvent()
 	event.SetSpecVersion(cloudevents.VersionV1)
