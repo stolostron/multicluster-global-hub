@@ -96,46 +96,46 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 	}
 
 	p.log.Info("clean up the managedclusterset finalizer")
-	managedclustersets := &clusterv1beta1.ManagedClusterSetList{}
-	if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
-		return err
-	}
-	for idx := range managedclustersets.Items {
-		if err := p.pruneFinalizer(&managedclustersets.Items[idx]); err != nil {
-			return err
-		}
-	}
-
 	if clusterV1Beta2API {
-		managedclustersetsv1beta2 := &clusterv1beta2.ManagedClusterSetList{}
-		if err := p.client.List(p.ctx, managedclustersetsv1beta2, &client.ListOptions{}); err != nil {
+		managedclustersets := &clusterv1beta2.ManagedClusterSetList{}
+		if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
 			return err
 		}
-		for idx := range managedclustersetsv1beta2.Items {
-			if err := p.pruneFinalizer(&managedclustersetsv1beta2.Items[idx]); err != nil {
+		for idx := range managedclustersets.Items {
+			if err := p.pruneFinalizer(&managedclustersets.Items[idx]); err != nil {
+				return err
+			}
+		}
+	} else {
+		managedclustersets := &clusterv1beta1.ManagedClusterSetList{}
+		if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
+			return err
+		}
+		for idx := range managedclustersets.Items {
+			if err := p.pruneFinalizer(&managedclustersets.Items[idx]); err != nil {
 				return err
 			}
 		}
 	}
 
 	p.log.Info("clean up the managedclustersetbinding finalizer")
-	managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
-	if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
-		return err
-	}
-	for idx := range managedclustersetbindings.Items {
-		if err := p.pruneFinalizer(&managedclustersetbindings.Items[idx]); err != nil {
-			return err
-		}
-	}
-
 	if clusterV1Beta2API {
-		managedclustersetbindingsv1beta2 := &clusterv1beta2.ManagedClusterSetBindingList{}
-		if err := p.client.List(p.ctx, managedclustersetbindingsv1beta2, &client.ListOptions{}); err != nil {
+		managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
+		if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
 			return err
 		}
-		for idx := range managedclustersetbindingsv1beta2.Items {
-			if err := p.pruneFinalizer(&managedclustersetbindingsv1beta2.Items[idx]); err != nil {
+		for idx := range managedclustersetbindings.Items {
+			if err := p.pruneFinalizer(&managedclustersetbindings.Items[idx]); err != nil {
+				return err
+			}
+		}
+	} else {
+		managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
+		if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
+			return err
+		}
+		for idx := range managedclustersetbindings.Items {
+			if err := p.pruneFinalizer(&managedclustersetbindings.Items[idx]); err != nil {
 				return err
 			}
 		}
