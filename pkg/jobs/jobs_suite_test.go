@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"open-cluster-management.io/api/client/cluster/clientset/versioned/scheme"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -78,6 +79,7 @@ func addToScheme(runtimeScheme *runtime.Scheme) error {
 			return fmt.Errorf("failed to add scheme: %w", err)
 		}
 	}
+	apiregistrationv1.AddToScheme(runtimeScheme)
 
 	return nil
 }

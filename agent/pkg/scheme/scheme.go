@@ -8,6 +8,7 @@ import (
 
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -24,12 +25,13 @@ import (
 
 // AddToScheme adds all the resources to be processed to the Scheme.
 func AddToScheme(runtimeScheme *runtime.Scheme) error {
-	schemeInstallFuncs := []func(scheme *runtime.Scheme) error{
-		clusterv1.Install,
-		clusterv1alpha1.Install,
-		clusterv1beta1.Install,
-		clusterv1beta2.Install,
-		operatorv1.Install,
+	addToSchemeFuncs := []func(s *runtime.Scheme) error{
+		clusterv1.AddToScheme,
+		clusterv1alpha1.AddToScheme,
+		clusterv1beta1.AddToScheme,
+		clusterv1beta2.AddToScheme,
+		operatorv1.AddToScheme,
+		apiregistrationv1.AddToScheme,
 	}
 
 	schemeBuilders := []*scheme.Builder{
@@ -42,8 +44,8 @@ func AddToScheme(runtimeScheme *runtime.Scheme) error {
 		appv1beta1.SchemeBuilder,
 	}
 
-	for _, schemeInstallFunc := range schemeInstallFuncs {
-		if err := schemeInstallFunc(runtimeScheme); err != nil {
+	for _, addToSchemeFunc := range addToSchemeFuncs {
+		if err := addToSchemeFunc(runtimeScheme); err != nil {
 			return fmt.Errorf("failed to install scheme: %w", err)
 		}
 	}
