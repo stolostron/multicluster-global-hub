@@ -174,6 +174,8 @@ require (
 
 replace (
 	github.com/google/gnostic => github.com/google/gnostic v0.5.7-v3refs
+	k8s.io/api => k8s.io/api v0.25.0
+	k8s.io/apimachinery => k8s.io/apimachinery v0.25.0
 	k8s.io/apiserver => k8s.io/apiserver v0.25.0 // indirect
 	k8s.io/client-go => k8s.io/client-go v0.25.0
 	k8s.io/component-base => k8s.io/component-base v0.25.0
