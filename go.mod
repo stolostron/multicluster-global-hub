@@ -174,7 +174,9 @@ require (
 
 replace (
 	github.com/google/gnostic => github.com/google/gnostic v0.5.7-v3refs
+	k8s.io/apiserver => k8s.io/apiserver v0.25.0 // indirect
 	k8s.io/client-go => k8s.io/client-go v0.25.0
+	k8s.io/component-base => k8s.io/component-base v0.25.0
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42
 	sigs.k8s.io/cluster-api-provider-kubevirt => github.com/openshift/cluster-api-provider-kubevirt v0.0.0-20211223062810-ef64d5ff1cde
 )
