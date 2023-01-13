@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package transport
+package consumer
 
 import (
 	"context"
@@ -12,13 +12,9 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
-
-type Consumer interface {
-	// It will start the underlying receiver protocol as it has been configured. This call is blocking
-	Start(ctx context.Context) error
-}
 
 type GenericConsumer struct {
 	log       logr.Logger
@@ -26,23 +22,23 @@ type GenericConsumer struct {
 	eventChan chan *cloudevents.Event
 }
 
-func NewGenericConsumer(transportConfig *TransportConfig) (*GenericConsumer, error) {
+func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericConsumer, error) {
 	var receiver interface{}
 	switch transportConfig.TransportType {
-	case string(Kafka):
+	case string(transport.Kafka):
 		var err error
 		receiver, err = protocol.NewKafkaReceiver(transportConfig.KafkaConfig)
 		if err != nil {
 			return nil, err
 		}
-	case string(GoChan):
+	case string(transport.Chan):
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
 		}
-		if _, found := transportConfig.Extends[string(GoChan)]; !found {
-			transportConfig.Extends[string(GoChan)] = gochan.New()
+		if _, found := transportConfig.Extends[string(transport.Chan)]; !found {
+			transportConfig.Extends[string(transport.Chan)] = gochan.New()
 		}
-		receiver = transportConfig.Extends[string(GoChan)]
+		receiver = transportConfig.Extends[string(transport.Chan)]
 	default:
 		return nil, fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}
@@ -62,6 +58,8 @@ func NewGenericConsumer(transportConfig *TransportConfig) (*GenericConsumer, err
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	err := c.client.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) {
 		// TODO: consumer the large message by chunk
+		c.log.Info("received message and forward to bundle channel")
+
 		c.eventChan <- &event
 	})
 	if err != nil {
