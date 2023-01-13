@@ -1,12 +1,14 @@
 package jobs_test
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -31,6 +33,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 	var policy *policyv1.Policy
 	var managedClusterSetBinding *clusterv1beta2.ManagedClusterSetBinding
 	var managedClusterSet *clusterv1beta2.ManagedClusterSet
+	var clusterV1Beta2API bool
 
 	BeforeEach(func() {
 		By("Create application instance with global hub finalizer")
@@ -124,34 +127,48 @@ var _ = Describe("Prune Resource Finalizer", func() {
 			return containGlobalFinalizer(policy)
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 
-		By("Create managedclustersetbinding instance with global hub finalizer")
-		managedClusterSetBinding = &clusterv1beta2.ManagedClusterSetBinding{
+		clusterV1Beta2API = true
+		clusterV1Beta2Service := &apiregistrationv1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:       "test-managedclustersetbinding-1",
-				Namespace:  "default",
-				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
-			},
-			Spec: clusterv1beta2.ManagedClusterSetBindingSpec{
-				ClusterSet: "test-clusterset",
+				Name: fmt.Sprintf("%s.%s", clusterv1beta2.GroupVersion.Version, clusterv1beta2.GroupName),
 			},
 		}
-		Expect(runtimeClient.Create(ctx, managedClusterSetBinding)).NotTo(HaveOccurred())
-		Eventually(func() bool {
-			return containGlobalFinalizer(managedClusterSetBinding)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+		if err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(clusterV1Beta2Service), clusterV1Beta2Service); err != nil {
+			clusterV1Beta2API = false
+		}
+
+		By("Create managedclustersetbinding instance with global hub finalizer")
+		if clusterV1Beta2API {
+			managedClusterSetBinding = &clusterv1beta2.ManagedClusterSetBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-managedclustersetbinding-1",
+					Namespace:  "default",
+					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
+				},
+				Spec: clusterv1beta2.ManagedClusterSetBindingSpec{
+					ClusterSet: "test-clusterset",
+				},
+			}
+			Expect(runtimeClient.Create(ctx, managedClusterSetBinding)).NotTo(HaveOccurred())
+			Eventually(func() bool {
+				return containGlobalFinalizer(managedClusterSetBinding)
+			}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+		}
 
 		By("Create managedclusterset instance with global hub finalizer")
-		managedClusterSet = &clusterv1beta2.ManagedClusterSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "test-managedclusterset-1",
-				Namespace:  "default",
-				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
-			},
+		if clusterV1Beta2API {
+			managedClusterSet = &clusterv1beta2.ManagedClusterSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-managedclusterset-1",
+					Namespace:  "default",
+					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
+				},
+			}
+			Expect(runtimeClient.Create(ctx, managedClusterSet)).NotTo(HaveOccurred())
+			Eventually(func() bool {
+				return containGlobalFinalizer(managedClusterSet)
+			}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 		}
-		Expect(runtimeClient.Create(ctx, managedClusterSet)).NotTo(HaveOccurred())
-		Eventually(func() bool {
-			return containGlobalFinalizer(managedClusterSet)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		By("Create placementbinding instance with global hub finalizer")
 		placementbinding = &policyv1.PlacementBinding{
@@ -216,14 +233,18 @@ var _ = Describe("Prune Resource Finalizer", func() {
 		}, 1*time.Second, 100*time.Millisecond).Should(BeFalse())
 
 		By("Check the finalizer is exists in managedclusterset")
-		Eventually(func() bool {
-			return containGlobalFinalizer(managedClusterSet)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeFalse())
+		if clusterV1Beta2API {
+			Eventually(func() bool {
+				return containGlobalFinalizer(managedClusterSet)
+			}, 1*time.Second, 100*time.Millisecond).Should(BeFalse())
+		}
 
 		By("Check the finalizer is exists in managedclustersetbinding")
-		Eventually(func() bool {
-			return containGlobalFinalizer(managedClusterSetBinding)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeFalse())
+		if clusterV1Beta2API {
+			Eventually(func() bool {
+				return containGlobalFinalizer(managedClusterSetBinding)
+			}, 1*time.Second, 100*time.Millisecond).Should(BeFalse())
+		}
 
 		By("Check the finalizer is exists in placementbinding")
 		Eventually(func() bool {

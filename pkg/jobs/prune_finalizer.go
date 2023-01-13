@@ -2,11 +2,14 @@ package jobs
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -57,8 +60,7 @@ func (p *PruneFinalizer) pruneFinalizer(object client.Object) error {
 			labels = map[string]string{}
 		}
 		// set the removing finalizer ttl with 60 seconds
-		labels[constants.GlobalHubFinalizerRemovingDeadline] =
-			strconv.FormatInt(time.Now().Unix()+60, 10)
+		labels[constants.GlobalHubFinalizerRemovingDeadline] = strconv.FormatInt(time.Now().Unix()+60, 10)
 		object.SetLabels(labels)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			return p.client.Update(p.ctx, object, &client.UpdateOptions{})
@@ -82,8 +84,19 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 		}
 	}
 
+	clusterV1Beta2API := true
+	clusterV1Beta2Service := &apiregistrationv1.APIService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%s.%s", clusterv1beta2.GroupVersion.Version, clusterv1beta2.GroupName),
+		},
+	}
+	if err := p.client.Get(p.ctx, client.ObjectKeyFromObject(clusterV1Beta2Service), clusterV1Beta2Service); err != nil {
+		clusterV1Beta2API = false
+		p.log.Info("retrieve resource error, skip pruning", "name", clusterV1Beta2Service.Name, "errorMessage", err)
+	}
+
 	p.log.Info("clean up the managedclusterset finalizer")
-	managedclustersets := &clusterv1beta2.ManagedClusterSetList{}
+	managedclustersets := &clusterv1beta1.ManagedClusterSetList{}
 	if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
 		return err
 	}
@@ -93,14 +106,38 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 		}
 	}
 
+	if clusterV1Beta2API {
+		managedclustersetsv1beta2 := &clusterv1beta2.ManagedClusterSetList{}
+		if err := p.client.List(p.ctx, managedclustersetsv1beta2, &client.ListOptions{}); err != nil {
+			return err
+		}
+		for idx := range managedclustersetsv1beta2.Items {
+			if err := p.pruneFinalizer(&managedclustersetsv1beta2.Items[idx]); err != nil {
+				return err
+			}
+		}
+	}
+
 	p.log.Info("clean up the managedclustersetbinding finalizer")
-	managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
+	managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
 	if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
 		return err
 	}
 	for idx := range managedclustersetbindings.Items {
 		if err := p.pruneFinalizer(&managedclustersetbindings.Items[idx]); err != nil {
 			return err
+		}
+	}
+
+	if clusterV1Beta2API {
+		managedclustersetbindingsv1beta2 := &clusterv1beta2.ManagedClusterSetBindingList{}
+		if err := p.client.List(p.ctx, managedclustersetbindingsv1beta2, &client.ListOptions{}); err != nil {
+			return err
+		}
+		for idx := range managedclustersetbindingsv1beta2.Items {
+			if err := p.pruneFinalizer(&managedclustersetbindingsv1beta2.Items[idx]); err != nil {
+				return err
+			}
 		}
 	}
 
