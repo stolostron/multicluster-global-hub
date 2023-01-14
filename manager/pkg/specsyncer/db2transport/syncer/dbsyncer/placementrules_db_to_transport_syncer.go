@@ -28,7 +28,7 @@ func AddPlacementRulesDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, pr
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
-		log:            ctrl.Log.WithName("placement-rules-db-to-transport-syncer"),
+		log:            ctrl.Log.WithName("db-to-transport-syncer-placementrule"),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncObjectsBundle(ctx, producer, placementRulesMsgKey, specDB, placementRulesTableName,

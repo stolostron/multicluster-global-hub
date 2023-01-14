@@ -10,22 +10,23 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
+type Producer interface {
+	Send(ctx context.Context, msg *Message) error
+}
+
+type Consumer interface {
+	// start the transport to consume message
+	Start(ctx context.Context) error
+	// provide a blocking message to get the message
+	AcquireMessage() *Message
+}
+
 type TransportType string
 
 const (
 	Kafka TransportType = "kafka"
-	Chan  TransportType = "chan" // only for test
+	Chan  TransportType = "chan"
 )
-
-type Consumer interface {
-	// It will start the underlying receiver protocol as it has been configured. This call is blocking
-	Start(ctx context.Context) error
-}
-
-type Producer interface {
-	Send(ctx context.Context, message *Message) error
-	// TODO: Do we need the stop method to shut down the protocol(kafka)
-}
 
 // Message abstracts a message object to be used by different transport components.
 type Message struct {
@@ -58,13 +59,4 @@ const (
 	FragmentationTimestamp = "fragmentation-timestamp"
 	// Broadcast can be used as destination when a bundle should be broadcasted.
 	Broadcast = ""
-)
-
-const (
-	metricsHost                = "0.0.0.0"
-	metricsPort          int32 = 8384
-	webhookPort                = 9443
-	webhookCertDir             = "/webhook-certs"
-	kafkaTransportType         = "kafka"
-	leaderElectionLockID       = "multicluster-global-hub-lock"
 )

@@ -175,7 +175,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// retrieve bundle from bundle channel
-		<-consumer.GetMessageChan()
+		print("%s", genericConsumer.AcquireMessage())
 
 		// fmt.Println("========================================")
 		// fmt.Printf("%s", event)

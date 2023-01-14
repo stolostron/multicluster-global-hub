@@ -274,7 +274,7 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 	}
 
 	// spec transport layer initialization
-	producer, err := transport.NewGenericProducer(managerConfig.transportConfig)
+	producer, err := producer.NewGenericProducer(managerConfig.transportConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
 	}

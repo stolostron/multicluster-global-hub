@@ -17,6 +17,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/incarnation"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
@@ -26,6 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
@@ -38,65 +40,44 @@ const (
 	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
 )
 
-type regionalHubConfig struct {
-	LeafHubName                  string
-	PodNameSpace                 string
-	TransportType                string
-	TransportCompressionType     string
-	SpecWorkPoolSize             int
-	SpecEnforceHohRbac           bool
-	StatusDeltaCountSwitchFactor int
-	BootstrapServers             string
-	KafkaCAPath                  string
-	ProducerConfig               *protocol.KafkaProducerConfig
-	ConsumerConfig               *protocol.KafkaConsumerConfig
-	ElectionConfig               *commonobjects.LeaderElectionConfig
-	Terminating                  bool
-}
-
-var defaultRegionalHubConfig = &regionalHubConfig{
-	ConsumerConfig: &protocol.KafkaConsumerConfig{},
-	ProducerConfig: &protocol.KafkaProducerConfig{},
-	ElectionConfig: &commonobjects.LeaderElectionConfig{},
-}
-
 func main() {
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
 	// otherwise kubeconfig will not be passed to agent main process
-	addAndParseFlags()
-	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
+	agentConfig := parseFlags()
+	if agentConfig.Terminating {
+		os.Exit(doTermination(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
+	}
+	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie(), agentConfig))
+}
+
+func doTermination(ctx context.Context, restConfig *rest.Config) int {
+	log := initLog()
+	if err := agentscheme.AddToScheme(scheme.Scheme); err != nil {
+		log.Error(err, "failed to add to scheme")
+		return 1
+	}
+	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		log.Error(err, "failed to int controller runtime client")
+		return 1
+	}
+	if err := jobs.NewPruneFinalizer(ctx, client).Run(); err != nil {
+		log.Error(err, "failed to prune resources finalizer")
+		return 1
+	}
+	return 0
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
-func doMain(ctx context.Context, restConfig *rest.Config) int {
+func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) int {
 	log := initLog()
-	printVersion(log)
 
-	// create regional hub configuration from command flags
-	parsedRegionalHubConfig, err := getRegionalHubConfigFromFlags()
-	if err != nil {
+	if err := completeConfig(agentConfig); err != nil {
 		log.Error(err, "failed to get regional hub configuration from command line flags")
 		return 1
 	}
 
-	if parsedRegionalHubConfig.Terminating {
-		if err := agentscheme.AddToScheme(scheme.Scheme); err != nil {
-			log.Error(err, "failed to add to scheme")
-			return 1
-		}
-		client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
-		if err != nil {
-			log.Error(err, "failed to int controller runtime client")
-			return 1
-		}
-		if err := jobs.NewPruneFinalizer(ctx, client).Run(); err != nil {
-			log.Error(err, "failed to prune resources finalizer")
-			return 1
-		}
-		return 0
-	}
-
-	mgr, err := createManager(restConfig, parsedRegionalHubConfig)
+	mgr, err := createManager(restConfig, agentConfig)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
@@ -107,131 +88,119 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		log.Error(err, "manager exited non-zero")
 		return 1
 	}
-
 	return 0
-}
-
-func addAndParseFlags() {
-	// add flags for logger
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-
-	pflag.StringVar(&defaultRegionalHubConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
-	pflag.StringVar(&defaultRegionalHubConfig.BootstrapServers, "kafka-bootstrap-server", "",
-		"The bootstrap server for kafka.")
-	pflag.StringVar(&defaultRegionalHubConfig.KafkaCAPath, "kafka-ca-path", "",
-		"The certificate path of CA certificate for kafka bootstrap server.")
-	pflag.StringVar(&defaultRegionalHubConfig.ProducerConfig.ProducerID, "kafka-producer-id", "",
-		"Producer Id for the kafka, default is the leaf hub name.")
-	pflag.StringVar(&defaultRegionalHubConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
-		"status", "Topic for the kafka producer.")
-	pflag.IntVar(&defaultRegionalHubConfig.ProducerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 100,
-		"The limit for kafka message size in KB.")
-	pflag.StringVar(&defaultRegionalHubConfig.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic",
-		"spec", "Topic for the kafka consumer.")
-	pflag.StringVar(&defaultRegionalHubConfig.ConsumerConfig.ConsumerID, "kakfa-consumer-id",
-		"multicluster-global-hub-agent", "ID for the kafka consumer.")
-	pflag.StringVar(&defaultRegionalHubConfig.PodNameSpace, "pod-namespace", "open-cluster-management",
-		"The agent running namespace, also used as leader election namespace")
-	pflag.StringVar(&defaultRegionalHubConfig.TransportType, "transport-type", "kafka",
-		"The transport type, 'kafka'")
-	pflag.IntVar(&defaultRegionalHubConfig.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
-		"The goroutine number to propagate the bundles on managed cluster.")
-	pflag.BoolVar(&defaultRegionalHubConfig.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
-		"enable hoh RBAC or not, default false")
-	pflag.StringVar(&defaultRegionalHubConfig.TransportCompressionType,
-		"transport-message-compression-type", "gzip",
-		"The message compression type for transport layer, 'gzip' or 'no-op'.")
-	pflag.IntVar(&defaultRegionalHubConfig.StatusDeltaCountSwitchFactor,
-		"status-delta-count-switch-factor", 100,
-		"default with 100.")
-	pflag.IntVar(&defaultRegionalHubConfig.ElectionConfig.LeaseDuration, "lease-duration", 137,
-		"leader election lease duration")
-	pflag.IntVar(&defaultRegionalHubConfig.ElectionConfig.RenewDeadline, "renew-deadline", 107,
-		"leader election renew deadline")
-	pflag.IntVar(&defaultRegionalHubConfig.ElectionConfig.RetryPeriod, "retry-period", 26,
-		"leader election retry period")
-	pflag.BoolVar(&defaultRegionalHubConfig.Terminating, "terminating", false,
-		"true is to trigger the PreStop hook to do cleanup. For example: removing finalizer")
-
-	pflag.Parse()
-}
-
-func getRegionalHubConfigFromFlags() (*regionalHubConfig, error) {
-	if defaultRegionalHubConfig.LeafHubName == "" {
-		return nil, fmt.Errorf("flag regional-hub-name can't be empty")
-	}
-	if defaultRegionalHubConfig.ProducerConfig.ProducerID == "" {
-		defaultRegionalHubConfig.ProducerConfig.ProducerID = defaultRegionalHubConfig.LeafHubName
-	}
-	if defaultRegionalHubConfig.SpecWorkPoolSize < 1 ||
-		defaultRegionalHubConfig.SpecWorkPoolSize > 100 {
-		return nil, fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
-	}
-
-	if defaultRegionalHubConfig.ProducerConfig.MsgSizeLimitKB > producer.MaxMessageSizeLimit {
-		return nil, fmt.Errorf("flag kafka-message-size-limit %d must not exceed %d",
-			defaultRegionalHubConfig.ProducerConfig.MsgSizeLimitKB, producer.MaxMessageSizeLimit)
-	}
-
-	return defaultRegionalHubConfig, nil
 }
 
 func initLog() logr.Logger {
 	ctrl.SetLogger(zap.Logger())
 	log := ctrl.Log.WithName("cmd")
+	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
+	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	return log
 }
 
-func printVersion(log logr.Logger) {
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-}
-
-// function to choose transport type based on env var.
-func getConsumer(parsedRegionalHubConfig *regionalHubConfig) (consumer.Consumer, error) {
-	switch parsedRegionalHubConfig.TransportType {
-	case kafkaTransportType:
-		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			parsedRegionalHubConfig.BootstrapServers, parsedRegionalHubConfig.KafkaCAPath,
-			parsedRegionalHubConfig.ConsumerConfig, ctrl.Log.WithName("kafka-consumer"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
-		}
-		kafkaConsumer.SetLeafHubName(parsedRegionalHubConfig.LeafHubName)
-		return kafkaConsumer, nil
-	default:
-		return nil, fmt.Errorf("command flag transport-type - %q is not a valid option",
-			parsedRegionalHubConfig.TransportType)
+func parseFlags() *config.AgentConfig {
+	agentConfig := &config.AgentConfig{
+		ElectionConfig: &commonobjects.LeaderElectionConfig{},
+		TransportConfig: &transport.TransportConfig{
+			KafkaConfig: &protocol.KafkaConfig{
+				ProducerConfig: &protocol.KafkaProducerConfig{},
+				ConsumerConfig: &protocol.KafkaConsumerConfig{},
+			},
+		},
 	}
+
+	// add flags for logger
+	pflag.CommandLine.AddFlagSet(zap.FlagSet())
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+
+	pflag.StringVar(&agentConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server", "",
+		"The bootstrap server for kafka.")
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.CertPath, "kafka-ca-path", "",
+		"The certificate path of CA certificate for kafka bootstrap server.")
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kafka-producer-id", "",
+		"Producer Id for the kafka, default is the leaf hub name.")
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
+		"status", "Topic for the kafka producer.")
+	pflag.IntVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 100,
+		"The limit for kafka message size in KB.")
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic",
+		"spec", "Topic for the kafka consumer.")
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kakfa-consumer-id",
+		"multicluster-global-hub-agent", "ID for the kafka consumer.")
+	pflag.StringVar(&agentConfig.PodNameSpace, "pod-namespace", "open-cluster-management",
+		"The agent running namespace, also used as leader election namespace")
+	pflag.StringVar(&agentConfig.TransportConfig.TransportType, "transport-type", "kafka",
+		"The transport type, 'kafka'")
+	pflag.IntVar(&agentConfig.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
+		"The goroutine number to propagate the bundles on managed cluster.")
+	pflag.BoolVar(&agentConfig.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
+		"enable hoh RBAC or not, default false")
+	pflag.StringVar(&agentConfig.TransportConfig.MessageCompressionType,
+		"transport-message-compression-type", "gzip",
+		"The message compression type for transport layer, 'gzip' or 'no-op'.")
+	pflag.IntVar(&agentConfig.StatusDeltaCountSwitchFactor,
+		"status-delta-count-switch-factor", 100,
+		"default with 100.")
+	pflag.IntVar(&agentConfig.ElectionConfig.LeaseDuration, "lease-duration", 137,
+		"leader election lease duration")
+	pflag.IntVar(&agentConfig.ElectionConfig.RenewDeadline, "renew-deadline", 107,
+		"leader election renew deadline")
+	pflag.IntVar(&agentConfig.ElectionConfig.RetryPeriod, "retry-period", 26,
+		"leader election retry period")
+	pflag.BoolVar(&agentConfig.Terminating, "terminating", false,
+		"true is to trigger the PreStop hook to do cleanup. For example: removing finalizer")
+
+	pflag.Parse()
+	return agentConfig
 }
 
-func getProducer(parsedRegionalHubConfig *regionalHubConfig) (producer.Producer, error) {
+func completeConfig(agentConfig *config.AgentConfig) error {
+	if agentConfig.LeafHubName == "" {
+		return fmt.Errorf("flag regional-hub-name can't be empty")
+	}
+	if agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID == "" {
+		agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID = agentConfig.LeafHubName
+	}
+	if agentConfig.SpecWorkPoolSize < 1 ||
+		agentConfig.SpecWorkPoolSize > 100 {
+		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
+	}
+
+	if agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB > producer.MaxMessageSizeLimit {
+		return fmt.Errorf("flag kafka-message-size-limit %d must not exceed %d",
+			agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB, producer.MaxMessageSizeLimit)
+	}
+	agentConfig.TransportConfig.KafkaConfig.EnableTSL = true
+	return nil
+}
+
+func getProducer(agentConfig *config.AgentConfig) (producer.Producer, error) {
 	messageCompressor, err := compressor.NewCompressor(
-		compressor.CompressionType(parsedRegionalHubConfig.TransportCompressionType))
+		compressor.CompressionType(agentConfig.TransportConfig.MessageCompressionType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transport producer message-compressor: %w", err)
 	}
 
-	switch parsedRegionalHubConfig.TransportType {
+	switch agentConfig.TransportConfig.TransportType {
 	case kafkaTransportType:
 		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
-			parsedRegionalHubConfig.BootstrapServers, parsedRegionalHubConfig.KafkaCAPath,
-			parsedRegionalHubConfig.ProducerConfig, ctrl.Log.WithName("kafka-producer"))
+			agentConfig.TransportConfig.KafkaConfig.BootstrapServer, agentConfig.TransportConfig.KafkaConfig.CertPath,
+			agentConfig.TransportConfig.KafkaConfig.ProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
 		return kafkaProducer, nil
 	default:
-		return nil, fmt.Errorf("flag transport-type - %q is not a valid option",
-			parsedRegionalHubConfig.TransportType)
+		return nil, fmt.Errorf("flag transport-type - %q is not a valid option", agentConfig.TransportConfig.TransportType)
 	}
 }
 
-func createManager(restConfig *rest.Config, parsedRegionalHubConfig *regionalHubConfig) (ctrl.Manager, error) {
-	leaseDuration := time.Duration(parsedRegionalHubConfig.ElectionConfig.LeaseDuration) * time.Second
-	renewDeadline := time.Duration(parsedRegionalHubConfig.ElectionConfig.RenewDeadline) * time.Second
-	retryPeriod := time.Duration(parsedRegionalHubConfig.ElectionConfig.RetryPeriod) * time.Second
+func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (ctrl.Manager, error) {
+	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
+	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
+	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second
 
 	var leaderElectionConfig *rest.Config
 	if isAgentTesting, ok := os.LookupEnv("AGENT_TESTING"); ok && isAgentTesting == "true" {
@@ -249,7 +218,7 @@ func createManager(restConfig *rest.Config, parsedRegionalHubConfig *regionalHub
 		LeaderElection:          true,
 		LeaderElectionConfig:    leaderElectionConfig,
 		LeaderElectionID:        leaderElectionLockID,
-		LeaderElectionNamespace: parsedRegionalHubConfig.PodNameSpace,
+		LeaderElectionNamespace: agentConfig.PodNameSpace,
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
@@ -272,12 +241,12 @@ func createManager(restConfig *rest.Config, parsedRegionalHubConfig *regionalHub
 	}
 	fmt.Printf("Starting the Cmd incarnation: %d", incarnation)
 
-	consumer, err := getConsumer(parsedRegionalHubConfig)
+	consumer, err := consumer.NewGenericConsumer(agentConfig.TransportConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
 	}
 
-	producer, err := getProducer(parsedRegionalHubConfig)
+	producer, err := getProducer(agentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize transport producer: %w", err)
 	}
@@ -290,15 +259,18 @@ func createManager(restConfig *rest.Config, parsedRegionalHubConfig *regionalHub
 		return nil, fmt.Errorf("failed to add transport producer: %w", err)
 	}
 
+	if err := specController.AddToManager(mgr, agentConfig); err != nil {
+	}
+
 	if err := specController.AddSyncersToManager(mgr, consumer,
-		parsedRegionalHubConfig.SpecWorkPoolSize,
-		parsedRegionalHubConfig.SpecEnforceHohRbac); err != nil {
+		agentConfig.SpecWorkPoolSize,
+		agentConfig.SpecEnforceHohRbac); err != nil {
 		return nil, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 
 	if err := statusController.AddControllers(mgr, producer,
-		parsedRegionalHubConfig.LeafHubName,
-		parsedRegionalHubConfig.StatusDeltaCountSwitchFactor, incarnation); err != nil {
+		agentConfig.LeafHubName,
+		agentConfig.StatusDeltaCountSwitchFactor, incarnation); err != nil {
 		return nil, fmt.Errorf("failed to add status syncer: %w", err)
 	}
 
@@ -306,7 +278,7 @@ func createManager(restConfig *rest.Config, parsedRegionalHubConfig *regionalHub
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
-	if err := lease.AddHoHLeaseUpdater(mgr, parsedRegionalHubConfig.PodNameSpace,
+	if err := lease.AddHoHLeaseUpdater(mgr, agentConfig.PodNameSpace,
 		"multicluster-global-hub-controller"); err != nil {
 		return nil, fmt.Errorf("failed to add lease updater: %w", err)
 	}

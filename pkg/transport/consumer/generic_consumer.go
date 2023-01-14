@@ -17,9 +17,9 @@ import (
 )
 
 type GenericConsumer struct {
-	log       logr.Logger
-	client    cloudevents.Client
-	eventChan chan *cloudevents.Event
+	log         logr.Logger
+	client      cloudevents.Client
+	messageChan chan *transport.Message
 }
 
 func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericConsumer, error) {
@@ -49,18 +49,24 @@ func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericCon
 	}
 
 	return &GenericConsumer{
-		log:       ctrl.Log.WithName(fmt.Sprintf("%s-consumer", transportConfig.TransportType)),
-		client:    client,
-		eventChan: make(chan *cloudevents.Event),
+		log:         ctrl.Log.WithName(fmt.Sprintf("%s-consumer", transportConfig.TransportType)),
+		client:      client,
+		messageChan: make(chan *transport.Message),
 	}, nil
 }
 
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	err := c.client.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) {
-		// TODO: consumer the large message by chunk
+		// TODO: consumer the large message by chunk?
 		c.log.Info("received message and forward to bundle channel")
+		fmt.Printf("%s", event)
 
-		c.eventChan <- &event
+		transportMessage := &transport.Message{}
+		if err := event.DataAs(transportMessage); err != nil {
+			c.log.Error(err, "get transport message error", "event.ID", event.ID())
+			return
+		}
+		c.messageChan <- transportMessage
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start Receiver: %w", err)
@@ -69,6 +75,6 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *GenericConsumer) GetMessageChan() chan *cloudevents.Event {
-	return c.eventChan
+func (c *GenericConsumer) AcquireMessage() *transport.Message {
+	return <-c.messageChan
 }

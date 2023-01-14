@@ -28,7 +28,7 @@ func AddPlacementBindingsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB,
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
-		log:            ctrl.Log.WithName("placement-bindings-db-to-transport-syncer"),
+		log:            ctrl.Log.WithName("db-to-transport-syncer-placementrulebiding"),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncObjectsBundle(ctx, producer, placementBindingsMsgKey, specDB, placementBindingsTableName,

@@ -17,9 +17,8 @@ import (
 )
 
 type GenericProducer struct {
-	log              logr.Logger
-	client           cloudevents.Client
-	messageSizeLimit int // message size limit in bytes
+	log    logr.Logger
+	client cloudevents.Client
 }
 
 func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericProducer, error) {
@@ -49,26 +48,19 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericPro
 	}
 
 	return &GenericProducer{
-		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
-		client:           client,
-		messageSizeLimit: transportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB * kiloBytesToBytes,
+		log:    ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		client: client,
 	}, nil
 }
 
 func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) error {
-	// TODO: split the large message to chunk
-	if len(msg.Payload) > p.messageSizeLimit {
-		return fmt.Errorf("message payload size exceeded the limit of %d byte", p.messageSizeLimit)
-	}
+	// TODO: split the large message to chunk?
 	event := cloudevents.NewEvent()
 	event.SetSpecVersion(cloudevents.VersionV1)
 	event.SetSource("global-hub-manager")
 	event.SetID(msg.ID)
 	event.SetType(msg.MsgType)
-	event.SetExtension("version", msg.Version)
-	event.SetExtension("key", msg.Key)
-	event.SetExtension("destination", msg.Destination)
-	event.SetData(cloudevents.ApplicationJSON, msg.Payload)
+	event.SetData(cloudevents.ApplicationJSON, msg)
 
 	if result := p.client.Send(ctx, event); cloudevents.IsUndelivered(result) {
 		return fmt.Errorf("failed to send: %v", result)
