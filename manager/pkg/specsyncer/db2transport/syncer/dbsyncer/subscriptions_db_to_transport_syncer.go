@@ -28,7 +28,7 @@ func AddSubscriptionsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, pro
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
-		log:            ctrl.Log.WithName("subscriptions-db-to-transport-syncer"),
+		log:            ctrl.Log.WithName("db-to-transport-syncer-subscriptions"),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncObjectsBundle(ctx, producer, subscriptionMsgKey, specDB, subscriptionsTableName,

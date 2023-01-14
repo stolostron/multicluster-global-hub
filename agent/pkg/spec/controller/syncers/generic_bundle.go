@@ -2,7 +2,6 @@ package syncers
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -13,34 +12,26 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/rbac"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	consumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // genericBundleSyncer syncs objects spec from received bundles.
 type genericBundleSyncer struct {
 	log                          logr.Logger
-	genericBundleChan            chan *bundle.GenericBundle
+	consumer                     transport.Consumer
 	workerPool                   *workers.WorkerPool
 	bundleProcessingWaitingGroup sync.WaitGroup
 	enforceHohRbac               bool
 }
 
-// AddGenericBundleSyncer adds genericBundleSyncer to the manager.
-func AddGenericBundleSyncer(log logr.Logger, mgr ctrl.Manager, enforceHohRbac bool,
-	consumer consumer.Consumer, workerPool *workers.WorkerPool,
-) error {
-	if err := mgr.Add(&genericBundleSyncer{
-		log:                          log,
-		genericBundleChan:            consumer.GetGenericBundleChan(),
+func NewGenericSyncer(consumer transport.Consumer, workerPool *workers.WorkerPool, enforceRbac bool) *genericBundleSyncer {
+	return &genericBundleSyncer{
+		log:                          ctrl.Log.WithName("generic-bundle-syncer"),
+		consumer:                     consumer,
 		workerPool:                   workerPool,
 		bundleProcessingWaitingGroup: sync.WaitGroup{},
-		enforceHohRbac:               enforceHohRbac,
-	}); err != nil {
-		return fmt.Errorf("failed to add generic bundles spec syncer - %w", err)
+		enforceHohRbac:               enforceRbac,
 	}
-
-	return nil
 }
 
 // Start function starts bundles spec syncer.

@@ -137,11 +137,11 @@ func TestAgent(t *testing.T) {
 		os.Args = append([]string{tc.name}, tc.args...)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		addAndParseFlags() // add and parse agent flags
+		agentConfig := parseFlags() // add and parse agent flags
 		if !pflag.Parsed() {
 			t.Error("agent flags should be parsed, but actually not")
 		}
-		actualExit := doMain(ctx, cfg)
+		actualExit := doMain(ctx, cfg, agentConfig)
 		if tc.expectedExit != actualExit {
 			t.Errorf("unexpected exit code for args: %v, expected: %v, got: %v",
 				tc.args, tc.expectedExit, actualExit)

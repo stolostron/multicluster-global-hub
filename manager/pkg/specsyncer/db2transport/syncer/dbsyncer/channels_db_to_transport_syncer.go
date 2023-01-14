@@ -28,7 +28,7 @@ func AddChannelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
-		log:            ctrl.Log.WithName("channels-db-to-transport-syncer"),
+		log:            ctrl.Log.WithName("db-to-transport-syncer-channels"),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncObjectsBundle(ctx, producer, channelsMsgKey, specDB, channelsTableName,

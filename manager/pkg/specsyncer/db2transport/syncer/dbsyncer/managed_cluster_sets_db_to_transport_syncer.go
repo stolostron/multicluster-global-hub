@@ -28,7 +28,7 @@ func AddManagedClusterSetsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
-		log:            ctrl.Log.WithName("managed-cluster-sets-db-to-transport-syncer"),
+		log:            ctrl.Log.WithName("db-to-transport-syncer-managedclusterset"),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncObjectsBundle(ctx, producer, managedClusterSetsMsgKey, specDB, managedClusterSetsTableName,

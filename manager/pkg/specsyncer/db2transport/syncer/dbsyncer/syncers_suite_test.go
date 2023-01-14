@@ -27,6 +27,8 @@ import (
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -39,7 +41,7 @@ var (
 	kubeClient              client.Client
 	testPostgres            *testpostgres.TestPostgres
 	transportPostgreSQL     *postgresql.PostgreSQL
-	consumer                *transport.GenericConsumer
+	genericConsumer         *consumer.GenericConsumer
 	customBundleUpdatesChan = make(chan interface{})
 )
 
@@ -78,11 +80,11 @@ var _ = BeforeSuite(func() {
 	// fmt.Fprintf(GinkgoWriter, "mock kafka bootstrap server address: %s\n", mockCluster.BootstrapServers())
 
 	transportConfig := &transport.TransportConfig{
-		TransportType:     transport.GoChan,
+		TransportType:     string(transport.Chan),
 		CommitterInterval: 10 * time.Second,
 	}
 	By("Create kafka producer")
-	producer, err := transport.NewGenericProducer(transportConfig)
+	producer, err := producer.NewGenericProducer(transportConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	// kafkaProducer, err = producer.NewKafkaProducer(&compressor.CompressorGZip{},
@@ -90,7 +92,7 @@ var _ = BeforeSuite(func() {
 	// 	ctrl.Log.WithName("kafka-producer"))
 
 	By("Create kafka consumer")
-	consumer, err = transport.NewGenericConsumer(transportConfig)
+	genericConsumer, err = consumer.NewGenericConsumer(transportConfig)
 	Expect(err).NotTo(HaveOccurred())
 	// kafkaConsumer, err = consumer.NewKafkaConsumer(
 	// 	mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
@@ -136,7 +138,7 @@ var _ = BeforeSuite(func() {
 	// 	BundleUpdatesChan: customBundleUpdatesChan,
 	// })
 	// Expect(mgr.Add(kafkaConsumer)).Should(Succeed())
-	Expect(mgr.Add(consumer)).Should(Succeed())
+	Expect(mgr.Add(genericConsumer)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {
