@@ -28,7 +28,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
@@ -241,9 +240,9 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (ct
 	}
 	fmt.Printf("Starting the Cmd incarnation: %d", incarnation)
 
-	consumer, err := consumer.NewGenericConsumer(agentConfig.TransportConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
+	// add spec controllers
+	if err := specController.AddToManager(mgr, agentConfig); err != nil {
+		return nil, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 
 	producer, err := getProducer(agentConfig)
@@ -251,21 +250,8 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (ct
 		return nil, fmt.Errorf("failed to initialize transport producer: %w", err)
 	}
 
-	if err := mgr.Add(consumer); err != nil {
-		return nil, fmt.Errorf("failed to add transport consumer: %w", err)
-	}
-
 	if err := mgr.Add(producer); err != nil {
 		return nil, fmt.Errorf("failed to add transport producer: %w", err)
-	}
-
-	if err := specController.AddToManager(mgr, agentConfig); err != nil {
-	}
-
-	if err := specController.AddSyncersToManager(mgr, consumer,
-		agentConfig.SpecWorkPoolSize,
-		agentConfig.SpecEnforceHohRbac); err != nil {
-		return nil, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 
 	if err := statusController.AddControllers(mgr, producer,

@@ -2,7 +2,9 @@ package syncers
 
 import "context"
 
+const GenericMessageKey = "generic"
+
 type Syncer interface {
 	Start(ctx context.Context) error
-	Process(bundle interface{}) error
+	Channel() chan []byte
 }
