@@ -17,10 +17,8 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	specbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	consumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -30,8 +28,8 @@ const (
 
 // managedClusterLabelsBundleSyncer syncs managed clusters metadata from received bundles.
 type managedClusterLabelsBundleSyncer struct {
-	log               logr.Logger
-	bundleUpdatesChan chan interface{}
+	log            logr.Logger
+	payloadChannel chan []byte
 
 	latestBundle                 *specbundle.ManagedClusterLabelsSpecBundle
 	managedClusterToTimestampMap map[string]*time.Time
@@ -41,33 +39,20 @@ type managedClusterLabelsBundleSyncer struct {
 	latestBundleLock             sync.Mutex
 }
 
-// AddManagedClusterLabelsBundleSyncer adds managedClusterLabelsBundleSyncer to the manager.
-func AddManagedClusterLabelsBundleSyncer(log logr.Logger, mgr ctrl.Manager, consumer consumer.Consumer,
-	workerPool *workers.WorkerPool,
-) error {
-	customBundleUpdatesChan := make(chan interface{})
-
-	if err := mgr.Add(&managedClusterLabelsBundleSyncer{
-		log:                          log,
-		bundleUpdatesChan:            customBundleUpdatesChan,
+func NewManagedClusterLabelSyncer(consumer transport.Consumer, workers *workers.WorkerPool) *managedClusterLabelsBundleSyncer {
+	return &managedClusterLabelsBundleSyncer{
+		log:                          ctrl.Log.WithName("managed-clusters-labels-syncer"),
 		latestBundle:                 nil,
 		managedClusterToTimestampMap: make(map[string]*time.Time),
-		workerPool:                   workerPool,
+		workerPool:                   workers,
 		bundleProcessingWaitingGroup: sync.WaitGroup{},
 		latestBundleLock:             sync.Mutex{},
-	}); err != nil {
-		close(customBundleUpdatesChan)
-		return fmt.Errorf("failed to add managed cluster labels bundles syncer - %w", err)
+		payloadChannel:               make(chan []byte),
 	}
+}
 
-	consumer.CustomBundleRegister(constants.ManagedClustersLabelsMsgKey, &registration.CustomBundleRegistration{
-		InitBundlesResourceFunc: func() interface{} {
-			return &specbundle.ManagedClusterLabelsSpecBundle{}
-		},
-		BundleUpdatesChan: customBundleUpdatesChan,
-	})
-
-	return nil
+func (syncer *managedClusterLabelsBundleSyncer) Channel() chan []byte {
+	return syncer.payloadChannel
 }
 
 // Start function starts bundles spec syncer.
@@ -78,6 +63,8 @@ func (syncer *managedClusterLabelsBundleSyncer) Start(ctx context.Context) error
 	go syncer.bundleHandler(ctx)
 
 	<-ctx.Done() // blocking wait for stop event
+
+	close(syncer.payloadChannel)
 	syncer.log.Info("stopped bundles syncer")
 
 	return nil
@@ -89,13 +76,14 @@ func (syncer *managedClusterLabelsBundleSyncer) sync(ctx context.Context) {
 		case <-ctx.Done(): // we have received a signal to stop
 			return
 
-		case transportedBundle := <-syncer.bundleUpdatesChan: // handle the bundle
-			receivedBundle, ok := transportedBundle.(*specbundle.ManagedClusterLabelsSpecBundle)
-			if !ok {
+		case messagePayload := <-syncer.payloadChannel: // handle the bundle
+			managedClusterLabelBundle := &specbundle.ManagedClusterLabelsSpecBundle{}
+			if err := json.Unmarshal(messagePayload, managedClusterLabelBundle); err != nil {
+				syncer.log.Error(err, "parse ManagedClusterLabelsSpecBundle error")
 				continue
 			}
-			syncer.log.Info("get bundle from label bundle chan")
-			syncer.setLatestBundle(receivedBundle) // uses latestBundleLock
+			syncer.log.Info("get ManagedClusterLabelsSpecBundle from payload channel")
+			syncer.setLatestBundle(managedClusterLabelBundle) // uses latestBundleLock
 		}
 	}
 }

@@ -2,6 +2,7 @@ package syncers
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -10,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/rbac"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -22,6 +24,7 @@ type genericBundleSyncer struct {
 	workerPool                   *workers.WorkerPool
 	bundleProcessingWaitingGroup sync.WaitGroup
 	enforceHohRbac               bool
+	payloadChannel               chan []byte
 }
 
 func NewGenericSyncer(consumer transport.Consumer, workerPool *workers.WorkerPool, enforceRbac bool) *genericBundleSyncer {
@@ -31,6 +34,7 @@ func NewGenericSyncer(consumer transport.Consumer, workerPool *workers.WorkerPoo
 		workerPool:                   workerPool,
 		bundleProcessingWaitingGroup: sync.WaitGroup{},
 		enforceHohRbac:               enforceRbac,
+		payloadChannel:               make(chan []byte),
 	}
 }
 
@@ -41,9 +45,15 @@ func (syncer *genericBundleSyncer) Start(ctx context.Context) error {
 	go syncer.sync(ctx)
 
 	<-ctx.Done() // blocking wait for stop event
+
+	close(syncer.payloadChannel)
 	syncer.log.Info("stopped bundles syncer")
 
 	return nil
+}
+
+func (syncer *genericBundleSyncer) Channel() chan []byte {
+	return syncer.payloadChannel
 }
 
 func (syncer *genericBundleSyncer) sync(ctx context.Context) {
@@ -52,11 +62,15 @@ func (syncer *genericBundleSyncer) sync(ctx context.Context) {
 		case <-ctx.Done(): // we have received a signal to stop
 			return
 
-		case receivedBundle := <-syncer.genericBundleChan: // handle the bundle
-			syncer.bundleProcessingWaitingGroup.Add(
-				len(receivedBundle.Objects) + len(receivedBundle.DeletedObjects))
-			syncer.syncObjects(receivedBundle.Objects)
-			syncer.syncDeletedObjects(receivedBundle.DeletedObjects)
+		case messagePayload := <-syncer.payloadChannel:
+			genericBundle := bundle.NewGenericBundle()
+			if err := json.Unmarshal(messagePayload, genericBundle); err != nil {
+				syncer.log.Error(err, "parse generic bundle error")
+				continue
+			}
+			syncer.bundleProcessingWaitingGroup.Add(len(genericBundle.Objects) + len(genericBundle.DeletedObjects))
+			syncer.syncObjects(genericBundle.Objects)
+			syncer.syncDeletedObjects(genericBundle.DeletedObjects)
 			syncer.bundleProcessingWaitingGroup.Wait()
 		}
 	}
