@@ -66,7 +66,7 @@ func getSaramaConfig(kafkaConfig *KafkaConfig) (*sarama.Config, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Version = sarama.V2_0_0_0
 
-	if kafkaConfig.EnableTSL { // #nosec G402
+	if kafkaConfig.EnableTSL {
 		saramaConfig.Net.TLS.Enable = true
 		cert, err := ioutil.ReadFile(kafkaConfig.CertPath)
 		if err != nil {
@@ -74,6 +74,7 @@ func getSaramaConfig(kafkaConfig *KafkaConfig) (*sarama.Config, error) {
 		}
 		certPool := x509.NewCertPool()
 		certPool.AppendCertsFromPEM(cert)
+		// #nosec
 		tlsConfig := &tls.Config{
 			RootCAs:            certPool,
 			InsecureSkipVerify: true,
