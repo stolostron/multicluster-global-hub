@@ -23,15 +23,18 @@ type GenericConsumer struct {
 }
 
 func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericConsumer, error) {
+	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", transportConfig.TransportType))
 	var receiver interface{}
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
 		var err error
+		log.Info("transport consumer with kafka receiver")
 		receiver, err = protocol.NewKafkaReceiver(transportConfig.KafkaConfig)
 		if err != nil {
 			return nil, err
 		}
 	case string(transport.Chan):
+		log.Info("transport consumer with go chan receiver")
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
 		}
@@ -49,7 +52,7 @@ func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericCon
 	}
 
 	return &GenericConsumer{
-		log:         ctrl.Log.WithName(fmt.Sprintf("%s-consumer", transportConfig.TransportType)),
+		log:         log,
 		client:      client,
 		messageChan: make(chan *transport.Message),
 	}, nil

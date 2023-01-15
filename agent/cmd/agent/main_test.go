@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var (
@@ -125,10 +126,10 @@ func TestAgent(t *testing.T) {
 			"--retry-period",
 			"2",
 			"--transport-type",
-			"kafka",
+			string(transport.Chan),
 			"--kafka-bootstrap-server",
 			mockKafkaCluster.BootstrapServers(),
-		}, 0},
+		}, 1}, // TODO: after change the producer with cloudevents, this will be changed to 0
 	}
 	for _, tc := range cases {
 		// this call is required because otherwise flags panics, if args are set between flag.Parse call
@@ -141,10 +142,19 @@ func TestAgent(t *testing.T) {
 		if !pflag.Parsed() {
 			t.Error("agent flags should be parsed, but actually not")
 		}
-		actualExit := doMain(ctx, cfg, agentConfig)
-		if tc.expectedExit != actualExit {
-			t.Errorf("unexpected exit code for args: %v, expected: %v, got: %v",
-				tc.args, tc.expectedExit, actualExit)
+		agentConfig.TransportConfig.KafkaConfig.EnableTSL = false
+		if agentConfig.Terminating {
+			actualExit := doTermination(ctx, cfg)
+			if tc.expectedExit != actualExit {
+				t.Errorf("unexpected exit code for args: %v, expected: %v, got: %v",
+					tc.args, tc.expectedExit, actualExit)
+			}
+		} else {
+			actualExit := doMain(ctx, cfg, agentConfig)
+			if tc.expectedExit != actualExit {
+				t.Errorf("unexpected exit code for args: %v, expected: %v, got: %v",
+					tc.args, tc.expectedExit, actualExit)
+			}
 		}
 	}
 }

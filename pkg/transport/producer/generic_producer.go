@@ -60,7 +60,9 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 	event.SetSource("global-hub-manager")
 	event.SetID(msg.ID)
 	event.SetType(msg.MsgType)
-	event.SetData(cloudevents.ApplicationJSON, msg)
+	if err := event.SetData(cloudevents.ApplicationJSON, msg); err != nil {
+		return fmt.Errorf("failed to set cloudevents data: %v", msg)
+	}
 
 	if result := p.client.Send(ctx, event); cloudevents.IsUndelivered(result) {
 		return fmt.Errorf("failed to send: %v", result)
