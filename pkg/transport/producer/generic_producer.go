@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Shopify/sarama"
+	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/go-logr/logr"
@@ -64,8 +66,9 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 		return fmt.Errorf("failed to set cloudevents data: %v", msg)
 	}
 
-	if result := p.client.Send(ctx, event); cloudevents.IsUndelivered(result) {
-		return fmt.Errorf("failed to send: %v", result)
+	if result := p.client.Send(kafka_sarama.WithMessageKey(ctx, sarama.StringEncoder(event.ID())),
+		event); cloudevents.IsUndelivered(result) {
+		return fmt.Errorf("failed to send generic message to transport: %s", result.Error())
 	}
 	return nil
 }
