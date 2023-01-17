@@ -17,8 +17,8 @@ require (
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lib/pq v1.10.6
-	github.com/onsi/ginkgo/v2 v2.4.0
-	github.com/onsi/gomega v1.23.0
+	github.com/onsi/ginkgo/v2 v2.5.0
+	github.com/onsi/gomega v1.24.0
 	github.com/openshift/api v0.0.0-20220531073726-6c4f186339a7
 	github.com/openshift/library-go v0.0.0-20220727134723-6802b30e83ba
 	github.com/operator-framework/api v0.15.0

@@ -76,13 +76,13 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		return 1
 	}
 
-	mgr, err := createManager(restConfig, agentConfig)
+	mgr, err := createManager(restConfig, agentConfig, log)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
 	}
 
-	log.Info("starting the Cmd")
+	log.Info("starting the agent controller manager")
 	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
@@ -185,18 +185,20 @@ func getProducer(agentConfig *config.AgentConfig) (producer.Producer, error) {
 	switch agentConfig.TransportConfig.TransportType {
 	case kafkaTransportType:
 		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
-			agentConfig.TransportConfig.KafkaConfig.BootstrapServer, agentConfig.TransportConfig.KafkaConfig.CertPath,
+			agentConfig.TransportConfig.KafkaConfig.BootstrapServer,
+			agentConfig.TransportConfig.KafkaConfig.CertPath,
 			agentConfig.TransportConfig.KafkaConfig.ProducerConfig, ctrl.Log.WithName("kafka-producer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
 		}
 		return kafkaProducer, nil
 	default:
-		return nil, fmt.Errorf("flag transport-type - %q is not a valid option", agentConfig.TransportConfig.TransportType)
+		return nil, fmt.Errorf("flag transport-type - %q is not a valid option",
+			agentConfig.TransportConfig.TransportType)
 	}
 }
 
-func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (ctrl.Manager, error) {
+func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig, log logr.Logger) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second
@@ -238,12 +240,13 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (ct
 	if err != nil {
 		return nil, fmt.Errorf("failed to get incarnation version: %w", err)
 	}
-	fmt.Printf("Starting the Cmd incarnation: %d", incarnation)
+	log.Info("start agent with incarnation version", "version", incarnation)
 
 	// add spec controllers
 	if err := specController.AddToManager(mgr, agentConfig); err != nil {
 		return nil, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
+	log.Info("add spec controllers to manager")
 
 	producer, err := getProducer(agentConfig)
 	if err != nil {

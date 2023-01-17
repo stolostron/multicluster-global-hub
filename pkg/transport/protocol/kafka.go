@@ -55,7 +55,7 @@ func NewKafkaReceiver(config *KafkaConfig) (*kafka_sarama.Consumer, error) {
 		return nil, err
 	}
 	// set the consumer groupId = clientId
-	receiver, err := kafka_sarama.NewConsumer([]string{config.BootstrapServer}, saramaConfig, config.ConsumerConfig.ConsumerID, config.ConsumerConfig.ConsumerID)
+	receiver, err := kafka_sarama.NewConsumer([]string{config.BootstrapServer}, saramaConfig, config.ConsumerConfig.ConsumerID, config.ConsumerConfig.ConsumerTopic)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +67,7 @@ func getSaramaConfig(kafkaConfig *KafkaConfig) (*sarama.Config, error) {
 	saramaConfig.Version = sarama.V2_0_0_0
 
 	if kafkaConfig.EnableTSL {
-		saramaConfig.Net.TLS.Enable = true
-		cert, err := ioutil.ReadFile(kafkaConfig.CertPath)
+		cert, err := ioutil.ReadFile(kafkaConfig.CertPath) // #nosec G304
 		if err != nil {
 			return nil, err
 		}
@@ -79,6 +78,7 @@ func getSaramaConfig(kafkaConfig *KafkaConfig) (*sarama.Config, error) {
 			RootCAs:            certPool,
 			InsecureSkipVerify: true,
 		}
+		saramaConfig.Net.TLS.Enable = true
 		saramaConfig.Net.TLS.Config = tlsConfig
 	}
 	return saramaConfig, nil

@@ -10,70 +10,41 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/rbac"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 )
 
 // genericBundleSyncer syncs objects spec from received bundles.
 type genericBundleSyncer struct {
 	log                          logr.Logger
-	consumer                     transport.Consumer
 	workerPool                   *workers.WorkerPool
 	bundleProcessingWaitingGroup sync.WaitGroup
 	enforceHohRbac               bool
-	payloadChannel               chan []byte
 }
 
-func NewGenericSyncer(consumer transport.Consumer, workerPool *workers.WorkerPool, enforceRbac bool) *genericBundleSyncer {
+func NewGenericSyncer(workerPool *workers.WorkerPool, config *config.AgentConfig) *genericBundleSyncer {
 	return &genericBundleSyncer{
 		log:                          ctrl.Log.WithName("generic-bundle-syncer"),
-		consumer:                     consumer,
 		workerPool:                   workerPool,
 		bundleProcessingWaitingGroup: sync.WaitGroup{},
-		enforceHohRbac:               enforceRbac,
-		payloadChannel:               make(chan []byte),
+		enforceHohRbac:               config.SpecEnforceHohRbac,
 	}
 }
 
-// Start function starts bundles spec syncer.
-func (syncer *genericBundleSyncer) Start(ctx context.Context) error {
-	syncer.log.Info("started bundles syncer...")
+func (syncer *genericBundleSyncer) Sync(payload []byte) error {
+	genericBundle := &bundle.GenericBundle{}
+	if err := json.Unmarshal(payload, genericBundle); err != nil {
+		return err
+	}
 
-	go syncer.sync(ctx)
-
-	<-ctx.Done() // blocking wait for stop event
-
-	close(syncer.payloadChannel)
-	syncer.log.Info("stopped bundles syncer")
-
+	syncer.bundleProcessingWaitingGroup.Add(len(genericBundle.Objects) + len(genericBundle.DeletedObjects))
+	syncer.syncObjects(genericBundle.Objects)
+	syncer.syncDeletedObjects(genericBundle.DeletedObjects)
+	syncer.bundleProcessingWaitingGroup.Wait()
 	return nil
-}
-
-func (syncer *genericBundleSyncer) Channel() chan []byte {
-	return syncer.payloadChannel
-}
-
-func (syncer *genericBundleSyncer) sync(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done(): // we have received a signal to stop
-			return
-
-		case messagePayload := <-syncer.payloadChannel:
-			genericBundle := bundle.NewGenericBundle()
-			if err := json.Unmarshal(messagePayload, genericBundle); err != nil {
-				syncer.log.Error(err, "parse generic bundle error")
-				continue
-			}
-			syncer.bundleProcessingWaitingGroup.Add(len(genericBundle.Objects) + len(genericBundle.DeletedObjects))
-			syncer.syncObjects(genericBundle.Objects)
-			syncer.syncDeletedObjects(genericBundle.DeletedObjects)
-			syncer.bundleProcessingWaitingGroup.Wait()
-		}
-	}
 }
 
 func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Unstructured) {
