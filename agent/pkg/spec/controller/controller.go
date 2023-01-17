@@ -28,26 +28,16 @@ func AddToManager(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
 		return fmt.Errorf("failed to add k8s workers pool to runtime manager: %w", err)
 	}
 
-	// add generic syncer to manager
-	genericSyncer := syncers.NewGenericSyncer(consumer, workers, agentConfig.SpecEnforceHohRbac)
-	if err := mgr.Add(genericSyncer); err != nil {
-		return fmt.Errorf("failed to add genericSyncer to runtime manager: %w", err)
-	}
-
-	// add managed cluster label syncer to manager
-	clusterLabelSyncer := syncers.NewManagedClusterLabelSyncer(consumer, workers)
-	if err := mgr.Add(genericSyncer); err != nil {
-		return fmt.Errorf("failed to add clusterLabelSyncer to runtime manager: %w", err)
-	}
-
 	// add bundle dispatcher to manager
-	dispatcher := NewGenericDispatcher(consumer, workers, *agentConfig)
+	dispatcher := syncers.NewGenericDispatcher(consumer, *agentConfig)
 	if err := mgr.Add(dispatcher); err != nil {
 		return fmt.Errorf("failed to add bundle dispatcher to runtime manager: %w", err)
 	}
-	// register generic syncer channel to dispatcher
-	dispatcher.RegisterChannel(syncers.GenericMessageKey, genericSyncer.Channel())
-	// register managed cluster label syncer channel to dispatcher
-	dispatcher.RegisterChannel(constants.ManagedClustersLabelsMsgKey, clusterLabelSyncer.Channel())
+
+	// register syncer to the dispatcher
+	dispatcher.RegisterSyncer(syncers.GenericMessageKey,
+		syncers.NewGenericSyncer(workers, agentConfig))
+	dispatcher.RegisterSyncer(constants.ManagedClustersLabelsMsgKey,
+		syncers.NewManagedClusterLabelSyncer(workers))
 	return nil
 }

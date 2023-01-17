@@ -78,6 +78,6 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *GenericConsumer) AcquireMessage() *transport.Message {
-	return <-c.messageChan
+func (c *GenericConsumer) MessageChan() chan *transport.Message {
+	return c.messageChan
 }

@@ -48,6 +48,7 @@ func (pool *WorkerPool) Start(ctx context.Context) error {
 	pool.ctx = ctx
 	pool.initializationWaitingGroup.Done() // once context is saved, it's safe to let RunAsync work with no concerns.
 
+	pool.log.Info("starting worker pool", "size", pool.poolSize)
 	for i := 1; i <= pool.poolSize; i++ {
 		worker, err := newWorker(pool.log, i, pool.kubeConfig, pool.jobsQueue)
 		if err != nil {

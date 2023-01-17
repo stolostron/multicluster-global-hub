@@ -18,7 +18,7 @@ type Consumer interface {
 	// start the transport to consume message
 	Start(ctx context.Context) error
 	// provide a blocking message to get the message
-	AcquireMessage() *Message
+	MessageChan() chan *Message
 }
 
 type TransportType string
