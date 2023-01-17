@@ -34,10 +34,11 @@ func AddClustersStatusController(mgr ctrl.Manager, producer producer.Producer, l
 		})
 	}
 
-	predicateFunc := func() bool { // bundle predicate
-		return hubOfHubsConfig.Data["aggregationLevel"] == "full" ||
-			hubOfHubsConfig.Data["aggregationLevel"] == "minimal"
+	predicateFunc := func() bool {
+		// return hubOfHubsConfig.Data["aggregationLevel"] == "full" ||
+		// 	hubOfHubsConfig.Data["aggregationLevel"] == "minimal"
 		// at this point send all managed clusters even if aggregation level is minimal
+		return true
 	}
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters
