@@ -49,7 +49,9 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case message := <-d.consumer.MessageChan():
-			if message.Destination != d.agentConfig.LeafHubName {
+			// if destination is explicitly specified and does not match, drop bundle
+			if message.Destination != transport.Broadcast &&
+				message.Destination != d.agentConfig.LeafHubName {
 				continue
 			}
 			syncer, found := d.syncers[message.ID]
