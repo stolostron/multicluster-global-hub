@@ -24,9 +24,8 @@ const (
 )
 
 type KafkaProducerConfig struct {
-	ProducerID     string
-	ProducerTopic  string
-	MsgSizeLimitKB int
+	ProducerID    string
+	ProducerTopic string
 }
 
 // Producer abstracts hub-of-hubs/pkg/kafka kafka-producer's generic usage.
@@ -66,7 +65,7 @@ func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, caPath 
 	return &KafkaProducer{
 		log:                  log,
 		producer:             producer,
-		messageSizeLimit:     producerConfig.MsgSizeLimitKB * kiloBytesToBytes,
+		messageSizeLimit:     producerConfig.MessageSizeLimitKB * kiloBytesToBytes,
 		topic:                producerConfig.ProducerTopic,
 		eventSubscriptionMap: make(map[string]map[EventType]EventCallback),
 		compressor:           compressor,

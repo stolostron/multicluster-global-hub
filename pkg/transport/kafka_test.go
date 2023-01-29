@@ -28,9 +28,9 @@ var _ = Describe("Transport", Ordered, func() {
 	It("Test consumer without conflation to handle the message", func() {
 		By("Start kafka producer")
 		kafkaProducerConfig := &protocol.KafkaProducerConfig{
-			ProducerTopic:  "spec",
-			ProducerID:     "spec-producer",
-			MsgSizeLimitKB: 100,
+			ProducerTopic:      "spec",
+			ProducerID:         "spec-producer",
+			MessageSizeLimitKB: 100,
 		}
 		kafkaProducer, err := producer.NewKafkaProducer(&compressor.CompressorGZip{},
 			mockCluster.BootstrapServers(), "", kafkaProducerConfig,
@@ -206,9 +206,9 @@ var _ = Describe("Transport", Ordered, func() {
 	It("Test consumer with conflation to handle the message", func() {
 		By("Start kafka producer")
 		kafkaProducerConfig := &protocol.KafkaProducerConfig{
-			ProducerTopic:  "status",
-			ProducerID:     "status-producer",
-			MsgSizeLimitKB: 1,
+			ProducerTopic:      "status",
+			ProducerID:         "status-producer",
+			MessageSizeLimitKB: 1,
 		}
 		kafkaProducer, err := producer.NewKafkaProducer(&compressor.CompressorGZip{},
 			mockCluster.BootstrapServers(), "", kafkaProducerConfig,

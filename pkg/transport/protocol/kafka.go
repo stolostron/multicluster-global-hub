@@ -12,10 +12,6 @@ import (
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 )
 
-const (
-	kiloBytesToBytes = 1000
-)
-
 type KafkaConfig struct {
 	BootstrapServer string
 	CertPath        string
@@ -25,9 +21,9 @@ type KafkaConfig struct {
 }
 
 type KafkaProducerConfig struct {
-	ProducerID     string
-	ProducerTopic  string
-	MsgSizeLimitKB int
+	ProducerID         string
+	ProducerTopic      string
+	MessageSizeLimitKB int
 }
 
 type KafkaConsumerConfig struct {
@@ -41,7 +37,7 @@ func NewKafkaSender(config *KafkaConfig) (*kafka_sarama.Sender, error) {
 		return nil, err
 	}
 
-	saramaConfig.Producer.MaxMessageBytes = config.ProducerConfig.MsgSizeLimitKB * kiloBytesToBytes
+	saramaConfig.Producer.MaxMessageBytes = config.ProducerConfig.MessageSizeLimitKB * 1000 // kiloBytesToBytes
 	sender, err := kafka_sarama.NewSender([]string{config.BootstrapServer}, saramaConfig, config.ProducerConfig.ProducerTopic)
 	if err != nil {
 		return nil, err
