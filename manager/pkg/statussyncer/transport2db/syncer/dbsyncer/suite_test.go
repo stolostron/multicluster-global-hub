@@ -116,9 +116,9 @@ var _ = BeforeSuite(func() {
 
 	By("Start kafka producer")
 	kafkaProducerConfig := &protocol.KafkaProducerConfig{
-		ProducerTopic:  "status",
-		ProducerID:     "status-producer",
-		MsgSizeLimitKB: 1,
+		ProducerTopic:      "status",
+		ProducerID:         "status-producer",
+		MessageSizeLimitKB: 1,
 	}
 	kafkaProducer, err = producer.NewKafkaProducer(&compressor.CompressorGZip{},
 		mockCluster.BootstrapServers(), "", kafkaProducerConfig,

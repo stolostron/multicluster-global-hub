@@ -123,7 +123,7 @@ func parseFlags() (*hohManagerConfig, error) {
 		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
 		"spec", "Topic for the kafka producer.")
-	pflag.IntVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 940,
+	pflag.IntVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit", 940,
 		"The limit for kafka message size in KB.")
 	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kakfa-consumer-id", "multicluster-global-hub",
 		"ID for the kafka consumer.")
@@ -153,9 +153,9 @@ func parseFlags() (*hohManagerConfig, error) {
 		return nil, fmt.Errorf("database url for transport-bridge user: %w", errFlagParameterEmpty)
 	}
 
-	if managerConfig.transportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB > producer.MaxMessageSizeLimit {
+	if managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
 		return nil, fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
-			producer.MaxMessageSizeLimit, "kafka-message-size-limit")
+			managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
 	}
 
 	return managerConfig, nil

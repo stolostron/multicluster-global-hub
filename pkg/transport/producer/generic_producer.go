@@ -5,7 +5,9 @@ package producer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -19,12 +21,14 @@ import (
 )
 
 type GenericProducer struct {
-	log    logr.Logger
-	client cloudevents.Client
+	log              logr.Logger
+	client           cloudevents.Client
+	messageSizeLimit int
 }
 
 func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericProducer, error) {
 	var sender interface{}
+
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
 		var err error
@@ -50,25 +54,48 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericPro
 	}
 
 	return &GenericProducer{
-		log:    ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
-		client: client,
+		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		client:           client,
+		messageSizeLimit: transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000,
 	}, nil
 }
 
 func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) error {
-	// TODO: split the large message to chunk?
 	event := cloudevents.NewEvent()
 	event.SetSpecVersion(cloudevents.VersionV1)
 	event.SetSource("global-hub-manager")
 	event.SetID(msg.ID)
 	event.SetType(msg.MsgType)
-	if err := event.SetData(cloudevents.ApplicationJSON, msg); err != nil {
-		return fmt.Errorf("failed to set cloudevents data: %v", msg)
+	event.SetTime(time.Now())
+	messageBytes, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message to bytes: %s", messageBytes)
 	}
 
-	if result := p.client.Send(kafka_sarama.WithMessageKey(ctx, sarama.StringEncoder(event.ID())),
-		event); cloudevents.IsUndelivered(result) {
-		return fmt.Errorf("failed to send generic message to transport: %s", result.Error())
+	chunks := p.splitPayloadIntoChunks(messageBytes)
+	for index, chunk := range chunks {
+		event.SetExtension(transport.Size, len(messageBytes))
+		event.SetExtension(transport.Offset, index*p.messageSizeLimit)
+		if err := event.SetData(cloudevents.ApplicationJSON, chunk); err != nil {
+			return fmt.Errorf("failed to set cloudevents data: %v", msg)
+		}
+		if result := p.client.Send(kafka_sarama.WithMessageKey(ctx, sarama.StringEncoder(event.ID())),
+			event); cloudevents.IsUndelivered(result) {
+			return fmt.Errorf("failed to send generic message to transport: %s", result.Error())
+		}
 	}
 	return nil
+}
+
+func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
+	var chunk []byte
+	chunks := make([][]byte, 0, len(payload)/(p.messageSizeLimit)+1)
+	for len(payload) >= p.messageSizeLimit {
+		chunk, payload = payload[:p.messageSizeLimit], payload[p.messageSizeLimit:]
+		chunks = append(chunks, chunk)
+	}
+	if len(payload) > 0 {
+		chunks = append(chunks, payload)
+	}
+	return chunks
 }

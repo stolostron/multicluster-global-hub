@@ -122,7 +122,7 @@ func parseFlags() *config.AgentConfig {
 		"Producer Id for the kafka, default is the leaf hub name.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
 		"status", "Topic for the kafka producer.")
-	pflag.IntVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 100,
+	pflag.IntVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit", 100,
 		"The limit for kafka message size in KB.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic",
 		"spec", "Topic for the kafka consumer.")
@@ -167,9 +167,9 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
 	}
 
-	if agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB > producer.MaxMessageSizeLimit {
+	if agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
 		return fmt.Errorf("flag kafka-message-size-limit %d must not exceed %d",
-			agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MsgSizeLimitKB, producer.MaxMessageSizeLimit)
+			agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, producer.MaxMessageSizeLimit)
 	}
 	agentConfig.TransportConfig.KafkaConfig.EnableTSL = true
 	return nil
