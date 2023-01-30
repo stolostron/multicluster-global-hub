@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	ceprotocol "github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/cloudevents/sdk-go/v2/types"
 	"github.com/go-logr/logr"
@@ -62,7 +63,7 @@ func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericCon
 }
 
 func (c *GenericConsumer) Start(ctx context.Context) error {
-	err := c.client.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) {
+	err := c.client.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
 		c.log.Info("received message and forward to bundle channel")
 		fmt.Printf("%s", event)
 
@@ -71,15 +72,16 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 			transportMessage := &transport.Message{}
 			if err := event.DataAs(transportMessage); err != nil {
 				c.log.Error(err, "get transport message error", "event.ID", event.ID())
-				return
+				return ceprotocol.ResultNACK
 			}
 			c.messageChan <- transportMessage
-			return
+			return ceprotocol.ResultACK
 		}
 
 		if transportMessage := c.assembler.processChunk(chunk); transportMessage != nil {
 			c.messageChan <- transportMessage
 		}
+		return ceprotocol.ResultACK
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start Receiver: %w", err)
