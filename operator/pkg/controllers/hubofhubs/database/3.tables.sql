@@ -97,7 +97,9 @@ CREATE TABLE IF NOT EXISTS  local_status.compliance (
     cluster_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     error status.error_type NOT NULL,
-    compliance local_status.compliance_type NOT NULL
+    compliance local_status.compliance_type NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  spec.applications (
@@ -202,7 +204,9 @@ CREATE TABLE IF NOT EXISTS  status.aggregated_compliance (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     applied_clusters integer NOT NULL,
-    non_compliant_clusters integer NOT NULL
+    non_compliant_clusters integer NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  status.compliance (
@@ -210,7 +214,9 @@ CREATE TABLE IF NOT EXISTS  status.compliance (
     cluster_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     error status.error_type NOT NULL,
-    compliance status.compliance_type NOT NULL
+    compliance status.compliance_type NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
@@ -221,37 +227,49 @@ CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
 CREATE TABLE IF NOT EXISTS  status.managed_clusters (
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
-    error status.error_type NOT NULL
+    error status.error_type NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  status.placementdecisions (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
-    payload jsonb NOT NULL
+    payload jsonb NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  status.placementrules (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
-    payload jsonb NOT NULL
+    payload jsonb NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  status.placements (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
-    payload jsonb NOT NULL
+    payload jsonb NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  status.subscription_reports (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
-    payload jsonb NOT NULL
+    payload jsonb NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  status.subscription_statuses (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
-    payload jsonb NOT NULL
+    payload jsonb NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 ALTER TABLE history.applications DROP CONSTRAINT IF EXISTS applications_pkey;
