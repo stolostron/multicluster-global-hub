@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/types"
 	"github.com/go-logr/logr"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,6 +26,7 @@ type messageChunk struct {
 
 // messageChunksCollection holds a collection of chunks and maintains it until completion.
 type messageChunksCollection struct {
+	id              string
 	totalSize       int
 	accumulatedSize int
 	timestamp       time.Time
@@ -31,8 +34,9 @@ type messageChunksCollection struct {
 	lock            sync.Mutex
 }
 
-func newMessageChunksCollection(size int, timestamp time.Time) *messageChunksCollection {
+func newMessageChunksCollection(id string, size int, timestamp time.Time) *messageChunksCollection {
 	return &messageChunksCollection{
+		id:              id,
 		totalSize:       size,
 		accumulatedSize: 0,
 		timestamp:       timestamp,
@@ -56,7 +60,7 @@ func (collection *messageChunksCollection) add(chunk *messageChunk) {
 	collection.accumulatedSize += len(chunk.bytes)
 }
 
-func (collection *messageChunksCollection) assemble() []byte {
+func (collection *messageChunksCollection) collect() []byte {
 	collection.lock.Lock()
 	defer collection.lock.Unlock()
 	buffer := make([]byte, collection.totalSize)
@@ -80,30 +84,57 @@ func newMessageAssembler() *messageAssembler {
 }
 
 // processChunk processes a message chunk and returns transport message if any got assembled, otherwise,nil.
-func (assembler *messageAssembler) processChunk(chunk *messageChunk) *transport.Message {
+func (assembler *messageAssembler) assemble(chunk *messageChunk) *transport.Message {
 	chunkCollection, found := assembler.chunkCollectionMap[chunk.id] // chunk.id: PlacementRule
-	if !found || chunkCollection.timestamp.Before(chunk.timestamp) {
-		// chunkCollection is not found or is hosting outdated chunks
-		chunkCollection = newMessageChunksCollection(chunk.size, chunk.timestamp)
-		assembler.chunkCollectionMap[chunk.id] = chunkCollection
-	}
-
-	if chunkCollection.timestamp.After(chunk.timestamp) {
+	if found && chunkCollection.timestamp.After(chunk.timestamp) {
 		// chunk timestamp < collection got an outdated chunk
 		return nil
+	}
+
+	if !found || chunkCollection.timestamp.Before(chunk.timestamp) {
+		// chunkCollection is not found or is hosting outdated chunks
+		chunkCollection = newMessageChunksCollection(chunk.id, chunk.size, chunk.timestamp)
+		assembler.chunkCollectionMap[chunk.id] = chunkCollection
 	}
 
 	chunkCollection.add(chunk)
 
 	if chunkCollection.totalSize == chunkCollection.accumulatedSize {
-		transportMessageBytes := chunkCollection.assemble()
-		assembler.log.Info("assemble chunks successfully", "id", chunk.id, "collection.size", chunkCollection.totalSize)
+		transportMessageBytes := chunkCollection.collect()
+		assembler.log.Info("assemble collection successfully", "id", chunkCollection.id, "collection.size", chunkCollection.totalSize)
+
 		transportMessage := &transport.Message{}
 		if err := json.Unmarshal(transportMessageBytes, transportMessage); err != nil {
 			assembler.log.Error(err, "unmarshal collection bytes to transport.Message error")
 			return nil
 		}
+
+		// delete collection from map
+		delete(assembler.chunkCollectionMap, chunkCollection.id)
 		return transportMessage
 	}
+
 	return nil
+}
+
+func (assembler *messageAssembler) messageChunk(e cloudevents.Event) (*messageChunk, bool) {
+	offset, err := types.ToInteger(e.Extensions()[transport.Offset])
+	if err != nil {
+		assembler.log.Error(err, "event offset parse error")
+		return nil, false
+	}
+
+	size, err := types.ToInteger(e.Extensions()[transport.Size])
+	if err != nil {
+		assembler.log.Error(err, "event size parse error")
+		return nil, false
+	}
+
+	return &messageChunk{
+		id:        e.ID(),
+		timestamp: e.Time(),
+		offset:    int(offset),
+		size:      int(size),
+		bytes:     e.Data(),
+	}, true
 }
