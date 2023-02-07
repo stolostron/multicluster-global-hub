@@ -10,7 +10,6 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	ceprotocol "github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
-	"github.com/cloudevents/sdk-go/v2/types"
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -67,7 +66,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		c.log.Info("received message and forward to bundle channel")
 		fmt.Printf("%s", event)
 
-		chunk, isChunk := c.messageChunk(event)
+		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
 			transportMessage := &transport.Message{}
 			if err := event.DataAs(transportMessage); err != nil {
@@ -78,10 +77,11 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 			return ceprotocol.ResultACK
 		}
 
-		if transportMessage := c.assembler.processChunk(chunk); transportMessage != nil {
+		if transportMessage := c.assembler.assemble(chunk); transportMessage != nil {
 			c.messageChan <- transportMessage
+			return ceprotocol.ResultACK
 		}
-		return ceprotocol.ResultACK
+		return ceprotocol.ResultNACK
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start Receiver: %w", err)
@@ -92,26 +92,4 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 func (c *GenericConsumer) MessageChan() chan *transport.Message {
 	return c.messageChan
-}
-
-func (c *GenericConsumer) messageChunk(e cloudevents.Event) (*messageChunk, bool) {
-	offset, err := types.ToInteger(e.Extensions()[transport.Offset])
-	if err != nil {
-		c.log.Error(err, "event offset parse error")
-		return nil, false
-	}
-
-	size, err := types.ToInteger(e.Extensions()[transport.Size])
-	if err != nil {
-		c.log.Error(err, "event size parse error")
-		return nil, false
-	}
-
-	return &messageChunk{
-		id:        e.ID(),
-		timestamp: e.Time(),
-		offset:    int(offset),
-		size:      int(size),
-		bytes:     e.Data(),
-	}, true
 }
