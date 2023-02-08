@@ -11,7 +11,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 )
 
 // AddSubscriptionReportsController adds subscription-report controller to the manager.
-func AddSubscriptionReportsController(mgr ctrl.Manager, transport producer.Producer, leafHubName string,
+func AddSubscriptionReportsController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
 	incarnation uint64, _ *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	createObjFunction := func() bundle.Object { return &appsv1alpha1.SubscriptionReport{} }
@@ -30,7 +30,7 @@ func AddSubscriptionReportsController(mgr ctrl.Manager, transport producer.Produ
 			func() bool { return true }),
 	} // bundle predicate - always send subscription report.
 
-	if err := generic.NewGenericStatusSyncController(mgr, subscriptionReportsSyncLog, transport, bundleCollection,
+	if err := generic.NewGenericStatusSyncController(mgr, subscriptionReportsSyncLog, producer, bundleCollection,
 		createObjFunction, nil, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add subscription reports controller to the manager - %w", err)
 	}

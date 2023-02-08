@@ -14,7 +14,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 )
 
 // AddPlacementRulesController adds placement-rule controller to the manager.
-func AddPlacementRulesController(mgr ctrl.Manager, transport producer.Producer, leafHubName string,
+func AddPlacementRulesController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
 	incarnation uint64, _ *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	createObjFunction := func() bundle.Object { return &placementrulesV1.PlacementRule{} }
@@ -40,7 +40,7 @@ func AddPlacementRulesController(mgr ctrl.Manager, transport producer.Producer, 
 		return helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, placementRuleSyncLog, transport, bundleCollection,
+	if err := generic.NewGenericStatusSyncController(mgr, placementRuleSyncLog, producer, bundleCollection,
 		createObjFunction, ownerRefAnnotationPredicate, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add placement rules controller to the manager - %w", err)
 	}

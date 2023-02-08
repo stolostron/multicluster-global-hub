@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
@@ -11,11 +12,11 @@ import (
 )
 
 // NewConflationManager creates a new instance of ConflationManager.
-func NewConflationManager(log logr.Logger, conflationUnitsReadyQueue *ConflationReadyQueue,
+func NewConflationManager(conflationUnitsReadyQueue *ConflationReadyQueue,
 	requireInitialDependencyChecks bool, statistics *statistics.Statistics,
 ) *ConflationManager {
 	return &ConflationManager{
-		log:                            log,
+		log:                            ctrl.Log.WithName("conflation-manager"),
 		conflationUnits:                make(map[string]*ConflationUnit), // map from leaf hub to conflation unit
 		requireInitialDependencyChecks: requireInitialDependencyChecks,
 		registrations:                  make([]*ConflationRegistration, 0),

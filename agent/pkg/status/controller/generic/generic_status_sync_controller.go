@@ -20,7 +20,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 const REQUEUE_PERIOD = 5 * time.Second
@@ -31,7 +30,7 @@ type CreateObjectFunction func() bundle.Object
 type genericStatusSyncController struct {
 	client                  client.Client
 	log                     logr.Logger
-	transport               producer.Producer
+	transport               transport.Producer
 	orderedBundleCollection []*BundleCollectionEntry
 	finalizerName           string
 	createBundleObjFunc     func() bundle.Object
@@ -41,7 +40,7 @@ type genericStatusSyncController struct {
 }
 
 // NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
-func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, producer producer.Producer,
+func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, producer transport.Producer,
 	orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction, predicate predicate.Predicate,
 	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc,
 ) error {
@@ -177,24 +176,26 @@ func (c *genericStatusSyncController) syncBundles() {
 
 			payloadBytes, err := json.Marshal(entry.bundle)
 			if err != nil {
-				c.log.Error(
-					fmt.Errorf("sync object from type %s with id %s - %w",
-						constants.StatusBundle, entry.transportBundleKey, err),
-					"failed to sync bundle")
+				c.log.Error(err, "marshal entry.bundle error", "entry.bundleKey", entry.transportBundleKey)
+				continue
 			}
 
+			messageId := entry.transportBundleKey
 			transportMessageKey := entry.transportBundleKey
 			if deltaStateBundle, ok := entry.bundle.(bundle.DeltaStateBundle); ok {
 				transportMessageKey = fmt.Sprintf("%s@%d", entry.transportBundleKey, deltaStateBundle.GetTransportationID())
 			}
 
-			c.transport.SendAsync(&transport.Message{
+			if err := c.transport.Send(context.TODO(), &transport.Message{
 				Key:     transportMessageKey,
-				ID:      entry.transportBundleKey,
+				ID:      messageId,
 				MsgType: constants.StatusBundle,
 				Version: entry.bundle.GetBundleVersion().String(),
 				Payload: payloadBytes,
-			})
+			}); err != nil {
+				c.log.Error(err, "send transport message error", "id", messageId)
+				continue
+			}
 
 			entry.lastSentBundleVersion = *bundleVersion
 		}

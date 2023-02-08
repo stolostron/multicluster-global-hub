@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
@@ -14,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // NewControlInfoDBSyncer creates a new instance of ControlInfoDBSyncer.
@@ -36,8 +36,8 @@ type ControlInfoDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *ControlInfoDBSyncer) RegisterCreateBundleFunctions(transportInstance consumer.Consumer) {
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+func (syncer *ControlInfoDBSyncer) RegisterCreateBundleFunctions(transportDispatcher *dispatcher.TransportDispatcher) {
+	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ControlInfoMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
 		Predicate:        func() bool { return true }, // always get control info bundles

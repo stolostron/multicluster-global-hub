@@ -25,6 +25,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/incarnation"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
@@ -32,6 +33,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -155,7 +157,16 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add controllers to manager")
-	err = statusController.AddControllers(mgr, kafkaProducer, leafHubName, 100, incarnation)
+	agentConfig := &config.AgentConfig{
+		ElectionConfig: &commonobjects.LeaderElectionConfig{},
+		TransportConfig: &transport.TransportConfig{
+			KafkaConfig: &protocol.KafkaConfig{
+				ProducerConfig: &protocol.KafkaProducerConfig{},
+				ConsumerConfig: &protocol.KafkaConsumerConfig{},
+			},
+		},
+	}
+	err = statusController.AddControllers(mgr, agentConfig, incarnation)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add kafka producer to manager")

@@ -16,7 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -25,7 +25,7 @@ const (
 )
 
 // AddPoliciesStatusController adds policies status controller to the manager.
-func AddPoliciesStatusController(mgr ctrl.Manager, producer producer.Producer, leafHubName string,
+func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
 	statusDeltaCountSwitchFactor int, incarnation uint64, hubOfHubsConfig *corev1.ConfigMap,
 	syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
@@ -54,7 +54,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, producer producer.Producer, l
 	return nil
 }
 
-func createBundleCollection(pro producer.Producer, leafHubName string, statusDeltaCountSwitchFactor int,
+func createBundleCollection(pro transport.Producer, leafHubName string, statusDeltaCountSwitchFactor int,
 	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap,
 ) ([]*generic.BundleCollectionEntry, error) {
 	// clusters per policy (base bundle)
@@ -92,7 +92,7 @@ func createBundleCollection(pro producer.Producer, leafHubName string, statusDel
 // getHybridComplianceBundleCollectionEntries creates a complete/delta compliance bundle collection entries and has
 // them managed by a genericHybridSyncManager.
 // The collection entries are returned (or nils with an error if any occurred).
-func getHybridComplianceBundleCollectionEntries(transport producer.Producer, leafHubName string,
+func getHybridComplianceBundleCollectionEntries(producer transport.Producer, leafHubName string,
 	incarnation uint64, fullStatusPredicate func() bool, clustersPerPolicyBundle bundle.Bundle,
 	deltaCountSwitchFactor int,
 ) (*generic.BundleCollectionEntry, *generic.BundleCollectionEntry, error) {
@@ -114,7 +114,7 @@ func getHybridComplianceBundleCollectionEntries(transport producer.Producer, lea
 
 	if err := generic.NewHybridSyncManager(ctrl.Log.WithName(
 		"compliance-status-hybrid-sync-manager"),
-		transport, completeComplianceBundleCollectionEntry, deltaComplianceBundleCollectionEntry,
+		producer, completeComplianceBundleCollectionEntry, deltaComplianceBundleCollectionEntry,
 		deltaCountSwitchFactor); err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", err,
 			errors.New("failed to create hybrid sync manager"))
