@@ -8,6 +8,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
@@ -15,7 +16,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
@@ -37,8 +37,8 @@ type ManagedClustersDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportInstance consumer.Consumer) {
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(dispatcher *dispatcher.TransportDispatcher) {
+	dispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ManagedClustersMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
 		Predicate:        func() bool { return true }, // always get managed clusters bundles

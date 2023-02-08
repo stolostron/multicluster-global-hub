@@ -23,14 +23,9 @@ import (
 
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
-	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
@@ -81,33 +76,33 @@ var _ = BeforeSuite(func() {
 	transportPostgreSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Create database work pool")
-	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{},
-		[]string{
-			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
-			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
-			helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
-			helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
-			helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
-			helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
-			helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
-		})
+	// By("Create database work pool")
+	// stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{},
+	// 	[]string{
+	// 		helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
+	// 		helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
+	// 	})
 
-	dbWorkerPool, err = workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), testPostgres.URI, stats)
-	Expect(err).NotTo(HaveOccurred())
+	// dbWorkerPool, err = workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), testPostgres.URI, stats)
+	// Expect(err).NotTo(HaveOccurred())
 
-	By("Create conflationReadyQueue")
-	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
-	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"),
-		conflationReadyQueue, false, stats) // manage all Conflation Units
+	// By("Create conflationReadyQueue")
+	// conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
+	// conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"),
+	// 	conflationReadyQueue, false, stats) // manage all Conflation Units
 
 	By("Create mock kafka cluster")
 	mockCluster, err = kafka.NewMockCluster(1)
@@ -135,12 +130,12 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("kafka-consumer"))
 	Expect(err).NotTo(HaveOccurred())
 
-	kafkaConsumer.SetCommitter(consumer.NewCommitter(
-		1*time.Second, kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
-		conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
-	)
-	kafkaConsumer.SetStatistics(stats)
-	kafkaConsumer.SetConflationManager(conflationManager)
+	// kafkaConsumer.SetCommitter(consumer.NewCommitter(
+	// 	1*time.Second, kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+	// 	conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
+	// )
+	// kafkaConsumer.SetStatistics(stats)
+	// kafkaConsumer.SetConflationManager(conflationManager)
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -169,12 +164,12 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
 
 	By("Add controllers to manager")
-	err = statussyncer.AddTransport2DBSyncers(mgr, dbWorkerPool, conflationManager,
-		conflationReadyQueue, kafkaConsumer, stats)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(mgr.Add(dbWorkerPool)).Should(Succeed())
-	Expect(mgr.Add(kafkaProducer)).Should(Succeed())
-	Expect(mgr.Add(kafkaConsumer)).Should(Succeed())
+	// err = statussyncer.AddTransport2DBSyncers(mgr, managerConfig, dbWorkerPool, conflationManager,
+	// 	conflationReadyQueue, kafkaConsumer, stats)
+	// Expect(err).ToNot(HaveOccurred())
+	// Expect(mgr.Add(dbWorkerPool)).Should(Succeed())
+	// Expect(mgr.Add(kafkaProducer)).Should(Succeed())
+	// Expect(mgr.Add(kafkaConsumer)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {

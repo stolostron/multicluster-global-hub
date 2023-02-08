@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
 	configCtrl "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/controlinfo"
@@ -18,13 +19,17 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(mgr ctrl.Manager, pro producer.Producer, leafHubName string,
-	statusDeltaCountSwitchFactor int, incarnation uint64,
-) error {
+func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnation uint64) error {
+	producer, err := producer.NewGenericProducer(agentConfig.TransportConfig)
+	if err != nil {
+		return fmt.Errorf("failed to init status transport producer: %w", err)
+	}
+
 	config := &corev1.ConfigMap{}
 	if err := configCtrl.AddConfigController(mgr, config); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
@@ -35,12 +40,12 @@ func AddControllers(mgr ctrl.Manager, pro producer.Producer, leafHubName string,
 		return fmt.Errorf("failed to add SyncIntervals controller: %w", err)
 	}
 
-	if err := policies.AddPoliciesStatusController(mgr, pro, leafHubName, statusDeltaCountSwitchFactor,
-		incarnation, config, syncIntervals); err != nil {
+	if err := policies.AddPoliciesStatusController(mgr, producer, agentConfig.LeafHubName,
+		agentConfig.StatusDeltaCountSwitchFactor, incarnation, config, syncIntervals); err != nil {
 		return fmt.Errorf("failed to add PoliciesStatusController controller: %w", err)
 	}
 
-	addControllerFunctions := []func(ctrl.Manager, producer.Producer, string, uint64,
+	addControllerFunctions := []func(ctrl.Manager, transport.Producer, string, uint64,
 		*corev1.ConfigMap, *syncintervals.SyncIntervals) error{
 		managedclusters.AddClustersStatusController,
 		placement.AddPlacementRulesController,
@@ -54,7 +59,8 @@ func AddControllers(mgr ctrl.Manager, pro producer.Producer, leafHubName string,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, pro, leafHubName, incarnation, config, syncIntervals); err != nil {
+		if err := addControllerFunction(mgr, producer, agentConfig.LeafHubName, incarnation, config,
+			syncIntervals); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
 	}

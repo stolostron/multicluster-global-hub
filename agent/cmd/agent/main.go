@@ -76,7 +76,7 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		return 1
 	}
 
-	mgr, err := createManager(restConfig, agentConfig, log)
+	mgr, err := createManager(ctx, restConfig, agentConfig, log)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
@@ -198,7 +198,9 @@ func getProducer(agentConfig *config.AgentConfig) (producer.Producer, error) {
 	}
 }
 
-func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig, log logr.Logger) (ctrl.Manager, error) {
+func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig,
+	log logr.Logger,
+) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second
@@ -248,18 +250,16 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig, log
 	}
 	log.Info("add spec controllers to manager")
 
-	producer, err := getProducer(agentConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize transport producer: %w", err)
-	}
+	// producer, err := getProducer(agentConfig)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to initialize transport producer: %w", err)
+	// }
 
-	if err := mgr.Add(producer); err != nil {
-		return nil, fmt.Errorf("failed to add transport producer: %w", err)
-	}
+	// if err := mgr.Add(producer); err != nil {
+	// 	return nil, fmt.Errorf("failed to add transport producer: %w", err)
+	// }
 
-	if err := statusController.AddControllers(mgr, producer,
-		agentConfig.LeafHubName,
-		agentConfig.StatusDeltaCountSwitchFactor, incarnation); err != nil {
+	if err := statusController.AddControllers(mgr, agentConfig, incarnation); err != nil {
 		return nil, fmt.Errorf("failed to add status syncer: %w", err)
 	}
 

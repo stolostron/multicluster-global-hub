@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -13,9 +14,9 @@ import (
 )
 
 // NewDBWorkerPool returns a new db workers pool dispatcher.
-func NewDBWorkerPool(log logr.Logger, databaseURL string, statistics *statistics.Statistics) (*DBWorkerPool, error) {
+func NewDBWorkerPool(databaseURL string, statistics *statistics.Statistics) (*DBWorkerPool, error) {
 	return &DBWorkerPool{
-		log:         log,
+		log:         ctrl.Log.WithName("db-worker-pool"),
 		databaseURL: databaseURL,
 		statistics:  statistics,
 	}, nil

@@ -22,13 +22,17 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -77,10 +81,13 @@ var _ = BeforeSuite(func() {
 		TransportType:     string(transport.Chan),
 		CommitterInterval: 10 * time.Second,
 	}
-	By("Create kafka producer")
+	// By("Create kafka producer")
+	// producer, err := producer.NewGenericProducer(transportConfig)
+	// Expect(err).NotTo(HaveOccurred())
 
-	producer, err := producer.NewGenericProducer(transportConfig)
-	Expect(err).NotTo(HaveOccurred())
+	// kafkaProducer, err = producer.NewKafkaProducer(&compressor.CompressorGZip{},
+	// 	mockCluster.BootstrapServers(), "", kafkaProducerConfig,
+	// 	ctrl.Log.WithName("kafka-producer"))
 
 	By("Create kafka consumer")
 	genericConsumer, err = consumer.NewGenericConsumer(transportConfig)
@@ -112,7 +119,22 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
 
-	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, producer, 1*time.Second)).Should(Succeed())
+	managerConfig := &config.ManagerConfig{
+		SyncerConfig:   &config.SyncerConfig{},
+		DatabaseConfig: &config.DatabaseConfig{},
+		TransportConfig: &transport.TransportConfig{
+			KafkaConfig: &protocol.KafkaConfig{
+				EnableTSL:      true,
+				ProducerConfig: &protocol.KafkaProducerConfig{},
+				ConsumerConfig: &protocol.KafkaConsumerConfig{},
+			},
+		},
+		StatisticsConfig:      &statistics.StatisticsConfig{},
+		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
+		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
+	}
+
+	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, managerConfig)).Should(Succeed())
 
 	// mock consume message from agent
 	Expect(mgr.Add(genericConsumer)).Should(Succeed())

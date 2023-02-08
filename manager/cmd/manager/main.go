@@ -24,21 +24,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
@@ -57,105 +53,83 @@ var (
 	errFlagParameterIllegalValue = errors.New("flag parameter illegal value")
 )
 
-type hohManagerConfig struct {
-	managerNamespace      string
-	watchNamespace        string
-	syncerConfig          *syncerConfig
-	databaseConfig        *databaseConfig
-	transportConfig       *transport.TransportConfig
-	statisticsConfig      *statistics.StatisticsConfig
-	nonK8sAPIServerConfig *nonk8sapi.NonK8sAPIServerConfig
-	electionConfig        *commonobjects.LeaderElectionConfig
-}
-
-type syncerConfig struct {
-	specSyncInterval              time.Duration
-	statusSyncInterval            time.Duration
-	deletedLabelsTrimmingInterval time.Duration
-}
-
-type databaseConfig struct {
-	processDatabaseURL         string
-	transportBridgeDatabaseURL string
-}
-
-func parseFlags() (*hohManagerConfig, error) {
-	managerConfig := &hohManagerConfig{
-		syncerConfig:   &syncerConfig{},
-		databaseConfig: &databaseConfig{},
-		transportConfig: &transport.TransportConfig{
+func parseFlags() (*managerconfig.ManagerConfig, error) {
+	managerConfig := &managerconfig.ManagerConfig{
+		SyncerConfig:   &managerconfig.SyncerConfig{},
+		DatabaseConfig: &managerconfig.DatabaseConfig{},
+		TransportConfig: &transport.TransportConfig{
 			KafkaConfig: &protocol.KafkaConfig{
 				EnableTSL:      true,
 				ProducerConfig: &protocol.KafkaProducerConfig{},
 				ConsumerConfig: &protocol.KafkaConsumerConfig{},
 			},
 		},
-		statisticsConfig:      &statistics.StatisticsConfig{},
-		nonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
-		electionConfig:        &commonobjects.LeaderElectionConfig{},
+		StatisticsConfig:      &statistics.StatisticsConfig{},
+		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
+		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
 
-	pflag.StringVar(&managerConfig.managerNamespace, "manager-namespace", "open-cluster-management",
+	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", "open-cluster-management",
 		"The manager running namespace, also used as leader election namespace.")
-	pflag.StringVar(&managerConfig.watchNamespace, "watch-namespace", "",
+	pflag.StringVar(&managerConfig.WatchNamespace, "watch-namespace", "",
 		"The watching namespace of the controllers, multiple namespace must be splited by comma.")
-	pflag.DurationVar(&managerConfig.syncerConfig.specSyncInterval, "spec-sync-interval", 5*time.Second,
+	pflag.DurationVar(&managerConfig.SyncerConfig.SpecSyncInterval, "spec-sync-interval", 5*time.Second,
 		"The synchronization interval of resources in spec.")
-	pflag.DurationVar(&managerConfig.syncerConfig.statusSyncInterval, "status-sync-interval", 5*time.Second,
+	pflag.DurationVar(&managerConfig.SyncerConfig.StatusSyncInterval, "status-sync-interval", 5*time.Second,
 		"The synchronization interval of resources in status.")
-	pflag.DurationVar(&managerConfig.syncerConfig.deletedLabelsTrimmingInterval, "deleted-labels-trimming-interval",
+	pflag.DurationVar(&managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval, "deleted-labels-trimming-interval",
 		5*time.Second, "The trimming interval of deleted labels.")
-	pflag.StringVar(&managerConfig.databaseConfig.processDatabaseURL, "process-database-url", "",
+	pflag.StringVar(&managerConfig.DatabaseConfig.ProcessDatabaseURL, "process-database-url", "",
 		"The URL of database server for the process user.")
-	pflag.StringVar(&managerConfig.databaseConfig.transportBridgeDatabaseURL,
+	pflag.StringVar(&managerConfig.DatabaseConfig.TransportBridgeDatabaseURL,
 		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
-	pflag.StringVar(&managerConfig.transportConfig.TransportType, "transport-type", "kafka",
+	pflag.StringVar(&managerConfig.TransportConfig.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'.")
-	pflag.StringVar(&managerConfig.transportConfig.MessageCompressionType, "transport-message-compression-type",
+	pflag.StringVar(&managerConfig.TransportConfig.MessageCompressionType, "transport-message-compression-type",
 		"gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
-	pflag.DurationVar(&managerConfig.transportConfig.CommitterInterval, "transport-committer-interval",
+	pflag.DurationVar(&managerConfig.TransportConfig.CommitterInterval, "transport-committer-interval",
 		40*time.Second, "The committer interval for transport layer.")
-	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server",
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server",
 		"kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
-	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.CertPath, "kafka-ca-path", "",
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.CertPath, "kafka-ca-path", "",
 		"The certificate path of CA certificate for kafka bootstrap server.")
-	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.ProducerID, "kakfa-producer-id",
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kakfa-producer-id",
 		"multicluster-global-hub", "ID for the kafka producer.")
-	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
 		"spec", "Topic for the kafka producer.")
-	pflag.IntVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
+	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
-	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
 		"kakfa-consumer-id", "multicluster-global-hub", "ID for the kafka consumer.")
-	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic,
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic,
 		"kakfa-consumer-topic", "status", "Topic for the kafka consumer.")
-	pflag.DurationVar(&managerConfig.statisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second,
+	pflag.DurationVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second,
 		"The log interval for statistics.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
+	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
 		"https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path",
+	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path",
 		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
-	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ServerBasePath, "server-base-path",
+	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ServerBasePath, "server-base-path",
 		"/global-hub-api/v1", "The base path for nonK8s API server.")
-	pflag.IntVar(&managerConfig.electionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
-	pflag.IntVar(&managerConfig.electionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
-	pflag.IntVar(&managerConfig.electionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
+	pflag.IntVar(&managerConfig.ElectionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
+	pflag.IntVar(&managerConfig.ElectionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
+	pflag.IntVar(&managerConfig.ElectionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
 	// add flags for logger
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	if managerConfig.databaseConfig.processDatabaseURL == "" {
+	if managerConfig.DatabaseConfig.ProcessDatabaseURL == "" {
 		return nil, fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
 	}
 
-	if managerConfig.databaseConfig.transportBridgeDatabaseURL == "" {
+	if managerConfig.DatabaseConfig.TransportBridgeDatabaseURL == "" {
 		return nil, fmt.Errorf("database url for transport-bridge user: %w", errFlagParameterEmpty)
 	}
 
-	if managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
+	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
 		return nil, fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
-			managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
+			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
 	}
 
 	return managerConfig, nil
@@ -173,64 +147,43 @@ func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 }
 
-// function to determine whether the transport component requires initial-dependencies between bundles to be checked
-// (on load). If the returned is false, then we may assume that dependency of the initial bundle of
-// each type is met. Otherwise, there are no guarantees and the dependencies must be checked.
-func requireInitialDependencyChecks(transportType string) bool {
-	switch transportType {
-	case kafkaTransportType:
-		return false
-		// once kafka consumer loads up, it starts reading from the earliest un-processed bundle,
-		// as in all bundles that precede the latter have been processed, which include its dependency
-		// bundle.
-
-		// the order guarantee also guarantees that if while loading this component, a new bundle is written to a-
-		// partition, then surely its dependency was written before it (leaf-hub-status-sync on kafka guarantees).
-	default:
-		return true
-	}
-}
-
 // function to choose status transport type based on env var.
-func getStatusTransport(transportConfig *transport.TransportConfig, conflationMgr *conflator.ConflationManager,
-	statistics *statistics.Statistics,
-) (consumer.Consumer, error) {
-	switch transportConfig.TransportType {
-	case kafkaTransportType:
-		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			transportConfig.KafkaConfig.BootstrapServer, transportConfig.KafkaConfig.CertPath,
-			transportConfig.KafkaConfig.ConsumerConfig, ctrl.Log.WithName("kafka-consumer"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
-		}
-		kafkaConsumer.SetConflationManager(conflationMgr)
-		kafkaConsumer.SetCommitter(consumer.NewCommitter(
-			transportConfig.CommitterInterval,
-			transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
-			conflationMgr.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
-		)
-		kafkaConsumer.SetStatistics(statistics)
+// func getStatusTransport(transportConfig *transport.TransportConfig, conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
+// ) (consumer.Consumer, error) {
+// 	switch transportConfig.TransportType {
+// 	case kafkaTransportType:
+// 		kafkaConsumer, err := consumer.NewKafkaConsumer(
+// 			transportConfig.KafkaConfig.BootstrapServer, transportConfig.KafkaConfig.CertPath, transportConfig.KafkaConfig.ConsumerConfig,
+// 			ctrl.Log.WithName("kafka-consumer"))
+// 		if err != nil {
+// 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
+// 		}
+// 		kafkaConsumer.SetConflationManager(conflationMgr)
+// 		kafkaConsumer.SetCommitter(consumer.NewCommitter(
+// 			transportConfig.CommitterInterval,
+// 			transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+// 			conflationMgr.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
+// 		)
+// 		kafkaConsumer.SetStatistics(statistics)
 
-		return kafkaConsumer, nil
-	default:
-		return nil, fmt.Errorf("%w: transport-type - %s is not a valid option",
-			errFlagParameterIllegalValue, transportConfig.TransportType)
-	}
-}
+// 		return kafkaConsumer, nil
+// 	default:
+// 		return nil, fmt.Errorf("%w: transport-type - %s is not a valid option",
+// 			errFlagParameterIllegalValue, transportConfig.TransportType)
+// 	}
+// }
 
-func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, processPostgreSQL,
-	transportBridgePostgreSQL *postgresql.PostgreSQL, workersPool *workerpool.DBWorkerPool,
-	conflationManager *conflator.ConflationManager, conflationReadyQueue *conflator.ConflationReadyQueue,
-	statistics *statistics.Statistics,
+func createManager(restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig, processPostgreSQL,
+	transportBridgePostgreSQL *postgresql.PostgreSQL,
 ) (ctrl.Manager, error) {
-	leaseDuration := time.Duration(managerConfig.electionConfig.LeaseDuration) * time.Second
-	renewDeadline := time.Duration(managerConfig.electionConfig.RenewDeadline) * time.Second
-	retryPeriod := time.Duration(managerConfig.electionConfig.RetryPeriod) * time.Second
+	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
+	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
+	retryPeriod := time.Duration(managerConfig.ElectionConfig.RetryPeriod) * time.Second
 	options := ctrl.Options{
-		Namespace:               managerConfig.watchNamespace,
+		Namespace:               managerConfig.WatchNamespace,
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
-		LeaderElectionNamespace: managerConfig.managerNamespace,
+		LeaderElectionNamespace: managerConfig.ManagerNamespace,
 		LeaderElectionID:        leaderElectionLockID,
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
@@ -248,10 +201,10 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 	// Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
 	// Also note that you may face performance issues when using this with a high number of namespaces.
 	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
-	if strings.Contains(managerConfig.watchNamespace, ",") {
+	if strings.Contains(managerConfig.WatchNamespace, ",") {
 		options.Namespace = ""
 		options.NewCache = cache.MultiNamespacedCacheBuilder(
-			strings.Split(managerConfig.watchNamespace, ","))
+			strings.Split(managerConfig.WatchNamespace, ","))
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
@@ -263,22 +216,13 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	// DB worker pool initialization
-	if err := mgr.Add(workersPool); err != nil {
-		return nil, fmt.Errorf("failed to add DB worker pool: %w", err)
-	}
-
 	// status transport layer initialization
-	statusTransportObj, err := getStatusTransport(managerConfig.transportConfig, conflationManager, statistics)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init status transport bridge: %w", err)
-	}
+	// statusTransportObj, err := getStatusTransport(managerConfig.TransportConfig, conflationManager, statistics)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to init status transport bridge: %w", err)
+	// }
 
 	// spec transport layer initialization
-	producer, err := producer.NewGenericProducer(managerConfig.transportConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
-	}
 	// specTransportObj, err := getSpecTransport(managerConfig.transportConfig)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
@@ -287,12 +231,12 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 	// 	return nil, fmt.Errorf("failed to add spec transport bridge: %w", err)
 	// }
 
-	if err := mgr.Add(statusTransportObj); err != nil {
-		return nil, fmt.Errorf("failed to add status transport bridge: %w", err)
-	}
+	// if err := mgr.Add(statusTransportObj); err != nil {
+	// 	return nil, fmt.Errorf("failed to add status transport bridge: %w", err)
+	// }
 
 	if err := nonk8sapi.AddNonK8sApiServer(mgr, processPostgreSQL,
-		managerConfig.nonK8sAPIServerConfig); err != nil {
+		managerConfig.NonK8sAPIServerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
@@ -300,18 +244,16 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 		return nil, fmt.Errorf("failed to add spec-to-db controllers: %w", err)
 	}
 
-	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, producer,
-		managerConfig.syncerConfig.specSyncInterval); err != nil {
+	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, managerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add db-to-transport syncers: %w", err)
 	}
 
 	if err := specsyncer.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL,
-		managerConfig.syncerConfig.deletedLabelsTrimmingInterval); err != nil {
+		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 
-	if err := statussyncer.AddTransport2DBSyncers(mgr, workersPool, conflationManager, conflationReadyQueue,
-		statusTransportObj, statistics); err != nil {
+	if err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
@@ -329,60 +271,24 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 1
 	}
 
-	// create statistics
-	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), managerConfig.statisticsConfig,
-		[]string{
-			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
-			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
-			helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
-			helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
-			helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
-			helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
-			helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
-		})
-
 	// db layer initialization for process user
-	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.databaseConfig.processDatabaseURL)
+	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.DatabaseConfig.ProcessDatabaseURL)
 	if err != nil {
-		log.Error(err, "failed to initilize process PostgreSQL")
+		log.Error(err, "failed to initialize process PostgreSQL")
 		return 1
 	}
 	defer processPostgreSQL.Stop()
 
 	// db layer initialization for transport-bridge user
 	transportBridgePostgreSQL, err := postgresql.NewPostgreSQL(
-		managerConfig.databaseConfig.transportBridgeDatabaseURL)
+		managerConfig.DatabaseConfig.TransportBridgeDatabaseURL)
 	if err != nil {
-		log.Error(err, "failed to initilize transport-bridge PostgreSQL")
+		log.Error(err, "failed to initialize transport-bridge PostgreSQL")
 		return 1
 	}
 	defer transportBridgePostgreSQL.Stop()
 
-	// db layer initialization - worker pool + connection pool
-	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"),
-		managerConfig.databaseConfig.transportBridgeDatabaseURL, stats)
-	if err != nil {
-		log.Error(err, "failed to initilize DBWorkerPool")
-		return 1
-	}
-
-	// conflationReadyQueue is shared between conflation manager and dispatcher
-	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
-	requireInitialDependencyChecks := requireInitialDependencyChecks(
-		managerConfig.transportConfig.TransportType)
-	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
-		requireInitialDependencyChecks, stats) // manage all Conflation Units
-
-	mgr, err := createManager(restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL,
-		dbWorkerPool, conflationManager, conflationReadyQueue, stats)
+	mgr, err := createManager(restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1

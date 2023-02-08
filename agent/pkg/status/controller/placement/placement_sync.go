@@ -14,7 +14,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 )
 
 // AddPlacementsController adds placement controller to the manager.
-func AddPlacementsController(mgr ctrl.Manager, transport producer.Producer, leafHubName string,
+func AddPlacementsController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
 	incarnation uint64, _ *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	createObjFunction := func() bundle.Object { return &clustersv1beta1.Placement{} }
@@ -37,7 +37,7 @@ func AddPlacementsController(mgr ctrl.Manager, transport producer.Producer, leaf
 		return helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, placementSyncLog, transport, bundleCollection,
+	if err := generic.NewGenericStatusSyncController(mgr, placementSyncLog, producer, bundleCollection,
 		createObjFunction, ownerRefAnnotationPredicate, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add placements controller to the manager - %w", err)
 	}
