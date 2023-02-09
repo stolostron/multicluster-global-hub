@@ -44,7 +44,6 @@ const (
 	metricsPort          int32 = 8384
 	webhookPort                = 9443
 	webhookCertDir             = "/webhook-certs"
-	kafkaTransportType         = "kafka"
 	leaderElectionLockID       = "multicluster-global-hub-lock"
 )
 
@@ -99,7 +98,8 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		"spec", "Topic for the kafka producer.")
 	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit", 940,
 		"The limit for kafka message size in KB.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kakfa-consumer-id", "multicluster-global-hub",
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
+		"kakfa-consumer-id", "multicluster-global-hub",
 		"ID for the kafka consumer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, "kakfa-consumer-topic", "status",
 		"Topic for the kafka consumer.")

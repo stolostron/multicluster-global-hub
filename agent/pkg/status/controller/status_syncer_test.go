@@ -241,7 +241,8 @@ var _ = Describe("Agent Status Syncer", Ordered, func() {
 					fmt.Printf("========== failed to commit kaka message: %v\n", err)
 					return false
 				}
-				policyCompleteComplianceStatusBundle, ok := receivedBundle.(*statusbundle.CompleteComplianceStatusBundle)
+				policyCompleteComplianceStatusBundle, ok :=
+					receivedBundle.(*statusbundle.CompleteComplianceStatusBundle)
 				if !ok {
 					fmt.Printf("========== unexpected received bundle type, want CompleteComplianceStatusBundle\n")
 					return false
@@ -329,7 +330,8 @@ var _ = Describe("Agent Status Syncer", Ordered, func() {
 					fmt.Printf("========== failed to commit kaka message: %v\n", err)
 					return false
 				}
-				policyDeltaComplianceStatusBundle, ok := receivedBundle.(*statusbundle.DeltaComplianceStatusBundle)
+				policyDeltaComplianceStatusBundle, ok :=
+					receivedBundle.(*statusbundle.DeltaComplianceStatusBundle)
 				if !ok {
 					fmt.Printf("========== unexpected received bundle type, want DeltaComplianceStatusBundle\n")
 					return false
@@ -543,7 +545,8 @@ var _ = Describe("Agent Status Syncer", Ordered, func() {
 				}); err != nil {
 					return false
 				}
-				subscriptionReportsStatusBundle, ok := receivedBundle.(*statusbundle.SubscriptionReportsBundle)
+				subscriptionReportsStatusBundle, ok :=
+					receivedBundle.(*statusbundle.SubscriptionReportsBundle)
 				if !ok {
 					fmt.Printf("========== unexpected received bundle type, want SubscriptionReportsBundle\n")
 					return false
