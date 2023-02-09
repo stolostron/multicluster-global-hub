@@ -116,7 +116,8 @@ func syncObjectsBundle(ctx context.Context, producer transport.Producer, transpo
 		Version:     lastUpdateTimestamp.Format(timeFormat),
 		Payload:     payloadBytes,
 	}); err != nil {
-		return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w", transportBundleKey, dbTableName, transport.Broadcast, err)
+		return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",
+			transportBundleKey, dbTableName, transport.Broadcast, err)
 	}
 
 	// updating value to retain same ptr between calls

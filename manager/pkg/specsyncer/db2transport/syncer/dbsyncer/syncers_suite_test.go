@@ -37,16 +37,15 @@ import (
 )
 
 var (
-	testenv                 *envtest.Environment
-	cfg                     *rest.Config
-	ctx                     context.Context
-	cancel                  context.CancelFunc
-	mgr                     ctrl.Manager
-	kubeClient              client.Client
-	testPostgres            *testpostgres.TestPostgres
-	transportPostgreSQL     *postgresql.PostgreSQL
-	genericConsumer         *consumer.GenericConsumer
-	customBundleUpdatesChan = make(chan interface{})
+	testenv             *envtest.Environment
+	cfg                 *rest.Config
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	mgr                 ctrl.Manager
+	kubeClient          client.Client
+	testPostgres        *testpostgres.TestPostgres
+	transportPostgreSQL *postgresql.PostgreSQL
+	genericConsumer     *consumer.GenericConsumer
 )
 
 func TestSpecSyncer(t *testing.T) {

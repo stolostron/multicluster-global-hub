@@ -7,7 +7,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
@@ -15,6 +14,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
 var _ = Describe("Policies", Ordered, func() {
@@ -165,7 +165,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &leafHubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("ClustersPerPolicy: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("ClustersPerPolicy: id(%s) %s-%s %s \n", policyId,
+					leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId {
 					createdPolicyCount++
 				}
@@ -228,7 +229,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("CompleteCompliance: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("CompleteCompliance: id(%s) %s-%s %s \n", policyId,
+					leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId && hubName == leafHubName {
 					if clusterName == "cluster1" && complianceStatus == "non_compliant" {
 						cluster1Updated = true
@@ -299,7 +301,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("DeltaCompliance1: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("DeltaCompliance1: id(%s) %s-%s %s \n", policyId,
+					leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId && hubName == leafHubName {
 					// delete record: createdPolicyId hub1 cluster1 compliant
 					if clusterName == "cluster1" && complianceStatus == "compliant" {
@@ -375,7 +378,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("DeltaCompliance2: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("DeltaCompliance2: id(%s) %s-%s %s \n", policyId,
+					leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId && hubName == leafHubName {
 					// update record: createdPolicyId hub1 cluster1 compliant => createdPolicyId hub1 cluster1 noncompliant
 					if clusterName == "cluster1" && complianceStatus == "non_compliant" {
@@ -442,7 +446,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &hubName, &appliedClusters, &nonCompliantClusters); err != nil {
 					return err
 				}
-				fmt.Printf("MinimalCompliance: id(%s) %s %d %d \n", policyId, hubName, appliedClusters, nonCompliantClusters)
+				fmt.Printf("MinimalCompliance: id(%s) %s %d %d \n", policyId,
+					hubName, appliedClusters, nonCompliantClusters)
 				if policyId == createdPolicyId && hubName == leafHubName &&
 					appliedClusters == 3 && nonCompliantClusters == 2 {
 					return nil

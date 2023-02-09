@@ -46,7 +46,8 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 	}
 
 	// consume message from consumer and dispatcher it to conflation manager
-	transportDispatcher := dispatcher.NewTransportDispatcher(ctrl.Log.WithName("transport-dispatcher"), consumer,
+	transportDispatcher := dispatcher.NewTransportDispatcher(
+		ctrl.Log.WithName("transport-dispatcher"), consumer,
 		conflationManager, stats)
 	if err := mgr.Add(transportDispatcher); err != nil {
 		return fmt.Errorf("failed to add transport dispatcher to runtime manager: %w", err)
@@ -62,7 +63,8 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 	}
 
 	// add ConflationDispatcher to the runtime manager
-	if err := mgr.Add(dispatcher.NewConflationDispatcher(ctrl.Log.WithName("conflation-dispatcher"),
+	if err := mgr.Add(dispatcher.NewConflationDispatcher(
+		ctrl.Log.WithName("conflation-dispatcher"),
 		conflationReadyQueue, dbWorkerPool)); err != nil {
 		return fmt.Errorf("failed to add conflation dispatcher to runtime manager: %w", err)
 	}
