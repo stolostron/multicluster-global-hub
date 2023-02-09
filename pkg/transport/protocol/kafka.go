@@ -37,7 +37,8 @@ func NewKafkaSender(config *KafkaConfig) (*kafka_sarama.Sender, error) {
 		return nil, err
 	}
 
-	saramaConfig.Producer.MaxMessageBytes = config.ProducerConfig.MessageSizeLimitKB * 1000 // kiloBytesToBytes
+	// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
+	saramaConfig.Producer.MaxMessageBytes = 1000 * 1000
 	sender, err := kafka_sarama.NewSender([]string{config.BootstrapServer}, saramaConfig, config.ProducerConfig.ProducerTopic)
 	if err != nil {
 		return nil, err
