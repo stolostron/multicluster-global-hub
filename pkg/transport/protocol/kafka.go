@@ -51,6 +51,8 @@ func NewKafkaReceiver(config *KafkaConfig) (*kafka_sarama.Consumer, error) {
 	if err != nil {
 		return nil, err
 	}
+	saramaConfig.Consumer.Offsets.AutoCommit.Enable = false
+	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 	// set the consumer groupId = clientId
 	receiver, err := kafka_sarama.NewConsumer([]string{config.BootstrapServer}, saramaConfig, config.ConsumerConfig.ConsumerID, config.ConsumerConfig.ConsumerTopic)
 	if err != nil {
