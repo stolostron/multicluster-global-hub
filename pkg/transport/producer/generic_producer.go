@@ -83,6 +83,8 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 			event); cloudevents.IsUndelivered(result) {
 			return fmt.Errorf("failed to send generic message to transport: %s", result.Error())
 		}
+
+		p.log.Info("sent message", "ID", msg.ID, "Version", msg.Version)
 	}
 	return nil
 }

@@ -73,18 +73,23 @@ func (collection *messageChunksCollection) collect() []byte {
 
 type messageAssembler struct {
 	log                logr.Logger
+	lock               sync.Mutex
 	chunkCollectionMap map[string]*messageChunksCollection
 }
 
 func newMessageAssembler() *messageAssembler {
 	return &messageAssembler{
-		log:                ctrl.Log.WithName("consumer-message-assembler"),
+		log:                ctrl.Log.WithName("consumer-assembler"),
+		lock:               sync.Mutex{},
 		chunkCollectionMap: make(map[string]*messageChunksCollection),
 	}
 }
 
 // processChunk processes a message chunk and returns transport message if any got assembled, otherwise,nil.
 func (assembler *messageAssembler) assemble(chunk *messageChunk) *transport.Message {
+	assembler.lock.Lock()
+	defer assembler.lock.Unlock()
+
 	chunkCollection, found := assembler.chunkCollectionMap[chunk.id] // chunk.id: PlacementRule
 	if found && chunkCollection.timestamp.After(chunk.timestamp) {
 		// chunk timestamp < collection got an outdated chunk
