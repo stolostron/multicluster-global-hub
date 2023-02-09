@@ -2,7 +2,6 @@ package conflator
 
 import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
@@ -31,24 +30,8 @@ func (bi *completeStateBundleInfo) getMetadata() *BundleMetadata {
 }
 
 // update function to update the bundle and its metadata according to complete-state sync-mode.
-func (bi *completeStateBundleInfo) update(bundle statusbundle.Bundle, transportMetadata bundle.BundleMetadata,
-	overwriteMetadataObject bool,
-) error {
+func (bi *completeStateBundleInfo) update(bundle statusbundle.Bundle) error {
 	bi.bundle = bundle
-
-	if bi.metadata == nil || !overwriteMetadataObject {
-		bi.metadata = &BundleMetadata{
-			bundleType:              helpers.GetBundleType(bundle),
-			bundleVersion:           bundle.GetVersion(),
-			transportBundleMetadata: transportMetadata,
-		}
-
-		return nil
-	}
-
-	// update metadata
-	bi.metadata.bundleVersion = bundle.GetVersion()
-	bi.metadata.transportBundleMetadata = transportMetadata
 
 	return nil
 }

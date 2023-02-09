@@ -43,8 +43,8 @@ func (cm *ConflationManager) Register(registration *ConflationRegistration) {
 }
 
 // Insert function inserts the bundle to the appropriate conflation unit.
-func (cm *ConflationManager) Insert(bundle statusbundle.Bundle, metadata bundle.BundleMetadata) {
-	cm.getConflationUnit(bundle.GetLeafHubName()).insert(bundle, metadata)
+func (cm *ConflationManager) Insert(bundle statusbundle.Bundle) {
+	cm.getConflationUnit(bundle.GetLeafHubName()).insert(bundle)
 }
 
 // GetBundlesMetadata provides collections of the CU's bundle transport-metadata.

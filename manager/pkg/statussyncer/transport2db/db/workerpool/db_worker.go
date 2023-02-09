@@ -65,7 +65,7 @@ func (worker *DBWorker) start(ctx context.Context) {
 			startTime := time.Now()
 			err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
 			worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
-			job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
+			// job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
 
 			if err != nil {
 				worker.log.Error(err, "failed processing DB job", "WorkerID", worker.workerID,

@@ -82,9 +82,9 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			}
 
 			d.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
-			// TODO: fixed error
-			d.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
-				message.TopicPartition.Offset))
+			// d.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
+			// message.TopicPartition.Offset))
+			d.conflationManager.Insert(receivedBundle)
 		}
 	}
 }

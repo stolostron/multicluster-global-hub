@@ -224,8 +224,9 @@ func (c *KafkaConsumer) processMessageWithConflation(message *kafka.Message) {
 
 	c.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
-	c.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
-		message.TopicPartition.Offset))
+	// c.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
+	// 	message.TopicPartition.Offset))
+	c.conflationManager.Insert(receivedBundle)
 }
 
 func (c *KafkaConsumer) processMessage(message *kafka.Message) {
