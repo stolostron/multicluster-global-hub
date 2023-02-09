@@ -78,7 +78,7 @@ type messageAssembler struct {
 
 func newMessageAssembler() *messageAssembler {
 	return &messageAssembler{
-		log:                ctrl.Log.WithName("consumer-message-assembler"),
+		log:                ctrl.Log.WithName("consumer-assembler"),
 		chunkCollectionMap: make(map[string]*messageChunksCollection),
 	}
 }
@@ -101,14 +101,13 @@ func (assembler *messageAssembler) assemble(chunk *messageChunk) *transport.Mess
 
 	if chunkCollection.totalSize == chunkCollection.accumulatedSize {
 		transportMessageBytes := chunkCollection.collect()
-		assembler.log.Info("assemble collection successfully", "id", chunkCollection.id, "collection.size", chunkCollection.totalSize)
-
 		transportMessage := &transport.Message{}
 		if err := json.Unmarshal(transportMessageBytes, transportMessage); err != nil {
 			assembler.log.Error(err, "unmarshal collection bytes to transport.Message error")
 			return nil
 		}
-
+		assembler.log.Info("assemble ChunkCollection successfully!", "id", transportMessage.ID,
+			"version", transportMessage.Version, "size", chunkCollection.totalSize)
 		// delete collection from map
 		delete(assembler.chunkCollectionMap, chunkCollection.id)
 		return transportMessage

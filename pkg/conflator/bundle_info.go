@@ -16,7 +16,7 @@ type bundleInfo interface {
 	// getMetadata returns the metadata to forward to processors.
 	getMetadata() *BundleMetadata
 	// update function to update the bundle and its metadata according to sync-mode.
-	update(bundle statusbundle.Bundle) error
+	update(bundle statusbundle.Bundle, metadata bundle.BundleMetadata, overwriteMetadataObject bool) error
 	// Deprecated
 	// getTransportMetadataToCommit returns the transport metadata for message committing purposes.
 	getTransportMetadataToCommit() bundle.BundleMetadata

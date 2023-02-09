@@ -3,6 +3,7 @@ package conflator
 import (
 	"fmt"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/dependency"
 )
@@ -16,10 +17,10 @@ type conflationElement struct {
 }
 
 // update function that updates bundle and metadata and returns whether any error occurred.
-func (element *conflationElement) update(bundle statusbundle.Bundle) error {
+func (element *conflationElement) update(bundle statusbundle.Bundle, metadata bundle.BundleMetadata) error {
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
-	if err := element.bundleInfo.update(bundle); err != nil {
+	if err := element.bundleInfo.update(bundle, metadata, !element.isInProcess); err != nil {
 		return fmt.Errorf("failed to update bundle - %w", err)
 	}
 

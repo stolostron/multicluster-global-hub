@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -59,32 +61,37 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			// get msgID
 			msgIDTokens := strings.Split(message.ID, ".") // object id is LH_ID.MSG_ID
 			if len(msgIDTokens) != 2 {
-				d.log.Error(errors.New("message ID format is bad"), "expecting MsgID format LH_ID.MSG_ID", "message", message)
+				d.log.Error(errors.New("message ID format is bad"),
+					"expecting MsgID format LH_ID.MSG_ID", "message", message)
 				continue
 			}
 
 			msgID := msgIDTokens[1]
 			if _, found := d.bundleRegistrations[msgID]; !found {
 				// no one registered for this msg id
-				d.log.Error(errors.New("msgID not found"), "no bundle-registration available", "message", message)
+				d.log.Error(errors.New("msgID not found"),
+					"no bundle-registration available", "message", message)
 				continue
 			}
 
 			if !d.bundleRegistrations[msgID].Predicate() {
-				d.log.Error(errors.New("predicate with false"), "bundle with false predicate", "message", message)
+				d.log.Error(errors.New("predicate with false"),
+					"bundle with false predicate", "message", message)
 				continue // bundle-registration predicate is false, do not send the update in the channel
 			}
 
 			receivedBundle := d.bundleRegistrations[msgID].CreateBundleFunc()
 			if err := json.Unmarshal(message.Payload, receivedBundle); err != nil {
-				d.log.Error(errors.New("unmarshal error"), "parse message.payload error", "message", message)
+				d.log.Error(errors.New("unmarshal error"),
+					"parse message.payload error", "message", message)
 				continue
 			}
 
 			d.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 			// d.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
 			// message.TopicPartition.Offset))
-			d.conflationManager.Insert(receivedBundle)
+			d.conflationManager.Insert(receivedBundle, bundle.NewBaseBundleMetadata())
+			d.log.Info("forward received bundle to conflation", "messageID", msgID)
 		}
 	}
 }

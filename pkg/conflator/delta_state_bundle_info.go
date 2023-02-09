@@ -72,28 +72,30 @@ func (bi *deltaStateBundleInfo) getMetadata() *BundleMetadata {
 }
 
 // update function to update the bundle and its metadata according to delta-state sync-mode.
-func (bi *deltaStateBundleInfo) update(newBundle statusbundle.Bundle) error {
+func (bi *deltaStateBundleInfo) update(newBundle statusbundle.Bundle,
+	transportMetadata bundle.BundleMetadata, overwriteMetadataObject bool,
+) error {
 	newDeltaBundle, ok := newBundle.(statusbundle.DeltaStateBundle)
 	if !ok {
 		return fmt.Errorf("%w - received type %s", errWrongBundleType, helpers.GetBundleType(newBundle))
 	}
 
-	// bundleStartsNewLine := bi.bundle == nil ||
-	// 	newDeltaBundle.GetDependencyVersion().NewerThan(bi.bundle.GetDependencyVersion())
+	bundleStartsNewLine := bi.bundle == nil ||
+		newDeltaBundle.GetDependencyVersion().NewerThan(bi.bundle.GetDependencyVersion())
 
 	if err := bi.updateBundle(newDeltaBundle); err != nil {
 		return fmt.Errorf("failed to update bundle - %w", err)
 	}
 
-	// bi.updateMetadata(helpers.GetBundleType(newDeltaBundle), newDeltaBundle.GetVersion(), transportMetadata,
-	// 	overwriteMetadataObject)
+	bi.updateMetadata(helpers.GetBundleType(newDeltaBundle), newDeltaBundle.GetVersion(), transportMetadata,
+		overwriteMetadataObject)
 
 	// update transport metadata only if bundle starts a new line of deltas
-	// if bundleStartsNewLine {
-	// 	// update current line-version info
-	// 	bi.deltaLineHeadBundleVersion = bi.metadata.bundleVersion
-	// 	bi.metadata.transportBundleMetadata = transportMetadata
-	// }
+	if bundleStartsNewLine {
+		// update current line-version info
+		bi.deltaLineHeadBundleVersion = bi.metadata.bundleVersion
+		bi.metadata.transportBundleMetadata = transportMetadata
+	}
 
 	return nil
 }

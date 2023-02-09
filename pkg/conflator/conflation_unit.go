@@ -82,7 +82,7 @@ type ConflationUnit struct {
 }
 
 // insert is an internal function, new bundles are inserted only via conflation manager.
-func (cu *ConflationUnit) insert(bundle statusbundle.Bundle) {
+func (cu *ConflationUnit) insert(bundle statusbundle.Bundle, metadata bundle.BundleMetadata) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
@@ -104,7 +104,7 @@ func (cu *ConflationUnit) insert(bundle statusbundle.Bundle) {
 
 	// if we got here, we got bundle with newer version
 	// update the bundle in the priority queue.
-	if err := conflationElement.update(bundle); err != nil {
+	if err := conflationElement.update(bundle, metadata); err != nil {
 		cu.log.Error(err, "failed to insert bundle")
 		return
 	}
