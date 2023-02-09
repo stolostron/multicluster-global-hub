@@ -35,7 +35,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/stolostron/multicluster-global-hub
     support: Red Hat
-  name: multicluster-global-hub-operator.v0.6.0-dev
+  name: multicluster-global-hub-operator.v0.7.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -777,4 +777,4 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 0.6.0-dev
+  version: 0.7.0-dev

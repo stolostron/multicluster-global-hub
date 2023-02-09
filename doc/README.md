@@ -1,4 +1,4 @@
-This document focuses on the features of the multicluster global hub provided in 2.7 dev preview. It is not a final version, but a work in progress.
+This document focuses on the features of the multicluster global hub provided in dev preview. It is not a final version, but a work in progress.
 
 1. [Overview](#overview)
 2. [Architecture](#architecture)
