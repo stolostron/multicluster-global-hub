@@ -2,6 +2,38 @@
 
 binDir="/usr/bin"
 
+function versionCompare () {
+  if [[ $1 == $2 ]]
+  then
+    return 0
+  fi
+  local IFS=.
+  local i version1=($1) version2=($2)
+  # fill empty fields in version1 with zeros
+  for ((i=${#version1[@]}; i<${#version2[@]}; i++))
+  do
+    version1[i]=0
+  done
+  for ((i=0; i<${#version1[@]}; i++))
+  do
+    if [[ -z ${version2[i]} ]]
+    then
+      # fill empty fields in version2 with zeros
+      version2[i]=0
+    fi
+    if ((10#${version1[i]} > 10#${version2[i]}))
+    then
+      return 1
+    fi
+    if ((10#${version1[i]} < 10#${version2[i]}))
+    then
+      return -1
+    fi
+  done
+
+  return 0
+}
+
 function checkGolang() {
   export PATH=$PATH:/usr/local/go/bin
   if ! command -v go >/dev/null 2>&1; then
@@ -84,7 +116,9 @@ function checkDocker() {
   if ! command -v docker >/dev/null 2>&1; then 
     installDocker
   fi
-  if [ $(docker version --format '{{.Client.Version}}' | sed -e 's/\.//g') -lt 201017 ]; then
+  versionCompare $(docker version --format '{{.Client.Version}}') "20.10.17"
+  verCom=$?
+  if [ $verCom -eq -1 ]; then
     # upgrade
     echo "remove old version of docker $(docker version --format '{{.Client.Version}}')"
     sudo yum remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-selinux  docker-engine-selinux docker-engine 
