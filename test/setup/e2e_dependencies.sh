@@ -2,7 +2,7 @@
 
 binDir="/usr/bin"
 
-function versionCompare () {
+function versionCompare() {
   if [[ $1 == $2 ]]
   then
     return 0
@@ -27,7 +27,7 @@ function versionCompare () {
     fi
     if ((10#${version1[i]} < 10#${version2[i]}))
     then
-      return -1
+      return 2
     fi
   done
 
@@ -116,9 +116,9 @@ function checkDocker() {
   if ! command -v docker >/dev/null 2>&1; then 
     installDocker
   fi
-  versionCompare $(docker version --format '{{.Client.Version}}') "20.10.17"
+  versionCompare $(docker version --format '{{.Client.Version}}') "20.10.0"
   verCom=$?
-  if [ $verCom -eq -1 ]; then
+  if [ $verCom -eq 2 ]; then
     # upgrade
     echo "remove old version of docker $(docker version --format '{{.Client.Version}}')"
     sudo yum remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-selinux  docker-engine-selinux docker-engine 
