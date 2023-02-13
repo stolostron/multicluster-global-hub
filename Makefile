@@ -88,3 +88,15 @@ fmt:
 	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
 	@go fmt ./agent/... ./manager/... ./operator/... ./pkg/... ./test/pkg/...
 	GOFUMPT_SPLIT_LONG_LINES=on gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
+
+install-kafka: # install kafka on the ocp
+	./operator/config/samples/transport/deploy_kafka.sh
+
+uninstall-kafka: 
+	./operator/config/samples/transport/undeploy_kafka.sh
+
+install-postgres: # install postgres on the ocp
+	./operator/config/samples/storage/deploy_postgres.sh
+
+uninstall-postgres: 
+	./operator/config/samples/storage/undeploy_postgres.sh

@@ -8,7 +8,7 @@ source $rootDir/test/setup/common.sh
 # step1: delete transport secret 
 targetNamespace=${TARGET_NAMESPACE:-"open-cluster-management"}
 transportSecret=${TRANSPORT_SECRET_NAME:-"transport-secret"}
-kubectl delete secret generic ${transportSecret} -n $targetNamespace
+kubectl delete secret ${transportSecret} -n $targetNamespace
 
 # step2: delete kafka topics
 kubectl delete -f ${currentDir}/kafka-topics.yaml
@@ -21,6 +21,7 @@ waitDisappear "kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster
 
 # step4: delete kafka operator
 kubectl delete -f ${currentDir}/kafka-operator.yaml
+kubectl delete deploy --all -n kafka 
 waitDisappear "kubectl get pods -n kafka | grep strimzi-cluster-operator | grep Running || true"
 
 # step5: delete kafka namesapce
