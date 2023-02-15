@@ -72,7 +72,8 @@ func syncManagedClusterLabelsBundles(ctx context.Context, producer transport.Pro
 			Version:     lastUpdateTimestamp.Format(timeFormat),
 			Payload:     payloadBytes,
 		}); err != nil {
-			return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w", transportBundleKey, dbTableName, transport.Broadcast, err)
+			return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",
+				transportBundleKey, dbTableName, transport.Broadcast, err)
 		}
 	}
 

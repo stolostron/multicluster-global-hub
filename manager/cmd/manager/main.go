@@ -123,12 +123,12 @@ func parseFlags() (*hohManagerConfig, error) {
 		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
 		"spec", "Topic for the kafka producer.")
-	pflag.IntVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit", 940,
-		"The limit for kafka message size in KB.")
-	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kakfa-consumer-id", "multicluster-global-hub",
-		"ID for the kafka consumer.")
-	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, "kakfa-consumer-topic", "status",
-		"Topic for the kafka consumer.")
+	pflag.IntVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
+		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
+	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
+		"kakfa-consumer-id", "multicluster-global-hub", "ID for the kafka consumer.")
+	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic,
+		"kakfa-consumer-topic", "status", "Topic for the kafka consumer.")
 	pflag.DurationVar(&managerConfig.statisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second,
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
@@ -192,13 +192,14 @@ func requireInitialDependencyChecks(transportType string) bool {
 }
 
 // function to choose status transport type based on env var.
-func getStatusTransport(transportConfig *transport.TransportConfig, conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
+func getStatusTransport(transportConfig *transport.TransportConfig, conflationMgr *conflator.ConflationManager,
+	statistics *statistics.Statistics,
 ) (consumer.Consumer, error) {
 	switch transportConfig.TransportType {
 	case kafkaTransportType:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			transportConfig.KafkaConfig.BootstrapServer, transportConfig.KafkaConfig.CertPath, transportConfig.KafkaConfig.ConsumerConfig,
-			ctrl.Log.WithName("kafka-consumer"))
+			transportConfig.KafkaConfig.BootstrapServer, transportConfig.KafkaConfig.CertPath,
+			transportConfig.KafkaConfig.ConsumerConfig, ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}

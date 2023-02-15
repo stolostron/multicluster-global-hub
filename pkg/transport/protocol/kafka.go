@@ -39,7 +39,8 @@ func NewKafkaSender(config *KafkaConfig) (*kafka_sarama.Sender, error) {
 
 	// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
 	saramaConfig.Producer.MaxMessageBytes = 1000 * 1000
-	sender, err := kafka_sarama.NewSender([]string{config.BootstrapServer}, saramaConfig, config.ProducerConfig.ProducerTopic)
+	sender, err := kafka_sarama.NewSender([]string{config.BootstrapServer}, saramaConfig,
+		config.ProducerConfig.ProducerTopic)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +55,8 @@ func NewKafkaReceiver(config *KafkaConfig) (*kafka_sarama.Consumer, error) {
 	saramaConfig.Consumer.Offsets.AutoCommit.Enable = false
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 	// set the consumer groupId = clientId
-	receiver, err := kafka_sarama.NewConsumer([]string{config.BootstrapServer}, saramaConfig, config.ConsumerConfig.ConsumerID, config.ConsumerConfig.ConsumerTopic)
+	receiver, err := kafka_sarama.NewConsumer([]string{config.BootstrapServer}, saramaConfig,
+		config.ConsumerConfig.ConsumerID, config.ConsumerConfig.ConsumerTopic)
 	if err != nil {
 		return nil, err
 	}

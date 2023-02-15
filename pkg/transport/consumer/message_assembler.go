@@ -106,7 +106,8 @@ func (assembler *messageAssembler) assemble(chunk *messageChunk) *transport.Mess
 
 	if chunkCollection.totalSize == chunkCollection.accumulatedSize {
 		transportMessageBytes := chunkCollection.collect()
-		assembler.log.Info("assemble collection successfully", "id", chunkCollection.id, "collection.size", chunkCollection.totalSize)
+		assembler.log.Info("assemble collection successfully", "id", chunkCollection.id,
+			"collection.size", chunkCollection.totalSize)
 
 		transportMessage := &transport.Message{}
 		if err := json.Unmarshal(transportMessageBytes, transportMessage); err != nil {
