@@ -28,7 +28,7 @@ type GenericProducer struct {
 
 func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericProducer, error) {
 	var sender interface{}
-
+	messageSize := 960 * 1000
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
 		var err error
@@ -36,6 +36,7 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericPro
 		if err != nil {
 			return nil, err
 		}
+		messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
 	case string(transport.Chan): // this go chan protocol is only use for test
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
@@ -56,7 +57,7 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericPro
 	return &GenericProducer{
 		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
 		client:           client,
-		messageSizeLimit: transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000,
+		messageSizeLimit: messageSize,
 	}, nil
 }
 

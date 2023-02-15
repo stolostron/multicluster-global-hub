@@ -33,16 +33,15 @@ import (
 )
 
 var (
-	testenv                 *envtest.Environment
-	cfg                     *rest.Config
-	ctx                     context.Context
-	cancel                  context.CancelFunc
-	mgr                     ctrl.Manager
-	kubeClient              client.Client
-	testPostgres            *testpostgres.TestPostgres
-	transportPostgreSQL     *postgresql.PostgreSQL
-	genericConsumer         *consumer.GenericConsumer
-	customBundleUpdatesChan = make(chan interface{})
+	testenv             *envtest.Environment
+	cfg                 *rest.Config
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	mgr                 ctrl.Manager
+	kubeClient          client.Client
+	testPostgres        *testpostgres.TestPostgres
+	transportPostgreSQL *postgresql.PostgreSQL
+	genericConsumer     *consumer.GenericConsumer
 )
 
 func TestSpecSyncer(t *testing.T) {
@@ -74,30 +73,18 @@ var _ = BeforeSuite(func() {
 	transportPostgreSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
-	// By("Create mock kafka cluster")
-	// mockCluster, err = kafka.NewMockCluster(1)
-	// Expect(err).NotTo(HaveOccurred())
-	// fmt.Fprintf(GinkgoWriter, "mock kafka bootstrap server address: %s\n", mockCluster.BootstrapServers())
-
 	transportConfig := &transport.TransportConfig{
 		TransportType:     string(transport.Chan),
 		CommitterInterval: 10 * time.Second,
 	}
 	By("Create kafka producer")
+
 	producer, err := producer.NewGenericProducer(transportConfig)
 	Expect(err).NotTo(HaveOccurred())
-
-	// kafkaProducer, err = producer.NewKafkaProducer(&compressor.CompressorGZip{},
-	// 	mockCluster.BootstrapServers(), "", kafkaProducerConfig,
-	// 	ctrl.Log.WithName("kafka-producer"))
 
 	By("Create kafka consumer")
 	genericConsumer, err = consumer.NewGenericConsumer(transportConfig)
 	Expect(err).NotTo(HaveOccurred())
-	// kafkaConsumer, err = consumer.NewKafkaConsumer(
-	// 	mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
-	// 	ctrl.Log.WithName("kafka-consumer"))
-	// Expect(err).NotTo(HaveOccurred())
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -127,17 +114,7 @@ var _ = BeforeSuite(func() {
 
 	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, producer, 1*time.Second)).Should(Succeed())
 
-	// Expect(mgr.Add(kafkaProducer)).Should(Succeed())
-
-	// kafkaConsumer.SetLeafHubName(leafhubName)
-	// register custom bundle update channel for managed cluster label updates
-	// kafkaConsumer.CustomBundleRegister(constants.ManagedClustersLabelsMsgKey, &registration.CustomBundleRegistration{
-	// 	InitBundlesResourceFunc: func() interface{} {
-	// 		return &specbundle.ManagedClusterLabelsSpecBundle{}
-	// 	},
-	// 	BundleUpdatesChan: customBundleUpdatesChan,
-	// })
-	// Expect(mgr.Add(kafkaConsumer)).Should(Succeed())
+	// mock consume message from agent
 	Expect(mgr.Add(genericConsumer)).Should(Succeed())
 
 	By("Start the manager")
