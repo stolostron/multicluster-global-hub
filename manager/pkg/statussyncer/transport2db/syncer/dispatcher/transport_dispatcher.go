@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -82,9 +83,10 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			}
 
 			d.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
-			// TODO: fixed error
-			d.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
-				message.TopicPartition.Offset))
+			// d.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
+			// 	message.TopicPartition.Offset))
+			d.conflationManager.Insert(receivedBundle, bundle.NewBaseBundleMetadata())
+			d.log.Info("forward received bundle to conflation", "messageID", msgID)
 		}
 	}
 }
