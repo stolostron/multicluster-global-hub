@@ -5,13 +5,11 @@ package dbsyncer_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -27,28 +25,23 @@ import (
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
-	specbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
-	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
 var (
-	testenv                 *envtest.Environment
-	cfg                     *rest.Config
-	ctx                     context.Context
-	cancel                  context.CancelFunc
-	mgr                     ctrl.Manager
-	kubeClient              client.Client
-	testPostgres            *testpostgres.TestPostgres
-	transportPostgreSQL     *postgresql.PostgreSQL
-	kafkaConsumer           *consumer.KafkaConsumer
-	kafkaProducer           *producer.KafkaProducer
-	mockCluster             *kafka.MockCluster
-	customBundleUpdatesChan = make(chan interface{})
+	testenv             *envtest.Environment
+	cfg                 *rest.Config
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	mgr                 ctrl.Manager
+	kubeClient          client.Client
+	testPostgres        *testpostgres.TestPostgres
+	transportPostgreSQL *postgresql.PostgreSQL
+	genericConsumer     *consumer.GenericConsumer
 )
 
 func TestSpecSyncer(t *testing.T) {
@@ -80,30 +73,17 @@ var _ = BeforeSuite(func() {
 	transportPostgreSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Create mock kafka cluster")
-	mockCluster, err = kafka.NewMockCluster(1)
-	Expect(err).NotTo(HaveOccurred())
-	fmt.Fprintf(GinkgoWriter, "mock kafka bootstrap server address: %s\n", mockCluster.BootstrapServers())
-
-	By("Start kafka producer")
-	kafkaProducerConfig := &producer.KafkaProducerConfig{
-		ProducerTopic:  "spec",
-		ProducerID:     "spec-producer",
-		MsgSizeLimitKB: 1,
+	transportConfig := &transport.TransportConfig{
+		TransportType:     string(transport.Chan),
+		CommitterInterval: 10 * time.Second,
 	}
-	kafkaProducer, err = producer.NewKafkaProducer(&compressor.CompressorGZip{},
-		mockCluster.BootstrapServers(), "", kafkaProducerConfig,
-		ctrl.Log.WithName("kafka-producer"))
+	By("Create kafka producer")
+
+	producer, err := producer.NewGenericProducer(transportConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Start kafka consumer")
-	kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
-		ConsumerTopic: "spec",
-		ConsumerID:    "spec-consumer",
-	}
-	kafkaConsumer, err = consumer.NewKafkaConsumer(
-		mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
-		ctrl.Log.WithName("kafka-consumer"))
+	By("Create kafka consumer")
+	genericConsumer, err = consumer.NewGenericConsumer(transportConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
@@ -132,19 +112,10 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
 
-	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, kafkaProducer, 1*time.Second)).Should(Succeed())
+	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, producer, 1*time.Second)).Should(Succeed())
 
-	Expect(mgr.Add(kafkaProducer)).Should(Succeed())
-
-	kafkaConsumer.SetLeafHubName(leafhubName)
-	// register custom bundle update channel for managed cluster label updates
-	kafkaConsumer.CustomBundleRegister(constants.ManagedClustersLabelsMsgKey, &registration.CustomBundleRegistration{
-		InitBundlesResourceFunc: func() interface{} {
-			return &specbundle.ManagedClusterLabelsSpecBundle{}
-		},
-		BundleUpdatesChan: customBundleUpdatesChan,
-	})
-	Expect(mgr.Add(kafkaConsumer)).Should(Succeed())
+	// mock consume message from agent
+	Expect(mgr.Add(genericConsumer)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {
@@ -158,7 +129,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	mockCluster.Close()
 	transportPostgreSQL.Stop()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 

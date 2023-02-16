@@ -12,7 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -21,17 +21,17 @@ const (
 )
 
 // AddManagedClusterSetsDBToTransportSyncer adds managed-cluster-sets db to transport syncer to the manager.
-func AddManagedClusterSetsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj producer.Producer,
+func AddManagedClusterSetsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer transport.Producer,
 	specSyncInterval time.Duration,
 ) error {
 	createObjFunc := func() metav1.Object { return &clusterv1beta2.ManagedClusterSet{} }
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
-		log:            ctrl.Log.WithName("managed-cluster-sets-db-to-transport-syncer"),
+		log:            ctrl.Log.WithName("db-to-transport-syncer-managedclusterset"),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
-			return syncObjectsBundle(ctx, transportObj, managedClusterSetsMsgKey, specDB, managedClusterSetsTableName,
+			return syncObjectsBundle(ctx, producer, managedClusterSetsMsgKey, specDB, managedClusterSetsTableName,
 				createObjFunc, bundle.NewBaseObjectsBundle, lastSyncTimestampPtr)
 		},
 	}); err != nil {

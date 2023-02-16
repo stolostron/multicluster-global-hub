@@ -4,7 +4,28 @@
 package transport
 
 import (
+	"context"
 	"time"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+)
+
+type Producer interface {
+	Send(ctx context.Context, msg *Message) error
+}
+
+type Consumer interface {
+	// start the transport to consume message
+	Start(ctx context.Context) error
+	// provide a blocking message to get the message
+	MessageChan() chan *Message
+}
+
+type TransportType string
+
+const (
+	Kafka TransportType = "kafka"
+	Chan  TransportType = "chan"
 )
 
 // Message abstracts a message object to be used by different transport components.
@@ -17,10 +38,12 @@ type Message struct {
 	Payload     []byte `json:"payload"`
 }
 
-type Config struct {
+type TransportConfig struct {
 	TransportType          string
 	MessageCompressionType string
 	CommitterInterval      time.Duration
+	KafkaConfig            *protocol.KafkaConfig
+	Extends                map[string]interface{}
 }
 
 const (

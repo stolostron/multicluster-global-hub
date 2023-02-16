@@ -2,7 +2,7 @@ package syncers
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -10,65 +10,41 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/rbac"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	consumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // genericBundleSyncer syncs objects spec from received bundles.
 type genericBundleSyncer struct {
 	log                          logr.Logger
-	genericBundleChan            chan *bundle.GenericBundle
 	workerPool                   *workers.WorkerPool
 	bundleProcessingWaitingGroup sync.WaitGroup
 	enforceHohRbac               bool
 }
 
-// AddGenericBundleSyncer adds genericBundleSyncer to the manager.
-func AddGenericBundleSyncer(log logr.Logger, mgr ctrl.Manager, enforceHohRbac bool,
-	consumer consumer.Consumer, workerPool *workers.WorkerPool,
-) error {
-	if err := mgr.Add(&genericBundleSyncer{
-		log:                          log,
-		genericBundleChan:            consumer.GetGenericBundleChan(),
+func NewGenericSyncer(workerPool *workers.WorkerPool, config *config.AgentConfig) *genericBundleSyncer {
+	return &genericBundleSyncer{
+		log:                          ctrl.Log.WithName("generic-bundle-syncer"),
 		workerPool:                   workerPool,
 		bundleProcessingWaitingGroup: sync.WaitGroup{},
-		enforceHohRbac:               enforceHohRbac,
-	}); err != nil {
-		return fmt.Errorf("failed to add generic bundles spec syncer - %w", err)
+		enforceHohRbac:               config.SpecEnforceHohRbac,
 	}
-
-	return nil
 }
 
-// Start function starts bundles spec syncer.
-func (syncer *genericBundleSyncer) Start(ctx context.Context) error {
-	syncer.log.Info("started bundles syncer...")
-
-	go syncer.sync(ctx)
-
-	<-ctx.Done() // blocking wait for stop event
-	syncer.log.Info("stopped bundles syncer")
-
-	return nil
-}
-
-func (syncer *genericBundleSyncer) sync(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done(): // we have received a signal to stop
-			return
-
-		case receivedBundle := <-syncer.genericBundleChan: // handle the bundle
-			syncer.bundleProcessingWaitingGroup.Add(
-				len(receivedBundle.Objects) + len(receivedBundle.DeletedObjects))
-			syncer.syncObjects(receivedBundle.Objects)
-			syncer.syncDeletedObjects(receivedBundle.DeletedObjects)
-			syncer.bundleProcessingWaitingGroup.Wait()
-		}
+func (syncer *genericBundleSyncer) Sync(payload []byte) error {
+	genericBundle := &bundle.GenericBundle{}
+	if err := json.Unmarshal(payload, genericBundle); err != nil {
+		return err
 	}
+
+	syncer.bundleProcessingWaitingGroup.Add(len(genericBundle.Objects) + len(genericBundle.DeletedObjects))
+	syncer.syncObjects(genericBundle.Objects)
+	syncer.syncDeletedObjects(genericBundle.DeletedObjects)
+	syncer.bundleProcessingWaitingGroup.Wait()
+	return nil
 }
 
 func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Unstructured) {

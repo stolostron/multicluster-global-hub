@@ -9,14 +9,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer/dbsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer/statuswatcher"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // AddDB2TransportSyncers adds the controllers that send info from DB to transport layer to the Manager.
-func AddDB2TransportSyncers(mgr ctrl.Manager, specDB db.SpecDB, transportObj producer.Producer,
+func AddDB2TransportSyncers(mgr ctrl.Manager, specDB db.SpecDB, producer transport.Producer,
 	specSyncInterval time.Duration,
 ) error {
-	addDBSyncerFunctions := []func(ctrl.Manager, db.SpecDB, producer.Producer, time.Duration) error{
+	addDBSyncerFunctions := []func(ctrl.Manager, db.SpecDB, transport.Producer, time.Duration) error{
 		dbsyncer.AddHoHConfigDBToTransportSyncer,
 		dbsyncer.AddPoliciesDBToTransportSyncer,
 		dbsyncer.AddPlacementRulesDBToTransportSyncer,
@@ -30,7 +30,7 @@ func AddDB2TransportSyncers(mgr ctrl.Manager, specDB db.SpecDB, transportObj pro
 		dbsyncer.AddManagedClusterSetBindingsDBToTransportSyncer,
 	}
 	for _, addDBSyncerFunction := range addDBSyncerFunctions {
-		if err := addDBSyncerFunction(mgr, specDB, transportObj, specSyncInterval); err != nil {
+		if err := addDBSyncerFunction(mgr, specDB, producer, specSyncInterval); err != nil {
 			return fmt.Errorf("failed to add DB Syncer: %w", err)
 		}
 	}

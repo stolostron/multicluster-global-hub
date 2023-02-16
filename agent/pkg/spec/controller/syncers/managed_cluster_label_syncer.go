@@ -17,105 +17,44 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	specbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	consumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 const (
-	periodicApplyInterval = 5 * time.Second
-	hohFieldManager       = "mgh-agent"
+	// periodicApplyInterval = 5 * time.Second
+	hohFieldManager = "mgh-agent"
 )
 
 // managedClusterLabelsBundleSyncer syncs managed clusters metadata from received bundles.
 type managedClusterLabelsBundleSyncer struct {
-	log               logr.Logger
-	bundleUpdatesChan chan interface{}
-
+	log                          logr.Logger
 	latestBundle                 *specbundle.ManagedClusterLabelsSpecBundle
 	managedClusterToTimestampMap map[string]*time.Time
-
 	workerPool                   *workers.WorkerPool
 	bundleProcessingWaitingGroup sync.WaitGroup
 	latestBundleLock             sync.Mutex
 }
 
-// AddManagedClusterLabelsBundleSyncer adds managedClusterLabelsBundleSyncer to the manager.
-func AddManagedClusterLabelsBundleSyncer(log logr.Logger, mgr ctrl.Manager, consumer consumer.Consumer,
-	workerPool *workers.WorkerPool,
-) error {
-	customBundleUpdatesChan := make(chan interface{})
-
-	if err := mgr.Add(&managedClusterLabelsBundleSyncer{
-		log:                          log,
-		bundleUpdatesChan:            customBundleUpdatesChan,
+func NewManagedClusterLabelSyncer(workers *workers.WorkerPool) *managedClusterLabelsBundleSyncer {
+	return &managedClusterLabelsBundleSyncer{
+		log:                          ctrl.Log.WithName("managed-clusters-labels-syncer"),
 		latestBundle:                 nil,
 		managedClusterToTimestampMap: make(map[string]*time.Time),
-		workerPool:                   workerPool,
+		workerPool:                   workers,
 		bundleProcessingWaitingGroup: sync.WaitGroup{},
 		latestBundleLock:             sync.Mutex{},
-	}); err != nil {
-		close(customBundleUpdatesChan)
-		return fmt.Errorf("failed to add managed cluster labels bundles syncer - %w", err)
 	}
+}
 
-	consumer.CustomBundleRegister(constants.ManagedClustersLabelsMsgKey, &registration.CustomBundleRegistration{
-		InitBundlesResourceFunc: func() interface{} {
-			return &specbundle.ManagedClusterLabelsSpecBundle{}
-		},
-		BundleUpdatesChan: customBundleUpdatesChan,
-	})
+func (syncer *managedClusterLabelsBundleSyncer) Sync(payload []byte) error {
+	bundle := &specbundle.ManagedClusterLabelsSpecBundle{}
+	if err := json.Unmarshal(payload, bundle); err != nil {
+		return err
+	}
+	syncer.setLatestBundle(bundle) // uses latestBundle
+	syncer.handleBundle()
 
 	return nil
-}
-
-// Start function starts bundles spec syncer.
-func (syncer *managedClusterLabelsBundleSyncer) Start(ctx context.Context) error {
-	syncer.log.Info("started bundles syncer...")
-
-	go syncer.sync(ctx)
-	go syncer.bundleHandler(ctx)
-
-	<-ctx.Done() // blocking wait for stop event
-	syncer.log.Info("stopped bundles syncer")
-
-	return nil
-}
-
-func (syncer *managedClusterLabelsBundleSyncer) sync(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done(): // we have received a signal to stop
-			return
-
-		case transportedBundle := <-syncer.bundleUpdatesChan: // handle the bundle
-			receivedBundle, ok := transportedBundle.(*specbundle.ManagedClusterLabelsSpecBundle)
-			if !ok {
-				continue
-			}
-			syncer.log.Info("get bundle from label bundle chan")
-			syncer.setLatestBundle(receivedBundle) // uses latestBundleLock
-		}
-	}
-}
-
-func (syncer *managedClusterLabelsBundleSyncer) bundleHandler(ctx context.Context) {
-	ticker := time.NewTicker(periodicApplyInterval)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case <-ticker.C:
-			if syncer.latestBundle == nil {
-				continue
-			}
-
-			syncer.handleBundle()
-		}
-	}
 }
 
 func (syncer *managedClusterLabelsBundleSyncer) setLatestBundle(newBundle *specbundle.ManagedClusterLabelsSpecBundle) {

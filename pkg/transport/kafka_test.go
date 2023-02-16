@@ -20,16 +20,17 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 var _ = Describe("Transport", Ordered, func() {
 	ctx := context.Background()
 	It("Test consumer without conflation to handle the message", func() {
 		By("Start kafka producer")
-		kafkaProducerConfig := &producer.KafkaProducerConfig{
-			ProducerTopic:  "spec",
-			ProducerID:     "spec-producer",
-			MsgSizeLimitKB: 100,
+		kafkaProducerConfig := &protocol.KafkaProducerConfig{
+			ProducerTopic:      "spec",
+			ProducerID:         "spec-producer",
+			MessageSizeLimitKB: 100,
 		}
 		kafkaProducer, err := producer.NewKafkaProducer(&compressor.CompressorGZip{},
 			mockCluster.BootstrapServers(), "", kafkaProducerConfig,
@@ -38,7 +39,7 @@ var _ = Describe("Transport", Ordered, func() {
 		go kafkaProducer.Start(ctx)
 
 		By("Start kafka consumer")
-		kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
+		kafkaConsumerConfig := &protocol.KafkaConsumerConfig{
 			ConsumerTopic: "spec",
 			ConsumerID:    "spec-consumer",
 		}
@@ -204,10 +205,10 @@ var _ = Describe("Transport", Ordered, func() {
 
 	It("Test consumer with conflation to handle the message", func() {
 		By("Start kafka producer")
-		kafkaProducerConfig := &producer.KafkaProducerConfig{
-			ProducerTopic:  "status",
-			ProducerID:     "status-producer",
-			MsgSizeLimitKB: 1,
+		kafkaProducerConfig := &protocol.KafkaProducerConfig{
+			ProducerTopic:      "status",
+			ProducerID:         "status-producer",
+			MessageSizeLimitKB: 1,
 		}
 		kafkaProducer, err := producer.NewKafkaProducer(&compressor.CompressorGZip{},
 			mockCluster.BootstrapServers(), "", kafkaProducerConfig,
@@ -216,7 +217,7 @@ var _ = Describe("Transport", Ordered, func() {
 		go kafkaProducer.Start(ctx)
 
 		By("Start kafka consumer")
-		kafkaConsumerConfig := &consumer.KafkaConsumerConfig{
+		kafkaConsumerConfig := &protocol.KafkaConsumerConfig{
 			ConsumerTopic: "status",
 			ConsumerID:    "status-consumer",
 		}

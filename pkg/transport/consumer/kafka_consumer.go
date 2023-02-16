@@ -22,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 const pollTimeoutMs = 100
@@ -62,7 +63,7 @@ type KafkaConsumer struct {
 }
 
 // NewConsumer creates a new instance of Consumer.
-func NewKafkaConsumer(bootstrapServer, caPath string, consumerConfig *KafkaConsumerConfig, log logr.Logger,
+func NewKafkaConsumer(bootstrapServer, caPath string, consumerConfig *protocol.KafkaConsumerConfig, log logr.Logger,
 ) (*KafkaConsumer, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       bootstrapServer,

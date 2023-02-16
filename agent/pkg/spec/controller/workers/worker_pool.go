@@ -26,15 +26,13 @@ type WorkerPool struct {
 }
 
 // AddK8sWorkerPool adds k8s workers pool to the manager and returns it.
-func AddWorkerPool(log logr.Logger, workpoolSize int, manager ctrl.Manager) (*WorkerPool, error) {
-	config := manager.GetConfig()
-
+func NewWorkerPool(size int, config *rest.Config) *WorkerPool {
 	// for impersonation workers we have additional workers, one per impersonated user.
 	workerPool := &WorkerPool{
-		log:                        log,
+		log:                        ctrl.Log.WithName("workers-pool"),
 		kubeConfig:                 config,
-		jobsQueue:                  make(chan *Job, workpoolSize), // each worker can handle at most one job at a time
-		poolSize:                   workpoolSize,
+		jobsQueue:                  make(chan *Job, size), // each worker can handle at most one job at a time
+		poolSize:                   size,
 		initializationWaitingGroup: sync.WaitGroup{},
 		impersonationManager:       rbac.NewImpersonationManager(config),
 		impersonationWorkersQueues: make(map[string]chan *Job),
@@ -42,12 +40,7 @@ func AddWorkerPool(log logr.Logger, workpoolSize int, manager ctrl.Manager) (*Wo
 	}
 
 	workerPool.initializationWaitingGroup.Add(1)
-
-	if err := manager.Add(workerPool); err != nil {
-		return nil, fmt.Errorf("failed to initialize k8s workers pool - %w", err)
-	}
-
-	return workerPool, nil
+	return workerPool
 }
 
 // Start function starts the k8s workers pool.
@@ -55,6 +48,7 @@ func (pool *WorkerPool) Start(ctx context.Context) error {
 	pool.ctx = ctx
 	pool.initializationWaitingGroup.Done() // once context is saved, it's safe to let RunAsync work with no concerns.
 
+	pool.log.Info("starting worker pool", "size", pool.poolSize)
 	for i := 1; i <= pool.poolSize; i++ {
 		worker, err := newWorker(pool.log, i, pool.kubeConfig, pool.jobsQueue)
 		if err != nil {

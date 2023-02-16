@@ -12,6 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 const (
@@ -23,9 +24,8 @@ const (
 )
 
 type KafkaProducerConfig struct {
-	ProducerID     string
-	ProducerTopic  string
-	MsgSizeLimitKB int
+	ProducerID    string
+	ProducerTopic string
 }
 
 // Producer abstracts hub-of-hubs/pkg/kafka kafka-producer's generic usage.
@@ -41,7 +41,7 @@ type KafkaProducer struct {
 
 // NewProducer returns a new instance of Producer object.
 func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, caPath string,
-	producerConfig *KafkaProducerConfig, log logr.Logger,
+	producerConfig *protocol.KafkaProducerConfig, log logr.Logger,
 ) (*KafkaProducer, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       bootstrapServer,
@@ -65,7 +65,7 @@ func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, caPath 
 	return &KafkaProducer{
 		log:                  log,
 		producer:             producer,
-		messageSizeLimit:     producerConfig.MsgSizeLimitKB * kiloBytesToBytes,
+		messageSizeLimit:     producerConfig.MessageSizeLimitKB * kiloBytesToBytes,
 		topic:                producerConfig.ProducerTopic,
 		eventSubscriptionMap: make(map[string]map[EventType]EventCallback),
 		compressor:           compressor,

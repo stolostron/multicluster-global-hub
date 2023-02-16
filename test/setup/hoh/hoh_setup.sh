@@ -51,7 +51,7 @@ else
 fi
 
 namespace=open-cluster-management
-agenAddonNamespace=open-cluster-management-agent-addon
+agenAddonNamespace=open-cluster-management-global-hub-system
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
 

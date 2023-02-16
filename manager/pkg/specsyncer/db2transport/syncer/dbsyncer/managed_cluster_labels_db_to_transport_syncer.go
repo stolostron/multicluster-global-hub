@@ -2,6 +2,7 @@ package dbsyncer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,22 +11,22 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const managedClusterLabelsDBTableName = "managed_clusters_labels"
 
 // AddManagedClusterLabelsDBToTransportSyncer adds managed-cluster labels db to transport syncer to the manager.
-func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, transportObj producer.Producer,
+func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer transport.Producer,
 	specSyncInterval time.Duration,
 ) error {
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
-		log:            ctrl.Log.WithName("managed-cluster-labels-db-to-transport-syncer"),
+		log:            ctrl.Log.WithName("db-to-transport-syncer-managedclusterlabel"),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
-			return syncManagedClusterLabelsBundles(ctx, transportObj,
+			return syncManagedClusterLabelsBundles(ctx, producer,
 				constants.ManagedClustersLabelsMsgKey, specDB,
 				managedClusterLabelsDBTableName, lastSyncTimestampPtr)
 		},
@@ -38,7 +39,7 @@ func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.Spec
 
 // syncManagedClusterLabelsBundles performs the actual sync logic and returns true if bundle was committed to transport,
 // otherwise false.
-func syncManagedClusterLabelsBundles(ctx context.Context, transportObj producer.Producer, transportBundleKey string,
+func syncManagedClusterLabelsBundles(ctx context.Context, producer transport.Producer, transportBundleKey string,
 	specDB db.SpecDB, dbTableName string, lastSyncTimestampPtr *time.Time,
 ) (bool, error) {
 	lastUpdateTimestamp, err := specDB.GetLastUpdateTimestamp(ctx, dbTableName, false) // no resources in table
@@ -60,9 +61,19 @@ func syncManagedClusterLabelsBundles(ctx context.Context, transportObj producer.
 
 	// sync bundle per leaf hub
 	for leafHubName, managedClusterLabelsBundle := range leafHubToLabelsSpecBundleMap {
-		if err := syncToTransport(transportObj, leafHubName, transportBundleKey, lastUpdateTimestamp,
-			managedClusterLabelsBundle); err != nil {
-			return false, fmt.Errorf("unable to sync bundle to transport - %w", err)
+		payloadBytes, err := json.Marshal(managedClusterLabelsBundle)
+		if err != nil {
+			return false, fmt.Errorf("failed to sync marshal bundle(%s)", transportBundleKey)
+		}
+		if err := producer.Send(ctx, &transport.Message{
+			Destination: leafHubName,
+			ID:          transportBundleKey,
+			MsgType:     constants.SpecBundle,
+			Version:     lastUpdateTimestamp.Format(timeFormat),
+			Payload:     payloadBytes,
+		}); err != nil {
+			return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",
+				transportBundleKey, dbTableName, transport.Broadcast, err)
 		}
 	}
 

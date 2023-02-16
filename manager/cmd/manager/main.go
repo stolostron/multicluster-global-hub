@@ -34,13 +34,13 @@ import (
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 const (
@@ -62,8 +62,7 @@ type hohManagerConfig struct {
 	watchNamespace        string
 	syncerConfig          *syncerConfig
 	databaseConfig        *databaseConfig
-	transportCommonConfig *transport.Config
-	kafkaConfig           *kafkaConfig
+	transportConfig       *transport.TransportConfig
 	statisticsConfig      *statistics.StatisticsConfig
 	nonK8sAPIServerConfig *nonk8sapi.NonK8sAPIServerConfig
 	electionConfig        *commonobjects.LeaderElectionConfig
@@ -80,21 +79,16 @@ type databaseConfig struct {
 	transportBridgeDatabaseURL string
 }
 
-type kafkaConfig struct {
-	bootstrapServer string
-	caPath          string
-	producerConfig  *producer.KafkaProducerConfig
-	consumerConfig  *consumer.KafkaConsumerConfig
-}
-
 func parseFlags() (*hohManagerConfig, error) {
 	managerConfig := &hohManagerConfig{
-		syncerConfig:          &syncerConfig{},
-		databaseConfig:        &databaseConfig{},
-		transportCommonConfig: &transport.Config{},
-		kafkaConfig: &kafkaConfig{
-			producerConfig: &producer.KafkaProducerConfig{},
-			consumerConfig: &consumer.KafkaConsumerConfig{},
+		syncerConfig:   &syncerConfig{},
+		databaseConfig: &databaseConfig{},
+		transportConfig: &transport.TransportConfig{
+			KafkaConfig: &protocol.KafkaConfig{
+				EnableTSL:      true,
+				ProducerConfig: &protocol.KafkaProducerConfig{},
+				ConsumerConfig: &protocol.KafkaConsumerConfig{},
+			},
 		},
 		statisticsConfig:      &statistics.StatisticsConfig{},
 		nonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
@@ -115,26 +109,26 @@ func parseFlags() (*hohManagerConfig, error) {
 		"The URL of database server for the process user.")
 	pflag.StringVar(&managerConfig.databaseConfig.transportBridgeDatabaseURL,
 		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
-	pflag.StringVar(&managerConfig.transportCommonConfig.TransportType, "transport-type", "kafka",
+	pflag.StringVar(&managerConfig.transportConfig.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'.")
-	pflag.StringVar(&managerConfig.transportCommonConfig.MessageCompressionType, "transport-message-compression-type",
+	pflag.StringVar(&managerConfig.transportConfig.MessageCompressionType, "transport-message-compression-type",
 		"gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
-	pflag.DurationVar(&managerConfig.transportCommonConfig.CommitterInterval, "transport-committer-interval",
+	pflag.DurationVar(&managerConfig.transportConfig.CommitterInterval, "transport-committer-interval",
 		40*time.Second, "The committer interval for transport layer.")
-	pflag.StringVar(&managerConfig.kafkaConfig.bootstrapServer, "kafka-bootstrap-server",
+	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server",
 		"kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
-	pflag.StringVar(&managerConfig.kafkaConfig.caPath, "kafka-ca-path", "",
+	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.CertPath, "kafka-ca-path", "",
 		"The certificate path of CA certificate for kafka bootstrap server.")
-	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerID, "kakfa-producer-id",
+	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.ProducerID, "kakfa-producer-id",
 		"multicluster-global-hub", "ID for the kafka producer.")
-	pflag.StringVar(&managerConfig.kafkaConfig.producerConfig.ProducerTopic, "kakfa-producer-topic",
+	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
 		"spec", "Topic for the kafka producer.")
-	pflag.IntVar(&managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB, "kafka-message-size-limit", 940,
-		"The limit for kafka message size in KB.")
-	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerID, "kakfa-consumer-id", "multicluster-global-hub",
-		"ID for the kafka consumer.")
-	pflag.StringVar(&managerConfig.kafkaConfig.consumerConfig.ConsumerTopic, "kakfa-consumer-topic", "status",
-		"Topic for the kafka consumer.")
+	pflag.IntVar(&managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
+		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
+	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
+		"kakfa-consumer-id", "multicluster-global-hub", "ID for the kafka consumer.")
+	pflag.StringVar(&managerConfig.transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic,
+		"kakfa-consumer-topic", "status", "Topic for the kafka consumer.")
 	pflag.DurationVar(&managerConfig.statisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second,
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.nonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
@@ -159,9 +153,9 @@ func parseFlags() (*hohManagerConfig, error) {
 		return nil, fmt.Errorf("database url for transport-bridge user: %w", errFlagParameterEmpty)
 	}
 
-	if managerConfig.kafkaConfig.producerConfig.MsgSizeLimitKB > producer.MaxMessageSizeLimit {
+	if managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
 		return nil, fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
-			producer.MaxMessageSizeLimit, "kafka-message-size-limit")
+			managerConfig.transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
 	}
 
 	return managerConfig, nil
@@ -197,48 +191,22 @@ func requireInitialDependencyChecks(transportType string) bool {
 	}
 }
 
-// function to choose spec transport type based on env var.
-func getSpecTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCAPath string,
-	kafkaProducerConfig *producer.KafkaProducerConfig,
-) (producer.Producer, error) {
-	msgCompressor, err := compressor.NewCompressor(
-		compressor.CompressionType(transportCommonConfig.MessageCompressionType))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create message-compressor: %w", err)
-	}
-
-	switch transportCommonConfig.TransportType {
-	case kafkaTransportType:
-		kafkaProducer, err := producer.NewKafkaProducer(msgCompressor, kafkaBootstrapServer, kafkaCAPath,
-			kafkaProducerConfig, ctrl.Log.WithName("kafka-producer"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
-		}
-
-		return kafkaProducer, nil
-	default:
-		return nil, fmt.Errorf("%w: transport-type - %s is not a valid option",
-			errFlagParameterIllegalValue, transportCommonConfig.TransportType)
-	}
-}
-
 // function to choose status transport type based on env var.
-func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapServer, kafkaCAPath string,
-	kafkaConsumerConfig *consumer.KafkaConsumerConfig,
-	conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
+func getStatusTransport(transportConfig *transport.TransportConfig, conflationMgr *conflator.ConflationManager,
+	statistics *statistics.Statistics,
 ) (consumer.Consumer, error) {
-	switch transportCommonConfig.TransportType {
+	switch transportConfig.TransportType {
 	case kafkaTransportType:
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			kafkaBootstrapServer, kafkaCAPath, kafkaConsumerConfig,
-			ctrl.Log.WithName("kafka-consumer"))
+			transportConfig.KafkaConfig.BootstrapServer, transportConfig.KafkaConfig.CertPath,
+			transportConfig.KafkaConfig.ConsumerConfig, ctrl.Log.WithName("kafka-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
 		}
 		kafkaConsumer.SetConflationManager(conflationMgr)
 		kafkaConsumer.SetCommitter(consumer.NewCommitter(
-			transportCommonConfig.CommitterInterval,
-			kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+			transportConfig.CommitterInterval,
+			transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
 			conflationMgr.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
 		)
 		kafkaConsumer.SetStatistics(statistics)
@@ -246,7 +214,7 @@ func getStatusTransport(transportCommonConfig *transport.Config, kafkaBootstrapS
 		return kafkaConsumer, nil
 	default:
 		return nil, fmt.Errorf("%w: transport-type - %s is not a valid option",
-			errFlagParameterIllegalValue, transportCommonConfig.TransportType)
+			errFlagParameterIllegalValue, transportConfig.TransportType)
 	}
 }
 
@@ -301,24 +269,23 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 	}
 
 	// status transport layer initialization
-	statusTransportObj, err := getStatusTransport(managerConfig.transportCommonConfig,
-		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.caPath,
-		managerConfig.kafkaConfig.consumerConfig, conflationManager, statistics)
+	statusTransportObj, err := getStatusTransport(managerConfig.transportConfig, conflationManager, statistics)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init status transport bridge: %w", err)
 	}
 
 	// spec transport layer initialization
-	specTransportObj, err := getSpecTransport(managerConfig.transportCommonConfig,
-		managerConfig.kafkaConfig.bootstrapServer, managerConfig.kafkaConfig.caPath,
-		managerConfig.kafkaConfig.producerConfig)
+	producer, err := producer.NewGenericProducer(managerConfig.transportConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
 	}
-
-	if err := mgr.Add(specTransportObj); err != nil {
-		return nil, fmt.Errorf("failed to add spec transport bridge: %w", err)
-	}
+	// specTransportObj, err := getSpecTransport(managerConfig.transportConfig)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
+	// }
+	// if err := mgr.Add(specTransportObj); err != nil {
+	// 	return nil, fmt.Errorf("failed to add spec transport bridge: %w", err)
+	// }
 
 	if err := mgr.Add(statusTransportObj); err != nil {
 		return nil, fmt.Errorf("failed to add status transport bridge: %w", err)
@@ -333,7 +300,7 @@ func createManager(restConfig *rest.Config, managerConfig *hohManagerConfig, pro
 		return nil, fmt.Errorf("failed to add spec-to-db controllers: %w", err)
 	}
 
-	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, specTransportObj,
+	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, producer,
 		managerConfig.syncerConfig.specSyncInterval); err != nil {
 		return nil, fmt.Errorf("failed to add db-to-transport syncers: %w", err)
 	}
@@ -410,7 +377,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
 	requireInitialDependencyChecks := requireInitialDependencyChecks(
-		managerConfig.transportCommonConfig.TransportType)
+		managerConfig.transportConfig.TransportType)
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
 		requireInitialDependencyChecks, stats) // manage all Conflation Units
 
