@@ -255,7 +255,7 @@ func createManager(restConfig *rest.Config, managerConfig *managerconfig.Manager
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 
-	if err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
+	if _, err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 

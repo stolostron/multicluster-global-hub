@@ -76,7 +76,8 @@ var _ = Describe("leaf hubs heartbeats", Ordered, func() {
 		}
 
 		By("Sync message with transport")
-		kafkaProducer.SendAsync(transportMessage)
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
 
 		By("Check the heartbeats table")
 		Eventually(func() error {

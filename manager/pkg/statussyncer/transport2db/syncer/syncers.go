@@ -23,11 +23,13 @@ import (
 // adds controllers and/or runnables to the manager, registers handler functions within the dispatcher
 //
 //	and create bundle functions within the bundle.
-func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) error {
+func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
+	*dispatcher.TransportDispatcher, error,
+) {
 	stats := getStatistic(mgr, managerConfig)
 	// register statistics within the runtime manager
 	if err := mgr.Add(stats); err != nil {
-		return fmt.Errorf("failed to add statistics to manager - %w", err)
+		return nil, fmt.Errorf("failed to add statistics to manager - %w", err)
 	}
 
 	// conflationReadyQueue is shared between conflation manager and dispatcher
@@ -39,38 +41,38 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 	// create consumer
 	consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig)
 	if err != nil {
-		return fmt.Errorf("failed to initialize transport consumer: %w", err)
+		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
 	}
 	if err := mgr.Add(consumer); err != nil {
-		return fmt.Errorf("failed to add transport consumer to manager: %w", err)
+		return nil, fmt.Errorf("failed to add transport consumer to manager: %w", err)
 	}
 
 	// consume message from consumer and dispatcher it to conflation manager
 	transportDispatcher := dispatcher.NewTransportDispatcher(ctrl.Log.WithName("transport-dispatcher"), consumer,
 		conflationManager, stats)
 	if err := mgr.Add(transportDispatcher); err != nil {
-		return fmt.Errorf("failed to add transport dispatcher to runtime manager: %w", err)
+		return nil, fmt.Errorf("failed to add transport dispatcher to runtime manager: %w", err)
 	}
 
 	// database layer initialization - worker pool + connection pool
 	dbWorkerPool, err := workerpool.NewDBWorkerPool(managerConfig.DatabaseConfig.TransportBridgeDatabaseURL, stats)
 	if err != nil {
-		return fmt.Errorf("failed to initialize DBWorkerPool: %w", err)
+		return transportDispatcher, fmt.Errorf("failed to initialize DBWorkerPool: %w", err)
 	}
 	if err := mgr.Add(dbWorkerPool); err != nil {
-		return fmt.Errorf("failed to add DB worker pool: %w", err)
+		return transportDispatcher, fmt.Errorf("failed to add DB worker pool: %w", err)
 	}
 
 	// add ConflationDispatcher to the runtime manager
 	if err := mgr.Add(dispatcher.NewConflationDispatcher(ctrl.Log.WithName("conflation-dispatcher"),
 		conflationReadyQueue, dbWorkerPool)); err != nil {
-		return fmt.Errorf("failed to add conflation dispatcher to runtime manager: %w", err)
+		return transportDispatcher, fmt.Errorf("failed to add conflation dispatcher to runtime manager: %w", err)
 	}
 
 	// register config controller within the runtime manager
 	config, err := addConfigController(mgr)
 	if err != nil {
-		return fmt.Errorf("failed to add config controller to manager - %w", err)
+		return transportDispatcher, fmt.Errorf("failed to add config controller to manager - %w", err)
 	}
 
 	// register db syncers create bundle functions within transport and handler functions within dispatcher
@@ -91,7 +93,7 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 		dbsyncerObj.RegisterBundleHandlerFunctions(conflationManager)
 	}
 
-	return nil
+	return transportDispatcher, nil
 }
 
 func getStatistic(mgr ctrl.Manager, managerConfig *config.ManagerConfig) *statistics.Statistics {

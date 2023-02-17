@@ -115,7 +115,8 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 		}
 
 		By("Sync message with transport")
-		kafkaProducer.SendAsync(transportMessage)
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
 
 		By("Check the local policy table")
 		Eventually(func() error {
@@ -174,14 +175,16 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, localPlacementRuleMessageKey)
-		By("Sync message with transport")
-		kafkaProducer.SendAsync(&transport.Message{
+		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
 			ID:      transportMessageKey,
 			MsgType: constants.StatusBundle,
 			Version: statusBundle.BundleVersion.String(),
 			Payload: payloadBytes,
-		})
+		}
+		By("Sync message with transport")
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
 
 		By("Check the local placementrule table")
 		Eventually(func() error {

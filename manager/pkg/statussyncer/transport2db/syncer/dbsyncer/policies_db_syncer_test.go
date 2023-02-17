@@ -139,13 +139,16 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the latest ClustersPerPolicy bundle with transport")
-		kafkaProducer.SendAsync(&transport.Message{
+		transportMessage := &transport.Message{
 			Key:     clustersPerPolicyTransportKey,
 			ID:      clustersPerPolicyTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: "1.0", // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
-		})
+		}
+		By("Sync message with transport")
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
 
 		By("Check the ClustersPerPolicy policy is created and expired policy is deleted from database")
 		Eventually(func() error {
@@ -201,13 +204,16 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the complete policy bundle with transport")
-		kafkaProducer.SendAsync(&transport.Message{
+		transportMessage := &transport.Message{
 			Key:     policyCompleteComplianceTransportKey,
 			ID:      policyCompleteComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: "1.0", // entry.bundle.GetBundleVersion().String()
 			Payload: completePayloadBytes,
-		})
+		}
+		By("Sync message with transport")
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
 
 		By("Check the complete bundle updated all the policy status in the database")
 		Eventually(func() error {
@@ -271,13 +277,16 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the delta policy bundle with transport")
-		kafkaProducer.SendAsync(&transport.Message{
+		transportMessage = &transport.Message{
 			Key:     policyDeltaComplianceTransportKey,
 			ID:      policyDeltaComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: "1.0", // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
-		})
+		}
+		By("Sync message with transport")
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
 
 		By("Check the delta policy bundle is only update compliance status of the existing record in database")
 		Eventually(func() error {
@@ -349,13 +358,16 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the updated delta policy bundle with transport")
-		kafkaProducer.SendAsync(&transport.Message{
+		transportMessage = &transport.Message{
 			Key:     policyDeltaComplianceTransportKey,
 			ID:      policyDeltaComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: "1.0", // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
-		})
+		}
+		By("Sync message with transport")
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
 
 		By("Check the updated delta policy bundle is synchronized to database")
 		Eventually(func() error {
@@ -392,7 +404,14 @@ var _ = Describe("Policies", Ordered, func() {
 
 	It("sync the aggregated policy with MinimalPolicyCompliance bundle where aggregationLevel = minimal", func() {
 		By("Overwrite the MinimalComplianceStatusBundle Predicate function, so that the minimal bundle cloud be processed")
-		kafkaConsumer.BundleRegister(&registration.BundleRegistration{
+		// kafkaConsumer.BundleRegister(&registration.BundleRegistration{
+		// 	MsgID:            constants.MinimalPolicyComplianceMsgKey,
+		// 	CreateBundleFunc: statusbundle.NewMinimalComplianceStatusBundle,
+		// 	Predicate: func() bool {
+		// 		return true // syncer.config.Data["aggregationLevel"] == "minimal"
+		// 	},
+		// })
+		transportDispatcher.BundleRegister(&registration.BundleRegistration{
 			MsgID:            constants.MinimalPolicyComplianceMsgKey,
 			CreateBundleFunc: statusbundle.NewMinimalComplianceStatusBundle,
 			Predicate: func() bool {
@@ -418,13 +437,16 @@ var _ = Describe("Policies", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the policy bundle with transport")
-		kafkaProducer.SendAsync(&transport.Message{
+		transportMessage := &transport.Message{
 			Key:     minimalPolicyComplianceTransportKey,
 			ID:      minimalPolicyComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: "1.0", // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
-		})
+		}
+		By("Sync message with transport")
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
 
 		By("Check the minimal policy is synchronized to database")
 		Eventually(func() error {
