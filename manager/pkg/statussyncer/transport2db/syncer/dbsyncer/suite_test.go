@@ -41,10 +41,6 @@ var (
 	kubeClient          client.Client
 	producer            transport.Producer
 	transportDispatcher *dispatcher.TransportDispatcher
-	// dbWorkerPool *workerpool.DBWorkerPool
-	// kafkaConsumer       *consumer.KafkaConsumer
-	// kafkaProducer       *producer.KafkaProducer
-	// mockCluster         *kafka.MockCluster
 )
 
 func TestDbsyncer(t *testing.T) {
@@ -76,39 +72,6 @@ var _ = BeforeSuite(func() {
 	transportPostgreSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
-	// By("Create database work pool")
-	// stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{},
-	// 	[]string{
-	// 		helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
-	// 		helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
-	// 	})
-
-	// dbWorkerPool, err = workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), testPostgres.URI, stats)
-	// Expect(err).NotTo(HaveOccurred())
-
-	// By("Create conflationReadyQueue")
-	// conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
-	// conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"),
-	// 	conflationReadyQueue, false, stats) // manage all Conflation Units
-
-	// By("Create mock kafka cluster")
-	// mockCluster, err = kafka.NewMockCluster(1)
-	// Expect(err).NotTo(HaveOccurred())
-	// fmt.Fprintf(GinkgoWriter, "mock kafka bootstrap server address: %s\n", mockCluster.BootstrapServers())
-
 	managerConfig := &config.ManagerConfig{
 		DatabaseConfig: &config.DatabaseConfig{
 			TransportBridgeDatabaseURL: testPostgres.URI,
@@ -121,32 +84,7 @@ var _ = BeforeSuite(func() {
 
 	By("Start cloudevents producer")
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
-	// kafkaProducerConfig := &protocol.KafkaProducerConfig{
-	// 	ProducerTopic:      "status",
-	// 	ProducerID:         "status-producer",
-	// 	MessageSizeLimitKB: 1,
-	// }
-	// kafkaProducer, err = producer.NewKafkaProducer(&compressor.CompressorGZip{},
-	// 	mockCluster.BootstrapServers(), "", kafkaProducerConfig,
-	// 	ctrl.Log.WithName("kafka-producer"))
-	// Expect(err).NotTo(HaveOccurred())
-
-	// By("Start kafka consumer")
-	// kafkaConsumerConfig := &protocol.KafkaConsumerConfig{
-	// 	ConsumerTopic: "status",
-	// 	ConsumerID:    "status-consumer",
-	// }
-	// kafkaConsumer, err = consumer.NewKafkaConsumer(
-	// 	mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
-	// 	ctrl.Log.WithName("kafka-consumer"))
-	// Expect(err).NotTo(HaveOccurred())
-
-	// kafkaConsumer.SetCommitter(consumer.NewCommitter(
-	// 	1*time.Second, kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
-	// 	conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
-	// )
-	// kafkaConsumer.SetStatistics(stats)
-	// kafkaConsumer.SetConflationManager(conflationManager)
+	Expect(err).NotTo(HaveOccurred())
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -191,7 +129,6 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	cancel()
 	transportPostgreSQL.Stop()
-	// mockCluster.Close()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 
 	By("Tearing down the test environment")

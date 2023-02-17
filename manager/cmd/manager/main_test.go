@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -122,6 +123,8 @@ func TestManager(t *testing.T) {
 			"2",
 			"--kafka-bootstrap-server",
 			mockKafkaCluster.BootstrapServers(),
+			"--transport-type",
+			string(transport.Chan),
 		}, 1},
 	}
 	for _, tc := range cases {
