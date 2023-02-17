@@ -5,14 +5,10 @@ package controller_test
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -29,53 +25,24 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/incarnation"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
-	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
-)
-
-var (
-	testenv       *envtest.Environment
-	cfg           *rest.Config
-	ctx           context.Context
-	cancel        context.CancelFunc
-	mgr           ctrl.Manager
-	kubeClient    client.Client
-	mockCluster   *kafka.MockCluster
-	kafkaConsumer *consumer.KafkaConsumer
-	kafkaProducer *producer.KafkaProducer
-)
-
-var (
-	compressorsMap           = map[compressor.CompressionType]compressor.Compressor{}
-	msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
-		constants.ControlInfoMsgKey:              statusbundle.NewControlInfoBundle,
-		constants.ManagedClustersMsgKey:          statusbundle.NewManagedClustersStatusBundle,
-		constants.ClustersPerPolicyMsgKey:        statusbundle.NewClustersPerPolicyBundle,
-		constants.PolicyCompleteComplianceMsgKey: statusbundle.NewCompleteComplianceStatusBundle,
-		constants.PolicyDeltaComplianceMsgKey:    statusbundle.NewDeltaComplianceStatusBundle,
-		constants.SubscriptionStatusMsgKey:       statusbundle.NewSubscriptionStatusesBundle,
-		constants.SubscriptionReportMsgKey:       statusbundle.NewSubscriptionReportsBundle,
-		constants.PlacementRuleMsgKey:            statusbundle.NewPlacementRulesBundle,
-		constants.PlacementMsgKey:                statusbundle.NewPlacementsBundle,
-		constants.PlacementDecisionMsgKey:        statusbundle.NewPlacementDecisionsBundle,
-	}
+	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 var (
 	leafHubName = "hub1"
-	statusTopic = "status"
+	testenv     *envtest.Environment
+	cfg         *rest.Config
+	ctx         context.Context
+	cancel      context.CancelFunc
+	consumer    transport.Consumer
+	kubeClient  client.Client
 )
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Integration Suite")
+	RunSpecs(t, "Status Controller Integration Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -90,40 +57,24 @@ var _ = BeforeSuite(func() {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
-
 	cfg, err = testenv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	By("Create mock kafka cluster")
-	mockCluster, err = kafka.NewMockCluster(1)
-	Expect(err).NotTo(HaveOccurred())
-	fmt.Fprintf(GinkgoWriter, "mock kafka bootstrap server address: %s\n", mockCluster.BootstrapServers())
-
-	By("Start kafka producer")
-	kafkaProducerConfig := &protocol.KafkaProducerConfig{
-		ProducerTopic:      statusTopic,
-		ProducerID:         "status-producer",
-		MessageSizeLimitKB: 100,
+	agentConfig := &config.AgentConfig{
+		LeafHubName: leafHubName,
+		TransportConfig: &transport.TransportConfig{
+			CommitterInterval: 1 * time.Second,
+			TransportType:     string(transport.Chan),
+		},
 	}
-	kafkaProducer, err = producer.NewKafkaProducer(&compressor.CompressorGZip{},
-		mockCluster.BootstrapServers(), "", kafkaProducerConfig,
-		ctrl.Log.WithName("kafka-producer"))
-	Expect(err).NotTo(HaveOccurred())
 
-	By("Start kafka consumer")
-	kafkaConsumerConfig := &protocol.KafkaConsumerConfig{
-		ConsumerTopic: statusTopic,
-		ConsumerID:    "status-consumer",
-	}
-	kafkaConsumer, err = consumer.NewKafkaConsumer(
-		mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
-		ctrl.Log.WithName("kafka-consumer"))
+	By("Create cloudevents consumer")
+	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
-	// go kafkaConsumer.Start()
 
 	By("Create controller-runtime manager")
-	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
 		Scheme:             scheme.Scheme,
 	})
@@ -157,20 +108,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add controllers to manager")
-	agentConfig := &config.AgentConfig{
-		ElectionConfig: &commonobjects.LeaderElectionConfig{},
-		TransportConfig: &transport.TransportConfig{
-			KafkaConfig: &protocol.KafkaConfig{
-				ProducerConfig: &protocol.KafkaProducerConfig{},
-				ConsumerConfig: &protocol.KafkaConsumerConfig{},
-			},
-		},
-	}
 	err = statusController.AddControllers(mgr, agentConfig, incarnation)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Add kafka producer to manager")
-	Expect(mgr.Add(kafkaProducer)).Should(Succeed())
+	By("Mock the consumer receive message from global hub manager")
+	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {
@@ -184,7 +126,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	mockCluster.Close()
 
 	By("Tearing down the test environment")
 	err := testenv.Stop()
@@ -195,57 +136,3 @@ var _ = AfterSuite(func() {
 	}
 	Expect(testenv.Stop()).NotTo(HaveOccurred())
 })
-
-func processKafkaMessage(message *kafka.Message) (int32, kafka.Offset, string, status.Bundle, error) {
-	compressionType := compressor.NoOp
-	for _, header := range message.Headers {
-		if header.Key == transport.CompressionType {
-			compressionType = compressor.CompressionType(header.Value)
-		}
-	}
-
-	msgCompressor, found := compressorsMap[compressionType]
-	if !found {
-		newCompressor, err := compressor.NewCompressor(compressionType)
-		if err != nil {
-			return message.TopicPartition.Partition, message.TopicPartition.Offset, "",
-				nil, fmt.Errorf("failed to create compressor: %w", err)
-		}
-
-		msgCompressor = newCompressor
-		compressorsMap[compressionType] = msgCompressor
-	}
-
-	decompressedBytes, err := msgCompressor.Decompress(message.Value)
-	if err != nil {
-		return message.TopicPartition.Partition, message.TopicPartition.Offset, "", nil,
-			fmt.Errorf("failed to decompress message: %w", err)
-	}
-
-	transportMessage := &transport.Message{}
-	if err := json.Unmarshal(decompressedBytes, transportMessage); err != nil {
-		return message.TopicPartition.Partition, message.TopicPartition.Offset, "", nil,
-			fmt.Errorf("failed to unmarshal transport message: %w", err)
-	}
-
-	// get msgID
-	msgIDTokens := strings.Split(transportMessage.ID, ".") // object id is LH_ID.MSG_ID
-	if len(msgIDTokens) != 2 {
-		return message.TopicPartition.Partition, message.TopicPartition.Offset, "", nil,
-			fmt.Errorf("bad message ID format: %s", transportMessage.ID)
-	}
-
-	msgID := msgIDTokens[1]
-	if _, found := msgIDBundleCreateFuncMap[msgID]; !found {
-		return message.TopicPartition.Partition, message.TopicPartition.Offset, msgID, nil,
-			fmt.Errorf("no bundle-registration available for massage ID: %s", transportMessage.ID)
-	}
-
-	receivedBundle := msgIDBundleCreateFuncMap[msgID]()
-	if err := json.Unmarshal(transportMessage.Payload, receivedBundle); err != nil {
-		return message.TopicPartition.Partition, message.TopicPartition.Offset, msgID, nil,
-			fmt.Errorf("failed to unmarshal bundle: %w", err)
-	}
-
-	return message.TopicPartition.Partition, message.TopicPartition.Offset, msgID, receivedBundle, nil
-}

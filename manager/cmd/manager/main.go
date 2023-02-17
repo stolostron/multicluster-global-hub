@@ -148,12 +148,14 @@ func printVersion(log logr.Logger) {
 }
 
 // function to choose status transport type based on env var.
-// func getStatusTransport(transportConfig *transport.TransportConfig, conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
+// func getStatusTransport(transportConfig *transport.TransportConfig,
+// 	conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
 // ) (consumer.Consumer, error) {
 // 	switch transportConfig.TransportType {
 // 	case kafkaTransportType:
 // 		kafkaConsumer, err := consumer.NewKafkaConsumer(
-// 			transportConfig.KafkaConfig.BootstrapServer, transportConfig.KafkaConfig.CertPath, transportConfig.KafkaConfig.ConsumerConfig,
+// 			transportConfig.KafkaConfig.BootstrapServer, transportConfig.KafkaConfig.CertPath,
+// transportConfig.KafkaConfig.ConsumerConfig,
 // 			ctrl.Log.WithName("kafka-consumer"))
 // 		if err != nil {
 // 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)

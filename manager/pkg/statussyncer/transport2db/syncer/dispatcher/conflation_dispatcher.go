@@ -20,8 +20,8 @@ func NewConflationDispatcher(log logr.Logger, conflationReadyQueue *conflator.Co
 	}
 }
 
-// ConflationDispatcher abstracts the dispatching of db jobs to db workers. this is done by reading ready CU and getting from them
-// a ready to process bundles.
+// ConflationDispatcher abstracts the dispatching of db jobs to db workers. this is done by reading ready CU
+// and getting from them a ready to process bundles.
 type ConflationDispatcher struct {
 	log                  logr.Logger
 	conflationReadyQueue *conflator.ConflationReadyQueue
