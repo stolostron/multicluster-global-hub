@@ -50,6 +50,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
@@ -427,6 +428,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			if messageCompressionType == "" {
 				messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 			}
+			transportType := transport.Kafka
+			if config.IsCloudevents(mgh) {
+				transportType = transport.Cloudevents
+			}
 			managerObjects, err := hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {
@@ -437,6 +442,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					DBSecret               string
 					KafkaCACert            string
 					KafkaBootstrapServer   string
+					TransportType          string
 					MessageCompressionType string
 					Namespace              string
 					LeaseDuration          string
@@ -450,6 +456,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
 					KafkaBootstrapServer:   kafkaBootstrapServer,
 					MessageCompressionType: messageCompressionType,
+					TransportType:          string(transportType),
 					Namespace:              config.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",
