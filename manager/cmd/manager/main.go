@@ -147,36 +147,8 @@ func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 }
 
-// function to choose status transport type based on env var.
-// func getStatusTransport(transportConfig *transport.TransportConfig,
-// 	conflationMgr *conflator.ConflationManager, statistics *statistics.Statistics,
-// ) (consumer.Consumer, error) {
-// 	switch transportConfig.TransportType {
-// 	case kafkaTransportType:
-// 		kafkaConsumer, err := consumer.NewKafkaConsumer(
-// 			transportConfig.KafkaConfig.BootstrapServer, transportConfig.KafkaConfig.CertPath,
-// transportConfig.KafkaConfig.ConsumerConfig,
-// 			ctrl.Log.WithName("kafka-consumer"))
-// 		if err != nil {
-// 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
-// 		}
-// 		kafkaConsumer.SetConflationManager(conflationMgr)
-// 		kafkaConsumer.SetCommitter(consumer.NewCommitter(
-// 			transportConfig.CommitterInterval,
-// 			transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
-// 			conflationMgr.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
-// 		)
-// 		kafkaConsumer.SetStatistics(statistics)
-
-// 		return kafkaConsumer, nil
-// 	default:
-// 		return nil, fmt.Errorf("%w: transport-type - %s is not a valid option",
-// 			errFlagParameterIllegalValue, transportConfig.TransportType)
-// 	}
-// }
-
-func createManager(restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig, processPostgreSQL,
-	transportBridgePostgreSQL *postgresql.PostgreSQL,
+func createManager(log logr.Logger, restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
+	processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
@@ -218,25 +190,6 @@ func createManager(restConfig *rest.Config, managerConfig *managerconfig.Manager
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	// status transport layer initialization
-	// statusTransportObj, err := getStatusTransport(managerConfig.TransportConfig, conflationManager, statistics)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to init status transport bridge: %w", err)
-	// }
-
-	// spec transport layer initialization
-	// specTransportObj, err := getSpecTransport(managerConfig.transportConfig)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
-	// }
-	// if err := mgr.Add(specTransportObj); err != nil {
-	// 	return nil, fmt.Errorf("failed to add spec transport bridge: %w", err)
-	// }
-
-	// if err := mgr.Add(statusTransportObj); err != nil {
-	// 	return nil, fmt.Errorf("failed to add status transport bridge: %w", err)
-	// }
-
 	if err := nonk8sapi.AddNonK8sApiServer(mgr, processPostgreSQL,
 		managerConfig.NonK8sAPIServerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
@@ -255,8 +208,16 @@ func createManager(restConfig *rest.Config, managerConfig *managerconfig.Manager
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 
-	if _, err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
-		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
+	if managerConfig.TransportConfig.TransportType == string(transport.Kafka) {
+		if err := statussyncer.AddKafka2DBSyncers(mgr, managerConfig); err != nil {
+			return nil, fmt.Errorf("failed to add kafka-to-db syncers: %w", err)
+		}
+		log.Info("transport to database with kafka consumer")
+	} else {
+		if _, err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
+			return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
+		}
+		log.Info("transport to database with cloudevents consumer")
 	}
 
 	return mgr, nil
@@ -290,7 +251,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	}
 	defer transportBridgePostgreSQL.Stop()
 
-	mgr, err := createManager(restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
+	mgr, err := createManager(log, restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1

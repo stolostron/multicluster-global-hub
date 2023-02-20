@@ -9,7 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
@@ -42,7 +41,7 @@ type LocalSpecDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportDispatcher *dispatcher.TransportDispatcher) {
+func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	predicate := func() bool {
 		return syncer.config.Data["enableLocalPolicies"] == "true"
 	}

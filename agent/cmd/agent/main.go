@@ -250,15 +250,6 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	}
 	log.Info("add spec controllers to manager")
 
-	// producer, err := getProducer(agentConfig)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to initialize transport producer: %w", err)
-	// }
-
-	// if err := mgr.Add(producer); err != nil {
-	// 	return nil, fmt.Errorf("failed to add transport producer: %w", err)
-	// }
-
 	if err := statusController.AddControllers(mgr, agentConfig, incarnation); err != nil {
 		return nil, fmt.Errorf("failed to add status syncer: %w", err)
 	}

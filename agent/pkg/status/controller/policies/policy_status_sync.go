@@ -15,6 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
+	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -26,13 +27,11 @@ const (
 
 // AddPoliciesStatusController adds policies status controller to the manager.
 func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	statusDeltaCountSwitchFactor int, incarnation uint64, hubOfHubsConfig *corev1.ConfigMap,
-	syncIntervalsData *syncintervals.SyncIntervals,
-) error {
-	bundleCollection, err := createBundleCollection(producer, leafHubName,
-		statusDeltaCountSwitchFactor, incarnation, hubOfHubsConfig)
+	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
+) (*generic.HybridSyncManager, error) {
+	bundleCollection, hybridSyncManager, err := createBundleCollection(producer, leafHubName, incarnation, hubOfHubsConfig)
 	if err != nil {
-		return fmt.Errorf("failed to add policies controller to the manager - %w", err)
+		return nil, fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
 
 	rootPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
@@ -49,14 +48,14 @@ func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer, 
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, producer, bundleCollection,
 		createObjFunction, predicate.And(rootPolicyPredicate, ownerRefAnnotationPredicate),
 		syncIntervalsData.GetPolicies); err != nil {
-		return fmt.Errorf("failed to add policies controller to the manager - %w", err)
+		return hybridSyncManager, fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
-	return nil
+	return hybridSyncManager, nil
 }
 
-func createBundleCollection(pro transport.Producer, leafHubName string, statusDeltaCountSwitchFactor int,
+func createBundleCollection(pro transport.Producer, leafHubName string,
 	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap,
-) ([]*generic.BundleCollectionEntry, error) {
+) ([]*generic.BundleCollectionEntry, *generic.HybridSyncManager, error) {
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.ClustersPerPolicyMsgKey)
 	clustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
@@ -72,30 +71,29 @@ func createBundleCollection(pro transport.Producer, leafHubName string, statusDe
 	}
 
 	// apply a hybrid sync manager on the (full aggregation) compliance bundles
-	completeComplianceStatusBundleCollectionEntry, deltaComplianceStatusBundleCollectionEntry,
-		err := getHybridComplianceBundleCollectionEntries(pro, leafHubName, incarnation, fullStatusPredicate,
-		clustersPerPolicyBundle, statusDeltaCountSwitchFactor)
+	// completeComplianceStatusBundleCollectionEntry, deltaComplianceStatusBundleCollectionEntry,
+	hybridSyncManager, err := getHybridSyncManager(pro, leafHubName, incarnation, fullStatusPredicate,
+		clustersPerPolicyBundle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize hybrid sync manager - %w", err)
+		return nil, nil, fmt.Errorf("failed to initialize hybrid sync manager - %w", err)
 	}
 
 	// no need to send in the same cycle both clusters per policy and compliance. if CpP was sent, don't send compliance
 	return []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
-		completeComplianceStatusBundleCollectionEntry,
-		deltaComplianceStatusBundleCollectionEntry,
+		hybridSyncManager.GetBundleCollectionEntry(genericbundle.CompleteStateMode),
+		hybridSyncManager.GetBundleCollectionEntry(genericbundle.DeltaStateMode),
 		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
 			minimalStatusPredicate),
-	}, nil
+	}, hybridSyncManager, nil
 }
 
 // getHybridComplianceBundleCollectionEntries creates a complete/delta compliance bundle collection entries and has
 // them managed by a genericHybridSyncManager.
 // The collection entries are returned (or nils with an error if any occurred).
-func getHybridComplianceBundleCollectionEntries(producer transport.Producer, leafHubName string,
+func getHybridSyncManager(producer transport.Producer, leafHubName string,
 	incarnation uint64, fullStatusPredicate func() bool, clustersPerPolicyBundle bundle.Bundle,
-	deltaCountSwitchFactor int,
-) (*generic.BundleCollectionEntry, *generic.BundleCollectionEntry, error) {
+) (*generic.HybridSyncManager, error) {
 	// complete compliance status bundle
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.PolicyCompleteComplianceMsgKey)
@@ -112,15 +110,13 @@ func getHybridComplianceBundleCollectionEntries(producer transport.Producer, lea
 	deltaComplianceBundleCollectionEntry := generic.NewBundleCollectionEntry(deltaComplianceStatusTransportKey,
 		deltaComplianceStatusBundle, fullStatusPredicate)
 
-	if err := generic.NewHybridSyncManager(ctrl.Log.WithName(
-		"compliance-status-hybrid-sync-manager"),
-		producer, completeComplianceBundleCollectionEntry, deltaComplianceBundleCollectionEntry,
-		deltaCountSwitchFactor); err != nil {
-		return nil, nil, fmt.Errorf("%w: %v", err,
-			errors.New("failed to create hybrid sync manager"))
+	hybridSyncManager, err := generic.NewHybridSyncManager(
+		ctrl.Log.WithName("compliance-status-hybrid-sync-manager"), completeComplianceBundleCollectionEntry,
+		deltaComplianceBundleCollectionEntry)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", err, errors.New("failed to create hybrid sync manager"))
 	}
-
-	return completeComplianceBundleCollectionEntry, deltaComplianceBundleCollectionEntry, nil
+	return hybridSyncManager, nil
 }
 
 func extractPolicyID(obj bundle.Object) (string, bool) {

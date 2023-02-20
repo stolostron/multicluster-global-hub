@@ -24,8 +24,9 @@ type Consumer interface {
 type TransportType string
 
 const (
-	Kafka TransportType = "kafka"
-	Chan  TransportType = "chan"
+	Kafka       TransportType = "kafka"
+	Chan        TransportType = "chan"
+	Cloudevents TransportType = "cloudevents-kafka"
 )
 
 // Message abstracts a message object to be used by different transport components.

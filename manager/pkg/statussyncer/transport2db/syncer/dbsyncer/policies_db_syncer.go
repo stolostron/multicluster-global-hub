@@ -9,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
@@ -53,7 +52,7 @@ type PoliciesDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportDispatcher *dispatcher.TransportDispatcher) {
+func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	fullStatusPredicate := func() bool { return syncer.config.Data["aggregationLevel"] == "full" }
 	minimalStatusPredicate := func() bool {
 		return syncer.config.Data["aggregationLevel"] == "minimal"

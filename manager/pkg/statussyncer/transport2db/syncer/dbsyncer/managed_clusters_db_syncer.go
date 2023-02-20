@@ -8,7 +8,6 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
@@ -37,7 +36,7 @@ type ManagedClustersDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(dispatcher *dispatcher.TransportDispatcher) {
+func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(dispatcher BundleRegisterable) {
 	dispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ManagedClustersMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,

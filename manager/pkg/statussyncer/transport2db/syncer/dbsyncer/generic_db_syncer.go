@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
@@ -31,7 +30,7 @@ type genericDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *genericDBSyncer) RegisterCreateBundleFunctions(transportDispatcher *dispatcher.TransportDispatcher) {
+func (syncer *genericDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            syncer.transportMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,

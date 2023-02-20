@@ -149,3 +149,91 @@ func requireInitialDependencyChecks(transportType string) bool {
 		return true
 	}
 }
+
+func AddKafka2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) error {
+	// register statistics within the runtime manager
+	stats := getStatistic(mgr, managerConfig)
+	if err := mgr.Add(stats); err != nil {
+		return fmt.Errorf("failed to add statistics to manager - %w", err)
+	}
+
+	// conflationReadyQueue is shared between conflation manager and dispatcher
+	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
+	// manage all Conflation Units
+	conflationManager := conflator.NewConflationManager(conflationReadyQueue,
+		requireInitialDependencyChecks(managerConfig.TransportConfig.TransportType), stats)
+
+	// create database worker pool
+	dbWorkerPool, err := workerpool.NewDBWorkerPool(managerConfig.DatabaseConfig.TransportBridgeDatabaseURL, stats)
+	if err != nil {
+		return fmt.Errorf("failed to initialize DBWorkerPool: %w", err)
+	}
+	if err := mgr.Add(dbWorkerPool); err != nil {
+		return fmt.Errorf("failed to add DB worker pool: %w", err)
+	}
+
+	// add conflation dispatcher
+	if err := addDispatcher(mgr, dbWorkerPool, conflationReadyQueue); err != nil {
+		return fmt.Errorf("failed to add conflation dispatcher to manager - %w", err)
+	}
+
+	// create kafka consumer
+	kafkaConsumer, err := consumer.NewKafkaConsumer(
+		managerConfig.TransportConfig.KafkaConfig.BootstrapServer,
+		managerConfig.TransportConfig.KafkaConfig.CertPath,
+		managerConfig.TransportConfig.KafkaConfig.ConsumerConfig,
+		ctrl.Log.WithName("kafka-consumer"))
+	if err != nil {
+		return fmt.Errorf("failed to create kafka-consumer: %w", err)
+	}
+	kafkaConsumer.SetConflationManager(conflationManager)
+	kafkaConsumer.SetCommitter(consumer.NewCommitter(
+		managerConfig.TransportConfig.CommitterInterval,
+		managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+		conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
+	)
+	kafkaConsumer.SetStatistics(stats)
+	if err := mgr.Add(kafkaConsumer); err != nil {
+		return fmt.Errorf("failed to add status transport bridge: %w", err)
+	}
+
+	// register config controller within the runtime manager
+	config, err := addConfigController(mgr)
+	if err != nil {
+		return fmt.Errorf("failed to add config controller to manager - %w", err)
+	}
+
+	// register db syncers create bundle functions within transport and handler functions within dispatcher
+	dbSyncers := []dbsyncer.DBSyncer{
+		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-clusters-db-syncer")),
+		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies-db-syncer"), config),
+		dbsyncer.NewPlacementRulesDBSyncer(ctrl.Log.WithName("placement-rules-db-syncer")),
+		dbsyncer.NewPlacementsDBSyncer(ctrl.Log.WithName("placements-db-syncer")),
+		dbsyncer.NewPlacementDecisionsDBSyncer(ctrl.Log.WithName("placement-decisions-db-syncer")),
+		dbsyncer.NewSubscriptionStatusesDBSyncer(ctrl.Log.WithName("subscription-statuses-db-syncer")),
+		dbsyncer.NewSubscriptionReportsDBSyncer(ctrl.Log.WithName("subscription-reports-db-syncer")),
+		dbsyncer.NewLocalSpecDBSyncer(ctrl.Log.WithName("local-spec-db-syncer"), config),
+		dbsyncer.NewControlInfoDBSyncer(ctrl.Log.WithName("control-info-db-syncer")),
+	}
+
+	for _, dbsyncerObj := range dbSyncers {
+		dbsyncerObj.RegisterCreateBundleFunctions(kafkaConsumer)
+		dbsyncerObj.RegisterBundleHandlerFunctions(conflationManager)
+	}
+
+	return nil
+}
+
+func addDispatcher(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
+	conflationReadyQueue *conflator.ConflationReadyQueue,
+) error {
+	if err := mgr.Add(dispatcher.NewConflationDispatcher(
+		ctrl.Log.WithName("dispatcher"),
+		conflationReadyQueue,
+		dbWorkerPool,
+	)); err != nil {
+		return fmt.Errorf("failed to add dispatcher: %w", err)
+	}
+
+	return nil
+}

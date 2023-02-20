@@ -35,6 +35,9 @@ const (
 	// AnnotationImageOverridesCM sits in MulticlusterGlobalHub annotations
 	// to identify a custom configmap containing image overrides
 	AnnotationImageOverridesCM = "mgh-image-overrides-cm"
+	// AnnotationCloudevents sits in MulticlusterGlobalHub annotations
+	// to identify the MulticlusterGlobalHub transport with cloudevents or not
+	AnnotationCloudevents = "mgh-cloudevents"
 	// MGHOperandImagePrefix ...
 	MGHOperandImagePrefix = "OPERAND_IMAGE_"
 )
