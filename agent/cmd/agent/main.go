@@ -24,7 +24,6 @@ import (
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
-	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -76,7 +75,7 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		return 1
 	}
 
-	mgr, err := createManager(ctx, restConfig, agentConfig, log)
+	mgr, err := createManager(restConfig, agentConfig, log)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
@@ -175,30 +174,7 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	return nil
 }
 
-func getProducer(agentConfig *config.AgentConfig) (producer.Producer, error) {
-	messageCompressor, err := compressor.NewCompressor(
-		compressor.CompressionType(agentConfig.TransportConfig.MessageCompressionType))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create transport producer message-compressor: %w", err)
-	}
-
-	switch agentConfig.TransportConfig.TransportType {
-	case kafkaTransportType:
-		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
-			agentConfig.TransportConfig.KafkaConfig.BootstrapServer,
-			agentConfig.TransportConfig.KafkaConfig.CertPath,
-			agentConfig.TransportConfig.KafkaConfig.ProducerConfig, ctrl.Log.WithName("kafka-producer"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
-		}
-		return kafkaProducer, nil
-	default:
-		return nil, fmt.Errorf("flag transport-type - %q is not a valid option",
-			agentConfig.TransportConfig.TransportType)
-	}
-}
-
-func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig,
+func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig,
 	log logr.Logger,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second

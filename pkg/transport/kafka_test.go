@@ -9,9 +9,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -221,28 +226,28 @@ var _ = Describe("Transport", Ordered, func() {
 			ctrl.Log.WithName("kafka-consumer"))
 		Expect(err).NotTo(HaveOccurred())
 
-		// stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{},
-		// 	[]string{"ManagedClustersStatusBundle"})
-		// conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
-		// conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"),
-		// 	conflationReadyQueue, false, stats) // manage all Conflation Units
-		// conflationManager.Register(conflator.NewConflationRegistration(
-		// 	conflator.ManagedClustersPriority,
-		// 	bundle.CompleteStateMode,
-		// 	"ManagedClustersStatusBundle",
-		// 	func(ctx context.Context, bundle status.Bundle,
-		// 		dbClient database.StatusTransportBridgeDB,
-		// 	) error {
-		// 		return nil
-		// 	},
-		// ))
-		// kafkaConsumer.SetCommitter(consumer.NewCommitter(
-		// 	100*time.Second, kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
-		// 	conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
-		// )
-		// kafkaConsumer.SetStatistics(stats)
-		// kafkaConsumer.SetConflationManager(conflationManager)
-		// go kafkaConsumer.Start(ctx)
+		stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{},
+			[]string{"ManagedClustersStatusBundle"})
+		conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
+		conflationManager := conflator.NewConflationManager(
+			conflationReadyQueue, false, stats) // manage all Conflation Units
+		conflationManager.Register(conflator.NewConflationRegistration(
+			conflator.ManagedClustersPriority,
+			bundle.CompleteStateMode,
+			"ManagedClustersStatusBundle",
+			func(ctx context.Context, bundle status.Bundle,
+				dbClient database.StatusTransportBridgeDB,
+			) error {
+				return nil
+			},
+		))
+		kafkaConsumer.SetCommitter(consumer.NewCommitter(
+			100*time.Second, kafkaConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+			conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
+		)
+		kafkaConsumer.SetStatistics(stats)
+		kafkaConsumer.SetConflationManager(conflationManager)
+		go kafkaConsumer.Start(ctx)
 
 		kafkaConsumer.BundleRegister(&registration.BundleRegistration{
 			MsgID:            constants.ManagedClustersMsgKey,
@@ -343,9 +348,9 @@ var _ = Describe("Transport", Ordered, func() {
 			  }`),
 		})
 
-		// Eventually(func() bool {
-		// 	b, _, _, err := conflationReadyQueue.BlockingDequeue().GetNext()
-		// 	return err == nil && b != nil
-		// }, 10*time.Second, 500*time.Millisecond).Should(BeTrue())
+		Eventually(func() bool {
+			b, _, _, err := conflationReadyQueue.BlockingDequeue().GetNext()
+			return err == nil && b != nil
+		}, 10*time.Second, 500*time.Millisecond).Should(BeTrue())
 	})
 })
