@@ -47,6 +47,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -184,8 +185,9 @@ var mgh = &operatorv1alpha2.MulticlusterGlobalHub{
 		DataLayer: &operatorv1alpha2.DataLayerConfig{
 			Type: operatorv1alpha2.LargeScale,
 			LargeScale: &operatorv1alpha2.LargeScaleConfig{
-				Kafka: corev1.LocalObjectReference{
-					Name: TransportSecretName,
+				Kafka: &v1alpha2.KafkaConfig{
+					Name:        TransportSecretName,
+					Cloudevents: true,
 				},
 				Postgres: corev1.LocalObjectReference{
 					Name: StorageSecretName,

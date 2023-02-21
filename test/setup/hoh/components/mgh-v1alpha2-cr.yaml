@@ -2,7 +2,6 @@ apiVersion: operator.open-cluster-management.io/v1alpha2
 kind: MulticlusterGlobalHub
 metadata:
   annotations:
-    mgh-cloudevents: "false"
     mgh-image-overrides-cm: mgh-images-config
   name: multiclusterglobalhub
 spec:
@@ -11,5 +10,6 @@ spec:
     largeScale:
       kafka:
         name: ${TRANSPORT_SECRET_NAME}
+        cloudevents: false # or default true
       postgres:
         name: ${STORAGE_SECRET_NAME}

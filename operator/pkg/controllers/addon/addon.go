@@ -171,7 +171,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 
 	transportType := transport.Kafka
-	if config.IsCloudevents(mgh) {
+	if config.EnableCloudevents(mgh) {
 		transportType = transport.Cloudevents
 	}
 

@@ -106,13 +106,9 @@ func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) str
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)
 }
 
-// IsCloudevents returns true if the MulticlusterGlobalHub instance is annotated as cloudevents, and false otherwise
-func IsCloudevents(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
-	isCloudeventsVal := getAnnotation(mgh, operatorconstants.AnnotationCloudevents)
-	if isCloudeventsVal == "" || strings.EqualFold(isCloudeventsVal, "true") {
-		return true
-	}
-	return false
+// EnableCloudevents returns true if the MulticlusterGlobalHub instance is annotated as cloudevents, and false otherwise
+func EnableCloudevents(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
+	return mgh.Spec.DataLayer.LargeScale.Kafka.Cloudevents
 }
 
 func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub, cm *corev1.ConfigMap) error {

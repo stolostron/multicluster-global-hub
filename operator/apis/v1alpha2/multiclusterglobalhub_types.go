@@ -117,9 +117,17 @@ type NativeConfig struct{}
 // LargeScaleConfig is the config of large scale data layer
 type LargeScaleConfig struct {
 	// +optional
-	Kafka corev1.LocalObjectReference `json:"kafka,omitempty"`
+	Kafka *KafkaConfig `json:"kafka,omitempty"`
 	// +optional
 	Postgres corev1.LocalObjectReference `json:"postgres,omitempty"`
+}
+
+type KafkaConfig struct {
+	// +optional
+	Name string `json:"name,omitempty"`
+	// This flag tells the controller to enable the cloudevents or not
+	// +kubebuilder:default:=true
+	Cloudevents bool `json:"cloudevents,omitempty"`
 }
 
 // MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub

@@ -174,8 +174,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					DataLayer: &operatorv1alpha2.DataLayerConfig{
 						Type: operatorv1alpha2.LargeScale,
 						LargeScale: &operatorv1alpha2.LargeScaleConfig{
-							Kafka: corev1.LocalObjectReference{
-								Name: TransportSecretName,
+							Kafka: &operatorv1alpha2.KafkaConfig{
+								Name:        TransportSecretName,
+								Cloudevents: true,
 							},
 							Postgres: corev1.LocalObjectReference{
 								Name: StorageSecretName,
@@ -252,8 +253,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				DataLayer: &operatorv1alpha2.DataLayerConfig{
 					Type: operatorv1alpha2.LargeScale,
 					LargeScale: &operatorv1alpha2.LargeScaleConfig{
-						Kafka: corev1.LocalObjectReference{
-							Name: TransportSecretName,
+						Kafka: &operatorv1alpha2.KafkaConfig{
+							Name:        TransportSecretName,
+							Cloudevents: true,
 						},
 						Postgres: corev1.LocalObjectReference{
 							Name: StorageSecretName,
@@ -429,7 +431,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 			}
 			transportType := transport.Kafka
-			if config.IsCloudevents(mgh) {
+			if config.EnableCloudevents(mgh) {
 				transportType = transport.Cloudevents
 			}
 			managerObjects, err := hohRenderer.Render("manifests/manager", "", func(

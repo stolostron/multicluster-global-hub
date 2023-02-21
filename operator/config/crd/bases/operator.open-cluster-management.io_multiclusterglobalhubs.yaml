@@ -56,13 +56,13 @@ spec:
                       use postgres as data layer This is for a large scale environment.
                     properties:
                       kafka:
-                        description: LocalObjectReference contains enough information
-                          to let you locate the referenced object inside the same
-                          namespace.
                         properties:
+                          cloudevents:
+                            default: true
+                            description: This flag tells the controller to enable
+                              the cloudevents or not
+                            type: boolean
                           name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
                             type: string
                         type: object
                       postgres:

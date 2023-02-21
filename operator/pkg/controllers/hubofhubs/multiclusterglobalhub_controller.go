@@ -320,7 +320,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	// get transport type
 	transportType := transport.Kafka
-	if config.IsCloudevents(mgh) {
+	if config.EnableCloudevents(mgh) {
 		transportType = transport.Cloudevents
 	}
 
