@@ -23,7 +23,7 @@ import (
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -40,7 +40,7 @@ var (
 	transportPostgreSQL *postgresql.PostgreSQL
 	kubeClient          client.Client
 	producer            transport.Producer
-	transportDispatcher *dispatcher.TransportDispatcher
+	transportDispatcher dbsyncer.BundleRegisterable
 )
 
 func TestDbsyncer(t *testing.T) {

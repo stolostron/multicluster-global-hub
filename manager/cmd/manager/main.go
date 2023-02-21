@@ -147,7 +147,7 @@ func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 }
 
-func createManager(log logr.Logger, restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
+func createManager(restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
 	processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
@@ -208,16 +208,8 @@ func createManager(log logr.Logger, restConfig *rest.Config, managerConfig *mana
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 
-	if managerConfig.TransportConfig.TransportType == string(transport.Kafka) {
-		if err := statussyncer.AddKafka2DBSyncers(mgr, managerConfig); err != nil {
-			return nil, fmt.Errorf("failed to add kafka-to-db syncers: %w", err)
-		}
-		log.Info("transport to database with kafka consumer")
-	} else {
-		if _, err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
-			return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
-		}
-		log.Info("transport to database with cloudevents consumer")
+	if _, err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
+		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
 	return mgr, nil
@@ -251,7 +243,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	}
 	defer transportBridgePostgreSQL.Stop()
 
-	mgr, err := createManager(log, restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
+	mgr, err := createManager(restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
