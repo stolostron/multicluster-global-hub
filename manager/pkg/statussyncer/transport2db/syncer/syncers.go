@@ -177,17 +177,3 @@ func addConfigController(mgr ctrl.Manager) (*corev1.ConfigMap, error) {
 
 	return config, nil
 }
-
-func addConflationDispatcher(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
-	conflationReadyQueue *conflator.ConflationReadyQueue,
-) error {
-	if err := mgr.Add(dispatcher.NewConflationDispatcher(
-		ctrl.Log.WithName("dispatcher"),
-		conflationReadyQueue,
-		dbWorkerPool,
-	)); err != nil {
-		return fmt.Errorf("failed to add dispatcher: %w", err)
-	}
-
-	return nil
-}
