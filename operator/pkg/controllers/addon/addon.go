@@ -38,6 +38,7 @@ type ManifestsConfig struct {
 	LeafHubID              string
 	KafkaBootstrapServer   string
 	TransportType          string
+	TransportFormat        string
 	KafkaCACert            string
 	MessageCompressionType string
 	InstallACMHub          bool
@@ -170,18 +171,14 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 	}
 
-	transportType := transport.Kafka
-	if config.EnableCloudevents(mgh) {
-		transportType = transport.Cloudevents
-	}
-
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          config.GetImage("multicluster_global_hub_agent"),
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCACert:            kafkaCACert,
 		MessageCompressionType: messageCompressionType,
-		TransportType:          string(transportType),
+		TransportType:          string(transport.Kafka),
+		TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 		LeaseDuration:          strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
 		RenewDeadline:          strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
 		RetryPeriod:            strconv.Itoa(a.leaderElectionConfig.RetryPeriod),

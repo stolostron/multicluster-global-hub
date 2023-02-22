@@ -24,9 +24,8 @@ type Consumer interface {
 type TransportType string
 
 const (
-	Kafka       TransportType = "kafka"
-	Chan        TransportType = "chan"
-	Cloudevents TransportType = "cloudevents-kafka"
+	Kafka TransportType = "kafka"
+	Chan  TransportType = "chan"
 )
 
 // Message abstracts a message object to be used by different transport components.
@@ -41,6 +40,7 @@ type Message struct {
 
 type TransportConfig struct {
 	TransportType          string
+	TransportFormat        string
 	MessageCompressionType string
 	CommitterInterval      time.Duration
 	KafkaConfig            *protocol.KafkaConfig

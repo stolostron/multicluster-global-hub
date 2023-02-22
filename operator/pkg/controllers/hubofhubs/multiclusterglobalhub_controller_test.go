@@ -175,8 +175,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 						Type: operatorv1alpha2.LargeScale,
 						LargeScale: &operatorv1alpha2.LargeScaleConfig{
 							Kafka: &operatorv1alpha2.KafkaConfig{
-								Name:   TransportSecretName,
-								Format: operatorv1alpha2.CloudEvents,
+								Name:            TransportSecretName,
+								TransportFormat: operatorv1alpha2.CloudEvents,
 							},
 							Postgres: corev1.LocalObjectReference{
 								Name: StorageSecretName,
@@ -254,8 +254,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Type: operatorv1alpha2.LargeScale,
 					LargeScale: &operatorv1alpha2.LargeScaleConfig{
 						Kafka: &operatorv1alpha2.KafkaConfig{
-							Name:   TransportSecretName,
-							Format: operatorv1alpha2.CloudEvents,
+							Name:            TransportSecretName,
+							TransportFormat: operatorv1alpha2.CloudEvents,
 						},
 						Postgres: corev1.LocalObjectReference{
 							Name: StorageSecretName,
@@ -430,10 +430,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			if messageCompressionType == "" {
 				messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 			}
-			transportType := transport.Kafka
-			if config.EnableCloudevents(mgh) {
-				transportType = transport.Cloudevents
-			}
+
 			managerObjects, err := hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {
@@ -445,6 +442,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaCACert            string
 					KafkaBootstrapServer   string
 					TransportType          string
+					TransportFormat        string
 					MessageCompressionType string
 					Namespace              string
 					LeaseDuration          string
@@ -458,7 +456,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
 					KafkaBootstrapServer:   kafkaBootstrapServer,
 					MessageCompressionType: messageCompressionType,
-					TransportType:          string(transportType),
+					TransportType:          string(transport.Kafka),
+					TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 					Namespace:              config.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",

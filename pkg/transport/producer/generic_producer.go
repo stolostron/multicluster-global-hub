@@ -30,7 +30,7 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.P
 	var sender interface{}
 	messageSize := 960 * 1000
 	switch transportConfig.TransportType {
-	case string(transport.Cloudevents), string(transport.Kafka):
+	case string(transport.Kafka):
 		var err error
 		sender, err = protocol.NewKafkaSender(transportConfig.KafkaConfig)
 		if err != nil {

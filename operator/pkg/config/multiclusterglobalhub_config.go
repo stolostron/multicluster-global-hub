@@ -106,11 +106,6 @@ func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) str
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)
 }
 
-// EnableCloudevents returns true if the MulticlusterGlobalHub instance is annotated as cloudevents, and false otherwise
-func EnableCloudevents(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
-	return mgh.Spec.DataLayer.LargeScale.Kafka.Format != operatorv1alpha2.KafkaMessage
-}
-
 func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub, cm *corev1.ConfigMap) error {
 	// first check for environment variables containing the 'OPERAND_IMAGE_' prefix
 	for _, env := range os.Environ() {

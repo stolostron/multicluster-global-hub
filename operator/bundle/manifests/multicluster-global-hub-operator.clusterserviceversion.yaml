@@ -14,8 +14,8 @@ metadata:
             "dataLayer": {
               "largeScale": {
                 "kafka": {
-                  "format": "cloudEvents",
-                  "name": "transport-secret"
+                  "name": "transport-secret",
+                  "transportFormat": "cloudEvents"
                 },
                 "postgres": {
                   "name": "storage-secret"

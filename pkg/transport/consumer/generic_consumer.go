@@ -28,7 +28,7 @@ func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericCon
 	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", transportConfig.TransportType))
 	var receiver interface{}
 	switch transportConfig.TransportType {
-	case string(transport.Cloudevents), string(transport.Kafka):
+	case string(transport.Kafka):
 		var err error
 		log.Info("transport consumer with cloudevents-kafka receiver")
 		receiver, err = protocol.NewKafkaReceiver(transportConfig.KafkaConfig)

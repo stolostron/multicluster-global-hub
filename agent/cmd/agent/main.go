@@ -131,6 +131,8 @@ func parseFlags() *config.AgentConfig {
 		"The agent running namespace, also used as leader election namespace")
 	pflag.StringVar(&agentConfig.TransportConfig.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'")
+	pflag.StringVar(&agentConfig.TransportConfig.TransportFormat, "transport-format", "cloudEvents",
+		"The transport format, default is 'cloudEvents'.")
 	pflag.IntVar(&agentConfig.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
 		"The goroutine number to propagate the bundles on managed cluster.")
 	pflag.BoolVar(&agentConfig.SpecEnforceHohRbac, "enforce-hoh-rbac", false,

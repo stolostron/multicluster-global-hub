@@ -185,8 +185,8 @@ var mgh = &operatorv1alpha2.MulticlusterGlobalHub{
 			Type: operatorv1alpha2.LargeScale,
 			LargeScale: &operatorv1alpha2.LargeScaleConfig{
 				Kafka: &operatorv1alpha2.KafkaConfig{
-					Name:   TransportSecretName,
-					Format: operatorv1alpha2.CloudEvents,
+					Name:            TransportSecretName,
+					TransportFormat: operatorv1alpha2.CloudEvents,
 				},
 				Postgres: corev1.LocalObjectReference{
 					Name: StorageSecretName,

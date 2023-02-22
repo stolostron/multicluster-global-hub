@@ -54,13 +54,13 @@ const (
 	LargeScale DataLayerType = "largeScale"
 )
 
-// FormatType specifies the type of data format based on kafka implementation.
-// +kubebuilder:validation:Enum:="kafkaMessage";"cloudEvents"
-type FormatType string
+// TransportFormatType specifies the type of data format based on kafka implementation.
+// +kubebuilder:validation:Enum:="message";"cloudEvents"
+type TransportFormatType string
 
 const (
-	KafkaMessage FormatType = "kafkaMessage"
-	CloudEvents  FormatType = "cloudEvents"
+	KafkaMessage TransportFormatType = "message"
+	CloudEvents  TransportFormatType = "cloudEvents"
 )
 
 // +kubebuilder:object:root=true
@@ -135,9 +135,9 @@ type LargeScaleConfig struct {
 type KafkaConfig struct {
 	// +optional
 	Name string `json:"name,omitempty"`
-	// This flag tells the controller to using the CloudEvents or KafkaMessage format
+	// This flag tells the controller to using the cloudEvents or message format
 	// +kubebuilder:default:="cloudEvents"
-	Format FormatType `json:"format,omitempty"`
+	TransportFormat TransportFormatType `json:"transportFormat,omitempty"`
 }
 
 // MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub

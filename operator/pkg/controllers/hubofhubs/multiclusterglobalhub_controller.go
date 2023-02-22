@@ -318,12 +318,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 	}
 
-	// get transport type
-	transportType := transport.Kafka
-	if config.EnableCloudevents(mgh) {
-		transportType = transport.Cloudevents
-	}
-
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                  string
@@ -334,6 +328,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			KafkaBootstrapServer   string
 			MessageCompressionType string
 			TransportType          string
+			TransportFormat        string
 			Namespace              string
 			LeaseDuration          string
 			RenewDeadline          string
@@ -346,7 +341,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			KafkaCACert:            kafkaCACert,
 			KafkaBootstrapServer:   kafkaBootstrapServer,
 			MessageCompressionType: messageCompressionType,
-			TransportType:          string(transportType),
+			TransportType:          string(transport.Kafka),
+			TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 			Namespace:              config.GetDefaultNamespace(),
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),

@@ -58,15 +58,15 @@ spec:
                       kafka:
                         description: KafkaConfig is the config of kafka
                         properties:
-                          format:
+                          name:
+                            type: string
+                          transportFormat:
                             default: cloudEvents
                             description: This flag tells the controller to using the
-                              CloudEvents or KafkaMessage format
+                              cloudEvents or message format
                             enum:
-                            - kafkaMessage
+                            - message
                             - cloudEvents
-                            type: string
-                          name:
                             type: string
                         type: object
                       postgres:

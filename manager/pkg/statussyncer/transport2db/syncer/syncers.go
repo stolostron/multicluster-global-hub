@@ -12,6 +12,7 @@ import (
 	configctl "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -47,6 +48,11 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 		return nil, fmt.Errorf("failed to add DB worker pool: %w", err)
 	}
 
+	transportDispatcher, err := getTransportDispatcher(mgr, conflationManager, managerConfig, stats)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transport dispatcher: %w", err)
+	}
+
 	// add ConflationDispatcher to the runtime manager
 	if err := mgr.Add(dispatcher.NewConflationDispatcher(ctrl.Log.WithName("conflation-dispatcher"),
 		conflationReadyQueue, dbWorkerPool)); err != nil {
@@ -57,46 +63,6 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 	config, err := addConfigController(mgr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add config controller to manager - %w", err)
-	}
-
-	var bundleRegisterable dbsyncer.BundleRegisterable
-	if managerConfig.TransportConfig.TransportType == string(transport.Kafka) {
-		// create kafka consumer
-		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			managerConfig.TransportConfig.KafkaConfig.BootstrapServer,
-			managerConfig.TransportConfig.KafkaConfig.CertPath,
-			managerConfig.TransportConfig.KafkaConfig.ConsumerConfig,
-			ctrl.Log.WithName("kafka-consumer"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
-		}
-		kafkaConsumer.SetConflationManager(conflationManager)
-		kafkaConsumer.SetCommitter(consumer.NewCommitter(
-			managerConfig.TransportConfig.CommitterInterval,
-			managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
-			conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
-		)
-		kafkaConsumer.SetStatistics(stats)
-		if err := mgr.Add(kafkaConsumer); err != nil {
-			return nil, fmt.Errorf("failed to add status transport bridge: %w", err)
-		}
-		bundleRegisterable = kafkaConsumer
-	} else {
-		// create consumer
-		consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
-		}
-		if err := mgr.Add(consumer); err != nil {
-			return nil, fmt.Errorf("failed to add transport consumer to manager: %w", err)
-		}
-		// consume message from consumer and dispatcher it to conflation manager
-		transportDispatcher := dispatcher.NewTransportDispatcher(ctrl.Log.WithName("transport-dispatcher"), consumer,
-			conflationManager, stats)
-		if err := mgr.Add(transportDispatcher); err != nil {
-			return nil, fmt.Errorf("failed to add transport dispatcher to runtime manager: %w", err)
-		}
-		bundleRegisterable = transportDispatcher
 	}
 
 	// register db syncers create bundle functions within transport and handler functions within dispatcher
@@ -113,11 +79,54 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 	}
 
 	for _, dbsyncerObj := range dbSyncers {
-		dbsyncerObj.RegisterCreateBundleFunctions(bundleRegisterable)
+		dbsyncerObj.RegisterCreateBundleFunctions(transportDispatcher)
 		dbsyncerObj.RegisterBundleHandlerFunctions(conflationManager)
 	}
 
-	return bundleRegisterable, nil
+	return transportDispatcher, nil
+}
+
+// the transport dispatcher implement the BundleRegister() method, which can dispatch message to syncers
+// both kafkaConsumer and Cloudevents transport dispatcher will forward message to conflation manager
+func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
+	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
+) (dbsyncer.BundleRegisterable, error) {
+	if managerConfig.TransportConfig.TransportFormat == string(operatorv1alpha2.KafkaMessage) {
+		kafkaConsumer, err := consumer.NewKafkaConsumer(
+			managerConfig.TransportConfig.KafkaConfig.BootstrapServer,
+			managerConfig.TransportConfig.KafkaConfig.CertPath,
+			managerConfig.TransportConfig.KafkaConfig.ConsumerConfig,
+			ctrl.Log.WithName("message-consumer"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
+		}
+		kafkaConsumer.SetConflationManager(conflationManager)
+		kafkaConsumer.SetCommitter(consumer.NewCommitter(
+			managerConfig.TransportConfig.CommitterInterval,
+			managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
+			conflationManager.GetBundlesMetadata, ctrl.Log.WithName("message-consumer")),
+		)
+		kafkaConsumer.SetStatistics(stats)
+		if err := mgr.Add(kafkaConsumer); err != nil {
+			return nil, fmt.Errorf("failed to add status transport bridge: %w", err)
+		}
+		return kafkaConsumer, nil
+	} else {
+		consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
+		}
+		if err := mgr.Add(consumer); err != nil {
+			return nil, fmt.Errorf("failed to add transport consumer to manager: %w", err)
+		}
+		// consume message from consumer and dispatcher it to conflation manager
+		transportDispatcher := dispatcher.NewTransportDispatcher(ctrl.Log.WithName("transport-dispatcher"), consumer,
+			conflationManager, stats)
+		if err := mgr.Add(transportDispatcher); err != nil {
+			return nil, fmt.Errorf("failed to add transport dispatcher to runtime manager: %w", err)
+		}
+		return transportDispatcher, nil
+	}
 }
 
 // function to determine whether the transport component requires initial-dependencies between bundles to be checked
@@ -125,7 +134,7 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 // each type is met. Otherwise, there are no guarantees and the dependencies must be checked.
 func requireInitialDependencyChecks(transportType string) bool {
 	switch transportType {
-	case string(transport.Kafka), string(transport.Cloudevents):
+	case string(transport.Kafka):
 		return false
 		// once kafka consumer loads up, it starts reading from the earliest un-processed bundle,
 		// as in all bundles that precede the latter have been processed, which include its dependency

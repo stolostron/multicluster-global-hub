@@ -19,9 +19,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
+	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	transportprocuer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 // AddControllers adds all the controllers to the Manager.
@@ -36,42 +38,23 @@ func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnati
 		return fmt.Errorf("failed to add SyncIntervals controller: %w", err)
 	}
 
-	var p transport.Producer
-	var kafkaProducer *producer.KafkaProducer
-	if agentConfig.TransportConfig.TransportType == string(transport.Kafka) {
-		// support kafka
-		messageCompressor, err := compressor.NewCompressor(
-			compressor.CompressionType(agentConfig.TransportConfig.MessageCompressionType))
-		if err != nil {
-			return fmt.Errorf("failed to create kafka producer message-compressor: %w", err)
-		}
-		kafkaProducer, err = producer.NewKafkaProducer(messageCompressor,
-			agentConfig.TransportConfig.KafkaConfig.BootstrapServer,
-			agentConfig.TransportConfig.KafkaConfig.CertPath,
-			agentConfig.TransportConfig.KafkaConfig.ProducerConfig, ctrl.Log.WithName("kafka-producer"))
-		if err != nil {
-			return fmt.Errorf("failed to create kafka-producer: %w", err)
-		}
-		if err := mgr.Add(kafkaProducer); err != nil {
-			return fmt.Errorf("failed to initialize kafka producer: %w", err)
-		}
-		p = kafkaProducer
-	} else {
-		genericProducer, err := producer.NewGenericProducer(agentConfig.TransportConfig)
-		if err != nil {
-			return fmt.Errorf("failed to init status transport producer: %w", err)
-		}
-		p = genericProducer
+	producer, isAsync, err := getProducer(mgr, agentConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get producer: %w", err)
 	}
 
-	hybirdSyncManger, err := policies.AddPoliciesStatusController(mgr, p, agentConfig.LeafHubName,
+	hybirdSyncManger, err := policies.AddPoliciesStatusController(mgr, producer, agentConfig.LeafHubName,
 		incarnation, config, syncIntervals)
 	if err != nil {
 		return fmt.Errorf("failed to add PoliciesStatusController controller: %w", err)
 	}
 
 	// support delta bundle sync mode
-	if agentConfig.TransportConfig.TransportType == string(transport.Kafka) {
+	if isAsync {
+		kafkaProducer, ok := producer.(*transportprocuer.KafkaProducer)
+		if !ok {
+			return fmt.Errorf("failed to set the kafka message producer callback() which is to switch the sync mode")
+		}
 		hybirdSyncManger.SetHybridModeCallBack(agentConfig.StatusDeltaCountSwitchFactor, kafkaProducer)
 	}
 
@@ -89,11 +72,41 @@ func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnati
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, p, agentConfig.LeafHubName, incarnation, config,
+		if err := addControllerFunction(mgr, producer, agentConfig.LeafHubName, incarnation, config,
 			syncIntervals); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
 	}
 
 	return nil
+}
+
+func getProducer(mgr ctrl.Manager, agentConfig *config.AgentConfig) (transport.Producer, bool, error) {
+	if agentConfig.TransportConfig.TransportFormat == string(operatorv1alpha2.KafkaMessage) {
+		// support kafka
+		isAsync := true
+		messageCompressor, err := compressor.NewCompressor(
+			compressor.CompressionType(agentConfig.TransportConfig.MessageCompressionType))
+		if err != nil {
+			return nil, isAsync, fmt.Errorf("failed to create kafka message-compressor: %w", err)
+		}
+		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
+			agentConfig.TransportConfig.KafkaConfig.BootstrapServer,
+			agentConfig.TransportConfig.KafkaConfig.CertPath,
+			agentConfig.TransportConfig.KafkaConfig.ProducerConfig, ctrl.Log.WithName("kafka-message-producer"))
+		if err != nil {
+			return nil, isAsync, fmt.Errorf("failed to create kafka-message-producer: %w", err)
+		}
+		if err := mgr.Add(kafkaProducer); err != nil {
+			return nil, isAsync, fmt.Errorf("failed to initialize kafka message producer: %w", err)
+		}
+		return kafkaProducer, isAsync, nil
+	} else {
+		isAsync := false
+		genericProducer, err := producer.NewGenericProducer(agentConfig.TransportConfig)
+		if err != nil {
+			return nil, isAsync, fmt.Errorf("failed to init status transport producer: %w", err)
+		}
+		return genericProducer, isAsync, nil
+	}
 }
