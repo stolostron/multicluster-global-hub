@@ -12,7 +12,6 @@ import (
 	configctl "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -91,7 +90,7 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
 	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
 ) (dbsyncer.BundleRegisterable, error) {
-	if managerConfig.TransportConfig.TransportFormat == string(operatorv1alpha2.KafkaMessage) {
+	if managerConfig.TransportConfig.TransportFormat == string(transport.KafkaMessageFormat) {
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
 			managerConfig.TransportConfig.KafkaConfig.BootstrapServer,
 			managerConfig.TransportConfig.KafkaConfig.CertPath,

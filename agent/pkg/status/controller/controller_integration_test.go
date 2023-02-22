@@ -138,7 +138,8 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if testMangedCluster.GetName() != managedCluster.GetName() ||
 				testMangedCluster.GetNamespace() != managedCluster.GetNamespace() ||
 				!apiequality.Semantic.DeepDerivative(testMangedCluster.Spec, managedCluster.Spec) {
-				return fmt.Errorf("object not equal, want %v, got %v\n", testMangedCluster.Spec, managedCluster.Spec)
+				return fmt.Errorf("object not equal, want %v, got %v\n",
+					testMangedCluster.Spec, managedCluster.Spec)
 			}
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
@@ -194,16 +195,19 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 					fmt.Printf("unexpected received bundle type, want ClustersPerPolicyBundle")
 				}
 			}
-			statusBundle, err = getStatusBundle(message, constants.PolicyCompleteComplianceMsgKey)
+			statusBundle, err = getStatusBundle(message,
+				constants.PolicyCompleteComplianceMsgKey)
 			if err == nil {
 				fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 				ok := false
-				policyCompleteComplianceStatusBundle, ok = statusBundle.(*statusbundle.CompleteComplianceStatusBundle)
+				policyCompleteComplianceStatusBundle, ok =
+					statusBundle.(*statusbundle.CompleteComplianceStatusBundle)
 				if !ok {
 					fmt.Printf("unexpected received bundle type, want ClustersPerPolicyBundle")
 				}
 			}
-			return clustersPerPolicyBundle != nil && policyCompleteComplianceStatusBundle != nil
+			return clustersPerPolicyBundle != nil &&
+				policyCompleteComplianceStatusBundle != nil
 		}, 30*time.Second, 1*time.Second).Should(BeTrue())
 
 		By("Check the clustersPerPolicyBundle")
@@ -362,7 +366,8 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if testGlobalPlacementRule.GetName() != placementRule.GetName() ||
 				testGlobalPlacementRule.GetNamespace() != placementRule.GetNamespace() ||
 				!apiequality.Semantic.DeepDerivative(testGlobalPlacementRule.Spec, placementRule.Spec) {
-				return fmt.Errorf("object not equal, want %v, got %v\n", testGlobalPlacementRule.Spec, placementRule.Spec)
+				return fmt.Errorf("object not equal, want %v, got %v\n",
+					testGlobalPlacementRule.Spec, placementRule.Spec)
 			}
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
@@ -407,7 +412,8 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				testGlobalPlacement.GetNamespace() != placement.GetNamespace() {
 				// testGlobalPlacement.GetNamespace() != placement.GetNamespace() ||
 				// !apiequality.Semantic.DeepDerivative(testGlobalPlacement.Spec, placement.Spec) {
-				return fmt.Errorf("========== object not equal, want %v, got %v\n", testGlobalPlacement.Spec, placement.Spec)
+				return fmt.Errorf("========== object not equal, want %v, got %v\n",
+					testGlobalPlacement.Spec, placement.Spec)
 			}
 
 			return nil
@@ -446,7 +452,8 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if testPlacementDecision.GetName() != placementDecision.GetName() ||
 				testPlacementDecision.GetNamespace() != placementDecision.GetNamespace() ||
 				!apiequality.Semantic.DeepDerivative(testPlacementDecision.Status, placementDecision.Status) {
-				return fmt.Errorf("object not equal, want %v, got %v\n", testPlacementDecision.Status, placementDecision.Status)
+				return fmt.Errorf("object not equal, want %v, got %v\n",
+					testPlacementDecision.Status, placementDecision.Status)
 			}
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
@@ -493,7 +500,8 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
-			subscriptionReportsStatusBundle, ok := statusBundle.(*statusbundle.SubscriptionReportsBundle)
+			subscriptionReportsStatusBundle, ok :=
+				statusBundle.(*statusbundle.SubscriptionReportsBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type, want PlacementDecisionsBundle")
 			}
@@ -509,7 +517,8 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				!apiequality.Semantic.DeepDerivative(testSubscriptionReport.Summary, subscriptionReport.Summary) ||
 				!apiequality.Semantic.DeepDerivative(testSubscriptionReport.Results, subscriptionReport.Results) ||
 				!apiequality.Semantic.DeepDerivative(testSubscriptionReport.Resources, subscriptionReport.Resources) {
-				return fmt.Errorf("object not equal, want %v, got %v\n", testSubscriptionReport, subscriptionReport)
+				return fmt.Errorf("object not equal, want %v, got %v\n",
+					testSubscriptionReport, subscriptionReport)
 			}
 
 			return nil

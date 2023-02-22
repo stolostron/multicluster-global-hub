@@ -21,11 +21,16 @@ type Consumer interface {
 	MessageChan() chan *Message
 }
 
-type TransportType string
+type (
+	TransportType   string
+	TransportFormat string
+)
 
 const (
-	Kafka TransportType = "kafka"
-	Chan  TransportType = "chan"
+	Kafka              TransportType   = "kafka"
+	Chan               TransportType   = "chan"
+	KafkaMessageFormat TransportFormat = "message"
+	CloudEventsFormat  TransportFormat = "cloudEvents"
 )
 
 // Message abstracts a message object to be used by different transport components.

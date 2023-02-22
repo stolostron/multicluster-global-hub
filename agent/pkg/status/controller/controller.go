@@ -19,7 +19,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -82,7 +81,7 @@ func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnati
 }
 
 func getProducer(mgr ctrl.Manager, agentConfig *config.AgentConfig) (transport.Producer, bool, error) {
-	if agentConfig.TransportConfig.TransportFormat == string(operatorv1alpha2.KafkaMessage) {
+	if agentConfig.TransportConfig.TransportFormat == string(transport.KafkaMessageFormat) {
 		// support kafka
 		isAsync := true
 		messageCompressor, err := compressor.NewCompressor(
@@ -93,7 +92,8 @@ func getProducer(mgr ctrl.Manager, agentConfig *config.AgentConfig) (transport.P
 		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
 			agentConfig.TransportConfig.KafkaConfig.BootstrapServer,
 			agentConfig.TransportConfig.KafkaConfig.CertPath,
-			agentConfig.TransportConfig.KafkaConfig.ProducerConfig, ctrl.Log.WithName("kafka-message-producer"))
+			agentConfig.TransportConfig.KafkaConfig.ProducerConfig,
+			ctrl.Log.WithName("kafka-message-producer"))
 		if err != nil {
 			return nil, isAsync, fmt.Errorf("failed to create kafka-message-producer: %w", err)
 		}

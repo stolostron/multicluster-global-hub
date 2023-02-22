@@ -34,7 +34,6 @@ import (
 const (
 	metricsHost                = "0.0.0.0"
 	metricsPort          int32 = 8384
-	kafkaTransportType         = "kafka"
 	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
 )
 
