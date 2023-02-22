@@ -55,12 +55,16 @@ spec:
                       use postgres as data layer This is for a large scale environment.
                     properties:
                       kafka:
+                        description: KafkaConfig is the config of kafka
                         properties:
-                          cloudevents:
-                            default: true
-                            description: This flag tells the controller to enable
-                              the cloudevents or not
-                            type: boolean
+                          format:
+                            default: cloudEvents
+                            description: This flag tells the controller to using the
+                              CloudEvents or KafkaMessage format
+                            enum:
+                            - kafkaMessage
+                            - cloudEvents
+                            type: string
                           name:
                             type: string
                         type: object

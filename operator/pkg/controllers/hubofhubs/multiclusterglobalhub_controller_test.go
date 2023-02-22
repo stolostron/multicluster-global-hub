@@ -175,8 +175,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 						Type: operatorv1alpha2.LargeScale,
 						LargeScale: &operatorv1alpha2.LargeScaleConfig{
 							Kafka: &operatorv1alpha2.KafkaConfig{
-								Name:        TransportSecretName,
-								Cloudevents: true,
+								Name:   TransportSecretName,
+								Format: operatorv1alpha2.CloudEvents,
 							},
 							Postgres: corev1.LocalObjectReference{
 								Name: StorageSecretName,
@@ -254,8 +254,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Type: operatorv1alpha2.LargeScale,
 					LargeScale: &operatorv1alpha2.LargeScaleConfig{
 						Kafka: &operatorv1alpha2.KafkaConfig{
-							Name:        TransportSecretName,
-							Cloudevents: true,
+							Name:   TransportSecretName,
+							Format: operatorv1alpha2.CloudEvents,
 						},
 						Postgres: corev1.LocalObjectReference{
 							Name: StorageSecretName,
