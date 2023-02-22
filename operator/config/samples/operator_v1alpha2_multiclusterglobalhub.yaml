@@ -15,5 +15,6 @@ spec:
     largeScale:
       kafka:
         name: transport-secret
+        format: cloudEvents
       postgres:
         name: storage-secret
