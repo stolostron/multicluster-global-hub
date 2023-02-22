@@ -35,6 +35,22 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	log := ctrllog.FromContext(ctx)
 	log.V(2).Info("Reconciling", "namespacedname", req.NamespacedName)
 
+	mghList := &operatorv1alpha2.MulticlusterGlobalHubList{}
+	if err := r.List(ctx, mghList); err != nil {
+		return ctrl.Result{}, err
+	}
+	if len(mghList.Items) == 0 {
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
+	if !mghList.Items[0].DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
+	if config.IsPaused(&mghList.Items[0]) {
+		log.Info("multiclusterglobalhub addon reconciliation is paused, nothing more to do")
+		return ctrl.Result{}, nil
+	}
+
 	if config.GetHoHMGHNamespacedName().Namespace == "" ||
 		config.GetHoHMGHNamespacedName().Name == "" {
 		log.V(2).Info("waiting multiclusterglobalhub instance", "namespacedname", req.NamespacedName)
@@ -54,17 +70,6 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 	if !clusterManagementAddOn.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
-	}
-
-	mghList := &operatorv1alpha2.MulticlusterGlobalHubList{}
-	if err = r.List(ctx, mghList); err != nil {
-		return ctrl.Result{}, err
-	}
-	if len(mghList.Items) == 0 {
-		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-	}
-	if !mghList.Items[0].DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
