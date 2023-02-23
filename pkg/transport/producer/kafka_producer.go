@@ -124,6 +124,12 @@ func (p *KafkaProducer) SupportsDeltaBundles() bool {
 	return true
 }
 
+// support the transport producer interface to compatible with the cloudevents
+func (p *KafkaProducer) Send(ctx context.Context, msg *transport.Message) error {
+	p.SendAsync(msg)
+	return nil
+}
+
 // SendAsync sends a message to the transport asynchronously.
 func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 	msgBytes, err := json.Marshal(msg)

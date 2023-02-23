@@ -14,7 +14,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // genericDBSyncer implements generic status resource db sync business logic.
@@ -31,8 +30,8 @@ type genericDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *genericDBSyncer) RegisterCreateBundleFunctions(transportInstance consumer.Consumer) {
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+func (syncer *genericDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
+	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            syncer.transportMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
 		Predicate:        func() bool { return true }, // always get generic status resources

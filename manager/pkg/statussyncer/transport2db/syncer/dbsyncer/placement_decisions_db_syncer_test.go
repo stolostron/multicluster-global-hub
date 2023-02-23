@@ -94,7 +94,8 @@ var _ = Describe("PlacementDecisionsDbSyncer", Ordered, func() {
 		}
 
 		By("Sync message with transport")
-		kafkaProducer.SendAsync(transportMessage)
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
 
 		By("Check the managed cluster table")
 		Eventually(func() error {

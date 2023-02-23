@@ -24,6 +24,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 //go:embed manifests/templates
@@ -36,6 +37,8 @@ type ManifestsConfig struct {
 	HoHAgentImage          string
 	LeafHubID              string
 	KafkaBootstrapServer   string
+	TransportType          string
+	TransportFormat        string
 	KafkaCACert            string
 	MessageCompressionType string
 	InstallACMHub          bool
@@ -174,6 +177,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCACert:            kafkaCACert,
 		MessageCompressionType: messageCompressionType,
+		TransportType:          string(transport.Kafka),
+		TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 		LeaseDuration:          strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
 		RenewDeadline:          strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
 		RetryPeriod:            strconv.Itoa(a.leaderElectionConfig.RetryPeriod),

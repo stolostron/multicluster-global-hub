@@ -17,7 +17,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 const failedBatchFormat = "failed to perform batch - %w"
@@ -53,7 +52,7 @@ type PoliciesDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance consumer.Consumer) {
+func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	fullStatusPredicate := func() bool { return syncer.config.Data["aggregationLevel"] == "full" }
 	minimalStatusPredicate := func() bool {
 		return syncer.config.Data["aggregationLevel"] == "minimal"
@@ -63,37 +62,37 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 			syncer.config.Data["enableLocalPolicies"] == "true"
 	}
 
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ClustersPerPolicyMsgKey,
 		CreateBundleFunc: syncer.createClustersPerPolicyBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.PolicyCompleteComplianceMsgKey,
 		CreateBundleFunc: syncer.createCompleteComplianceStatusBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.PolicyDeltaComplianceMsgKey,
 		CreateBundleFunc: syncer.createDeltaComplianceStatusBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.MinimalPolicyComplianceMsgKey,
 		CreateBundleFunc: syncer.createMinimalComplianceStatusBundleFunc,
 		Predicate:        minimalStatusPredicate,
 	})
 
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.LocalClustersPerPolicyMsgKey,
 		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundleFunc,
 		Predicate:        localPredicate,
 	})
 
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.LocalPolicyCompleteComplianceMsgKey,
 		CreateBundleFunc: syncer.createLocalCompleteComplianceStatusBundleFunc,
 		Predicate:        localPredicate,
@@ -292,8 +291,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 			continue // do not handle objects other than PolicyComplianceStatus
 		}
 		// nonCompliantClusters includes both non Compliant and Unknown clusters
-		nonCompliantClustersFromDB, policyExistsInDB :=
-			nonCompliantRowsFromDB[policyComplianceStatus.PolicyID]
+		nonCompliantClustersFromDB, policyExistsInDB := nonCompliantRowsFromDB[policyComplianceStatus.PolicyID]
 		if !policyExistsInDB {
 			nonCompliantClustersFromDB = database.NewPolicyClusterSets()
 		}

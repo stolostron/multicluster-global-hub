@@ -229,7 +229,7 @@ var _ = Describe("Transport", Ordered, func() {
 		stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{},
 			[]string{"ManagedClustersStatusBundle"})
 		conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
-		conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"),
+		conflationManager := conflator.NewConflationManager(
 			conflationReadyQueue, false, stats) // manage all Conflation Units
 		conflationManager.Register(conflator.NewConflationRegistration(
 			conflator.ManagedClustersPriority,

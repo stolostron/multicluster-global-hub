@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
@@ -37,8 +36,8 @@ type ManagedClustersDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportInstance consumer.Consumer) {
-	transportInstance.BundleRegister(&registration.BundleRegistration{
+func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(dispatcher BundleRegisterable) {
+	dispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ManagedClustersMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
 		Predicate:        func() bool { return true }, // always get managed clusters bundles

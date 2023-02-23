@@ -49,8 +49,9 @@ func fakeMulticlusterGlobalHub() *v1alpha2.MulticlusterGlobalHub {
 			DataLayer: &v1alpha2.DataLayerConfig{
 				Type: v1alpha2.LargeScale,
 				LargeScale: &v1alpha2.LargeScaleConfig{
-					Kafka: corev1.LocalObjectReference{
-						Name: "transport-secret",
+					Kafka: &v1alpha2.KafkaConfig{
+						Name:            "transport-secret",
+						TransportFormat: v1alpha2.CloudEvents,
 					},
 					Postgres: corev1.LocalObjectReference{
 						Name: "storage-secret",

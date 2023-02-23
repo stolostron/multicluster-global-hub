@@ -10,5 +10,6 @@ spec:
     largeScale:
       kafka:
         name: ${TRANSPORT_SECRET_NAME}
+        transportFormat: cloudEvents # or message
       postgres:
         name: ${STORAGE_SECRET_NAME}

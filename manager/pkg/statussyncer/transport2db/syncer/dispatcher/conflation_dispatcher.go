@@ -9,27 +9,27 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 )
 
-// NewDispatcher creates a new instance of Dispatcher.
-func NewDispatcher(log logr.Logger, conflationReadyQueue *conflator.ConflationReadyQueue,
+// NewConflationDispatcher creates a new instance of Dispatcher.
+func NewConflationDispatcher(log logr.Logger, conflationReadyQueue *conflator.ConflationReadyQueue,
 	dbWorkerPool *workerpool.DBWorkerPool,
-) *Dispatcher {
-	return &Dispatcher{
+) *ConflationDispatcher {
+	return &ConflationDispatcher{
 		log:                  log,
 		conflationReadyQueue: conflationReadyQueue,
 		dbWorkerPool:         dbWorkerPool,
 	}
 }
 
-// Dispatcher abstracts the dispatching of db jobs to db workers. this is done by reading ready CU and getting from them
-// a ready to process bundles.
-type Dispatcher struct {
+// ConflationDispatcher abstracts the dispatching of db jobs to db workers. this is done by reading ready CU
+// and getting from them a ready to process bundles.
+type ConflationDispatcher struct {
 	log                  logr.Logger
 	conflationReadyQueue *conflator.ConflationReadyQueue
 	dbWorkerPool         *workerpool.DBWorkerPool
 }
 
 // Start starts the dispatcher.
-func (dispatcher *Dispatcher) Start(ctx context.Context) error {
+func (dispatcher *ConflationDispatcher) Start(ctx context.Context) error {
 	dispatcher.log.Info("starting dispatcher")
 
 	go dispatcher.dispatch(ctx)
@@ -40,7 +40,7 @@ func (dispatcher *Dispatcher) Start(ctx context.Context) error {
 	return nil
 }
 
-func (dispatcher *Dispatcher) dispatch(ctx context.Context) {
+func (dispatcher *ConflationDispatcher) dispatch(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done(): // if dispatcher was stopped do not process more bundles

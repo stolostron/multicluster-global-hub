@@ -8,15 +8,15 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const timeFormat = "2006-01-02_15-04-05.000000"
@@ -58,7 +58,8 @@ var _ = Describe("Syncers Integration", func() {
 			Version:          10,
 			UpdateTimestamp:  time.Now(),
 		}
-		managedClusterLabelsSpecBundle.Objects = append(managedClusterLabelsSpecBundle.Objects, bundleObj)
+		managedClusterLabelsSpecBundle.Objects =
+			append(managedClusterLabelsSpecBundle.Objects, bundleObj)
 
 		By("Send ManagedClusterLabelBundle by transport")
 		payloadBytes, err := json.Marshal(managedClusterLabelsSpecBundle)

@@ -26,7 +26,7 @@ type GenericProducer struct {
 	messageSizeLimit int
 }
 
-func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericProducer, error) {
+func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.Producer, error) {
 	var sender interface{}
 	messageSize := 960 * 1000
 	switch transportConfig.TransportType {

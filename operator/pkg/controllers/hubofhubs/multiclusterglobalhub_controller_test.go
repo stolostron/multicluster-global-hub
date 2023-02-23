@@ -50,6 +50,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
@@ -173,8 +174,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					DataLayer: &operatorv1alpha2.DataLayerConfig{
 						Type: operatorv1alpha2.LargeScale,
 						LargeScale: &operatorv1alpha2.LargeScaleConfig{
-							Kafka: corev1.LocalObjectReference{
-								Name: TransportSecretName,
+							Kafka: &operatorv1alpha2.KafkaConfig{
+								Name:            TransportSecretName,
+								TransportFormat: operatorv1alpha2.CloudEvents,
 							},
 							Postgres: corev1.LocalObjectReference{
 								Name: StorageSecretName,
@@ -251,8 +253,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				DataLayer: &operatorv1alpha2.DataLayerConfig{
 					Type: operatorv1alpha2.LargeScale,
 					LargeScale: &operatorv1alpha2.LargeScaleConfig{
-						Kafka: corev1.LocalObjectReference{
-							Name: TransportSecretName,
+						Kafka: &operatorv1alpha2.KafkaConfig{
+							Name:            TransportSecretName,
+							TransportFormat: operatorv1alpha2.CloudEvents,
 						},
 						Postgres: corev1.LocalObjectReference{
 							Name: StorageSecretName,
@@ -427,6 +430,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			if messageCompressionType == "" {
 				messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 			}
+
 			managerObjects, err := hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {
@@ -437,6 +441,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					DBSecret               string
 					KafkaCACert            string
 					KafkaBootstrapServer   string
+					TransportType          string
+					TransportFormat        string
 					MessageCompressionType string
 					Namespace              string
 					LeaseDuration          string
@@ -450,6 +456,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
 					KafkaBootstrapServer:   kafkaBootstrapServer,
 					MessageCompressionType: messageCompressionType,
+					TransportType:          string(transport.Kafka),
+					TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 					Namespace:              config.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",

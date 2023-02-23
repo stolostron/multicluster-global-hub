@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 const (
@@ -27,12 +26,12 @@ type LeafHubControlInfoController struct {
 	log                     logr.Logger
 	bundle                  bundle.Bundle
 	transportBundleKey      string
-	transport               producer.Producer
+	transport               transport.Producer
 	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc
 }
 
 // AddControlInfoController creates a new instance of control info controller and adds it to the manager.
-func AddControlInfoController(mgr ctrl.Manager, transport producer.Producer, leafHubName string, incarnation uint64,
+func AddControlInfoController(mgr ctrl.Manager, producer transport.Producer, leafHubName string, incarnation uint64,
 	_ *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, constants.ControlInfoMsgKey)
@@ -41,7 +40,7 @@ func AddControlInfoController(mgr ctrl.Manager, transport producer.Producer, lea
 		log:                     ctrl.Log.WithName(controlInfoLogName),
 		bundle:                  controlinfo.NewBundle(leafHubName, incarnation),
 		transportBundleKey:      transportBundleKey,
-		transport:               transport,
+		transport:               producer,
 		resolveSyncIntervalFunc: syncIntervalsData.GetControlInfo,
 	}
 
@@ -94,9 +93,7 @@ func (c *LeafHubControlInfoController) syncBundle() {
 
 	payloadBytes, err := json.Marshal(c.bundle)
 	if err != nil {
-		c.log.Error(
-			fmt.Errorf("sync object from type %s with id %s - %w", constants.StatusBundle, c.transportBundleKey, err),
-			"failed to sync bundle")
+		c.log.Error(err, "marshal controlInfo bundle error", "transportBundleKey", c.transportBundleKey)
 	}
 
 	transportMessageKey := c.transportBundleKey
@@ -104,11 +101,13 @@ func (c *LeafHubControlInfoController) syncBundle() {
 		transportMessageKey = fmt.Sprintf("%s@%d", c.transportBundleKey, deltaStateBundle.GetTransportationID())
 	}
 
-	c.transport.SendAsync(&transport.Message{
+	if err := c.transport.Send(context.TODO(), &transport.Message{
 		Key:     transportMessageKey,
 		ID:      c.transportBundleKey,
 		MsgType: constants.StatusBundle,
 		Version: c.bundle.GetBundleVersion().String(),
 		Payload: payloadBytes,
-	})
+	}); err != nil {
+		c.log.Error(err, "send control info error", "messageId", c.transportBundleKey)
+	}
 }

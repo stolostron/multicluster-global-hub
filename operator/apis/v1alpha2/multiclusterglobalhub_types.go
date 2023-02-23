@@ -48,10 +48,19 @@ const (
 type DataLayerType string
 
 const (
-	// Native is a DataLayerType using kubernetes native stoorage and event subscription
+	// Native is a DataLayerType using kubernetes native storage and event subscription
 	Native DataLayerType = "native"
 	// LargeScale is a DataLayerType using external high performance data storage and transport layer
 	LargeScale DataLayerType = "largeScale"
+)
+
+// TransportFormatType specifies the type of data format based on kafka implementation.
+// +kubebuilder:validation:Enum:="message";"cloudEvents"
+type TransportFormatType string
+
+const (
+	KafkaMessage TransportFormatType = "message"
+	CloudEvents  TransportFormatType = "cloudEvents"
 )
 
 // +kubebuilder:object:root=true
@@ -117,9 +126,18 @@ type NativeConfig struct{}
 // LargeScaleConfig is the config of large scale data layer
 type LargeScaleConfig struct {
 	// +optional
-	Kafka corev1.LocalObjectReference `json:"kafka,omitempty"`
+	Kafka *KafkaConfig `json:"kafka,omitempty"`
 	// +optional
 	Postgres corev1.LocalObjectReference `json:"postgres,omitempty"`
+}
+
+// KafkaConfig is the config of kafka
+type KafkaConfig struct {
+	// +optional
+	Name string `json:"name,omitempty"`
+	// This flag tells the controller to using the cloudEvents or message format
+	// +kubebuilder:default:="cloudEvents"
+	TransportFormat TransportFormatType `json:"transportFormat,omitempty"`
 }
 
 // MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub

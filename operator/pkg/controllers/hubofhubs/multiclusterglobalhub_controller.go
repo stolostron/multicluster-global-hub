@@ -65,6 +65,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 //go:embed manifests
@@ -326,6 +327,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			KafkaCACert            string
 			KafkaBootstrapServer   string
 			MessageCompressionType string
+			TransportType          string
+			TransportFormat        string
 			Namespace              string
 			LeaseDuration          string
 			RenewDeadline          string
@@ -338,6 +341,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			KafkaCACert:            kafkaCACert,
 			KafkaBootstrapServer:   kafkaBootstrapServer,
 			MessageCompressionType: messageCompressionType,
+			TransportType:          string(transport.Kafka),
+			TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 			Namespace:              config.GetDefaultNamespace(),
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),

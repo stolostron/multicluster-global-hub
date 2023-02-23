@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,9 +23,9 @@ import (
 )
 
 var (
-	cfg              *rest.Config
-	kubeClient       kubernetes.Interface
-	mockKafkaCluster *kafka.MockCluster
+	cfg        *rest.Config
+	kubeClient kubernetes.Interface
+	// mockKafkaCluster *kafka.MockCluster
 )
 
 func TestMain(m *testing.M) {
@@ -57,15 +56,15 @@ func TestMain(m *testing.M) {
 		panic(fmt.Errorf("empty kubeconfig!"))
 	}
 
-	// init mock kafka cluster
-	mockKafkaCluster, err = kafka.NewMockCluster(1)
-	if err != nil {
-		panic(err)
-	}
+	// // init mock kafka cluster
+	// mockKafkaCluster, err = kafka.NewMockCluster(1)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	if mockKafkaCluster == nil {
-		panic(fmt.Errorf("empty mock kafka cluster!"))
-	}
+	// if mockKafkaCluster == nil {
+	// 	panic(fmt.Errorf("empty mock kafka cluster!"))
+	// }
 
 	kubeClient, err = kubernetes.NewForConfig(cfg)
 	if err != nil {
@@ -83,8 +82,8 @@ func TestMain(m *testing.M) {
 	// run testings
 	code := m.Run()
 
-	// stop mock kafka cluster
-	mockKafkaCluster.Close()
+	// // stop mock kafka cluster
+	// mockKafkaCluster.Close()
 
 	// stop testenv
 	err = testenv.Stop()
@@ -127,9 +126,9 @@ func TestAgent(t *testing.T) {
 			"2",
 			"--transport-type",
 			string(transport.Chan),
-			"--kafka-bootstrap-server",
-			mockKafkaCluster.BootstrapServers(),
-		}, 1}, // TODO: after change the producer with cloudevents, this will be changed to 0
+			// "--kafka-bootstrap-server",
+			// mockKafkaCluster.BootstrapServers(),
+		}, 0},
 	}
 	for _, tc := range cases {
 		// this call is required because otherwise flags panics, if args are set between flag.Parse call

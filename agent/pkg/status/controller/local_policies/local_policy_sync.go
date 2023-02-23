@@ -15,7 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
-func AddLocalPoliciesController(mgr ctrl.Manager, transport producer.Producer, leafHubName string,
+func AddLocalPoliciesController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
 	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
 ) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
@@ -35,7 +35,7 @@ func AddLocalPoliciesController(mgr ctrl.Manager, transport producer.Producer, l
 			!helper.HasLabel(object, rootPolicyLabel)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, transport, bundleCollection,
+	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, producer, bundleCollection,
 		createObjFunc, localPolicyPredicate, syncIntervalsData.GetPolicies); err != nil {
 		return fmt.Errorf("failed to add local policies controller to the manager - %w", err)
 	}

@@ -22,13 +22,16 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -73,32 +76,19 @@ var _ = BeforeSuite(func() {
 	transportPostgreSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
-	transportConfig := &transport.TransportConfig{
-		TransportType:     string(transport.Chan),
-		CommitterInterval: 10 * time.Second,
-	}
-	By("Create kafka producer")
-
-	producer, err := producer.NewGenericProducer(transportConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	By("Create kafka consumer")
-	genericConsumer, err = consumer.NewGenericConsumer(transportConfig)
-	Expect(err).NotTo(HaveOccurred())
-
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
 		Scheme:             scheme.Scheme,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Add to Scheme")
+	Expect(managerscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
+
 	By("Get kubeClient")
 	kubeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kubeClient).NotTo(BeNil())
-
-	By("Add to Scheme")
-	Expect(managerscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
 
 	By("Create the global hub ConfigMap with aggregationLevel=full and enableLocalPolicies=true")
 	mghSystemNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
@@ -112,9 +102,26 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
 
-	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, producer, 1*time.Second)).Should(Succeed())
+	managerConfig := &config.ManagerConfig{
+		SyncerConfig: &config.SyncerConfig{
+			SpecSyncInterval: 1 * time.Second,
+		},
+		DatabaseConfig: &config.DatabaseConfig{},
+		TransportConfig: &transport.TransportConfig{
+			TransportType:     string(transport.Chan),
+			CommitterInterval: 10 * time.Second,
+		},
+		StatisticsConfig:      &statistics.StatisticsConfig{},
+		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
+		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
+	}
+
+	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, managerConfig)).Should(Succeed())
 
 	// mock consume message from agent
+	By("Create kafka consumer")
+	genericConsumer, err = consumer.NewGenericConsumer(managerConfig.TransportConfig)
+	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(genericConsumer)).Should(Succeed())
 
 	By("Start the manager")

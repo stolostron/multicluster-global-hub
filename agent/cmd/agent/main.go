@@ -24,7 +24,6 @@ import (
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
-	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -35,7 +34,6 @@ import (
 const (
 	metricsHost                = "0.0.0.0"
 	metricsPort          int32 = 8384
-	kafkaTransportType         = "kafka"
 	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
 )
 
@@ -123,7 +121,7 @@ func parseFlags() *config.AgentConfig {
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
 		"status", "Topic for the kafka producer.")
 	pflag.IntVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
-		"kafka-message-size-limit", 100, "The limit for kafka message size in KB.")
+		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic",
 		"spec", "Topic for the kafka consumer.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kakfa-consumer-id",
@@ -132,6 +130,8 @@ func parseFlags() *config.AgentConfig {
 		"The agent running namespace, also used as leader election namespace")
 	pflag.StringVar(&agentConfig.TransportConfig.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'")
+	pflag.StringVar(&agentConfig.TransportConfig.TransportFormat, "transport-format", "cloudEvents",
+		"The transport format, default is 'cloudEvents'.")
 	pflag.IntVar(&agentConfig.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
 		"The goroutine number to propagate the bundles on managed cluster.")
 	pflag.BoolVar(&agentConfig.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
@@ -175,30 +175,9 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	return nil
 }
 
-func getProducer(agentConfig *config.AgentConfig) (producer.Producer, error) {
-	messageCompressor, err := compressor.NewCompressor(
-		compressor.CompressionType(agentConfig.TransportConfig.MessageCompressionType))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create transport producer message-compressor: %w", err)
-	}
-
-	switch agentConfig.TransportConfig.TransportType {
-	case kafkaTransportType:
-		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
-			agentConfig.TransportConfig.KafkaConfig.BootstrapServer,
-			agentConfig.TransportConfig.KafkaConfig.CertPath,
-			agentConfig.TransportConfig.KafkaConfig.ProducerConfig, ctrl.Log.WithName("kafka-producer"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create kafka-producer: %w", err)
-		}
-		return kafkaProducer, nil
-	default:
-		return nil, fmt.Errorf("flag transport-type - %q is not a valid option",
-			agentConfig.TransportConfig.TransportType)
-	}
-}
-
-func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig, log logr.Logger) (ctrl.Manager, error) {
+func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig,
+	log logr.Logger,
+) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second
@@ -248,18 +227,7 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig, log
 	}
 	log.Info("add spec controllers to manager")
 
-	producer, err := getProducer(agentConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize transport producer: %w", err)
-	}
-
-	if err := mgr.Add(producer); err != nil {
-		return nil, fmt.Errorf("failed to add transport producer: %w", err)
-	}
-
-	if err := statusController.AddControllers(mgr, producer,
-		agentConfig.LeafHubName,
-		agentConfig.StatusDeltaCountSwitchFactor, incarnation); err != nil {
+	if err := statusController.AddControllers(mgr, agentConfig, incarnation); err != nil {
 		return nil, fmt.Errorf("failed to add status syncer: %w", err)
 	}
 
