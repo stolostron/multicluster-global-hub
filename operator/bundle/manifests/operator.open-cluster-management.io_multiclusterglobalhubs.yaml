@@ -62,7 +62,7 @@ spec:
                           transportFormat:
                             default: cloudEvents
                             description: TransportFormat defines the transport format
-                              for kafka, which is whether cloudEvents or kafka message
+                              for kafka, which is either cloudEvents or kafka message
                             enum:
                             - message
                             - cloudEvents

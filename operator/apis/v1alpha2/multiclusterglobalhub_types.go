@@ -135,7 +135,7 @@ type LargeScaleConfig struct {
 type KafkaConfig struct {
 	// +optional
 	Name string `json:"name,omitempty"`
-	// TransportFormat defines the transport format for kafka, which is whether cloudEvents or kafka message
+	// TransportFormat defines the transport format for kafka, which is either cloudEvents or kafka message
 	// +kubebuilder:default:="cloudEvents"
 	TransportFormat TransportFormatType `json:"transportFormat,omitempty"`
 }
