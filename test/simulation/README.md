@@ -4,12 +4,12 @@
 
 Basically we need **two REAL clusters**, one that serves as global hub, and the other serve as reginal hub with agent. In the single regional hub, we use the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) to simulate a specific number of managed clusters. We also use [GRC simulator](https://github.com/stolostron/grc-simulator), so that it will continuously flip the compliant/non-compliant status of the policies. 
 
-![Sale Test Environment](doc/architecture/scale-tests-environment-arch.png)
+![Scale Test Environment](doc/architecture/scale-tests-environment-arch.png)
 
-So far we have a Regional Hub, but how do we use it to simulate a large scale cluster? Since the transport status path is very sensitive to performance issues, and is the bottleneck that affects scalability performance. We will focus on the status path test, and combine the following two ways to achieve the large-scale global hub environment.
+So far we have a Regional Hub, but how do we use it to simulate a large-scale cluster? Since the transport status path is very sensitive to the performance, and represents a scale larger than spec path, therefore we simulate this path. The following two ways are combined to achieve a large-scale global hub environment.
 
 - Use [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) to generate batches of managed clusters on the regional hub, e.g. 1000.
-- Simulate the global hub agent by changing the `leafHubName` when sends messages to the global hub manager(status path). [the snippet](https://github.com/stolostron/leaf-hub-status-sync/blob/51cffef679da0a38a2bb888bd3828b9782dfbb4c/pkg/controller/generic/generic_status_sync_controller.go#L255-L272) of the agent sending bundle to manger code for reference .
+- Simulate the global hub agent by changing the `leafHubName` when sends messages to the global hub manager(status path). [the snippet](https://github.com/stolostron/leaf-hub-status-sync/blob/51cffef679da0a38a2bb888bd3828b9782dfbb4c/pkg/controller/generic/generic_status_sync_controller.go#L255-L272) of the agent sending bundle to manger code for reference.
 
 There are two main metrics to express the scalability of global hubs:
 - Initialization: time to load all MCs and Policy to Global Hub.
