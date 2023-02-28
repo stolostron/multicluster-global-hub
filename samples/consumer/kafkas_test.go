@@ -45,7 +45,7 @@ func (h *handler) ConsumeClaim(sess sarama.ConsumerGroupSession,
 	claim sarama.ConsumerGroupClaim,
 ) error {
 	for msg := range claim.Messages() {
-		// mark offset
+		// mark offset, manually commit offset: https://github.com/Shopify/sarama/issues/2441
 		fmt.Println(">>> mark offset")
 		sess.MarkMessage(msg, "")
 		h.Logf("consumed msg %d - %d: %s", msg.Partition, msg.Offset, string(msg.Value))
@@ -60,8 +60,6 @@ func TestKafkaConsumer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get sarama config: %v", err)
 	}
-	// manually commit offset seems not work: https://github.com/Shopify/sarama/issues/2441
-	// config.Consumer.Offsets.AutoCommit.Enable = true
 
 	group, err := sarama.NewConsumerGroup([]string{server}, "my-kafka-group", config)
 	if err != nil {

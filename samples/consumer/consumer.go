@@ -46,6 +46,7 @@ func GetSaramaConfig() (string, *sarama.Config, error) {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(cert)
 
+	// #nosec
 	tlsConfig := &tls.Config{
 		RootCAs:            caCertPool,
 		InsecureSkipVerify: true,

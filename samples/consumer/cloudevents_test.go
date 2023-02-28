@@ -39,7 +39,7 @@ func TestCloudeventsConsumer(t *testing.T) {
 		}
 	}()
 
-	consumer.Kubectl("apply", "-f", INFORM_POLICY_YAML)
+	// consumer.Kubectl("apply", "-f", INFORM_POLICY_YAML)
 	<-ctx.Done()
-	consumer.Kubectl("delete", "-f", INFORM_POLICY_YAML)
+	// consumer.Kubectl("delete", "-f", INFORM_POLICY_YAML)
 }
