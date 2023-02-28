@@ -152,6 +152,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
+				e.Object.GetLabels()["openshiftVersion"] == "3" ||
 				e.Object.GetName() == operatorconstants.LocalClusterName ||
 				!meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
@@ -162,6 +163,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			if e.ObjectNew.GetLabels()["vendor"] != "OpenShift" ||
+				e.ObjectNew.GetLabels()["openshiftVersion"] == "3" ||
 				e.ObjectNew.GetName() == operatorconstants.LocalClusterName ||
 				!meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
@@ -175,6 +177,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
+				e.Object.GetLabels()["openshiftVersion"] == "3" ||
 				e.Object.GetName() == operatorconstants.LocalClusterName ||
 				!meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
 					"ManagedClusterConditionAvailable") {
