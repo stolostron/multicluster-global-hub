@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -20,10 +21,21 @@ import (
 
 const INFORM_POLICY_YAML = "./deploy/inform-limitrange-policy.yaml"
 
-func TestCloudeventsConsumer(t *testing.T) {
-	ctx, _ := context.WithCancel(context.Background())
+func TestCloudeventsWithACK(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	// wait 1 minute to close the connection
+	go func() {
+		time.Sleep(1 * time.Minute)
+		cancel()
+	}()
 
-	receiver, err := GetConsumerProtocol()
+	server, config, err := GetSaramaConfig()
+	// if set this to false, it will consume message from beginning when restart the client
+	config.Consumer.Offsets.AutoCommit.Enable = true
+	if err != nil {
+		t.Fatalf("failed to get sarama config")
+	}
+	receiver, err := kafka_sarama.NewConsumer([]string{server}, config, "test-group-ack", "status")
 	if err != nil {
 		t.Fatalf("failed to create cloudevents client: %s", err)
 	}
@@ -38,7 +50,6 @@ func TestCloudeventsConsumer(t *testing.T) {
 		err = c.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) protocol.Result {
 			fmt.Println("=====================")
 			fmt.Printf("%s", event)
-			// cancel()
 			return protocol.ResultACK
 		})
 		if err != nil {
@@ -51,12 +62,43 @@ func TestCloudeventsConsumer(t *testing.T) {
 	// consumer.Kubectl("delete", "-f", INFORM_POLICY_YAML)
 }
 
-func GetConsumerProtocol() (*kafka_sarama.Consumer, error) {
+func TestCloudeventsWithNACK(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	// wait 1 minute to close the connection
+	go func() {
+		time.Sleep(1 * time.Minute)
+		cancel()
+	}()
+
 	server, config, err := GetSaramaConfig()
+	// if set this to false, it will consume message from beginning when restart the client
+	config.Consumer.Offsets.AutoCommit.Enable = true
 	if err != nil {
-		return nil, fmt.Errorf("failed to get sarama config")
+		t.Fatalf("failed to get sarama config")
 	}
-	return kafka_sarama.NewConsumer([]string{server}, config, "test-group-id", "status")
+	receiver, err := kafka_sarama.NewConsumer([]string{server}, config, "test-group-nack", "status")
+	if err != nil {
+		t.Fatalf("failed to create cloudevents client: %s", err)
+	}
+	defer receiver.Close(ctx)
+	c, err := cloudevents.NewClient(receiver)
+	if err != nil {
+		t.Fatalf("failed to create client, %v", err)
+	}
+
+	// Start the receiver
+	go func() {
+		err = c.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) protocol.Result {
+			fmt.Println("=====================")
+			fmt.Printf("%s", event)
+			return protocol.ResultNACK
+		})
+		if err != nil {
+			fmt.Printf("failed to start receiver: %s", err)
+		}
+	}()
+
+	<-ctx.Done()
 }
 
 func Kubectl(args ...string) error {
@@ -113,8 +155,6 @@ func GetSaramaConfig() (string, *sarama.Config, error) {
 	saramaConfig.Version = sarama.V2_0_0_0
 	saramaConfig.Net.TLS.Enable = true
 	saramaConfig.Net.TLS.Config = tlsConfig
-	// if set this to false, it will consume message from beginning
-	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 	return string(bootstrapSever), saramaConfig, nil
 }

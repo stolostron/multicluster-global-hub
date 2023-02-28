@@ -20,54 +20,63 @@ export SECRET_NAME=<transport-secret-name> # default SECRET_NAME=transport-secre
 ```
 ### Cloudevents samples
 
-Start a cloudevents client which receive message from `status` topic. 
-```bash
-$ go test -run TestCloudeventsConsumer ./samples/consumer -v
-```
+- TestCloudeventsWithACK
 
-Then create a policy in the global hub with another panel. 
+  Start a cloudevents client with ACK which receive message from `status` topic.
+  ```bash
+  $ go clean -testcache && go test -run TestCloudeventsWithACK ./samples/consumer -v
+  ```
 
-```bash
-$ oc apply -f ./samples/consumer/deploy
-```
+  Then create a policy in the global hub with another panel. 
 
-You can see the cloudevents client consumes the messages:
-```bash
-$ go test ./samples/consumer/cloudevents_test.go -v
-=== RUN   TestCloudeventsConsumer
-=====================
-Context Attributes,
-  specversion: 1.0
-  type: StatusBundle
-  source: global-hub-manager
-  id: kind-hub1.PlacementRule
-  time: 2023-02-27T08:47:20.511191625Z
-  datacontenttype: application/json
-Extensions,
-  offset: 0
-  size: 255
-Data,
-  {
-    "destination": "",
-    "key": "kind-hub1.PlacementRule",
-    "id": "kind-hub1.PlacementRule",
-    "msgType": "StatusBundle",
-    "version": "0.4",
-    "payload": "eyJvYmplY3RzIjpbXSwibGVhZkh1Yk5hbWUiOiJraW5kLWh1YjEiLCJidW5kbGVWZXJzaW9uIjp7ImluY2FybmF0aW9uIjowLCJnZW5lcmF0aW9uIjo0fX0="
-  }
-...
-```
-Delete the policy from global hub
-```
-oc delete -f ./samples/consumer/deploy
-```
+  ```bash
+  $ oc apply -f ./samples/consumer/deploy
+  ```
+
+  You can see the cloudevents client consumes the messages:
+  ```bash
+  $ go test ./samples/consumer/cloudevents_test.go -v
+  === RUN   TestCloudeventsConsumer
+  =====================
+  Context Attributes,
+    specversion: 1.0
+    type: StatusBundle
+    source: global-hub-manager
+    id: kind-hub1.PlacementRule
+    time: 2023-02-27T08:47:20.511191625Z
+    datacontenttype: application/json
+  Extensions,
+    offset: 0
+    size: 255
+  Data,
+    {
+      "destination": "",
+      "key": "kind-hub1.PlacementRule",
+      "id": "kind-hub1.PlacementRule",
+      "msgType": "StatusBundle",
+      "version": "0.4",
+      "payload": "eyJvYmplY3RzIjpbXSwibGVhZkh1Yk5hbWUiOiJraW5kLWh1YjEiLCJidW5kbGVWZXJzaW9uIjp7ImluY2FybmF0aW9uIjowLCJnZW5lcmF0aW9uIjo0fX0="
+    }
+  ...
+  ```
+  Delete the policy from global hub
+  ```
+  oc delete -f ./samples/consumer/deploy
+  ```
+  When we run the TestCloudeventsWithACK test again, it will not consume the received message again.
+
+- TestCloudeventsWithNACK
+  With `protocol.ResultNACK`, every time the consumer is restarted, it will consume from the first message.
+  ```bash
+  $ go clean -testcache && go test -run TestCloudeventsWithNACK ./samples/consumer -v
+  ```
 
 ### Kafka samples
 
 Consume message from `status` topic with kafka client. Here we start a background program to submit the offset to brokers periodically, and each time a message is consumed successfully we just mark the message with `sess.MarkMessage(msg, "")`
 ```bash
-$ go test -run TestKafkaConsumer ./samples/consumer -v 
-=== RUN   TestKafkaConsumer
+$ go clean -testcache && go test -run TestKafkaConsumerGroup ./samples/consumer -v 
+=== RUN   TestKafkaConsumerGroup
 >>> commit offset
 +++ mark offset
     kafka_test.go:56: consumed msg 0 - 5: {"destination":"","key":"kind-hub1.ControlInfo","id":"kind-hub1.ControlInfo","msgType":"StatusBundle","version":"0.5","payload":"eyJsZWFmSHViTmFtZSI6ImtpbmQtaHViMSIsImJ1bmRsZVZlcnNpb24iOnsiaW5jYXJuYXRpb24iOjAsImdlbmVyYXRpb24iOjV9fQ=="}

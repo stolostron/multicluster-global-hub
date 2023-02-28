@@ -10,6 +10,36 @@ import (
 	"github.com/Shopify/sarama"
 )
 
+func TestKafkaConsumerGroup(t *testing.T) {
+	server, config, err := GetSaramaConfig()
+	// disable the auto commit and start a manually commit goroutine periodically
+	config.Consumer.Offsets.AutoCommit.Enable = false
+	if err != nil {
+		t.Fatalf("get sarama config: %v", err)
+	}
+
+	group, err := sarama.NewConsumerGroup([]string{server}, "my-kafka-group-0", config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = group.Close() }()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	h := &handler{t, ctx, cancel}
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		topics := []string{"status"}
+		if err := group.Consume(ctx, topics, h); err != nil {
+			t.Error(err)
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+}
+
 // handler represents a Sarama consumer of consumer group
 type handler struct {
 	*testing.T
@@ -66,32 +96,4 @@ func (h *handler) ConsumeClaim(sess sarama.ConsumerGroupSession,
 			return nil
 		}
 	}
-}
-
-func TestKafkaConsumer(t *testing.T) {
-	server, config, err := GetSaramaConfig()
-	if err != nil {
-		t.Fatalf("get sarama config: %v", err)
-	}
-
-	group, err := sarama.NewConsumerGroup([]string{server}, "my-kafka-group-0", config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = group.Close() }()
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	h := &handler{t, ctx, cancel}
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		topics := []string{"status"}
-		if err := group.Consume(ctx, topics, h); err != nil {
-			t.Error(err)
-		}
-		wg.Done()
-	}()
-	wg.Wait()
 }
