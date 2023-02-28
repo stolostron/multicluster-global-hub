@@ -50,12 +50,15 @@ Data,
 ...
 ```
 
-Consume message from `status` topic with kafka client.
+Consume message from `status` topic with kafka client. Here we start a background program to submit the offset to brokers periodically, and each time a message is consumed successfully we just mark the message with `sess.MarkMessage(msg, "")`
 ```
 $ go test ./samples/consumer/kafkas_test.go -v
 === RUN   TestKafkaConsumer
-    kafkas_test.go:24: consumed msg 0 - 3: {"destination":"","key":"kind-hub1.ControlInfo","id":"kind-hub1.ControlInfo","msgType":"StatusBundle","version":"0.3","payload":"eyJsZWFmSHViTmFtZSI6ImtpbmQtaHViMSIsImJ1bmRsZVZlcnNpb24iOnsiaW5jYXJuYXRpb24iOjAsImdlbmVyYXRpb24iOjN9fQ=="}
---- PASS: TestKafkaConsumer (3.30s)
+>>> commit offset
+>>> mark offset
+    kafkas_test.go:51: consumed msg 0 - 27: {"destination":"","key":"kind-hub1.PolicyCompleteCompliance","id":"kind-hub1.PolicyCompleteCompliance","msgType":"StatusBundle","version":"0.9","payload":"eyJvYmplY3RzIjpbeyJwb2xpY3lJZCI6Ijg2OGFkN2Q4LTRkMGUtNDEzOC04ZjFiLWEzYTQxOTJkZDFmZSIsIm5vbkNvbXBsaWFudENsdXN0ZXJzIjpbImtpbmQtaHViMS1jbHVzdGVyMSIsImtpbmQtaHViMS1jbHVzdGVyMiJdLCJ1bmtub3duQ29tcGxpYW5jZUNsdXN0ZXJzIjpbXX1dLCJsZWFmSHViTmFtZSI6ImtpbmQtaHViMSIsImJhc2VCdW5kbGVWZXJzaW9uIjp7ImluY2FybmF0aW9uIjowLCJnZW5lcmF0aW9uIjo4fSwiYnVuZGxlVmVyc2lvbiI6eyJpbmNhcm5hdGlvbiI6MCwiZ2VuZXJhdGlvbiI6OX19"}
+>>> last commit offset
+--- PASS: TestKafkaConsumer (3.64s)
 PASS
-ok      command-line-arguments  3.315s
+ok      command-line-arguments  3.654s
 ```

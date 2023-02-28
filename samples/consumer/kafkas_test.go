@@ -2,8 +2,10 @@ package consumer_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/stolostron/multicluster-global-hub/samples/consumer"
@@ -11,15 +13,40 @@ import (
 
 type handler struct {
 	*testing.T
+	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func (h *handler) Setup(s sarama.ConsumerGroupSession) error   { return nil }
-func (h *handler) Cleanup(s sarama.ConsumerGroupSession) error { return nil }
+func (h *handler) Setup(s sarama.ConsumerGroupSession) error {
+	// period commit offset
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Println(">>> commit offset")
+				s.Commit()
+			case <-h.ctx.Done():
+				fmt.Println(">>> last commit offset")
+				s.Commit()
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+	return nil
+}
+
+func (h *handler) Cleanup(s sarama.ConsumerGroupSession) error {
+	return nil
+}
+
 func (h *handler) ConsumeClaim(sess sarama.ConsumerGroupSession,
 	claim sarama.ConsumerGroupClaim,
 ) error {
 	for msg := range claim.Messages() {
+		// mark offset
+		fmt.Println(">>> mark offset")
 		sess.MarkMessage(msg, "")
 		h.Logf("consumed msg %d - %d: %s", msg.Partition, msg.Offset, string(msg.Value))
 		h.cancel()
@@ -34,7 +61,7 @@ func TestKafkaConsumer(t *testing.T) {
 		t.Fatalf("get sarama config: %v", err)
 	}
 	// manually commit offset seems not work: https://github.com/Shopify/sarama/issues/2441
-	config.Consumer.Offsets.AutoCommit.Enable = true
+	// config.Consumer.Offsets.AutoCommit.Enable = true
 
 	group, err := sarama.NewConsumerGroup([]string{server}, "my-kafka-group", config)
 	if err != nil {
@@ -43,7 +70,8 @@ func TestKafkaConsumer(t *testing.T) {
 	defer func() { _ = group.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	h := &handler{t, cancel}
+
+	h := &handler{t, ctx, cancel}
 	var wg sync.WaitGroup
 	wg.Add(1)
 
