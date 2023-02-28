@@ -131,11 +131,11 @@ type LargeScaleConfig struct {
 	Postgres corev1.LocalObjectReference `json:"postgres,omitempty"`
 }
 
-// KafkaConfig is the config of kafka
+// KafkaConfig defines the desired state of kafka
 type KafkaConfig struct {
 	// +optional
 	Name string `json:"name,omitempty"`
-	// This flag tells the controller to using the cloudEvents or message format
+	// TransportFormat defines the transport format for kafka, which is either cloudEvents or kafka message
 	// +kubebuilder:default:="cloudEvents"
 	TransportFormat TransportFormatType `json:"transportFormat,omitempty"`
 }
