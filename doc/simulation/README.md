@@ -2,7 +2,7 @@
 
 ## Environment
 
-Basically we need **two REAL clusters**, one that serves as global hub, and the other serve as reginal hub with agent. In the single regional hub, we use the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) to simulate a specific number of managed clusters. We also use [GRC simulator](https://github.com/stolostron/grc-simulator), so that it will continuously flip the compliant/non-compliant status of the policies. 
+Basically we need **two OpenShift clusters**, one that serves as global hub, and the other serve as reginal hub with agent. In the single regional hub, we use the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) to simulate a specific number of managed clusters. We also use [GRC simulator](https://github.com/stolostron/grc-simulator), so that it will continuously flip the compliant/non-compliant status of the policies. 
 
 ![Scale Test Environment](doc/architecture/scale-tests-environment-arch.png)
 
@@ -13,16 +13,16 @@ So far we have a Regional Hub, but how do we use it to simulate a large-scale cl
 
 There are two main metrics to express the scalability of global hubs:
 - Initialization: time to load all MCs and Policy to Global Hub.
-- Policy status rotation: time to perform compliance status rotation on all polices.
+- Policy status rotation: time to perform compliance status rotation on all policies.
 
 ## Initialization
 
 The meaning is how much time did it take to send from regional hub to global hub all MCs and policies in the first time. Assuming the database is empty, then 
-we connect global hub manager to agent(e.g., 1000 agents connect around the same time). We test it by running SQL query using `COUNT` and verify we have the expected MCs and polices in the database.
+we connect global hub manager to agent(e.g., 1000 agents connect around the same time). We test it by running SQL query using `COUNT` and verify we have the expected MCs and policies in the database.
 
 What we need to make sure is that the initialization time is the time the pass until the expected result is returned. We can run queries to count the numbers of MCs and policies. So time between the first data appearance in the database and the expected `COUNT` is the test result. 
 
-We provide a [count script](cluster-stopwatch.sh) for the cluster, if you want to count polices, just change the `status.managed_clusters` to `status.compliance`. Welcome you to optimize and enhance it to make it more reasonable.
+We provide a [count script](cluster-stopwatch.sh) for the cluster, if you want to count policies, just change the `status.managed_clusters` to `status.compliance`. Welcome you to optimize and enhance it to make it more reasonable.
 
 ## Policy Status Rotation
 
