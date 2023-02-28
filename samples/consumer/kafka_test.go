@@ -1,4 +1,4 @@
-package consumer_test
+package consumer
 
 import (
 	"context"
@@ -8,15 +8,16 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/stolostron/multicluster-global-hub/samples/consumer"
 )
 
+// handler represents a Sarama consumer of consumer group
 type handler struct {
 	*testing.T
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
+// Setup is run at the beginning of a new session, before ConsumeClaim
 func (h *handler) Setup(s sarama.ConsumerGroupSession) error {
 	// period commit offset
 	go func() {
@@ -37,31 +38,43 @@ func (h *handler) Setup(s sarama.ConsumerGroupSession) error {
 	return nil
 }
 
+// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
 func (h *handler) Cleanup(s sarama.ConsumerGroupSession) error {
 	return nil
 }
 
+// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (h *handler) ConsumeClaim(sess sarama.ConsumerGroupSession,
 	claim sarama.ConsumerGroupClaim,
 ) error {
-	for msg := range claim.Messages() {
-		// mark offset, manually commit offset: https://github.com/Shopify/sarama/issues/2441
-		fmt.Println(">>> mark offset")
-		sess.MarkMessage(msg, "")
-		h.Logf("consumed msg %d - %d: %s", msg.Partition, msg.Offset, string(msg.Value))
-		h.cancel()
-		break
+	for {
+		select {
+		case msg := <-claim.Messages():
+			// mark offset, manually commit offset: https://github.com/Shopify/sarama/issues/2441
+			fmt.Println("+++ mark offset")
+			sess.MarkMessage(msg, "")
+			h.Logf("consumed msg %d - %d: %s", msg.Partition, msg.Offset, string(msg.Value))
+			h.cancel()
+		// Should return when `session.Context()` is done.
+		// If not, will raise `ErrRebalanceInProgress` or `read tcp <ip>:<port>: i/o timeout` when kafka rebalance. see:
+		// https://github.com/Shopify/sarama/issues/1192
+		case <-sess.Context().Done():
+			return nil
+
+		case <-h.ctx.Done():
+			fmt.Println("--- stop the receiver")
+			return nil
+		}
 	}
-	return nil
 }
 
 func TestKafkaConsumer(t *testing.T) {
-	server, config, err := consumer.GetSaramaConfig()
+	server, config, err := GetSaramaConfig()
 	if err != nil {
 		t.Fatalf("get sarama config: %v", err)
 	}
 
-	group, err := sarama.NewConsumerGroup([]string{server}, "my-kafka-group", config)
+	group, err := sarama.NewConsumerGroup([]string{server}, "my-kafka-group-0", config)
 	if err != nil {
 		t.Fatal(err)
 	}

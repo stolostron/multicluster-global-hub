@@ -18,11 +18,20 @@ export KUBECONFIG=</path/to/global_hub_cluster/kubeconfig>
 export SECRET_NAMESPACE=<transport-secret-namespace> # default SECRET_NAMESPACE=open-cluster-management
 export SECRET_NAME=<transport-secret-name> # default SECRET_NAME=transport-secret
 ```
+### Cloudevents samples
 
-Start a cloudevents client which receive message from `status` topic (`go test ./samples/consumer/cloudevents_test.go -v`).
-Then create a policy in the global hub (`oc apply -f ./samples/consumer/deploy`) with another panel. 
+Start a cloudevents client which receive message from `status` topic. 
+```bash
+$ go test -run TestCloudeventsConsumer ./samples/consumer -v
+```
 
-You can see the it consumes the message:
+Then create a policy in the global hub with another panel. 
+
+```bash
+$ oc apply -f ./samples/consumer/deploy
+```
+
+You can see the cloudevents client consumes the messages:
 ```bash
 $ go test ./samples/consumer/cloudevents_test.go -v
 === RUN   TestCloudeventsConsumer
@@ -48,16 +57,20 @@ Data,
   }
 ...
 ```
+Delete the policy from global hub
+```
+oc delete -f ./samples/consumer/deploy
+```
+
+### Kafka samples
 
 Consume message from `status` topic with kafka client. Here we start a background program to submit the offset to brokers periodically, and each time a message is consumed successfully we just mark the message with `sess.MarkMessage(msg, "")`
-```
-$ go test ./samples/consumer/kafkas_test.go -v
+```bash
+$ go test -run TestKafkaConsumer ./samples/consumer -v 
 === RUN   TestKafkaConsumer
 >>> commit offset
->>> mark offset
-    kafkas_test.go:51: consumed msg 0 - 27: {"destination":"","key":"kind-hub1.PolicyCompleteCompliance","id":"kind-hub1.PolicyCompleteCompliance","msgType":"StatusBundle","version":"0.9","payload":"eyJvYmplY3RzIjpbeyJwb2xpY3lJZCI6Ijg2OGFkN2Q4LTRkMGUtNDEzOC04ZjFiLWEzYTQxOTJkZDFmZSIsIm5vbkNvbXBsaWFudENsdXN0ZXJzIjpbImtpbmQtaHViMS1jbHVzdGVyMSIsImtpbmQtaHViMS1jbHVzdGVyMiJdLCJ1bmtub3duQ29tcGxpYW5jZUNsdXN0ZXJzIjpbXX1dLCJsZWFmSHViTmFtZSI6ImtpbmQtaHViMSIsImJhc2VCdW5kbGVWZXJzaW9uIjp7ImluY2FybmF0aW9uIjowLCJnZW5lcmF0aW9uIjo4fSwiYnVuZGxlVmVyc2lvbiI6eyJpbmNhcm5hdGlvbiI6MCwiZ2VuZXJhdGlvbiI6OX19"}
->>> last commit offset
---- PASS: TestKafkaConsumer (3.64s)
-PASS
-ok      command-line-arguments  3.654s
++++ mark offset
+    kafka_test.go:56: consumed msg 0 - 5: {"destination":"","key":"kind-hub1.ControlInfo","id":"kind-hub1.ControlInfo","msgType":"StatusBundle","version":"0.5","payload":"eyJsZWFmSHViTmFtZSI6ImtpbmQtaHViMSIsImJ1bmRsZVZlcnNpb24iOnsiaW5jYXJuYXRpb24iOjAsImdlbmVyYXRpb24iOjV9fQ=="}
+...
 ```
+You can run kafka consumer's sample multiple times to observe the changes in offset.
