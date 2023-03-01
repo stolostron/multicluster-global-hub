@@ -6,7 +6,7 @@ require (
 	github.com/Shopify/sarama v1.38.1
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/cloudevents/sdk-go/v2 v2.13.0
-	github.com/confluentinc/confluent-kafka-go v1.9.2
+	github.com/confluentinc/confluent-kafka-go/v2 v2.0.2
 	github.com/deckarep/golang-set v1.8.0
 	github.com/fergusstrange/embedded-postgres v1.17.0
 	github.com/gin-gonic/gin v1.7.7
