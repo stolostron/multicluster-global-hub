@@ -3,7 +3,7 @@ package consumer
 import (
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
 // messageFragment represents one fragment of a kafka message.

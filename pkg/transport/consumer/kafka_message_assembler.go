@@ -4,7 +4,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
 func newKafkaMessageAssembler() *kafkaMessageAssembler {

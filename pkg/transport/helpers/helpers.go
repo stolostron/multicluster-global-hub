@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
 func LoadCACertToConfigMap(kafkaCAPath string, kafkaConfigMap *kafka.ConfigMap) error {

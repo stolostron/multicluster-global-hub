@@ -1,7 +1,7 @@
 package producer
 
 import (
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
 // NewMessageBuilder creates a new instance of MessageBuilder.
