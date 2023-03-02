@@ -162,6 +162,12 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	BeforeEach(func() {
+		_, err := transportPostgreSQL.GetConn().Exec(ctx, "SELECT 1")
+		fmt.Println("checking postgres...")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
 	It("Test config can be synced through transport", func() {
 		By("create a config")
 		_, err := transportPostgreSQL.GetConn().Exec(ctx,
