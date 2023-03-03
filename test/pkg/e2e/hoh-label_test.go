@@ -2,7 +2,6 @@ package tests
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,8 +12,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-
-	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
 const (
@@ -23,24 +20,12 @@ const (
 )
 
 var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-label"), Ordered, func() {
-	var token string
-	var httpClient *http.Client
 	var managedClusterName string
 	var managedClusterUID string
 
 	BeforeAll(func() {
-		By("Get token for the non-k8s-api")
-		var err error
-		token, err = utils.FetchBearerToken(testOptions)
-		Expect(err).ShouldNot(HaveOccurred())
-
-		By("Config request of the api")
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
 		Eventually(func() error {
-			managedClusters, err := getManagedCluster(httpClient, token)
+			managedClusters, err := getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
 			}
@@ -60,7 +45,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 		}
 
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID)
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID)
 			if err != nil {
 				return err
 			}
@@ -69,7 +54,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 		By("Check the label is added")
 		Eventually(func() error {
-			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+			managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName)
 			if err != nil {
 				return err
 			}
@@ -91,7 +76,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID)
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID)
 			if err != nil {
 				return err
 			}
@@ -100,7 +85,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 		By("Check the label is deleted")
 		Eventually(func() error {
-			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+			managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName)
 			if err != nil {
 				return err
 			}

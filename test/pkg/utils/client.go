@@ -84,15 +84,16 @@ func (c *client) KubeDynamicClient() dynamic.Interface {
 
 func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
 	if c.options.HubCluster.Name == clusterName {
-		args = append(args, "--kubeconfig", c.options.HubCluster.KubeConfig)
-		args = append(args, "--context", c.options.HubCluster.KubeContext)
+		// insert to the first
+		args = append([]string{"--context", c.options.HubCluster.KubeContext}, args...)
+		args = append([]string{"--kubeconfig", c.options.HubCluster.KubeConfig}, args...)
 		output, err := exec.Command("kubectl", args...).CombinedOutput()
 		return string(output), err
 	}
 	for _, cluster := range c.options.ManagedClusters {
 		if cluster.Name == clusterName {
-			args = append(args, "--kubeconfig", cluster.KubeConfig)
-			args = append(args, "--context", cluster.KubeContext)
+			args = append([]string{"--context", cluster.KubeContext}, args...)
+			args = append([]string{"--kubeconfig", cluster.KubeConfig}, args...)
 			output, err := exec.Command("kubectl", args...).CombinedOutput()
 			return string(output), err
 		}

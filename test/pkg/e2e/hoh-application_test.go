@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,8 +18,6 @@ import (
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
 const (
@@ -32,8 +29,6 @@ const (
 )
 
 var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tests-app"), Ordered, func() {
-	var token string
-	var httpClient *http.Client
 	var managedClusterName1 string
 	var managedClusterName2 string
 	var managedClusterUID1 string
@@ -41,21 +36,9 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 	var appClient client.Client
 
 	BeforeAll(func() {
-		By("Get token for the non-k8s-api")
-		initToken, err := utils.FetchBearerToken(testOptions)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(len(initToken)).Should(BeNumerically(">", 0))
-		token = initToken
-
-		By("Config request of the api")
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
-
 		By("Get managed cluster name")
 		Eventually(func() error {
-			managedClusters, err := getManagedCluster(httpClient, token)
+			managedClusters, err := getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
 			}
@@ -70,6 +53,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		scheme := runtime.NewScheme()
 		appsv1.SchemeBuilder.AddToScheme(scheme)
 		appsv1alpha1.AddToScheme(scheme)
+		var err error
 		appClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
@@ -85,7 +69,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		}
 
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID1)
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID1)
 			if err != nil {
 				return err
 			}
@@ -94,7 +78,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		By("Check the label is added")
 		Eventually(func() error {
-			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName1)
+			managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName1)
 			if err != nil {
 				return err
 			}
@@ -120,7 +104,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
-				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token, 1,
+				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 1,
 					[]string{managedClusterName1})
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
@@ -136,7 +120,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				},
 			}
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, token, managedClusterUID2)
+				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID2)
 				if err != nil {
 					return err
 				}
@@ -145,7 +129,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the label is added to managedcluster2")
 			Eventually(func() error {
-				managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName2)
+				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName2)
 				if err != nil {
 					return err
 				}
@@ -159,7 +143,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the appsub apply to the clusters")
 			Eventually(func() error {
-				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token, 2, []string{
+				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 2, []string{
 					managedClusterName1, managedClusterName2,
 				})
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
@@ -167,7 +151,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		AfterEach(func() {
 			if CurrentSpecReport().Failed() {
-				appsubreport, err := getAppsubReport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token)
+				appsubreport, err := getAppsubReport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken)
 				if err == nil {
 					appsubreportStr, _ := json.MarshalIndent(appsubreport, "", "  ")
 					klog.V(5).Info("Appsubreport: ", string(appsubreportStr))
@@ -186,7 +170,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID1)
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID1)
 			if err != nil {
 				return err
 			}
@@ -194,7 +178,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID2)
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID2)
 			if err != nil {
 				return err
 			}
