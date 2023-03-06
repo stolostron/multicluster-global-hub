@@ -97,7 +97,12 @@ func setAuthenticatedUser(ginCtx *gin.Context, authorizationHeader string, clust
 		fmt.Fprintf(gin.DefaultWriter, "got authentication error: %v\n", err)
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err = resp.Body.Close()
+		if err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "unable to close authentication response body: %v\n", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return false
