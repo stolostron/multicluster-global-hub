@@ -92,6 +92,10 @@ _Note:_ This will delete Multicluster Global Hub Operator and the CRD from the c
 make undeploy
 ```
 
+## E2E-Tests
+
+![e2eArchitecture](doc/architecture/e2e-global-hub-arch.png)
+
 # Contributing
 
 Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
