@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/grafana"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
@@ -195,6 +196,10 @@ func createManager(restConfig *rest.Config, managerConfig *managerconfig.Manager
 	if err := nonk8sapi.AddNonK8sApiServer(mgr, processPostgreSQL,
 		managerConfig.NonK8sAPIServerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
+	}
+
+	if err := grafana.AddGrafanaServer(mgr, managerConfig); err != nil {
+		return nil, fmt.Errorf("failed to add grafana: %w", err)
 	}
 
 	if err := spec2db.AddSpec2DBControllers(mgr, processPostgreSQL); err != nil {
