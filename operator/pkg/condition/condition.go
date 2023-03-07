@@ -87,8 +87,8 @@ func FailToSetConditionError(condition string, err error) error {
 func SetConditionGrafanaInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRAFANA_INIT, status,
-		CONDITION_REASON_DATABASE_INIT, CONDITION_MESSAGE_DATABASE_INIT)
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRAFANA_INIT, status, CONDITION_REASON_GRAFANA_INIT,
+		CONDITION_MESSAGE_GRAFANA_INIT)
 }
 
 func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
