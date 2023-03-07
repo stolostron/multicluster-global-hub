@@ -15,6 +15,7 @@ package hubofhubs_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -48,18 +49,20 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg        *rest.Config
-	k8sClient  client.Client // You'll be using this client in your tests.
-	kubeClient *kubernetes.Clientset
-	testEnv    *envtest.Environment
-	ctx        context.Context
-	cancel     context.CancelFunc
+	cfg          *rest.Config
+	k8sClient    client.Client // You'll be using this client in your tests.
+	kubeClient   *kubernetes.Clientset
+	testEnv      *envtest.Environment
+	testPostgres *testpostgres.TestPostgres
+	ctx          context.Context
+	cancel       context.CancelFunc
 )
 
 func TestControllers(t *testing.T) {
@@ -90,6 +93,11 @@ var _ = BeforeSuite(func() {
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
+
+	// create test postgres
+	testPostgres, err = testpostgres.NewTestPostgres()
+	fmt.Println(testPostgres.URI)
+	Expect(err).NotTo(HaveOccurred())
 
 	// add scheme
 	err = operatorsv1.AddToScheme(scheme.Scheme)
@@ -170,6 +178,7 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
+	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571

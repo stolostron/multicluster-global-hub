@@ -4,6 +4,7 @@ metadata:
   labels:
     name: multicluster-global-hub-grafana
   name: multicluster-global-hub-grafana
+  namespace: {{.Namespace}}
 spec:
   port:
     targetPort: "oauth-proxy"
