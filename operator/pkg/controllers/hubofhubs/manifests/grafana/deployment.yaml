@@ -80,7 +80,7 @@ spec:
             mountPath: /etc/tls/private
           - mountPath: /etc/proxy/secrets
             name: cookie-secret
-        image: quay.io/stolostron/origin-oauth-proxy:4.9
+        image: {{.ProxyImage}}
         args:
           - '--provider=openshift'
           - '--upstream=http://localhost:3001'
@@ -106,15 +106,15 @@ spec:
       - name: grafana-datasources
         secret:
           defaultMode: 420
-          secretName: multicluster-global-hub-grafana-datasource-secret
+          secretName: multicluster-global-hub-grafana-datasource
       - name: grafana-config
         secret:
           defaultMode: 420
-          secretName: multicluster-global-hub-grafana-config-secret
+          secretName: multicluster-global-hub-grafana-config
       - name: tls-secret
         secret:
           defaultMode: 420
-          secretName: multicluster-global-hub-grafana-tls-secret
+          secretName: multicluster-global-hub-grafana-tls
       - name: cookie-secret
         secret:
           defaultMode: 420

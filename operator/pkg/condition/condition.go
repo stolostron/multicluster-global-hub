@@ -38,6 +38,13 @@ const (
 	CONDITION_STATUS_UNKNOWN = "Unknown"
 )
 
+// NOTE: the status of GrafanaInitialized can be True or False
+const (
+	CONDITION_TYPE_GRAFANA_INIT    = "GrafanaInitialized"
+	CONDITION_REASON_GRAFANA_INIT  = "GrafanaInitialized"
+	CONDITION_MESSAGE_GRAFANA_INIT = "Grafana has been initialized"
+)
+
 // NOTE: the status of DatabaseInitialized can be True or False
 const (
 	CONDITION_TYPE_DATABASE_INIT    = "DatabaseInitialized"
@@ -74,8 +81,14 @@ type SetConditionFunc func(ctx context.Context, c client.Client,
 	status metav1.ConditionStatus) error
 
 func FailToSetConditionError(condition string, err error) error {
-	return fmt.Errorf("failed to set condition(%s): %w",
-		condition, err)
+	return fmt.Errorf("failed to set condition(%s): %w", condition, err)
+}
+
+func SetConditionGrafanaInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	status metav1.ConditionStatus,
+) error {
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRAFANA_INIT, status,
+		CONDITION_REASON_DATABASE_INIT, CONDITION_MESSAGE_DATABASE_INIT)
 }
 
 func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,

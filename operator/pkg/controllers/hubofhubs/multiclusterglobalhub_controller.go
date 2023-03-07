@@ -288,7 +288,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 	}
 
 	// reconcile open-cluster-management-global-hub-system namespace and multicluster-global-hub configuration
-	if err = r.reconcileHoHResources(ctx, mgh); err != nil {
+	if err = r.reconcileConfig(ctx, mgh); err != nil {
 		return err
 	}
 
@@ -357,6 +357,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 		return err
 	}
 
+	// reconcile grafana
+	if err = r.reconcileGrafana(ctx, mgh); err != nil {
+		if e := condition.SetConditionGrafanaInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); e != nil {
+			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
+		}
+		return err
+	}
 	return nil
 }
 
@@ -414,8 +421,8 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 	return nil
 }
 
-// reconcileHoHResources tries to create hoh resources if they don't exist
-func (r *MulticlusterGlobalHubReconciler) reconcileHoHResources(ctx context.Context,
+// reconcileConfig tries to create hoh resources if they don't exist
+func (r *MulticlusterGlobalHubReconciler) reconcileConfig(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
 	if err := r.Client.Get(ctx,
