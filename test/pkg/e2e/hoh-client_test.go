@@ -2,12 +2,10 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,22 +41,13 @@ var _ = Describe("Check all the clients could connect to the HoH servers", Label
 	})
 
 	It("connect to the nonk8s-server with specific user", func() {
-		token, err := utils.FetchBearerToken(testOptions)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(len(token) > 0).Should(BeTrue())
-
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		client := &http.Client{Timeout: time.Second * 10, Transport: tr}
-
 		identityUrl := testOptions.HubCluster.ApiServer + "/apis/user.openshift.io/v1/users/~"
 
 		req, err := http.NewRequest("GET", identityUrl, nil)
 		Expect(err).ShouldNot(HaveOccurred())
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", httpToken))
 
-		resp, err := client.Do(req)
+		resp, err := httpClient.Do(req)
 		Expect(err).ShouldNot(HaveOccurred())
 		defer resp.Body.Close()
 

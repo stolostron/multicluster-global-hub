@@ -29,10 +29,16 @@ hub_kubecontext=$(kubectl config current-context --kubeconfig ${hub_kubeconfig})
 hub_api_server=$(kubectl config view -o jsonpath="{.clusters[0].cluster.server}" --kubeconfig ${hub_kubeconfig} --context "$HUB_OF_HUB_CTX")
 # curl -k -H "Authorization: Bearer ..." https://172.17.0.2:30080/global-hub-api/v1/managedclusters
 
-container_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${HUB_OF_HUB_NAME})
-hub_nonk8s_api_server="https://${container_node_ip}:30080"
 hub_namespace="open-cluster-management"
-hub_database_secret="hub-of-hubs-database-secret"
+container_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${HUB_OF_HUB_NAME})
+
+# container nonk8s api server
+hub_nonk8s_api_server="https://${container_node_ip}:30080"
+
+# container postgres uri
+container_pg_port="32432"
+database_uri=$(kubectl get secret storage-secret -n $hub_namespace --kubeconfig ${hub_kubeconfig} -ojsonpath='{.data.database_uri}' | base64 -d)
+container_pg_uri=$(echo $database_uri | sed "s|@.*hoh|@${container_node_ip}:${container_pg_port}/hoh|g")
 
 # imported managedcluster1
 managed1_kubeconfig="${CONFIG_DIR}/kubeconfig-${MANAGED1_NAME}"
@@ -57,7 +63,7 @@ printf "\n    apiServer: ${hub_api_server}" >> $OPTIONS_FILE
 printf "\n    nonk8sApiServer: ${hub_nonk8s_api_server}" >> $OPTIONS_FILE
 printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
 printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
-printf "\n    databaseSecret: ${hub_database_secret}" >> $OPTIONS_FILE
+printf '\n    databaseURI: %s' ${container_pg_uri} >> $OPTIONS_FILE # contain $ need to use %s
 printf "\n  clusters:" >> $OPTIONS_FILE
 printf "\n    - name: kind-${MANAGED1_NAME}" >> $OPTIONS_FILE
 printf "\n      leafhubname: kind-${LEAF_HUB_NAME}" >> $OPTIONS_FILE

@@ -18,7 +18,7 @@ type HOHCluster struct {
 	KubeConfig      string `yaml:"kubeconfig,omitempty"`
 	KubeContext     string `yaml:"kubecontext,omitempty"`
 	Nonk8sApiServer string `yaml:"nonk8sApiServer,omitempty"`
-	DatabaseSecret  string `yaml:"databaseSecret,omitempty"`
+	DatabaseURI     string `yaml:"databaseURI,omitempty"`
 }
 
 type ManagedCluster struct {
