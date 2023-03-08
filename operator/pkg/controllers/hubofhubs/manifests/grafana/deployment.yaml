@@ -6,7 +6,7 @@ metadata:
   name: multicluster-global-hub-grafana
   namespace: {{.Namespace}}
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       name: multicluster-global-hub-grafana
@@ -23,19 +23,19 @@ spec:
               topologyKey: topology.kubernetes.io/zone
               labelSelector:
                 matchExpressions:
-                - key: app
+                - key: name
                   operator: In
                   values:
-                  - multicluster-observability-grafana
+                  - multicluster-global-hub-grafana
           - weight: 30
             podAffinityTerm:
               topologyKey: kubernetes.io/hostname
               labelSelector:
                 matchExpressions:
-                - key: app
+                - key: name
                   operator: In
                   values:
-                  - multicluster-observability-grafana
+                  - multicluster-global-hub-grafana
       containers:
       - args:
         - -config=/etc/grafana/grafana.ini
