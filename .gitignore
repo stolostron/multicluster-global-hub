@@ -29,3 +29,5 @@ test/setup/config/
 
 .tmp
 .idea
+
+.DS_Store
