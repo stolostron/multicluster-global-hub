@@ -63,7 +63,7 @@ printf "\n    apiServer: ${hub_api_server}" >> $OPTIONS_FILE
 printf "\n    nonk8sApiServer: ${hub_nonk8s_api_server}" >> $OPTIONS_FILE
 printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
 printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
-printf "\n    databaseURI: ${container_pg_uri}" >> $OPTIONS_FILE
+printf '\n    databaseURI: %s' ${container_pg_uri} >> $OPTIONS_FILE # contain $ need to use %s
 printf "\n  clusters:" >> $OPTIONS_FILE
 printf "\n    - name: kind-${MANAGED1_NAME}" >> $OPTIONS_FILE
 printf "\n      leafhubname: kind-${LEAF_HUB_NAME}" >> $OPTIONS_FILE
