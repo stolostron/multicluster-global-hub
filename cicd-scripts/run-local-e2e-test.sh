@@ -9,9 +9,10 @@ HUB_OF_HUB_NAME="hub-of-hubs" # the container name
 HUB_OF_HUB_CTX="microshift"
 
 # KinD cluster, the context with prefix 'kind-'
-LEAF_HUB_NAME="hub1"
-MANAGED1_NAME="hub1-cluster1"
-MANAGED2_NAME="hub1-cluster2"
+LEAF_HUB_NAME="hub"
+# MANAGED_NAME="hub1-cluster1"
+HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-2}
+MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-1}
 
 if [ ! -d "$CONFIG_DIR" ];then
   mkdir -p "$CONFIG_DIR"
@@ -34,21 +35,6 @@ hub_nonk8s_api_server="https://${container_node_ip}:30080"
 hub_namespace="open-cluster-management"
 hub_database_secret="hub-of-hubs-database-secret"
 
-# imported managedcluster1
-managed1_kubeconfig="${CONFIG_DIR}/kubeconfig-${MANAGED1_NAME}"
-kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$MANAGED1_NAME" > ${managed1_kubeconfig}
-managed1_kubecontext=$(kubectl config current-context --kubeconfig ${managed1_kubeconfig})
-
-# imported managedcluster2
-managed2_kubeconfig="${CONFIG_DIR}/kubeconfig-${MANAGED2_NAME}"
-kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$MANAGED2_NAME" > ${managed2_kubeconfig}
-managed2_kubecontext=$(kubectl config current-context --kubeconfig ${managed2_kubeconfig})
-
-# leafhub 
-leafhub_kubeconfig="${CONFIG_DIR}/kubeconfig-${LEAF_HUB_NAME}"
-kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$LEAF_HUB_NAME" > ${leafhub_kubeconfig}
-leafhub_kubecontext=$(kubectl config current-context --kubeconfig ${leafhub_kubeconfig})
-
 printf "options:" > $OPTIONS_FILE
 printf "\n  hub:" >> $OPTIONS_FILE
 printf "\n    name: $HUB_OF_HUB_NAME" >> $OPTIONS_FILE
@@ -59,18 +45,30 @@ printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
 printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
 printf "\n    databaseSecret: ${hub_database_secret}" >> $OPTIONS_FILE
 printf "\n  clusters:" >> $OPTIONS_FILE
-printf "\n    - name: kind-${MANAGED1_NAME}" >> $OPTIONS_FILE
-printf "\n      leafhubname: kind-${LEAF_HUB_NAME}" >> $OPTIONS_FILE
-printf "\n      kubeconfig: ${managed1_kubeconfig}" >> $OPTIONS_FILE
-printf "\n      kubecontext: ${managed1_kubecontext}" >> $OPTIONS_FILE
-printf "\n    - name: kind-${MANAGED2_NAME}" >> $OPTIONS_FILE
-printf "\n      leafhubname: kind-${LEAF_HUB_NAME}" >> $OPTIONS_FILE
-printf "\n      kubeconfig: ${managed2_kubeconfig}" >> $OPTIONS_FILE
-printf "\n      kubecontext: ${managed2_kubecontext}" >> $OPTIONS_FILE
-printf "\n    - name: kind-${LEAF_HUB_NAME}" >> $OPTIONS_FILE                # if the clusterName = leafhubName, then it is a leafhub
-printf "\n      kubeconfig: ${leafhub_kubeconfig}" >> $OPTIONS_FILE
-printf "\n      leafhubname: kind-${LEAF_HUB_NAME}" >> $OPTIONS_FILE
-printf "\n      kubecontext: ${leafhub_kubecontext}" >> $OPTIONS_FILE
+
+for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
+  # leafhub
+  leafhub_kubeconfig="${CONFIG_DIR}/kubeconfig-${LEAF_HUB_NAME}$i"
+  kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$LEAF_HUB_NAME$i" > ${leafhub_kubeconfig}
+  leafhub_kubecontext=$(kubectl config current-context --kubeconfig ${leafhub_kubeconfig})
+
+  printf "\n    - name: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE                # if the clusterName = leafhubName, then it is a leafhub
+  printf "\n      kubeconfig: ${leafhub_kubeconfig}" >> $OPTIONS_FILE
+  printf "\n      leafhubname: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE
+  printf "\n      kubecontext: ${leafhub_kubecontext}" >> $OPTIONS_FILE
+
+  for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
+    # imported managedcluster
+    managed_kubeconfig="${CONFIG_DIR}/kubeconfig-${LEAF_HUB_NAME}$i-cluster$j"
+    kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-${LEAF_HUB_NAME}$i-cluster$j" > ${managed_kubeconfig}
+    managed_kubecontext=$(kubectl config current-context --kubeconfig ${managed_kubeconfig})
+
+    printf "\n    - name: kind-${LEAF_HUB_NAME}$i-cluster$j" >> $OPTIONS_FILE
+    printf "\n      leafhubname: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE
+    printf "\n      kubeconfig: ${managed_kubeconfig}" >> $OPTIONS_FILE
+    printf "\n      kubecontext: ${managed_kubecontext}" >> $OPTIONS_FILE
+  done
+done
 
 while getopts ":f:v:" opt; do
   case $opt in
