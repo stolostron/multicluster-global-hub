@@ -364,15 +364,15 @@ function enableOLM() {
 }
 
 function connectMicroshift() {
-  invokeContainerName=$1
+  leafhubName=$1
   microshiftContainerName=$2
-  invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $invokeContainerName)
+  invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $leafhubName-control-plane)
   microshiftContainerNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $microshiftContainerName)
   if [[ "$invokeNetwork" =~ "$microshiftContainerNetwork" ]]; then
     echo "Microshift network is already connected to ${invokeNetwork}"
     exit 1
   else 
-    docker network connect $microshiftContainerNetwork $invokeContainerName
+    docker network connect $microshiftContainerNetwork ${leafhubName}-control-plane
   fi
 }
 
