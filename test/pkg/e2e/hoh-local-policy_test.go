@@ -2,9 +2,7 @@ package tests
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,6 +15,7 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -36,7 +35,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		var leafhubClient client.Client
 		var managedClusterName1 string
 		var managedClusterUID1 string
-		var postgresMaster string
+		var postgresSQL *postgresql.PostgreSQL
 
 		BeforeAll(func() {
 			By("Get managed cluster name")
@@ -69,8 +68,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			}
 
 			By("Get postgres master pod name")
-			postgresMaster, err = clients.Kubectl(clients.HubClusterName(), "get", "pods", "-n", "hoh-postgres", "-l",
-				"postgres-operator.crunchydata.com/role=master", "-o", "jsonpath={.items..metadata.name}")
+			postgresSQL, err = postgresql.NewPostgreSQL(testOptions.HubCluster.DatabaseURI)
 			Expect(err).Should(Succeed())
 
 			By("Add local label to the managed cluster")
@@ -160,46 +158,51 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			klog.V(5).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 			Expect(err).Should(Succeed())
 
-			By("Verify the policy spec is synchronized to the global hub")
+			By("Verify the local policy is synchronized to the global hub spec table")
 			policy := &policiesv1.Policy{}
 			Eventually(func() error {
-				policyStr, err := clients.Kubectl(clients.HubClusterName(), "exec", "-i", postgresMaster, "-c", "database",
-					"-n", "hoh-postgres", "--", "psql", "-A", "-t", "-U", "postgres", "-d", "hoh", "-c",
-					"select payload from local_spec.policies")
+				rows, err := postgresSQL.GetConn().Query(context.TODO(), "select payload from local_spec.policies")
 				if err != nil {
 					return err
 				}
-				err = json.Unmarshal([]byte(policyStr), policy)
-				if err != nil {
-					return err
-				}
-				if policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
-					return nil
+				defer rows.Close()
+				for rows.Next() {
+					if err := rows.Scan(policy); err != nil {
+						return err
+					}
+					fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
+					if policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
+						return nil
+					}
 				}
 				return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME,
 					policy.Namespace, policy.Name)
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
-			By("Verify the policy spec is synchronized to the global hub")
+			By("Verify the local policy is synchronized to the global hub status table")
 			Eventually(func() error {
-				out, err := clients.Kubectl(clients.HubClusterName(), "exec", "-i", postgresMaster, "-c", "database",
-					"-n", "hoh-postgres", "--", "psql", "-A", "-t", "-U", "postgres", "-d", "hoh", "-c",
-					"select * from local_status.compliance")
+				rows, err := postgresSQL.GetConn().Query(context.TODO(),
+					"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
 				if err != nil {
 					return err
 				}
-				records := strings.Split(out, "|")
-				if len(records) < 5 {
-					return fmt.Errorf("the compliance record is not correct, expected 5 but got %d", len(records))
+				defer rows.Close()
+
+				for rows.Next() {
+					columnValues, _ := rows.Values()
+					if len(columnValues) < 3 {
+						return fmt.Errorf("the compliance record is not correct, expected 5 but got %d", len(columnValues))
+					}
+					policyId, cluster, leafhub := "", "", ""
+					if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
+						return err
+					}
+					if policyId == string(policy.UID) && cluster == managedClusterName1 &&
+						leafhub == clients.LeafHubClusterName() {
+						return nil
+					}
 				}
-				policyId := records[0]
-				mc := records[1]
-				leafhub := records[2]
-				// compliance := records[4]
-				if policyId == string(policy.UID) && mc == managedClusterName1 && leafhub == clients.LeafHubClusterName() {
-					return nil
-				}
-				return fmt.Errorf("get the incorrect compliance record: %s", out)
+				return fmt.Errorf("not get policy(%s) from local_status.compliance", policy.UID)
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
@@ -208,5 +211,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			output, err := clients.Kubectl(clients.LeafHubClusterName(), "delete", "-f", LOCAL_INFORM_POLICY_YAML)
 			fmt.Println(output)
 			Expect(err).Should(Succeed())
+
+			By("Delete the managed cluster")
+			postgresSQL.Stop()
 		})
 	})
