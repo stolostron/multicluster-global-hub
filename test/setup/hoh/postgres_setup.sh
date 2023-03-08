@@ -18,19 +18,3 @@ done
 
 kubectl delete pod -n $pgnamespace --all --ignore-not-found=true 2>/dev/null  
 echo "Postgres is pathed!"
-
-
-
-# step4: generate storage secret
-pgnamespace="hoh-postgres"
-
-userSecret="hoh-pguser-postgres"
-databaseHost="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "host" | base64decode}}')"
-databasePort="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "port" | base64decode}}')"
-databaseUser="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "user" | base64decode}}')"
-databasePassword="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "password" | base64decode}}')"
-databasePassword=$(printf %s "$databasePassword" |jq -sRr @uri)
-
-kubectl create secret generic $storageSecret -n $targetNamespace \
-    --from-literal=database_uri="postgres://${databaseUser}:${databasePassword}@${databaseHost}:${pgAdminPort}/hoh"
-echo "storage secret is ready in $targetNamespace namespace!"

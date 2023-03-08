@@ -32,7 +32,7 @@ hub_api_server=$(kubectl config view -o jsonpath="{.clusters[0].cluster.server}"
 hub_namespace="open-cluster-management"
 container_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${HUB_OF_HUB_NAME})
 
-# container api server
+# container nonk8s api server
 hub_nonk8s_api_server="https://${container_node_ip}:30080"
 
 # container postgres uri
