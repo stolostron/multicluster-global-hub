@@ -50,29 +50,31 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 	}
 
 	if caCert != nil && tlsCert != nil && tlsKey != nil {
-		caCertPool := x509.NewCertPool()
-		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
-			return fmt.Errorf("failed to append ca cert")
-		}
-		clientCert, err := tls.X509KeyPair(tlsCert, tlsKey)
+		// Parse TLS certs and keys. These should be stored in PEM format.
+		clientTlsCert, err := tls.X509KeyPair(tlsCert, tlsKey)
 		if err != nil {
-			return fmt.Errorf("failed to create client cert: %w", err)
+			return fmt.Errorf("failed to parse tls cert and key: %w", err)
 		}
+		// Parse the CA certificate for the server.
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
 		connConfig.TLSConfig = &tls.Config{
-			RootCAs:      caCertPool,
-			Certificates: []tls.Certificate{clientCert},
+			RootCAs:            caCertPool,
+			Certificates:       []tls.Certificate{clientTlsCert},
+			InsecureSkipVerify: true,
 		}
 	}
 
 	conn, err := pgx.ConnectConfig(ctx, connConfig)
 	if err != nil {
-		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_FALSE)
-		if conditionError != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, conditionError)
-		}
-		return fmt.Errorf("failed to connect to postgres: %w", err)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
-	defer conn.Close(ctx)
+	defer func() {
+		if err := conn.Close(ctx); err != nil {
+			log.Error(err, "failed to close connection to database")
+		}
+	}()
 
 	err = iofs.WalkDir(databaseFS, "database", func(file string, d iofs.DirEntry, beforeError error) error {
 		if beforeError != nil {
@@ -86,18 +88,14 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", file, err)
 		}
-		_, err = conn.Exec(context.Background(), string(sqlBytes))
+		_, err = conn.Exec(ctx, string(sqlBytes))
 		if err != nil {
 			return fmt.Errorf("failed to create %s: %w", file, err)
 		}
 		return nil
 	})
 	if err != nil {
-		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_FALSE)
-		if conditionError != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, conditionError)
-		}
-		return fmt.Errorf("failed to walk database directory: %w", err)
+		return fmt.Errorf("failed to exec database sql: %w", err)
 	}
 
 	log.Info("Database initialized")
