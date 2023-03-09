@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,8 +26,10 @@ const (
 var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-label"), Ordered, func() {
 	var token string
 	var httpClient *http.Client
-	var managedClusterName string
-	var managedClusterUID string
+	var managedClusterNames []string
+	var managedClusterUIDs []string
+	var clusterLabelKeys []string
+	var clusterLabelValues []string
 
 	BeforeAll(func() {
 		By("Get token for the non-k8s-api")
@@ -44,74 +47,85 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 			if err != nil {
 				return err
 			}
-			managedClusterUID = string(managedClusters[0].GetUID())
-			managedClusterName = managedClusters[0].Name
+			for i, managedCluster := range managedClusters {
+				managedClusterNames = append(managedClusterNames, managedCluster.Name)
+				managedClusterUIDs = append(managedClusterUIDs, string(managedCluster.GetUID()))
+				clusterLabelKeys = append(clusterLabelKeys, CLUSTER_LABEL_KEY+strconv.Itoa(i))
+				clusterLabelValues = append(clusterLabelValues, CLUSTER_LABEL_VALUE+strconv.Itoa(i))
+			}
+			if len(managedClusterNames) == 0 {
+				return fmt.Errorf("managed cluster is not exist")
+			}
 			return nil
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("add the label to the managed cluster", func() {
-		patches := []patch{
-			{
-				Op:    "add", // or remove
-				Path:  "/metadata/labels/" + CLUSTER_LABEL_KEY,
-				Value: CLUSTER_LABEL_VALUE,
-			},
-		}
-
-		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID)
-			if err != nil {
-				return err
+		for i, managedClusterName := range(managedClusterNames) {
+			patches := []patch{
+				{
+					Op:    "add", // or remove
+					Path:  "/metadata/labels/" + clusterLabelKeys[i],
+					Value: clusterLabelValues[i],
+				},
 			}
-			return nil
-		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-		By("Check the label is added")
-		Eventually(func() error {
-			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
-			if err != nil {
-				return err
-			}
-			if val, ok := managedCluster.Labels[CLUSTER_LABEL_KEY]; ok {
-				if val == CLUSTER_LABEL_VALUE {
-					return nil
+			Eventually(func() error {
+				err := updateClusterLabel(httpClient, patches, token, managedClusterUIDs[i])
+				if err != nil {
+					return err
 				}
-			}
-			return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+				return nil
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+			By("Check the label is added")
+			Eventually(func() error {
+				managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+				if err != nil {
+					return err
+				}
+				if val, ok := managedCluster.Labels[clusterLabelKeys[i]]; ok {
+					if val == clusterLabelValues[i] {
+						return nil
+					}
+				}
+				return fmt.Errorf("the label [%s: %s] is not exist", clusterLabelKeys[i], clusterLabelValues[i])
+			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}
 	})
 
 	It("remove the label from the managed cluster", func() {
-		patches := []patch{
-			{
-				Op:    "remove",
-				Path:  "/metadata/labels/" + CLUSTER_LABEL_KEY,
-				Value: CLUSTER_LABEL_VALUE,
-			},
-		}
-		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID)
-			if err != nil {
-				return err
+		for i, managedClusterName := range(managedClusterNames) {
+			patches := []patch{
+				{
+					Op:    "remove",
+					Path:  "/metadata/labels/" + clusterLabelKeys[i],
+					Value: clusterLabelValues[i],
+				},
 			}
-			return nil
-		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
-		By("Check the label is deleted")
-		Eventually(func() error {
-			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
-			if err != nil {
-				return err
-			}
-
-			if val, ok := managedCluster.Labels[CLUSTER_LABEL_KEY]; ok {
-				if val == CLUSTER_LABEL_VALUE {
-					return fmt.Errorf("the label %s: %s should not be exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
+			Eventually(func() error {
+				err := updateClusterLabel(httpClient, patches, token, managedClusterUIDs[i])
+				if err != nil {
+					return err
 				}
-			}
-			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+				return nil
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+			By("Check the label is deleted")
+			Eventually(func() error {
+				managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+				if err != nil {
+					return err
+				}
+
+				if val, ok := managedCluster.Labels[clusterLabelKeys[i]]; ok {
+					if val == clusterLabelValues[i] {
+						return fmt.Errorf("the label %s: %s should not be exist", clusterLabelKeys[i], clusterLabelValues[i])
+					}
+				}
+				return nil
+			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}
 	})
 })
 

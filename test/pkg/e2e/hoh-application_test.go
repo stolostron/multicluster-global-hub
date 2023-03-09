@@ -34,10 +34,8 @@ const (
 var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tests-app"), Ordered, func() {
 	var token string
 	var httpClient *http.Client
-	var managedClusterName1 string
-	var managedClusterName2 string
-	var managedClusterUID1 string
-	var managedClusterUID2 string
+	var managedClusterNames []string
+	var managedClusterUIDs []string
 	var appClient client.Client
 
 	BeforeAll(func() {
@@ -59,10 +57,11 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			if err != nil {
 				return err
 			}
-			managedClusterName1 = managedClusters[0].Name
-			managedClusterName2 = managedClusters[1].Name
-			managedClusterUID1 = string(managedClusters[0].GetUID())
-			managedClusterUID2 = string(managedClusters[1].GetUID())
+			// 待改动，关于区分managed cluster的来源
+			for _, managedCluster := range managedClusters {
+				managedClusterNames = append(managedClusterNames, managedCluster.Name)
+				managedClusterUIDs = append(managedClusterUIDs, string(managedCluster.GetUID()))
+			}
 			return nil
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
@@ -74,38 +73,40 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
-	It(fmt.Sprintf("add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName1), func() {
-		By("Add label to the managedcluster1")
-		patches := []patch{
-			{
-				Op:    "add",
-				Path:  "/metadata/labels/" + APP_LABEL_KEY,
-				Value: APP_LABEL_VALUE,
-			},
-		}
-
-		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID1)
-			if err != nil {
-				return err
+	for i, managedClusterName := range managedClusterNames {
+		It(fmt.Sprintf("add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName), func() {
+			By("Add label to the managedcluster1")
+			patches := []patch{
+				{
+					Op:    "add",
+					Path:  "/metadata/labels/" + APP_LABEL_KEY,
+					Value: APP_LABEL_VALUE,
+				},
 			}
-			return nil
-		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-		By("Check the label is added")
-		Eventually(func() error {
-			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName1)
-			if err != nil {
-				return err
-			}
-			if val, ok := managedCluster.Labels[APP_LABEL_KEY]; ok {
-				if val == APP_LABEL_VALUE && managedCluster.Name == managedClusterName1 {
-					return nil
+			Eventually(func() error {
+				err := updateClusterLabel(httpClient, patches, token, managedClusterUIDs[i])
+				if err != nil {
+					return err
 				}
-			}
-			return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-	})
+				return nil
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+			By("Check the label is added to managedcluster1")
+			Eventually(func() error {
+				managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+				if err != nil {
+					return err
+				}
+				if val, ok := managedCluster.Labels[APP_LABEL_KEY]; ok {
+					if val == APP_LABEL_VALUE && managedCluster.Name == managedClusterName {
+						return nil
+					}
+				}
+				return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
+			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		})
+	}
 
 	Context("deploy the application", func() {
 		It("deploy the application/subscription", func() {
@@ -120,48 +121,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
-				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token, 1,
-					[]string{managedClusterName1})
-			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-		})
-
-		It(fmt.Sprintf("Add the app label[ %s: %s ] to the %s", APP_LABEL_KEY,
-			APP_LABEL_VALUE, managedClusterName2), func() {
-			By("Add the lablel to managedcluster2")
-			patches := []patch{
-				{
-					Op:    "add",
-					Path:  "/metadata/labels/" + APP_LABEL_KEY,
-					Value: APP_LABEL_VALUE,
-				},
-			}
-			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, token, managedClusterUID2)
-				if err != nil {
-					return err
-				}
-				return nil
-			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
-			By("Check the label is added to managedcluster2")
-			Eventually(func() error {
-				managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName2)
-				if err != nil {
-					return err
-				}
-				if val, ok := managedCluster.Labels[APP_LABEL_KEY]; ok {
-					if val == APP_LABEL_VALUE && managedCluster.Name == managedClusterName2 {
-						return nil
-					}
-				}
-				return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-
-			By("Check the appsub apply to the clusters")
-			Eventually(func() error {
-				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token, 2, []string{
-					managedClusterName1, managedClusterName2,
-				})
+				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token, 1, managedClusterNames)
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
@@ -186,17 +146,11 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID1)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
-		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID2)
-			if err != nil {
-				return err
+			for _, managedClusterUID := range managedClusterUIDs {
+				err := updateClusterLabel(httpClient, patches, token, managedClusterUID)
+				if err != nil {
+					return err
+				}
 			}
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
