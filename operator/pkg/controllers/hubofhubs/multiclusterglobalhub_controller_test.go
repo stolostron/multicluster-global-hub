@@ -382,19 +382,25 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			// get the grafana objects
 			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
-					Namespace         string
-					SessionSecret     string
-					ProxyImage        string
-					POSTGRES_HOST     string
-					POSTGRES_USER     string
-					POSTGRES_PASSWORD string
+					Namespace            string
+					SessionSecret        string
+					ProxyImage           string
+					POSTGRES_HOST        string
+					POSTGRES_USER        string
+					POSTGRES_PASSWORD    string
+					POSTGRES_CA_CERT     string
+					POSTGRES_CLIENT_CERT string
+					POSTGRES_CLIENT_KEY  string
 				}{
-					Namespace:         config.GetDefaultNamespace(),
-					SessionSecret:     "testing",
-					ProxyImage:        config.GetImage("oauth_proxy"),
-					POSTGRES_HOST:     objURI.Host,
-					POSTGRES_USER:     objURI.User.Username(),
-					POSTGRES_PASSWORD: password,
+					Namespace:            config.GetDefaultNamespace(),
+					SessionSecret:        "testing",
+					ProxyImage:           config.GetImage("oauth_proxy"),
+					POSTGRES_HOST:        objURI.Host,
+					POSTGRES_USER:        objURI.User.Username(),
+					POSTGRES_PASSWORD:    password,
+					POSTGRES_CA_CERT:     "testing",
+					POSTGRES_CLIENT_CERT: "testing",
+					POSTGRES_CLIENT_KEY:  "testing",
 				}, nil
 			})
 

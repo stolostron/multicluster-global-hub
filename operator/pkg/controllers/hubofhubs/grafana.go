@@ -51,23 +51,42 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		return fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
 	}
 
+	caCert := string(postgresSecret.Data["ca.crt"])
+	if caCert == "" {
+		return fmt.Errorf("failed to get ca.crt from secret: %s", mgh.Spec.DataLayer.LargeScale.Postgres.Name)
+	}
+	clientCert := string(postgresSecret.Data["tls.crt"])
+	if clientCert == "" {
+		return fmt.Errorf("failed to get tls.crt from secret: %s", mgh.Spec.DataLayer.LargeScale.Postgres.Name)
+	}
+	clientKey := string(postgresSecret.Data["tls.key"])
+	if clientKey == "" {
+		return fmt.Errorf("failed to get tls.key from secret: %s", mgh.Spec.DataLayer.LargeScale.Postgres.Name)
+	}
+
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
 	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 		return struct {
-			Namespace         string
-			SessionSecret     string
-			ProxyImage        string
-			POSTGRES_HOST     string
-			POSTGRES_USER     string
-			POSTGRES_PASSWORD string
+			Namespace            string
+			SessionSecret        string
+			ProxyImage           string
+			POSTGRES_HOST        string
+			POSTGRES_USER        string
+			POSTGRES_PASSWORD    string
+			POSTGRES_CA_CERT     string
+			POSTGRES_CLIENT_CERT string
+			POSTGRES_CLIENT_KEY  string
 		}{
-			Namespace:         config.GetDefaultNamespace(),
-			SessionSecret:     proxySessionSecret,
-			ProxyImage:        config.GetImage("oauth_proxy"),
-			POSTGRES_HOST:     objURI.Host,
-			POSTGRES_USER:     objURI.User.Username(),
-			POSTGRES_PASSWORD: password,
+			Namespace:            config.GetDefaultNamespace(),
+			SessionSecret:        proxySessionSecret,
+			ProxyImage:           config.GetImage("oauth_proxy"),
+			POSTGRES_HOST:        objURI.Host,
+			POSTGRES_USER:        objURI.User.Username(),
+			POSTGRES_PASSWORD:    password,
+			POSTGRES_CA_CERT:     caCert,
+			POSTGRES_CLIENT_CERT: clientCert,
+			POSTGRES_CLIENT_KEY:  clientKey,
 		}, nil
 	})
 	if err != nil {
