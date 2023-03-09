@@ -33,5 +33,5 @@ databasePassword="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o g
 databasePassword=$(printf %s "$databasePassword" |jq -sRr @uri)
 
 kubectl create secret generic $storageSecret -n $targetNamespace \
-    --from-literal=database_uri="postgres://${databaseUser}:${databasePassword}@${databaseHost}:${pgAdminPort}/hoh"
+    --from-literal=database_uri="postgres://${databaseUser}:${databasePassword}@${databaseHost}:${databasePort}/hoh"
 echo "storage secret is ready in $targetNamespace namespace!"

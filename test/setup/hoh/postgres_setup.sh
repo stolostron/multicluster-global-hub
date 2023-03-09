@@ -7,7 +7,10 @@ postgresDir="$rootDir/operator/config/samples/storage"
 
 bash $postgresDir/deploy_postgres.sh $KUBECONFIG
 
+# expose the postgres service as NodePort
 pgnamespace="hoh-postgres"
+kubectl patch postgrescluster hoh -n $pgnamespace -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
+
 stss=$(kubectl get statefulset -n $pgnamespace -o jsonpath={.items..metadata.name})
 for sts in ${stss}; do
   kubectl patch statefulset ${sts} -n $pgnamespace -p '{"spec":{"template":{"spec":{"securityContext":{"fsGroup":26}}}}}'
@@ -15,4 +18,3 @@ done
 
 kubectl delete pod -n $pgnamespace --all --ignore-not-found=true 2>/dev/null  
 echo "Postgres is pathed!"
-

@@ -57,7 +57,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			if err != nil {
 				return err
 			}
-			// 待改动，关于区分managed cluster的来源
+			// 待改动，关于区分managed cluster的
 			for _, managedCluster := range managedClusters {
 				managedClusterNames = append(managedClusterNames, managedCluster.Name)
 				managedClusterUIDs = append(managedClusterUIDs, string(managedCluster.GetUID()))
