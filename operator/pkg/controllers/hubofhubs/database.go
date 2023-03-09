@@ -2,6 +2,8 @@ package hubofhubs
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"embed"
 	"fmt"
 	iofs "io/fs"
@@ -38,7 +40,31 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 	}
 
 	databaseURI := string(postgreSecret.Data["database_uri"])
-	conn, err := pgx.Connect(ctx, databaseURI)
+	caCert := postgreSecret.Data["ca.crt"]
+	tlsCert := postgreSecret.Data["tls.crt"]
+	tlsKey := postgreSecret.Data["tls.key"]
+
+	connConfig, err := pgx.ParseConfig(databaseURI)
+	if err != nil {
+		return fmt.Errorf("failed to parse database uri: %w", err)
+	}
+
+	if caCert != nil && tlsCert != nil && tlsKey != nil {
+		caCertPool := x509.NewCertPool()
+		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+			return fmt.Errorf("failed to append ca cert")
+		}
+		clientCert, err := tls.X509KeyPair(tlsCert, tlsKey)
+		if err != nil {
+			return fmt.Errorf("failed to create client cert: %w", err)
+		}
+		connConfig.TLSConfig = &tls.Config{
+			RootCAs:      caCertPool,
+			Certificates: []tls.Certificate{clientCert},
+		}
+	}
+
+	conn, err := pgx.ConnectConfig(ctx, connConfig)
 	if err != nil {
 		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_FALSE)
 		if conditionError != nil {
