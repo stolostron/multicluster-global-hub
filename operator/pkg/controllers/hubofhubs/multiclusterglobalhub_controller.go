@@ -285,7 +285,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 		}); err != nil {
 			conditionError := condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE)
 			if conditionError != nil {
-				return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, conditionError)
+				return condition.FailToSetConditionError(
+					condition.CONDITION_STATUS_FALSE, conditionError)
 			}
 			return err
 		}

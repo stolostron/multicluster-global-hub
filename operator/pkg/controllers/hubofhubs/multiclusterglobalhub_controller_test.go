@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/kylelemons/godebug/diff"
@@ -67,6 +66,7 @@ const (
 	TransportSecretName  = "transport-secret"
 	kafkaCACert          = "foobar"
 	kafkaBootstrapServer = "https://test-kafka.example.com"
+	datasourceSecretName = "multicluster-global-hub-grafana-datasources"
 
 	timeout  = time.Second * 10
 	duration = time.Second * 10
@@ -295,19 +295,23 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 			Eventually(func() error {
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
-				if condition.GetConditionStatus(createdMGH, condition.CONDITION_TYPE_DATABASE_INIT) !=
+				if condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_DATABASE_INIT) !=
 					condition.CONDITION_STATUS_TRUE {
 					return fmt.Errorf("the database init condition is not set to true")
 				}
-				if condition.GetConditionStatus(createdMGH, condition.CONDITION_TYPE_TRANSPORT_INIT) !=
+				if condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_TRANSPORT_INIT) !=
 					condition.CONDITION_STATUS_TRUE {
 					return fmt.Errorf("the transport init condition is not set to true")
 				}
-				if condition.GetConditionStatus(createdMGH, condition.CONDITION_TYPE_MANAGER_DEPLOY) !=
+				if condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_MANAGER_DEPLOY) !=
 					condition.CONDITION_STATUS_TRUE {
 					return fmt.Errorf("the manager deploy condition is not set to true")
 				}
-				if condition.GetConditionStatus(createdMGH, condition.CONDITION_TYPE_GRAFANA_INIT) !=
+				if condition.GetConditionStatus(createdMGH,
+					condition.CONDITION_TYPE_GRAFANA_INIT) !=
 					condition.CONDITION_STATUS_TRUE {
 					return fmt.Errorf("the grafana init condition is not set to true")
 				}
@@ -375,34 +379,18 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return nil
 			}, timeout, interval).Should(Succeed())
 
-			By("By checking the grafana resources are created as expected")
-			objURI, err := url.Parse(testPostgres.URI)
-			Expect(err).Should(Succeed())
-			password, ok := objURI.User.Password()
-			Expect(ok).Should(BeTrue(), "password should be set for postgres")
-
 			// get the grafana objects
 			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
 					Namespace            string
 					SessionSecret        string
 					ProxyImage           string
-					POSTGRES_HOST        string
-					POSTGRES_USER        string
-					POSTGRES_PASSWORD    string
-					POSTGRES_CA_CERT     string
-					POSTGRES_CLIENT_CERT string
-					POSTGRES_CLIENT_KEY  string
+					DatasourceSecretName string
 				}{
 					Namespace:            config.GetDefaultNamespace(),
 					SessionSecret:        "testing",
 					ProxyImage:           config.GetImage("oauth_proxy"),
-					POSTGRES_HOST:        objURI.Host,
-					POSTGRES_USER:        objURI.User.Username(),
-					POSTGRES_PASSWORD:    password,
-					POSTGRES_CA_CERT:     "testing",
-					POSTGRES_CLIENT_CERT: "testing",
-					POSTGRES_CLIENT_KEY:  "testing",
+					DatasourceSecretName: datasourceSecretName,
 				}, nil
 			})
 
@@ -415,7 +403,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					if err := k8sClient.Get(ctx, objLookupKey, foundObj); err != nil {
 						return err
 					}
-					fmt.Printf("found grafana resource: %s(%s) \n", unsObj.GetObjectKind().GroupVersionKind().Kind, objLookupKey)
+					fmt.Printf("found grafana resource: %s(%s) \n",
+						unsObj.GetObjectKind().GroupVersionKind().Kind, objLookupKey)
 				}
 				fmt.Printf("all grafana resources(%d) are created as expected \n", len(grafanaObjects))
 				return nil
@@ -535,7 +524,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("mutatingwebhookconfiguration should be recreated")
 			Eventually(func() error {
 				newMutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
-				return k8sClient.Get(ctx, types.NamespacedName{Name: "multicluster-global-hub-mutator"},
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name: "multicluster-global-hub-mutator",
+				},
 					newMutatingWebhookConfiguration)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
@@ -812,7 +803,8 @@ func prettyPrint(v interface{}) error {
 
 func checkResourceExistence(ctx context.Context, k8sClient client.Client, unsObj *unstructured.Unstructured) error {
 	// skip session secret and kafka-ca secret check because they contain random value
-	if unsObj.GetName() == "nonk8s-apiserver-cookie-secret" || unsObj.GetName() == "kafka-ca-secret" ||
+	if unsObj.GetName() == "nonk8s-apiserver-cookie-secret" ||
+		unsObj.GetName() == "kafka-ca-secret" ||
 		unsObj.GetName() == "multicluster-global-hub-grafana-cookie-secret" {
 		return nil
 	}

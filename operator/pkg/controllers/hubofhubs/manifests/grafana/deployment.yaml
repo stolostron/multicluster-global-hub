@@ -106,7 +106,7 @@ spec:
       - name: grafana-datasources
         secret:
           defaultMode: 420
-          secretName: multicluster-global-hub-grafana-datasource
+          secretName: {{.DatasourceSecretName}}
       - name: grafana-config
         secret:
           defaultMode: 420
