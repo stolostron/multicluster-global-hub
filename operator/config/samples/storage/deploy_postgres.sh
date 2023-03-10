@@ -33,11 +33,9 @@ databaseUser="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-te
 databasePassword="$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "password" | base64decode}}')"
 databasePwd=$(printf %s "$databasePassword" |jq -sRr @uri)
 
-kubectl get secret $certSecret -n $pgnamespace -o jsonpath='{.data.ca\.crt}' |base64 -d > $currentDir/ca.crt
+# kubectl get secret $certSecret -n $pgnamespace -o jsonpath='{.data.ca\.crt}' |base64 -d > $currentDir/ca.crt
 
 kubectl create secret generic $storageSecret -n $targetNamespace \
-    --from-literal=database_uri="postgres://${databaseUser}:${databasePwd}@${databaseHost}:${databasePort}/hoh" \
-    --from-file=ca.crt=$currentDir/ca.crt \
-    --from-file=tls.crt=$currentDir/tls.crt \
-    --from-file=tls.key=$currentDir/tls.key
+    --from-literal=database_uri="postgres://${databaseUser}:${databasePwd}@${databaseHost}:${databasePort}/hoh"
+
 echo "storage secret is ready in $targetNamespace namespace!"

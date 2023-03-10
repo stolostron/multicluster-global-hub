@@ -142,13 +142,13 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 				Database:  database,
 				Editable:  false,
 				JSONData: &JsonData{
-					SSLMode:      "require",
+					// SSLMode:      "require",
 					QueryTimeout: "300s",
 					TimeInterval: "30s",
 				},
 				SecureJSONData: &SecureJsonData{
-					Password:  password,
-					TLSCACert: string(postgresSecret.Data["ca.crt"]),
+					Password: password,
+					// TLSCACert: string(postgresSecret.Data["ca.crt"]),
 				},
 			},
 		},
