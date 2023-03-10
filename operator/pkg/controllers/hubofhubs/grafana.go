@@ -2,6 +2,7 @@ package hubofhubs
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/url"
 
@@ -71,9 +72,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			POSTGRES_HOST:        objURI.Host,
 			POSTGRES_USER:        objURI.User.Username(),
 			POSTGRES_PASSWORD:    password,
-			POSTGRES_CA_CERT:     string(postgresSecret.Data["ca.crt"]),
-			POSTGRES_CLIENT_CERT: string(postgresSecret.Data["tls.crt"]),
-			POSTGRES_CLIENT_KEY:  string(postgresSecret.Data["tls.key"]),
+			POSTGRES_CA_CERT:     base64.StdEncoding.EncodeToString(postgresSecret.Data["ca.crt"]),
+			POSTGRES_CLIENT_CERT: base64.StdEncoding.EncodeToString(postgresSecret.Data["tls.crt"]),
+			POSTGRES_CLIENT_KEY:  base64.StdEncoding.EncodeToString(postgresSecret.Data["tls.key"]),
 		}, nil
 	})
 	if err != nil {
