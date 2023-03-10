@@ -30,8 +30,7 @@ import (
 )
 
 const (
-	datasourceKey        = "datasources.yaml"
-	datasourceSecretName = "multicluster-global-hub-grafana-datasources"
+	datasourceKey = "datasources.yaml"
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
@@ -51,7 +50,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 
 	// generate datasource secret: must before the grafana objects
-	err = r.GenerateGrafanaDataSourceSecret(ctx, r.Client, mgh, r.Scheme)
+	datasourceSecretName, err := r.GenerateGrafanaDataSourceSecret(ctx, r.Client, mgh, r.Scheme)
 	if err != nil {
 		return fmt.Errorf("failed to generate grafana datasource secret: %v", err)
 	}
@@ -102,7 +101,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	c client.Client,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	scheme *runtime.Scheme,
-) error {
+) (string, error) {
 	log := ctrllog.FromContext(ctx)
 	// get the grafana data source
 	postgresSecret, err := r.KubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(
@@ -110,17 +109,17 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 		metav1.GetOptions{})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	postgresURI := string(postgresSecret.Data["database_uri"])
 	objURI, err := url.Parse(postgresURI)
 	if err != nil {
-		return err
+		return "", err
 	}
 	password, ok := objURI.User.Password()
 	if !ok {
-		return fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
+		return "", fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
 	}
 
 	// get the database from the objURI
@@ -159,12 +158,12 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		},
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	dsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      datasourceSecretName,
+			Name:      "multicluster-global-hub-grafana-datasources",
 			Namespace: config.GetDefaultNamespace(),
 			Labels: map[string]string{
 				"datasource/time-tarted":         time.Now().Format("2006-1-2.1504"),
@@ -179,7 +178,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 
 	// Set MGH instance as the owner and controller
 	if err = controllerutil.SetControllerReference(mgh, dsSecret, scheme); err != nil {
-		return err
+		return dsSecret.GetName(), err
 	}
 
 	// Check if this already exists
@@ -189,13 +188,13 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	if err != nil && errors.IsNotFound(err) {
 		log.Info("create grafana datasource secret")
 		if err := c.Create(ctx, dsSecret); err != nil {
-			return err
+			return dsSecret.GetName(), err
 		}
 	} else if err != nil {
-		return err
+		return dsSecret.GetName(), err
 	}
 
-	return nil
+	return dsSecret.GetName(), nil
 }
 
 type GrafanaDatasources struct {
