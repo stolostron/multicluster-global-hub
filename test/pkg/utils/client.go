@@ -20,10 +20,12 @@ type Client interface {
 	KubeClient() kubernetes.Interface
 	KubeDynamicClient() dynamic.Interface
 	ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error)
+	// ControllerRuntimeClients(clusterNames []string, scheme *runtime.Scheme) ([]runClient.Client, error)
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
 	HubClusterName() string
 	LeafHubClusterName() string
+	GetLeafHubClusterNames() []string
 }
 
 type client struct {
@@ -47,6 +49,22 @@ func (c *client) ControllerRuntimeClient(clusterName string, scheme *runtime.Sch
 	}
 	return controllerClient, nil
 }
+
+// func (c *client) ControllerRuntimeClients(clusterNames []string, scheme *runtime.Scheme) ([]runClient.Client, error) {
+// 	var clients []runClient.Client
+// 	for i, clusterName := range clusterNames {
+// 		cfg, err := c.RestConfig(clusterName)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		controllerClient, err := runClient.New(cfg, runClient.Options{Scheme: scheme})
+// 		clients = append(clients, controllerClient)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 	}
+// 	return clients, nil
+// }
 
 func (c *client) KubeClient() kubernetes.Interface {
 	opt := c.options
@@ -82,6 +100,9 @@ func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
 		// insert to the first
 		args = append([]string{"--context", c.options.HubCluster.KubeContext}, args...)
 		args = append([]string{"--kubeconfig", c.options.HubCluster.KubeConfig}, args...)
+		for _, arg := range args {
+			fmt.Println(arg)
+		}
 		output, err := exec.Command("kubectl", args...).CombinedOutput()
 		return string(output), err
 	}
@@ -153,4 +174,14 @@ func (c *client) LeafHubClusterName() string {
 		}
 	}
 	return ""
+}
+
+func (c *client) GetLeafHubClusterNames() []string {
+	var clusters []string
+	for _, cluster := range c.options.ManagedClusters {
+		if cluster.Name == cluster.LeafHubName {
+			clusters = append(clusters, cluster.Name)
+		}
+	}
+	return clusters
 }

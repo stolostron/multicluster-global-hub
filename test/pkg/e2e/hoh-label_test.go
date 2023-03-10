@@ -48,7 +48,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 	})
 
 	It("add the label to the managed cluster", func() {
-		for i, managedClusterName := range(managedClusterNames) {
+		for i, managedClusterName := range managedClusterNames {
 			patches := []patch{
 				{
 					Op:    "add", // or remove
@@ -82,7 +82,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 	})
 
 	It("remove the label from the managed cluster", func() {
-		for i, managedClusterName := range(managedClusterNames) {
+		for i, managedClusterName := range managedClusterNames {
 			patches := []patch{
 				{
 					Op:    "remove",
