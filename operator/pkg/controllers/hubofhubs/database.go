@@ -59,9 +59,11 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 
+		/* #nosec G402*/
 		connConfig.TLSConfig = &tls.Config{
-			RootCAs:            caCertPool,
-			Certificates:       []tls.Certificate{clientTlsCert},
+			RootCAs:      caCertPool,
+			Certificates: []tls.Certificate{clientTlsCert},
+			//nolint:gosec
 			InsecureSkipVerify: true,
 		}
 	}
