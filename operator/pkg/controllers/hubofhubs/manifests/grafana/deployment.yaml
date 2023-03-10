@@ -91,12 +91,12 @@ spec:
           - '--openshift-delegate-urls={"/": {"resource": "projects", "verb": "list"}}'
           - '--tls-cert=/etc/tls/private/tls.crt'
           - '--tls-key=/etc/tls/private/tls.key'
-          - '--openshift-service-account=grafana'
+          - '--openshift-service-account=multicluster-global-hub-grafana'
           - '--pass-user-bearer-token=true'
           - '--pass-access-token=true'
           - '--openshift-ca=/etc/pki/tls/cert.pem'
           - '--openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
-      serviceAccount: grafana
+      serviceAccount: multicluster-global-hub-grafana
       imagePullSecrets:
       - name: multiclusterhub-operator-pull-secret
       serviceAccountName: grafana
