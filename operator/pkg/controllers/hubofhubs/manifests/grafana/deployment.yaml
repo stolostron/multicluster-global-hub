@@ -99,7 +99,7 @@ spec:
       serviceAccount: multicluster-global-hub-grafana
       imagePullSecrets:
       - name: multiclusterhub-operator-pull-secret
-      serviceAccountName: grafana
+      serviceAccountName: multicluster-global-hub-grafana
       volumes:
       - emptyDir: {}
         name: grafana-storage
