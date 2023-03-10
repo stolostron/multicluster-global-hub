@@ -133,7 +133,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		APIVersion: 1,
 		Datasources: []*GrafanaDatasource{
 			{
-				Name:      "GlobalHubDataSource",
+				Name:      "Global-Hub-DataSource",
 				Type:      "postgres",
 				Access:    "proxy",
 				IsDefault: true,
@@ -145,14 +145,10 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 					SSLMode:      "require",
 					QueryTimeout: "300s",
 					TimeInterval: "30s",
-					TLSAuth:      true,
-					TLSAuthCA:    true,
 				},
 				SecureJSONData: &SecureJsonData{
-					Password:      password,
-					TLSCACert:     string(postgresSecret.Data["ca.crt"]),
-					TLSClientCert: string(postgresSecret.Data["tls.crt"]),
-					TLSClientKey:  string(postgresSecret.Data["tls.key"]),
+					Password:  password,
+					TLSCACert: string(postgresSecret.Data["ca.crt"]),
 				},
 			},
 		},

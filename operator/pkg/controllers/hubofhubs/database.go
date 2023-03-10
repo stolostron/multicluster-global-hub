@@ -2,8 +2,6 @@ package hubofhubs
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"embed"
 	"fmt"
 	iofs "io/fs"
@@ -40,32 +38,10 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 	}
 
 	databaseURI := string(postgreSecret.Data["database_uri"])
-	caCert := postgreSecret.Data["ca.crt"]
-	tlsCert := postgreSecret.Data["tls.crt"]
-	tlsKey := postgreSecret.Data["tls.key"]
 
 	connConfig, err := pgx.ParseConfig(databaseURI)
 	if err != nil {
 		return fmt.Errorf("failed to parse database uri: %w", err)
-	}
-
-	if caCert != nil && tlsCert != nil && tlsKey != nil {
-		// Parse TLS certs and keys. These should be stored in PEM format.
-		clientTlsCert, err := tls.X509KeyPair(tlsCert, tlsKey)
-		if err != nil {
-			return fmt.Errorf("failed to parse tls cert and key: %w", err)
-		}
-		// Parse the CA certificate for the server.
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-
-		/* #nosec G402*/
-		connConfig.TLSConfig = &tls.Config{
-			RootCAs:      caCertPool,
-			Certificates: []tls.Certificate{clientTlsCert},
-			//nolint:gosec
-			InsecureSkipVerify: true,
-		}
 	}
 
 	conn, err := pgx.ConnectConfig(ctx, connConfig)
