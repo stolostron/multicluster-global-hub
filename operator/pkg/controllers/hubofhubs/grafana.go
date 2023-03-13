@@ -102,7 +102,6 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	scheme *runtime.Scheme,
 ) (string, error) {
-	log := ctrllog.FromContext(ctx)
 	// get the grafana data source
 	postgresSecret, err := r.KubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(
 		ctx,
@@ -129,29 +128,40 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		database = paths[1]
 	}
 
-	grafanaDatasources, err := yaml.Marshal(GrafanaDatasources{
-		APIVersion: 1,
-		Datasources: []*GrafanaDatasource{
-			{
-				Name:      "Global-Hub-DataSource",
-				Type:      "postgres",
-				Access:    "proxy",
-				IsDefault: true,
-				URL:       objURI.Host,
-				User:      objURI.User.Username(),
-				Database:  database,
-				Editable:  false,
-				JSONData: &JsonData{
-					// SSLMode:      "require",
-					QueryTimeout: "300s",
-					TimeInterval: "30s",
-				},
-				SecureJSONData: &SecureJsonData{
-					Password: password,
-					// TLSCACert: string(postgresSecret.Data["ca.crt"]),
-				},
-			},
+	sslmode := "prefer"
+	if objURI.Query().Get("sslmode") != "" {
+		sslmode = objURI.Query().Get("sslmode")
+	}
+
+	ds := &GrafanaDatasource{
+		Name:      "Global-Hub-DataSource",
+		Type:      "postgres",
+		Access:    "proxy",
+		IsDefault: true,
+		URL:       objURI.Host,
+		User:      objURI.User.Username(),
+		Database:  database,
+		Editable:  false,
+		JSONData: &JsonData{
+			SSLMode:      sslmode,
+			QueryTimeout: "300s",
+			TimeInterval: "30s",
 		},
+		SecureJSONData: &SecureJsonData{
+			Password: password,
+		},
+	}
+	if sslmode == "verify-full" || sslmode == "verify-ca" {
+		ds.JSONData.TLSAuth = true
+		ds.JSONData.TLSAuthWithCACert = true
+		ds.JSONData.TLSSkipVerify = true
+		ds.JSONData.TLSConfigurationMethod = "file-content"
+		ds.SecureJSONData.TLSCACert = string(postgresSecret.Data["ca.crt"])
+	}
+
+	grafanaDatasources, err := yaml.Marshal(GrafanaDatasources{
+		APIVersion:  1,
+		Datasources: []*GrafanaDatasource{ds},
 	})
 	if err != nil {
 		return "", err
@@ -182,7 +192,6 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	err = c.Get(ctx, types.NamespacedName{Name: dsSecret.Name, Namespace: dsSecret.Namespace}, grafanaDSFound)
 
 	if err != nil && errors.IsNotFound(err) {
-		log.Info("create grafana datasource secret")
 		if err := c.Create(ctx, dsSecret); err != nil {
 			return dsSecret.GetName(), err
 		}
@@ -217,13 +226,14 @@ type GrafanaDatasource struct {
 }
 
 type JsonData struct {
-	SSLMode       string `yaml:"sslmode,omitempty"`
-	TLSAuth       bool   `yaml:"tlsAuth,omitempty"`
-	TLSAuthCA     bool   `yaml:"tlsAuthWithCACert,omitempty"`
-	TLSSkipVerify bool   `yaml:"tlsSkipVerify,omitempty"`
-	QueryTimeout  string `yaml:"queryTimeout,omitempty"`
-	HttpMethod    string `yaml:"httpMethod,omitempty"`
-	TimeInterval  string `yaml:"timeInterval,omitempty"`
+	SSLMode                string `yaml:"sslmode,omitempty"`
+	TLSAuth                bool   `yaml:"tlsAuth,omitempty"`
+	TLSAuthWithCACert      bool   `yaml:"tlsAuthWithCACert,omitempty"`
+	TLSConfigurationMethod string `yaml:"tlsConfigurationMethod,omitempty"`
+	TLSSkipVerify          bool   `yaml:"tlsSkipVerify,omitempty"`
+	QueryTimeout           string `yaml:"queryTimeout,omitempty"`
+	HttpMethod             string `yaml:"httpMethod,omitempty"`
+	TimeInterval           string `yaml:"timeInterval,omitempty"`
 }
 
 type SecureJsonData struct {
