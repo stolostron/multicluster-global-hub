@@ -50,7 +50,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 
 	// generate datasource secret: must before the grafana objects
-	datasourceSecretName, err := r.GenerateGrafanaDataSourceSecret(ctx, r.Client, mgh, r.Scheme)
+	datasourceSecretName, err := GenerateGrafanaDataSourceSecret(ctx, r.Client, mgh, r.Scheme)
 	if err != nil {
 		return fmt.Errorf("failed to generate grafana datasource secret: %v", err)
 	}
@@ -96,29 +96,70 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 
 // GenerateGrafanaDataSource is used to generate the GrafanaDatasource as a secret.
 // the GrafanaDatasource points to multicluster-global-hub cr
-func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
+func GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
 	c client.Client,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	scheme *runtime.Scheme,
 ) (string, error) {
 	// get the grafana data source
-	postgresSecret, err := r.KubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(
-		ctx,
-		mgh.Spec.DataLayer.LargeScale.Postgres.Name,
-		metav1.GetOptions{})
+	postgresSecret := &corev1.Secret{}
+	if err := c.Get(ctx, types.NamespacedName{
+		Name:      mgh.Spec.DataLayer.LargeScale.Postgres.Name,
+		Namespace: config.GetDefaultNamespace(),
+	}, postgresSecret); err != nil {
+		return "", err
+	}
+
+	datasourceVal, err := GrafanaDataSource(string(postgresSecret.Data["database_uri"]), postgresSecret.Data["ca.crt"])
 	if err != nil {
 		return "", err
 	}
 
-	postgresURI := string(postgresSecret.Data["database_uri"])
+	dsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "multicluster-global-hub-grafana-datasources",
+			Namespace: config.GetDefaultNamespace(),
+			Labels: map[string]string{
+				"datasource/time-tarted":         time.Now().Format("2006-1-2.1504"),
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+		Type: "Opaque",
+		Data: map[string][]byte{
+			datasourceKey: datasourceVal,
+		},
+	}
+
+	// Set MGH instance as the owner and controller
+	if err = controllerutil.SetControllerReference(mgh, dsSecret, scheme); err != nil {
+		return dsSecret.GetName(), err
+	}
+
+	// Check if this already exists
+	grafanaDSFound := &corev1.Secret{}
+	err = c.Get(ctx, types.NamespacedName{Name: dsSecret.Name, Namespace: dsSecret.Namespace}, grafanaDSFound)
+
+	if err != nil && errors.IsNotFound(err) {
+		if err := c.Create(ctx, dsSecret); err != nil {
+			return dsSecret.GetName(), err
+		}
+	} else if err != nil {
+		return dsSecret.GetName(), err
+	}
+
+	return dsSecret.GetName(), nil
+}
+
+func GrafanaDataSource(databaseURI string, cert []byte) ([]byte, error) {
+	postgresURI := string(databaseURI)
 	objURI, err := url.Parse(postgresURI)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	password, ok := objURI.User.Password()
 	if !ok {
-		return "", fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
+		return nil, fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
 	}
 
 	// get the database from the objURI
@@ -146,8 +187,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		},
 	}
 
-	cert, ok := postgresSecret.Data["ca.crt"]
-	if ok && len(cert) > 0 {
+	if cert != nil && len(cert) > 0 {
 		ds.JSONData.SSLMode = objURI.Query().Get("sslmode") // sslmode == "verify-full" || sslmode == "verify-ca"
 		ds.JSONData.TLSAuth = true
 		ds.JSONData.TLSAuthWithCACert = true
@@ -155,48 +195,14 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		ds.JSONData.TLSConfigurationMethod = "file-content"
 		ds.SecureJSONData.TLSCACert = string(cert)
 	}
-
 	grafanaDatasources, err := yaml.Marshal(GrafanaDatasources{
 		APIVersion:  1,
 		Datasources: []*GrafanaDatasource{ds},
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	dsSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "multicluster-global-hub-grafana-datasources",
-			Namespace: config.GetDefaultNamespace(),
-			Labels: map[string]string{
-				"datasource/time-tarted":         time.Now().Format("2006-1-2.1504"),
-				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-			},
-		},
-		Type: "Opaque",
-		Data: map[string][]byte{
-			datasourceKey: grafanaDatasources,
-		},
-	}
-
-	// Set MGH instance as the owner and controller
-	if err = controllerutil.SetControllerReference(mgh, dsSecret, scheme); err != nil {
-		return dsSecret.GetName(), err
-	}
-
-	// Check if this already exists
-	grafanaDSFound := &corev1.Secret{}
-	err = c.Get(ctx, types.NamespacedName{Name: dsSecret.Name, Namespace: dsSecret.Namespace}, grafanaDSFound)
-
-	if err != nil && errors.IsNotFound(err) {
-		if err := c.Create(ctx, dsSecret); err != nil {
-			return dsSecret.GetName(), err
-		}
-	} else if err != nil {
-		return dsSecret.GetName(), err
-	}
-
-	return dsSecret.GetName(), nil
+	return grafanaDatasources, nil
 }
 
 type GrafanaDatasources struct {

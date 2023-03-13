@@ -48,6 +48,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -787,6 +788,17 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			// 		return errors.IsNotFound(err)
 			// 	}, timeout, interval).Should(BeTrue())
 			// }
+		})
+	})
+
+	Context("When get the basic postgres connections", func() {
+		It("Should get the connection config", func() {
+			_, err := hubofhubs.GetConnConfig(testPostgres.URI, []byte("test"))
+			Expect(err).Should(Succeed())
+		})
+		It("Should get the datasource config", func() {
+			_, err := hubofhubs.GrafanaDataSource(testPostgres.URI, []byte("test"))
+			Expect(err).Should(Succeed())
 		})
 	})
 })

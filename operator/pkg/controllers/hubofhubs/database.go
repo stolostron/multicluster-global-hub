@@ -30,7 +30,7 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 	}
 
 	log.Info("Database initializing")
-	postgreSecret, err := reconciler.KubeClient.CoreV1().Secrets(namespacedName.Namespace).Get(
+	postgresSecret, err := reconciler.KubeClient.CoreV1().Secrets(namespacedName.Namespace).Get(
 		ctx, namespacedName.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "failed to get storage secret",
@@ -39,27 +39,12 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		return err
 	}
 
-	databaseURI := string(postgreSecret.Data["database_uri"])
-
-	connConfig, err := pgx.ParseConfig(databaseURI)
+	config, err := GetConnConfig(string(postgresSecret.Data["database_uri"]), postgresSecret.Data["ca.crt"])
 	if err != nil {
-		return fmt.Errorf("failed to parse database uri: %w", err)
+		return fmt.Errorf("failed to get connection config: %w", err)
 	}
 
-	caCert, ok := postgreSecret.Data["ca.crt"]
-	if ok && len(caCert) > 0 {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-
-		/* #nosec G402*/
-		connConfig.TLSConfig = &tls.Config{
-			RootCAs: caCertPool,
-			//nolint:gosec
-			InsecureSkipVerify: true,
-		}
-	}
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	conn, err := pgx.ConnectConfig(ctx, config)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -97,4 +82,24 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
 	}
 	return nil
+}
+
+func GetConnConfig(databaseURI string, cert []byte) (*pgx.ConnConfig, error) {
+	connConfig, err := pgx.ParseConfig(databaseURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database uri: %w", err)
+	}
+
+	if cert != nil && len(cert) > 0 {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(cert)
+
+		/* #nosec G402*/
+		connConfig.TLSConfig = &tls.Config{
+			RootCAs: caCertPool,
+			//nolint:gosec
+			InsecureSkipVerify: true,
+		}
+	}
+	return connConfig, nil
 }
