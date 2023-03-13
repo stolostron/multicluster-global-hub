@@ -128,11 +128,6 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		database = paths[1]
 	}
 
-	sslmode := "prefer"
-	if objURI.Query().Get("sslmode") != "" {
-		sslmode = objURI.Query().Get("sslmode")
-	}
-
 	ds := &GrafanaDatasource{
 		Name:      "Global-Hub-DataSource",
 		Type:      "postgres",
@@ -143,7 +138,6 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		Database:  database,
 		Editable:  false,
 		JSONData: &JsonData{
-			SSLMode:      sslmode,
 			QueryTimeout: "300s",
 			TimeInterval: "30s",
 		},
@@ -151,12 +145,15 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 			Password: password,
 		},
 	}
-	if sslmode == "verify-full" || sslmode == "verify-ca" {
+
+	cert, ok := postgresSecret.Data["ca.crt"]
+	if ok && len(cert) > 0 {
+		ds.JSONData.SSLMode = objURI.Query().Get("sslmode") // sslmode == "verify-full" || sslmode == "verify-ca"
 		ds.JSONData.TLSAuth = true
 		ds.JSONData.TLSAuthWithCACert = true
 		ds.JSONData.TLSSkipVerify = true
 		ds.JSONData.TLSConfigurationMethod = "file-content"
-		ds.SecureJSONData.TLSCACert = string(postgresSecret.Data["ca.crt"])
+		ds.SecureJSONData.TLSCACert = string(cert)
 	}
 
 	grafanaDatasources, err := yaml.Marshal(GrafanaDatasources{

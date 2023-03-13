@@ -258,8 +258,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				},
 				Data: map[string][]byte{
 					"database_uri": []byte(testPostgres.URI),
-					"ca.crt":       []byte("test-ca-cert"),
-					"tls.crt":      []byte("test-client-cert"),
+					"ca.crt":       []byte(""),
 				},
 				Type: corev1.SecretTypeOpaque,
 			})).Should(Succeed())

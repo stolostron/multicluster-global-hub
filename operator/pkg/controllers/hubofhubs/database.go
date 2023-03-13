@@ -48,7 +48,6 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 
 	caCert, ok := postgreSecret.Data["ca.crt"]
 	if ok && len(caCert) > 0 {
-		// Parse the CA certificate for the server.
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 
