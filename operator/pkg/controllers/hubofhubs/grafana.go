@@ -11,12 +11,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -50,7 +48,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 
 	// generate datasource secret: must before the grafana objects
-	datasourceSecretName, err := GenerateGrafanaDataSourceSecret(ctx, r.Client, mgh, r.Scheme)
+	datasourceSecretName, err := r.GenerateGrafanaDataSourceSecret(ctx, mgh)
 	if err != nil {
 		return fmt.Errorf("failed to generate grafana datasource secret: %v", err)
 	}
@@ -96,18 +94,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 
 // GenerateGrafanaDataSource is used to generate the GrafanaDatasource as a secret.
 // the GrafanaDatasource points to multicluster-global-hub cr
-func GenerateGrafanaDataSourceSecret(
+func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
-	c client.Client,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
-	scheme *runtime.Scheme,
 ) (string, error) {
-	// get the grafana data source
-	postgresSecret := &corev1.Secret{}
-	if err := c.Get(ctx, types.NamespacedName{
-		Name:      mgh.Spec.DataLayer.LargeScale.Postgres.Name,
-		Namespace: config.GetDefaultNamespace(),
-	}, postgresSecret); err != nil {
+	postgresSecret, err := r.KubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(
+		ctx, mgh.Spec.DataLayer.LargeScale.Postgres.Name, metav1.GetOptions{})
+	if err != nil {
 		return "", err
 	}
 
@@ -132,16 +125,16 @@ func GenerateGrafanaDataSourceSecret(
 	}
 
 	// Set MGH instance as the owner and controller
-	if err = controllerutil.SetControllerReference(mgh, dsSecret, scheme); err != nil {
+	if err = controllerutil.SetControllerReference(mgh, dsSecret, r.Scheme); err != nil {
 		return dsSecret.GetName(), err
 	}
 
 	// Check if this already exists
 	grafanaDSFound := &corev1.Secret{}
-	err = c.Get(ctx, types.NamespacedName{Name: dsSecret.Name, Namespace: dsSecret.Namespace}, grafanaDSFound)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: dsSecret.Name, Namespace: dsSecret.Namespace}, grafanaDSFound)
 
 	if err != nil && errors.IsNotFound(err) {
-		if err := c.Create(ctx, dsSecret); err != nil {
+		if err := r.Client.Create(ctx, dsSecret); err != nil {
 			return dsSecret.GetName(), err
 		}
 	} else if err != nil {
@@ -187,7 +180,7 @@ func GrafanaDataSource(databaseURI string, cert []byte) ([]byte, error) {
 		},
 	}
 
-	if cert != nil && len(cert) > 0 {
+	if len(cert) > 0 {
 		ds.JSONData.SSLMode = objURI.Query().Get("sslmode") // sslmode == "verify-full" || sslmode == "verify-ca"
 		ds.JSONData.TLSAuth = true
 		ds.JSONData.TLSAuthWithCACert = true

@@ -90,7 +90,7 @@ func GetConnConfig(databaseURI string, cert []byte) (*pgx.ConnConfig, error) {
 		return nil, fmt.Errorf("failed to parse database uri: %w", err)
 	}
 
-	if cert != nil && len(cert) > 0 {
+	if len(cert) > 0 {
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(cert)
 
