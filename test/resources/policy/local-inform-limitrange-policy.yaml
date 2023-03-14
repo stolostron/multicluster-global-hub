@@ -47,7 +47,7 @@ metadata:
   labels:
     global-hub.open-cluster-management.io/local-resource: ''
 placementRef:
-  name: placement-policy-limitrange
+  name: placementrule-policy-limitrange
   kind: PlacementRule
   apiGroup: apps.open-cluster-management.io
 subjects:
@@ -58,7 +58,7 @@ subjects:
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
-  name: placement-policy-limitrange
+  name: placementrule-policy-limitrange
   namespace: local-policy-namespace
   labels:
     global-hub.open-cluster-management.io/local-resource: ''

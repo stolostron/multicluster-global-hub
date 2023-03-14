@@ -45,7 +45,7 @@ metadata:
   name: binding-policy-limitrange
   namespace: default
 placementRef:
-  name: placement-policy-limitrange
+  name: placementrule-policy-limitrange
   kind: PlacementRule
   apiGroup: apps.open-cluster-management.io
 subjects:
@@ -56,7 +56,7 @@ subjects:
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
-  name: placement-policy-limitrange
+  name: placementrule-policy-limitrange
   namespace: default
 spec:
   clusterConditions:
