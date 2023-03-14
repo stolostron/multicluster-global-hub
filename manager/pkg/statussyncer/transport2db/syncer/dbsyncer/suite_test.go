@@ -66,6 +66,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
+	By("Prepare postgres database")
+	testPostgres, err = testpostgres.NewTestPostgres()
+
+	By("Create test postgres")
 	managerConfig := &config.ManagerConfig{
 		DatabaseConfig: &config.DatabaseConfig{
 			ProcessDatabaseURL: testPostgres.URI,
@@ -76,9 +80,6 @@ var _ = BeforeSuite(func() {
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{},
 	}
-
-	By("Create test postgres")
-	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
 	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
 	Expect(err).NotTo(HaveOccurred())

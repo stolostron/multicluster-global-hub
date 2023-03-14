@@ -792,7 +792,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 	})
 
-	Context("When get the basic postgres connections", Focus, func() {
+	Context("When get the basic postgres connections", func() {
 		It("Get the connection with default sslmode", func() {
 			conn, err := database.PostgresConnection(context.TODO(), testPostgres.URI, nil)
 			Expect(err).Should(Succeed())
@@ -806,7 +806,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Get the connection with invalid ca.crt", func() {
-			_, err := database.PostgresConnection(context.TODO(), testPostgres.URI, nil)
+			_, err := database.PostgresConnection(context.TODO(), testPostgres.URI, []byte("test"))
 			Expect(err).ShouldNot(Succeed())
 		})
 

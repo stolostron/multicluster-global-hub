@@ -115,8 +115,6 @@ func TestManager(t *testing.T) {
 			"",
 			"--process-database-url",
 			testPostgres.URI,
-			"--transport-bridge-database-url",
-			testPostgres.URI,
 			"--lease-duration",
 			"15",
 			"--renew-deadline",
