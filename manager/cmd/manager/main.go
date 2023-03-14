@@ -80,9 +80,7 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 	pflag.DurationVar(&managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval, "deleted-labels-trimming-interval",
 		5*time.Second, "The trimming interval of deleted labels.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.ProcessDatabaseURL, "process-database-url", "",
-		"The URL of database server for the process user.")
-	pflag.StringVar(&managerConfig.DatabaseConfig.TransportBridgeDatabaseURL,
-		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
+		"The URL of database server for the user.")
 	pflag.StringVar(&managerConfig.TransportConfig.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'.")
 	pflag.StringVar(&managerConfig.TransportConfig.TransportFormat, "transport-format", "cloudEvents",
@@ -95,6 +93,9 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		"kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.CertPath, "kafka-ca-path", "",
 		"The certificate path of CA certificate for kafka bootstrap server.")
+	pflag.StringVar(&managerConfig.DatabaseConfig.CACertPath, "postgres-ca-path", "/postgres-ca/ca.crt",
+		"The certificate path of CA certificate for kafka bootstrap server.")
+
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kakfa-producer-id",
 		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
@@ -125,10 +126,6 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		return nil, fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
 	}
 
-	if managerConfig.DatabaseConfig.TransportBridgeDatabaseURL == "" {
-		return nil, fmt.Errorf("database url for transport-bridge user: %w", errFlagParameterEmpty)
-	}
-
 	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
 		return nil, fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
@@ -150,7 +147,7 @@ func printVersion(log logr.Logger) {
 }
 
 func createManager(restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
-	processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL,
+	processPostgreSQL *postgresql.PostgreSQL,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
@@ -201,11 +198,11 @@ func createManager(restConfig *rest.Config, managerConfig *managerconfig.Manager
 		return nil, fmt.Errorf("failed to add spec-to-db controllers: %w", err)
 	}
 
-	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, managerConfig); err != nil {
+	if err := specsyncer.AddDB2TransportSyncers(mgr, processPostgreSQL, managerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add db-to-transport syncers: %w", err)
 	}
 
-	if err := specsyncer.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL,
+	if err := specsyncer.AddStatusDBWatchers(mgr, processPostgreSQL,
 		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
 	}
@@ -228,24 +225,14 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 1
 	}
 
-	// db layer initialization for process user
-	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.DatabaseConfig.ProcessDatabaseURL)
+	processPostgreSQL, err := postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
 	if err != nil {
 		log.Error(err, "failed to initialize process PostgreSQL")
 		return 1
 	}
 	defer processPostgreSQL.Stop()
 
-	// db layer initialization for transport-bridge user
-	transportBridgePostgreSQL, err := postgresql.NewPostgreSQL(
-		managerConfig.DatabaseConfig.TransportBridgeDatabaseURL)
-	if err != nil {
-		log.Error(err, "failed to initialize transport-bridge PostgreSQL")
-		return 1
-	}
-	defer transportBridgePostgreSQL.Stop()
-
-	mgr, err := createManager(restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
+	mgr, err := createManager(restConfig, managerConfig, processPostgreSQL)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1

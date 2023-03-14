@@ -3,8 +3,10 @@ package tests
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -15,8 +17,8 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
@@ -35,7 +37,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		var leafhubClient client.Client
 		var managedClusterName1 string
 		var managedClusterUID1 string
-		var postgresSQL *postgresql.PostgreSQL
+		var postgresConn *pgx.Conn
 
 		BeforeAll(func() {
 			By("Get managed cluster name")
@@ -68,7 +70,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			}
 
 			By("Get postgres master pod name")
-			postgresSQL, err = postgresql.NewPostgreSQL(testOptions.HubCluster.DatabaseURI)
+			databaseURI := strings.Split(testOptions.HubCluster.DatabaseURI, "?")[0]
+			postgresConn, err = database.PostgresConnection(context.TODO(), databaseURI, nil)
 			Expect(err).Should(Succeed())
 
 			By("Add local label to the managed cluster")
@@ -161,7 +164,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			By("Verify the local policy is synchronized to the global hub spec table")
 			policy := &policiesv1.Policy{}
 			Eventually(func() error {
-				rows, err := postgresSQL.GetConn().Query(context.TODO(), "select payload from local_spec.policies")
+				rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.policies")
 				if err != nil {
 					return err
 				}
@@ -181,7 +184,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 
 			By("Verify the local policy is synchronized to the global hub status table")
 			Eventually(func() error {
-				rows, err := postgresSQL.GetConn().Query(context.TODO(),
+				rows, err := postgresConn.Query(context.TODO(),
 					"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
 				if err != nil {
 					return err
@@ -213,6 +216,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			Expect(err).Should(Succeed())
 
 			By("Delete the managed cluster")
-			postgresSQL.Stop()
+			err = postgresConn.Close(context.Background())
+			Expect(err).Should(Succeed())
 		})
 	})

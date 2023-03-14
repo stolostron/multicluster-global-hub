@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 )
@@ -51,7 +52,11 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		var err error
 
 		By("Create connection to the database")
-		postgresSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
+		dataConfig := &config.DatabaseConfig{
+			ProcessDatabaseURL: testPostgres.URI,
+			CACertPath:         "ca-cert-path",
+		}
+		postgresSQL, err = postgresql.NewSpecPostgreSQL(context.TODO(), dataConfig)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(postgresSQL).NotTo(BeNil())
 

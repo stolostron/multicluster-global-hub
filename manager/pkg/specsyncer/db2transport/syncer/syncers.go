@@ -45,10 +45,10 @@ func AddDB2TransportSyncers(mgr ctrl.Manager, specDB db.SpecDB, managerConfig *c
 }
 
 // AddStatusDBWatchers adds the controllers that watch the status DB to update the spec DB to the Manager.
-func AddStatusDBWatchers(mgr ctrl.Manager, specDB db.SpecDB, statusDB db.StatusDB,
+func AddStatusDBWatchers(mgr ctrl.Manager, processPostgreSQL db.DB,
 	deletedLabelsTrimmingInterval time.Duration,
 ) error {
-	if err := statuswatcher.AddManagedClusterLabelsStatusWatcher(mgr, specDB, statusDB,
+	if err := statuswatcher.AddManagedClusterLabelsStatusWatcher(mgr, processPostgreSQL, processPostgreSQL,
 		deletedLabelsTrimmingInterval); err != nil {
 		return fmt.Errorf("failed to add status watcher: %w", err)
 	}

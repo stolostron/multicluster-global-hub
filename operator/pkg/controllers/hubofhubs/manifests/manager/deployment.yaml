@@ -28,9 +28,9 @@ spec:
             - --transport-format={{.TransportFormat}}
             - --kafka-bootstrap-server={{.KafkaBootstrapServer}}
             - --kafka-ca-path=/kafka-ca/ca.crt
+            - --postgres-ca-path=/postgres-ca/ca.crt
             - --transport-message-compression-type={{.MessageCompressionType}}
             - --process-database-url=$(DATABASE_URL)
-            - --transport-bridge-database-url=$(DATABASE_URL)
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
@@ -44,7 +44,7 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: "{{.DBSecret}}"
+                  name: {{.DBSecret}}
                   key: database_uri
           ports:
           - containerPort: 9443
@@ -59,6 +59,9 @@ spec:
             readOnly: true
           - mountPath: /kafka-ca
             name: kafka-ca
+            readOnly: true
+          - mountPath: /postgres-ca
+            name: postgres-ca
             readOnly: true
         - name: oauth-proxy
           image: "{{.ProxyImage}}"
@@ -114,6 +117,9 @@ spec:
       - name: kafka-ca
         secret:
           secretName: kafka-ca-secret
+      - name: postgres-ca
+        secret:
+          secretName: {{.DBSecret}}
       - name: webhook-certs
         secret:
           secretName: multicluster-global-hub-webhook-certs

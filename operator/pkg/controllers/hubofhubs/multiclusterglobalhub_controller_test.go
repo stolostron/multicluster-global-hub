@@ -52,6 +52,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -791,11 +792,24 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 	})
 
-	Context("When get the basic postgres connections", func() {
-		It("Should get the connection config", func() {
-			_, err := hubofhubs.GetConnConfig(testPostgres.URI, []byte("test"))
+	Context("When get the basic postgres connections", Focus, func() {
+		It("Get the connection with default sslmode", func() {
+			conn, err := database.PostgresConnection(context.TODO(), testPostgres.URI, nil)
 			Expect(err).Should(Succeed())
+			Expect(conn.Close(context.TODO())).Should(Succeed())
 		})
+
+		It("Get the connection with sslmode verify-ca", func() {
+			_, err := database.PostgresConnection(context.TODO(),
+				fmt.Sprintf("%s?sslmode=verify-ca", testPostgres.URI), nil)
+			Expect(err).ShouldNot(Succeed())
+		})
+
+		It("Get the connection with invalid ca.crt", func() {
+			_, err := database.PostgresConnection(context.TODO(), testPostgres.URI, nil)
+			Expect(err).ShouldNot(Succeed())
+		})
+
 		It("Should get the datasource config", func() {
 			_, err := hubofhubs.GrafanaDataSource(testPostgres.URI, []byte("test"))
 			Expect(err).Should(Succeed())
