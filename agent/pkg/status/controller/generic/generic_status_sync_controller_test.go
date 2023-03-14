@@ -29,6 +29,9 @@ func TestAddRemoveFinalizer(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedName.Name,
 			Namespace: namespacedName.Namespace,
+			Annotations: map[string]string{
+				constants.OriginOwnerReferenceAnnotation: "test-annotation",
+			},
 			Labels: map[string]string{
 				constants.GlobalHubFinalizerRemovingDeadline: strconv.FormatInt(time.Now().Unix()+5, 10),
 			},
