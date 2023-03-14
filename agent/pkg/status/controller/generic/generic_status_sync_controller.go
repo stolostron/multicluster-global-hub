@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -226,6 +227,10 @@ func (c *genericStatusSyncController) addFinalizer(ctx context.Context, object b
 	}
 
 	if controllerutil.ContainsFinalizer(object, c.finalizerName) {
+		return nil
+	}
+	// if local policy resources, then skip the adding finalizer action
+	if !helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) {
 		return nil
 	}
 

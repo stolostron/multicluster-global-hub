@@ -102,8 +102,9 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	It("create a inform policy for the labeled cluster", func() {
 		By("Create the inform policy in global hub")
 		Eventually(func() error {
-			_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", INFORM_POLICY_YAML)
+			message, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", INFORM_POLICY_YAML)
 			if err != nil {
+				klog.V(5).Info(fmt.Sprintf("apply inform policy error: %s", message))
 				return err
 			}
 			return nil
