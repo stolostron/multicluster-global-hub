@@ -58,6 +58,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			scheme := runtime.NewScheme()
 			v1.AddToScheme(scheme)
 			policiesv1.AddToScheme(scheme)
+			placementrulev1.AddToScheme(scheme)
 			var err error
 			runtimeClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 			Expect(err).Should(Succeed())

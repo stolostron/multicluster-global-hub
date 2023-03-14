@@ -60,6 +60,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		scheme := runtime.NewScheme()
 		policiesv1.AddToScheme(scheme)
 		corev1.AddToScheme(scheme)
+		placementrulev1.AddToScheme(scheme)
 		var err error
 		globalClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
