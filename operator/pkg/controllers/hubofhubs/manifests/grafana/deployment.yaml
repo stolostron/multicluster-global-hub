@@ -84,6 +84,7 @@ spec:
         args:
           - '--provider=openshift'
           - '--upstream=http://localhost:3001'
+          - '--skip-provider-button=true'
           - '--https-address=:9443'
           - '--cookie-secret-file=/etc/proxy/secrets/session_secret'
           - '--cookie-expire=12h0m0s'
@@ -99,14 +100,14 @@ spec:
       serviceAccount: multicluster-global-hub-grafana
       imagePullSecrets:
       - name: multiclusterhub-operator-pull-secret
-      serviceAccountName: grafana
+      serviceAccountName: multicluster-global-hub-grafana
       volumes:
       - emptyDir: {}
         name: grafana-storage
       - name: grafana-datasources
         secret:
           defaultMode: 420
-          secretName: multicluster-global-hub-grafana-datasource
+          secretName: {{.DatasourceSecretName}}
       - name: grafana-config
         secret:
           defaultMode: 420
