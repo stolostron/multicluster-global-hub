@@ -19,8 +19,6 @@ import (
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
 const (
@@ -32,32 +30,23 @@ const (
 )
 
 var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tests-app"), Ordered, func() {
-	var token string
 	var httpClient *http.Client
 	var managedClusterNames []string
 	var managedClusterUIDs []string
 	var appClient client.Client
+	var err error
 
 	BeforeAll(func() {
-		By("Get token for the non-k8s-api")
-		initToken, err := utils.FetchBearerToken(testOptions)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(len(initToken)).Should(BeNumerically(">", 0))
-		token = initToken
-
-		By("Config request of the api")
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
-
-		By("Get managed cluster name")
 		Eventually(func() error {
-			managedClusters, err := getManagedCluster(httpClient, token)
+			By("Config request of the api")
+			transport := &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
+			managedClusters, err := getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
 			}
-			// 待改动，关于区分managed cluster的
 			for _, managedCluster := range managedClusters {
 				managedClusterNames = append(managedClusterNames, managedCluster.Name)
 				managedClusterUIDs = append(managedClusterUIDs, string(managedCluster.GetUID()))
@@ -73,9 +62,9 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
-	for i, managedClusterName := range managedClusterNames {
-		It(fmt.Sprintf("add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName), func() {
-			By("Add label to the managedcluster1")
+	It(fmt.Sprintf("add the app label[ %s: %s ]", APP_LABEL_KEY, APP_LABEL_VALUE), func() {
+		for i, managedClusterName := range managedClusterNames {
+			By("Add label to the managedcluster")
 			patches := []patch{
 				{
 					Op:    "add",
@@ -85,16 +74,16 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			}
 
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, token, managedClusterUIDs[i])
+				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUIDs[i])
 				if err != nil {
 					return err
 				}
 				return nil
 			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-			By("Check the label is added to managedcluster1")
+			By("Check the label is added to managedcluster")
 			Eventually(func() error {
-				managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName)
 				if err != nil {
 					return err
 				}
@@ -105,14 +94,15 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				}
 				return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
 			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-		})
-	}
+		}
+	})
 
 	Context("deploy the application", func() {
 		It("deploy the application/subscription", func() {
 			By("Apply the appsub to labeled cluster")
 			Eventually(func() error {
 				_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", APP_SUB_YAML)
+				fmt.Println(err)
 				if err != nil {
 					return err
 				}
@@ -121,13 +111,13 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
-				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token, 1, managedClusterNames)
+				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 2, managedClusterNames)
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			if CurrentSpecReport().Failed() {
-				appsubreport, err := getAppsubReport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, token)
+				appsubreport, err := getAppsubReport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken)
 				if err == nil {
 					appsubreportStr, _ := json.MarshalIndent(appsubreport, "", "  ")
 					klog.V(5).Info("Appsubreport: ", string(appsubreportStr))
@@ -147,7 +137,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		}
 		Eventually(func() error {
 			for _, managedClusterUID := range managedClusterUIDs {
-				err := updateClusterLabel(httpClient, patches, token, managedClusterUID)
+				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID)
 				if err != nil {
 					return err
 				}
@@ -212,6 +202,8 @@ func checkAppsubreport(appClient client.Client, httpClient *http.Client, name, n
 	if err != nil {
 		return err
 	}
+	js, _ := json.Marshal(appsubreport)
+	fmt.Println(string(js))
 	deployNum, err := strconv.Atoi(appsubreport.Summary.Deployed)
 	if err != nil {
 		return err
@@ -220,6 +212,8 @@ func checkAppsubreport(appClient client.Client, httpClient *http.Client, name, n
 	if err != nil {
 		return err
 	}
+	fmt.Printf("\n deployNum: %d \n", deployNum)
+	fmt.Printf("\n expectDeployNum: %d \n", expectDeployNum)
 	if deployNum >= expectDeployNum && clusterNum >= len(expectClusterNames) {
 		matchedClusterNum := 0
 		for _, expectClusterName := range expectClusterNames {

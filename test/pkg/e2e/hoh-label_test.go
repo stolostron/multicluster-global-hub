@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"strconv"
+	"crypto/tls"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,7 +22,6 @@ const (
 )
 
 var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-label"), Ordered, func() {
-	var token string
 	var httpClient *http.Client
 	var managedClusterNames []string
 	var managedClusterUIDs []string
@@ -30,6 +30,11 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 	BeforeAll(func() {
 		Eventually(func() error {
+			By("Config request of the api")
+			transport := &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
 			managedClusters, err := getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
@@ -58,7 +63,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 			}
 
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, token, managedClusterUIDs[i])
+				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUIDs[i])
 				if err != nil {
 					return err
 				}
@@ -67,7 +72,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 			By("Check the label is added")
 			Eventually(func() error {
-				managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName)
 				if err != nil {
 					return err
 				}
@@ -91,7 +96,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 				},
 			}
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, token, managedClusterUIDs[i])
+				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUIDs[i])
 				if err != nil {
 					return err
 				}
@@ -100,7 +105,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 			By("Check the label is deleted")
 			Eventually(func() error {
-				managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName)
+				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName)
 				if err != nil {
 					return err
 				}

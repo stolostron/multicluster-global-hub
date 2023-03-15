@@ -100,9 +100,6 @@ func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
 		// insert to the first
 		args = append([]string{"--context", c.options.HubCluster.KubeContext}, args...)
 		args = append([]string{"--kubeconfig", c.options.HubCluster.KubeConfig}, args...)
-		for _, arg := range args {
-			fmt.Println(arg)
-		}
 		output, err := exec.Command("kubectl", args...).CombinedOutput()
 		return string(output), err
 	}
