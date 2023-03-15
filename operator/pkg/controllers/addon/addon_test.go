@@ -106,6 +106,21 @@ func fakeManagedCluster(name string, claim clusterv1.ManagedClusterClaim) *clust
 	}
 }
 
+func fakeManagedClusterWithLabels(name string, claim clusterv1.ManagedClusterClaim,
+	labels map[string]string,
+) *clusterv1.ManagedCluster {
+	return &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels,
+		},
+		Spec: clusterv1.ManagedClusterSpec{},
+		Status: clusterv1.ManagedClusterStatus{
+			ClusterClaims: []clusterv1.ManagedClusterClaim{claim},
+		},
+	}
+}
+
 func fakeManagedClusterAddon(clusterName, installNamespace string, installMode string) *v1alpha1.ManagedClusterAddOn {
 	addon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
@@ -188,8 +203,12 @@ func TestManifest(t *testing.T) {
 			name:            "install agent and acm in default mode without pullsecret",
 			existingObjects: []runtime.Object{fakeKafkaSecret()},
 			// install agent and acm when the acm hub is not found
-			cluster: fakeManagedCluster("cluster1",
-				fakeHubClaim(constants.HubNotInstalled)),
+			cluster: fakeManagedClusterWithLabels(
+				"cluster1",
+				fakeHubClaim(constants.HubNotInstalled),
+				map[string]string{
+					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallEnabled,
+				}),
 			addon: fakeManagedClusterAddon("cluster1", "addon-test",
 				operatorconstants.ClusterDeployModeDefault),
 			expectedCount:            16,
@@ -199,8 +218,12 @@ func TestManifest(t *testing.T) {
 			name:            "install agent and acm in default mode with pullsecret",
 			existingObjects: []runtime.Object{fakeKafkaSecret(), fakePullSecret()},
 			// only install acm when the acm hub is not found
-			cluster: fakeManagedCluster("cluster1",
-				fakeHubClaim(constants.HubNotInstalled)),
+			cluster: fakeManagedClusterWithLabels(
+				"cluster1",
+				fakeHubClaim(constants.HubNotInstalled),
+				map[string]string{
+					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallEnabled,
+				}),
 			addon: fakeManagedClusterAddon("cluster1", "",
 				operatorconstants.ClusterDeployModeDefault),
 			expectedCount:            17,
@@ -210,11 +233,42 @@ func TestManifest(t *testing.T) {
 			name:            "install agent in hosted mode and acm in default mode with pullsecret",
 			existingObjects: []runtime.Object{fakeKafkaSecret(), fakePullSecret()},
 			// only install acm when the acm hub is not found
-			cluster: fakeManagedCluster("cluster1",
-				fakeHubClaim(constants.HubNotInstalled)),
+			cluster: fakeManagedClusterWithLabels(
+				"cluster1",
+				fakeHubClaim(constants.HubNotInstalled),
+				map[string]string{
+					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallEnabled,
+				}),
 			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
 				operatorconstants.ClusterDeployModeHosted),
 			expectedCount:            17,
+			expectedInstallNamespace: "hoh-agent-addon",
+		},
+		{
+			name:            "install agent and without acm in default mode",
+			existingObjects: []runtime.Object{fakeKafkaSecret(), fakePullSecret()},
+			// install acm when the acm hub is not found and enable label
+			cluster: fakeManagedCluster(
+				"cluster1",
+				fakeHubClaim(constants.HubNotInstalled)),
+			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
+				operatorconstants.ClusterDeployModeDefault),
+			expectedCount:            8,
+			expectedInstallNamespace: "hoh-agent-addon",
+		},
+		{
+			name:            "install agent and without acm by label in default mode",
+			existingObjects: []runtime.Object{fakeKafkaSecret(), fakePullSecret()},
+			// install acm when the acm hub is not found and enable label
+			cluster: fakeManagedClusterWithLabels(
+				"cluster1",
+				fakeHubClaim(constants.HubNotInstalled),
+				map[string]string{
+					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallDisabled,
+				}),
+			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
+				operatorconstants.ClusterDeployModeDefault),
+			expectedCount:            8,
 			expectedInstallNamespace: "hoh-agent-addon",
 		},
 	}
@@ -227,7 +281,8 @@ func TestManifest(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			agentAddon := fakeAgentAddon(t, test.existingObjects...)
-			objects, err := agentAddon.Manifests(test.cluster, test.addon)
+			managedClusterAddon := test.addon
+			objects, err := agentAddon.Manifests(test.cluster, managedClusterAddon)
 			if err != nil {
 				t.Fatalf("failed to get manifests. err:%v", err)
 			}
