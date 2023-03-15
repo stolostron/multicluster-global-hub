@@ -29,3 +29,6 @@ test/setup/config/
 
 .tmp
 .idea
+
+*.crt
+*.key

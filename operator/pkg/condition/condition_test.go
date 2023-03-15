@@ -135,7 +135,8 @@ func TestCondition(t *testing.T) {
 		}
 		if condition := GetConditionStatus(mgh, CONDITION_TYPE_LEAFHUB_DEPLOY); condition !=
 			metav1.ConditionStatus(tc.status) {
-			t.Errorf("expected condition %s to be %s, got %s", CONDITION_TYPE_LEAFHUB_DEPLOY, tc.status, condition)
+			t.Errorf("expected condition %s to be %s, got %s",
+				CONDITION_TYPE_LEAFHUB_DEPLOY, tc.status, condition)
 		}
 	}
 }
