@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,8 +17,6 @@ import (
 	"k8s.io/klog"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
 const (
@@ -33,8 +30,6 @@ const (
 )
 
 var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
-	var token string
-	var httpClient *http.Client
 	var managedClusterName1 string
 	var managedClusterName2 string
 	var managedClusterUID1 string
@@ -43,21 +38,9 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	var regionalClient client.Client
 
 	BeforeAll(func() {
-		By("Get token for the non-k8s-api")
-		initToken, err := utils.FetchBearerToken(testOptions)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(len(initToken)).Should(BeNumerically(">", 0))
-		token = initToken
-
-		By("Config request of the api")
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
-
 		By("Get managed cluster name")
 		Eventually(func() error {
-			managedClusters, err := getManagedCluster(httpClient, token)
+			managedClusters, err := getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
 			}
@@ -72,6 +55,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		scheme := runtime.NewScheme()
 		policiesv1.AddToScheme(scheme)
 		corev1.AddToScheme(scheme)
+		var err error
 		globalClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 		regionalClient, err = clients.ControllerRuntimeClient((clients.LeafHubClusterName()), scheme)
@@ -87,7 +71,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID1)
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID1)
 			if err != nil {
 				return err
 			}
@@ -96,7 +80,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the label is added")
 		Eventually(func() error {
-			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName1)
+			managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName1)
 			if err != nil {
 				return err
 			}
@@ -121,7 +105,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the inform policy in global hub")
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
 			if err != nil {
 				return err
 			}
@@ -166,7 +150,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
 			if err != nil {
 				return err
 			}
@@ -191,7 +175,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}
 
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID2)
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID2)
 			if err != nil {
 				return err
 			}
@@ -200,7 +184,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the label is added")
 		Eventually(func() error {
-			managedCluster, err := getManagedClusterByName(httpClient, token, managedClusterName2)
+			managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName2)
 			if err != nil {
 				return err
 			}
@@ -214,7 +198,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the policy is created in global hub")
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
 			if err != nil {
 				return err
 			}
@@ -248,7 +232,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	It("remove managedcluster1 policy by deleting label", func() {
 		By("Check the policy is created in managedcluster1")
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
 			if err != nil {
 				return err
 			}
@@ -269,7 +253,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID1)
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID1)
 			if err != nil {
 				return err
 			}
@@ -278,7 +262,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the policy is removed from the managedcluster1")
 		Eventually(func() error {
-			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, token)
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
 			if err != nil {
 				return err
 			}
@@ -317,7 +301,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, token, managedClusterUID2)
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID2)
 			if err != nil {
 				return err
 			}

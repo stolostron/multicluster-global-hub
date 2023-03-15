@@ -1,9 +1,11 @@
 package tests
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -21,6 +23,10 @@ var (
 	testOptions          utils.Options
 	testOptionsContainer utils.OptionsContainer
 	testTimeout          time.Duration
+
+	clients    utils.Client
+	httpToken  string
+	httpClient *http.Client
 )
 
 func TestClient(t *testing.T) {
@@ -34,26 +40,34 @@ func init() {
 	flag.StringVar(&optionsFile, "options", "", "Location of an \"options.yaml\" file to provide input for various tests")
 }
 
-var clients utils.Client
-
 var _ = BeforeSuite(func() {
 	initVars()
+
+	By("Init the kubernetes client")
 	clients = utils.NewTestClient(testOptionsContainer.Options)
 	err := utils.CreateTestingRBAC(testOptionsContainer.Options)
 	Expect(err).ShouldNot(HaveOccurred())
-	// Check the bearer token is ready
+
+	By("Init the bearer token")
 	Eventually(func() error {
-		token, err := utils.FetchBearerToken(testOptions)
+		httpToken, err = utils.FetchBearerToken(testOptions)
 		if err != nil {
 			return err
 		}
-		if len(token) > 0 {
-			klog.V(6).Info(fmt.Sprintf("Bearer token is ready: %s", token))
+		if len(httpToken) > 0 {
+			klog.V(6).Info(fmt.Sprintf("Bearer token is ready: %s", httpToken))
+
 			return nil
 		} else {
 			return fmt.Errorf("token is empty")
 		}
 	}, 1*time.Minute, 1*time.Second*5).ShouldNot(HaveOccurred())
+
+	By("Init the http client")
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
 })
 
 var _ = AfterSuite(func() {

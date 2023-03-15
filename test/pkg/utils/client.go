@@ -1,17 +1,12 @@
 package utils
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
-	"regexp"
-	"strings"
 
-	"github.com/jackc/pgx/v4/pgxpool"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -84,58 +79,21 @@ func (c *client) KubeDynamicClient() dynamic.Interface {
 
 func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
 	if c.options.HubCluster.Name == clusterName {
-		args = append(args, "--kubeconfig", c.options.HubCluster.KubeConfig)
-		args = append(args, "--context", c.options.HubCluster.KubeContext)
+		// insert to the first
+		args = append([]string{"--context", c.options.HubCluster.KubeContext}, args...)
+		args = append([]string{"--kubeconfig", c.options.HubCluster.KubeConfig}, args...)
 		output, err := exec.Command("kubectl", args...).CombinedOutput()
 		return string(output), err
 	}
 	for _, cluster := range c.options.ManagedClusters {
 		if cluster.Name == clusterName {
-			args = append(args, "--kubeconfig", cluster.KubeConfig)
-			args = append(args, "--context", cluster.KubeContext)
+			args = append([]string{"--context", cluster.KubeContext}, args...)
+			args = append([]string{"--kubeconfig", cluster.KubeConfig}, args...)
 			output, err := exec.Command("kubectl", args...).CombinedOutput()
 			return string(output), err
 		}
 	}
 	return "", fmt.Errorf("cluster %s is not found in options", clusterName)
-}
-
-func (c *client) GetPgPool() *pgxpool.Pool {
-	clientSet := c.KubeClient()
-	secretClient := clientSet.CoreV1().Secrets(c.options.HubCluster.Namespace)
-	secret, err := secretClient.Get(context.TODO(), c.options.HubCluster.DatabaseSecret, metav1.GetOptions{})
-	if err != nil {
-		panic(err)
-	}
-
-	originUrl := string(secret.Data["url"])
-	klog.V(5).Info("original url: ", originUrl)
-	reg := regexp.MustCompile(`@(.*?):(\d*?)/`)
-	matched := reg.FindStringSubmatch(originUrl)
-	if err != nil || len(matched) < 2 {
-		panic(err)
-	}
-	pgService := matched[1]
-	pgPort := matched[2]
-	klog.V(5).Info("pg service: ", pgService, " pg port: ", pgPort)
-
-	dynamicClientSet := c.KubeDynamicClient()
-	pgbounder, err := dynamicClientSet.Resource(NewRouteGVR()).Namespace("hoh-postgres").
-		Get(context.TODO(), "hoh-pgbouncer", metav1.GetOptions{})
-	if err != nil {
-		panic(err)
-	}
-	routeHost := pgbounder.Object["spec"].(map[string]interface{})["host"].(string)
-	klog.V(5).Infof("route host %s", routeHost)
-	newUrl := strings.Replace(originUrl, pgService, routeHost, 1)
-	klog.V(5).Infof("new url %s", newUrl)
-
-	// connect to db
-	pool, err := pgxpool.Connect(context.Background(), newUrl)
-	if err != nil {
-		panic(err)
-	}
-	return pool
 }
 
 func (c *client) RestConfig(clusterName string) (*rest.Config, error) {

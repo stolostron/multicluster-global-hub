@@ -2,6 +2,8 @@ package hubofhubs
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"embed"
 	"fmt"
 	iofs "io/fs"
@@ -28,7 +30,7 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 	}
 
 	log.Info("Database initializing")
-	postgreSecret, err := reconciler.KubeClient.CoreV1().Secrets(namespacedName.Namespace).Get(
+	postgresSecret, err := reconciler.KubeClient.CoreV1().Secrets(namespacedName.Namespace).Get(
 		ctx, namespacedName.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "failed to get storage secret",
@@ -37,16 +39,20 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		return err
 	}
 
-	databaseURI := string(postgreSecret.Data["database_uri"])
-	conn, err := pgx.Connect(ctx, databaseURI)
+	config, err := GetConnConfig(string(postgresSecret.Data["database_uri"]), postgresSecret.Data["ca.crt"])
 	if err != nil {
-		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_FALSE)
-		if conditionError != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, conditionError)
-		}
-		return fmt.Errorf("failed to connect to postgres: %w", err)
+		return fmt.Errorf("failed to get connection config: %w", err)
 	}
-	defer conn.Close(ctx)
+
+	conn, err := pgx.ConnectConfig(ctx, config)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer func() {
+		if err := conn.Close(ctx); err != nil {
+			log.Error(err, "failed to close connection to database")
+		}
+	}()
 
 	err = iofs.WalkDir(databaseFS, "database", func(file string, d iofs.DirEntry, beforeError error) error {
 		if beforeError != nil {
@@ -60,18 +66,14 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", file, err)
 		}
-		_, err = conn.Exec(context.Background(), string(sqlBytes))
+		_, err = conn.Exec(ctx, string(sqlBytes))
 		if err != nil {
 			return fmt.Errorf("failed to create %s: %w", file, err)
 		}
 		return nil
 	})
 	if err != nil {
-		conditionError := condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_FALSE)
-		if conditionError != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, conditionError)
-		}
-		return fmt.Errorf("failed to walk database directory: %w", err)
+		return fmt.Errorf("failed to exec database sql: %w", err)
 	}
 
 	log.Info("Database initialized")
@@ -80,4 +82,24 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
 	}
 	return nil
+}
+
+func GetConnConfig(databaseURI string, cert []byte) (*pgx.ConnConfig, error) {
+	connConfig, err := pgx.ParseConfig(databaseURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database uri: %w", err)
+	}
+
+	if len(cert) > 0 {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(cert)
+
+		/* #nosec G402*/
+		connConfig.TLSConfig = &tls.Config{
+			RootCAs: caCertPool,
+			//nolint:gosec
+			InsecureSkipVerify: true,
+		}
+	}
+	return connConfig, nil
 }
