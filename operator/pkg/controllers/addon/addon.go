@@ -88,11 +88,11 @@ func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha2.Multiclust
 }
 
 func (a *HohAgentAddon) installACMHub(cluster *clusterv1.ManagedCluster) bool {
-	installMode := operatorconstants.GHAgentACMHubInstallDisabled
+	installHub := operatorconstants.GHAgentACMHubInstallDisabled
 	if val, ok := cluster.GetLabels()[operatorconstants.GHAgentACMHubInstallLabelKey]; ok {
-		installMode = val
+		installHub = val
 	}
-	if installMode == operatorconstants.GHAgentACMHubInstallDisabled {
+	if installHub == operatorconstants.GHAgentACMHubInstallDisabled {
 		return false
 	}
 
