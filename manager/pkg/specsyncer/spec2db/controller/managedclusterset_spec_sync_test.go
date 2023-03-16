@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var _ = Describe("managedclusterset controller", Ordered, func() {
@@ -36,6 +37,9 @@ var _ = Describe("managedclusterset controller", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-managedclusterset-1",
 				Namespace: config.GetDefaultNamespace(),
+				Labels: map[string]string{
+					constants.GlobalHubGlobalResourceLabel: "",
+				},
 			},
 			Spec: clusterv1beta2.ManagedClusterSetSpec{
 				ClusterSelector: clusterv1beta2.ManagedClusterSelector{

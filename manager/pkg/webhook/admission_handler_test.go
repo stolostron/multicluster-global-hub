@@ -82,9 +82,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placement-",
 					Namespace:    config.GetDefaultNamespace(),
-					Labels: map[string]string{
-						constants.GlobalHubLocalResource: "",
-					},
+					Labels:       map[string]string{},
 				},
 				Spec: clusterv1beta1.PlacementSpec{},
 			}
@@ -127,9 +125,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placementrule-",
 					Namespace:    config.GetDefaultNamespace(),
-					Labels: map[string]string{
-						constants.GlobalHubLocalResource: "",
-					},
+					Labels:       map[string]string{},
 				},
 				Spec: placementrulesv1.PlacementRuleSpec{},
 			}

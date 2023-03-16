@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var _ = Describe("subscriptions to database controller", func() {
@@ -56,6 +57,9 @@ var _ = Describe("subscriptions to database controller", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "sub1",
 				Namespace: config.GetDefaultNamespace(),
+				Labels: map[string]string{
+					constants.GlobalHubGlobalResourceLabel: "",
+				},
 			},
 			Spec: appsubv1.SubscriptionSpec{
 				Channel: "test-channel",
@@ -70,6 +74,9 @@ var _ = Describe("subscriptions to database controller", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "sub2",
 				Namespace: config.GetDefaultNamespace(),
+				Labels: map[string]string{
+					constants.GlobalHubGlobalResourceLabel: "",
+				},
 			},
 			Spec: appsubv1.SubscriptionSpec{
 				Channel: "test-channel",

@@ -44,8 +44,6 @@ kind: PlacementBinding
 metadata:
   name: binding-policy-limitrange
   namespace: local-policy-namespace
-  labels:
-    global-hub.open-cluster-management.io/local-resource: ''
 placementRef:
   name: placement-policy-limitrange
   kind: PlacementRule
@@ -60,8 +58,6 @@ kind: PlacementRule
 metadata:
   name: placement-policy-limitrange
   namespace: local-policy-namespace
-  labels:
-    global-hub.open-cluster-management.io/local-resource: ''
 spec:
   clusterConditions:
     - status: 'True'

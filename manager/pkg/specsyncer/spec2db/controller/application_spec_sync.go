@@ -18,6 +18,7 @@ import (
 func AddApplicationController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&applicationv1beta1.Application{}).
+		WithEventFilter(GlobalResourcePredicate()).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
