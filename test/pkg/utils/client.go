@@ -20,7 +20,6 @@ type Client interface {
 	KubeClient() kubernetes.Interface
 	KubeDynamicClient() dynamic.Interface
 	ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error)
-	// ControllerRuntimeClients(clusterNames []string, scheme *runtime.Scheme) ([]runClient.Client, error)
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
 	HubClusterName() string
@@ -49,22 +48,6 @@ func (c *client) ControllerRuntimeClient(clusterName string, scheme *runtime.Sch
 	}
 	return controllerClient, nil
 }
-
-// func (c *client) ControllerRuntimeClients(clusterNames []string, scheme *runtime.Scheme) ([]runClient.Client, error) {
-// 	var clients []runClient.Client
-// 	for i, clusterName := range clusterNames {
-// 		cfg, err := c.RestConfig(clusterName)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		controllerClient, err := runClient.New(cfg, runClient.Options{Scheme: scheme})
-// 		clients = append(clients, controllerClient)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 	}
-// 	return clients, nil
-// }
 
 func (c *client) KubeClient() kubernetes.Interface {
 	opt := c.options

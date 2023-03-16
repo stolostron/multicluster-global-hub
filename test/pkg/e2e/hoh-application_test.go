@@ -102,7 +102,6 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			By("Apply the appsub to labeled cluster")
 			Eventually(func() error {
 				_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", APP_SUB_YAML)
-				fmt.Println(err)
 				if err != nil {
 					return err
 				}
@@ -202,8 +201,6 @@ func checkAppsubreport(appClient client.Client, httpClient *http.Client, name, n
 	if err != nil {
 		return err
 	}
-	js, _ := json.Marshal(appsubreport)
-	fmt.Println(string(js))
 	deployNum, err := strconv.Atoi(appsubreport.Summary.Deployed)
 	if err != nil {
 		return err
@@ -212,8 +209,6 @@ func checkAppsubreport(appClient client.Client, httpClient *http.Client, name, n
 	if err != nil {
 		return err
 	}
-	fmt.Printf("\n deployNum: %d \n", deployNum)
-	fmt.Printf("\n expectDeployNum: %d \n", expectDeployNum)
 	if deployNum >= expectDeployNum && clusterNum >= len(expectClusterNames) {
 		matchedClusterNum := 0
 		for _, expectClusterName := range expectClusterNames {
