@@ -27,11 +27,12 @@ The agent is running in the regional hub clusters. It is responsible to sync-up 
 
 1. Connect to a Kubernetes cluster with `kubectl`
 2. ACM or OCM is installed on the Kubernetes cluster
-3. PostgreSQL is installed and a database is created for the multicluster global hub. A secret `storage-secret` contains the credential is created in `open-cluster-management` namespace. The credential format like `postgres://<user>:<password>@<host>:<port>/<database>`:
+3. PostgreSQL is installed and a database is created for the multicluster global hub. A secret `storage-secret` contains the credential is created in `open-cluster-management` namespace. The secret `database_uri` format like `postgres://<user>:<password>@<host>:<port>/<database>?sslmode=<mode>` and you can provide the optional `ca.crt` based on the [sslmode](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING):
 
 ```bash
 kubectl create secret generic storage-secret -n "open-cluster-management" \
-    --from-literal=database_uri=<postgresql-uri> 
+    --from-literal=database_uri=<postgresql-uri> \
+    --from-file=ca.crt=<CA-for-postgres-server>
 ```
 > You can run this sample script `./operator/config/samples/storage/deploy_postgres.sh`(Note: the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script.
 

@@ -14,8 +14,10 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 var errOptimisticConcurrencyUpdateFailed = errors.New("zero rows were affected by an optimistic concurrency update")
@@ -25,14 +27,13 @@ type PostgreSQL struct {
 	conn *pgxpool.Pool
 }
 
-// NewPostgreSQL creates a new instance of PostgreSQL object.
-func NewPostgreSQL(databaseURL string) (*PostgreSQL, error) {
-	dbConnectionPool, err := pgxpool.Connect(context.Background(), databaseURL)
+// NewSpecPostgreSQL creates a new instance of PostgreSQL object.
+func NewSpecPostgreSQL(ctx context.Context, dataConfig *managerconfig.DatabaseConfig) (*PostgreSQL, error) {
+	pool, err := database.PostgresConnPool(ctx, dataConfig.ProcessDatabaseURL, dataConfig.CACertPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to connect to db: %w", err)
+		return nil, err
 	}
-
-	return &PostgreSQL{conn: dbConnectionPool}, nil
+	return &PostgreSQL{conn: pool}, nil
 }
 
 // Stop stops PostgreSQL and closes the connection pool.

@@ -2,19 +2,17 @@ package hubofhubs
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"embed"
 	"fmt"
 	iofs "io/fs"
 
-	"github.com/jackc/pgx/v4"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 //go:embed database
@@ -39,12 +37,8 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		return err
 	}
 
-	config, err := GetConnConfig(string(postgresSecret.Data["database_uri"]), postgresSecret.Data["ca.crt"])
-	if err != nil {
-		return fmt.Errorf("failed to get connection config: %w", err)
-	}
-
-	conn, err := pgx.ConnectConfig(ctx, config)
+	conn, err := database.PostgresConnection(ctx, string(postgresSecret.Data["database_uri"]),
+		postgresSecret.Data["ca.crt"])
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -82,24 +76,4 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
 	}
 	return nil
-}
-
-func GetConnConfig(databaseURI string, cert []byte) (*pgx.ConnConfig, error) {
-	connConfig, err := pgx.ParseConfig(databaseURI)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse database uri: %w", err)
-	}
-
-	if len(cert) > 0 {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(cert)
-
-		/* #nosec G402*/
-		connConfig.TLSConfig = &tls.Config{
-			RootCAs: caCertPool,
-			//nolint:gosec
-			InsecureSkipVerify: true,
-		}
-	}
-	return connConfig, nil
 }

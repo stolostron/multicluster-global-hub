@@ -8,32 +8,33 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
 // NewDBWorkerPool returns a new db workers pool dispatcher.
-func NewDBWorkerPool(databaseURL string, statistics *statistics.Statistics) (*DBWorkerPool, error) {
+func NewDBWorkerPool(dataConfig *config.DatabaseConfig, statistics *statistics.Statistics) (*DBWorkerPool, error) {
 	return &DBWorkerPool{
-		log:         ctrl.Log.WithName("db-worker-pool"),
-		databaseURL: databaseURL,
-		statistics:  statistics,
+		log:        ctrl.Log.WithName("db-worker-pool"),
+		dataConfig: dataConfig,
+		statistics: statistics,
 	}, nil
 }
 
 // DBWorkerPool pool that registers all db workers and the assigns db jobs to available workers.
 type DBWorkerPool struct {
-	log         logr.Logger
-	databaseURL string
-	dbConnPool  database.StatusTransportBridgeDB
-	dbWorkers   chan *DBWorker // A pool of workers that are registered within the workers pool
-	statistics  *statistics.Statistics
+	log        logr.Logger
+	dataConfig *config.DatabaseConfig
+	dbConnPool database.StatusTransportBridgeDB
+	dbWorkers  chan *DBWorker // A pool of workers that are registered within the workers pool
+	statistics *statistics.Statistics
 }
 
 // Start function starts the db workers pool.
 func (pool *DBWorkerPool) Start(ctx context.Context) error {
-	dbConnPool, err := postgresql.NewPostgreSQL(ctx, pool.databaseURL)
+	dbConnPool, err := postgresql.NewStatusPostgreSQL(ctx, pool.dataConfig)
 	if err != nil {
 		return fmt.Errorf("failed to initialize db worker pool - %w", err)
 	}
