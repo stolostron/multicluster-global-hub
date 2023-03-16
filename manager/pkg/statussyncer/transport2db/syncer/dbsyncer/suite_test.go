@@ -72,8 +72,9 @@ var _ = BeforeSuite(func() {
 	By("Create test postgres")
 	managerConfig := &config.ManagerConfig{
 		DatabaseConfig: &config.DatabaseConfig{
-			ProcessDatabaseURL: testPostgres.URI,
-			CACertPath:         "ca-test-path",
+			ProcessDatabaseURL:         testPostgres.URI,
+			TransportBridgeDatabaseURL: testPostgres.URI,
+			CACertPath:                 "ca-test-path",
 		},
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),

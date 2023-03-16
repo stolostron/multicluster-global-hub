@@ -31,6 +31,7 @@ spec:
             - --postgres-ca-path=/postgres-ca/ca.crt
             - --transport-message-compression-type={{.MessageCompressionType}}
             - --process-database-url=$(DATABASE_URL)
+            - --transport-bridge-database-url=$(DATABASE_URL)
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
