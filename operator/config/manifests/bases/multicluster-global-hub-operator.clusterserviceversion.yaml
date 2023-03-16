@@ -33,7 +33,8 @@ spec:
     that contains the database access credential in `open-cluster-management` namespace.
     You can run the following command to create the secret: \n\n```\nkubectl create
     secret generic storage-secret -n open-cluster-management \\\n  --from-literal=database_uri=<postgresql-uri>
-    \n```\n>_Note:_ There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:
+    \\\n --from-file=ca.crt=<CA-for-postgres-server> \n```\n>_Note:_ There is a sample
+    script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:
     the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres`
     namespace and create the secret `storage-secret` in namespace `open-cluster-management`
     automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment

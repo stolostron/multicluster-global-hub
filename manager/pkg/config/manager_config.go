@@ -32,4 +32,5 @@ type SyncerConfig struct {
 type DatabaseConfig struct {
 	ProcessDatabaseURL         string
 	TransportBridgeDatabaseURL string
+	CACertPath                 string
 }

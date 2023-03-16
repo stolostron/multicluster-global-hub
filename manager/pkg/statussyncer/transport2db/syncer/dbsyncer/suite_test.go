@@ -66,21 +66,24 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	By("Create test postgres")
+	By("Prepare postgres database")
 	testPostgres, err = testpostgres.NewTestPostgres()
-	Expect(err).NotTo(HaveOccurred())
-	transportPostgreSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
-	Expect(err).NotTo(HaveOccurred())
 
+	By("Create test postgres")
 	managerConfig := &config.ManagerConfig{
 		DatabaseConfig: &config.DatabaseConfig{
+			ProcessDatabaseURL:         testPostgres.URI,
 			TransportBridgeDatabaseURL: testPostgres.URI,
+			CACertPath:                 "ca-test-path",
 		},
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{},
 	}
+	Expect(err).NotTo(HaveOccurred())
+	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
+	Expect(err).NotTo(HaveOccurred())
 
 	By("Start cloudevents producer")
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)

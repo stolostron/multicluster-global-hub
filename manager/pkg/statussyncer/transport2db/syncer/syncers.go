@@ -39,7 +39,7 @@ func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 		requireInitialDependencyChecks(managerConfig.TransportConfig.TransportType), stats)
 
 	// database layer initialization - worker pool + connection pool
-	dbWorkerPool, err := workerpool.NewDBWorkerPool(managerConfig.DatabaseConfig.TransportBridgeDatabaseURL, stats)
+	dbWorkerPool, err := workerpool.NewDBWorkerPool(managerConfig.DatabaseConfig, stats)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize DBWorkerPool: %w", err)
 	}

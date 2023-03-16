@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
+	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/postgresql/batch"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
@@ -19,11 +20,11 @@ var (
 	errBatchFailed                 = errors.New("some of the batch statements failed to execute")
 )
 
-// NewPostgreSQL creates a new instance of PostgreSQL object.
-func NewPostgreSQL(ctx context.Context, databaseURL string) (*PostgreSQL, error) {
-	dbConnectionPool, err := pgxpool.Connect(ctx, databaseURL)
+// NewStatusPostgreSQL creates a new instance of PostgreSQL object.
+func NewStatusPostgreSQL(ctx context.Context, dataConfig *managerconfig.DatabaseConfig) (*PostgreSQL, error) {
+	dbConnectionPool, err := database.PostgresConnPool(ctx, dataConfig.ProcessDatabaseURL, dataConfig.CACertPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to connect to db: %w", err)
+		return nil, fmt.Errorf("unable to connect to status db: %w", err)
 	}
 
 	return &PostgreSQL{conn: dbConnectionPool}, nil

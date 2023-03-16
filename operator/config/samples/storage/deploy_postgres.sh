@@ -32,7 +32,7 @@ databaseURI=$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-temp
 kubectl get secret $certSecret -n $pgnamespace -o jsonpath='{.data.ca\.crt}' |base64 -d > $currentDir/ca.crt
 
 kubectl create secret generic $storageSecret -n $targetNamespace \
-    --from-literal=database_uri="${databaseURI}" \
+    --from-literal=database_uri="${databaseURI}?sslmode=verify-ca" \
     --from-file=ca.crt=$currentDir/ca.crt 
 
 echo "storage secret is ready in $targetNamespace namespace!"
