@@ -207,7 +207,7 @@ func TestManifest(t *testing.T) {
 				"cluster1",
 				fakeHubClaim(constants.HubNotInstalled),
 				map[string]string{
-					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallEnabled,
+					operatorconstants.GHAgentACMHubInstallLabelKey: "",
 				}),
 			addon: fakeManagedClusterAddon("cluster1", "addon-test",
 				operatorconstants.ClusterDeployModeDefault),
@@ -222,7 +222,7 @@ func TestManifest(t *testing.T) {
 				"cluster1",
 				fakeHubClaim(constants.HubNotInstalled),
 				map[string]string{
-					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallEnabled,
+					operatorconstants.GHAgentACMHubInstallLabelKey: "",
 				}),
 			addon: fakeManagedClusterAddon("cluster1", "",
 				operatorconstants.ClusterDeployModeDefault),
@@ -237,7 +237,7 @@ func TestManifest(t *testing.T) {
 				"cluster1",
 				fakeHubClaim(constants.HubNotInstalled),
 				map[string]string{
-					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallEnabled,
+					operatorconstants.GHAgentACMHubInstallLabelKey: "",
 				}),
 			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
 				operatorconstants.ClusterDeployModeHosted),
@@ -263,9 +263,7 @@ func TestManifest(t *testing.T) {
 			cluster: fakeManagedClusterWithLabels(
 				"cluster1",
 				fakeHubClaim(constants.HubNotInstalled),
-				map[string]string{
-					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallDisabled,
-				}),
+				map[string]string{}),
 			addon: fakeManagedClusterAddon("cluster1", "hoh-agent-addon",
 				operatorconstants.ClusterDeployModeDefault),
 			expectedCount:            8,

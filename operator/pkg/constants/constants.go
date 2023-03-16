@@ -79,8 +79,4 @@ const (
 
 	// GHAgentInstallACMHubLabelKey is to indicate whether to install ACM hub on the agent
 	GHAgentACMHubInstallLabelKey = "global-hub.open-cluster-management.io/hub-cluster-install"
-	// GHAgentACMHubInstallEnabled is to install ACM on agent if not installed
-	GHAgentACMHubInstallEnabled = "Enabled"
-	// GHAgentACMHubInstallDisabled is to not install ACM on agent if not installed, default value
-	GHAgentACMHubInstallDisabled = "Disabled"
 )

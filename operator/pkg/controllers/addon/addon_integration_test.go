@@ -110,7 +110,7 @@ var _ = Describe("addon controller", Ordered, func() {
 			prepareCluster(clusterName,
 				map[string]string{
 					"vendor": "OpenShift",
-					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallEnabled,
+					operatorconstants.GHAgentACMHubInstallLabelKey: "",
 				},
 				map[string]string{},
 				[]clusterv1.ManagedClusterClaim{
@@ -261,7 +261,7 @@ var _ = Describe("addon controller", Ordered, func() {
 				map[string]string{
 					"vendor": "OpenShift",
 					operatorconstants.GHAgentDeployModeLabelKey:    operatorconstants.GHAgentDeployModeHosted,
-					operatorconstants.GHAgentACMHubInstallLabelKey: operatorconstants.GHAgentACMHubInstallEnabled,
+					operatorconstants.GHAgentACMHubInstallLabelKey: "",
 				},
 				map[string]string{
 					operatorconstants.AnnotationClusterDeployMode:                operatorconstants.ClusterDeployModeHosted,
