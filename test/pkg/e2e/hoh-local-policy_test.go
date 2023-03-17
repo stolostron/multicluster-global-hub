@@ -237,7 +237,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					return fmt.Errorf("the local policy(%s) hasn't been added the cleanup finalizer", policy.GetName())
 				}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
-				By("Verify the local placementbinding has been added the global hub cleanup finalizer")
+				// placementbinding is not be synchronized to the global hub database, so it doesn't need the finalizer
+				By("Verify the local placementbinding hasn't been added the global hub cleanup finalizer")
 				Eventually(func() error {
 					placementbinding := &policiesv1.PlacementBinding{}
 					err := leafhubClient.Get(context.TODO(), client.ObjectKey{
@@ -249,13 +250,14 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					}
 					for _, finalizer := range placementbinding.Finalizers {
 						if finalizer == constants.GlobalHubCleanupFinalizer {
-							return nil
+							return fmt.Errorf("the local placementbinding(%s) has been added the cleanup finalizer",
+								placementbinding.GetName())
 						}
 					}
-					return fmt.Errorf("the local placementbinding(%s) hasn't been added the cleanup finalizer",
-						placementbinding.GetName())
+					return nil
 				}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
+				// placementrule will be synced to the local_spec table, so it needs the finalizer
 				By("Verify the local placementrule has been added the global hub cleanup finalizer")
 				Eventually(func() error {
 					placementrule := &placementrulev1.PlacementRule{}
@@ -316,6 +318,25 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						}
 						if policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
 							return fmt.Errorf("the policy(%s) is not deleted from local_spec.policies", policy.GetName())
+						}
+					}
+					return nil
+				}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+				By("Verify the local placementrule is deleted from the spec table")
+				Eventually(func() error {
+					rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.placementrules")
+					if err != nil {
+						return err
+					}
+					defer rows.Close()
+					placementrule := &placementrulev1.PlacementRule{}
+					for rows.Next() {
+						if err := rows.Scan(placementrule); err != nil {
+							return err
+						}
+						if placementrule.Name == LOCAL_PLACEMENT_RULE_NAME && placementrule.Namespace == LOCAL_POLICY_NAMESPACE {
+							return fmt.Errorf("the placementrule(%s) is not deleted from local_spec.policies", placementrule.Name)
 						}
 					}
 					return nil
