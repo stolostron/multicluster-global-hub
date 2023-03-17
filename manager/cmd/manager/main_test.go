@@ -150,7 +150,9 @@ func TestManager(t *testing.T) {
 					Namespace: constants.GHSystemNamespace,
 					Annotations: map[string]string{
 						constants.OriginOwnerReferenceAnnotation: "testing",
-						constants.GlobalHubGlobalResourceLabel:   "",
+					},
+					Labels: map[string]string{
+						constants.GlobalHubGlobalResourceLabel: "",
 					},
 				},
 				Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
