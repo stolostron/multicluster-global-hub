@@ -190,7 +190,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				klog.V(5).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 				Expect(err).Should(Succeed())
 			}
-
+			
 			By("Verify the local policy is synchronized to the global hub spec table")
 			policies := []*policiesv1.Policy{}
 			Eventually(func() error {
@@ -231,7 +231,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 						return err
 					}
-					// only for cases that one-to-one leafhub and manged cluster
+					// only for case: One-to-one relationship between the leaf hub and the managed cluster
 					var foundpolicy bool
 					for i, leafhubName := range leafhubNames {
 						if policyId == string(policies[i].UID) && cluster == managedClusterNames[i] && leafhub == leafhubName {

@@ -107,7 +107,8 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				}
 				return nil
 			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
+			
+			// check each managedCluster
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
 				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 2, managedClusterNames)
