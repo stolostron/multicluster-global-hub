@@ -45,7 +45,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			transport := &http.Transport{
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			}
-			httpClient = &http.Client{Timeout: time.Second * 30, Transport: transport}
+			httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
 			managedClusters, err := getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
