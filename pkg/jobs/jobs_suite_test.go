@@ -33,11 +33,12 @@ func TestJobs(t *testing.T) {
 }
 
 var (
-	testenv       *envtest.Environment
-	cfg           *rest.Config
-	runtimeClient client.Client
-	ctx           context.Context
-	cancel        context.CancelFunc
+	testenv                    *envtest.Environment
+	cfg                        *rest.Config
+	runtimeClient              client.Client
+	runtimeClientWithoutScheme client.Client
+	ctx                        context.Context
+	cancel                     context.CancelFunc
 )
 
 var _ = BeforeSuite(func() {
@@ -53,6 +54,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	ctx, cancel = context.WithCancel(context.Background())
+
+	runtimeClientWithoutScheme, err = client.New(cfg, client.Options{})
+	Expect(err).NotTo(HaveOccurred())
 
 	Expect(addToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	runtimeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

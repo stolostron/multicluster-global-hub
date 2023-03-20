@@ -192,7 +192,7 @@ func (p *PruneFinalizer) prunePolicy() error {
 	p.log.Info("clean up the policies finalizer")
 	policies := &policyv1.PolicyList{}
 	if err := p.client.List(p.ctx, policies, &client.ListOptions{}); err != nil {
-		return err
+		p.log.Error(err, "failed to list policies")
 	}
 	for idx := range policies.Items {
 		if err := p.pruneFinalizer(&policies.Items[idx]); err != nil {
