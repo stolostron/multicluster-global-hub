@@ -187,7 +187,7 @@ func (p *PruneFinalizer) pruneApplication() error {
 
 	appsubv1Service := &apiregistrationv1.APIService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s.%s", appsubv1.SchemeGroupVersion.Version, clusterv1beta2.GroupName),
+			Name: fmt.Sprintf("%s.%s", appsubv1.SchemeGroupVersion.Version, appsubv1.SchemeGroupVersion.Group),
 		},
 	}
 	if err := p.client.Get(p.ctx, client.ObjectKeyFromObject(appsubv1Service), appsubv1Service); err != nil {
