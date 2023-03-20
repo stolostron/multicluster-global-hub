@@ -86,7 +86,8 @@ var _ = Describe("configmaps to database controller", func() {
 						Namespace: constants.GHSystemNamespace,
 						Name:      constants.GHConfigCMName,
 						Labels: map[string]string{
-							constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+							constants.GlobalHubOwnerLabelKey:       constants.GHOperatorOwnerLabelVal,
+							constants.GlobalHubGlobalResourceLabel: "",
 						},
 					},
 					Data: map[string]string{

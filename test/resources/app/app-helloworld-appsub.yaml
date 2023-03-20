@@ -8,6 +8,8 @@ kind: Channel
 metadata:
   name: git-application-samples
   namespace: git-application-samples-ns
+  labels:
+    global-hub.open-cluster-management.io/global-resource: ""
 spec:
   pathname: 'https://github.com/stolostron/application-samples.git'
   type: Git
@@ -22,6 +24,8 @@ kind: Application
 metadata:
   name: helloworld
   namespace: helloworld
+  labels:
+    global-hub.open-cluster-management.io/global-resource: ""
 spec:
   componentKinds:
     - group: apps.open-cluster-management.io
@@ -45,6 +49,7 @@ metadata:
     app: helloworld
     app.kubernetes.io/part-of: helloworld
     apps.open-cluster-management.io/reconcile-rate: medium
+    global-hub.open-cluster-management.io/global-resource: ""
   name: helloworld-appsub
   namespace: helloworld
 spec:
@@ -60,6 +65,7 @@ metadata:
   annotations: {}
   labels:
     app: helloworld
+    global-hub.open-cluster-management.io/global-resource: ""
   name: helloworld-placement
   namespace: helloworld
 spec:

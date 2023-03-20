@@ -61,6 +61,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placement-",
 					Namespace:    config.GetDefaultNamespace(),
+					Labels:       map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				},
 				Spec: clusterv1beta1.PlacementSpec{},
 			}
@@ -74,7 +75,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 					return false
 				}
 				return placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] == "true"
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, 5*time.Second).Should(BeTrue())
 		})
 
 		It("Should not add cluster.open-cluster-management.io/experimental-scheduling-disable annotation to placement", func() {
@@ -82,9 +83,6 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placement-",
 					Namespace:    config.GetDefaultNamespace(),
-					Labels: map[string]string{
-						constants.GlobalHubLocalResource: "",
-					},
 				},
 				Spec: clusterv1beta1.PlacementSpec{},
 			}
@@ -106,6 +104,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placementrule-",
 					Namespace:    config.GetDefaultNamespace(),
+					Labels:       map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				},
 				Spec: placementrulesv1.PlacementRuleSpec{},
 			}
@@ -122,14 +121,12 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			}, 1*time.Second, 5*time.Second).Should(BeTrue())
 		})
 
-		It("Should not add cluster.open-cluster-management.io/experimental-scheduling-disable annotation to placementrule", func() {
+		It("Should not set global-hub as scheduler name for the placementrule", func() {
 			testPlacementRule := &placementrulesv1.PlacementRule{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placementrule-",
 					Namespace:    config.GetDefaultNamespace(),
-					Labels: map[string]string{
-						constants.GlobalHubLocalResource: "",
-					},
+					Labels:       map[string]string{},
 				},
 				Spec: placementrulesv1.PlacementRuleSpec{},
 			}

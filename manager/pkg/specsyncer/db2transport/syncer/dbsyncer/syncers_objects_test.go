@@ -21,7 +21,8 @@ var (
 "metadata": {
 "creationTimestamp": null,
 "labels": {
-"global-hub.open-cluster-management.io/managed-by": "global-hub-operator"
+"global-hub.open-cluster-management.io/managed-by": "global-hub-operator",
+"global-hub.open-cluster-management.io/global-resource": ""
 },
 "annotations": {
 "global-hub.open-cluster-management.io/origin-ownerreference-uid": "%s"
@@ -56,6 +57,9 @@ var (
 "name": "test-managedclusterset-1",
 "namespace": "default",
 "creationTimestamp": null,
+"labels": {
+	"global-hub.open-cluster-management.io/global-resource": ""
+},
 "annotations": {
 "global-hub.open-cluster-management.io/origin-ownerreference-uid": "%s"
 }
@@ -80,6 +84,9 @@ var (
 "name": "test-managedclustersetbinding-1",
 "namespace": "default",
 "creationTimestamp": null,
+"labels": {
+	"global-hub.open-cluster-management.io/global-resource": ""
+},
 "annotations": {
 "global-hub.open-cluster-management.io/origin-ownerreference-uid": "%s"
 }
@@ -109,7 +116,8 @@ var (
 "policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records"
 },
 "labels": {
-"env": "production"
+"env": "production",
+"global-hub.open-cluster-management.io/global-resource": ""
 }
 },
 "spec": {
@@ -129,6 +137,9 @@ var (
 "name": "test-placementrule-1",
 "namespace": "default",
 "creationTimestamp": null,
+"labels": {
+"global-hub.open-cluster-management.io/global-resource": ""
+},
 "annotations": {
 "global-hub.open-cluster-management.io/origin-ownerreference-uid": "%s"
 }
@@ -147,6 +158,9 @@ var (
 "name": "test-placementbinding-1",
 "namespace": "default",
 "creationTimestamp": null,
+"labels": {
+	"global-hub.open-cluster-management.io/global-resource": ""
+	},
 "annotations": {
 "global-hub.open-cluster-management.io/origin-ownerreference-uid": "%s"
 }
@@ -180,7 +194,8 @@ var (
 "global-hub.open-cluster-management.io/origin-ownerreference-uid": "%s"
 },
 "labels": {
-"env": "production"
+"env": "production",
+"global-hub.open-cluster-management.io/global-resource": ""
 }
 },
 "spec": {
@@ -203,6 +218,9 @@ var (
 "metadata": {
 "name": "test-application-1",
 "namespace": "default",
+"labels": {
+	"global-hub.open-cluster-management.io/global-resource": ""
+	},
 "annotations": {
 "global-hub.open-cluster-management.io/origin-ownerreference-uid": "%s"
 },
@@ -240,6 +258,9 @@ var (
 "metadata": {
 "name": "test-channel-1",
 "namespace": "default",
+"labels": {
+	"global-hub.open-cluster-management.io/global-resource": ""
+	},
 "annotations": {
 "global-hub.open-cluster-management.io/origin-ownerreference-uid": "%s"
 },
@@ -268,7 +289,8 @@ var (
 "labels": {
 "app": "bar",
 "app.kubernetes.io/part-of": "bar",
-"apps.open-cluster-management.io/reconcile-rate": "medium"
+"apps.open-cluster-management.io/reconcile-rate": "medium",
+"global-hub.open-cluster-management.io/global-resource": ""
 },
 "name": "test-subscription-1",
 "namespace": "default",

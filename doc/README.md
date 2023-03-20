@@ -95,10 +95,10 @@ oc create secret generic work-manager-managed-kubeconfig --from-file=kubeconfig=
 #### Create a global policy
 You can navigate to `Governance` from the navigation menu, and then click the `Create policy` to create a global policy. The `policyset` is not supported yet.
 ![create global policy](create_policy.png)
-If you want to create a policy for the regional hub clusters, you need to add `global-hub.open-cluster-management.io/local-resource=""` manually for the Policy/PlacementRule/PlacementBinding.
+If you want to create a global policy which can be propagated to regional hub clusters by transport, you need to add `global-hub.open-cluster-management.io/global-resource=""` manually for the Policy/PlacementRule/PlacementBinding.
 #### Create a global application
 You can navigate to `Applications` from the navigation menu, and then click the `Create application` to select `Subscription`. The `ApplicationSet` is not supported yet.
-If you want to create an application for the regional hub clusters, you need to add `global-hub.open-cluster-management.io/local-resource=""` manually for the Application/PlacementRule/Subscription.
+If you want to create a global application which can be propagated to regional hub clusters by transport, you need to add `global-hub.open-cluster-management.io/global-resource=""` manually for the Application/PlacementRule/Subscription.
 #### Access the global resources via multicluster global hub APIs
 Multicluster global hub APIs contains three resource categories: managed clusters, policies, application subscriptions. Each type of resource has two possible requests: list, get.
 

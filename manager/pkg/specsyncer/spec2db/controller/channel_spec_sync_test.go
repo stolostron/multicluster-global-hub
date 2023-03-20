@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var _ = Describe("channels to database controller", func() {
@@ -71,6 +72,7 @@ var _ = Describe("channels to database controller", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ch2",
 				Namespace: config.GetDefaultNamespace(),
+				Labels:    map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 			},
 			Spec: channelv1.ChannelSpec{
 				Type:     channelv1.ChannelTypeGit,

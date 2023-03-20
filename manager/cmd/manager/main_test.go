@@ -151,6 +151,9 @@ func TestManager(t *testing.T) {
 					Annotations: map[string]string{
 						constants.OriginOwnerReferenceAnnotation: "testing",
 					},
+					Labels: map[string]string{
+						constants.GlobalHubGlobalResourceLabel: "",
+					},
 				},
 				Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
 			}, metav1.CreateOptions{}); err != nil {
