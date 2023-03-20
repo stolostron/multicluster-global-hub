@@ -2,14 +2,11 @@ package jobs
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -76,7 +73,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 	p.log.Info("clean up the placement finalizer")
 	placements := &clusterv1beta1.PlacementList{}
 	if err := p.client.List(p.ctx, placements, &client.ListOptions{}); err != nil {
-		return err
+		p.log.Error(err, "failed to list placements")
 	}
 	for idx := range placements.Items {
 		if err := p.pruneFinalizer(&placements.Items[idx]); err != nil {
@@ -84,73 +81,54 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 		}
 	}
 
-	clusterv1beta2Service := &apiregistrationv1.APIService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s.%s", clusterv1beta2.GroupVersion.Version, clusterv1beta2.GroupName),
-		},
+	p.log.Info("clean up the managedclusterset finalizer")
+	managedclustersets := &clusterv1beta2.ManagedClusterSetList{}
+	if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
+		p.log.Error(err, "failed to list managedclustersets")
 	}
-	if err := p.client.Get(p.ctx, client.ObjectKeyFromObject(clusterv1beta2Service), clusterv1beta2Service); err != nil {
-		p.log.Info("retrieve resource error, skip pruning", "name", clusterv1beta2Service.Name, "errorMessage", err)
-	} else {
-
-		p.log.Info("clean up the managedclusterset finalizer")
-		managedclustersets := &clusterv1beta2.ManagedClusterSetList{}
-		if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
+	for idx := range managedclustersets.Items {
+		if err := p.pruneFinalizer(&managedclustersets.Items[idx]); err != nil {
 			return err
-		}
-		for idx := range managedclustersets.Items {
-			if err := p.pruneFinalizer(&managedclustersets.Items[idx]); err != nil {
-				return err
-			}
-		}
-
-		p.log.Info("clean up the managedclustersetbinding finalizer")
-		managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
-		if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
-			return err
-		}
-		for idx := range managedclustersetbindings.Items {
-			if err := p.pruneFinalizer(&managedclustersetbindings.Items[idx]); err != nil {
-				return err
-			}
 		}
 	}
 
-	clusterv1beta1Service := &apiregistrationv1.APIService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s.%s", clusterv1beta1.GroupVersion.Version, clusterv1beta1.GroupName),
-		},
+	p.log.Info("clean up the managedclustersetbinding finalizer")
+	managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
+	if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
+		p.log.Error(err, "failed to list managedclustersetbindings")
 	}
-	if err := p.client.Get(p.ctx, client.ObjectKeyFromObject(clusterv1beta1Service), clusterv1beta1Service); err != nil {
-		p.log.Info("retrieve resource error, skip pruning", "name", clusterv1beta1Service.Name, "errorMessage", err)
-	} else {
-		p.log.Info("clean up the managedclusterset finalizer")
-		managedclustersets := &clusterv1beta1.ManagedClusterSetList{}
-		if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
+	for idx := range managedclustersetbindings.Items {
+		if err := p.pruneFinalizer(&managedclustersetbindings.Items[idx]); err != nil {
 			return err
 		}
-		for idx := range managedclustersets.Items {
-			if err := p.pruneFinalizer(&managedclustersets.Items[idx]); err != nil {
-				return err
-			}
-		}
+	}
 
-		p.log.Info("clean up the managedclustersetbinding finalizer")
-		managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
-		if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
+	p.log.Info("clean up the managedclusterset finalizer")
+	managedclustersetv1beta1 := &clusterv1beta1.ManagedClusterSetList{}
+	if err := p.client.List(p.ctx, managedclustersetv1beta1, &client.ListOptions{}); err != nil {
+		p.log.Error(err, "failed to list managedclustersets")
+	}
+	for idx := range managedclustersetv1beta1.Items {
+		if err := p.pruneFinalizer(&managedclustersetv1beta1.Items[idx]); err != nil {
 			return err
 		}
-		for idx := range managedclustersetbindings.Items {
-			if err := p.pruneFinalizer(&managedclustersetbindings.Items[idx]); err != nil {
-				return err
-			}
+	}
+
+	p.log.Info("clean up the managedclustersetbinding finalizer")
+	managedclustersetbindingv1beta1 := &clusterv1beta1.ManagedClusterSetBindingList{}
+	if err := p.client.List(p.ctx, managedclustersetbindingv1beta1, &client.ListOptions{}); err != nil {
+		p.log.Error(err, "failed to list managedclustersetbindings")
+	}
+	for idx := range managedclustersetbindingv1beta1.Items {
+		if err := p.pruneFinalizer(&managedclustersetbindingv1beta1.Items[idx]); err != nil {
+			return err
 		}
 	}
 
 	p.log.Info("clean up the application placementrule finalizer")
 	palcementrules := &placementrulesv1.PlacementRuleList{}
 	if err := p.client.List(p.ctx, palcementrules, &client.ListOptions{}); err != nil {
-		return err
+		p.log.Error(err, "failed to list placementrules")
 	}
 	for idx := range palcementrules.Items {
 		if err := p.pruneFinalizer(&palcementrules.Items[idx]); err != nil {
@@ -161,7 +139,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 	p.log.Info("clean up the placementbindings finalizer")
 	placementbindings := &policyv1.PlacementBindingList{}
 	if err := p.client.List(p.ctx, placementbindings, &client.ListOptions{}); err != nil {
-		return err
+		p.log.Error(err, "failed to list placementbindings")
 	}
 	for idx := range placementbindings.Items {
 		if err := p.pruneFinalizer(&placementbindings.Items[idx]); err != nil {
@@ -177,7 +155,7 @@ func (p *PruneFinalizer) pruneApplication() error {
 	p.log.Info("clean up the application finalizer")
 	applications := &appv1beta1.ApplicationList{}
 	if err := p.client.List(p.ctx, applications, &client.ListOptions{}); err != nil {
-		return err
+		p.log.Error(err, "failed to list applications")
 	}
 	for idx := range applications.Items {
 		if err := p.pruneFinalizer(&applications.Items[idx]); err != nil {
@@ -185,30 +163,21 @@ func (p *PruneFinalizer) pruneApplication() error {
 		}
 	}
 
-	appsubv1Service := &apiregistrationv1.APIService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s.%s", appsubv1.SchemeGroupVersion.Version, appsubv1.SchemeGroupVersion.Group),
-		},
+	p.log.Info("clean up the application subscription finalizer")
+	appsubs := &appsubv1.SubscriptionList{}
+	if err := p.client.List(p.ctx, appsubs, &client.ListOptions{}); err != nil {
+		p.log.Error(err, "failed to list application subscriptions")
 	}
-	if err := p.client.Get(p.ctx, client.ObjectKeyFromObject(appsubv1Service), appsubv1Service); err != nil {
-		p.log.Info("retrieve resource error, skip pruning", "name", appsubv1Service.Name, "errorMessage", err)
-	} else {
-		p.log.Info("clean up the application subscription finalizer")
-		appsubs := &appsubv1.SubscriptionList{}
-		if err := p.client.List(p.ctx, appsubs, &client.ListOptions{}); err != nil {
+	for idx := range appsubs.Items {
+		if err := p.pruneFinalizer(&appsubs.Items[idx]); err != nil {
 			return err
-		}
-		for idx := range appsubs.Items {
-			if err := p.pruneFinalizer(&appsubs.Items[idx]); err != nil {
-				return err
-			}
 		}
 	}
 
 	p.log.Info("clean up the application channel finalizer")
 	channels := &chnv1.ChannelList{}
 	if err := p.client.List(p.ctx, channels, &client.ListOptions{}); err != nil {
-		return err
+		p.log.Error(err, "failed to list application channels")
 	}
 	for idx := range channels.Items {
 		if err := p.pruneFinalizer(&channels.Items[idx]); err != nil {
