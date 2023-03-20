@@ -5,8 +5,6 @@ metadata:
   name: open-cluster-management:multicluster-global-hub-agent
   labels:
     addon.open-cluster-management.io/hosted-manifest-location: none
-  annotations:
-    addon.open-cluster-management.io/deletion-orphan: ""
 subjects:
 - kind: ServiceAccount
   name: multicluster-global-hub-agent
