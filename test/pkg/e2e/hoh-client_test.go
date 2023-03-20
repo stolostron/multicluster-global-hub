@@ -41,6 +41,7 @@ var _ = Describe("Check all the clients could connect to the HoH servers", Label
 	})
 
 	It("connect to the nonk8s-server with specific user", func() {
+		fmt.Println(testOptions.HubCluster.ApiServer)
 		identityUrl := testOptions.HubCluster.ApiServer + "/apis/user.openshift.io/v1/users/~"
 
 		req, err := http.NewRequest("GET", identityUrl, nil)

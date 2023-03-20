@@ -31,6 +31,11 @@ type client struct {
 	options Options
 }
 
+type Cluster struct {
+	leafhubName string
+	managedClusterName []string
+}
+
 func NewTestClient(opt Options) *client {
 	return &client{
 		options: opt,
@@ -165,3 +170,17 @@ func (c *client) GetLeafHubClusterNames() []string {
 	}
 	return clusters
 }
+
+// func (c *client) GetClusters() []Cluster {
+// 	var clusters []Cluster
+// 	for _, cluster := range c.options.ManagedClusters {
+// 		if cluster.Name == cluster.LeafHubName {
+// 			Cluster = append(Cluster, {leafhubName: cluster.Name})
+// 		} else {
+// 			pos := strconv.Atoi(cluster.LeafHubName[len(LeafHubName)-1:])
+// 			Cluster[pos].managedClusterName = append(Cluster[pos].managedClusterName, cluster.LeafHubName)
+// 		}
+// 	}
+
+// 	return clusters
+// }

@@ -17,17 +17,22 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
 	INFORM_POLICY_YAML  = "../../resources/policy/inform-limitrange-policy.yaml"
 	ENFORCE_POLICY_YAML = "../../resources/policy/enforce-limitrange-policy.yaml"
 
-	POLICY_LABEL_KEY   = "global-policy"
-	POLICY_LABEL_VALUE = "test"
-	POLICY_NAME        = "policy-limitrange"
-	POLICY_NAMESPACE   = "default"
+	POLICY_LABEL_KEY      = "global-policy"
+	POLICY_LABEL_VALUE    = "test"
+	POLICY_NAME           = "policy-limitrange"
+	POLICY_NAMESPACE      = "default"
+	PLACEMENTBINDING_NAME = "binding-policy-limitrange"
+	PLACEMENT_RULE_NAME   = "placementrule-policy-limitrange"
 )
 
 var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
@@ -61,6 +66,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		scheme := runtime.NewScheme()
 		policiesv1.AddToScheme(scheme)
 		corev1.AddToScheme(scheme)
+		placementrulev1.AddToScheme(scheme)
 		globalClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 		for _, leafhubName := range clients.GetLeafHubClusterNames(){
@@ -106,8 +112,9 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	It("create a inform policy for the labeled cluster", func() {
 		By("Create the inform policy in global hub")
 		Eventually(func() error {
-			_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", INFORM_POLICY_YAML)
+			message, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", INFORM_POLICY_YAML)
 			if err != nil {
+				klog.V(5).Info(fmt.Sprintf("apply inform policy error: %s", message))
 				return err
 			}
 			return nil
@@ -205,7 +212,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("remove managedcluster1 policy by deleting label", func() {
+	It("remove managedcluster policy by deleting label", func() {
 		for i, managedClusterName := range managedClusterNames {
 			By("Check the policy is created in managedcluster")
 			Eventually(func() error {
@@ -252,6 +259,118 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				return nil
 			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		}	
+	})
+
+	It("verify the policy resource has been added the global cleanup finalizer", func() {
+		By("Verify the policy has been added the global hub cleanup finalizer")
+		Eventually(func() error {
+			policy := &policiesv1.Policy{}
+			err := globalClient.Get(context.TODO(), client.ObjectKey{
+				Namespace: POLICY_NAMESPACE,
+				Name:      POLICY_NAME,
+			}, policy)
+			if err != nil {
+				return err
+			}
+			for _, finalizer := range policy.Finalizers {
+				if finalizer == constants.GlobalHubCleanupFinalizer {
+					return nil
+				}
+			}
+			return fmt.Errorf("the policy(%s) hasn't been added the cleanup finalizer", policy.GetName())
+		}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+		By("Verify the placementbinding has been added the global hub cleanup finalizer")
+		Eventually(func() error {
+			placementbinding := &policiesv1.PlacementBinding{}
+			err := globalClient.Get(context.TODO(), client.ObjectKey{
+				Namespace: POLICY_NAMESPACE,
+				Name:      PLACEMENTBINDING_NAME,
+			}, placementbinding)
+			if err != nil {
+				return err
+			}
+			for _, finalizer := range placementbinding.Finalizers {
+				if finalizer == constants.GlobalHubCleanupFinalizer {
+					return nil
+				}
+			}
+			return fmt.Errorf("the placementbinding(%s) hasn't been added the cleanup finalizer", placementbinding.GetName())
+		}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+		By("Verify the local placementrule has been added the global hub cleanup finalizer")
+		Eventually(func() error {
+			placementrule := &placementrulev1.PlacementRule{}
+			err := globalClient.Get(context.TODO(), client.ObjectKey{
+				Namespace: POLICY_NAMESPACE,
+				Name:      PLACEMENT_RULE_NAME,
+			}, placementrule)
+			if err != nil {
+				return err
+			}
+			for _, finalizer := range placementrule.Finalizers {
+				if finalizer == constants.GlobalHubCleanupFinalizer {
+					return nil
+				}
+			}
+			return fmt.Errorf("the placementrule(%s) hasn't been added the cleanup finalizer", placementrule.GetName())
+		}, 1*time.Minute, 1*time.Second).Should(Succeed())
+	})
+
+	It("verify the policy resource has been added the global cleanup finalizer", func() {
+		By("Verify the policy has been added the global hub cleanup finalizer")
+		Eventually(func() error {
+			policy := &policiesv1.Policy{}
+			err := globalClient.Get(context.TODO(), client.ObjectKey{
+				Namespace: POLICY_NAMESPACE,
+				Name:      POLICY_NAME,
+			}, policy)
+			if err != nil {
+				return err
+			}
+			for _, finalizer := range policy.Finalizers {
+				if finalizer == constants.GlobalHubCleanupFinalizer {
+					return nil
+				}
+			}
+			return fmt.Errorf("the policy(%s) hasn't been added the cleanup finalizer", policy.GetName())
+		}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+		By("Verify the placementbinding has been added the global hub cleanup finalizer")
+		Eventually(func() error {
+			placementbinding := &policiesv1.PlacementBinding{}
+			err := globalClient.Get(context.TODO(), client.ObjectKey{
+				Namespace: POLICY_NAMESPACE,
+				Name:      PLACEMENTBINDING_NAME,
+			}, placementbinding)
+			if err != nil {
+				return err
+			}
+			for _, finalizer := range placementbinding.Finalizers {
+				if finalizer == constants.GlobalHubCleanupFinalizer {
+					return nil
+				}
+			}
+			return fmt.Errorf("the placementbinding(%s) hasn't been added the cleanup finalizer", placementbinding.GetName())
+		}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+		By("Verify the local placementrule has been added the global hub cleanup finalizer")
+		Eventually(func() error {
+			placementrule := &placementrulev1.PlacementRule{}
+			err := globalClient.Get(context.TODO(), client.ObjectKey{
+				Namespace: POLICY_NAMESPACE,
+				Name:      PLACEMENT_RULE_NAME,
+			}, placementrule)
+			if err != nil {
+				return err
+			}
+			for _, finalizer := range placementrule.Finalizers {
+				if finalizer == constants.GlobalHubCleanupFinalizer {
+					return nil
+				}
+			}
+			return fmt.Errorf("the placementrule(%s) hasn't been added the cleanup finalizer", placementrule.GetName())
+		}, 1*time.Minute, 1*time.Second).Should(Succeed())
 	})
 
 	AfterAll(func() {

@@ -8,9 +8,6 @@
 
 set -e
 
-HUB_CLUSTER_NUM="$1"
-MANAGED_CLUSTER_NUM="$2"
-
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
 LEAF_HUB_LOG=${LEAF_HUB_LOG:-$CONFIG_DIR/leafhub_setup.log}
