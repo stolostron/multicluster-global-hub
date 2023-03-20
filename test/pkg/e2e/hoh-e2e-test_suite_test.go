@@ -1,7 +1,7 @@
 package tests
 
 import (
-	// "crypto/tls"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -63,11 +63,11 @@ var _ = BeforeSuite(func() {
 		}
 	}, 1*time.Minute, 1*time.Second*5).ShouldNot(HaveOccurred())
 
-	// By("Init the http client")
-	// transport := &http.Transport{
-	// 	TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	// }
-	// httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
+	By("Init the http client")
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
 })
 
 var _ = AfterSuite(func() {
