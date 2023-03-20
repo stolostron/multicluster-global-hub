@@ -5,6 +5,8 @@ metadata:
   name: open-cluster-management:multicluster-global-hub-agent
   labels:
     addon.open-cluster-management.io/hosted-manifest-location: none
+  annotations:
+    addon.open-cluster-management.io/deletion-orphan: ""
 rules:
 - apiGroups:
   - "app.k8s.io"
@@ -160,4 +162,11 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - get
+  - list
 {{- end -}}

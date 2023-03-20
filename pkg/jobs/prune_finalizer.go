@@ -84,19 +84,16 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 		}
 	}
 
-	clusterV1Beta2API := true
-	clusterV1Beta2Service := &apiregistrationv1.APIService{
+	clusterv1beta2Service := &apiregistrationv1.APIService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s.%s", clusterv1beta2.GroupVersion.Version, clusterv1beta2.GroupName),
 		},
 	}
-	if err := p.client.Get(p.ctx, client.ObjectKeyFromObject(clusterV1Beta2Service), clusterV1Beta2Service); err != nil {
-		clusterV1Beta2API = false
-		p.log.Info("retrieve resource error, skip pruning", "name", clusterV1Beta2Service.Name, "errorMessage", err)
-	}
+	if err := p.client.Get(p.ctx, client.ObjectKeyFromObject(clusterv1beta2Service), clusterv1beta2Service); err != nil {
+		p.log.Info("retrieve resource error, skip pruning", "name", clusterv1beta2Service.Name, "errorMessage", err)
+	} else {
 
-	p.log.Info("clean up the managedclusterset finalizer")
-	if clusterV1Beta2API {
+		p.log.Info("clean up the managedclusterset finalizer")
 		managedclustersets := &clusterv1beta2.ManagedClusterSetList{}
 		if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
 			return err
@@ -106,20 +103,8 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 				return err
 			}
 		}
-	} else {
-		managedclustersets := &clusterv1beta1.ManagedClusterSetList{}
-		if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
-			return err
-		}
-		for idx := range managedclustersets.Items {
-			if err := p.pruneFinalizer(&managedclustersets.Items[idx]); err != nil {
-				return err
-			}
-		}
-	}
 
-	p.log.Info("clean up the managedclustersetbinding finalizer")
-	if clusterV1Beta2API {
+		p.log.Info("clean up the managedclustersetbinding finalizer")
 		managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
 		if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
 			return err
@@ -129,7 +114,28 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 				return err
 			}
 		}
+	}
+
+	clusterv1beta1Service := &apiregistrationv1.APIService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%s.%s", clusterv1beta1.GroupVersion.Version, clusterv1beta1.GroupName),
+		},
+	}
+	if err := p.client.Get(p.ctx, client.ObjectKeyFromObject(clusterv1beta1Service), clusterv1beta1Service); err != nil {
+		p.log.Info("retrieve resource error, skip pruning", "name", clusterv1beta1Service.Name, "errorMessage", err)
 	} else {
+		p.log.Info("clean up the managedclusterset finalizer")
+		managedclustersets := &clusterv1beta1.ManagedClusterSetList{}
+		if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
+			return err
+		}
+		for idx := range managedclustersets.Items {
+			if err := p.pruneFinalizer(&managedclustersets.Items[idx]); err != nil {
+				return err
+			}
+		}
+
+		p.log.Info("clean up the managedclustersetbinding finalizer")
 		managedclustersetbindings := &clusterv1beta1.ManagedClusterSetBindingList{}
 		if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
 			return err
@@ -179,14 +185,23 @@ func (p *PruneFinalizer) pruneApplication() error {
 		}
 	}
 
-	p.log.Info("clean up the application subscription finalizer")
-	appsubs := &appsubv1.SubscriptionList{}
-	if err := p.client.List(p.ctx, appsubs, &client.ListOptions{}); err != nil {
-		return err
+	appsubv1Service := &apiregistrationv1.APIService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%s.%s", appsubv1.SchemeGroupVersion.Version, clusterv1beta2.GroupName),
+		},
 	}
-	for idx := range appsubs.Items {
-		if err := p.pruneFinalizer(&appsubs.Items[idx]); err != nil {
+	if err := p.client.Get(p.ctx, client.ObjectKeyFromObject(appsubv1Service), appsubv1Service); err != nil {
+		p.log.Info("retrieve resource error, skip pruning", "name", appsubv1Service.Name, "errorMessage", err)
+	} else {
+		p.log.Info("clean up the application subscription finalizer")
+		appsubs := &appsubv1.SubscriptionList{}
+		if err := p.client.List(p.ctx, appsubs, &client.ListOptions{}); err != nil {
 			return err
+		}
+		for idx := range appsubs.Items {
+			if err := p.pruneFinalizer(&appsubs.Items[idx]); err != nil {
+				return err
+			}
 		}
 	}
 

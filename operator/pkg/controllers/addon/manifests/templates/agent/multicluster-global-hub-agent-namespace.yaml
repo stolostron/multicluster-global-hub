@@ -5,3 +5,5 @@ metadata:
   labels:
     addon.open-cluster-management.io/namespace: "true"
     addon.open-cluster-management.io/hosted-manifest-location: managed
+  annotations:
+    addon.open-cluster-management.io/deletion-orphan: ""
