@@ -36,9 +36,8 @@ func (a *AdmissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 
-		key := constants.GlobalHubLocalResource
-		_, found := placement.Labels[key]
-		if !found {
+		// don't schedule the policy/application for global hub resources
+		if _, found := placement.Labels[constants.GlobalHubGlobalResourceLabel]; found {
 			if placement.Annotations == nil {
 				placement.Annotations = map[string]string{}
 			}
@@ -57,9 +56,7 @@ func (a *AdmissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 
-		key := constants.GlobalHubLocalResource
-		_, found := placementrule.Labels[key]
-		if !found {
+		if _, found := placementrule.Labels[constants.GlobalHubGlobalResourceLabel]; found {
 			placementrule.Spec.SchedulerName = constants.GlobalHubSchedulerName
 
 			marshaledPlacementRule, err := json.Marshal(placementrule)

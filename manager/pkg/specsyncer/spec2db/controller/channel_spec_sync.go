@@ -19,6 +19,7 @@ import (
 func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&channelv1.Channel{}).
+		WithEventFilter(GlobalResourcePredicate()).
 		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
 			ownerReferences := obj.GetOwnerReferences()
 			for _, reference := range ownerReferences {

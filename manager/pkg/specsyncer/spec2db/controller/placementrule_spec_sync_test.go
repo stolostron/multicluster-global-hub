@@ -37,6 +37,9 @@ var _ = Describe("placementrules controller", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-placementrule-1",
 				Namespace: config.GetDefaultNamespace(),
+				Labels: map[string]string{
+					constants.GlobalHubGlobalResourceLabel: "",
+				},
 			},
 			Spec: placementrulev1.PlacementRuleSpec{
 				SchedulerName: constants.GlobalHubSchedulerName,

@@ -74,8 +74,9 @@ var _ = BeforeSuite(func() {
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
 	dataConfig := &config.DatabaseConfig{
-		ProcessDatabaseURL: testPostgres.URI,
-		CACertPath:         "ca-cert-path",
+		ProcessDatabaseURL:         testPostgres.URI,
+		CACertPath:                 "ca-cert-path",
+		TransportBridgeDatabaseURL: testPostgres.URI,
 	}
 	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, dataConfig)
 	Expect(err).NotTo(HaveOccurred())
@@ -101,6 +102,9 @@ var _ = BeforeSuite(func() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.GHConfigCMName,
 			Namespace: constants.GHSystemNamespace,
+			Labels: map[string]string{
+				constants.GlobalHubGlobalResourceLabel: "",
+			},
 		},
 		Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
 	}
@@ -110,7 +114,7 @@ var _ = BeforeSuite(func() {
 		SyncerConfig: &config.SyncerConfig{
 			SpecSyncInterval: 1 * time.Second,
 		},
-		DatabaseConfig: &config.DatabaseConfig{},
+		DatabaseConfig: dataConfig,
 		TransportConfig: &transport.TransportConfig{
 			TransportType:     string(transport.Chan),
 			CommitterInterval: 10 * time.Second,

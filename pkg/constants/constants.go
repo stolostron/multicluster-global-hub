@@ -23,8 +23,10 @@ const (
 	GlobalHubOwnerLabelVal  = "global-hub"
 	GHAgentOwnerLabelValue  = "global-hub-agent"
 	GHOperatorOwnerLabelVal = "global-hub-operator"
-	// identify the resource is a local-resource
-	GlobalHubLocalResource = "global-hub.open-cluster-management.io/local-resource"
+	// Deprecated identify the resource is a local-resource
+	// GlobalHubLocalResource = "global-hub.open-cluster-management.io/local-resource"
+	// if the resource with this label, it will be synced to database and then propagated to regional hub
+	GlobalHubGlobalResourceLabel = "global-hub.open-cluster-management.io/global-resource"
 )
 
 // store all the annotations

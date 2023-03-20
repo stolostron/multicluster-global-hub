@@ -7,28 +7,18 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func AddPlacementController(mgr ctrl.Manager, specDB db.SpecDB) error {
-	placementPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      constants.GlobalHubLocalResource,
-				Operator: metav1.LabelSelectorOpDoesNotExist,
-			},
-		},
-	})
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&clusterv1beta1.Placement{}).
-		WithEventFilter(placementPredicate).
+		WithEventFilter(GlobalResourcePredicate()).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),
 			specDB:         specDB,

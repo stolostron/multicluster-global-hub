@@ -5,9 +5,11 @@ package dbsyncer_test
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var _ = Describe("Database to Transport Syncer", Ordered, func() {
@@ -175,7 +177,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			configUID, &configJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		Expect(message.ID).Should(Equal("Config"))
 		Expect(message.Payload).Should(ContainSubstring(configUID))
 	})
@@ -188,7 +190,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			managedclusterUID, leafhubName, managedclusterName, labelsToAdd, labelKeysToRemove)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received ManagedClustersLabels: %s\n", message)
 		Expect(message.ID).Should(Equal("ManagedClustersLabels"))
 	})
@@ -200,7 +202,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			managedclustersetUID, &managedclustersetJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received ManagedClusterSets: %s\n", message)
 		Expect(message.ID).Should(Equal("ManagedClusterSets"))
 		Expect(message.Payload).Should(ContainSubstring(managedclustersetUID))
@@ -213,7 +215,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			managedclustersetbindingUID, &managedclustersetbindingJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received ManagedClusterSetBindings: %s\n", message)
 		Expect(message.ID).Should(Equal("ManagedClusterSetBindings"))
 		Expect(message.Payload).Should(ContainSubstring(managedclustersetbindingUID))
@@ -226,7 +228,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			policyUID, &policyJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received policy: %s\n", message)
 		Expect(message.ID).Should(Equal("Policies"))
 		Expect(message.Payload).Should(ContainSubstring(policyUID))
@@ -239,7 +241,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			placementruleUID, &placementruleJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received placementrule: %s\n", message)
 		Expect(message.Payload).Should(ContainSubstring(placementruleUID))
 	})
@@ -251,7 +253,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			placementbindingUID, &placementbindingJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received placementbinding: %s\n", message)
 		Expect(message.Payload).Should(ContainSubstring(placementbindingUID))
 	})
@@ -263,7 +265,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			placementUID, &placementJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received placement: %s\n", message)
 		Expect(message.Payload).Should(ContainSubstring(placementUID))
 	})
@@ -275,7 +277,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			applicationUID, &applicationJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received application: %s\n", message)
 		Expect(message.Payload).Should(ContainSubstring(applicationUID))
 	})
@@ -287,7 +289,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			subscriptionUID, &subscriptionJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received subscription: %s\n", message)
 		Expect(message.Payload).Should(ContainSubstring(subscriptionUID))
 	})
@@ -299,8 +301,19 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			channelUID, &channelJSONBytes)
 		Expect(err).ToNot(HaveOccurred())
 
-		message := <-genericConsumer.MessageChan()
+		message := waitForChannel(genericConsumer.MessageChan())
 		fmt.Printf("========== received channel: %s\n", message)
 		Expect(message.Payload).Should(ContainSubstring(channelUID))
 	})
 })
+
+// waitForChannel genericConsumer.MessageChan() with timeout
+func waitForChannel(ch chan *transport.Message) *transport.Message {
+	select {
+	case msg := <-ch:
+		return msg
+	case <-time.After(10 * time.Second):
+		fmt.Println("timeout waiting for message from  transport consumer channel")
+		return nil
+	}
+}

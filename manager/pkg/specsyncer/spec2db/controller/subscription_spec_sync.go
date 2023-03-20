@@ -19,6 +19,7 @@ import (
 func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&subscriptionv1.Subscription{}).
+		WithEventFilter(GlobalResourcePredicate()).
 		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
 			ownerReferences := obj.GetOwnerReferences()
 			for _, reference := range ownerReferences {

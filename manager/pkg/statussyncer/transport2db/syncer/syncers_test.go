@@ -114,6 +114,7 @@ func TestConsumer(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.GHConfigCMName,
 			Namespace: constants.GHSystemNamespace,
+			Labels:    map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 		},
 		Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
 	}

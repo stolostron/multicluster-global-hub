@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var _ = Describe("placement controller", Ordered, func() {
@@ -39,6 +40,9 @@ var _ = Describe("placement controller", Ordered, func() {
 				Annotations: map[string]string{
 					clusterv1beta1.PlacementDisableAnnotation: "true",
 				},
+				Labels: map[string]string{
+					constants.GlobalHubGlobalResourceLabel: "",
+				},
 			},
 			Spec: clusterv1beta1.PlacementSpec{},
 		}
@@ -63,6 +67,6 @@ var _ = Describe("placement controller", Ordered, func() {
 				}
 			}
 			return fmt.Errorf("not find placement in database")
-		}, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 })
