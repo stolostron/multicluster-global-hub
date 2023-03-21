@@ -1,13 +1,15 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: local-placement
+  name: global-placement
 ---
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:
   name: policy-limitrange
-  namespace: local-placement
+  namespace: global-placement
+  labels:
+    global-hub.open-cluster-management.io/global-resource: ""
   annotations:
     policy.open-cluster-management.io/standards: NIST-CSF
     policy.open-cluster-management.io/categories: PR.IP Information Protection Processes and Procedures
@@ -48,7 +50,9 @@ apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding
 metadata:
   name: binding-policy-limitrange
-  namespace: local-placement
+  namespace: global-placement
+  labels:
+    global-hub.open-cluster-management.io/global-resource: ""
 placementRef:
   name: placement-policy-limitrange
   kind: Placement
@@ -62,28 +66,29 @@ apiVersion: cluster.open-cluster-management.io/v1beta1
 kind: Placement
 metadata:
   name: placement-policy-limitrange
-  namespace: local-placement
+  namespace: global-placement
+  labels:
+    global-hub.open-cluster-management.io/global-resource: ""
 spec:
   clusterSets:
-    - default
-  predicates:
-  - requiredClusterSelector:
-      labelSelector:
-        matchLabels:
-          local-policy-placement: test
+    - clusterset1
 ---
-apiVersion: cluster.open-cluster-management.io/v1beta1
+apiVersion: cluster.open-cluster-management.io/v1beta2
 kind: ManagedClusterSetBinding
 metadata:
-  name: default
-  namespace: local-placement
+  name: clusterset1
+  namespace: global-placement
+  labels:
+    global-hub.open-cluster-management.io/global-resource: ""
 spec:
-  clusterSet: default
+  clusterSet: clusterset1
 ---
-apiVersion: cluster.open-cluster-management.io/v1beta1
+apiVersion: cluster.open-cluster-management.io/v1beta2
 kind: ManagedClusterSet
 metadata:
-  name: default
+  name: clusterset1
+  labels:
+    global-hub.open-cluster-management.io/global-resource: ""
 spec:
   clusterSelector:
-    selectorType: LegacyClusterSetLabel
+    selectorType: ExclusiveClusterSetLabel
