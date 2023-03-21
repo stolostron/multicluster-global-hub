@@ -76,4 +76,7 @@ const (
 	// GHAgentDeployModeNone is to not install agent
 	GHAgentDeployModeNone   = "None"
 	GHAgentInstallNamespace = "open-cluster-management-agent-addon"
+
+	// GHAgentInstallACMHubLabelKey is to indicate whether to install ACM hub on the agent
+	GHAgentACMHubInstallLabelKey = "global-hub.open-cluster-management.io/hub-cluster-install"
 )

@@ -88,6 +88,10 @@ func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha2.Multiclust
 }
 
 func (a *HohAgentAddon) installACMHub(cluster *clusterv1.ManagedCluster) bool {
+	if _, exist := cluster.GetLabels()[operatorconstants.GHAgentACMHubInstallLabelKey]; !exist {
+		return false
+	}
+
 	for _, claim := range cluster.Status.ClusterClaims {
 		if claim.Name != constants.HubClusterClaimName {
 			continue

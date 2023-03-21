@@ -73,7 +73,11 @@ var _ = BeforeSuite(func() {
 	By("Create test postgres")
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
-	transportPostgreSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
+	dataConfig := &config.DatabaseConfig{
+		ProcessDatabaseURL: testPostgres.URI,
+		CACertPath:         "ca-cert-path",
+	}
+	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, dataConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{

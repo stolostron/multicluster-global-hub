@@ -21,6 +21,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
@@ -83,7 +84,11 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient).NotTo(BeNil())
 
 	By("Connect to the database")
-	postgresSQL, err = postgresql.NewPostgreSQL(testPostgres.URI)
+	dataConfig := &managerconfig.DatabaseConfig{
+		ProcessDatabaseURL: testPostgres.URI,
+		CACertPath:         "ca-cert-path",
+	}
+	postgresSQL, err = postgresql.NewSpecPostgreSQL(ctx, dataConfig)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(postgresSQL).NotTo(BeNil())
 

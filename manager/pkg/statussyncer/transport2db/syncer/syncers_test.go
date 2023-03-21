@@ -123,6 +123,7 @@ func TestConsumer(t *testing.T) {
 
 	managerConfig := &config.ManagerConfig{
 		DatabaseConfig: &config.DatabaseConfig{
+			ProcessDatabaseURL:         testPostgres.URI,
 			TransportBridgeDatabaseURL: testPostgres.URI,
 		},
 		TransportConfig: &transport.TransportConfig{

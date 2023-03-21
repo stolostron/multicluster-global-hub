@@ -95,6 +95,9 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		"kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.CertPath, "kafka-ca-path", "",
 		"The certificate path of CA certificate for kafka bootstrap server.")
+	pflag.StringVar(&managerConfig.DatabaseConfig.CACertPath, "postgres-ca-path", "/postgres-ca/ca.crt",
+		"The certificate path of CA certificate for kafka bootstrap server.")
+
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kakfa-producer-id",
 		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
@@ -124,11 +127,9 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 	if managerConfig.DatabaseConfig.ProcessDatabaseURL == "" {
 		return nil, fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
 	}
-
 	if managerConfig.DatabaseConfig.TransportBridgeDatabaseURL == "" {
 		return nil, fmt.Errorf("database url for transport-bridge user: %w", errFlagParameterEmpty)
 	}
-
 	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
 		return nil, fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
@@ -205,7 +206,7 @@ func createManager(restConfig *rest.Config, managerConfig *managerconfig.Manager
 		return nil, fmt.Errorf("failed to add db-to-transport syncers: %w", err)
 	}
 
-	if err := specsyncer.AddStatusDBWatchers(mgr, transportBridgePostgreSQL, transportBridgePostgreSQL,
+	if err := specsyncer.AddStatusDBWatchers(mgr, processPostgreSQL, transportBridgePostgreSQL,
 		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval); err != nil {
 		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
 	}
@@ -228,8 +229,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 1
 	}
 
-	// db layer initialization for process user
-	processPostgreSQL, err := postgresql.NewPostgreSQL(managerConfig.DatabaseConfig.ProcessDatabaseURL)
+	processPostgreSQL, err := postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
 	if err != nil {
 		log.Error(err, "failed to initialize process PostgreSQL")
 		return 1
@@ -237,8 +237,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	defer processPostgreSQL.Stop()
 
 	// db layer initialization for transport-bridge user
-	transportBridgePostgreSQL, err := postgresql.NewPostgreSQL(
-		managerConfig.DatabaseConfig.TransportBridgeDatabaseURL)
+	transportBridgePostgreSQL, err := postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
 	if err != nil {
 		log.Error(err, "failed to initialize transport-bridge PostgreSQL")
 		return 1
