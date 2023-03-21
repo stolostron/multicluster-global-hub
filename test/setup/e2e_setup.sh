@@ -11,10 +11,12 @@ export LOG_MODE=${LOG_MODE:-INFO}
 source ${CURRENT_DIR}/common.sh
 checkDir ${CONFIG_DIR}
 
-LEAF_HUB_NAME="hub1"
+LEAF_HUB_NAME="hub"
 HUB_OF_HUB_NAME="hub-of-hubs"
 CTX_HUB="microshift" #"kind-hub-of-hubs"
-CTX_MANAGED="kind-hub1"
+CTX_MANAGED="kind-hub"
+export HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-2}
+export MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-1}
 
 # setup kubeconfig
 export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}
@@ -42,27 +44,29 @@ initHub $CTX_HUB 2>&1 >> $LOG &
 # init leafhub 
 sleep 1 &
 hover $! "2 Prepare leaf hub cluster $LEAF_HUB_NAME"
-source ${CURRENT_DIR}/leafhub_setup.sh 
+source ${CURRENT_DIR}/leafhub_setup.sh "$HUB_CLUSTER_NUM" "$MANAGED_CLUSTER_NUM"
 
 # joining lh to hoh
 initHub $CTX_HUB 2>&1 >> $LOG &
 hover $! "3 Init HoH OCM $HUB_OF_HUB_NAME" 
 
 # check connection
-connectMicroshift "${LEAF_HUB_NAME}-control-plane" "${HUB_OF_HUB_NAME}" 2>&1 >> $LOG &
-hover $! "  Check connection: $LEAF_HUB_NAME -> $HUB_OF_HUB_NAME" 
+for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
+    connectMicroshift "${LEAF_HUB_NAME}${i}" "${HUB_OF_HUB_NAME}" 2>&1 >> $LOG &
+    hover $! "  Check connection: $LEAF_HUB_NAME$i -> $HUB_OF_HUB_NAME" 
 
-initManaged $CTX_HUB $CTX_MANAGED 2>&1 >> $LOG &
-hover $! "  Joining $CTX_HUB - $CTX_MANAGED" 
-checkManagedCluster $CTX_HUB $CTX_MANAGED 2>&1 >> $LOG
+    initManaged $CTX_HUB $CTX_MANAGED$i 2>&1 >> $LOG &
+    hover $! "  Joining $CTX_HUB - $CTX_MANAGED$i" 
+    checkManagedCluster $CTX_HUB $CTX_MANAGED$i 2>&1 >> $LOG
 
-initApp $CTX_HUB $CTX_MANAGED 2>&1 >> $LOG &
-hover $! "  Enable application $CTX_HUB - $CTX_MANAGED" 
+    initApp $CTX_HUB $CTX_MANAGED$i 2>&1 >> $LOG &
+    hover $! "  Enable application $CTX_HUB - $CTX_MANAGED$i" 
 
-initPolicy $CTX_HUB $CTX_MANAGED $HOH_KUBECONFIG 2>&1 >> $LOG &
-hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED" 
+    initPolicy $CTX_HUB $CTX_MANAGED$i $HOH_KUBECONFIG 2>&1 >> $LOG &
+    hover $! "  Enable Policy $CTX_HUB - $CTX_MANAGED$i" 
 
-kubectl config use-context $CTX_HUB >> $LOG
+    kubectl config use-context $CTX_HUB >> $LOG
+done
 
 # wait kafka to be ready
 waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
@@ -71,9 +75,11 @@ waitAppear "kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.stat
 # wait postgres to be ready
 waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
 
-# deploy hoh
-# need the following labels to enable deploying agent in leaf hub cluster
-kubectl label managedcluster kind-$LEAF_HUB_NAME vendor=OpenShift --overwrite 2>&1 >> $LOG 
+#deploy hoh
+#need the following labels to enable deploying agent in leaf hub cluster
+for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
+    kubectl label managedcluster kind-$LEAF_HUB_NAME$i vendor=OpenShift --overwrite 2>&1 >> $LOG 
+done
 source ${CURRENT_DIR}/hoh/hoh_setup.sh >> $LOG 2>&1 &
 hover $! "6 Deploy hub-of-hubs with $TAG" 
 
