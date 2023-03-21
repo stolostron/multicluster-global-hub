@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,15 +24,23 @@ import (
 )
 
 const (
-	LOCAL_INFORM_POLICY_YAML  = "../../resources/policy/local-inform-limitrange-policy.yaml"
-	LOCAL_ENFORCE_POLICY_YAML = "../../resources/policy/local-enforce-limitrange-policy.yaml"
+	LOCAL_INFORM_POLICY_YAML           = "../../resources/policy/local-inform-limitrange-policy.yaml"
+	LOCAL_INFORM_PLACEMENT_POLICY_YAML = "../../resources/policy/local-inform-limitrange-placement-policy.yaml"
 
-	LOCAL_POLICY_LABEL_KEY      = "local-policy"
-	LOCAL_POLICY_LABEL_VALUE    = "test"
 	LOCAL_POLICY_NAME           = "policy-limitrange"
-	LOCAL_POLICY_NAMESPACE      = "local-policy-namespace"
 	LOCAL_PLACEMENTBINDING_NAME = "binding-policy-limitrange"
-	LOCAL_PLACEMENT_RULE_NAME   = "placementrule-policy-limitrange"
+
+	// placementrule
+	LOCAL_POLICY_LABEL_KEY    = "local-policy"
+	LOCAL_POLICY_LABEL_VALUE  = "test"
+	LOCAL_POLICY_NAMESPACE    = "local-policy-namespace"
+	LOCAL_PLACEMENT_RULE_NAME = "placementrule-policy-limitrange"
+
+	// placement
+	LOCAL_PLACEMENT_NS    = "local-placement"
+	LOCAL_PLACEMENT_NAME  = "placement-policy-limitrange"
+	LOCAL_MCL_SET         = "default"
+	LOCAL_MCL_SET_BINDING = "default"
 )
 
 var _ = Describe("Apply local policy to the managed clusters", Ordered,
@@ -40,6 +49,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		var leafhubClient client.Client
 		var managedClusterName1 string
 		var managedClusterUID1 string
+		var managedClusterName2 string
 		var postgresConn *pgx.Conn
 
 		BeforeAll(func() {
@@ -51,6 +61,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				}
 				managedClusterUID1 = string(managedClusters[0].GetUID())
 				managedClusterName1 = managedClusters[0].Name
+				managedClusterName2 = managedClusters[1].Name
 				return nil
 			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -59,6 +70,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			v1.AddToScheme(scheme)
 			policiesv1.AddToScheme(scheme)
 			placementrulev1.AddToScheme(scheme)
+			clusterv1beta1.AddToScheme(scheme)
 			var err error
 			runtimeClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 			Expect(err).Should(Succeed())
@@ -161,7 +173,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			})
 		})
 
-		Context("When deploy local policy to the leafhub", func() {
+		Context("When deploy local policy(placementrule) to the leafhub", func() {
 			It("deploy policy to the cluster to the leafhub", func() {
 				By("Deploy the policy to the leafhub")
 				output, err := clients.Kubectl(clients.LeafHubClusterName(), "apply", "-f", LOCAL_INFORM_POLICY_YAML)
@@ -279,7 +291,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			})
 		})
 
-		Context("When delete the local policy from the leafhub", func() {
+		Context("When delete the local policy(placementrule) from the leafhub", func() {
 			It("delete the local policy from the leafhub", func() {
 				By("Delete the policy from leafhub")
 				output, err := clients.Kubectl(clients.LeafHubClusterName(), "delete", "-f", LOCAL_INFORM_POLICY_YAML)
@@ -369,8 +381,177 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			})
 		})
 
-		AfterAll(func() {
-			By("Close the postgresql connection")
-			Expect(postgresConn.Close(context.Background())).Should(Succeed())
+		Context("When deploy local policy(placement) to the leafhub", func() {
+			It("deploy placement policy to the cluster to the leafhub", func() {
+				By("Deploy the placement policy to the leafhub")
+				output, err := clients.Kubectl(clients.LeafHubClusterName(), "apply", "-f", LOCAL_INFORM_PLACEMENT_POLICY_YAML)
+				klog.V(5).Info(fmt.Sprintf("deploy inform local policy: %s", output))
+				Expect(err).Should(Succeed())
+
+				By("Verify the local policy is directly synchronized to the global hub spec table")
+				policy := &policiesv1.Policy{}
+				Eventually(func() error {
+					rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.policies")
+					if err != nil {
+						return err
+					}
+					defer rows.Close()
+					for rows.Next() {
+						if err := rows.Scan(policy); err != nil {
+							return err
+						}
+						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
+						if policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_PLACEMENT_NS {
+							return nil
+						}
+					}
+					return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_PLACEMENT_NS,
+						LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
+				}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+				By("Verify the local placement policy is synchronized to the global hub status table")
+				Eventually(func() error {
+					rows, err := postgresConn.Query(context.TODO(),
+						"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+					if err != nil {
+						return err
+					}
+					defer rows.Close()
+
+					clusterNames := []string{managedClusterName1, managedClusterName2}
+					for rows.Next() {
+						columnValues, _ := rows.Values()
+						if len(columnValues) < 3 {
+							return fmt.Errorf("the compliance record is not correct, expected 5 but got %d", len(columnValues))
+						}
+						policyId, cluster, leafhub := "", "", ""
+						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
+							return err
+						}
+						if policyId == string(policy.UID) && leafhub == clients.LeafHubClusterName() {
+							fmt.Println(policyId, leafhub, cluster)
+							for i, clusterName := range clusterNames {
+								if clusterName == cluster {
+									clusterNames = append(clusterNames[:i], clusterNames[i+1:]...)
+								}
+							}
+						}
+					}
+					if len(clusterNames) != 0 {
+						return fmt.Errorf("the policy(%s) not sync to status table, clusterNames: %v", policy.UID, clusterNames)
+					}
+					return nil
+				}, 1*time.Minute, 1*time.Second).Should(Succeed())
+			})
+
+			// to use the finalizer achieves deleting local resource from database:
+			// finalizer -> delete from bundle -> transport -> database
+			It("check the local placement policy resource is added the global cleanup finalizer", func() {
+				By("Verify the local placement policy has been added the global hub cleanup finalizer")
+				Eventually(func() error {
+					policy := &policiesv1.Policy{}
+					err := leafhubClient.Get(context.TODO(), client.ObjectKey{
+						Namespace: LOCAL_PLACEMENT_NS,
+						Name:      LOCAL_POLICY_NAME,
+					}, policy)
+					if err != nil {
+						return err
+					}
+					for _, finalizer := range policy.Finalizers {
+						if finalizer == constants.GlobalHubCleanupFinalizer {
+							return nil
+						}
+					}
+					return fmt.Errorf("the local placement policy(%s) hasn't been added the cleanup finalizer", policy.GetName())
+				}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+				// placementbinding is not be synchronized to the global hub database, so it doesn't need the finalizer
+				By("Verify the local placement hasn't been added the global hub cleanup finalizer")
+				Eventually(func() error {
+					placement := &clusterv1beta1.Placement{}
+					err := leafhubClient.Get(context.TODO(), client.ObjectKey{
+						Namespace: LOCAL_PLACEMENT_NS,
+						Name:      LOCAL_PLACEMENT_NAME,
+					}, placement)
+					if err != nil {
+						return err
+					}
+					for _, finalizer := range placement.Finalizers {
+						if finalizer == constants.GlobalHubCleanupFinalizer {
+							return fmt.Errorf("the local placement(%s) has been added the cleanup finalizer",
+								placement.GetName())
+						}
+					}
+					return nil
+				}, 1*time.Minute, 1*time.Second).Should(Succeed())
+			})
+
+			Context("When delete the local policy(placement) from the leafhub", func() {
+				It("delete the local placement policy from the leafhub", func() {
+					By("Delete the policy from leafhub")
+					output, err := clients.Kubectl(clients.LeafHubClusterName(), "delete", "-f",
+						LOCAL_INFORM_PLACEMENT_POLICY_YAML)
+					fmt.Println(output)
+					Expect(err).Should(Succeed())
+
+					By("Verify the policy is delete from the leafhub")
+					Eventually(func() error {
+						policy := &policiesv1.Policy{}
+						err := leafhubClient.Get(context.TODO(), client.ObjectKey{
+							Namespace: LOCAL_PLACEMENT_NS,
+							Name:      LOCAL_POLICY_NAME,
+						}, policy)
+						if err != nil {
+							if errors.IsNotFound(err) {
+								return nil
+							}
+							return err
+						}
+						return fmt.Errorf("the policy(%s) is not deleted", policy.GetName())
+					}, 1*time.Minute, 1*time.Second).Should(Succeed())
+				})
+
+				It("check the local placement policy resource is deleted from database", func() {
+					By("Verify the local placement policy is deleted from the spec table")
+					Eventually(func() error {
+						rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.policies")
+						if err != nil {
+							return err
+						}
+						defer rows.Close()
+						policy := &policiesv1.Policy{}
+						for rows.Next() {
+							if err := rows.Scan(policy); err != nil {
+								return err
+							}
+							if policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_PLACEMENT_NS {
+								return fmt.Errorf("the policy(%s) is not deleted from local_spec.policies", policy.GetName())
+							}
+						}
+						return nil
+					}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+					By("Verify the local placement policy is deleted from the global hub status table")
+					Eventually(func() error {
+						rows, err := postgresConn.Query(context.TODO(),
+							"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+						if err != nil {
+							return err
+						}
+						defer rows.Close()
+
+						for rows.Next() {
+							columnValues, _ := rows.Values()
+							return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", columnValues)
+						}
+						return nil
+					}, 1*time.Minute, 1*time.Second).Should(Succeed())
+				})
+			})
+
+			AfterAll(func() {
+				By("Close the postgresql connection")
+				Expect(postgresConn.Close(context.Background())).Should(Succeed())
+			})
 		})
 	})
