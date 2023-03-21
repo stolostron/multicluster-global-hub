@@ -6,7 +6,7 @@ metadata:
   name: multicluster-global-hub-grafana
   namespace: {{.Namespace}}
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       name: multicluster-global-hub-grafana
@@ -58,6 +58,10 @@ spec:
           name: grafana-storage
         - mountPath: /etc/grafana/provisioning/datasources
           name: grafana-datasources
+        - mountPath: /etc/grafana/provisioning/dashboards
+          name: grafana-dashboards
+        - mountPath: /grafana-dashboards/0/acm-global-policy-overview
+          name: grafana-dashboard-acm-global-policy-overview
         - mountPath: /etc/grafana
           name: grafana-config
       - readinessProbe:
@@ -108,6 +112,14 @@ spec:
         secret:
           defaultMode: 420
           secretName: {{.DatasourceSecretName}}
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboards
+        name: grafana-dashboards
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-global-policy-overview
+        name: grafana-dashboard-acm-global-policy-overview
       - name: grafana-config
         secret:
           defaultMode: 420
