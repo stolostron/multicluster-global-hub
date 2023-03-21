@@ -125,7 +125,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
 			if err != nil {
 				return err
-			}		
+			}
 			for _, managedClusterName := range managedClusterNames {
 				var foundNonCompliantPolicy bool
 				for _, policyInfo := range status.Status {
