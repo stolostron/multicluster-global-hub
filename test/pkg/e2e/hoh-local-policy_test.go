@@ -25,7 +25,7 @@ import (
 
 const (
 	LOCAL_INFORM_POLICY_YAML           = "../../resources/policy/local-inform-limitrange-policy.yaml"
-	LOCAL_INFORM_PLACEMENT_POLICY_YAML = "../../resources/policy/local-inform-limitrange-placement-policy.yaml"
+	LOCAL_INFORM_PLACEMENT_POLICY_YAML = "../../resources/policy/local-inform-limitrange-policy-placement.yaml"
 
 	LOCAL_POLICY_NAME           = "policy-limitrange"
 	LOCAL_PLACEMENTBINDING_NAME = "binding-policy-limitrange"
