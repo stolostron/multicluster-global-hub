@@ -23,7 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 )
 
-var _ = Describe("Prune Resource Finalizer", func() {
+var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 	var app *appv1beta1.Application
 	var appsub *appsubv1.Subscription
 	var chn *chnv1.Channel
@@ -35,7 +35,7 @@ var _ = Describe("Prune Resource Finalizer", func() {
 	var managedClusterSet *clusterv1beta2.ManagedClusterSet
 	var clusterV1Beta2API bool
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		By("Create application instance with global hub finalizer")
 		app = &appv1beta1.Application{
 			ObjectMeta: metav1.ObjectMeta{
@@ -193,6 +193,18 @@ var _ = Describe("Prune Resource Finalizer", func() {
 		Expect(runtimeClient.Create(ctx, placementbinding)).NotTo(HaveOccurred())
 		Eventually(func() bool {
 			return containGlobalFinalizer(placementbinding)
+		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+	})
+
+	It("run the agent prune job to skip prune finalizer", func() {
+		By("Trigger the prune finalizer job")
+		job := jobs.NewPruneFinalizer(ctx, runtimeClientWithoutScheme)
+		Expect(job).NotTo(BeNil())
+		Expect(job.Run()).Should(BeNil())
+
+		By("Check the finalizer is exists in application")
+		Eventually(func() bool {
+			return containGlobalFinalizer(app)
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 	})
 
