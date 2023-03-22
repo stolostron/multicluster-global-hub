@@ -17,7 +17,7 @@ const MaxMessageKBLimit = 1024
 type KafkaConfig struct {
 	BootstrapServer string
 	CertPath        string
-	EnableTSL       bool
+	EnableTLS       bool
 	ProducerConfig  *KafkaProducerConfig
 	ConsumerConfig  *KafkaConsumerConfig
 }
@@ -70,7 +70,7 @@ func getSaramaConfig(kafkaConfig *KafkaConfig) (*sarama.Config, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Version = sarama.V2_0_0_0
 
-	if kafkaConfig.EnableTSL {
+	if kafkaConfig.EnableTLS {
 		cert, err := ioutil.ReadFile(kafkaConfig.CertPath) // #nosec G304
 		if err != nil {
 			return nil, err

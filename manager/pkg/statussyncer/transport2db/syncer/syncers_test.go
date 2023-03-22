@@ -132,7 +132,7 @@ func TestConsumer(t *testing.T) {
 			TransportFormat: string(operatorv1alpha2.KafkaMessage),
 			KafkaConfig: &protocol.KafkaConfig{
 				BootstrapServer: mockKafkaCluster.BootstrapServers(),
-				EnableTSL:       false,
+				EnableTLS:       false,
 				ConsumerConfig: &protocol.KafkaConsumerConfig{
 					ConsumerID:    "hello",
 					ConsumerTopic: "world",
