@@ -18,8 +18,8 @@ spec:
       serviceAccountName: multicluster-global-hub-manager
       containers:
         - name: multicluster-global-hub-manager
-          image: "{{.Image}}"
-          imagePullPolicy: Always
+          image: {{.Image}}
+          imagePullPolicy: {{.ImagePullPolicy}}
           args:
             - --zap-devel=true
             - --manager-namespace=$(POD_NAMESPACE)
@@ -65,8 +65,8 @@ spec:
             name: postgres-ca
             readOnly: true
         - name: oauth-proxy
-          image: "{{.ProxyImage}}"
-          imagePullPolicy: Always
+          image: {{.ProxyImage}}
+          imagePullPolicy: {{.ImagePullPolicy}}
           args:
             - --provider=openshift
             - --https-address=:8443
@@ -108,6 +108,8 @@ spec:
             readOnly: true
           - mountPath: /etc/proxy/secrets
             name: cookie-secret
+      imagePullSecrets:
+        - name: {{.ImagePullSecret}}
       volumes:
       - name: apiserver-certs
         secret:

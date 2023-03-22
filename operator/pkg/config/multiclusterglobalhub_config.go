@@ -43,12 +43,24 @@ type ManifestImage struct {
 	ImageTag string `json:"image-tag"`
 }
 
+const (
+	GlobalHubAgentImageKey   = "multicluster_global_hub_agent"
+	GlobalHubManagerImageKey = "multicluster_global_hub_manager"
+	OauthProxyImageKey       = "oauth_proxy"
+	GrafanaImageKey          = "grafana"
+	ImagePullSecretsKey      = "image_pull_secrets"
+	ImagePullPolicyKey       = "image_pull_policy"
+)
+
 var (
 	hohMGHNamespacedName = types.NamespacedName{}
 	imageOverrides       = map[string]string{
-		"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
-		"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		"oauth_proxy":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
+		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
+		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
+		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
+		GrafanaImageKey:          "quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34",
+		ImagePullSecretsKey:      "",
+		ImagePullPolicyKey:       "Always",
 	}
 )
 
@@ -58,7 +70,6 @@ func GetDefaultNamespace() string {
 	if defaultNamespace == "" {
 		defaultNamespace = constants.GHDefaultNamespace
 	}
-
 	return defaultNamespace
 }
 
@@ -107,6 +118,14 @@ func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) str
 }
 
 func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub, cm *corev1.ConfigMap) error {
+	// image pull secret and policy
+	if mgh.Spec.ImagePullSecret != "" {
+		imageOverrides[ImagePullSecretsKey] = mgh.Spec.ImagePullSecret
+	}
+	if mgh.Spec.ImagePullPolicy != "" {
+		imageOverrides[ImagePullPolicyKey] = string(mgh.Spec.ImagePullPolicy)
+	}
+
 	// first check for environment variables containing the 'OPERAND_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)
