@@ -171,7 +171,7 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 		return fmt.Errorf("flag kafka-message-size-limit %d must not exceed %d",
 			agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, producer.MaxMessageSizeLimit)
 	}
-	agentConfig.TransportConfig.KafkaConfig.EnableTSL = true
+	agentConfig.TransportConfig.KafkaConfig.EnableTLS = true
 	return nil
 }
 

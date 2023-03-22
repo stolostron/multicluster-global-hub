@@ -59,7 +59,7 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		DatabaseConfig: &managerconfig.DatabaseConfig{},
 		TransportConfig: &transport.TransportConfig{
 			KafkaConfig: &protocol.KafkaConfig{
-				EnableTSL:      true,
+				EnableTLS:      true,
 				ProducerConfig: &protocol.KafkaProducerConfig{},
 				ConsumerConfig: &protocol.KafkaConsumerConfig{},
 			},

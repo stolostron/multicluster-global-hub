@@ -141,7 +141,7 @@ func TestAgent(t *testing.T) {
 		if !pflag.Parsed() {
 			t.Error("agent flags should be parsed, but actually not")
 		}
-		agentConfig.TransportConfig.KafkaConfig.EnableTSL = false
+		agentConfig.TransportConfig.KafkaConfig.EnableTLS = false
 		if agentConfig.Terminating {
 			actualExit := doTermination(ctx, cfg)
 			if tc.expectedExit != actualExit {
