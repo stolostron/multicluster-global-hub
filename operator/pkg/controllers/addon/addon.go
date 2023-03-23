@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -198,12 +199,13 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}, imagePullSecret, &client.GetOptions{}); err != nil {
 		return nil, err
 	}
+	imagePullSecretDataBase64 := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
 
 	manifestsConfig := ManifestsConfig{
-		HoHAgentImage:         config.GetImage(config.GlobalHubAgentImageKey),
-		ImagePullSecretName    imagePullSecret.Name,
-		ImagePullSecretVal     imagePullSecret.Data[".dockerconfigjson"],
-		ImagePullPolicy        config.GetImage(config.ImagePullPolicyKey),
+		HoHAgentImage:          config.GetImage(config.GlobalHubAgentImageKey),
+		ImagePullSecretName:    imagePullSecret.Name,
+		ImagePullSecretVal:     imagePullSecretDataBase64,
+		ImagePullPolicy:        config.GetImage(config.ImagePullPolicyKey),
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCACert:            kafkaCACert,
