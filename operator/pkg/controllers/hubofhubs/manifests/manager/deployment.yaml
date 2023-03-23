@@ -108,8 +108,10 @@ spec:
             readOnly: true
           - mountPath: /etc/proxy/secrets
             name: cookie-secret
+      {{ if .ImagePullSecret }}
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
+      {{ end }}
       volumes:
       - name: apiserver-certs
         secret:

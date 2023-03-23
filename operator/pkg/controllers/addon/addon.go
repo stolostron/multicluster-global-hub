@@ -192,19 +192,9 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	if err := config.SetImageOverrides(mgh, imageConfigMap); err != nil {
 		return nil, err
 	}
-	imagePullSecret := &corev1.Secret{}
-	if err := a.client.Get(a.ctx, types.NamespacedName{
-		Namespace: mgh.GetNamespace(),
-		Name:      config.GetImage(config.ImagePullSecretKey),
-	}, imagePullSecret, &client.GetOptions{}); err != nil {
-		return nil, err
-	}
-	imagePullSecretDataBase64 := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
 
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          config.GetImage(config.GlobalHubAgentImageKey),
-		ImagePullSecretName:    imagePullSecret.Name,
-		ImagePullSecretVal:     imagePullSecretDataBase64,
 		ImagePullPolicy:        config.GetImage(config.ImagePullPolicyKey),
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
@@ -217,6 +207,20 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		RetryPeriod:            strconv.Itoa(a.leaderElectionConfig.RetryPeriod),
 		KlusterletNamespace:    "open-cluster-management-agent",
 		KlusterletWorkSA:       "klusterlet-work-sa",
+	}
+
+	if len(config.GetImage(config.ImagePullSecretKey)) > 0 {
+		imagePullSecret := &corev1.Secret{}
+		if err := a.client.Get(a.ctx, types.NamespacedName{
+			Namespace: mgh.GetNamespace(),
+			Name:      config.GetImage(config.ImagePullSecretKey),
+		}, imagePullSecret, &client.GetOptions{}); err != nil {
+			klog.Errorf("failed to get imagePullSecret(%s). err: %v", config.GetImage(config.ImagePullSecretKey), err)
+			return nil, err
+		}
+		imagePullSecretDataBase64 := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
+		manifestsConfig.ImagePullSecretName = imagePullSecret.Name
+		manifestsConfig.ImagePullSecretVal = imagePullSecretDataBase64
 	}
 
 	if a.installACMHub(cluster) {

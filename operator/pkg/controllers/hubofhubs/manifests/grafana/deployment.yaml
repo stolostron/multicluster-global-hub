@@ -103,8 +103,10 @@ spec:
           - '--openshift-ca=/etc/pki/tls/cert.pem'
           - '--openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
       serviceAccount: multicluster-global-hub-grafana
+      {{ if .ImagePullSecret }}
       imagePullSecrets:
-      - name: {{.ImagePullSecret}}
+        - name: {{.ImagePullSecret}}
+      {{ end }}
       serviceAccountName: multicluster-global-hub-grafana
       volumes:
       - emptyDir: {}

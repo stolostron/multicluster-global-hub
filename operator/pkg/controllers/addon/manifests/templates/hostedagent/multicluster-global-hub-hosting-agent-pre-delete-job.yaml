@@ -39,8 +39,10 @@ spec:
         - mountPath: /var/run/secrets/managed
           name: kubeconfig
           readOnly: true
+      {{ if .ImagePullSecretName }}
       imagePullSecrets:
-      - name: {{.ImagePullSecretName}}
+        - name: {{ .ImagePullSecretName }}
+      {{- end -}}
       volumes:
       - name: kubeconfig
         secret:

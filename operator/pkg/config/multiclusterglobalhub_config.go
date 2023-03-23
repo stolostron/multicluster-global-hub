@@ -48,7 +48,7 @@ const (
 	GlobalHubManagerImageKey = "multicluster_global_hub_manager"
 	OauthProxyImageKey       = "oauth_proxy"
 	GrafanaImageKey          = "grafana"
-	ImagePullSecretKey       = "image_pull_secrets"
+	ImagePullSecretKey       = "image_pull_secrets" /* #nosec G101 */
 	ImagePullPolicyKey       = "image_pull_policy"
 )
 
@@ -59,7 +59,7 @@ var (
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
 		GrafanaImageKey:          "quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34",
-		ImagePullSecretKey:       "multiclusterhub-operator-pull-secret",
+		ImagePullSecretKey:       "", // default empty
 		ImagePullPolicyKey:       "Always",
 	}
 )

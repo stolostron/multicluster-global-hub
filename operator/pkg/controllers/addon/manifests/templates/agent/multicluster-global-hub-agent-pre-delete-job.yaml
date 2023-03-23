@@ -22,7 +22,7 @@ spec:
       containers:
       - name: multicluster-global-hub-agent
         image: {{ .HoHAgentImage }}
-        imagePullPolicy: Always
+        imagePullPolicy: {{.ImagePullPolicy}}
         args:
         - --zap-devel=true
         - --pod-namespace=$(POD_NAMESPACE)
@@ -35,4 +35,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+      {{ if .ImagePullSecretName }}
+      imagePullSecrets:
+        - name: {{ .ImagePullSecretName }}
+      {{- end -}}
 {{- end -}}

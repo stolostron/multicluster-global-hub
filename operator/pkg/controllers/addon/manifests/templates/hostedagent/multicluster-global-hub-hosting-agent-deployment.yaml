@@ -57,8 +57,10 @@ spec:
           - mountPath: /kafka-ca
             name: kafka-ca
             readOnly: true
+      {{ if .ImagePullSecretName }}
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
+      {{- end -}}
       volumes:
       - name: kubeconfig
         secret:
