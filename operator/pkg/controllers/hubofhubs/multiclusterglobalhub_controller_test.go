@@ -341,6 +341,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return struct {
 					Image                  string
 					ProxyImage             string
+					ImagePullPolicy        string
+					ImagePullSecret        string
 					ProxySessionSecret     string
 					DBSecret               string
 					KafkaCACert            string
@@ -353,8 +355,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					RenewDeadline          string
 					RetryPeriod            string
 				}{
-					Image:                  config.GetImage("multicluster_global_hub_manager"),
-					ProxyImage:             config.GetImage("oauth_proxy"),
+					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
+					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
+					ImagePullPolicy:        config.GetImage(config.ImagePullPolicyKey),
 					ProxySessionSecret:     "testing",
 					DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
@@ -386,11 +389,16 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Namespace            string
 					SessionSecret        string
 					ProxyImage           string
+					GrafanaImage         string
 					DatasourceSecretName string
+					ImagePullPolicy      string
+					ImagePullSecret      string
 				}{
 					Namespace:            config.GetDefaultNamespace(),
 					SessionSecret:        "testing",
-					ProxyImage:           config.GetImage("oauth_proxy"),
+					ProxyImage:           config.GetImage(config.OauthProxyImageKey),
+					GrafanaImage:         config.GetImage(config.GrafanaImageKey),
+					ImagePullPolicy:      config.GetImage(config.ImagePullPolicyKey),
 					DatasourceSecretName: datasourceSecretName,
 				}, nil
 			})

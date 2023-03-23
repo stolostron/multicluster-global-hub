@@ -35,6 +35,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		return err
 	}
 	log.Info("retrieved kafka bootstrap server and CA cert from secret")
+	if e := condition.SetConditionTransportInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE); e != nil {
+		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, e)
+	}
 
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := utils.GeneratePassword(16)
