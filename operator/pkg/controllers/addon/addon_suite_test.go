@@ -181,6 +181,7 @@ var mgh = &operatorv1alpha2.MulticlusterGlobalHub{
 		Name: MGHName,
 	},
 	Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
+		ImagePullSecret: "test-pull-secret",
 		DataLayer: &operatorv1alpha2.DataLayerConfig{
 			Type: operatorv1alpha2.LargeScale,
 			LargeScale: &operatorv1alpha2.LargeScaleConfig{
@@ -239,6 +240,18 @@ func prepareBeforeTest() {
 	Expect(k8sClient.Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.DefaultImagePullSecretName,
+			Namespace: config.GetDefaultNamespace(),
+		},
+		Data: map[string][]byte{
+			".dockerconfigjson": []byte(`{"test":"test"}`),
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+	})).Should(Succeed())
+
+	By("By creating a fake image global hub pull secret")
+	Expect(k8sClient.Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mgh.Spec.ImagePullSecret,
 			Namespace: config.GetDefaultNamespace(),
 		},
 		Data: map[string][]byte{

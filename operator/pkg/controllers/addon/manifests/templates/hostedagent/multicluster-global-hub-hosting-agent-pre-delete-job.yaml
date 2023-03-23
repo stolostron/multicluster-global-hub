@@ -42,7 +42,7 @@ spec:
       {{ if .ImagePullSecretName }}
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
-      {{- end -}}
+      {{ end }}
       volumes:
       - name: kubeconfig
         secret:

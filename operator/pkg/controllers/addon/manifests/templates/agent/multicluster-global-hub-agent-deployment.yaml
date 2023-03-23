@@ -53,7 +53,7 @@ spec:
       {{ if .ImagePullSecretName }}
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
-      {{- end -}}
+      {{ end }}
       volumes:
       - name: kafka-ca
         secret:

@@ -214,13 +214,15 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		if err := a.client.Get(a.ctx, types.NamespacedName{
 			Namespace: mgh.GetNamespace(),
 			Name:      config.GetImage(config.ImagePullSecretKey),
-		}, imagePullSecret, &client.GetOptions{}); err != nil {
-			klog.Errorf("failed to get imagePullSecret(%s). err: %v", config.GetImage(config.ImagePullSecretKey), err)
+		}, imagePullSecret, &client.GetOptions{}); err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		}
-		imagePullSecretDataBase64 := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
-		manifestsConfig.ImagePullSecretName = imagePullSecret.Name
-		manifestsConfig.ImagePullSecretVal = imagePullSecretDataBase64
+		if err == nil {
+			imagePullSecretDataBase64 := base64.StdEncoding.EncodeToString(
+				imagePullSecret.Data[corev1.DockerConfigJsonKey])
+			manifestsConfig.ImagePullSecretName = imagePullSecret.Name
+			manifestsConfig.ImagePullSecretVal = imagePullSecretDataBase64
+		}
 	}
 
 	if a.installACMHub(cluster) {
