@@ -60,11 +60,17 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			Namespace            string
 			SessionSecret        string
 			ProxyImage           string
+			GrafanaImage         string
+			ImagePullSecret      string
+			ImagePullPolicy      string
 			DatasourceSecretName string
 		}{
 			Namespace:            config.GetDefaultNamespace(),
 			SessionSecret:        proxySessionSecret,
-			ProxyImage:           config.GetImage("oauth_proxy"),
+			ProxyImage:           config.GetImage(config.OauthProxyImageKey),
+			GrafanaImage:         config.GetImage(config.GrafanaImageKey),
+			ImagePullSecret:      config.GetImage(config.ImagePullSecretKey),
+			ImagePullPolicy:      config.GetImage(config.ImagePullPolicyKey),
 			DatasourceSecretName: datasourceSecretName,
 		}, nil
 	})

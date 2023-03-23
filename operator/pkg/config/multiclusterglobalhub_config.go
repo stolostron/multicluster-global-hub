@@ -48,7 +48,7 @@ const (
 	GlobalHubManagerImageKey = "multicluster_global_hub_manager"
 	OauthProxyImageKey       = "oauth_proxy"
 	GrafanaImageKey          = "grafana"
-	ImagePullSecretsKey      = "image_pull_secrets"
+	ImagePullSecretKey       = "image_pull_secrets"
 	ImagePullPolicyKey       = "image_pull_policy"
 )
 
@@ -59,7 +59,7 @@ var (
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
 		GrafanaImageKey:          "quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34",
-		ImagePullSecretsKey:      "",
+		ImagePullSecretKey:       "multiclusterhub-operator-pull-secret",
 		ImagePullPolicyKey:       "Always",
 	}
 )
@@ -120,7 +120,7 @@ func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) str
 func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub, cm *corev1.ConfigMap) error {
 	// image pull secret and policy
 	if mgh.Spec.ImagePullSecret != "" {
-		imageOverrides[ImagePullSecretsKey] = mgh.Spec.ImagePullSecret
+		imageOverrides[ImagePullSecretKey] = mgh.Spec.ImagePullSecret
 	}
 	if mgh.Spec.ImagePullPolicy != "" {
 		imageOverrides[ImagePullPolicyKey] = string(mgh.Spec.ImagePullPolicy)
