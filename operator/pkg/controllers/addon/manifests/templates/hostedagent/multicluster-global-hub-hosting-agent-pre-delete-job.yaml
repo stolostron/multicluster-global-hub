@@ -22,14 +22,13 @@ spec:
       containers:
       - name: multicluster-global-hub-agent
         image: {{ .HoHAgentImage }}
-        imagePullPolicy: Always
+        imagePullPolicy: {{.ImagePullPolicy}}
         args:
           - --kubeconfig=/var/run/secrets/managed/kubeconfig
           - --zap-devel=true
           - --pod-namespace=$(POD_NAMESPACE)
           - --leaf-hub-name={{ .LeafHubID }}
           - --terminating=true
-        imagePullPolicy: Always
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -40,6 +39,8 @@ spec:
         - mountPath: /var/run/secrets/managed
           name: kubeconfig
           readOnly: true
+      imagePullSecrets:
+      - name: {{.ImagePullSecretName}}
       volumes:
       - name: kubeconfig
         secret:

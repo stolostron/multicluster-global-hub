@@ -35,6 +35,9 @@ var FS embed.FS
 
 type ManifestsConfig struct {
 	HoHAgentImage          string
+	ImagePullSecretName    string
+	ImagePullSecretVal     string
+	ImagePullPolicy        string
 	LeafHubID              string
 	KafkaBootstrapServer   string
 	TransportType          string
@@ -175,8 +178,32 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 	}
 
+	// load image config
+	imageConfigMap := &corev1.ConfigMap{}
+	if imageConfigMapName := config.GetImageOverridesConfigmap(mgh); imageConfigMapName != "" {
+		if err := a.client.Get(a.ctx, types.NamespacedName{
+			Namespace: mgh.GetNamespace(),
+			Name:      imageConfigMapName,
+		}, imageConfigMap, &client.GetOptions{}); err != nil {
+			return nil, err
+		}
+	}
+	if err := config.SetImageOverrides(mgh, imageConfigMap); err != nil {
+		return nil, err
+	}
+	imagePullSecret := &corev1.Secret{}
+	if err := a.client.Get(a.ctx, types.NamespacedName{
+		Namespace: mgh.GetNamespace(),
+		Name:      config.GetImage(config.ImagePullSecretKey),
+	}, imagePullSecret, &client.GetOptions{}); err != nil {
+		return nil, err
+	}
+
 	manifestsConfig := ManifestsConfig{
-		HoHAgentImage:          config.GetImage("multicluster_global_hub_agent"),
+		HoHAgentImage:         config.GetImage(config.GlobalHubAgentImageKey),
+		ImagePullSecretName    imagePullSecret.Name,
+		ImagePullSecretVal     imagePullSecret.Data[".dockerconfigjson"],
+		ImagePullPolicy        config.GetImage(config.ImagePullPolicyKey),
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCACert:            kafkaCACert,

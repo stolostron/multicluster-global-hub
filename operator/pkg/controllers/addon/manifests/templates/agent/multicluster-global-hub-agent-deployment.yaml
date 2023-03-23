@@ -20,6 +20,7 @@ spec:
       containers:
         - name: multicluster-global-hub-agent
           image: {{ .HoHAgentImage }}
+          imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             - '--zap-devel=true'
             - --pod-namespace=$(POD_NAMESPACE)
@@ -34,7 +35,6 @@ spec:
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
-          imagePullPolicy: Always
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -50,6 +50,8 @@ spec:
           - mountPath: /kafka-ca
             name: kafka-ca
             readOnly: true
+      imagePullSecrets:
+        - name: {{ .ImagePullSecretName }}
       volumes:
       - name: kafka-ca
         secret:
