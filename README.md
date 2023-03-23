@@ -21,6 +21,9 @@ The manager is used to persist the data into the postgreSQL. The data is from Ka
 ### Multicluster Global Hub Agent
 The agent is running in the regional hub clusters. It is responsible to sync-up the data between the global cluster hub and the regional hub clusters. For instance, sync-up the managed clusters' info from the regional hub clusters to the global hub cluster and sync-up the policy or application from the global hub cluster to the regional hub clusters.
 
+### Multicluster Global Hub Observability
+Grafana runs on the global hub cluster, as the main service for Global Hub Observability. The Postgres data collected by the Global Hub Manager services as its default DataSource. By exposing the service via route(`multicluster-global-hub-grafana`), you can access the global hub grafana dashboards just like accessing the openshift console.
+
 ## Quick Start Guide
 
 ### Prerequisites
