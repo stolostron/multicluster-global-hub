@@ -10,6 +10,10 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
+	"github.com/resmoio/kubernetes-event-exporter/pkg/exporter"
+	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
+	"github.com/resmoio/kubernetes-event-exporter/pkg/metrics"
+	"github.com/resmoio/kubernetes-event-exporter/pkg/sinks"
 	"github.com/spf13/pflag"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
@@ -84,12 +88,58 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		return 1
 	}
 
+	go startEventExporter(ctx, restConfig, agentConfig)
+
 	log.Info("starting the agent controller manager")
 	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
 	}
 	return 0
+}
+
+func startEventExporter(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) {
+
+	cfg := &exporter.Config{
+		MetricsNamePrefix: "mcgh",
+		Route: exporter.Route{
+			Routes: []exporter.Route{
+				{
+					Match: []exporter.Rule{
+						{
+							Receiver: "global-hub-consumer",
+						},
+					},
+				},
+			},
+		},
+		Receivers: []sinks.ReceiverConfig{
+			{
+				Name: "global-hub-consumer",
+				Kafka: &sinks.KafkaConfig{
+					Topic:    agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic,
+					ClientId: agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID,
+					Brokers: []string{
+						agentConfig.TransportConfig.KafkaConfig.BootstrapServer,
+					},
+				},
+			},
+		},
+	}
+	cfg.Receivers[0].Kafka.TLS.Enable = true
+	cfg.Receivers[0].Kafka.TLS.CaFile = agentConfig.TransportConfig.KafkaConfig.CertPath
+	cfg.Receivers[0].Kafka.TLS.InsecureSkipVerify = true
+
+	metrics.Init(*flag.String("metrics-address", ":2112", "The address to listen on for HTTP requests."))
+	metricsStore := metrics.NewMetricsStore(cfg.MetricsNamePrefix)
+
+	engine := exporter.NewEngine(cfg, &exporter.ChannelBasedReceiverRegistry{MetricsStore: metricsStore})
+	onEvent := engine.OnEvent
+	kube.NewEventWatcher(
+		restConfig, cfg.Namespace,
+		cfg.MaxEventAgeSeconds, metricsStore,
+		onEvent).
+		Start()
 }
 
 func initLog() logr.Logger {
