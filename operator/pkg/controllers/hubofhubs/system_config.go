@@ -19,19 +19,8 @@ import (
 func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
-	// check for image overrides configmap
-	var imageOverridesConfigmap *corev1.ConfigMap
-	if imageOverridesConfigmapName := config.GetImageOverridesConfigmap(mgh); imageOverridesConfigmapName != "" {
-		var err error
-		imageOverridesConfigmap, err = r.KubeClient.CoreV1().ConfigMaps(mgh.GetNamespace()).Get(
-			ctx, imageOverridesConfigmapName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-	}
-
-	// set imgae overrides
-	if err := config.SetImageOverrides(mgh, imageOverridesConfigmap); err != nil {
+	// set image overrides
+	if err := config.SetImageOverrides(mgh); err != nil {
 		return err
 	}
 

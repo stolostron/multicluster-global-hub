@@ -53,6 +53,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		return fmt.Errorf("failed to generate grafana datasource secret: %v", err)
 	}
 
+	imagePullPolicy := corev1.PullAlways
+	if mgh.Spec.ImagePullPolicy != "" {
+		imagePullPolicy = mgh.Spec.ImagePullPolicy
+	}
+
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
 	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
@@ -69,8 +74,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			SessionSecret:        proxySessionSecret,
 			ProxyImage:           config.GetImage(config.OauthProxyImageKey),
 			GrafanaImage:         config.GetImage(config.GrafanaImageKey),
-			ImagePullSecret:      config.GetImage(config.ImagePullSecretKey),
-			ImagePullPolicy:      config.GetImage(config.ImagePullPolicyKey),
+			ImagePullSecret:      mgh.Spec.ImagePullSecret,
+			ImagePullPolicy:      string(imagePullPolicy),
 			DatasourceSecretName: datasourceSecretName,
 		}, nil
 	})

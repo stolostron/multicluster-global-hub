@@ -179,23 +179,18 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 	}
 
-	// load image config
-	imageConfigMap := &corev1.ConfigMap{}
-	if imageConfigMapName := config.GetImageOverridesConfigmap(mgh); imageConfigMapName != "" {
-		if err := a.client.Get(a.ctx, types.NamespacedName{
-			Namespace: mgh.GetNamespace(),
-			Name:      imageConfigMapName,
-		}, imageConfigMap, &client.GetOptions{}); err != nil {
-			return nil, err
-		}
-	}
-	if err := config.SetImageOverrides(mgh, imageConfigMap); err != nil {
+	if err := config.SetImageOverrides(mgh); err != nil {
 		return nil, err
+	}
+
+	imagePullPolicy := corev1.PullAlways
+	if mgh.Spec.ImagePullPolicy != "" {
+		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          config.GetImage(config.GlobalHubAgentImageKey),
-		ImagePullPolicy:        config.GetImage(config.ImagePullPolicyKey),
+		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCACert:            kafkaCACert,
@@ -209,11 +204,11 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KlusterletWorkSA:       "klusterlet-work-sa",
 	}
 
-	if len(config.GetImage(config.ImagePullSecretKey)) > 0 {
+	if len(mgh.Spec.ImagePullSecret) > 0 {
 		imagePullSecret := &corev1.Secret{}
 		if err := a.client.Get(a.ctx, types.NamespacedName{
 			Namespace: mgh.GetNamespace(),
-			Name:      config.GetImage(config.ImagePullSecretKey),
+			Name:      mgh.Spec.ImagePullSecret,
 		}, imagePullSecret, &client.GetOptions{}); err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		}

@@ -334,6 +334,12 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			if messageCompressionType == "" {
 				messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 			}
+
+			imagePullPolicy := corev1.PullAlways
+			if mgh.Spec.ImagePullPolicy != "" {
+				imagePullPolicy = mgh.Spec.ImagePullPolicy
+			}
+
 			var err error
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
@@ -357,7 +363,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
-					ImagePullPolicy:        config.GetImage(config.ImagePullPolicyKey),
+					ImagePullPolicy:        string(imagePullPolicy),
+					ImagePullSecret:        mgh.Spec.ImagePullSecret,
 					ProxySessionSecret:     "testing",
 					DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
@@ -398,7 +405,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					SessionSecret:        "testing",
 					ProxyImage:           config.GetImage(config.OauthProxyImageKey),
 					GrafanaImage:         config.GetImage(config.GrafanaImageKey),
-					ImagePullPolicy:      config.GetImage(config.ImagePullPolicyKey),
+					ImagePullPolicy:      string(imagePullPolicy),
+					ImagePullSecret:      mgh.Spec.ImagePullSecret,
 					DatasourceSecretName: datasourceSecretName,
 				}, nil
 			})

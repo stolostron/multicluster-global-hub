@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
@@ -62,6 +63,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	// create restmapper for deployer to find GVR
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
+	imagePullPolicy := corev1.PullAlways
+	if mgh.Spec.ImagePullPolicy != "" {
+		imagePullPolicy = mgh.Spec.ImagePullPolicy
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                  string
@@ -82,8 +88,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		}{
 			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
-			ImagePullSecret:        config.GetImage(config.ImagePullSecretKey),
-			ImagePullPolicy:        config.GetImage(config.ImagePullPolicyKey),
+			ImagePullSecret:        mgh.Spec.ImagePullSecret,
+			ImagePullPolicy:        string(imagePullPolicy),
 			ProxySessionSecret:     proxySessionSecret,
 			DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 			KafkaCACert:            kafkaCACert,

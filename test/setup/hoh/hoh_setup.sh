@@ -44,7 +44,6 @@ kubectl get deploy multicluster-global-hub-operator -oyaml  -n $namespace
 
 export TRANSPORT_SECRET_NAME="transport-secret"
 export STORAGE_SECRET_NAME="storage-secret"
-envsubst < ${currentDir}/components/mgh-images-config.yaml | kubectl apply -f - -n "$namespace"
 envsubst < ${currentDir}/components/mgh-v1alpha2-cr.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
 
@@ -56,8 +55,7 @@ kubectl apply -f ${currentDir}/components/manager-service-local.yaml -n "$namesp
 echo "HoH manager nodeport service is ready!"
 
 sleep 2
-echo "HoH cr and configmap information:"
-kubectl get cm mgh-images-config -n "$namespace" -oyaml 
+echo "HoH CR information:"
 kubectl get mgh multiclusterglobalhub -n "$namespace" -oyaml
 
 # wait for core components to be ready
