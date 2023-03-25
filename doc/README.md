@@ -28,7 +28,19 @@ The manager is used to persist the data into the postgreSQL. The data is from Ka
 ### Multicluster Global Hub Agent
 The agent is running in the regional hub clusters. It is responsible to sync-up the data between the global cluster hub and the regional hub clusters. For instance, sync-up the managed clusters' info from the regional hub clusters to the global hub cluster and sync-up the policy or application from the global hub cluster to the regional hub clusters.
 
+### Multicluster Global Hub Observability
+Grafana runs on the global hub cluster, as the main service for Global Hub Observability. The Postgres data collected by the Global Hub Manager services as its default DataSource. By exposing the service via route(`multicluster-global-hub-grafana`), you can access the global hub grafana dashboards just like accessing the openshift console.
+
 ## Quick Start
+
+### Prerequisites
+
+#### Storage secret
+
+Both the global hub manager and grafana services need a postgres database to collect and display data. The data can be accessed by creating a storage secret, which contains the following two fields.
+- `database_uri`: Required, the URI user should have the permission to create the global hub database in the postgres.
+- `ca.crt`: Optional, if your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
+
 
 ### Installation
 
@@ -92,6 +104,13 @@ You have to create a kubeconfig secret for the work-manager add-on via the follo
 ```
 oc create secret generic work-manager-managed-kubeconfig --from-file=kubeconfig=<your regional hub kubeconfig> -n open-cluster-management-hub1-addon-workmanager
 ```
+
+#### Access teh grafana
+The grafana is exposed through Route, you can use the following command to get the login URL. The authentication method of this URL is the same as the openshift console, so you don't have to worry about using another authentication.
+```bash
+oc get multicluster-global-hub-grafana -n <the-namespace-of-multicluster-global-hub-instance>
+```
+
 #### Create a global policy
 You can navigate to `Governance` from the navigation menu, and then click the `Create policy` to create a global policy. The `policyset` is not supported yet.
 ![create global policy](create_policy.png)
