@@ -23,7 +23,7 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 ) error {
 	log := ctrllog.FromContext(ctx)
 
-	if !config.SkipDBInit(mgh) {
+	if config.SkipDBInit(mgh) {
 		log.Info("Database initialization is skipped")
 		return nil
 	}
