@@ -77,7 +77,7 @@ e2e-setup-clean:
 e2e-tests-all: tidy vendor
 	./cicd-scripts/run-local-e2e-test.sh -v $(VERBOSE)
 
-e2e-tests-parameter e2e-tests-connection e2e-tests-label e2e-tests-app e2e-tests-policy e2e-tests-local-policy e2e-tests-prune: tidy vendor
+e2e-tests-connection e2e-tests-label e2e-tests-app e2e-tests-policy e2e-tests-local-policy e2e-tests-prune: tidy vendor
 	./cicd-scripts/run-local-e2e-test.sh -f $@ -v $(VERBOSE)
 
 e2e-prow-tests: 
