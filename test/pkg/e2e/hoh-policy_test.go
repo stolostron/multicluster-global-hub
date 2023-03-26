@@ -37,8 +37,11 @@ const (
 
 var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
 	var httpClient *http.Client
-	var managedClusterNames []string
-	var managedClusterUIDs []string
+	type managedClusterInfo struct {
+		name string
+		uid  string
+	}
+	var managedClusterInfos []managedClusterInfo
 	var globalClient client.Client
 	var regionalClient client.Client
 	var regionalClients []client.Client
@@ -56,8 +59,11 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				return err
 			}
 			for _, managedCluster := range managedClusters {
-				managedClusterNames = append(managedClusterNames, managedCluster.Name)
-				managedClusterUIDs = append(managedClusterUIDs, string(managedCluster.GetUID()))
+				info := managedClusterInfo{name: managedCluster.Name, uid: string(managedCluster.GetUID())}
+				managedClusterInfos = append(managedClusterInfos, info)
+			}
+			if len(managedClusterInfos) == 0 {
+				return fmt.Errorf("managed cluster is not exist")
 			}
 			return nil
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
@@ -76,8 +82,87 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
+	It("add the label to a managedcluster1 for the policy", func() {
+		patches := []patch{
+			{
+				Op:    "add", // or remove
+				Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
+				Value: POLICY_LABEL_VALUE,
+			},
+		}
+		Eventually(func() error {
+			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterInfos[0].uid)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Check the label is added")
+		Eventually(func() error {
+			managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterInfos[0].name)
+			if err != nil {
+				return err
+			}
+			if val, ok := managedCluster.Labels[POLICY_LABEL_KEY]; ok {
+				if val == POLICY_LABEL_VALUE && managedCluster.Name == managedClusterInfos[0].name {
+					return nil
+				}
+			}
+			return fmt.Errorf("the label %s: %s is not exist", POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+	})
+
+	It("create a inform policy for the labeled cluster", func() {
+		By("Create the inform policy in global hub")
+		Eventually(func() error {
+			message, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", INFORM_POLICY_YAML)
+			if err != nil {
+				klog.V(5).Info(fmt.Sprintf("apply inform policy error: %s", message))
+				return err
+			}
+			return nil
+		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Check the inform policy in global hub")
+		Eventually(func() error {
+			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
+			if err != nil {
+				return err
+			}
+			for _, policyInfo := range status.Status {
+				if policyInfo.ClusterName == managedClusterInfos[0].name {
+					if policyInfo.ComplianceState == policiesv1.NonCompliant {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterInfos[0].name)
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+
+		By("Check the inform policy in regional hub")
+		Eventually(func() error {
+			status, err := getRegionalPolicyStatus(regionalClients[0], POLICY_NAME, POLICY_NAMESPACE)
+			if err != nil {
+				return err
+			}
+
+			policyStatusStr, _ := json.MarshalIndent(status, "", "  ")
+			klog.V(5).Info(fmt.Sprintf("get policy status: %s", policyStatusStr))
+
+			for _, policyInfo := range status.Status {
+				if policyInfo.ClusterName == managedClusterInfos[0].name {
+					if policyInfo.ComplianceState == policiesv1.NonCompliant {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterInfos[0].name)
+		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+	})
+
 	It("add the label to a managedcluster for the policy", func() {
-		for i, managedClusterName := range managedClusterNames {
+		for i:=1; i<len(managedClusterInfos); i++ {
 			patches := []patch{
 				{
 					Op:    "add", // or remove
@@ -86,7 +171,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				},
 			}
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUIDs[i])
+				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterInfos[i].uid)
 				if err != nil {
 					return err
 				}
@@ -95,12 +180,12 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 			By("Check the label is added")
 			Eventually(func() error {
-				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName)
+				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterInfos[i].name)
 				if err != nil {
 					return err
 				}
 				if val, ok := managedCluster.Labels[POLICY_LABEL_KEY]; ok {
-					if val == POLICY_LABEL_VALUE && managedCluster.Name == managedClusterName {
+					if val == POLICY_LABEL_VALUE && managedCluster.Name == managedClusterInfos[i].name {
 						return nil
 					}
 				}
@@ -126,39 +211,19 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			if err != nil {
 				return err
 			}
-			for _, managedClusterName := range managedClusterNames {
+			for _, managedClusterInfo := range managedClusterInfos {
 				var foundNonCompliantPolicy bool
 				for _, policyInfo := range status.Status {
-					if managedClusterName == policyInfo.ClusterName && policyInfo.ComplianceState == policiesv1.NonCompliant {
+					if managedClusterInfo.name == policyInfo.ClusterName && policyInfo.ComplianceState == policiesv1.NonCompliant {
 						foundNonCompliantPolicy = true
 						break
 					}
 				}
 				if !foundNonCompliantPolicy {
-					return fmt.Errorf("the policy has not been applied to the managed cluster %s or it is already compliant", managedClusterName)
+					return fmt.Errorf("the policy has not been applied to the managed cluster %s or it is already compliant", managedClusterInfo.name)
 				}
 			}
 			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-		
-		By("Check the inform policy in regional hub1")
-		Eventually(func() error {
-			status, err := getRegionalPolicyStatus(regionalClients[0], POLICY_NAME, POLICY_NAMESPACE)
-			if err != nil {
-				return err
-			}
-
-			policyStatusStr, _ := json.MarshalIndent(status, "", "  ")
-			klog.V(5).Info(fmt.Sprintf("get policy status: %s", policyStatusStr))
-			
-			for _, policyInfo := range status.Status {
-				if policyInfo.ClusterName == managedClusterNames[0] {
-					if policyInfo.ComplianceState == policiesv1.NonCompliant {
-						return nil
-					}
-				}
-			}
-			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterNames[0])
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 		By("Check the inform policy in regional hub2")
@@ -172,13 +237,13 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			klog.V(5).Info(fmt.Sprintf("get policy status: %s", policyStatusStr))
 			
 			for _, policyInfo := range status.Status {
-				if policyInfo.ClusterName == managedClusterNames[1] {
+				if policyInfo.ClusterName == managedClusterInfos[1].name {
 					if policyInfo.ComplianceState == policiesv1.NonCompliant {
 						return nil
 					}
 				}
 			}
-			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterNames[1])
+			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterInfos[1].name)
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
@@ -196,16 +261,16 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			if err != nil {
 				return err
 			}
-			for _, managedClusterName := range managedClusterNames {
+			for _, managedClusterInfo := range managedClusterInfos {
 				var foundNonCompliantPolicy bool
 				for _, policyInfo := range status.Status {
-					if policyInfo.ClusterName == managedClusterName && policyInfo.ComplianceState == policiesv1.Compliant{
+					if policyInfo.ClusterName == managedClusterInfo.name && policyInfo.ComplianceState == policiesv1.Compliant{
 						foundNonCompliantPolicy = true
 						break
 					}
 				}
 				if !foundNonCompliantPolicy {
-					return fmt.Errorf("the policy has not been applied to the managed cluster %s or it is already compliant", managedClusterName)
+					return fmt.Errorf("the policy has not been applied to the managed cluster %s or it is already compliant", managedClusterInfo.name)
 				}
 			}
 			return nil
@@ -213,7 +278,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	})
 
 	It("remove managedcluster policy by deleting label", func() {
-		for i, managedClusterName := range managedClusterNames {
+		for _, managedClusterInfo := range managedClusterInfos {
 			By("Check the policy is created in managedcluster")
 			Eventually(func() error {
 				status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
@@ -221,7 +286,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					return err
 				}
 				for _, policyInfo := range status.Status {
-					if policyInfo.ClusterName == managedClusterName {
+					if policyInfo.ClusterName == managedClusterInfo.name {
 						return nil
 					}
 				}
@@ -238,7 +303,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			}
 
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUIDs[i])
+				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterInfo.uid)
 				if err != nil {
 					return err
 				}
@@ -252,8 +317,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					return err
 				}
 				for _, policyInfo := range status.Status {
-					if policyInfo.ClusterName == managedClusterName {
-						return fmt.Errorf("the cluster %s policy(%s)should be removed", managedClusterName, POLICY_NAME)
+					if policyInfo.ClusterName == managedClusterInfo.name {
+						return fmt.Errorf("the cluster %s policy(%s)should be removed", managedClusterInfo.name, POLICY_NAME)
 					}
 				}
 				return nil
@@ -395,10 +460,10 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		
 		By("Delete the LimitRange CR from managedcluster")
-		for _, managedClusterName := range managedClusterNames{
-			deleteInfo, err := clients.Kubectl(managedClusterName, "delete", "LimitRange", "container-mem-limit-range")
+		for _, managedClusterInfo := range managedClusterInfos{
+			deleteInfo, err := clients.Kubectl(managedClusterInfo.name, "delete", "LimitRange", "container-mem-limit-range")
 			Expect(err).ShouldNot(HaveOccurred())
-			klog.V(5).Info(managedClusterName, ": ", deleteInfo)
+			klog.V(5).Info(managedClusterInfo, ": ", deleteInfo)
 		}
 	})
 })

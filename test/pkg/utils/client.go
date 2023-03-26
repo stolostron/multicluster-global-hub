@@ -23,7 +23,6 @@ type Client interface {
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
 	HubClusterName() string
-	LeafHubClusterName() string
 	GetLeafHubClusterNames() []string
 }
 
@@ -145,15 +144,6 @@ func LoadConfig(url, kubeconfig, context string) (*rest.Config, error) {
 
 func (c *client) HubClusterName() string {
 	return c.options.HubCluster.Name
-}
-
-func (c *client) LeafHubClusterName() string {
-	for _, cluster := range c.options.ManagedClusters {
-		if cluster.Name == cluster.LeafHubName {
-			return cluster.Name
-		}
-	}
-	return ""
 }
 
 func (c *client) GetLeafHubClusterNames() []string {

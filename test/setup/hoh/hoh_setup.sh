@@ -114,7 +114,7 @@ while [[ -z $(kubectl get deploy -n $agenAddonNamespace multicluster-global-hub-
   sleep 2;
   (( SECOND = SECOND + 2 ))
 done;
-kubectl --context kind-hub1 wait deployment -n $agenAddonNamespace multicluster-global-hub-agent --for condition=Available=True --timeout=500s
+kubectl --context kind-hub1 wait deployment -n $agenAddonNamespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s
 
 SECOND=0
 while [[ -z $(kubectl get deploy -n $agenAddonNamespace multicluster-global-hub-agent --context kind-hub2 --ignore-not-found) ]]; do

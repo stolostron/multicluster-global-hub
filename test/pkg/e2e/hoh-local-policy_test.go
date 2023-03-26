@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 	"net/http"
-	// "encoding/json"
 
 	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -41,8 +40,11 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 	Label("e2e-tests-local-policy"), func() {
 		var runtimeClient client.Client
 		var leafhubClients []client.Client
-		var managedClusterNames []string
-		var managedClusterUIDs []string
+		type managedClusterInfo struct {
+			name string
+			uid  string
+		}
+		var managedClusterInfos []managedClusterInfo
 		var leafhubNames []string
 		var postgresConn *pgx.Conn
 		var err error
@@ -59,8 +61,11 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					return err
 				}
 				for _, managedCluster := range managedClusters {
-					managedClusterNames = append(managedClusterNames, managedCluster.Name)
-					managedClusterUIDs = append(managedClusterUIDs, string(managedCluster.GetUID()))
+					info := managedClusterInfo{name: managedCluster.Name, uid: string(managedCluster.GetUID())}
+					managedClusterInfos = append(managedClusterInfos, info)
+				}
+				if len(managedClusterInfos) == 0 {
+					return fmt.Errorf("managed cluster is not exist")
 				}
 				return nil
 			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
@@ -96,7 +101,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		})
 
 		It("add the label to a managedcluster for the local policy", func() {
-			for i, managedClusterName := range managedClusterNames {
+			for _, managedClusterInfo := range managedClusterInfos {
 				patches := []patch{
 					{
 						Op:    "add",
@@ -105,7 +110,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					},
 				}
 				Eventually(func() error {
-					err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUIDs[i])
+					err := updateClusterLabel(httpClient, patches, httpToken, managedClusterInfo.uid)
 					if err != nil {
 						return err
 					}
@@ -114,7 +119,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 	
 				By("Check the label is added")
 				Eventually(func() error {
-					managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName)
+					managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterInfo.name)
 					if err != nil {
 						return err
 					}
@@ -242,7 +247,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						// only for case: One-to-one relationship between the leaf hub and the managed cluster
 						var foundpolicy bool
 						for i, leafhubName := range leafhubNames {
-							if policyId == string(policies[i].UID) && cluster == managedClusterNames[i] && leafhub == leafhubName {
+							if policyId == string(policies[i].UID) && cluster == managedClusterInfos[i].name && leafhub == leafhubName {
 								foundpolicy = true
 								break
 							}
@@ -426,7 +431,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						}
 						var foundpolicy bool
 						for i, leafhubName := range leafhubNames {
-							if cluster == managedClusterNames[i] && leafhub == leafhubName {
+							if cluster == managedClusterInfos[i].name && leafhub == leafhubName {
 								foundpolicy = true
 								break
 							}
