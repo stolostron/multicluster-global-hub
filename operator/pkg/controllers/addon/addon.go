@@ -37,7 +37,7 @@ var FS embed.FS
 type ManifestsConfig struct {
 	HoHAgentImage          string
 	ImagePullSecretName    string
-	ImagePullSecretVal     string
+	ImagePullSecretData    string
 	ImagePullPolicy        string
 	LeafHubID              string
 	KafkaBootstrapServer   string
@@ -50,7 +50,6 @@ type ManifestsConfig struct {
 	CurrentCSV             string
 	Source                 string
 	SourceNamespace        string
-	ACMImagePullSecretData string
 	InstallHostedMode      bool
 	LeaseDuration          string
 	RenewDeadline          string
@@ -89,6 +88,39 @@ func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha2.Multiclust
 	}
 
 	return &mghList.Items[0], nil
+}
+
+func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlobalHub) (string, string) {
+	imagePullSecretName, imagePullSecretData := "", ""
+
+	// 1. get image pull secret from mgh
+	if len(mgh.Spec.ImagePullSecret) > 0 {
+		imagePullSecret := &corev1.Secret{}
+		err := a.client.Get(a.ctx, types.NamespacedName{
+			Namespace: mgh.GetNamespace(),
+			Name:      mgh.Spec.ImagePullSecret,
+		}, imagePullSecret, &client.GetOptions{})
+		switch {
+		case err == nil:
+			imagePullSecretName = operatorconstants.DefaultImagePullSecretName
+			imagePullSecretData = base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
+		case err != nil && !errors.IsNotFound(err):
+			klog.Errorf("failed to get pull secret from mgh, err: %v", err)
+		}
+	}
+
+	// 2. get image pull secret: multiclusterhub-operator-pull-secret
+	imagePullSecret, err := a.kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(a.ctx,
+		operatorconstants.DefaultImagePullSecretName, metav1.GetOptions{})
+	switch {
+	case err == nil:
+		imagePullSecretName = operatorconstants.DefaultImagePullSecretName
+		imagePullSecretData = base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
+	case err != nil && !errors.IsNotFound(err):
+		klog.Errorf("failed to get pull secret from 'multiclusterhub-operator-pull-secret', err: %v", err)
+	}
+
+	return imagePullSecretName, imagePullSecretData
 }
 
 func (a *HohAgentAddon) installACMHub(cluster *clusterv1.ManagedCluster) bool {
@@ -140,17 +172,15 @@ func (a *HohAgentAddon) setACMPackageConfigs(manifestsConfig *ManifestsConfig) e
 	manifestsConfig.Source = operatorconstants.ACMSubscriptionPublicSource
 	manifestsConfig.SourceNamespace = operatorconstants.OpenshiftMarketPlaceNamespace
 
-	imagePullSecret, err := a.kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(a.ctx,
-		operatorconstants.DefaultImagePullSecretName, metav1.GetOptions{})
-	switch {
-	case err == nil:
-		imagePullSecretDataBase64 := base64.StdEncoding.EncodeToString(
-			imagePullSecret.Data[corev1.DockerConfigJsonKey])
-		manifestsConfig.ACMImagePullSecretData = imagePullSecretDataBase64
-	case err != nil && !errors.IsNotFound(err):
+	mgh, err := a.getMulticlusterGlobalHub()
+	if err != nil {
 		return err
 	}
-
+	pullSecretName, pullSecretData := a.getImagePullSecret(mgh)
+	if len(pullSecretName) > 0 && len(pullSecretData) > 0 {
+		manifestsConfig.ImagePullSecretName = pullSecretName
+		manifestsConfig.ImagePullSecretData = pullSecretData
+	}
 	return nil
 }
 
@@ -204,20 +234,10 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KlusterletWorkSA:       "klusterlet-work-sa",
 	}
 
-	if len(mgh.Spec.ImagePullSecret) > 0 {
-		imagePullSecret := &corev1.Secret{}
-		if err := a.client.Get(a.ctx, types.NamespacedName{
-			Namespace: mgh.GetNamespace(),
-			Name:      mgh.Spec.ImagePullSecret,
-		}, imagePullSecret, &client.GetOptions{}); err != nil && !errors.IsNotFound(err) {
-			return nil, err
-		}
-		if err == nil {
-			imagePullSecretDataBase64 := base64.StdEncoding.EncodeToString(
-				imagePullSecret.Data[corev1.DockerConfigJsonKey])
-			manifestsConfig.ImagePullSecretName = imagePullSecret.Name
-			manifestsConfig.ImagePullSecretVal = imagePullSecretDataBase64
-		}
+	pullSecretName, pullSecretData := a.getImagePullSecret(mgh)
+	if len(pullSecretName) > 0 && len(pullSecretData) > 0 {
+		manifestsConfig.ImagePullSecretName = pullSecretName
+		manifestsConfig.ImagePullSecretData = pullSecretData
 	}
 
 	if a.installACMHub(cluster) {
