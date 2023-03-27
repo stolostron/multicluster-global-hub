@@ -105,7 +105,7 @@ You have to create a kubeconfig secret for the work-manager add-on via the follo
 oc create secret generic work-manager-managed-kubeconfig --from-file=kubeconfig=<your regional hub kubeconfig> -n open-cluster-management-hub1-addon-workmanager
 ```
 
-#### Access teh grafana
+#### Access the grafana
 The grafana is exposed through Route, you can use the following command to get the login URL. The authentication method of this URL is the same as the openshift console, so you don't have to worry about using another authentication.
 ```bash
 oc get multicluster-global-hub-grafana -n <the-namespace-of-multicluster-global-hub-instance>
