@@ -68,6 +68,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
+	imagePullSecret, _ := config.GetImagePullSecret(ctx, r.Client, mgh)
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                  string
@@ -88,7 +90,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		}{
 			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
-			ImagePullSecret:        mgh.Spec.ImagePullSecret,
+			ImagePullSecret:        imagePullSecret,
 			ImagePullPolicy:        string(imagePullPolicy),
 			ProxySessionSecret:     proxySessionSecret,
 			DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,

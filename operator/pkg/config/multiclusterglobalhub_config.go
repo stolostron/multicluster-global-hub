@@ -17,11 +17,17 @@ limitations under the License.
 package config
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -136,4 +142,43 @@ func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
 // GetImage is used to retrieve image for given component
 func GetImage(componentName string) string {
 	return imageOverrides[componentName]
+}
+
+// GetImagePullSecret returns the image pull secret name and data
+func GetImagePullSecret(ctx context.Context, c client.Client,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+) (string, string) {
+	imagePullSecretName, imagePullSecretData := "", ""
+	// 1. get image pull secret from mgh
+	if mgh != nil && len(mgh.Spec.ImagePullSecret) > 0 {
+		imagePullSecret := &corev1.Secret{}
+		err := c.Get(ctx, types.NamespacedName{
+			Namespace: mgh.GetNamespace(),
+			Name:      mgh.Spec.ImagePullSecret,
+		}, imagePullSecret, &client.GetOptions{})
+		switch {
+		case err == nil:
+			imagePullSecretName = operatorconstants.DefaultImagePullSecretName
+			imagePullSecretData = base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
+			return imagePullSecretName, imagePullSecretData
+		case err != nil && !errors.IsNotFound(err):
+			klog.Errorf("failed to get pull secret from mgh, err: %v", err)
+		}
+	}
+
+	// 2. get image pull secret: multiclusterhub-operator-pull-secret
+	imagePullSecret := &corev1.Secret{}
+	err := c.Get(ctx, types.NamespacedName{
+		Namespace: GetDefaultNamespace(),
+		Name:      operatorconstants.DefaultImagePullSecretName,
+	}, imagePullSecret, &client.GetOptions{})
+	switch {
+	case err == nil:
+		imagePullSecretName = operatorconstants.DefaultImagePullSecretName
+		imagePullSecretData = base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
+	case err != nil && !errors.IsNotFound(err):
+		klog.Errorf("failed to get pull secret from 'multiclusterhub-operator-pull-secret', err: %v", err)
+	}
+
+	return imagePullSecretName, imagePullSecretData
 }

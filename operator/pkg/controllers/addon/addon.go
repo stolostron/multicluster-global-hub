@@ -3,14 +3,10 @@ package addon
 import (
 	"context"
 	"embed"
-	"encoding/base64"
 	"fmt"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -90,39 +86,6 @@ func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha2.Multiclust
 	return &mghList.Items[0], nil
 }
 
-func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlobalHub) (string, string) {
-	imagePullSecretName, imagePullSecretData := "", ""
-
-	// 1. get image pull secret from mgh
-	if len(mgh.Spec.ImagePullSecret) > 0 {
-		imagePullSecret := &corev1.Secret{}
-		err := a.client.Get(a.ctx, types.NamespacedName{
-			Namespace: mgh.GetNamespace(),
-			Name:      mgh.Spec.ImagePullSecret,
-		}, imagePullSecret, &client.GetOptions{})
-		switch {
-		case err == nil:
-			imagePullSecretName = operatorconstants.DefaultImagePullSecretName
-			imagePullSecretData = base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
-		case err != nil && !errors.IsNotFound(err):
-			klog.Errorf("failed to get pull secret from mgh, err: %v", err)
-		}
-	}
-
-	// 2. get image pull secret: multiclusterhub-operator-pull-secret
-	imagePullSecret, err := a.kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(a.ctx,
-		operatorconstants.DefaultImagePullSecretName, metav1.GetOptions{})
-	switch {
-	case err == nil:
-		imagePullSecretName = operatorconstants.DefaultImagePullSecretName
-		imagePullSecretData = base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
-	case err != nil && !errors.IsNotFound(err):
-		klog.Errorf("failed to get pull secret from 'multiclusterhub-operator-pull-secret', err: %v", err)
-	}
-
-	return imagePullSecretName, imagePullSecretData
-}
-
 func (a *HohAgentAddon) installACMHub(cluster *clusterv1.ManagedCluster) bool {
 	if _, exist := cluster.GetLabels()[operatorconstants.GHAgentACMHubInstallLabelKey]; !exist {
 		return false
@@ -174,9 +137,9 @@ func (a *HohAgentAddon) setACMPackageConfigs(manifestsConfig *ManifestsConfig) e
 
 	mgh, err := a.getMulticlusterGlobalHub()
 	if err != nil {
-		return err
+		klog.Errorf("failed to get MulticlusterGlobalHub for image pull secret. err: %v", err)
 	}
-	pullSecretName, pullSecretData := a.getImagePullSecret(mgh)
+	pullSecretName, pullSecretData := config.GetImagePullSecret(a.ctx, a.client, mgh)
 	if len(pullSecretName) > 0 && len(pullSecretData) > 0 {
 		manifestsConfig.ImagePullSecretName = pullSecretName
 		manifestsConfig.ImagePullSecretData = pullSecretData
@@ -234,7 +197,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KlusterletWorkSA:       "klusterlet-work-sa",
 	}
 
-	pullSecretName, pullSecretData := a.getImagePullSecret(mgh)
+	pullSecretName, pullSecretData := config.GetImagePullSecret(a.ctx, a.client, mgh)
 	if len(pullSecretName) > 0 && len(pullSecretData) > 0 {
 		manifestsConfig.ImagePullSecretName = pullSecretName
 		manifestsConfig.ImagePullSecretData = pullSecretData
