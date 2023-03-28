@@ -21,6 +21,7 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -58,7 +59,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
-	imagePullSecret, _ := config.GetImagePullSecret(ctx, r.Client, mgh)
+	imagePullSecret := operatorconstants.DefaultImagePullSecretName
+	if mgh.Spec.ImagePullSecret != "" {
+		imagePullSecret = mgh.Spec.ImagePullSecret
+	}
 
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)

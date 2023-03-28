@@ -18,6 +18,7 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -67,8 +68,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	if mgh.Spec.ImagePullPolicy != "" {
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
-
-	imagePullSecret, _ := config.GetImagePullSecret(ctx, r.Client, mgh)
+	imagePullSecret := operatorconstants.DefaultImagePullSecretName
+	if mgh.Spec.ImagePullSecret != "" {
+		imagePullSecret = mgh.Spec.ImagePullSecret
+	}
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
