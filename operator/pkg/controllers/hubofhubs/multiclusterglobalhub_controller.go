@@ -21,7 +21,6 @@ import (
 	"embed"
 	"fmt"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -30,22 +29,15 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/restmapper"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -59,13 +51,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 //go:embed manifests
@@ -246,250 +235,35 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			"storage and transport secrets are required")
 	}
 
-	// create new HoHRenderer and HoHDeployer
-	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
-
-	// create discovery client
-	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
-	if err != nil {
+	// reconcile config: need to be done before reconciling manager and grafana
+	// 1. global configMap: open-cluster-management-global-hub-system/multicluster-global-hub-config
+	// 2. global image: configMap -> env -> default
+	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
 		return err
 	}
 
-	// create restmapper for deployer to find GVR
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-
-	// check for image overrides configmap
-	var imageOverridesConfigmap *corev1.ConfigMap
-	if imageOverridesConfigmapName := config.GetImageOverridesConfigmap(mgh); imageOverridesConfigmapName != "" {
-		var err error
-		imageOverridesConfigmap, err = r.KubeClient.CoreV1().ConfigMaps(mgh.GetNamespace()).Get(
-			ctx, imageOverridesConfigmapName, metav1.GetOptions{})
-		if err != nil {
-			log.Error(err, "failed to get image overrides configmap",
-				"namespace", mgh.GetNamespace(),
-				"name", imageOverridesConfigmapName)
-			return err
-		}
-	}
-
-	// set imgae overrides
-	if err := config.SetImageOverrides(mgh, imageOverridesConfigmap); err != nil {
-		return err
-	}
-
-	if !config.SkipDBInit(mgh) {
-		// init DB and transport here
-		if err = r.reconcileDatabase(ctx, mgh, types.NamespacedName{
-			Name:      mgh.Spec.DataLayer.LargeScale.Postgres.Name,
-			Namespace: config.GetDefaultNamespace(),
-		}); err != nil {
-			conditionError := condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE)
-			if conditionError != nil {
-				return condition.FailToSetConditionError(
-					condition.CONDITION_STATUS_FALSE, conditionError)
-			}
-			return err
-		}
-	}
-
-	// reconcile open-cluster-management-global-hub-system namespace and multicluster-global-hub configuration
-	if err = r.reconcileConfig(ctx, mgh); err != nil {
-		return err
-	}
-
-	// retrieve bootstrapserver and CA of kafka from secret
-	kafkaBootstrapServer, kafkaCACert, err := utils.GetKafkaConfig(ctx, r.KubeClient, mgh)
-	if err != nil {
-		if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_FALSE); conditionError != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, conditionError)
-		}
-		return err
-	}
-
-	if conditionError := condition.SetConditionTransportInit(ctx, r.Client, mgh,
-		condition.CONDITION_STATUS_TRUE); conditionError != nil {
-		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, conditionError)
-	}
-
-	// generate random session secret for oauth-proxy
-	proxySessionSecret, err := utils.GeneratePassword(16)
-	if err != nil {
-		return fmt.Errorf("failed to generate random session secret for oauth-proxy: %v", err)
-	}
-
-	messageCompressionType := string(mgh.Spec.MessageCompressionType)
-	if messageCompressionType == "" {
-		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
-	}
-
-	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
-		return struct {
-			Image                  string
-			ProxyImage             string
-			ProxySessionSecret     string
-			DBSecret               string
-			KafkaCACert            string
-			KafkaBootstrapServer   string
-			MessageCompressionType string
-			TransportType          string
-			TransportFormat        string
-			Namespace              string
-			LeaseDuration          string
-			RenewDeadline          string
-			RetryPeriod            string
-		}{
-			Image:                  config.GetImage("multicluster_global_hub_manager"),
-			ProxyImage:             config.GetImage("oauth_proxy"),
-			ProxySessionSecret:     proxySessionSecret,
-			DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
-			KafkaCACert:            kafkaCACert,
-			KafkaBootstrapServer:   kafkaBootstrapServer,
-			MessageCompressionType: messageCompressionType,
-			TransportType:          string(transport.Kafka),
-			TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
-			Namespace:              config.GetDefaultNamespace(),
-			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
-			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
-			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
-		}, nil
-	})
-	if err != nil {
-		return err
-	}
-	if err = r.manipulateObj(ctx, hohDeployer, mapper, managerObjects, mgh,
-		condition.SetConditionManagerDeployed, log); err != nil {
-		return err
-	}
-
-	// reconcile grafana
-	if err = r.reconcileGrafana(ctx, mgh); err != nil {
-		if e := condition.SetConditionGrafanaInit(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_FALSE); e != nil {
+	// reconcile database
+	if err := r.reconcileDatabase(ctx, mgh); err != nil {
+		if e := condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); e != nil {
 			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
 		}
 		return err
 	}
-	return nil
-}
 
-func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,
-	mapper *restmapper.DeferredDiscoveryRESTMapper, objs []*unstructured.Unstructured,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub, setConditionFunc condition.SetConditionFunc,
-	log logr.Logger,
-) error {
-	// manipulate the object
-	for _, obj := range objs {
-		mapping, err := mapper.RESTMapping(obj.GroupVersionKind().GroupKind(), obj.GroupVersionKind().Version)
-		if err != nil {
-			log.Error(err, "failed to find mapping for resource", "kind", obj.GetKind(),
-				"namespace", obj.GetNamespace(), "name", obj.GetName())
-			return err
+	// reconcile manager
+	if err := r.reconcileManager(ctx, mgh); err != nil {
+		if e := condition.SetConditionManagerDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); e != nil {
+			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
 		}
-
-		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-			// for namespaced resource, set ownerreference of controller
-			if err := controllerutil.SetControllerReference(mgh, obj, r.Scheme); err != nil {
-				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(),
-					"namespace", obj.GetNamespace(), "name", obj.GetName())
-				return err
-			}
-		}
-
-		// set owner labels
-		labels := obj.GetLabels()
-		if labels == nil {
-			labels = make(map[string]string)
-		}
-		labels[constants.GlobalHubOwnerLabelKey] = constants.GHOperatorOwnerLabelVal
-		obj.SetLabels(labels)
-
-		log.Info("Creating or updating object", "object", obj)
-		if err := hohDeployer.Deploy(obj); err != nil {
-			if setConditionFunc != nil {
-				conditionError := setConditionFunc(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE)
-				if conditionError != nil {
-					return condition.FailToSetConditionError(
-						condition.CONDITION_STATUS_FALSE, conditionError)
-				}
-			}
-			return err
-		}
+		return err
 	}
 
-	if setConditionFunc != nil {
-		if conditionError := setConditionFunc(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_TRUE); conditionError != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, conditionError)
+	// reconcile grafana
+	if err := r.reconcileGrafana(ctx, mgh); err != nil {
+		if e := condition.SetConditionGrafanaInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); e != nil {
+			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
 		}
-	}
-
-	return nil
-}
-
-// reconcileConfig tries to create hoh resources if they don't exist
-func (r *MulticlusterGlobalHubReconciler) reconcileConfig(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
-) error {
-	if err := r.Client.Get(ctx,
-		types.NamespacedName{
-			Name: constants.GHSystemNamespace,
-		}, &corev1.Namespace{}); err != nil {
-		if errors.IsNotFound(err) {
-			if err := r.Client.Create(ctx, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: constants.GHSystemNamespace,
-					Labels: map[string]string{
-						constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-					},
-				},
-			}); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-
-	// hoh configmap
-	hohConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: constants.GHSystemNamespace,
-			Name:      constants.GHConfigCMName,
-			Labels: map[string]string{
-				constants.GlobalHubOwnerLabelKey:       constants.GHOperatorOwnerLabelVal,
-				constants.GlobalHubGlobalResourceLabel: "",
-			},
-		},
-		Data: map[string]string{
-			"aggregationLevel":    string(mgh.Spec.AggregationLevel),
-			"enableLocalPolicies": strconv.FormatBool(mgh.Spec.EnableLocalPolicies),
-		},
-	}
-
-	existingHoHConfigMap := &corev1.ConfigMap{}
-	if err := r.Client.Get(ctx,
-		types.NamespacedName{
-			Namespace: constants.GHSystemNamespace,
-			Name:      constants.GHConfigCMName,
-		}, existingHoHConfigMap); err != nil {
-		if errors.IsNotFound(err) {
-			if err := r.Client.Create(ctx, hohConfigMap); err != nil {
-				return err
-			}
-			return nil
-		} else {
-			return err
-		}
-	}
-
-	if !equality.Semantic.DeepDerivative(hohConfigMap.Data, existingHoHConfigMap.Data) ||
-		!equality.Semantic.DeepDerivative(hohConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
-		hohConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
-		if err := utils.UpdateObject(ctx, r.Client, hohConfigMap); err != nil {
-			return err
-		}
-		return nil
+		return err
 	}
 
 	return nil

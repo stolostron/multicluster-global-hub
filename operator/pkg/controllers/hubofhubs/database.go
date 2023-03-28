@@ -7,33 +7,40 @@ import (
 	iofs "io/fs"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 //go:embed database
 var databaseFS embed.FS
 
-func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context, mgh *operatorv1alpha2.MulticlusterGlobalHub,
-	namespacedName types.NamespacedName,
+func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
 	log := ctrllog.FromContext(ctx)
+
+	if config.SkipDBInit(mgh) {
+		log.Info("Database initialization is skipped")
+		return nil
+	}
+
+	storageNamespace := config.GetDefaultNamespace()
+	storageName := mgh.Spec.DataLayer.LargeScale.Postgres.Name
+
 	if condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
 		log.Info("Database has initialized")
 		return nil
 	}
 
 	log.Info("Database initializing")
-	postgresSecret, err := reconciler.KubeClient.CoreV1().Secrets(namespacedName.Namespace).Get(
-		ctx, namespacedName.Name, metav1.GetOptions{})
+	postgresSecret, err := reconciler.KubeClient.CoreV1().Secrets(storageNamespace).Get(ctx, storageName,
+		metav1.GetOptions{})
 	if err != nil {
-		log.Error(err, "failed to get storage secret",
-			"namespace", namespacedName.Namespace,
-			"name", namespacedName.Name)
+		log.Error(err, "failed to get storage secret", "namespace", storageNamespace, "name", storageName)
 		return err
 	}
 

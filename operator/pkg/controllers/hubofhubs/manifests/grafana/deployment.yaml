@@ -39,8 +39,8 @@ spec:
       containers:
       - args:
         - -config=/etc/grafana/grafana.ini
-        image: quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34
-        imagePullPolicy: IfNotPresent
+        image: {{.GrafanaImage}}
+        imagePullPolicy: {{.ImagePullPolicy}}
         name: grafana
         ports:
         - containerPort: 3001
@@ -85,6 +85,7 @@ spec:
           - mountPath: /etc/proxy/secrets
             name: cookie-secret
         image: {{.ProxyImage}}
+        imagePullPolicy: {{.ImagePullPolicy}}
         args:
           - '--provider=openshift'
           - '--upstream=http://localhost:3001'
@@ -102,8 +103,10 @@ spec:
           - '--openshift-ca=/etc/pki/tls/cert.pem'
           - '--openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
       serviceAccount: multicluster-global-hub-grafana
+      {{ if .ImagePullSecret }}
       imagePullSecrets:
-      - name: multiclusterhub-operator-pull-secret
+        - name: {{.ImagePullSecret}}
+      {{ end }}
       serviceAccountName: multicluster-global-hub-grafana
       volumes:
       - emptyDir: {}

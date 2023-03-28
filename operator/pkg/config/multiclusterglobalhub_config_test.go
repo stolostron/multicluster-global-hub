@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
@@ -35,7 +34,6 @@ func TestSetImageOverrides(t *testing.T) {
 		initImageManifests map[string]string
 		operandImagesEnv   map[string]string
 		mghInstance        *operatorv1alpha2.MulticlusterGlobalHub
-		imageOverrideCM    *corev1.ConfigMap
 		wantImageManifests map[string]string
 		wantErr            error
 	}{
@@ -58,7 +56,6 @@ func TestSetImageOverrides(t *testing.T) {
 				},
 				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
 			},
-			imageOverrideCM: nil,
 			wantImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
 				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
@@ -88,128 +85,10 @@ func TestSetImageOverrides(t *testing.T) {
 				},
 				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
 			},
-			imageOverrideCM: nil,
 			wantImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/testing/multicluster-global-hub-agent:v0.6.0",
 				"multicluster_global_hub_manager": "quay.io/testing/multicluster-global-hub-manager:v0.6.0",
 				"oauth_proxy":                     "quay.io/testing/origin-oauth-proxy:4.9",
-			},
-			wantErr: nil,
-		},
-		{
-			desc: "override image from configmap",
-			initImageManifests: map[string]string{
-				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
-				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-				"oauth_proxy":                     "quay.io/stolostron/multicluster-global-hub-operator:latest",
-			},
-			operandImagesEnv: map[string]string{
-				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
-				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
-				"OPERAND_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
-			},
-			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.GHDefaultNamespace,
-					Name:      mghInstanceName,
-					Annotations: map[string]string{
-						operatorconstants.AnnotationImageOverridesCM: "mgh-images-config",
-					},
-				},
-				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
-			},
-			imageOverrideCM: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.GHDefaultNamespace,
-					Name:      "mgh-images-config",
-				},
-				Data: map[string]string{
-					"manifest.json": `[
-  {
-	"image-name": "mgh-manager",
-	"image-remote": "quay.io/foo",
-	"image-digest": "sha256:abcd",
-	"image-key": "multicluster_global_hub_manager"
-  },
-  {
-	"image-name": "mgh-agent",
-	"image-remote": "quay.io/bar",
-	"image-tag": "dev",
-	"image-key": "multicluster_global_hub_agent"
-  },
-  {
-	"image-name": "mgh-operator",
-	"image-remote": "quay.io/goo",
-	"image-digest": "sha256:efgh",
-	"image-tag": "test",
-	"image-key": "oauth_proxy"
-  }
-]`,
-				},
-			},
-			wantImageManifests: map[string]string{
-				"multicluster_global_hub_agent":   "quay.io/bar/mgh-agent:dev",
-				"multicluster_global_hub_manager": "quay.io/foo/mgh-manager@sha256:abcd",
-				"oauth_proxy":                     "quay.io/goo/mgh-operator@sha256:efgh",
-			},
-			wantErr: nil,
-		},
-		{
-			desc: "override image repo image manifests from configmap",
-			initImageManifests: map[string]string{
-				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
-				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-				"oauth_proxy":                     "quay.io/stolostron/multicluster-global-hub-operator:latest",
-			},
-			operandImagesEnv: map[string]string{
-				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
-				"OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
-				"OPERAND_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
-			},
-			mghInstance: &operatorv1alpha2.MulticlusterGlobalHub{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.GHDefaultNamespace,
-					Name:      mghInstanceName,
-					Annotations: map[string]string{
-						operatorconstants.AnnotationImageOverridesCM: "mgh-images-config",
-						operatorconstants.AnnotationImageRepo:        "quay.io/testing",
-					},
-				},
-				Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{},
-			},
-			imageOverrideCM: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.GHDefaultNamespace,
-					Name:      "mgh-images-config",
-				},
-				Data: map[string]string{
-					"manifest.json": `[
-  {
-	"image-name": "mgh-manager",
-	"image-remote": "quay.io/foo",
-	"image-digest": "sha256:abcd",
-	"image-key": "multicluster_global_hub_manager"
-  },
-  {
-	"image-name": "mgh-agent",
-	"image-remote": "quay.io/bar",
-	"image-tag": "dev",
-	"image-key": "multicluster_global_hub_agent"
-  },
-  {
-	"image-name": "mgh-operator",
-	"image-remote": "quay.io/goo",
-	"image-digest": "sha256:efgh",
-	"image-tag": "test",
-	"image-key": "oauth_proxy"
-  }
-]`,
-				},
-			},
-			wantImageManifests: map[string]string{
-				"multicluster_global_hub_agent":   "quay.io/bar/mgh-agent:dev",
-				"multicluster_global_hub_manager": "quay.io/foo/mgh-manager@sha256:abcd",
-				"oauth_proxy":                     "quay.io/goo/mgh-operator@sha256:efgh",
 			},
 			wantErr: nil,
 		},
@@ -222,7 +101,7 @@ func TestSetImageOverrides(t *testing.T) {
 		// set init imageManifests
 		imageOverrides = tt.initImageManifests
 		t.Run(tt.desc, func(t *testing.T) {
-			err := SetImageOverrides(tt.mghInstance, tt.imageOverrideCM)
+			err := SetImageOverrides(tt.mghInstance)
 			if ((err != nil && tt.wantErr == nil) || (err == nil && tt.wantErr != nil)) ||
 				!reflect.DeepEqual(imageOverrides, tt.wantImageManifests) {
 				t.Errorf("%s:\nwanted imageManifests & err:\n%+v\n%v\ngot imageManifests & err \n%+v\n%v",

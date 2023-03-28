@@ -21,6 +21,7 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -53,6 +54,16 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		return fmt.Errorf("failed to generate grafana datasource secret: %v", err)
 	}
 
+	imagePullPolicy := corev1.PullAlways
+	if mgh.Spec.ImagePullPolicy != "" {
+		imagePullPolicy = mgh.Spec.ImagePullPolicy
+	}
+
+	imagePullSecret := operatorconstants.DefaultImagePullSecretName
+	if mgh.Spec.ImagePullSecret != "" {
+		imagePullSecret = mgh.Spec.ImagePullSecret
+	}
+
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
 	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
@@ -60,11 +71,17 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			Namespace            string
 			SessionSecret        string
 			ProxyImage           string
+			GrafanaImage         string
+			ImagePullSecret      string
+			ImagePullPolicy      string
 			DatasourceSecretName string
 		}{
 			Namespace:            config.GetDefaultNamespace(),
 			SessionSecret:        proxySessionSecret,
-			ProxyImage:           config.GetImage("oauth_proxy"),
+			ProxyImage:           config.GetImage(config.OauthProxyImageKey),
+			GrafanaImage:         config.GetImage(config.GrafanaImageKey),
+			ImagePullSecret:      imagePullSecret,
+			ImagePullPolicy:      string(imagePullPolicy),
 			DatasourceSecretName: datasourceSecretName,
 		}, nil
 	})

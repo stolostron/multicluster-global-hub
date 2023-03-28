@@ -17,12 +17,10 @@ limitations under the License.
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
@@ -43,12 +41,20 @@ type ManifestImage struct {
 	ImageTag string `json:"image-tag"`
 }
 
+const (
+	GlobalHubAgentImageKey   = "multicluster_global_hub_agent"
+	GlobalHubManagerImageKey = "multicluster_global_hub_manager"
+	OauthProxyImageKey       = "oauth_proxy"
+	GrafanaImageKey          = "grafana"
+)
+
 var (
 	hohMGHNamespacedName = types.NamespacedName{}
 	imageOverrides       = map[string]string{
-		"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
-		"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		"oauth_proxy":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
+		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
+		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
+		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
+		GrafanaImageKey:          "quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34",
 	}
 )
 
@@ -58,7 +64,6 @@ func GetDefaultNamespace() string {
 	if defaultNamespace == "" {
 		defaultNamespace = constants.GHDefaultNamespace
 	}
-
 	return defaultNamespace
 }
 
@@ -106,7 +111,7 @@ func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) str
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)
 }
 
-func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub, cm *corev1.ConfigMap) error {
+func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
 	// first check for environment variables containing the 'OPERAND_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)
@@ -125,34 +130,6 @@ func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub, cm *corev1.C
 			imageOverrides[imageKey] = fmt.Sprintf("%s%s", imageRepoOverride, imageRef[imageIndex:])
 		}
 	}
-
-	// third override images from a given configmap
-	if cm == nil {
-		// return if override configmap is nil
-		return nil
-	}
-
-	if len(cm.Data) != 1 {
-		return nil
-	}
-
-	for _, imageManifests := range cm.Data {
-		var manifestImages []ManifestImage
-		if err := json.Unmarshal([]byte(imageManifests), &manifestImages); err != nil {
-			return err
-		}
-
-		for _, manifestImage := range manifestImages {
-			if manifestImage.ImageDigest != "" {
-				imageOverrides[manifestImage.ImageKey] = fmt.Sprintf("%s/%s@%s", manifestImage.ImageRemote,
-					manifestImage.ImageName, manifestImage.ImageDigest)
-			} else if manifestImage.ImageTag != "" {
-				imageOverrides[manifestImage.ImageKey] = fmt.Sprintf("%s/%s:%s", manifestImage.ImageRemote,
-					manifestImage.ImageName, manifestImage.ImageTag)
-			}
-		}
-	}
-
 	return nil
 }
 

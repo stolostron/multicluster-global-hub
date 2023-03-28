@@ -20,6 +20,7 @@ spec:
       containers:
         - name: multicluster-global-hub-agent
           image: {{ .HoHAgentImage }}
+          imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             - --kubeconfig=/var/run/secrets/managed/kubeconfig
             - '--zap-devel=true'
@@ -35,7 +36,6 @@ spec:
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
-          imagePullPolicy: Always
           env:
             # - name: KUBECONFIG
             #   value: /var/run/secrets/hypershift/kubeconfig
@@ -57,6 +57,10 @@ spec:
           - mountPath: /kafka-ca
             name: kafka-ca
             readOnly: true
+      {{ if .ImagePullSecretName }}
+      imagePullSecrets:
+        - name: {{ .ImagePullSecretName }}
+      {{ end }}
       volumes:
       - name: kubeconfig
         secret:

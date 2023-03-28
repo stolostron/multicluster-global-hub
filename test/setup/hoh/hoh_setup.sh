@@ -7,48 +7,19 @@ if [ $TAG == "latest" ]; then
   branch="main"
 fi
 export OPENSHIFT_CI=${OPENSHIFT_CI:-"false"}
-export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF:-"quay.io/stolostron/multicluster-global-hub-manager:$TAG"}
-export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF:-"quay.io/stolostron/multicluster-global-hub-agent:$TAG"}
-export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF:-"quay.io/stolostron/multicluster-global-hub-operator:$TAG"}
+export REGISTRY=${REGISTRY:-"quay.io/stolostron"}
+
+if [[ $OPENSHIFT_CI == "false" ]]; then
+  export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF:-"${REGISTRY}/multicluster-global-hub-manager:${TAG}"}
+  export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF:-"${REGISTRY}/multicluster-global-hub-agent:$TAG"}
+  export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF:-"${REGISTRY}/multicluster-global-hub-operator:$TAG"}
+fi
 
 echo "KUBECONFIG $KUBECONFIG"
 echo "OPENSHIFT_CI: $OPENSHIFT_CI"
 echo "MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF"
 echo "MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
 echo "MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF"
-
-if [[ $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF =~ "@" ]]; then IFS='@'; else IFS=':'; fi
-read -ra MGHManagerImageRefArray <<< "$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF"
-MGHManagerImageRepo=${MGHManagerImageRefArray[0]}
-export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REPO=${MGHManagerImageRepo%/*}
-export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_NAME=${MGHManagerImageRepo##*/}
-if [[ $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF =~ "@" ]]; then 
-  export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_GIGEST=${MGHManagerImageRefArray[1]}
-else
-  export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_TAG=${MGHManagerImageRefArray[1]}
-fi
-
-if [[ $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF =~ "@" ]]; then IFS='@'; else IFS=':'; fi
-read -ra MGHAgentImageRefArray <<< "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
-MGHAgentImageRepo=${MGHAgentImageRefArray[0]}
-export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REPO=${MGHAgentImageRepo%/*}
-export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_NAME=${MGHAgentImageRepo##*/}
-if [[ $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF =~ "@" ]]; then 
-  export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_GIGEST=${MGHAgentImageRefArray[1]}
-else
-  export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_TAG=${MGHAgentImageRefArray[1]}
-fi
-
-if [[ $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF =~ "@" ]]; then IFS='@'; else IFS=':'; fi
-read -ra MGHOperatorImageRefArray <<< "$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF"
-MGHOperatorImageRepo=${MGHOperatorImageRefArray[0]}
-export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REPO=${MGHOperatorImageRepo%/*}
-export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_NAME=${MGHOperatorImageRepo##*/}
-if [[ $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF =~ "@" ]]; then 
-  export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_GIGEST=${MGHOperatorImageRefArray[1]}
-else
-  export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_TAG=${MGHOperatorImageRefArray[1]}
-fi
 
 namespace=open-cluster-management
 agenAddonNamespace=open-cluster-management-global-hub-system
@@ -57,19 +28,22 @@ rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
 
 # create leader election configuration
 kubectl apply -f ${currentDir}/components/leader-election-configmap.yaml -n "$namespace"
-
-cd ${rootDir}
 # install crds
-kubectl --context kind-$LEAF_HUB_NAME apply -f ./pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+kubectl --context kind-$LEAF_HUB_NAME apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+
+# replace images
+sed -i "s|quay.io/stolostron/multicluster-global-hub-manager:latest|${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}|g" ${rootDir}/operator/config/manager/manager.yaml
+sed -i "s|quay.io/stolostron/multicluster-global-hub-agent:latest|${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF}|g" ${rootDir}/operator/config/manager/manager.yaml
 
 export IMG=$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF
 make deploy-operator 
+
 kubectl wait deployment -n "$namespace" multicluster-global-hub-operator --for condition=Available=True --timeout=600s
 echo "HoH operator is ready!"
+kubectl get deploy multicluster-global-hub-operator -oyaml  -n $namespace
 
 export TRANSPORT_SECRET_NAME="transport-secret"
 export STORAGE_SECRET_NAME="storage-secret"
-envsubst < ${currentDir}/components/mgh-images-config.yaml | kubectl apply -f - -n "$namespace"
 envsubst < ${currentDir}/components/mgh-v1alpha2-cr.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
 
@@ -81,8 +55,7 @@ kubectl apply -f ${currentDir}/components/manager-service-local.yaml -n "$namesp
 echo "HoH manager nodeport service is ready!"
 
 sleep 2
-echo "HoH cr and configmap information:"
-kubectl get cm mgh-images-config -n "$namespace" -oyaml 
+echo "HoH CR information:"
 kubectl get mgh multiclusterglobalhub -n "$namespace" -oyaml
 
 # wait for core components to be ready

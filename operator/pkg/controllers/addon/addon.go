@@ -9,7 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -35,6 +35,9 @@ var FS embed.FS
 
 type ManifestsConfig struct {
 	HoHAgentImage          string
+	ImagePullSecretName    string
+	ImagePullSecretData    string
+	ImagePullPolicy        string
 	LeafHubID              string
 	KafkaBootstrapServer   string
 	TransportType          string
@@ -46,7 +49,6 @@ type ManifestsConfig struct {
 	CurrentCSV             string
 	Source                 string
 	SourceNamespace        string
-	ACMImagePullSecretData string
 	InstallHostedMode      bool
 	LeaseDuration          string
 	RenewDeadline          string
@@ -136,17 +138,16 @@ func (a *HohAgentAddon) setACMPackageConfigs(manifestsConfig *ManifestsConfig) e
 	manifestsConfig.Source = operatorconstants.ACMSubscriptionPublicSource
 	manifestsConfig.SourceNamespace = operatorconstants.OpenshiftMarketPlaceNamespace
 
-	imagePullSecret, err := a.kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(a.ctx,
-		operatorconstants.DefaultImagePullSecretName, metav1.GetOptions{})
-	switch {
-	case err == nil:
-		imagePullSecretDataBase64 := base64.StdEncoding.EncodeToString(
-			imagePullSecret.Data[corev1.DockerConfigJsonKey])
-		manifestsConfig.ACMImagePullSecretData = imagePullSecretDataBase64
-	case err != nil && !errors.IsNotFound(err):
-		return err
+	mgh, err := a.getMulticlusterGlobalHub()
+	if err != nil {
+		klog.Errorf("failed to get MulticlusterGlobalHub for image pull secret. err: %v", err)
 	}
 
+	pullSecretName, pullSecretData := a.getImagePullSecret(mgh)
+	if len(pullSecretName) > 0 && len(pullSecretData) > 0 {
+		manifestsConfig.ImagePullSecretName = pullSecretName
+		manifestsConfig.ImagePullSecretData = pullSecretData
+	}
 	return nil
 }
 
@@ -175,8 +176,18 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 	}
 
+	if err := config.SetImageOverrides(mgh); err != nil {
+		return nil, err
+	}
+
+	imagePullPolicy := corev1.PullAlways
+	if mgh.Spec.ImagePullPolicy != "" {
+		imagePullPolicy = mgh.Spec.ImagePullPolicy
+	}
+
 	manifestsConfig := ManifestsConfig{
-		HoHAgentImage:          config.GetImage("multicluster_global_hub_agent"),
+		HoHAgentImage:          config.GetImage(config.GlobalHubAgentImageKey),
+		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCACert:            kafkaCACert,
@@ -190,6 +201,12 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KlusterletWorkSA:       "klusterlet-work-sa",
 	}
 
+	pullSecretName, pullSecretData := a.getImagePullSecret(mgh)
+	if len(pullSecretName) > 0 && len(pullSecretData) > 0 {
+		manifestsConfig.ImagePullSecretName = pullSecretName
+		manifestsConfig.ImagePullSecretData = pullSecretData
+	}
+
 	if a.installACMHub(cluster) {
 		manifestsConfig.InstallACMHub = true
 		if err := a.setACMPackageConfigs(&manifestsConfig); err != nil {
@@ -200,4 +217,41 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	a.setInstallHostedMode(cluster, &manifestsConfig)
 
 	return addonfactory.StructToValues(manifestsConfig), nil
+}
+
+// GetImagePullSecret returns the image pull secret name and data
+func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlobalHub) (string, string) {
+	// 1. get image pull secret from mgh
+	if mgh != nil && len(mgh.Spec.ImagePullSecret) > 0 {
+		imagePullSecret := &corev1.Secret{}
+		err := a.client.Get(a.ctx, types.NamespacedName{
+			Namespace: mgh.GetNamespace(),
+			Name:      mgh.Spec.ImagePullSecret,
+		}, imagePullSecret, &client.GetOptions{})
+		switch {
+		case err == nil:
+			imagePullSecretName := imagePullSecret.GetName()
+			imagePullSecretData := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
+			return imagePullSecretName, imagePullSecretData
+		case err != nil && !errors.IsNotFound(err):
+			klog.Errorf("failed to get pull secret from mgh, err: %v", err)
+		}
+	}
+
+	// 2. get image pull secret: multiclusterhub-operator-pull-secret
+	imagePullSecret := &corev1.Secret{}
+	err := a.client.Get(a.ctx, types.NamespacedName{
+		Namespace: config.GetDefaultNamespace(),
+		Name:      operatorconstants.DefaultImagePullSecretName,
+	}, imagePullSecret, &client.GetOptions{})
+	switch {
+	case err == nil:
+		imagePullSecretName := imagePullSecret.GetName()
+		imagePullSecretData := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
+		return imagePullSecretName, imagePullSecretData
+	case err != nil && !errors.IsNotFound(err):
+		klog.Errorf("failed to get pull secret from 'multiclusterhub-operator-pull-secret', err: %v", err)
+	}
+
+	return "", ""
 }
