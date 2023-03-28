@@ -1,6 +1,7 @@
 package grc
 
 import (
+	"fmt"
 	"sync"
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -75,12 +76,7 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object bundlepkg.Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, ok := bundle.extractObjIDFunc(object)
-	if !ok {
-		return // cant update the object without finding its id.
-	}
-
-	index, err := bundle.getObjectIndexByUID(originPolicyID)
+	index, err := bundle.getObjectIndexByObj(object)
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
@@ -146,6 +142,7 @@ func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyID strin
 
 	return &statusbundle.PolicyGenericComplianceStatus{
 		PolicyID:                  originPolicyID,
+		NamespacedName:            fmt.Sprintf("%s/%s", policy.GetNamespace(), policy.GetName()),
 		CompliantClusters:         compliantClusters,
 		NonCompliantClusters:      nonCompliantClusters,
 		UnknownComplianceClusters: unknownComplianceClusters,
@@ -183,4 +180,23 @@ func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []stri
 	}
 
 	return true
+}
+
+func (bundle *ClustersPerPolicyBundle) getObjectIndexByObj(obj bundlepkg.Object) (int, error) {
+	uid, _ := bundle.extractObjIDFunc(obj)
+	if len(uid) > 0 {
+		for i, object := range bundle.Objects {
+			if uid == string(object.PolicyID) {
+				return i, nil
+			}
+		}
+	} else {
+		for i, object := range bundle.Objects {
+			if string(object.NamespacedName) == fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName()) {
+				return i, nil
+			}
+		}
+	}
+
+	return -1, bundlepkg.ErrObjectNotFound
 }

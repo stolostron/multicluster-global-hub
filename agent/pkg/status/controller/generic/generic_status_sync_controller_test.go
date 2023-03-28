@@ -110,7 +110,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 	}
 
 	if _, err := controller.Reconcile(context.TODO(), reconcile.Request{
-		namespacedName,
+		NamespacedName: namespacedName,
 	}); err != nil {
 		t.Fatal(err)
 	}
