@@ -47,7 +47,6 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, object)
 		bundle.BundleVersion.Generation++
-
 		return
 	}
 

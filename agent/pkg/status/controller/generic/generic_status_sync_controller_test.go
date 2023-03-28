@@ -15,7 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -40,10 +42,11 @@ func TestAddRemoveFinalizer(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	controller := &genericStatusSyncController{
-		client:        c,
-		log:           ctrl.Log.WithName("test-controller"),
-		finalizerName: constants.GlobalHubCleanupFinalizer,
-		lock:          sync.Mutex{},
+		client:              c,
+		log:                 ctrl.Log.WithName("test-controller"),
+		finalizerName:       constants.GlobalHubCleanupFinalizer,
+		lock:                sync.Mutex{},
+		createBundleObjFunc: func() bundle.Object { return &policiesv1.Policy{} },
 	}
 
 	if err := controller.removeFinalizer(context.TODO(), policy, controller.log); err != nil {
@@ -103,6 +106,12 @@ func TestAddRemoveFinalizer(t *testing.T) {
 	}
 
 	if err := c.Delete(context.TODO(), policy, &client.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := controller.Reconcile(context.TODO(), reconcile.Request{
+		namespacedName,
+	}); err != nil {
 		t.Fatal(err)
 	}
 
