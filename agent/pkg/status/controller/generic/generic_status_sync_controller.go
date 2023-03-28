@@ -79,10 +79,11 @@ func (c *genericStatusSyncController) Reconcile(ctx context.Context, request ctr
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	object := c.createBundleObjFunc()
-
 	if err := c.client.Get(ctx, request.NamespacedName, object); apierrors.IsNotFound(err) {
 		// the instance was deleted and it had no finalizer on it.
-		// for the non global hub resource, there is no finalizer so we need to delete the object from the bundle
+		// for the local resources, there is no finalizer so we need to delete the object from the bundle
+		object.SetNamespace(request.Namespace)
+		object.SetName(request.Name)
 		if e := c.deleteObjectAndFinalizer(ctx, object, reqLogger); e != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, e
 		}

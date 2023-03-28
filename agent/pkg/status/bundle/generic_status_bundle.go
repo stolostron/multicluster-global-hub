@@ -65,13 +65,17 @@ func (bundle *GenericStatusBundle) DeleteObject(object Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
-	index, err := bundle.getObjectIndexByUID(object.GetUID())
+	index, err := -1, error(nil)
+	if len(object.GetUID()) > 0 {
+		index, err = bundle.getObjectIndexByUID(object.GetUID())
+	} else {
+		// the obj is not found so the uid is empty(local resources)
+		index, err = bundle.getObjectIndexByName(object.GetNamespace(), object.GetName())
+	}
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
-
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-
 	bundle.BundleVersion.Generation++
 }
 
@@ -90,5 +94,14 @@ func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, erro
 		}
 	}
 
+	return -1, ErrObjectNotFound
+}
+
+func (bundle *GenericStatusBundle) getObjectIndexByName(namespace, name string) (int, error) {
+	for i, object := range bundle.Objects {
+		if object.GetNamespace() == namespace && object.GetName() == name {
+			return i, nil
+		}
+	}
 	return -1, ErrObjectNotFound
 }
