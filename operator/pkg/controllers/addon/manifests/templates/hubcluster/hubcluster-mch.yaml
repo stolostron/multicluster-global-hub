@@ -11,4 +11,5 @@ metadata:
     "addon.open-cluster-management.io/deletion-orphan": ""
 spec:
   disableHubSelfManagement: true
+  imagePullSecret: {{ .ImagePullSecretName }}
 {{ end }}

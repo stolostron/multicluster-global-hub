@@ -230,7 +230,7 @@ func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlo
 		}, imagePullSecret, &client.GetOptions{})
 		switch {
 		case err == nil:
-			imagePullSecretName := operatorconstants.DefaultImagePullSecretName
+			imagePullSecretName := imagePullSecret.GetName()
 			imagePullSecretData := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
 			return imagePullSecretName, imagePullSecretData
 		case err != nil && !errors.IsNotFound(err):
@@ -246,7 +246,7 @@ func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlo
 	}, imagePullSecret, &client.GetOptions{})
 	switch {
 	case err == nil:
-		imagePullSecretName := operatorconstants.DefaultImagePullSecretName
+		imagePullSecretName := imagePullSecret.GetName()
 		imagePullSecretData := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
 		return imagePullSecretName, imagePullSecretData
 	case err != nil && !errors.IsNotFound(err):
