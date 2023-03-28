@@ -156,9 +156,9 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		})
 
 		// to use the finalizer achieves deleting local resource from database:
-		// finalizer -> delete from bundle -> transport -> database
-		It("check the local policy(placement) resource is added the global cleanup finalizer", func() {
-			By("Verify the local policy(placement) has been added the global hub cleanup finalizer")
+		// finalizer(deprecated) -> delete from bundle -> transport -> database
+		It("check the local policy(placement) resource isn't added the global cleanup finalizer", func() {
+			By("Verify the local policy(placement) hasn't been added the global hub cleanup finalizer")
 			Eventually(func() error {
 				policy := &policiesv1.Policy{}
 				err := leafhubClient.Get(context.TODO(), client.ObjectKey{
@@ -170,10 +170,10 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				}
 				for _, finalizer := range policy.Finalizers {
 					if finalizer == constants.GlobalHubCleanupFinalizer {
-						return nil
+						return fmt.Errorf("the local policy(%s) has been added the cleanup finalizer", policy.GetName())
 					}
 				}
-				return fmt.Errorf("the local placement policy(%s) hasn't been added the cleanup finalizer", policy.GetName())
+				return nil
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 			// placement is not be synchronized to the global hub database, so it doesn't need the finalizer
