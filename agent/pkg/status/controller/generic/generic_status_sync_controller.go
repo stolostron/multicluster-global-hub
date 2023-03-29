@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -78,12 +79,14 @@ func (c *genericStatusSyncController) Reconcile(ctx context.Context, request ctr
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	object := c.createBundleObjFunc()
-
 	if err := c.client.Get(ctx, request.NamespacedName, object); apierrors.IsNotFound(err) {
 		// the instance was deleted and it had no finalizer on it.
-		// this means either LH removed the finalizer so it was already deleted from bundle, or
-		// LH didn't update HoH about this object ever.
-		// either way, no need to do anything in this state.
+		// for the local resources, there is no finalizer so we need to delete the object from the bundle
+		object.SetNamespace(request.Namespace)
+		object.SetName(request.Name)
+		if e := c.deleteObjectAndFinalizer(ctx, object, reqLogger); e != nil {
+			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, e
+		}
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD},
@@ -112,8 +115,12 @@ func (c *genericStatusSyncController) isObjectBeingDeleted(object bundle.Object)
 func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger,
 ) error {
-	if err := c.addFinalizer(ctx, object, log); err != nil {
-		return fmt.Errorf("failed to add finalizer - %w", err)
+	// only add finalizer for the global resources
+	_, globalLabelResource := object.GetLabels()[constants.GlobalHubGlobalResourceLabel]
+	if globalLabelResource || helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) {
+		if err := c.addFinalizer(ctx, object, log); err != nil {
+			return fmt.Errorf("failed to add finalizer - %w", err)
+		}
 	}
 
 	cleanObject(object)

@@ -7,6 +7,7 @@ import (
 // MinimalPolicyComplianceStatus holds information for minimal policy compliance status.
 type MinimalPolicyComplianceStatus struct {
 	PolicyID             string                     `json:"policyId"`
+	NamespacedName       string                     `json:"-"` // need it to delete obj from bundle for local resources.
 	RemediationAction    policyv1.RemediationAction `json:"remediationAction"`
 	NonCompliantClusters int                        `json:"nonCompliantClusters"`
 	AppliedClusters      int                        `json:"appliedClusters"`

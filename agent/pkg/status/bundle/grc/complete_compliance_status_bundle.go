@@ -1,6 +1,7 @@
 package grc
 
 import (
+	"fmt"
 	"sync"
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -84,12 +85,7 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object bundlepkg.Object) {
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, ok := bundle.extractObjIDFunc(object)
-	if !ok {
-		return // cant delete the object without its id.
-	}
-
-	index, err := bundle.getObjectIndexByUID(originPolicyID)
+	index, err := bundle.getObjectIndexByObj(object)
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
@@ -119,11 +115,11 @@ func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, erro
 func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
 	policy *policiesv1.Policy,
 ) *statusbundle.PolicyCompleteComplianceStatus {
-	nonCompliantClusters, unknownComplianceClusters :=
-		bundle.getNonCompliantAndUnknownClusters(policy)
+	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
 
 	return &statusbundle.PolicyCompleteComplianceStatus{
 		PolicyID:                  originPolicyID,
+		NamespacedName:            policy.Namespace + "/" + policy.Name,
 		NonCompliantClusters:      nonCompliantClusters,
 		UnknownComplianceClusters: unknownComplianceClusters,
 	}
@@ -154,8 +150,7 @@ func (bundle *ComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *
 // if a cluster was removed, object is not considered as changed.
 func (bundle *ComplianceStatusBundle) updateBundleIfObjectChanged(objectIndex int, policy *policiesv1.Policy) bool {
 	oldPolicyComplianceStatus := bundle.Objects[objectIndex]
-	newNonCompliantClusters, newUnknownComplianceClusters :=
-		bundle.getNonCompliantAndUnknownClusters(policy)
+	newNonCompliantClusters, newUnknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
 
 	if !bundle.clusterListsEqual(oldPolicyComplianceStatus.NonCompliantClusters, newNonCompliantClusters) ||
 		!bundle.clusterListsEqual(oldPolicyComplianceStatus.UnknownComplianceClusters, newUnknownComplianceClusters) {
@@ -191,4 +186,22 @@ func (bundle *ComplianceStatusBundle) containsNonCompliantOrUnknownClusters(
 	}
 
 	return true
+}
+
+func (bundle *ComplianceStatusBundle) getObjectIndexByObj(obj bundlepkg.Object) (int, error) {
+	uid, _ := bundle.extractObjIDFunc(obj)
+	if len(uid) > 0 {
+		for i, object := range bundle.Objects {
+			if uid == string(object.PolicyID) {
+				return i, nil
+			}
+		}
+	} else {
+		for i, object := range bundle.Objects {
+			if string(object.NamespacedName) == fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName()) {
+				return i, nil
+			}
+		}
+	}
+	return -1, bundlepkg.ErrObjectNotFound
 }

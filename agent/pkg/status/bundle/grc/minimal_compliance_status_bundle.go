@@ -1,6 +1,7 @@
 package grc
 
 import (
+	"fmt"
 	"sync"
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -71,12 +72,7 @@ func (bundle *MinimalComplianceStatusBundle) DeleteObject(object bundlepkg.Objec
 		return // do not handle objects other than policy
 	}
 
-	originPolicyID, found := object.GetAnnotations()[constants.OriginOwnerReferenceAnnotation]
-	if !found {
-		return // origin owner reference annotation not found, don't handle this policy
-	}
-
-	index, err := bundle.getObjectIndexByUID(originPolicyID)
+	index, err := bundle.getObjectIndexByObj(object)
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
@@ -110,6 +106,7 @@ func (bundle *MinimalComplianceStatusBundle) getMinimalPolicyComplianceStatus(or
 
 	return &statusbundle.MinimalPolicyComplianceStatus{
 		PolicyID:             originPolicyID,
+		NamespacedName:       fmt.Sprintf("%s/%s", policy.Namespace, policy.Name),
 		RemediationAction:    policy.Spec.RemediationAction,
 		NonCompliantClusters: nonCompliantClusters,
 		AppliedClusters:      appliedClusters,
@@ -153,4 +150,22 @@ func (bundle *MinimalComplianceStatusBundle) getNumOfClusters(policy *policiesv1
 	}
 
 	return appliedClusters, nonCompliantClusters
+}
+
+func (bundle *MinimalComplianceStatusBundle) getObjectIndexByObj(obj bundlepkg.Object) (int, error) {
+	originPolicyID, found := obj.GetAnnotations()[constants.OriginOwnerReferenceAnnotation]
+	if found {
+		for i, object := range bundle.Objects {
+			if originPolicyID == string(object.PolicyID) {
+				return i, nil
+			}
+		}
+	} else {
+		for i, object := range bundle.Objects {
+			if string(object.NamespacedName) == fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName()) {
+				return i, nil
+			}
+		}
+	}
+	return -1, bundlepkg.ErrObjectNotFound
 }
