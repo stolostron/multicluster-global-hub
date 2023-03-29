@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -391,6 +392,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).Should(Succeed())
 
 			// get the grafana objects
+			By("By checking the multicluster-global-hub-grafana resources are created as expected")
 			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
 					Namespace            string
@@ -426,6 +428,21 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				fmt.Printf("all grafana resources(%d) are created as expected \n", len(grafanaObjects))
 				return nil
 			}, timeout, interval).Should(Succeed())
+
+			By("By update the grafana deployment status to available")
+			deployment := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      operatorconstants.GHGrafanaDeploymentName,
+				Namespace: config.GetDefaultNamespace(),
+			}, deployment)
+			Expect(err).Should(Succeed())
+			deployment.Status.Conditions = append(deployment.Status.Conditions, appsv1.DeploymentCondition{
+				Type:    appsv1.DeploymentAvailable,
+				Status:  corev1.ConditionTrue,
+				Reason:  "MinimumReplicasAvailable",
+				Message: "Deployment has minimum availability.",
+			})
+			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 		})
 
 		It("Should reconcile the resources when MGH instance is created", func() {

@@ -142,10 +142,8 @@ func (r *MulticlusterGlobalHubReconciler) updateDeploymentStatus(ctx context.Con
 	}
 	for _, condition := range deployment.Status.Conditions {
 		if condition.Type == appsv1.DeploymentAvailable {
-			if condition.Status == corev1.ConditionTrue {
-				message = condition.Message
-				reason = condition.Reason
-			}
+			message = condition.Message
+			reason = condition.Reason
 		}
 	}
 	if err := condition.SetCondition(ctx, r.Client, mgh, conditionType,
