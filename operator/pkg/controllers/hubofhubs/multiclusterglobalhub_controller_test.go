@@ -312,7 +312,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return fmt.Errorf("the manager deploy condition is not set to true")
 				}
 				if condition.GetConditionStatus(createdMGH,
-					condition.CONDITION_TYPE_GRAFANA_INIT) !=
+					condition.CONDITION_TYPE_GRAFANA_DEPLOY) !=
 					condition.CONDITION_STATUS_TRUE {
 					return fmt.Errorf("the grafana init condition is not set to true")
 				}

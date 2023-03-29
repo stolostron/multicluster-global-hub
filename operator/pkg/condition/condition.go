@@ -40,9 +40,9 @@ const (
 
 // NOTE: the status of GrafanaInitialized can be True or False
 const (
-	CONDITION_TYPE_GRAFANA_INIT    = "GrafanaInitialized"
-	CONDITION_REASON_GRAFANA_INIT  = "GrafanaInitialized"
-	CONDITION_MESSAGE_GRAFANA_INIT = "Grafana has been initialized"
+	CONDITION_TYPE_GRAFANA_DEPLOY    = "GrafanaDeployed"
+	CONDITION_REASON_GRAFANA_DEPLOY  = "GrafanaDeployed"
+	CONDITION_MESSAGE_GRAFANA_DEPLOY = "Multicluster Global Hub Grafana has been deployed"
 )
 
 // NOTE: the status of DatabaseInitialized can be True or False
@@ -63,7 +63,7 @@ const (
 const (
 	CONDITION_TYPE_MANAGER_DEPLOY    = "ManagerDeployed"
 	CONDITION_REASON_MANAGER_DEPLOY  = "ManagerDeployed"
-	CONDITION_MESSAGE_MANAGER_DEPLOY = "Multicluster Global Hub Manager Deployed"
+	CONDITION_MESSAGE_MANAGER_DEPLOY = "Multicluster Global Hub Manager has been deployed"
 )
 
 // NOTE: the status of LeafHubDeployed can only be True; otherwise there is no condition
@@ -84,11 +84,11 @@ func FailToSetConditionError(condition string, err error) error {
 	return fmt.Errorf("failed to set condition(%s): %w", condition, err)
 }
 
-func SetConditionGrafanaInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionGrafanaDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRAFANA_INIT, status, CONDITION_REASON_GRAFANA_INIT,
-		CONDITION_MESSAGE_GRAFANA_INIT)
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRAFANA_DEPLOY, status, CONDITION_REASON_GRAFANA_DEPLOY,
+		CONDITION_MESSAGE_GRAFANA_DEPLOY)
 }
 
 func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,

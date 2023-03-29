@@ -17,6 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -50,6 +52,7 @@ const (
 
 var (
 	hohMGHNamespacedName = types.NamespacedName{}
+	oauthSessionSecret   = ""
 	imageOverrides       = map[string]string{
 		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
@@ -73,6 +76,18 @@ func SetHoHMGHNamespacedName(namespacedName types.NamespacedName) {
 
 func GetHoHMGHNamespacedName() types.NamespacedName {
 	return hohMGHNamespacedName
+}
+
+func GetOauthSessionSecret() (string, error) {
+	if oauthSessionSecret == "" {
+		b := make([]byte, 16)
+		_, err := rand.Read(b)
+		if err != nil {
+			return "", err
+		}
+		oauthSessionSecret = base64.StdEncoding.EncodeToString(b)
+	}
+	return oauthSessionSecret, nil
 }
 
 // getAnnotation returns the annotation value for a given key, or an empty string if not set

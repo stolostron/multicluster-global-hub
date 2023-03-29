@@ -260,7 +260,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	// reconcile grafana
 	if err := r.reconcileGrafana(ctx, mgh); err != nil {
-		if e := condition.SetConditionGrafanaInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); e != nil {
+		if e := condition.SetConditionGrafanaDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); e != nil {
 			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
 		}
 		return err

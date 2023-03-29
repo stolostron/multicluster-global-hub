@@ -24,7 +24,6 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -36,14 +35,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
 	log := ctrllog.FromContext(ctx)
-	if condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_GRAFANA_INIT, condition.CONDITION_STATUS_TRUE) {
-		log.Info("Grafana has initialized")
-		return nil
-	}
+	log.Info("reconciling grafana")
 
-	log.Info("Grafana initializing")
 	// generate random session secret for oauth-proxy
-	proxySessionSecret, err := utils.GeneratePassword(16)
+	proxySessionSecret, err := config.GetOauthSessionSecret()
 	if err != nil {
 		return fmt.Errorf("failed to generate random session secret for grafana oauth-proxy: %v", err)
 	}
@@ -96,13 +91,15 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	if err = r.manipulateObj(ctx, grafanaDeployer, mapper, grafanaObjects, mgh,
-		condition.SetConditionDatabaseInit, log); err != nil {
-		return err
+	if err = r.manipulateObj(ctx, grafanaDeployer, mapper, grafanaObjects, mgh, log); err != nil {
+		return fmt.Errorf("failed to create/update grafana objects: %w", err)
 	}
 
-	log.Info("Grafana initialized")
-	if err := condition.SetConditionGrafanaInit(ctx, r.Client, mgh,
+	if err := r.updateDeploymentStatus(ctx, operatorconstants.GHGrafanaDeploymentName, mgh,
+		condition.CONDITION_TYPE_GRAFANA_DEPLOY, log); err != nil {
+		return fmt.Errorf("failed to update grafana deployment status: %w", err)
+	}
+	if err := condition.SetConditionGrafanaDeployed(ctx, r.Client, mgh,
 		condition.CONDITION_STATUS_TRUE); err != nil {
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
 	}
