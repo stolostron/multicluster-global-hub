@@ -99,10 +99,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		condition.CONDITION_TYPE_GRAFANA_DEPLOY, log); err != nil {
 		return fmt.Errorf("failed to update grafana deployment status: %w", err)
 	}
-	if err := condition.SetConditionGrafanaDeployed(ctx, r.Client, mgh,
-		condition.CONDITION_STATUS_TRUE); err != nil {
-		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
-	}
 	return nil
 }
 

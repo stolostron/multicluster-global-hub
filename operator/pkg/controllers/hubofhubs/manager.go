@@ -148,7 +148,7 @@ func (r *MulticlusterGlobalHubReconciler) updateDeploymentStatus(ctx context.Con
 			}
 		}
 	}
-	if err := condition.SetCondition(ctx, r.Client, mgh, condition.CONDITION_TYPE_MANAGER_DEPLOY,
+	if err := condition.SetCondition(ctx, r.Client, mgh, conditionType,
 		condition.CONDITION_STATUS_TRUE, reason, message); err != nil {
 		return err
 	}
