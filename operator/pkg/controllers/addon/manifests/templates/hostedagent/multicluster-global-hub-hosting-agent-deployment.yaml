@@ -1,4 +1,4 @@
-{{- if .InstallHostedMode -}}
+{{ if .InstallHostedMode }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,4 +69,4 @@ spec:
       - name: kafka-ca
         secret:
           secretName: kafka-ca-secret
-{{- end -}}
+{{ end }}

@@ -8,8 +8,7 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -223,34 +222,22 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlobalHub) (string, string) {
 	// 1. get image pull secret from mgh
 	if mgh != nil && len(mgh.Spec.ImagePullSecret) > 0 {
-		imagePullSecret := &corev1.Secret{}
-		err := a.client.Get(a.ctx, types.NamespacedName{
-			Namespace: mgh.GetNamespace(),
-			Name:      mgh.Spec.ImagePullSecret,
-		}, imagePullSecret, &client.GetOptions{})
-		switch {
-		case err == nil:
-			imagePullSecretName := imagePullSecret.GetName()
-			imagePullSecretData := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
-			return imagePullSecretName, imagePullSecretData
-		case err != nil && !errors.IsNotFound(err):
+		if imagePullSecret, err := a.kubeClient.CoreV1().Secrets(mgh.Namespace).Get(a.ctx,
+			mgh.Spec.ImagePullSecret, metav1.GetOptions{}); err == nil {
+			return imagePullSecret.GetName(), base64.StdEncoding.EncodeToString(
+				imagePullSecret.Data[corev1.DockerConfigJsonKey])
+		} else {
 			klog.Errorf("failed to get pull secret from mgh, err: %v", err)
 		}
 	}
 
 	// 2. get image pull secret: multiclusterhub-operator-pull-secret
-	imagePullSecret := &corev1.Secret{}
-	err := a.client.Get(a.ctx, types.NamespacedName{
-		Namespace: config.GetDefaultNamespace(),
-		Name:      operatorconstants.DefaultImagePullSecretName,
-	}, imagePullSecret, &client.GetOptions{})
-	switch {
-	case err == nil:
-		imagePullSecretName := imagePullSecret.GetName()
-		imagePullSecretData := base64.StdEncoding.EncodeToString(imagePullSecret.Data[corev1.DockerConfigJsonKey])
-		return imagePullSecretName, imagePullSecretData
-	case err != nil && !errors.IsNotFound(err):
-		klog.Errorf("failed to get pull secret from 'multiclusterhub-operator-pull-secret', err: %v", err)
+	if imagePullSecret, err := a.kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(a.ctx,
+		operatorconstants.DefaultImagePullSecretName, metav1.GetOptions{}); err == nil {
+		return imagePullSecret.GetName(), base64.StdEncoding.EncodeToString(
+			imagePullSecret.Data[corev1.DockerConfigJsonKey])
+	} else {
+		klog.Errorf("failed to get pull secret from mgh, err: %v", err)
 	}
 
 	return "", ""

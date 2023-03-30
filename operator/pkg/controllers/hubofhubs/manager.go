@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -14,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/go-logr/logr"
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -37,7 +37,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		return err
 	}
 	log.Info("retrieved kafka bootstrap server and CA cert from secret")
-	if e := condition.SetConditionTransportInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE); e != nil {
+	if e := condition.SetConditionTransportInit(ctx, r.Client, mgh,
+		condition.CONDITION_STATUS_TRUE); e != nil {
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, e)
 	}
 

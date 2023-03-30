@@ -1,4 +1,4 @@
-{{- if not .InstallHostedMode -}}
+{{ if not .InstallHostedMode }}
 kind: Job
 apiVersion: batch/v1
 metadata:
@@ -39,4 +39,4 @@ spec:
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
       {{ end }}
-{{- end -}}
+{{ end }}
