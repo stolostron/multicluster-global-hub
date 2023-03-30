@@ -21,7 +21,6 @@ import (
 	"embed"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
@@ -30,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -50,10 +48,8 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -134,18 +130,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// Deleting the multiclusterglobalhub instance
-	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(),
-		constants.GlobalHubCleanupFinalizer) {
-		// delete ClusterManagementAddon firstly to trigger clean up addons.
-		if err := r.deleteClusterManagementAddon(ctx); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		// prune the hub resources until all addons are cleaned up
-		if !r.allAddonDeleted(ctx) {
-			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-		}
-
+	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
 		if err := r.pruneGlobalHubResources(ctx, mgh); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
 		}
@@ -191,31 +176,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	// }
 
 	return ctrl.Result{}, nil
-}
-
-func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
-) error {
-	mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
-	if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
-		return err
-	}
-
-	// clean up namesapced resources, eg. mgh system namespace, etc
-	if err := r.pruneNamespacedResources(ctx); err != nil {
-		return err
-	}
-
-	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
-	if err := r.pruneGlobalResources(ctx); err != nil {
-		return err
-	}
-
-	// remove finalizer from app, policy and placement.
-	if err := jobs.NewPruneFinalizer(ctx, r.Client).Run(); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (r *MulticlusterGlobalHubReconciler) reconcileNativeGlobalHub(ctx context.Context,
@@ -290,19 +250,6 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		},
 	}
 
-	// need to report the deployment status to mgh
-	deployPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return true
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return true
-		},
-	}
-
 	ownPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return false
@@ -362,7 +309,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha2.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
-		Owns(&appsv1.Deployment{}, builder.WithPredicates(deployPred)).
+		Owns(&appsv1.Deployment{}). // need to report the deployment status to mgh
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).
@@ -417,121 +364,4 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 				}
 			}), builder.WithPredicates(resPred)).
 		Complete(r)
-}
-
-// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
-// cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
-	listOpts := []client.ListOption{
-		client.MatchingLabels(map[string]string{
-			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-		}),
-	}
-
-	clusterRoleList := &rbacv1.ClusterRoleList{}
-	if err := r.Client.List(ctx, clusterRoleList, listOpts...); err != nil {
-		return err
-	}
-	for idx := range clusterRoleList.Items {
-		if err := r.Client.Delete(ctx, &clusterRoleList.Items[idx]); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	clusterRoleBindingList := &rbacv1.ClusterRoleBindingList{}
-	if err := r.Client.List(ctx, clusterRoleBindingList, listOpts...); err != nil {
-		return err
-	}
-	for idx := range clusterRoleBindingList.Items {
-		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx]); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	clusterManagementAddOnList := &addonv1alpha1.ClusterManagementAddOnList{}
-	if err := r.Client.List(ctx, clusterManagementAddOnList, listOpts...); err != nil {
-		return err
-	}
-	for idx := range clusterManagementAddOnList.Items {
-		if err := r.Client.Delete(ctx, &clusterManagementAddOnList.Items[idx]); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	webhookList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
-	if err := r.Client.List(ctx, webhookList, listOpts...); err != nil {
-		return err
-	}
-	for idx := range webhookList.Items {
-		if err := r.Client.Delete(ctx, &webhookList.Items[idx]); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// pruneNamespacedResources tries to delete mgh resources
-func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.Context) error {
-	existingMghConfigMap := &corev1.ConfigMap{}
-	err := r.Client.Get(ctx,
-		types.NamespacedName{
-			Namespace: constants.GHSystemNamespace,
-			Name:      constants.GHConfigCMName,
-		}, existingMghConfigMap)
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	} else if err == nil {
-		// clean the finalizers added by multicluster-global-hub-manager
-		existingMghConfigMap.SetFinalizers([]string{})
-		if err := utils.UpdateObject(ctx, r.Client, existingMghConfigMap); err != nil {
-			return err
-		}
-		if err := r.Client.Delete(ctx, existingMghConfigMap); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	mghSystemNamespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.GHSystemNamespace,
-			Labels: map[string]string{
-				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-			},
-		},
-	}
-	if err := r.Client.Delete(ctx, mghSystemNamespace); err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-
-	return nil
-}
-
-func (r *MulticlusterGlobalHubReconciler) deleteClusterManagementAddon(ctx context.Context) error {
-	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: operatorconstants.GHClusterManagementAddonName,
-		},
-	}
-	if err := r.Client.Delete(ctx, clusterManagementAddOn); err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
-func (r *MulticlusterGlobalHubReconciler) allAddonDeleted(ctx context.Context) bool {
-	addonList := &addonv1alpha1.ManagedClusterAddOnList{}
-	listOptions := []client.ListOption{
-		client.MatchingLabels(map[string]string{
-			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-		}),
-	}
-	if err := r.List(ctx, addonList, listOptions...); err != nil {
-		return false
-	}
-
-	return len(addonList.Items) == 0
 }
