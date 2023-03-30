@@ -71,7 +71,9 @@ spec:
           operator: "{{.Operator}}"
           value: "{{.Value}}"
           effect: "{{.Effect}}"
+          {{- if .TolerationSeconds}}
           tolerationSeconds: {{.TolerationSeconds}}
+          {{- end}}
         {{- end}}
       volumes:
       - name: kubeconfig
