@@ -81,7 +81,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			ImagePullPolicy:      string(imagePullPolicy),
 			DatasourceSecretName: datasourceSecretName,
 			NodeSelector:         mgh.Spec.NodeSelector,
-			Tolerations:          mgh.Spec.Toleration,
+			Tolerations:          mgh.Spec.Tolerations,
 		}, nil
 	})
 	if err != nil {

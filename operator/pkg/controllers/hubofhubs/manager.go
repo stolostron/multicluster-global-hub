@@ -113,7 +113,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
 			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
 			NodeSelector:           mgh.Spec.NodeSelector,
-			Tolerations:            mgh.Spec.Toleration,
+			Tolerations:            mgh.Spec.Tolerations,
 		}, nil
 	})
 	if err != nil {
