@@ -169,6 +169,14 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("unsupported data layer type: %s", mgh.Spec.DataLayer.Type)
 	}
 
+	// Make sure the reconcile work properly, and then add finalizer to the multiclusterglobalhub instance
+	if !utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
+		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
+		if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add finalizer to mgh %v", err)
+		}
+	}
+
 	// // try to start packagemanifest controller if it is not running
 	// if !isPackageManifestControllerRunnning {
 	// 	if err := (&pmcontroller.PackageManifestReconciler{
@@ -261,17 +269,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 		return err
 	}
 
-	// add finalizer to the multiclusterglobalhub instance
-	if !utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
-		if err := r.Get(ctx, types.NamespacedName{Name: mgh.Name, Namespace: mgh.Namespace}, mgh); err != nil {
-			return err
-		}
-		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
-		if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
-			return fmt.Errorf("failed to add finalizer to mgh %v", err)
-		}
-	}
-
 	return nil
 }
 
@@ -293,6 +290,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		},
 	}
 
+	// need to report the deployment status to mgh
 	deployPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return true
@@ -364,7 +362,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha2.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
-		Owns(&appsv1.Deployment{}, builder.WithPredicates(deployPred)). // need to report the deployment status to mgh
+		Owns(&appsv1.Deployment{}, builder.WithPredicates(deployPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).
