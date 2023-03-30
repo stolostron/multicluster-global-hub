@@ -57,6 +57,12 @@ const (
 	GHManagedClusterAddonName    = "multicluster-global-hub-controller"
 )
 
+// global hub names
+const (
+	GHManagerDeploymentName = "multicluster-global-hub-manager"
+	GHGrafanaDeploymentName = "multicluster-global-hub-grafana"
+)
+
 const (
 	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
 	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"

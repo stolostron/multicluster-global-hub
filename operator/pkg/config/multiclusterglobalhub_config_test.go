@@ -110,3 +110,17 @@ func TestSetImageOverrides(t *testing.T) {
 		})
 	}
 }
+
+func TestGetOauthSessionSecret(t *testing.T) {
+	secret1, err := GetOauthSessionSecret()
+	if err != nil {
+		t.Errorf("failed to get oauth session secret: %v", err)
+	}
+	secret2, err := GetOauthSessionSecret()
+	if err != nil {
+		t.Errorf("failed to get oauth session secret: %v", err)
+	}
+	if secret1 != secret2 {
+		t.Errorf("oauth session secret is not consistent")
+	}
+}
