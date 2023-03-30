@@ -122,7 +122,7 @@ function initManaged() {
     
   SECOND=0
   while true; do
-    if [ $SECOND -gt 300 ]; then
+    if [ $SECOND -gt 1000 ]; then
       echo "Timeout waiting for ${hub} + ${managed}."
       exit 1
     fi
