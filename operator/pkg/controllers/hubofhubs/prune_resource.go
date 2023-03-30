@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -36,7 +37,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Co
 	log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
 
 	// prune the hub resources until all addons are cleaned up
-	if err := r.waitUtilAddonDeleted(ctx); err != nil {
+	if err := r.waitUtilAddonDeleted(ctx, log); err != nil {
 		return fmt.Errorf("failed to wait until all addons are deleted: %w", err)
 	}
 	log.Info("all addons are deleted")
@@ -170,7 +171,7 @@ func (r *MulticlusterGlobalHubReconciler) deleteClusterManagementAddon(ctx conte
 	return nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) waitUtilAddonDeleted(ctx context.Context) error {
+func (r *MulticlusterGlobalHubReconciler) waitUtilAddonDeleted(ctx context.Context, log logr.Logger) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	if err := wait.PollUntilWithContext(ctx, 3*time.Second, func(ctx context.Context) (done bool, err error) {
@@ -186,7 +187,8 @@ func (r *MulticlusterGlobalHubReconciler) waitUtilAddonDeleted(ctx context.Conte
 		if len(addonList.Items) == 0 {
 			return true, nil
 		} else {
-			return false, fmt.Errorf("addon list is not empty: %v", addonList.Items)
+			log.Info("waiting for managedclusteraddon to be deleted", "addon size", len(addonList.Items))
+			return false, nil
 		}
 	}); err != nil {
 		return err
