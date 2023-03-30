@@ -24,6 +24,7 @@ type Client interface {
 	RestConfig(clusterName string) (*rest.Config, error)
 	HubClusterName() string
 	LeafHubClusterName() string
+	GetLeafHubClusterNames() []string
 }
 
 type client struct {
@@ -144,6 +145,16 @@ func LoadConfig(url, kubeconfig, context string) (*rest.Config, error) {
 
 func (c *client) HubClusterName() string {
 	return c.options.HubCluster.Name
+}
+
+func (c *client) GetLeafHubClusterNames() []string {
+	var clusters []string
+	for _, cluster := range c.options.ManagedClusters {
+		if cluster.Name == cluster.LeafHubName {
+			clusters = append(clusters, cluster.Name)
+		}
+	}
+	return clusters
 }
 
 func (c *client) LeafHubClusterName() string {

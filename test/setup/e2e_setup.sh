@@ -15,8 +15,8 @@ LEAF_HUB_NAME="hub"
 HUB_OF_HUB_NAME="hub-of-hubs"
 CTX_HUB="microshift" #"kind-hub-of-hubs"
 CTX_MANAGED="kind-hub"
-export HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-2}
-export MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-1}
+HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-2}
+MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-1}
 
 # setup kubeconfig
 export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}

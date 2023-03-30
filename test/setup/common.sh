@@ -434,7 +434,7 @@ function checkManagedCluster() {
   context=$1
   cluster=$2
   available=$(kubectl get mcl --context "$context" | grep "$cluster" |awk '{print $5}')
-  seconds=100
+  seconds=200
   while [[ "$available" != "True" && $seconds -gt 0 ]]; do
     echo "retry to import managed cluster $cluster to $context"
     initManaged $context $cluster
