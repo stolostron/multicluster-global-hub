@@ -31,7 +31,7 @@ func TestKafkaConsumerGroup(t *testing.T) {
 	wg.Add(1)
 
 	go func() {
-		topics := []string{"status"}
+		topics := []string{"events"}
 		if err := group.Consume(ctx, topics, h); err != nil {
 			t.Error(err)
 		}

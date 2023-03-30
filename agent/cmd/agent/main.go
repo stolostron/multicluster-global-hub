@@ -13,9 +13,9 @@ import (
 	"github.com/resmoio/kubernetes-event-exporter/pkg/exporter"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/metrics"
-	"github.com/resmoio/kubernetes-event-exporter/pkg/sinks"
 	"github.com/spf13/pflag"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -88,7 +88,7 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		return 1
 	}
 
-	go startEventExporter(ctx, restConfig, agentConfig)
+	go startEventExporter(ctx, log, restConfig, agentConfig)
 
 	log.Info("starting the agent controller manager")
 	if err := mgr.Start(ctx); err != nil {
@@ -98,42 +98,25 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 	return 0
 }
 
-func startEventExporter(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) {
+func startEventExporter(ctx context.Context, log logr.Logger, restConfig *rest.Config, agentConfig *config.AgentConfig) {
 
-	cfg := &exporter.Config{
-		MetricsNamePrefix: "mcgh",
-		Route: exporter.Route{
-			Routes: []exporter.Route{
-				{
-					Match: []exporter.Rule{
-						{
-							Receiver: "global-hub-consumer",
-						},
-					},
-				},
-			},
-		},
-		Receivers: []sinks.ReceiverConfig{
-			{
-				Name: "global-hub-consumer",
-				Kafka: &sinks.KafkaConfig{
-					Topic:    agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic,
-					ClientId: agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID,
-					Brokers: []string{
-						agentConfig.TransportConfig.KafkaConfig.BootstrapServer,
-					},
-				},
-			},
-		},
+	b, err := os.ReadFile(agentConfig.KubeEventExporterConfigPath)
+	if err != nil {
+		log.Info("no kube event exporter config file found, don't start the event watcher")
+		return
 	}
-	cfg.Receivers[0].Kafka.TLS.Enable = true
-	cfg.Receivers[0].Kafka.TLS.CaFile = agentConfig.TransportConfig.KafkaConfig.CertPath
-	cfg.Receivers[0].Kafka.TLS.InsecureSkipVerify = true
+
+	var cfg exporter.Config
+	err = yaml.Unmarshal(b, &cfg)
+	if err != nil {
+		log.Error(err, "cannot parse config to YAML")
+		return
+	}
 
 	metrics.Init(*flag.String("metrics-address", ":2112", "The address to listen on for HTTP requests."))
 	metricsStore := metrics.NewMetricsStore(cfg.MetricsNamePrefix)
 
-	engine := exporter.NewEngine(cfg, &exporter.ChannelBasedReceiverRegistry{MetricsStore: metricsStore})
+	engine := exporter.NewEngine(&cfg, &exporter.ChannelBasedReceiverRegistry{MetricsStore: metricsStore})
 	onEvent := engine.OnEvent
 	kube.NewEventWatcher(
 		restConfig, cfg.Namespace,
@@ -204,6 +187,9 @@ func parseFlags() *config.AgentConfig {
 		"leader election retry period")
 	pflag.BoolVar(&agentConfig.Terminating, "terminating", false,
 		"true is to trigger the PreStop hook to do cleanup. For example: removing finalizer")
+	pflag.StringVar(&agentConfig.KubeEventExporterConfigPath,
+		"kubernetes-event-exporter-config", "",
+		"The configuration file for the kubernetes event exporter")
 
 	pflag.Parse()
 	return agentConfig

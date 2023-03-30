@@ -36,6 +36,7 @@ spec:
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
+            - --kubernetes-event-exporter-config=/kube-event/config.yaml
           env:
             # - name: KUBECONFIG
             #   value: /var/run/secrets/hypershift/kubeconfig
@@ -57,6 +58,8 @@ spec:
           - mountPath: /kafka-ca
             name: kafka-ca
             readOnly: true
+          - mountPath: /kube-event
+            name: kubernetes-event-exporter-config
       {{ if .ImagePullSecretName }}
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
@@ -83,4 +86,7 @@ spec:
       - name: kafka-ca
         secret:
           secretName: kafka-ca-secret
+      - name: kubernetes-event-exporter-config
+        configMap:
+          name: kubernetes-event-exporter-config
 {{ end }}
