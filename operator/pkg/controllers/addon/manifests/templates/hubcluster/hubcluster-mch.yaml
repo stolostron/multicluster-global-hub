@@ -12,4 +12,6 @@ metadata:
 spec:
   disableHubSelfManagement: true
   imagePullSecret: {{ .ImagePullSecretName }}
+  nodeSelector: {{.NodeSelector}}
+  tolerations: {{.Tolerations}}
 {{ end }}

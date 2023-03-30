@@ -54,6 +54,8 @@ type ManifestsConfig struct {
 	RetryPeriod            string
 	KlusterletNamespace    string
 	KlusterletWorkSA       string
+	NodeSelector           map[string]string
+	Tolerations            []corev1.Toleration
 }
 
 type HohAgentAddon struct {
@@ -212,6 +214,9 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 			return nil, err
 		}
 	}
+
+	manifestsConfig.Tolerations = mgh.Spec.Tolerations
+	manifestsConfig.NodeSelector = mgh.Spec.NodeSelector
 
 	a.setInstallHostedMode(cluster, &manifestsConfig)
 

@@ -112,6 +112,8 @@ spec:
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
       {{ end }}
+      nodeSelector: {{.NodeSelector}}
+      tolerations: {{.Tolerations}}
       volumes:
       - name: apiserver-certs
         secret:

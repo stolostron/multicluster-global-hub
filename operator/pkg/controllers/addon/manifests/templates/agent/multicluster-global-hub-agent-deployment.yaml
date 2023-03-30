@@ -54,6 +54,8 @@ spec:
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
       {{ end }}
+      nodeSelector: {{.NodeSelector}}
+      tolerations: {{.Tolerations}}
       volumes:
       - name: kafka-ca
         secret:

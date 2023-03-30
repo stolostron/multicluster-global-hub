@@ -94,6 +94,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			LeaseDuration          string
 			RenewDeadline          string
 			RetryPeriod            string
+			NodeSelector           map[string]string
+			Tolerations            []corev1.Toleration
 		}{
 			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -110,6 +112,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
 			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
+			NodeSelector:           mgh.Spec.NodeSelector,
+			Tolerations:            mgh.Spec.Toleration,
 		}, nil
 	})
 	if err != nil {

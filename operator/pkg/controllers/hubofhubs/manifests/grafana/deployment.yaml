@@ -107,6 +107,8 @@ spec:
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
       {{ end }}
+      nodeSelector: {{.NodeSelector}}
+      tolerations: {{.Tolerations}}
       serviceAccountName: multicluster-global-hub-grafana
       volumes:
       - emptyDir: {}
