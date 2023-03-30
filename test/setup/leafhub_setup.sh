@@ -38,15 +38,23 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
 done
 
 # init ocm
-for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
-  initHub "kind-hub${i}" "${CONFIG_DIR}/kind-hub${i}" 2>&1 >> "$LEAF_HUB_LOG" &
-  hover $! "  OCM init hub kind-hub${i}" 
-  for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
-    initManaged "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG" &
-    hover $! "  OCM join managed kind-hub${i}-cluster${j}" 
-    checkManagedCluster "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG"
-  done
-done
+# for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
+#   initHub "kind-hub${i}" "${CONFIG_DIR}/kind-hub${i}" 2>&1 >> "$LEAF_HUB_LOG" &
+#   hover $! "  OCM init hub kind-hub${i}" 
+#   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
+#     initManaged "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG" &
+#     hover $! "  OCM join managed kind-hub${i}-cluster${j}" 
+#     checkManagedCluster "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG"
+#   done
+# done
+initHub "kind-hub1" "${CONFIG_DIR}/kind-hub1" 2>&1 >> "$LEAF_HUB_LOG" &
+initHub "kind-hub2" "${CONFIG_DIR}/kind-hub2" 2>&1 >> "$LEAF_HUB_LOG" &
+initManaged "kind-hub1" "kind-hub1-cluster1" 2>&1 >> "$LEAF_HUB_LOG" &
+hover $! "  OCM join managed kind-hub1-cluster1" 
+checkManagedCluster "kind-hub1" "kind-hub1-cluster1" 2>&1 >> "$LEAF_HUB_LOG"
+initManaged "kind-hub2" "kind-hub2-cluster1" 2>&1 >> "$LEAF_HUB_LOG" &
+hover $! "  OCM join managed kind-hub2-cluster1" 
+checkManagedCluster "kind-hub2" "kind-hub2-cluster1" 2>&1 >> "$LEAF_HUB_LOG"
 
 # init app
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
