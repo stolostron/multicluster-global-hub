@@ -100,7 +100,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 
 	if err := r.updateDeploymentStatus(ctx, operatorconstants.GHGrafanaDeploymentName, mgh,
-		condition.CONDITION_TYPE_GRAFANA_DEPLOY, log); err != nil {
+		condition.CONDITION_TYPE_GRAFANA_AVAILABLE, log); err != nil {
 		return fmt.Errorf("failed to update grafana deployment status: %w", err)
 	}
 	return nil
@@ -145,7 +145,10 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 
 	// Check if this already exists
 	grafanaDSFound := &corev1.Secret{}
-	err = r.Client.Get(ctx, types.NamespacedName{Name: dsSecret.Name, Namespace: dsSecret.Namespace}, grafanaDSFound)
+	err = r.Client.Get(ctx, types.NamespacedName{
+		Name:      dsSecret.Name,
+		Namespace: dsSecret.Namespace,
+	}, grafanaDSFound)
 
 	if err != nil && errors.IsNotFound(err) {
 		if err := r.Client.Create(ctx, dsSecret); err != nil {

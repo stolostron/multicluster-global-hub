@@ -317,13 +317,13 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return fmt.Errorf("the transport init condition is not set to true")
 				}
 				if condition.GetConditionStatus(createdMGH,
-					condition.CONDITION_TYPE_MANAGER_DEPLOY) !=
-					condition.CONDITION_STATUS_TRUE {
+					condition.CONDITION_TYPE_MANAGER_AVAILABLE) !=
+					condition.CONDITION_STATUS_FALSE {
 					return fmt.Errorf("the manager deploy condition is not set to true")
 				}
 				if condition.GetConditionStatus(createdMGH,
-					condition.CONDITION_TYPE_GRAFANA_DEPLOY) !=
-					condition.CONDITION_STATUS_TRUE {
+					condition.CONDITION_TYPE_GRAFANA_AVAILABLE) !=
+					condition.CONDITION_STATUS_FALSE {
 					return fmt.Errorf("the grafana init condition is not set to true")
 				}
 				if !utils.Contains(createdMGH.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {

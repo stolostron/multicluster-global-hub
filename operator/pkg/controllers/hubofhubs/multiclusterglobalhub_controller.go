@@ -169,14 +169,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("unsupported data layer type: %s", mgh.Spec.DataLayer.Type)
 	}
 
-	// Make sure the reconcile work properly, and then add finalizer to the multiclusterglobalhub instance
-	if !utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
-		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
-		if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add finalizer to mgh %v", err)
-		}
-	}
-
 	// // try to start packagemanifest controller if it is not running
 	// if !isPackageManifestControllerRunnning {
 	// 	if err := (&pmcontroller.PackageManifestReconciler{
@@ -244,7 +236,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	// reconcile database
 	if err := r.reconcileDatabase(ctx, mgh); err != nil {
-		if e := condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); e != nil {
+		if e := condition.SetConditionDatabaseInit(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_FALSE); e != nil {
 			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
 		}
 		return err
@@ -252,7 +245,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	// reconcile manager
 	if err := r.reconcileManager(ctx, mgh); err != nil {
-		if e := condition.SetConditionManagerDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); e != nil {
+		if e := condition.SetConditionManagerAvailable(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_FALSE); e != nil {
 			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
 		}
 		return err
@@ -260,10 +254,22 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	// reconcile grafana
 	if err := r.reconcileGrafana(ctx, mgh); err != nil {
-		if e := condition.SetConditionGrafanaDeployed(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE); e != nil {
+		if e := condition.SetConditionGrafanaAvailable(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_FALSE); e != nil {
 			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
 		}
 		return err
+	}
+
+	// add finalizer to the multiclusterglobalhub instance
+	if !utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
+		if err := r.Get(ctx, types.NamespacedName{Name: mgh.Name, Namespace: mgh.Namespace}, mgh); err != nil {
+			return err
+		}
+		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
+		if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
+			return fmt.Errorf("failed to add finalizer to mgh %v", err)
+		}
 	}
 
 	return nil
@@ -284,6 +290,18 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return !e.DeleteStateUnknown
+		},
+	}
+
+	deployPred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return true
 		},
 	}
 
@@ -346,7 +364,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha2.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
-		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
+		Owns(&appsv1.Deployment{}, builder.WithPredicates(deployPred)). // need to report the deployment status to mgh
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).

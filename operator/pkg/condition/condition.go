@@ -22,6 +22,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
@@ -40,9 +41,9 @@ const (
 
 // NOTE: the status of GrafanaInitialized can be True or False
 const (
-	CONDITION_TYPE_GRAFANA_DEPLOY    = "GrafanaDeployed"
-	CONDITION_REASON_GRAFANA_DEPLOY  = "GrafanaDeployed"
-	CONDITION_MESSAGE_GRAFANA_DEPLOY = "Multicluster Global Hub Grafana has been deployed"
+	CONDITION_TYPE_GRAFANA_AVAILABLE    = "GrafanaAvailable"
+	CONDITION_REASON_GRAFANA_AVAILABLE  = "DeployedButNotReady"
+	CONDITION_MESSAGE_GRAFANA_AVAILABLE = "Multicluster Global Hub Grafana has been deployed"
 )
 
 // NOTE: the status of DatabaseInitialized can be True or False
@@ -61,9 +62,9 @@ const (
 
 // NOTE: the status of ManagerDeployed can only be True; otherwise there is no condition
 const (
-	CONDITION_TYPE_MANAGER_DEPLOY    = "ManagerDeployed"
-	CONDITION_REASON_MANAGER_DEPLOY  = "ManagerDeployed"
-	CONDITION_MESSAGE_MANAGER_DEPLOY = "Multicluster Global Hub Manager has been deployed"
+	CONDITION_TYPE_MANAGER_AVAILABLE    = "ManagerAvailable"
+	CONDITION_REASON_MANAGER_AVAILABLE  = "DeployedButNotReady"
+	CONDITION_MESSAGE_MANAGER_AVAILABLE = "Multicluster Global Hub Manager has been deployed"
 )
 
 // NOTE: the status of LeafHubDeployed can only be True; otherwise there is no condition
@@ -84,11 +85,11 @@ func FailToSetConditionError(condition string, err error) error {
 	return fmt.Errorf("failed to set condition(%s): %w", condition, err)
 }
 
-func SetConditionGrafanaDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionGrafanaAvailable(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRAFANA_DEPLOY, status, CONDITION_REASON_GRAFANA_DEPLOY,
-		CONDITION_MESSAGE_GRAFANA_DEPLOY)
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRAFANA_AVAILABLE, status, CONDITION_REASON_GRAFANA_AVAILABLE,
+		CONDITION_MESSAGE_GRAFANA_AVAILABLE)
 }
 
 func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
@@ -105,11 +106,11 @@ func SetConditionTransportInit(ctx context.Context, c client.Client, mgh *operat
 		CONDITION_REASON_TRANSPORT_INIT, CONDITION_MESSAGE_TRANSPORT_INIT)
 }
 
-func SetConditionManagerDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MANAGER_DEPLOY, status,
-		CONDITION_REASON_MANAGER_DEPLOY, CONDITION_MESSAGE_MANAGER_DEPLOY)
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MANAGER_AVAILABLE, status,
+		CONDITION_REASON_MANAGER_AVAILABLE, CONDITION_MESSAGE_MANAGER_AVAILABLE)
 }
 
 func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
@@ -200,6 +201,30 @@ func DeleteCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2
 	}
 	mgh.Status.Conditions = newConditions
 	err := c.Status().Update(ctx, mgh)
+	if err != nil {
+		return fmt.Errorf("failed to update hoh mgh status condition: %v", err)
+	}
+	return nil
+}
+
+func UpdateCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	cond metav1.Condition,
+) error {
+	err := c.Get(ctx, types.NamespacedName{Name: mgh.Name, Namespace: mgh.Namespace}, mgh)
+	if err != nil {
+		return fmt.Errorf("failed to get hoh mgh: %v", err)
+	}
+	isExist := false
+	for i, condition := range mgh.Status.Conditions {
+		if condition.Type == cond.Type {
+			mgh.Status.Conditions[i] = cond
+			isExist = true
+		}
+	}
+	if !isExist {
+		mgh.Status.Conditions = append(mgh.Status.Conditions, cond)
+	}
+	err = c.Status().Update(ctx, mgh)
 	if err != nil {
 		return fmt.Errorf("failed to update hoh mgh status condition: %v", err)
 	}
