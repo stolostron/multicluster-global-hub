@@ -22,7 +22,6 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
@@ -210,10 +209,10 @@ func DeleteCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2
 func UpdateCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	cond metav1.Condition,
 ) error {
-	err := c.Get(ctx, types.NamespacedName{Name: mgh.Name, Namespace: mgh.Namespace}, mgh)
-	if err != nil {
-		return fmt.Errorf("failed to get hoh mgh: %v", err)
+	if ContainConditionStatusReason(mgh, cond.Type, cond.Reason, cond.Status) {
+		return nil
 	}
+
 	isExist := false
 	for i, condition := range mgh.Status.Conditions {
 		if condition.Type == cond.Type {
@@ -224,8 +223,8 @@ func UpdateCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2
 	if !isExist {
 		mgh.Status.Conditions = append(mgh.Status.Conditions, cond)
 	}
-	err = c.Status().Update(ctx, mgh)
-	if err != nil {
+
+	if err := c.Status().Update(ctx, mgh); err != nil {
 		return fmt.Errorf("failed to update hoh mgh status condition: %v", err)
 	}
 	return nil

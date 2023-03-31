@@ -4,15 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/go-logr/logr"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
@@ -124,45 +120,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		return fmt.Errorf("failed to create/update manager objects: %v", err)
 	}
 
-	if err := r.updateDeploymentStatus(ctx, operatorconstants.GHManagerDeploymentName, mgh,
-		condition.CONDITION_TYPE_MANAGER_AVAILABLE, log); err != nil {
-		return fmt.Errorf("failed to update manager deployment status: %v", err)
-	}
-	return nil
-}
-
-func (r *MulticlusterGlobalHubReconciler) updateDeploymentStatus(ctx context.Context, deployName string,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub, conditionType string, log logr.Logger,
-) error {
-	targetCondition := metav1.Condition{
-		Type:               conditionType,
-		Status:             metav1.ConditionFalse,
-		Reason:             "DeployedButNotReady",
-		Message:            "Deployment is created but not ready yet",
-		LastTransitionTime: metav1.Time{Time: time.Now()},
-	}
-
-	deployment := &appsv1.Deployment{}
-	if err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      deployName,
-		Namespace: config.GetDefaultNamespace(),
-	}, deployment); err != nil {
-		log.Error(err, "failed to get deployment")
-	}
-	for _, cond := range deployment.Status.Conditions {
-		if cond.Type == appsv1.DeploymentAvailable {
-			targetCondition.Status = metav1.ConditionStatus(cond.Status)
-			targetCondition.Reason = cond.Reason
-			targetCondition.Message = cond.Message
-			targetCondition.LastTransitionTime = cond.LastTransitionTime
-		}
-	}
-	if condition.ContainConditionStatusReason(mgh, conditionType, targetCondition.Reason, targetCondition.Status) {
-		return nil
-	}
-	if err := condition.UpdateCondition(ctx, r.Client, mgh, targetCondition); err != nil {
-		return err
-	}
 	return nil
 }
 

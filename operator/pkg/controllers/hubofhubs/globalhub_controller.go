@@ -213,19 +213,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	// reconcile manager
 	if err := r.reconcileManager(ctx, mgh); err != nil {
-		if e := condition.SetConditionManagerAvailable(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_FALSE); e != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
-		}
 		return err
 	}
 
 	// reconcile grafana
 	if err := r.reconcileGrafana(ctx, mgh); err != nil {
-		if e := condition.SetConditionGrafanaAvailable(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_FALSE); e != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
-		}
 		return err
 	}
 

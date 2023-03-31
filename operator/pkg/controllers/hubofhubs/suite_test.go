@@ -169,6 +169,12 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&hubofhubscontroller.GlobalHubConditionReconciler{
+		Client: k8sManager.GetClient(),
+		Log:    ctrl.Log.WithName("status-condition-reconciler"),
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
