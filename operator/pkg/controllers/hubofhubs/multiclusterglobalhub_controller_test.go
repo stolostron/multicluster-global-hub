@@ -247,6 +247,15 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 						},
 					},
 				},
+				NodeSelector: map[string]string{"foo": "bar"},
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "dedicated",
+						Operator: corev1.TolerationOpEqual,
+						Effect:   corev1.TaintEffectNoSchedule,
+						Value:    "infra",
+					},
+				},
 			},
 		}
 
@@ -361,11 +370,13 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					LeaseDuration          string
 					RenewDeadline          string
 					RetryPeriod            string
+					NodeSelector           map[string]string
+					Tolerations            []corev1.Toleration
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
 					ImagePullPolicy:        string(imagePullPolicy),
-					ImagePullSecret:        mgh.Spec.ImagePullSecret,
+					ImagePullSecret:        operatorconstants.DefaultImagePullSecretName,
 					ProxySessionSecret:     "testing",
 					DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
@@ -377,12 +388,21 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",
 					RetryPeriod:            "26",
+					NodeSelector:           map[string]string{"foo": "bar"},
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "dedicated",
+							Operator: corev1.TolerationOpEqual,
+							Effect:   corev1.TaintEffectNoSchedule,
+							Value:    "infra",
+						},
+					},
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
-				for _, unsObj := range managerObjects {
-					err := checkResourceExistence(ctx, k8sClient, unsObj)
+				for _, desiredObj := range managerObjects {
+					err := checkResourceExistence(ctx, k8sClient, desiredObj)
 					if err != nil {
 						return err
 					}
@@ -402,28 +422,39 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					DatasourceSecretName string
 					ImagePullPolicy      string
 					ImagePullSecret      string
+					NodeSelector         map[string]string
+					Tolerations          []corev1.Toleration
 				}{
 					Namespace:            config.GetDefaultNamespace(),
 					SessionSecret:        "testing",
 					ProxyImage:           config.GetImage(config.OauthProxyImageKey),
 					GrafanaImage:         config.GetImage(config.GrafanaImageKey),
 					ImagePullPolicy:      string(imagePullPolicy),
-					ImagePullSecret:      mgh.Spec.ImagePullSecret,
+					ImagePullSecret:      operatorconstants.DefaultImagePullSecretName,
 					DatasourceSecretName: datasourceSecretName,
+					NodeSelector:         map[string]string{"foo": "bar"},
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "dedicated",
+							Operator: corev1.TolerationOpEqual,
+							Effect:   corev1.TaintEffectNoSchedule,
+							Value:    "infra",
+						},
+					},
 				}, nil
 			})
 
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
-				for _, unsObj := range grafanaObjects {
-					objLookupKey := types.NamespacedName{Name: unsObj.GetName(), Namespace: unsObj.GetNamespace()}
+				for _, desiredObj := range grafanaObjects {
+					objLookupKey := types.NamespacedName{Name: desiredObj.GetName(), Namespace: desiredObj.GetNamespace()}
 					foundObj := &unstructured.Unstructured{}
-					foundObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
+					foundObj.SetGroupVersionKind(desiredObj.GetObjectKind().GroupVersionKind())
 					if err := k8sClient.Get(ctx, objLookupKey, foundObj); err != nil {
 						return err
 					}
 					fmt.Printf("found grafana resource: %s(%s) \n",
-						unsObj.GetObjectKind().GroupVersionKind().Kind, objLookupKey)
+						desiredObj.GetObjectKind().GroupVersionKind().Kind, objLookupKey)
 				}
 				fmt.Printf("all grafana resources(%d) are created as expected \n", len(grafanaObjects))
 				return nil
@@ -472,12 +503,12 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				obj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 				Expect(k8sClient.Delete(ctx, obj)).Should(Succeed())
 				Eventually(func() error {
-					unsObj := &unstructured.Unstructured{}
-					unsObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+					desiredObj := &unstructured.Unstructured{}
+					desiredObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 					return k8sClient.Get(ctx, types.NamespacedName{
 						Namespace: obj.GetNamespace(),
 						Name:      obj.GetName(),
-					}, unsObj)
+					}, desiredObj)
 				}, timeout, interval).Should(Succeed())
 			}
 
@@ -813,12 +844,12 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			// see: https://book.kubebuilder.io/reference/envtest.html#testing-considerations
 			// for _, obj := range managerObjects {
 			// 	Eventually(func() bool {
-			// 		unsObj := &unstructured.Unstructured{}
-			// 		unsObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+			// 		desiredObj := &unstructured.Unstructured{}
+			// 		desiredObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 			// 		err := k8sClient.Get(ctx, types.NamespacedName{
 			// 			Namespace: obj.GetNamespace(),
 			// 			Name:      obj.GetName(),
-			// 		}, unsObj)
+			// 		}, desiredObj)
 			// 		return errors.IsNotFound(err)
 			// 	}, timeout, interval).Should(BeTrue())
 			// }
@@ -859,24 +890,24 @@ func prettyPrint(v interface{}) error {
 	return nil
 }
 
-func checkResourceExistence(ctx context.Context, k8sClient client.Client, unsObj *unstructured.Unstructured) error {
+func checkResourceExistence(ctx context.Context, k8sClient client.Client, desiredObj *unstructured.Unstructured) error {
 	// skip session secret and kafka-ca secret check because they contain random value
-	if unsObj.GetName() == "nonk8s-apiserver-cookie-secret" ||
-		unsObj.GetName() == "kafka-ca-secret" ||
-		unsObj.GetName() == "multicluster-global-hub-grafana-cookie-secret" {
+	if desiredObj.GetName() == "nonk8s-apiserver-cookie-secret" ||
+		desiredObj.GetName() == "kafka-ca-secret" ||
+		desiredObj.GetName() == "multicluster-global-hub-grafana-cookie-secret" {
 		return nil
 	}
-	objLookupKey := types.NamespacedName{Name: unsObj.GetName(), Namespace: unsObj.GetNamespace()}
-	gvk := unsObj.GetObjectKind().GroupVersionKind()
+	objLookupKey := types.NamespacedName{Name: desiredObj.GetName(), Namespace: desiredObj.GetNamespace()}
+	gvk := desiredObj.GetObjectKind().GroupVersionKind()
 	foundObj := &unstructured.Unstructured{}
-	foundObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
+	foundObj.SetGroupVersionKind(desiredObj.GetObjectKind().GroupVersionKind())
 	if err := k8sClient.Get(ctx, objLookupKey, foundObj); err != nil {
 		return err
 	}
 
-	unsObjContent, foundObjContent := unsObj.Object, foundObj.Object
-	if !apiequality.Semantic.DeepDerivative(unsObjContent, foundObjContent) {
-		unsObjYaml, err := yaml.Marshal(unsObjContent)
+	desiredObjContent, foundObjContent := desiredObj.Object, foundObj.Object
+	if !apiequality.Semantic.DeepDerivative(desiredObjContent, foundObjContent) {
+		desiredObjYaml, err := yaml.Marshal(desiredObjContent)
 		if err != nil {
 			return err
 		}
@@ -885,8 +916,8 @@ func checkResourceExistence(ctx context.Context, k8sClient client.Client, unsObj
 			return err
 		}
 
-		return fmt.Errorf("desired and found %s(%s) are not equal, difference:\n%v\n",
-			gvk, objLookupKey, diff.Diff(string(unsObjYaml), string(foundObjYaml)))
+		return fmt.Errorf("desired and found %s(%s) are not equal, difference:\n%v\n desired: \n%v\n",
+			gvk, objLookupKey, diff.Diff(string(desiredObjYaml), string(foundObjYaml)), string(desiredObjYaml))
 	}
 
 	return nil
