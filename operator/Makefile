@@ -153,7 +153,10 @@ endif
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+ifneq ($(TARGET_NAMESPACE), open-cluster-management)
+	cd config/default  && $(KUSTOMIZE) edit set namespace ${TARGET_NAMESPACE}
+endif
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 ##@ Build Dependencies
