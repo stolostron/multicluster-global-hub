@@ -44,14 +44,14 @@ kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$M
 managed2_kubecontext=$(kubectl config current-context --kubeconfig ${managed2_kubeconfig})
 
 # leafhub1
-leafhub_kubeconfig="${CONFIG_DIR}/kubeconfig-${LEAF_HUB_NAME1}"
-kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$LEAF_HUB_NAME1" > ${leafhub_kubeconfig}
-leafhub_kubecontext=$(kubectl config current-context --kubeconfig ${leafhub_kubeconfig})
+leafhub1_kubeconfig="${CONFIG_DIR}/kubeconfig-${LEAF_HUB_NAME1}"
+kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$LEAF_HUB_NAME1" > ${leafhub1_kubeconfig}
+leafhub1_kubecontext=$(kubectl config current-context --kubeconfig ${leafhub1_kubeconfig})
 
 # leafhub2
-leafhub_kubeconfig="${CONFIG_DIR}/kubeconfig-${LEAF_HUB_NAME2}"
-kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$LEAF_HUB_NAME2" > ${leafhub_kubeconfig}
-leafhub_kubecontext=$(kubectl config current-context --kubeconfig ${leafhub_kubeconfig})
+leafhub2_kubeconfig="${CONFIG_DIR}/kubeconfig-${LEAF_HUB_NAME2}"
+kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$LEAF_HUB_NAME2" > ${leafhub2_kubeconfig}
+leafhub2_kubecontext=$(kubectl config current-context --kubeconfig ${leafhub2_kubeconfig})
 
 printf "options:" > $OPTIONS_FILE
 printf "\n  hub:" >> $OPTIONS_FILE
@@ -72,13 +72,13 @@ printf "\n      leafhubname: kind-${LEAF_HUB_NAME2}" >> $OPTIONS_FILE
 printf "\n      kubeconfig: ${managed2_kubeconfig}" >> $OPTIONS_FILE
 printf "\n      kubecontext: ${managed2_kubecontext}" >> $OPTIONS_FILE
 printf "\n    - name: kind-${LEAF_HUB_NAME1}" >> $OPTIONS_FILE                # if the clusterName = leafhubName, then it is a leafhub
-printf "\n      kubeconfig: ${leafhub_kubeconfig}" >> $OPTIONS_FILE
+printf "\n      kubeconfig: ${leafhub1_kubeconfig}" >> $OPTIONS_FILE
 printf "\n      leafhubname: kind-${LEAF_HUB_NAME1}" >> $OPTIONS_FILE
-printf "\n      kubecontext: ${leafhub_kubecontext}" >> $OPTIONS_FILE
+printf "\n      kubecontext: ${leafhub1_kubecontext}" >> $OPTIONS_FILE
 printf "\n    - name: kind-${LEAF_HUB_NAME2}" >> $OPTIONS_FILE                # if the clusterName = leafhubName, then it is a leafhub
-printf "\n      kubeconfig: ${leafhub_kubeconfig}" >> $OPTIONS_FILE
+printf "\n      kubeconfig: ${leafhub2_kubeconfig}" >> $OPTIONS_FILE
 printf "\n      leafhubname: kind-${LEAF_HUB_NAME2}" >> $OPTIONS_FILE
-printf "\n      kubecontext: ${leafhub_kubecontext}" >> $OPTIONS_FILE
+printf "\n      kubecontext: ${leafhub2_kubecontext}" >> $OPTIONS_FILE
 
 while getopts ":f:v:" opt; do
   case $opt in
