@@ -70,6 +70,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			ImagePullSecret      string
 			ImagePullPolicy      string
 			DatasourceSecretName string
+			NodeSelector         map[string]string
+			Tolerations          []corev1.Toleration
 		}{
 			Namespace:            config.GetDefaultNamespace(),
 			SessionSecret:        proxySessionSecret,
@@ -78,6 +80,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			ImagePullSecret:      imagePullSecret,
 			ImagePullPolicy:      string(imagePullPolicy),
 			DatasourceSecretName: datasourceSecretName,
+			NodeSelector:         mgh.Spec.NodeSelector,
+			Tolerations:          mgh.Spec.Tolerations,
 		}, nil
 	})
 	if err != nil {

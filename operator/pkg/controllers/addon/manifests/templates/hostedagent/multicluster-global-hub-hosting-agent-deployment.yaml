@@ -61,6 +61,20 @@ spec:
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
       {{ end }}
+      nodeSelector:
+        {{- range $key, $value := .NodeSelector}}
+        "{{$key}}": "{{$value}}"
+        {{- end}}
+      tolerations:
+        {{- range .Tolerations}}
+        - key: "{{.Key}}"
+          operator: "{{.Operator}}"
+          value: "{{.Value}}"
+          effect: "{{.Effect}}"
+          {{- if .TolerationSeconds}}
+          tolerationSeconds: {{.TolerationSeconds}}
+          {{- end}}
+        {{- end}}
       volumes:
       - name: kubeconfig
         secret:
