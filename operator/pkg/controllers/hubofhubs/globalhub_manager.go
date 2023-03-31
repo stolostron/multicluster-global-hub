@@ -6,12 +6,9 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
@@ -123,37 +120,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		return fmt.Errorf("failed to create/update manager objects: %v", err)
 	}
 
-	// Update the deployment Available status
-	if err := r.updateDeploymentStatus(ctx, operatorconstants.GHManagerDeploymentName, mgh,
-		condition.CONDITION_TYPE_MANAGER_DEPLOY, log); err != nil {
-		return fmt.Errorf("failed to update manager deployment status: %v", err)
-	}
-
-	return nil
-}
-
-func (r *MulticlusterGlobalHubReconciler) updateDeploymentStatus(ctx context.Context, deployName string,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub, conditionType string, log logr.Logger,
-) error {
-	message := "Deployment is deployed, but not ready"
-	reason := "GlobalHubDeploymentNotReady"
-	deployment := &appsv1.Deployment{}
-	if err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      deployName,
-		Namespace: config.GetDefaultNamespace(),
-	}, deployment); err != nil && !errors.IsNotFound(err) {
-		log.Error(err, message)
-	}
-	for _, condition := range deployment.Status.Conditions {
-		if condition.Type == appsv1.DeploymentAvailable {
-			message = condition.Message
-			reason = condition.Reason
-		}
-	}
-	if err := condition.SetCondition(ctx, r.Client, mgh, conditionType,
-		condition.CONDITION_STATUS_TRUE, reason, message); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -187,7 +153,6 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 		labels[constants.GlobalHubOwnerLabelKey] = constants.GHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
-		log.Info("creating or updating object", "object", obj)
 		if err := hohDeployer.Deploy(obj); err != nil {
 			return err
 		}

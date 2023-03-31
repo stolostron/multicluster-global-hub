@@ -140,7 +140,15 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		Scheme:         mgr.GetScheme(),
 		LeaderElection: electionConfig,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MulticlusterGlobalHub")
+		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler", "controller", "MulticlusterGlobalHub")
+		return 1
+	}
+
+	if err = (&hubofhubscontrollers.GlobalHubConditionReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("status-condition-reconciler"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create GlobalHubStatusReconciler", "controller", "MulticlusterGlobalHub")
 		return 1
 	}
 

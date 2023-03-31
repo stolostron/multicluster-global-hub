@@ -19,7 +19,6 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
@@ -99,10 +98,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		return fmt.Errorf("failed to create/update grafana objects: %w", err)
 	}
 
-	if err := r.updateDeploymentStatus(ctx, operatorconstants.GHGrafanaDeploymentName, mgh,
-		condition.CONDITION_TYPE_GRAFANA_DEPLOY, log); err != nil {
-		return fmt.Errorf("failed to update grafana deployment status: %w", err)
-	}
 	return nil
 }
 
@@ -145,7 +140,10 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 
 	// Check if this already exists
 	grafanaDSFound := &corev1.Secret{}
-	err = r.Client.Get(ctx, types.NamespacedName{Name: dsSecret.Name, Namespace: dsSecret.Namespace}, grafanaDSFound)
+	err = r.Client.Get(ctx, types.NamespacedName{
+		Name:      dsSecret.Name,
+		Namespace: dsSecret.Namespace,
+	}, grafanaDSFound)
 
 	if err != nil && errors.IsNotFound(err) {
 		if err := r.Client.Create(ctx, dsSecret); err != nil {

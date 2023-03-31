@@ -148,7 +148,8 @@ var _ = Describe("addon controller", Ordered, func() {
 					if err != nil {
 						return err
 					}
-					fmt.Println("===", unstructuredObj.GetKind(), unstructuredObj.GetName(), unstructuredObj.GetNamespace())
+					fmt.Println("===", unstructuredObj.GetKind(),
+						unstructuredObj.GetName(), unstructuredObj.GetNamespace())
 					if unstructuredObj.GetKind() == "Secret" &&
 						unstructuredObj.GetName() == mgh.Spec.ImagePullSecret {
 						return nil
@@ -183,7 +184,8 @@ var _ = Describe("addon controller", Ordered, func() {
 					if err != nil {
 						return err
 					}
-					fmt.Println("+++", unstructuredObj.GetKind(), unstructuredObj.GetName(), unstructuredObj.GetNamespace())
+					fmt.Println("+++", unstructuredObj.GetKind(),
+						unstructuredObj.GetName(), unstructuredObj.GetNamespace())
 					if unstructuredObj.GetKind() == "Secret" &&
 						unstructuredObj.GetName() == operatorconstants.DefaultImagePullSecretName {
 						return nil
