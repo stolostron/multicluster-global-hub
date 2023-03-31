@@ -47,11 +47,14 @@ done
 #     checkManagedCluster "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG"
 #   done
 # done
-initHub "kind-hub1" "${CONFIG_DIR}/kind-hub1" 2>&1 >> "$LEAF_HUB_LOG" &
-initHub "kind-hub2" "${CONFIG_DIR}/kind-hub2" 2>&1 >> "$LEAF_HUB_LOG" &
+initHub "kind-hub1" 2>&1 >> "$LEAF_HUB_LOG" &
+hover $! "  OCM init hub kind-hub1" 
 initManaged "kind-hub1" "kind-hub1-cluster1" 2>&1 >> "$LEAF_HUB_LOG" &
 hover $! "  OCM join managed kind-hub1-cluster1" 
 checkManagedCluster "kind-hub1" "kind-hub1-cluster1" 2>&1 >> "$LEAF_HUB_LOG"
+
+initHub "kind-hub2" 2>&1 >> "$LEAF_HUB_LOG" &
+hover $! "  OCM init hub kind-hub2" 
 initManaged "kind-hub2" "kind-hub2-cluster1" 2>&1 >> "$LEAF_HUB_LOG" &
 hover $! "  OCM join managed kind-hub2-cluster1" 
 checkManagedCluster "kind-hub2" "kind-hub2-cluster1" 2>&1 >> "$LEAF_HUB_LOG"
