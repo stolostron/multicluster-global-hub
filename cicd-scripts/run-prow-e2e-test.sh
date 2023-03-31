@@ -22,11 +22,10 @@ echo "export VERBOSE=6" >> ${ROOT_DIR}/test/resources/env.list
 
 scp "${OPT[@]}" -r ../multicluster-global-hub "$HOST:$HOST_DIR"
 
-# ssh "${OPT[@]}" "$HOST" "sudo echo "fs.inotify.max_user_watches=524288" >> /etc/sysctl.conf && sudo sysctl -p /etc/sysctl.conf && sudo yum install gcc git wget jq -y "
-# ssh "${OPT[@]}" "$HOST" 'sudo echo "fs.inotify.max_user_watches=524288" >> /etc/sysctl.conf && sudo sysctl -p /etc/sysctl.conf && sudo yum install gcc git wget jq -y'
-ssh "${OPT[@]}" "$HOST" 'sudo sh -c "echo fs.inotify.max_user_watches=524288 >> /etc/sysctl.conf && sysctl -p /etc/sysctl.conf && yum install gcc git wget jq -y"'
+ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget jq -y 
+ssh "${OPT[@]}" "$HOST" "sudo sh -c 'echo \"fs.inotify.max_user_watches=524288\" >> /etc/sysctl.conf && sysctl -p /etc/sysctl.conf'"
 echo "setup e2e environment"
-# sleep 2d
+sleep 2d
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && sudo make e2e-setup-dependencies && make e2e-setup-start" > >(tee "$ARTIFACT_DIR/run-e2e-setup.log") 2>&1
 
 echo "runn e2e tests"
