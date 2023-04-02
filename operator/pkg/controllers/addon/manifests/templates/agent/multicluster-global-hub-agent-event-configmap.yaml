@@ -1,16 +1,17 @@
+{{ if not .InstallHostedMode }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kubernetes-event-exporter-config
-  namespace: open-cluster-management-global-hub-system
+  namespace: {{ .AddonInstallNamespace }}
   labels:
-    addon.open-cluster-management.io/hosted-manifest-location: managed
+    addon.open-cluster-management.io/hosted-manifest-location: none
 data:
   config.yaml: |
     logLevel: debug
     logFormat: json
     maxEventAgeSeconds: 10
-    metricsNamePrefix: "mcgh",
+    metricsNamePrefix: "mcgh"
     kubeQPS: 60
     kubeBurst: 60
     # namespace: my-namespace-only # Omitting it defaults to all namespaces.
@@ -32,3 +33,4 @@ data:
             enable: true
             caFile: /kafka-ca/ca.crt
             insecureSkipVerify: true
+{{ end }}
