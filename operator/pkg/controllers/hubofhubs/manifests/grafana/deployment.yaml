@@ -89,7 +89,6 @@ spec:
         args:
           - '--provider=openshift'
           - '--upstream=http://localhost:3001'
-          - '--skip-provider-button=true'
           - '--https-address=:9443'
           - '--cookie-secret-file=/etc/proxy/secrets/session_secret'
           - '--cookie-expire=12h0m0s'
