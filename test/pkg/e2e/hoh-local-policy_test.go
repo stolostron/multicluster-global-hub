@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"net/http"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -74,6 +75,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			// get multiple leafhubs
 			leafhubNames = clients.GetLeafHubClusterNames()
 			for _, leafhubName := range leafhubNames{
+				fmt.Println(leafhubName)
 				leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
 				Expect(err).Should(Succeed())
 
@@ -105,7 +107,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 
 				By("Check the label is added")
 				Eventually(func() error {
-					err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.GetUID()))
+					err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.UID))
 					if err != nil {
 						return err
 					}
@@ -118,7 +120,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							return nil
 						}
 					}
-					return fmt.Errorf("the label %s: %s is not exist", POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
+					return fmt.Errorf("the label %s: %s is not exist", LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
 				}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 			}
 		})
@@ -225,6 +227,11 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					}
 					defer rows.Close()
 
+					// for _, policy := range policies {
+					// 	js, _ := json.Marshal(policy)
+					// 	fmt.Println(string(js))
+					// }
+
 					for rows.Next() {
 						columnValues, _ := rows.Values()
 						if len(columnValues) < 3 {
@@ -234,6 +241,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 							return err
 						}
+						fmt.Printf("\n %s %s %s \n", policyId, cluster, leafhub)
 						// only for case: One-to-one relationship between the leaf hub and the managed cluster
 						var foundpolicy bool
 						for i, leafhubName := range leafhubNames {
@@ -265,6 +273,12 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err != nil {
 							return err
 						}
+						fmt.Println("############")
+						js, _ := json.Marshal(policy)
+						fmt.Println(string(js))
+						jss, _ := json.Marshal(policy.Finalizers)
+						fmt.Println(string(jss))
+						fmt.Println("###########")
 						for _, finalizer := range policy.Finalizers {
 							if finalizer == constants.GlobalHubCleanupFinalizer {
 								foundCount += 1

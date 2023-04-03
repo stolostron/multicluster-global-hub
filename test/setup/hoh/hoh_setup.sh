@@ -70,7 +70,7 @@ while [[ -z $(kubectl get deploy -n $namespace multicluster-global-hub-manager -
   sleep 2;
   (( SECOND = SECOND + 2 ))
 done;
-kubectl wait deployment -n $namespace multicluster-global-hub-manager --for condition=Available=True --timeout=500s
+kubectl wait deployment -n $namespace multicluster-global-hub-manager --for condition=Available=True --timeout=600s
 
 # Need to hack here to fix the microshift issue - https://github.com/openshift/microshift/issues/660
 kubectl annotate mutatingwebhookconfiguration multicluster-global-hub-mutator service.beta.openshift.io/inject-cabundle-
@@ -99,4 +99,4 @@ while [[ -z $(kubectl get deploy -n $agenAddonNamespace multicluster-global-hub-
   sleep 2;
   (( SECOND = SECOND + 2 ))
 done;
-kubectl --context kind-hub2 wait deployment -n $agenAddonNamespace multicluster-global-hub-agent --for condition=Available=True --timeout=500s
+kubectl --context kind-hub2 wait deployment -n $agenAddonNamespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s

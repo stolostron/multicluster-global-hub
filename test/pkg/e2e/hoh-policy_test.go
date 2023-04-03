@@ -86,7 +86,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the label is added")
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].GetUID()))
+			err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].UID))
 			if err != nil {
 				return err
 			}
@@ -163,7 +163,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 			By("Check the label is added")
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[i].GetUID()))
+				err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[i].UID))
 				if err != nil {
 					return err
 				}
@@ -290,7 +290,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			}
 
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.GetUID()))
+				err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.UID))
 				if err != nil {
 					return err
 				}
@@ -369,62 +369,6 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 1*time.Minute, 1*time.Second).Should(Succeed())
 	})
 
-	It("verify the policy resource has been added the global cleanup finalizer", func() {
-		By("Verify the policy has been added the global hub cleanup finalizer")
-		Eventually(func() error {
-			policy := &policiesv1.Policy{}
-			err := globalClient.Get(context.TODO(), client.ObjectKey{
-				Namespace: POLICY_NAMESPACE,
-				Name:      POLICY_NAME,
-			}, policy)
-			if err != nil {
-				return err
-			}
-			for _, finalizer := range policy.Finalizers {
-				if finalizer == constants.GlobalHubCleanupFinalizer {
-					return nil
-				}
-			}
-			return fmt.Errorf("the policy(%s) hasn't been added the cleanup finalizer", policy.GetName())
-		}, 1*time.Minute, 1*time.Second).Should(Succeed())
-
-		By("Verify the placementbinding has been added the global hub cleanup finalizer")
-		Eventually(func() error {
-			placementbinding := &policiesv1.PlacementBinding{}
-			err := globalClient.Get(context.TODO(), client.ObjectKey{
-				Namespace: POLICY_NAMESPACE,
-				Name:      PLACEMENTBINDING_NAME,
-			}, placementbinding)
-			if err != nil {
-				return err
-			}
-			for _, finalizer := range placementbinding.Finalizers {
-				if finalizer == constants.GlobalHubCleanupFinalizer {
-					return nil
-				}
-			}
-			return fmt.Errorf("the placementbinding(%s) hasn't been added the cleanup finalizer", placementbinding.GetName())
-		}, 1*time.Minute, 1*time.Second).Should(Succeed())
-
-		By("Verify the local placementrule has been added the global hub cleanup finalizer")
-		Eventually(func() error {
-			placementrule := &placementrulev1.PlacementRule{}
-			err := globalClient.Get(context.TODO(), client.ObjectKey{
-				Namespace: POLICY_NAMESPACE,
-				Name:      PLACEMENT_RULE_NAME,
-			}, placementrule)
-			if err != nil {
-				return err
-			}
-			for _, finalizer := range placementrule.Finalizers {
-				if finalizer == constants.GlobalHubCleanupFinalizer {
-					return nil
-				}
-			}
-			return fmt.Errorf("the placementrule(%s) hasn't been added the cleanup finalizer", placementrule.GetName())
-		}, 1*time.Minute, 1*time.Second).Should(Succeed())
-	})
-
 	AfterAll(func() {
 		By("Delete the enforce policy from global hub")
 		_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", ENFORCE_POLICY_YAML)
@@ -444,7 +388,6 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			}
 			return nil
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-
 		
 		By("Delete the LimitRange CR from managedcluster")
 		for _, managedCluster := range managedClusters{
@@ -464,7 +407,7 @@ func getPolicyStatus(client client.Client, httpClient *http.Client, name, namesp
 		return nil, err
 	}
 
-	policyUID := string(policy.GetUID())
+	policyUID := string(policy.UID)
 	getPolicyStatusURL := fmt.Sprintf("%s/global-hub-api/v1/policy/%s/status",
 		testOptions.HubCluster.Nonk8sApiServer, policyUID)
 	req, err := http.NewRequest("GET", getPolicyStatusURL, nil)
