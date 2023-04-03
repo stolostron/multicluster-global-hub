@@ -253,7 +253,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			It("check the local policy resource isn't added the global cleanup finalizer", func() {
 				By("Verify the local policy hasn't been added the global hub cleanup finalizer")
 				Eventually(func() error {
-					foundCount := 0
 					for _, leafhubClient := range leafhubClients {
 						policy := &policiesv1.Policy{}
 						err := leafhubClient.Get(context.TODO(), client.ObjectKey{
@@ -265,15 +264,11 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						}
 						for _, finalizer := range policy.Finalizers {
 							if finalizer == constants.GlobalHubCleanupFinalizer {
-								foundCount += 1
-								break
+								return fmt.Errorf("the local policy(%s) has been added the cleanup finalizer", policy.GetName())
 							}
 						}
 					}
-					if foundCount == len(leafhubClients) {
-						return nil
-					}
-					return fmt.Errorf("the local policy has been added the cleanup finalizer")
+					return nil
 				}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 				// placementbinding is not be synchronized to the global hub database, so it doesn't need the finalizer
