@@ -11,7 +11,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
+	crdClientSet "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,6 +27,7 @@ import (
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -221,24 +225,51 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig,
 	}
 	log.Info("start agent with incarnation version", "version", incarnation)
 
-	// add spec controllers
-	if err := specController.AddToManager(mgr, agentConfig); err != nil {
-		return nil, fmt.Errorf("failed to add spec syncer: %w", err)
-	}
-	log.Info("add spec controllers to manager")
+	// check the acm is installed and then add the following controllers to mgr
 
-	if err := statusController.AddControllers(mgr, agentConfig, incarnation); err != nil {
-		return nil, fmt.Errorf("failed to add status syncer: %w", err)
+	mchCrdExists, err := checkCRDExist(log, restConfig, constants.MCHCrdName)
+	if err != nil {
+		log.Info("You must install ACM before using the agent")
 	}
+	if mchCrdExists {
+		// add spec controllers
+		if err := specController.AddToManager(mgr, agentConfig); err != nil {
+			return nil, fmt.Errorf("failed to add spec syncer: %w", err)
+		}
+		log.Info("add spec controllers to manager")
 
-	if err := controllers.AddToManager(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add controllers: %w", err)
-	}
+		if err := statusController.AddControllers(mgr, agentConfig, incarnation); err != nil {
+			return nil, fmt.Errorf("failed to add status syncer: %w", err)
+		}
 
-	if err := lease.AddHoHLeaseUpdater(mgr, agentConfig.PodNameSpace,
-		"multicluster-global-hub-controller"); err != nil {
-		return nil, fmt.Errorf("failed to add lease updater: %w", err)
+		if err := controllers.AddToManager(mgr); err != nil {
+			return nil, fmt.Errorf("failed to add controllers: %w", err)
+		}
+
+		if err := lease.AddHoHLeaseUpdater(mgr, agentConfig.PodNameSpace,
+			"multicluster-global-hub-controller"); err != nil {
+			return nil, fmt.Errorf("failed to add lease updater: %w", err)
+		}
 	}
 
 	return mgr, nil
+}
+
+func checkCRDExist(log logr.Logger, config *rest.Config, crdName string) (bool, error) {
+	// generate the client based off of the config
+	crdClient, err := crdClientSet.NewForConfig(config)
+	if err != nil {
+		log.Error(err, "Failed to create CRD config client")
+		return false, err
+	}
+	_, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("unable to get CRD with ApiextensionsV1 Client, not found.", "CRD", crdName)
+			return false, nil
+		}
+		log.Error(err, "failed to get CRD with ApiextensionsV1 Client", "CRD", crdName)
+		return false, err
+	}
+	return true, nil
 }
