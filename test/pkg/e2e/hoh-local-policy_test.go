@@ -2,12 +2,11 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"strings"
 	"time"
 	"net/http"
-	"encoding/json"
+	"crypto/tls"
 
 	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -71,11 +70,9 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			placementrulev1.AddToScheme(scheme)
 			runtimeClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 			Expect(err).Should(Succeed())
-
 			// get multiple leafhubs
 			leafhubNames = clients.GetLeafHubClusterNames()
 			for _, leafhubName := range leafhubNames{
-				fmt.Println(leafhubName)
 				leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
 				Expect(err).Should(Succeed())
 
@@ -94,8 +91,9 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			postgresConn, err = database.PostgresConnection(context.TODO(), databaseURI, nil)
 			Expect(err).Should(Succeed())
 		})
-
+		
 		It("add the label to a managedcluster for the local policy", func() {
+			By("Add local label to the managed cluster")
 			for _, managedCluster := range managedClusters {
 				patches := []patch{
 					{
@@ -104,13 +102,12 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						Value: LOCAL_POLICY_LABEL_VALUE,
 					},
 				}
-
-				By("Check the label is added")
 				Eventually(func() error {
 					err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.UID))
 					if err != nil {
 						return err
 					}
+
 					managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedCluster.Name)
 					if err != nil {
 						return err
@@ -120,7 +117,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							return nil
 						}
 					}
-					return fmt.Errorf("the label %s: %s is not exist", LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
+					return fmt.Errorf("the label [%s: %s] is not exist", LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
 				}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 			}
 		})
@@ -137,7 +134,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				err := runtimeClient.Get(context.TODO(), client.ObjectKeyFromObject(globalConfig),
 					globalConfig, &client.GetOptions{})
 				Expect(err).Should(Succeed())
-				// Expect(globalConfig.Data["enableLocalPolicies"]).Should(Equal("true"))
+				Expect(globalConfig.Data["enableLocalPolicies"]).Should(Equal("true"))
 
 				By("Disable the local policy")
 				globalConfig.Data["enableLocalPolicies"] = "false"
@@ -170,7 +167,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				globalConfig.Data["enableLocalPolicies"] = "true"
 				err = runtimeClient.Update(context.TODO(), globalConfig, &client.UpdateOptions{})
 				Expect(err).Should(Succeed())
-
 				Eventually(func() error {
 					for i, leafhubClient := range leafhubClients {
 						err := leafhubClient.Get(context.TODO(), client.ObjectKeyFromObject(leafhubConfigs[i]),
@@ -188,14 +184,14 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		})
 
 		Context("When deploy local policy to the leafhub", func() {
-			It("deploy policy to the cluster with local policy label", func() {
+			It("deploy policy to the cluster to the leafhub", func() {
 				By("Deploy the policy to the leafhub")
 				for _, leafhubName := range leafhubNames {
 					output, err := clients.Kubectl(leafhubName, "apply", "-f", LOCAL_INFORM_POLICY_YAML)
 					klog.V(5).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 					Expect(err).Should(Succeed())
 				}
-				
+
 				By("Verify the local policy is directly synchronized to the global hub spec table")
 				policies := []*policiesv1.Policy{}
 				Eventually(func() error {
@@ -211,7 +207,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						}
 						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
 						if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
-							return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
+							return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME,
+						policy.Namespace, policy.Name)
 						}
 						policies = append(policies, policy)
 					}
@@ -227,11 +224,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					}
 					defer rows.Close()
 
-					// for _, policy := range policies {
-					// 	js, _ := json.Marshal(policy)
-					// 	fmt.Println(string(js))
-					// }
-
 					for rows.Next() {
 						columnValues, _ := rows.Values()
 						if len(columnValues) < 3 {
@@ -241,8 +233,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 							return err
 						}
-						fmt.Printf("\n %s %s %s \n", policyId, cluster, leafhub)
-						// only for case: One-to-one relationship between the leaf hub and the managed cluster
 						var foundpolicy bool
 						for i, leafhubName := range leafhubNames {
 							if policyId == string(policies[i].UID) && cluster == managedClusters[i].Name && leafhub == leafhubName {
@@ -273,12 +263,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err != nil {
 							return err
 						}
-						fmt.Println("############")
-						js, _ := json.Marshal(policy)
-						fmt.Println(string(js))
-						jss, _ := json.Marshal(policy.Finalizers)
-						fmt.Println(string(jss))
-						fmt.Println("###########")
 						for _, finalizer := range policy.Finalizers {
 							if finalizer == constants.GlobalHubCleanupFinalizer {
 								foundCount += 1
@@ -289,7 +273,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					if foundCount == len(leafhubClients) {
 						return nil
 					}
-					return fmt.Errorf("the local policy hasn't been added the cleanup finalizer")
+					return fmt.Errorf("the local policy has been added the cleanup finalizer")
 				}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 				// placementbinding is not be synchronized to the global hub database, so it doesn't need the finalizer
