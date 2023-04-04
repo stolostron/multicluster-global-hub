@@ -7,7 +7,7 @@ Label | Description
 global-hub.open-cluster-management.io/managed-by=`global-hub-operator\|global-hub\|global-hub-agent` | If the value is `global-hub-operator`, it means the resources are created by the global hub operator. The global hub operator watches the resources based on this label.
 global-hub.open-cluster-management.io/global-resource= | This label is added during creating global resources. It is used to identify the resource need to be propagated to the regional hub by transport.
 global-hub.open-cluster-management.io/agent-deploy-mode = `Hosted\| Default\| None` | This label is used on ManagedCluster.<br>`Hosted` means the HoH agent will be deployed on Hosting cluster.<br>`Default` means the HoH agent will be deployed on managed cluster.<br>`None` means the HoH agent should not be installed. 
-global-hub.open-cluster-management.io/hub-cluster-install | This label is used on ManagedCluster. The global hub agent will install ACM if this label exists. Otherwise, it will not be installed.
+global-hub.open-cluster-management.io/hub-cluster-install= | This label is used on ManagedCluster. The global hub agent will install ACM if this label exists. Otherwise, it will not be installed.
 
 # Annotations
 
@@ -17,6 +17,7 @@ Annotation | Description
 --- | ----------
 global-hub.open-cluster-management.io/managed-by= | This annotation is used to identify the managed cluster is managed by which regional hub cluster.
 global-hub.open-cluster-management.io/origin-ownerreference-uid= | This annotation is used to identify the resource is from the global hub cluster. The global hub agent is only handled with the resource which has this annotation.
+mgh-image-repository= | This annotation is used on MCGH/MGH CR to identify a custom image repository.
 
 # Finalizer
 
