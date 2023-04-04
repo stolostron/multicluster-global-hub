@@ -20,8 +20,6 @@ const (
 	// ControllerLeaderElectionConfig allows customizing LeaseDuration, RenewDeadline and RetryPeriod
 	// for operator, manager and agent via the ConfigMap
 	ControllerLeaderElectionConfig = "controller-leader-election-configmap"
-
-	MCHCrdName = "multiclusterhubs.operator.open-cluster-management.io"
 )
 
 // annotations for MGH CR

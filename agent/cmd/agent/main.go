@@ -14,9 +14,12 @@ import (
 	crdClientSet "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	operatorv1 "open-cluster-management.io/api/operator/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -27,7 +30,7 @@ import (
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -78,7 +81,7 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		return 1
 	}
 
-	mgr, err := createManager(restConfig, agentConfig, log)
+	mgr, err := createManager(ctx, log, restConfig, agentConfig)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
@@ -179,8 +182,8 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	return nil
 }
 
-func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig,
-	log logr.Logger,
+func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config,
+	agentConfig *config.AgentConfig,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
@@ -226,12 +229,21 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig,
 	log.Info("start agent with incarnation version", "version", incarnation)
 
 	// check the acm is installed and then add the following controllers to mgr
-
-	mchCrdExists, err := checkCRDExist(log, restConfig, constants.MCHCrdName)
+	mchCrdExists, err := ensureCRD(log, restConfig, constants.MCHCrdName)
 	if err != nil {
-		log.Info("You must install ACM before using the agent")
+		log.Error(err, "You must install ACM before using the agent")
 	}
-	if mchCrdExists {
+
+	var clusterManager *operatorv1.ClusterManager
+	if !mchCrdExists {
+		// we are using ocm for e2e test
+		clusterManager, err = ensureClusterManager(ctx, mgr.GetClient())
+		if err != nil {
+			log.Error(err, "You must install OCM before using the agent")
+		}
+	}
+
+	if mchCrdExists || clusterManager != nil {
 		// add spec controllers
 		if err := specController.AddToManager(mgr, agentConfig); err != nil {
 			return nil, fmt.Errorf("failed to add spec syncer: %w", err)
@@ -255,7 +267,7 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig,
 	return mgr, nil
 }
 
-func checkCRDExist(log logr.Logger, config *rest.Config, crdName string) (bool, error) {
+func ensureCRD(log logr.Logger, config *rest.Config, crdName string) (bool, error) {
 	// generate the client based off of the config
 	crdClient, err := crdClientSet.NewForConfig(config)
 	if err != nil {
@@ -268,8 +280,23 @@ func checkCRDExist(log logr.Logger, config *rest.Config, crdName string) (bool, 
 			log.Info("unable to get CRD with ApiextensionsV1 Client, not found.", "CRD", crdName)
 			return false, nil
 		}
-		log.Error(err, "failed to get CRD with ApiextensionsV1 Client", "CRD", crdName)
 		return false, err
 	}
 	return true, nil
+}
+
+func ensureClusterManager(ctx context.Context, client client.Client) (*operatorv1.ClusterManager, error) {
+	clusterManager := &operatorv1.ClusterManager{}
+	namespacedName := types.NamespacedName{Name: "cluster-manager"}
+	err := client.Get(ctx, namespacedName, clusterManager)
+	if apierrors.IsNotFound(err) {
+		return nil, nil
+	}
+	if meta.IsNoMatchError(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return clusterManager, nil
 }
