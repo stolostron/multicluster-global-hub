@@ -166,6 +166,7 @@ var _ = BeforeSuite(func() {
 		KubeClient:     kubeClient,
 		Scheme:         k8sManager.GetScheme(),
 		LeaderElection: leaderElection,
+		Log:            ctrl.Log.WithName("multicluster-global-hub-reconciler"),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

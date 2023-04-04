@@ -268,6 +268,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 			}
 			r := &hubofhubsaddon.HoHAddonInstallReconciler{
 				Client: fake.NewClientBuilder().WithScheme(addonTestScheme).WithObjects(objects...).Build(),
+				Log:    ctrl.Log.WithName("test"),
 			}
 			err = r.SetupWithManager(mgr)
 			if err != nil {
