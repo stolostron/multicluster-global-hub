@@ -8,12 +8,10 @@ metadata:
     addon.open-cluster-management.io/hosted-manifest-location: none
 data:
   config.yaml: |
-    logLevel: debug
+    logLevel: error
     logFormat: json
-    maxEventAgeSeconds: 10
+    maxEventAgeSeconds: 60
     metricsNamePrefix: "mcgh"
-    kubeQPS: 60
-    kubeBurst: 60
     # namespace: my-namespace-only # Omitting it defaults to all namespaces.
     route:
       # Main route
@@ -26,7 +24,7 @@ data:
       - name: "kafka"
         kafka:
           topic: "event"
-          clientID: {{ .LeafHubID }}
+          clientId: {{ .LeafHubID }}
           brokers:
             - {{ .KafkaBootstrapServer }}
           tls:
