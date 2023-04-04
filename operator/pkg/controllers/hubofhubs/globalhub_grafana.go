@@ -16,7 +16,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -33,8 +32,7 @@ const (
 func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
-	log := ctrllog.FromContext(ctx)
-	log.Info("reconciling grafana")
+	log := r.Log.WithName("grafana")
 
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
@@ -98,6 +96,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		return fmt.Errorf("failed to create/update grafana objects: %w", err)
 	}
 
+	log.Info("grafana objects created/updated successfully")
 	return nil
 }
 

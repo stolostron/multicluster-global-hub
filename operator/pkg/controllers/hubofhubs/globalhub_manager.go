@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
@@ -29,14 +28,13 @@ import (
 func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
-	log := ctrllog.FromContext(ctx)
-	log.Info("reconciling manager")
+	log := r.Log.WithName("manager")
 
+	log.Info("retrieving transport secret for the manager", "name", mgh.Spec.DataLayer.LargeScale.Kafka.Name)
 	kafkaBootstrapServer, kafkaCACert, err := utils.GetKafkaConfig(ctx, r.KubeClient, mgh)
 	if err != nil {
 		return err
 	}
-	log.Info("retrieved kafka bootstrap server and CA cert from secret")
 	if e := condition.SetConditionTransportInit(ctx, r.Client, mgh,
 		condition.CONDITION_STATUS_TRUE); e != nil {
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, e)
@@ -120,6 +118,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		return fmt.Errorf("failed to create/update manager objects: %v", err)
 	}
 
+	log.Info("manager objects are created/updated successfully")
 	return nil
 }
 

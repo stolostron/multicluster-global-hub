@@ -7,7 +7,6 @@ import (
 	iofs "io/fs"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
@@ -18,26 +17,21 @@ import (
 //go:embed database
 var databaseFS embed.FS
 
-func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
+func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
-	log := ctrllog.FromContext(ctx)
+	log := r.Log.WithName("database")
 
 	if config.SkipDBInit(mgh) {
-		log.Info("Database initialization is skipped")
+		log.Info("database initialization is skipped")
 		return nil
 	}
 
 	storageNamespace := config.GetDefaultNamespace()
 	storageName := mgh.Spec.DataLayer.LargeScale.Postgres.Name
 
-	if condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
-		log.Info("Database has initialized")
-		return nil
-	}
-
-	log.Info("Database initializing")
-	postgresSecret, err := reconciler.KubeClient.CoreV1().Secrets(storageNamespace).Get(ctx, storageName,
+	log.Info("database initializing with storage secret", "namespace", storageNamespace, "name", storageName)
+	postgresSecret, err := r.KubeClient.CoreV1().Secrets(storageNamespace).Get(ctx, storageName,
 		metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "failed to get storage secret", "namespace", storageNamespace, "name", storageName)
@@ -62,7 +56,6 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		if d.IsDir() {
 			return nil
 		}
-		log.Info("Database executing SQL file: " + file)
 		sqlBytes, err := databaseFS.ReadFile(file)
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", file, err)
@@ -77,8 +70,8 @@ func (reconciler *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context
 		return fmt.Errorf("failed to exec database sql: %w", err)
 	}
 
-	log.Info("Database initialized")
-	err = condition.SetConditionDatabaseInit(ctx, reconciler.Client, mgh, condition.CONDITION_STATUS_TRUE)
+	log.Info("database initialized")
+	err = condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE)
 	if err != nil {
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
 	}

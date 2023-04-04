@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -27,8 +26,7 @@ import (
 func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
-	log := ctrllog.FromContext(ctx)
-	log.Info("pruning global hub resources")
+	log := r.Log.WithName("prune")
 
 	// delete ClusterManagementAddon firstly to trigger clean up addons.
 	if err := r.deleteClusterManagementAddon(ctx); err != nil {
@@ -46,25 +44,22 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Co
 	if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
 		return err
 	}
-	log.Info("removed finalizer from mgh")
 
 	// clean up namesapced resources, eg. mgh system namespace, etc
 	if err := r.pruneNamespacedResources(ctx); err != nil {
 		return err
 	}
-	log.Info("pruned namespaced resources")
 
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 	if err := r.pruneGlobalResources(ctx); err != nil {
 		return err
 	}
-	log.Info("pruned global resources")
 
 	// remove finalizer from app, policy and placement.
 	if err := jobs.NewPruneFinalizer(ctx, r.Client).Run(); err != nil {
 		return err
 	}
-	log.Info("removed finalizer from app, policy, placement and etc")
+	log.Info("removed finalizer from mgh, app, policy, placement and etc")
 	return nil
 }
 

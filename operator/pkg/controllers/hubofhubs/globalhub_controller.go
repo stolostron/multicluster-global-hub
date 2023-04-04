@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -65,6 +64,7 @@ type MulticlusterGlobalHubReconciler struct {
 	KubeClient     kubernetes.Interface
 	Scheme         *runtime.Scheme
 	LeaderElection *commonobjects.LeaderElectionConfig
+	Log            logr.Logger
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -106,8 +106,7 @@ type MulticlusterGlobalHubReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := ctrllog.FromContext(ctx)
-	log.Info("Reconciling", "namespacedname", req.NamespacedName)
+	r.Log.Info("reconciling global hub", "namespace", req.Namespace, "name", req.Name)
 
 	// Fetch the multiclusterglobalhub instance
 	mgh := &operatorv1alpha2.MulticlusterGlobalHub{}
@@ -116,16 +115,16 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			log.Info("MulticlusterGlobalHub resource not found. Ignoring since object must be deleted")
+			r.Log.Info("MulticlusterGlobalHub resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		log.Error(err, "Failed to get MulticlusterGlobalHub")
+		r.Log.Error(err, "Failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
 
 	if config.IsPaused(mgh) {
-		log.Info("multiclusterglobalhub reconciliation is paused, nothing more to do")
+		r.Log.Info("multiclusterglobalhub reconciliation is paused, nothing more to do")
 		return ctrl.Result{}, nil
 	}
 
@@ -143,11 +142,11 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	switch mgh.Spec.DataLayer.Type {
 	case operatorv1alpha2.Native:
-		if err := r.reconcileNativeGlobalHub(ctx, mgh, log); err != nil {
+		if err := r.reconcileNativeGlobalHub(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
 	case operatorv1alpha2.LargeScale:
-		if err := r.reconcileLargeScaleGlobalHub(ctx, mgh, log); err != nil {
+		if err := r.reconcileLargeScaleGlobalHub(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
 	default:
@@ -179,13 +178,13 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *MulticlusterGlobalHubReconciler) reconcileNativeGlobalHub(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub, log logr.Logger,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
 	return fmt.Errorf("native data layer is not supported yet")
 }
 
 func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub, log logr.Logger,
+	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
 	// make sure largae scale data type settings are not empty
 	if mgh.Spec.DataLayer.LargeScale == nil ||

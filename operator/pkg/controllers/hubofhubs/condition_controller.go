@@ -30,7 +30,7 @@ type GlobalHubConditionReconciler struct {
 }
 
 func (r *GlobalHubConditionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Info("reconciling global hub status condition", "name", req.Name, "namespace", req.Namespace)
+	r.Log.Info("reconciling global hub status condition", "namespace", req.Namespace, "name", req.Name)
 
 	mgh := &operatorv1alpha2.MulticlusterGlobalHub{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
