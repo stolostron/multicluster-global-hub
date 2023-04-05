@@ -30,7 +30,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 ) error {
 	log := r.Log.WithName("manager")
 
-	log.Info("retrieving transport secret for the manager", "name", mgh.Spec.DataLayer.LargeScale.Kafka.Name)
+	log.Info("retrieving transport secret for the manager", "name",
+		mgh.Spec.DataLayer.LargeScale.Kafka.Name)
 	kafkaBootstrapServer, kafkaCACert, err := utils.GetKafkaConfig(ctx, r.KubeClient, mgh)
 	if err != nil {
 		return err

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/go-logr/logr"
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -129,6 +129,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if deployMode == operatorconstants.GHAgentDeployModeNone {
 			return ctrl.Result{}, nil
 		}
+		r.Log.Info("creating addon for cluster", "cluster", clusterName, "addon", addon.Name)
 		return ctrl.Result{}, r.Create(ctx, addon)
 	}
 
@@ -141,6 +142,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		existingAddon.Spec.InstallNamespace != addon.Spec.InstallNamespace {
 		existingAddon.SetAnnotations(addon.Annotations)
 		existingAddon.Spec.InstallNamespace = addon.Spec.InstallNamespace
+		r.Log.Info("updating addon for cluster", "cluster", clusterName, "addon", addon.Name)
 		return ctrl.Result{}, r.Update(ctx, existingAddon)
 	}
 

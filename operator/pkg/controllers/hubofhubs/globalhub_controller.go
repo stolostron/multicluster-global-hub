@@ -106,7 +106,7 @@ type MulticlusterGlobalHubReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Info("reconciling global hub", "namespace", req.Namespace, "name", req.Name)
+	r.Log.Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
 
 	// Fetch the multiclusterglobalhub instance
 	mgh := &operatorv1alpha2.MulticlusterGlobalHub{}
@@ -115,7 +115,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			r.Log.Info("MulticlusterGlobalHub resource not found. Ignoring since object must be deleted")
+			r.Log.Info("mgh instance not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -124,7 +124,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if config.IsPaused(mgh) {
-		r.Log.Info("multiclusterglobalhub reconciliation is paused, nothing more to do")
+		r.Log.Info("mgh reconciliation is paused, nothing more to do")
 		return ctrl.Result{}, nil
 	}
 
@@ -156,6 +156,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	// Make sure the reconcile work properly, and then add finalizer to the multiclusterglobalhub instance
 	if !utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
 		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
+		r.Log.Info("adding finalizer to mgh instance")
 		if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to add finalizer to mgh %v", err)
 		}

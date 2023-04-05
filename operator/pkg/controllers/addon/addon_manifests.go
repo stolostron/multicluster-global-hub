@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -17,7 +18,6 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/go-logr/logr"
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -150,7 +150,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	if len(installNamespace) == 0 {
 		installNamespace = operatorconstants.GHAgentInstallNamespace
 	}
-	a.log.Info("rendering manifests", "namespace", installNamespace)
+	a.log.Info("rendering manifests", "installNamespace", installNamespace)
 	mgh, err := a.getMulticlusterGlobalHub()
 	if err != nil {
 		klog.Errorf("failed to get MulticlusterGlobalHub. err: %v", err)
@@ -202,6 +202,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 
 	if a.installACMHub(cluster) {
 		manifestsConfig.InstallACMHub = true
+		a.log.Info("installing ACM on regional hub", "name", cluster.Name)
 		if err := a.setACMPackageConfigs(&manifestsConfig); err != nil {
 			return nil, err
 		}

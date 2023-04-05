@@ -88,6 +88,7 @@ func (r *GlobalHubConditionReconciler) updateDeploymentStatus(ctx context.Contex
 		}
 	}
 
+	r.Log.Info("updating deployment status", "name", deployName, "message", desiredCondition.Message)
 	if err := condition.UpdateCondition(ctx, r.Client, mgh, desiredCondition); err != nil {
 		return err
 	}

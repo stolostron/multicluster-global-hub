@@ -20,16 +20,19 @@ import (
 func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
+	log := r.Log.WithName("config")
 	// set image overrides
 	if err := config.SetImageOverrides(mgh); err != nil {
 		return err
 	}
+	log.Info("global hub image overrides set")
 
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.GHSystemNamespace,
 		}, &corev1.Namespace{}); err != nil {
 		if errors.IsNotFound(err) {
+			log.Info("creating global hub system namespace for config", "namespace", constants.GHSystemNamespace)
 			if err := r.Client.Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: constants.GHSystemNamespace,
@@ -68,6 +71,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 			Name:      constants.GHConfigCMName,
 		}, existingHoHConfigMap); err != nil {
 		if errors.IsNotFound(err) {
+			log.Info("creating global hub configmap", "namespace", constants.GHSystemNamespace,
+				"name", constants.GHConfigCMName)
 			if err := r.Client.Create(ctx, hohConfigMap); err != nil {
 				return err
 			}
@@ -80,11 +85,12 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	if !equality.Semantic.DeepDerivative(hohConfigMap.Data, existingHoHConfigMap.Data) ||
 		!equality.Semantic.DeepDerivative(hohConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
 		hohConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
+		log.Info("updating global hub configmap", "namespace", constants.GHSystemNamespace,
+			"name", constants.GHConfigCMName)
 		if err := utils.UpdateObject(ctx, r.Client, hohConfigMap); err != nil {
 			return err
 		}
 		return nil
 	}
-
 	return nil
 }
