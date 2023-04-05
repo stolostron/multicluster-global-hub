@@ -157,8 +157,14 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	if !utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
 		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
 		r.Log.Info("adding finalizer to mgh instance")
-		if err := utils.UpdateObject(ctx, r.Client, mgh); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add finalizer to mgh %v", err)
+		if err := r.Client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
+			if errors.IsConflict(err) {
+				r.Log.Info("conflict when adding finalizer to mgh instance")
+				return ctrl.Result{Requeue: true}, nil
+			} else if err != nil {
+				r.Log.Error(err, "failed to add finalizer to mgh instance")
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
