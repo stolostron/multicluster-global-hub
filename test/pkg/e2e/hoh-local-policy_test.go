@@ -7,7 +7,6 @@ import (
 	"time"
 	"net/http"
 	"crypto/tls"
-	"encoding/json"
 
 	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -76,7 +75,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			for _, leafhubName := range leafhubNames{
 				leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
 				Expect(err).Should(Succeed())
-
 				// create local namespace on each leafhub
 				err = leafhubClient.Create(context.TODO(), &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 					Name: LOCAL_POLICY_NAMESPACE,
@@ -95,16 +93,15 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		
 		It("add the label to a managedcluster for the local policy", func() {
 			By("Add local label to the managed cluster")
-			// repair forloop
-			for _, managedCluster := range managedClusters {
-				patches := []patch{
-					{
-						Op:    "add",
-						Path:  "/metadata/labels/" + LOCAL_POLICY_LABEL_KEY,
-						Value: LOCAL_POLICY_LABEL_VALUE,
-					},
-				}
-				Eventually(func() error {
+			patches := []patch{
+				{
+					Op:    "add",
+					Path:  "/metadata/labels/" + LOCAL_POLICY_LABEL_KEY,
+					Value: LOCAL_POLICY_LABEL_VALUE,
+				},
+			}
+			Eventually(func() error {
+				for _, managedCluster := range managedClusters {
 					err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.UID))
 					if err != nil {
 						return err
@@ -114,13 +111,13 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						return err
 					}
 					if val, ok := managedClusterInfo.Labels[LOCAL_POLICY_LABEL_KEY]; ok {
-						if val == LOCAL_POLICY_LABEL_VALUE {
-							return nil
+						if val != LOCAL_POLICY_LABEL_VALUE {
+							return fmt.Errorf("the label [%s: %s] is not exist", LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
 						}
 					}
-					return fmt.Errorf("the label [%s: %s] is not exist", LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
-				}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-			}
+				}
+				return nil
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		Context("When updated the local policy configmap", func() {
@@ -194,25 +191,24 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				}
 
 				By("Verify the local policy is directly synchronized to the global hub spec table")
-				policies := []*policiesv1.Policy{}
+				policies := make(map[string]*policiesv1.Policy)
 				Eventually(func() error {
-					rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.policies")
+					rows, err := postgresConn.Query(context.TODO(), "select leaf_hub_name,payload from local_spec.policies")
 					if err != nil {
 						return err
 					}
 					defer rows.Close()
 					for rows.Next() {
 						policy := &policiesv1.Policy{}
-						if err := rows.Scan(policy); err != nil {
+						leafhub := ""
+						if err := rows.Scan(&leafhub, policy); err != nil {
 							return err
 						}
 						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-						// verify leafhubname, better use index
 						if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
-							return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME,
-						policy.Namespace, policy.Name)
+							return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
 						}
-						policies = append(policies, policy)
+						policies[leafhub] = policy
 					}
 					return nil
 				}, 1*time.Minute, 1*time.Second).Should(Succeed())
@@ -226,13 +222,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					}
 					defer rows.Close()
 
-					for _, policy := range policies {
-						js, _ := json.Marshal(policy)
-						fmt.Println(string(js))
-					}
-
-					// logic error, need check 2 hubs
-					// policies, if leahfubname check remove it
+					// policies, if leahfubname check remove the kv
 					for rows.Next() {
 						columnValues, _ := rows.Values()
 						if len(columnValues) < 3 {
@@ -242,17 +232,14 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 							return err
 						}
-						fmt.Println(policyId, leafhub, cluster)
-						// var foundpolicy bool
-						// for i, leafhubName := range leafhubNames {
-						// 	if policyId == string(policies[i].UID) && cluster == managedClusters[i].Name && leafhub == leafhubName {
-						// 		foundpolicy = true
-						// 		break
-						// 	}
-						// }
-						// if !foundpolicy {
-						// 	return fmt.Errorf("not get policy(%s) from local_status.compliance", policyId)
-						// }
+						for i, leafhubName := range leafhubNames {
+							if policyId == string(policies[leafhubName].UID) && cluster == managedClusters[i].Name && leafhub == leafhubName {
+								delete(policies, leafhubName)
+							}
+						}
+						if len(policies) > 0 {
+							return fmt.Errorf("not get policy from local_status.compliance")
+						}
 					}
 					return nil
 				}, 1*time.Minute, 1*time.Second).Should(Succeed())
@@ -417,8 +404,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 							return err
 						}
-						// need fix
-						var foundpolicy bool // 
+						var foundpolicy bool
 						for i, leafhubName := range leafhubNames {
 							if cluster == managedClusters[i].Name && leafhub == leafhubName {
 								foundpolicy = true

@@ -33,7 +33,7 @@ const (
 	PLACEMENT_APP_SUB_YAML      = "../../resources/app/app-helloworld-appsub-placement.yaml"
 	PLACEMENT_LOCAL_POLICY_YAML = "../../resources/policy/local-inform-limitrange-policy-placement.yaml"
 
-	// PLACEMENT_APP    = "../../resources/policy/enforce-limitrange-policy.yaml"
+	PLACEMENT_APP    = "../../resources/policy/enforce-limitrange-policy.yaml"
 	CLUSTERSET_LABEL_KEY = "cluster.open-cluster-management.io/clusterset"
 )
 
@@ -93,6 +93,16 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 	Context("When apply local policy with placement on the regional hub", func() {
 		It("deploy local policy on the regional hub", func() {
+
+			// By("manually remove the appsubreport in the regional hub") // TODO: remove this step after the issue is fixed
+			// appsubreport := &appsv1alpha1.SubscriptionReport{
+			// 	ObjectMeta: metav1.ObjectMeta{
+			// 		Name:      managedCluster2.Name,
+			// 		Namespace: managedCluster2.Name,
+			// 	},
+			// }
+			// Expect(leafhubClient.Delete(context.TODO(), appsubreport, &client.DeleteOptions{})).Should(Succeed())
+
 			By("Add local policy test label")
 			patches := []patch{
 				{
@@ -110,16 +120,18 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 			By("Verify the local policy is directly synchronized to the global hub spec table")
 			policy := &policiesv1.Policy{}
+			leafhub := ""
 			Eventually(func() error {
-				rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.policies")
+				rows, err := postgresConn.Query(context.TODO(), "select leaf_hub_name,payload from local_spec.policies")
 				if err != nil {
 					return err
 				}
 				defer rows.Close()
 				for rows.Next() {
-					if err := rows.Scan(policy); err != nil {
+					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
+					fmt.Printf("\n local_spec.policies leafhubname: %s \n", leafhub)
 					fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
 					if policy.Name == localPolicyName && policy.Namespace == localPolicyNamespace {
 						return nil
@@ -131,8 +143,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 			By("Verify the local placement policy is synchronized to the global hub status table")
 			Eventually(func() error {
-				rows, err := postgresConn.Query(context.TODO(),
-					"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+				rows, err := postgresConn.Query(context.TODO(), "SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
 				if err != nil {
 					return err
 				}
@@ -147,9 +158,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 						return err
 					}
-					// 18303079-73a6-4f95-8863-e57ef14f5c6d kind-hub2 kind-hub2-cluster1
-					// 90bfd360-c66d-4089-a507-22c8417cc793 kind-hub1 kind-hub1-cluster1
-					// c48c5d3f-929a-4743-abe5-dc0941fe37b3 kind-hub1 kind-hub1-cluster1
+					// f0a75269-7934-4116-b236-7aefb4f2f9e9 kind-hub1 kind-hub1-cluster1
 					// kind-hub1
 					// kind-hub1-cluster1
 					fmt.Println(policyId, leafhub, cluster)
@@ -220,24 +229,58 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 		It("delete the local policy(placement) from the leafhub", func() {
 			By("Delete the local policy from leafhub")
+
+			// policy := &policiesv1.Policy{}
+			// leafhub := ""
+			// fmt.Println("before delete placement")
+			// By("Verify the local policy(placement) is deleted from the spec table")
+			// Eventually(func() error {
+			// 	rows, err := postgresConn.Query(context.TODO(), "select leaf_hub_name, payload from local_spec.policies")
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	defer rows.Close()
+			// 	fmt.Println("before loop...")
+				
+			// 	for rows.Next() {
+			// 		if err := rows.Scan(&leafhub, policy); err != nil {
+			// 			return err
+			// 		}
+			// 		// "uid":"18303079-73a6-4f95-8863-e57ef14f5c6d" "disabled": false, "status": {}
+			// 		// "uid":"90bfd360-c66d-4089-a507-22c8417cc793"
+			// 		// 删除了会不会是直接没了
+			// 		fmt.Println(leafhub)
+			// 		fmt.Println("policy: ")
+			// 		js, _ := json.Marshal(policy)
+			// 		fmt.Println(string(js))
+			// 		fmt.Println("$$$$$$$$$")
+			// 	}
+			// 	return nil
+			// })
+
 			output, err := clients.Kubectl(clients.LeafHubClusterName(), "delete", "-f", PLACEMENT_LOCAL_POLICY_YAML)
 			fmt.Println(output)
 			Expect(err).Should(Succeed())
 
+			policy := &policiesv1.Policy{}
+			leafhub := ""
 			By("Verify the local policy(placement) is deleted from the spec table")
 			Eventually(func() error {
-				rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.policies")
+				rows, err := postgresConn.Query(context.TODO(), "select leaf_hub_name, payload from local_spec.policies")
 				if err != nil {
 					return err
 				}
 				defer rows.Close()
-				policy := &policiesv1.Policy{}
+				fmt.Println("before loop...")
+				
 				for rows.Next() {
-					if err := rows.Scan(policy); err != nil {
+					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
 					// "uid":"18303079-73a6-4f95-8863-e57ef14f5c6d" "disabled": false, "status": {}
 					// "uid":"90bfd360-c66d-4089-a507-22c8417cc793"
+					// 删除了会不会是直接没了
+					fmt.Println(leafhub)
 					fmt.Println("policy: ")
 					js, _ := json.Marshal(policy)
 					fmt.Println(string(js))
@@ -251,40 +294,40 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 			By("Verify the local policy(placement) is deleted from the global hub status table")
 			Eventually(func() error {
-				rows, err := postgresConn.Query(context.TODO(),
-						"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
-				if err != nil {
-					return err
-				}
-				defer rows.Close()
-
-				for rows.Next() {
-					columnValues, _ := rows.Values()
-					if len(columnValues) < 3 {
-						return fmt.Errorf("the compliance record is not correct, expected 5 but got %d", len(columnValues))
-					}
-					policyId, cluster, leafhub := "", "", ""
-					if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
-						return err
-					}
-					fmt.Println(policyId, leafhub, cluster)
-				}
-				return nil
-
-				// origin
-				// rows, err := postgresConn.Query(context.TODO(), "SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+				// rows, err := postgresConn.Query(context.TODO(),
+				// 		"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
 				// if err != nil {
 				// 	return err
 				// }
 				// defer rows.Close()
 
 				// for rows.Next() {
-				// 	fmt.Println("in forloop")
 				// 	columnValues, _ := rows.Values()
-				// 	fmt.Println(columnValues)
-				// 	return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", columnValues)
+				// 	if len(columnValues) < 3 {
+				// 		return fmt.Errorf("the compliance record is not correct, expected 5 but got %d", len(columnValues))
+				// 	}
+				// 	policyId, cluster, leafhub := "", "", ""
+				// 	if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
+				// 		return err
+				// 	}
+				// 	fmt.Println(policyId, leafhub, cluster)
 				// }
 				// return nil
+
+				// origin
+				rows, err := postgresConn.Query(context.TODO(), "SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+				if err != nil {
+					return err
+				}
+				defer rows.Close()
+
+				for rows.Next() {
+					fmt.Println("in forloop")
+					columnValues, _ := rows.Values()
+					fmt.Println(columnValues)
+					return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", columnValues)
+				}
+				return nil
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 			By("Remove local policy test label")
@@ -481,16 +524,18 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					return fmt.Errorf("the appsub is not deleted from global hub")
 				}
 
-				rows, err := postgresConn.Query(context.TODO(), "select payload from status.subscription_reports")
+				rows, err := postgresConn.Query(context.TODO(), "select leaf_hub_name,payload from status.subscription_reports")
 				if err != nil {
 					return err
 				}
 				defer rows.Close()
 				appsubreport := &appsv1alpha1.SubscriptionReport{}
+				leafhub := ""
 				for rows.Next() {
-					if err := rows.Scan(appsubreport); err != nil {
+					if err := rows.Scan(&leafhub, appsubreport); err != nil {
 						return err
 					}
+					fmt.Println(leafhub)
 					fmt.Printf("status.subscription_reports: %s/%s \n", appsubreport.Namespace, appsubreport.Name)
 					if appsubreport.Name == APP_SUB_NAME && appsubreport.Namespace == APP_SUB_NAMESPACE {
 						return fmt.Errorf("the appsub is not deleted from regional hub")
