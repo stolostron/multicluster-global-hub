@@ -41,14 +41,15 @@ cd ..
 export VERSION=0.0.1
 export IMAGE_TAG_BASE=${REGISTRY}/multicluster-global-hub-operator
 cd ./operator
-make bundle-build bundle-push
+make bundle-build bundle-push catalog-build catalog-push
 cd ..
 ```
 
 ### Running the Global Hub Operator with the Bundle Image
 ```bash
 operator-sdk run bundle ${REGISTRY}/multicluster-global-hub-operator-bundle:v0.0.1 \
-    --pull-secret-name <image-pull-secret>
+  --pull-secret-name ecr-image-pull-secret \
+  --namespace=<provisioned namespace>
 ```
 
 ### Cleanup the Operator
@@ -59,3 +60,4 @@ operator-sdk cleanup multicluster-global-hub-operator --delete-all
 ## References
 - [Operator SDK Integration with Operator Lifecycle Manager](https://sdk.operatorframework.io/docs/olm-integration/)
 - [Mirroring images for a disconnected installation](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-installation-images.html#installing-mirroring-installation-images)
+- [operator-sdk run bundle command overview](https://sdk.operatorframework.io/docs/olm-integration/testing-deployment/#operator-sdk-run-bundle-command-overview)
