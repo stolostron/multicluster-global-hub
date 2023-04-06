@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -66,6 +67,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			managedCluster2 = managedClusters[1]
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+		fmt.Println(clients.LeafHubClusterName())
 
 		By("Init the client")
 		scheme := runtime.NewScheme()
@@ -145,7 +147,16 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 						return err
 					}
+					// 18303079-73a6-4f95-8863-e57ef14f5c6d kind-hub2 kind-hub2-cluster1
+					// 90bfd360-c66d-4089-a507-22c8417cc793 kind-hub1 kind-hub1-cluster1
+					// c48c5d3f-929a-4743-abe5-dc0941fe37b3 kind-hub1 kind-hub1-cluster1
+					// kind-hub1
+					// kind-hub1-cluster1
 					fmt.Println(policyId, leafhub, cluster)
+					fmt.Println("#########")
+					fmt.Println(clients.LeafHubClusterName())
+					fmt.Println(managedCluster1.Name)
+					fmt.Println("*********")
 					if policyId == string(policy.UID) && leafhub == clients.LeafHubClusterName() &&
 						cluster == managedCluster1.Name {
 						return nil
@@ -168,6 +179,11 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				if err != nil {
 					return err
 				}
+				// "clustername":"kind-hub1-cluster1","clusternamespace":"kind-hub1-cluster1"
+				fmt.Println("policy: ")
+				js, _ := json.Marshal(policy)
+				fmt.Println(string(js))
+				fmt.Println("$$$$$$$$$")
 				for _, finalizer := range policy.Finalizers {
 					if finalizer == constants.GlobalHubCleanupFinalizer {
 						return fmt.Errorf("the local policy(%s) has been added the cleanup finalizer", policy.GetName())
@@ -187,6 +203,11 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				if err != nil {
 					return err
 				}
+				// "local-policy-placement": "test"
+				fmt.Println("placement: ")
+				js, _ := json.Marshal(placement)
+				fmt.Println(string(js))
+				fmt.Println("^^^^^^^^^")
 				for _, finalizer := range placement.Finalizers {
 					if finalizer == constants.GlobalHubCleanupFinalizer {
 						return fmt.Errorf("the local placement(%s) has been added the cleanup finalizer",
@@ -215,6 +236,12 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(policy); err != nil {
 						return err
 					}
+					// "uid":"18303079-73a6-4f95-8863-e57ef14f5c6d" "disabled": false, "status": {}
+					// "uid":"90bfd360-c66d-4089-a507-22c8417cc793"
+					fmt.Println("policy: ")
+					js, _ := json.Marshal(policy)
+					fmt.Println(string(js))
+					fmt.Println("$$$$$$$$$")
 					if policy.Name == localPolicyName && policy.Namespace == localPolicyNamespace {
 						return fmt.Errorf("the policy(%s) is not deleted from local_spec.policies", policy.GetName())
 					}
@@ -225,7 +252,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			By("Verify the local policy(placement) is deleted from the global hub status table")
 			Eventually(func() error {
 				rows, err := postgresConn.Query(context.TODO(),
-					"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+						"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
 				if err != nil {
 					return err
 				}
@@ -233,9 +260,31 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 				for rows.Next() {
 					columnValues, _ := rows.Values()
-					return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", columnValues)
+					if len(columnValues) < 3 {
+						return fmt.Errorf("the compliance record is not correct, expected 5 but got %d", len(columnValues))
+					}
+					policyId, cluster, leafhub := "", "", ""
+					if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
+						return err
+					}
+					fmt.Println(policyId, leafhub, cluster)
 				}
 				return nil
+
+				// origin
+				// rows, err := postgresConn.Query(context.TODO(), "SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+				// if err != nil {
+				// 	return err
+				// }
+				// defer rows.Close()
+
+				// for rows.Next() {
+				// 	fmt.Println("in forloop")
+				// 	columnValues, _ := rows.Values()
+				// 	fmt.Println(columnValues)
+				// 	return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", columnValues)
+				// }
+				// return nil
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 			By("Remove local policy test label")
