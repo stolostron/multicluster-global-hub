@@ -226,13 +226,5 @@ func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlo
 				imagePullSecret.Data[corev1.DockerConfigJsonKey])
 		}
 	}
-
-	// 2. get image pull secret: multiclusterhub-operator-pull-secret
-	if imagePullSecret, err := a.kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(a.ctx,
-		operatorconstants.DefaultImagePullSecretName, metav1.GetOptions{}); err == nil {
-		return imagePullSecret.GetName(), base64.StdEncoding.EncodeToString(
-			imagePullSecret.Data[corev1.DockerConfigJsonKey])
-	}
-
 	return "", ""
 }

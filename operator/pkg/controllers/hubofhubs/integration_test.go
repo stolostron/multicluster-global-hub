@@ -375,7 +375,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
 					ImagePullPolicy:        string(imagePullPolicy),
-					ImagePullSecret:        operatorconstants.DefaultImagePullSecretName,
+					ImagePullSecret:        mgh.Spec.ImagePullSecret,
 					ProxySessionSecret:     "testing",
 					DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
@@ -429,7 +429,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ProxyImage:           config.GetImage(config.OauthProxyImageKey),
 					GrafanaImage:         config.GetImage(config.GrafanaImageKey),
 					ImagePullPolicy:      string(imagePullPolicy),
-					ImagePullSecret:      operatorconstants.DefaultImagePullSecretName,
+					ImagePullSecret:      mgh.Spec.ImagePullSecret,
 					DatasourceSecretName: datasourceSecretName,
 					NodeSelector:         map[string]string{"foo": "bar"},
 					Tolerations: []corev1.Toleration{
