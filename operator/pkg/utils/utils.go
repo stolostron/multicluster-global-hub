@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -103,10 +102,6 @@ func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
 
 func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.Object) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
-		if err != nil {
-			return fmt.Errorf("failed to get object: %w", err)
-		}
 		return runtimeClient.Update(ctx, obj, &client.UpdateOptions{})
 	})
 }
