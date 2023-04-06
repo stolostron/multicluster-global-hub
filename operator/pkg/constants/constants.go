@@ -41,8 +41,7 @@ const (
 
 // hub installation constants
 const (
-	LocalClusterName           = "local-cluster"
-	DefaultImagePullSecretName = "multiclusterhub-operator-pull-secret"
+	LocalClusterName = "local-cluster"
 
 	OpenshiftMarketPlaceNamespace = "openshift-marketplace"
 	ACMSubscriptionPublicSource   = "redhat-operators"

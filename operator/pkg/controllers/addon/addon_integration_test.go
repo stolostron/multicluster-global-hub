@@ -157,42 +157,6 @@ var _ = Describe("addon controller", Ordered, func() {
 				}
 				return fmt.Errorf("image global hub pull secret is not created")
 			}, timeout, interval).ShouldNot(HaveOccurred())
-
-			By("By checking the default image pull secret is created in the cluster ns")
-			mgh.Spec.ImagePullSecret = ""
-			Expect(k8sClient.Update(ctx, mgh)).Should(Succeed())
-			work := &workv1.ManifestWork{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      workName,
-				Namespace: clusterName,
-			}, work)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(k8sClient.Delete(ctx, work)).Should(Succeed())
-
-			Eventually(func() error {
-				work := &workv1.ManifestWork{}
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      workName,
-					Namespace: clusterName,
-				}, work)
-				if err != nil {
-					return err
-				}
-				for _, manifest := range work.Spec.Workload.Manifests {
-					unstructuredObj := &unstructured.Unstructured{}
-					err := json.Unmarshal(manifest.Raw, unstructuredObj)
-					if err != nil {
-						return err
-					}
-					fmt.Println("+++", unstructuredObj.GetKind(),
-						unstructuredObj.GetName(), unstructuredObj.GetNamespace())
-					if unstructuredObj.GetKind() == "Secret" &&
-						unstructuredObj.GetName() == operatorconstants.DefaultImagePullSecretName {
-						return nil
-					}
-				}
-				return fmt.Errorf("default image pull secret is not created")
-			}, timeout, interval).ShouldNot(HaveOccurred())
 		})
 
 		It("Should create HoH agent and ACM when an OCP is imported", func() {

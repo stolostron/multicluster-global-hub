@@ -239,19 +239,6 @@ func prepareBeforeTest() {
 		map[string]string{"multiclusterhub-operator": "example.com/registration-operator:test"},
 		map[string]string{"registration-operator": "example.com/registration-operator:test"})
 
-	// create a fake image pull secret
-	By("By creating a fake image pull secret")
-	Expect(k8sClient.Create(ctx, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorconstants.DefaultImagePullSecretName,
-			Namespace: config.GetDefaultNamespace(),
-		},
-		Data: map[string][]byte{
-			".dockerconfigjson": []byte(`{"test":"default pull secret"}`),
-		},
-		Type: corev1.SecretTypeDockerConfigJson,
-	})).Should(Succeed())
-
 	By("By creating a fake image global hub pull secret")
 	Expect(k8sClient.Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
