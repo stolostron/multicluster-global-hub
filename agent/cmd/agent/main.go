@@ -11,12 +11,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
-	crdClientSet "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
@@ -30,7 +28,6 @@ import (
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -221,29 +218,34 @@ func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	// incarnation version
-	incarnation, err := incarnation.GetIncarnation(mgr)
+	// generate the client based on the config
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get incarnation version: %w", err)
+		return nil, fmt.Errorf("failed to create dynamic client %v", err)
 	}
-	log.Info("start agent with incarnation version", "version", incarnation)
-
 	// check the acm is installed and then add the following controllers to mgr
-	mchCrdExists, err := ensureCRD(log, restConfig, constants.MCHCrdName)
+	mchExists, err := ensureMulticlusterHub(ctx, log, dynamicClient)
 	if err != nil {
-		log.Error(err, "You must install ACM before using the agent")
+		log.Error(err, "You need install ACM before using the agent")
 	}
 
-	var clusterManager *operatorv1.ClusterManager
-	if !mchCrdExists {
+	var clusterManagerExists bool
+	if !mchExists {
 		// we are using ocm for e2e test
-		clusterManager, err = ensureClusterManager(ctx, mgr.GetClient())
+		clusterManagerExists, err = ensureClusterManager(ctx, log, dynamicClient)
 		if err != nil {
-			log.Error(err, "You must install OCM before using the agent")
+			log.Error(err, "You need install OCM before using the agent")
 		}
 	}
 
-	if mchCrdExists || clusterManager != nil {
+	if mchExists || clusterManagerExists {
+		// incarnation version
+		incarnation, err := incarnation.GetIncarnation(mgr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get incarnation version: %w", err)
+		}
+		log.Info("start agent with incarnation version", "version", incarnation)
+
 		// add spec controllers
 		if err := specController.AddToManager(mgr, agentConfig); err != nil {
 			return nil, fmt.Errorf("failed to add spec syncer: %w", err)
@@ -267,36 +269,23 @@ func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config
 	return mgr, nil
 }
 
-func ensureCRD(log logr.Logger, config *rest.Config, crdName string) (bool, error) {
-	// generate the client based off of the config
-	crdClient, err := crdClientSet.NewForConfig(config)
+func ensureMulticlusterHub(ctx context.Context, log logr.Logger, dynamicClient dynamic.Interface) (bool, error) {
+
+	mch, err := dynamicClient.Resource(mchv1.GroupVersion.WithResource("multiclusterhubs")).
+		Namespace("").
+		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Error(err, "Failed to create CRD config client")
 		return false, err
 	}
-	_, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Info("unable to get CRD with ApiextensionsV1 Client, not found.", "CRD", crdName)
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+	return len(mch.Items) > 0, nil
 }
 
-func ensureClusterManager(ctx context.Context, client client.Client) (*operatorv1.ClusterManager, error) {
-	clusterManager := &operatorv1.ClusterManager{}
-	namespacedName := types.NamespacedName{Name: "cluster-manager"}
-	err := client.Get(ctx, namespacedName, clusterManager)
-	if apierrors.IsNotFound(err) {
-		return nil, nil
-	}
-	if meta.IsNoMatchError(err) {
-		return nil, nil
-	}
+func ensureClusterManager(ctx context.Context, log logr.Logger, dynamicClient dynamic.Interface) (
+	bool, error) {
+	clusterManager, err := dynamicClient.Resource(operatorv1.GroupVersion.WithResource("clustermanagers")).
+		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	return clusterManager, nil
+	return len(clusterManager.Items) > 0, nil
 }

@@ -8,17 +8,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -155,5 +161,169 @@ func TestAgent(t *testing.T) {
 					tc.args, tc.expectedExit, actualExit)
 			}
 		}
+	}
+}
+
+func initMockAgentConfig() *config.AgentConfig {
+	return &config.AgentConfig{
+		PodNameSpace:   "default",
+		ElectionConfig: &commonobjects.LeaderElectionConfig{},
+	}
+}
+func TestNoMCHClusterManagerCRD(t *testing.T) {
+
+	testenv := &envtest.Environment{
+		CRDDirectoryPaths:     []string{},
+		ErrorIfCRDPathMissing: true,
+	}
+	log := initLog()
+
+	cfg, err := testenv.Start()
+	if err != nil {
+		panic(err)
+	}
+	defer testenv.Stop()
+
+	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestHasMCHCRDWithoutCR(t *testing.T) {
+
+	testenv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+	log := initLog()
+
+	cfg, err := testenv.Start()
+	if err != nil {
+		panic(err)
+	}
+	// stop testenv
+	defer testenv.Stop()
+
+	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestHasMCHCRDCR(t *testing.T) {
+
+	testenv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+	log := initLog()
+
+	cfg, err := testenv.Start()
+	if err != nil {
+		panic(err)
+	}
+	// stop testenv
+	defer testenv.Stop()
+
+	// generate the client based off of the config
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "operator.open-cluster-management.io/v1",
+			"kind":       "MultiClusterHub",
+			"metadata": map[string]interface{}{
+				"name":      "test",
+				"namespace": "default",
+			},
+		},
+	}
+
+	resource := schema.GroupVersionResource{Group: "operator.open-cluster-management.io", Version: "v1", Resource: "multiclusterhubs"}
+	_, err = dynamicClient.Resource(resource).Namespace("default").
+		Create(context.TODO(), obj, metav1.CreateOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	if !strings.Contains(err.Error(), "failed to create incarnation config-map") {
+		t.Fatalf("expect to have `failed to create incarnation config-map` error, but we got %v", err)
+	}
+}
+
+func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
+
+	testenv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds", "0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+	log := initLog()
+
+	cfg, err := testenv.Start()
+	if err != nil {
+		panic(err)
+	}
+	// stop testenv
+	defer testenv.Stop()
+
+	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
+
+	testenv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds", "0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+	log := initLog()
+
+	cfg, err := testenv.Start()
+	if err != nil {
+		panic(err)
+	}
+	// stop testenv
+	defer testenv.Stop()
+
+	// generate the client based off of the config
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "operator.open-cluster-management.io/v1",
+			"kind":       "ClusterManager",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+		},
+	}
+	resource := schema.GroupVersionResource{Group: "operator.open-cluster-management.io", Version: "v1", Resource: "clustermanagers"}
+	_, err = dynamicClient.Resource(resource).
+		Create(context.TODO(), obj, metav1.CreateOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	if !strings.Contains(err.Error(), "failed to create incarnation config-map") {
+		t.Fatalf("expect to have `failed to create incarnation config-map` error, but we got %v", err)
 	}
 }
