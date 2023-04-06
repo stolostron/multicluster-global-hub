@@ -11,9 +11,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	operatorv1 "open-cluster-management.io/api/operator/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -74,7 +78,7 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		return 1
 	}
 
-	mgr, err := createManager(restConfig, agentConfig, log)
+	mgr, err := createManager(ctx, log, restConfig, agentConfig)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
@@ -175,8 +179,8 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	return nil
 }
 
-func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig,
-	log logr.Logger,
+func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config,
+	agentConfig *config.AgentConfig,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
@@ -214,31 +218,74 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig,
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	// incarnation version
-	incarnation, err := incarnation.GetIncarnation(mgr)
+	// generate the client based on the config
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get incarnation version: %w", err)
+		return nil, fmt.Errorf("failed to create dynamic client %v", err)
 	}
-	log.Info("start agent with incarnation version", "version", incarnation)
-
-	// add spec controllers
-	if err := specController.AddToManager(mgr, agentConfig); err != nil {
-		return nil, fmt.Errorf("failed to add spec syncer: %w", err)
-	}
-	log.Info("add spec controllers to manager")
-
-	if err := statusController.AddControllers(mgr, agentConfig, incarnation); err != nil {
-		return nil, fmt.Errorf("failed to add status syncer: %w", err)
+	// check the acm is installed and then add the following controllers to mgr
+	mchExists, err := ensureMulticlusterHub(ctx, log, dynamicClient)
+	if err != nil {
+		log.Error(err, "You need install ACM before using the agent")
 	}
 
-	if err := controllers.AddToManager(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add controllers: %w", err)
+	var clusterManagerExists bool
+	if !mchExists {
+		// we are using ocm for e2e test
+		clusterManagerExists, err = ensureClusterManager(ctx, log, dynamicClient)
+		if err != nil {
+			log.Error(err, "You need install OCM before using the agent")
+		}
 	}
 
-	if err := lease.AddHoHLeaseUpdater(mgr, agentConfig.PodNameSpace,
-		"multicluster-global-hub-controller"); err != nil {
-		return nil, fmt.Errorf("failed to add lease updater: %w", err)
+	if mchExists || clusterManagerExists {
+		// incarnation version
+		incarnation, err := incarnation.GetIncarnation(mgr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get incarnation version: %w", err)
+		}
+		log.Info("start agent with incarnation version", "version", incarnation)
+
+		// add spec controllers
+		if err := specController.AddToManager(mgr, agentConfig); err != nil {
+			return nil, fmt.Errorf("failed to add spec syncer: %w", err)
+		}
+		log.Info("add spec controllers to manager")
+
+		if err := statusController.AddControllers(mgr, agentConfig, incarnation); err != nil {
+			return nil, fmt.Errorf("failed to add status syncer: %w", err)
+		}
+
+		if err := controllers.AddToManager(mgr); err != nil {
+			return nil, fmt.Errorf("failed to add controllers: %w", err)
+		}
+
+		if err := lease.AddHoHLeaseUpdater(mgr, agentConfig.PodNameSpace,
+			"multicluster-global-hub-controller"); err != nil {
+			return nil, fmt.Errorf("failed to add lease updater: %w", err)
+		}
 	}
 
 	return mgr, nil
+}
+
+func ensureMulticlusterHub(ctx context.Context, log logr.Logger, dynamicClient dynamic.Interface) (bool, error) {
+
+	mch, err := dynamicClient.Resource(mchv1.GroupVersion.WithResource("multiclusterhubs")).
+		Namespace("").
+		List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false, err
+	}
+	return len(mch.Items) > 0, nil
+}
+
+func ensureClusterManager(ctx context.Context, log logr.Logger, dynamicClient dynamic.Interface) (
+	bool, error) {
+	clusterManager, err := dynamicClient.Resource(operatorv1.GroupVersion.WithResource("clustermanagers")).
+		List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false, err
+	}
+	return len(clusterManager.Items) > 0, nil
 }
