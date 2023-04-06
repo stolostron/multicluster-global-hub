@@ -139,29 +139,31 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		KubeClient:     kubeClient,
 		Scheme:         mgr.GetScheme(),
 		LeaderElection: electionConfig,
+		Log:            ctrl.Log.WithName("global-hub-reconciler"),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler", "controller", "MulticlusterGlobalHub")
+		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
 		return 1
 	}
 
 	if err = (&hubofhubscontrollers.GlobalHubConditionReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("status-condition-reconciler"),
+		Log:    ctrl.Log.WithName("condition-reconciler"),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create GlobalHubStatusReconciler", "controller", "MulticlusterGlobalHub")
+		setupLog.Error(err, "unable to create GlobalHubStatusReconciler")
 		return 1
 	}
 
 	// start addon controller
 	if err = (&hubofhubsaddon.HoHAddonInstallReconciler{
 		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("addon-reconciler"),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create addon install controller", "controller", "MulticlusterGlobalHub")
+		setupLog.Error(err, "unable to create addon reconciler")
 		return 1
 	}
 
 	if err = mgr.Add(hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(), electionConfig)); err != nil {
-		setupLog.Error(err, "unable to add addon controller", "controller", "MulticlusterGlobalHub")
+		setupLog.Error(err, "unable to add addon controller")
 		return 1
 	}
 

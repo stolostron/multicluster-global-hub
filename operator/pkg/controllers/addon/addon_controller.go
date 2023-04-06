@@ -3,6 +3,7 @@ package addon
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
@@ -11,10 +12,10 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	addonv1alpha1client "open-cluster-management.io/api/client/addon/clientset/versioned"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
@@ -41,6 +42,7 @@ type HoHAddonController struct {
 	kubeConfig     *rest.Config
 	client         client.Client
 	leaderElection *commonobjects.LeaderElectionConfig
+	log            logr.Logger
 }
 
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
@@ -50,6 +52,7 @@ func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 		kubeConfig:     kubeConfig,
 		client:         client,
 		leaderElection: leaderElection,
+		log:            ctrl.Log.WithName("agent-addon-controller"),
 	}
 }
 
@@ -62,18 +65,18 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 
 	kubeClient, err := kubernetes.NewForConfig(a.kubeConfig)
 	if err != nil {
-		klog.Errorf("failed to create kube client. err:%v", err)
+		a.log.Error(err, "failed to create kube client")
 		return err
 	}
 	dynamicClient, err := dynamic.NewForConfig(a.kubeConfig)
 	if err != nil {
-		klog.Errorf("failed to create dynamic client. err:%v", err)
+		a.log.Error(err, "failed to create dynamic client")
 		return err
 	}
 
 	addonClient, err := addonv1alpha1client.NewForConfig(a.kubeConfig)
 	if err != nil {
-		klog.Errorf("failed to create addon client. err:%v", err)
+		a.log.Error(err, "failed to create addon client")
 		return err
 	}
 
@@ -83,11 +86,12 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		client:               a.client,
 		dynamicClient:        dynamicClient,
 		leaderElectionConfig: a.leaderElection,
+		log:                  a.log.WithName("addon-values"),
 	}
 
 	mgr, err := addonmanager.New(a.kubeConfig)
 	if err != nil {
-		klog.Errorf("failed to create agent manager. err:%v", err)
+		a.log.Error(err, "failed to create addon manager")
 		return err
 	}
 
@@ -104,15 +108,16 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		WithScheme(addonScheme).
 		BuildTemplateAgentAddon()
 	if err != nil {
-		klog.Errorf("failed to create agent addon. err:%v", err)
+		a.log.Error(err, "failed to create agent addon")
 		return err
 	}
 
 	err = mgr.AddAgent(agentAddon)
 	if err != nil {
-		klog.Errorf("failed to add agent addon. err:%v", err)
+		a.log.Error(err, "failed to add agent addon to manager")
 		return err
 	}
 
+	a.log.Info("starting addon manager")
 	return mgr.Start(ctx)
 }

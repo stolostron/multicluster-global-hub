@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -29,11 +29,11 @@ import (
 
 type HoHAddonInstallReconciler struct {
 	client.Client
+	Log logr.Logger
 }
 
 func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := ctrllog.FromContext(ctx)
-	log.V(2).Info("Reconciling", "namespacedname", req.NamespacedName)
+	log := r.Log
 
 	mghList := &operatorv1alpha2.MulticlusterGlobalHubList{}
 	if err := r.List(ctx, mghList); err != nil {
@@ -129,6 +129,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if deployMode == operatorconstants.GHAgentDeployModeNone {
 			return ctrl.Result{}, nil
 		}
+		r.Log.Info("creating addon for cluster", "cluster", clusterName, "addon", addon.Name)
 		return ctrl.Result{}, r.Create(ctx, addon)
 	}
 
@@ -141,6 +142,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		existingAddon.Spec.InstallNamespace != addon.Spec.InstallNamespace {
 		existingAddon.SetAnnotations(addon.Annotations)
 		existingAddon.Spec.InstallNamespace = addon.Spec.InstallNamespace
+		r.Log.Info("updating addon for cluster", "cluster", clusterName, "addon", addon.Name)
 		return ctrl.Result{}, r.Update(ctx, existingAddon)
 	}
 

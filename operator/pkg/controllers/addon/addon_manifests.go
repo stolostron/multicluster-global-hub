@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -64,17 +65,7 @@ type HohAgentAddon struct {
 	kubeClient           kubernetes.Interface
 	dynamicClient        dynamic.Interface
 	leaderElectionConfig *commonobjects.LeaderElectionConfig
-}
-
-func NewHohAgentAddon(ctx context.Context, client client.Client, kubeClient kubernetes.Interface,
-	leaderElectionConfig *commonobjects.LeaderElectionConfig,
-) *HohAgentAddon {
-	return &HohAgentAddon{
-		ctx:                  ctx,
-		client:               client,
-		kubeClient:           kubeClient,
-		leaderElectionConfig: leaderElectionConfig,
-	}
+	log                  logr.Logger
 }
 
 func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha2.MulticlusterGlobalHub, error) {
@@ -159,7 +150,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	if len(installNamespace) == 0 {
 		installNamespace = operatorconstants.GHAgentInstallNamespace
 	}
-
+	a.log.Info("rendering manifests", "installNamespace", installNamespace)
 	mgh, err := a.getMulticlusterGlobalHub()
 	if err != nil {
 		klog.Errorf("failed to get MulticlusterGlobalHub. err: %v", err)
@@ -207,9 +198,11 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		manifestsConfig.ImagePullSecretName = pullSecretName
 		manifestsConfig.ImagePullSecretData = pullSecretData
 	}
+	a.log.Info("rendering manifests with pull secret", "name", pullSecretName)
 
 	if a.installACMHub(cluster) {
 		manifestsConfig.InstallACMHub = true
+		a.log.Info("installing ACM on regional hub", "name", cluster.Name)
 		if err := a.setACMPackageConfigs(&manifestsConfig); err != nil {
 			return nil, err
 		}
@@ -231,8 +224,6 @@ func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlo
 			mgh.Spec.ImagePullSecret, metav1.GetOptions{}); err == nil {
 			return imagePullSecret.GetName(), base64.StdEncoding.EncodeToString(
 				imagePullSecret.Data[corev1.DockerConfigJsonKey])
-		} else {
-			klog.Errorf("failed to get pull secret from mgh, err: %v", err)
 		}
 	}
 
@@ -241,8 +232,6 @@ func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlo
 		operatorconstants.DefaultImagePullSecretName, metav1.GetOptions{}); err == nil {
 		return imagePullSecret.GetName(), base64.StdEncoding.EncodeToString(
 			imagePullSecret.Data[corev1.DockerConfigJsonKey])
-	} else {
-		klog.Errorf("failed to get pull secret from mgh, err: %v", err)
 	}
 
 	return "", ""
