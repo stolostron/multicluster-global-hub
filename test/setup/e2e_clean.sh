@@ -1,7 +1,7 @@
 #!/bin/bash
 
-HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-1}
-MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-2}
+HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-2}
+MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-1}
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
@@ -13,11 +13,11 @@ source ${CURRENT_DIR}/common.sh
 checkDir ${CONFIG_DIR}
 checkKind
 
-LEAF_HUB_NAME="hub1"
+LEAF_HUB_NAME="hub"
 HUB_OF_HUB_NAME="hub-of-hubs"
 
 CTX_HUB="microshift"
-CTX_MANAGED="kind-hub1"
+CTX_MANAGED="kind-hub"
 
 # kubeconfig
 KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}

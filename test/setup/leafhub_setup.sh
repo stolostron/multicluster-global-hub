@@ -8,12 +8,11 @@
 
 set -e
 
-HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-1}
-MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-2}
-
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 CONFIG_DIR=${CURRENT_DIR}/config
 LEAF_HUB_LOG=${LEAF_HUB_LOG:-$CONFIG_DIR/leafhub_setup.log}
+HUB_CLUSTER_NUM=$1
+MANAGED_CLUSTER_NUM=$2
 
 source ${CURRENT_DIR}/common.sh
 
@@ -48,6 +47,17 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
     checkManagedCluster "kind-hub${i}" "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG"
   done
 done
+# initHub "kind-hub1" 2>&1 >> "$LEAF_HUB_LOG" &
+# hover $! "  OCM init hub kind-hub1" 
+# initManaged "kind-hub1" "kind-hub1-cluster1" 2>&1 >> "$LEAF_HUB_LOG" &
+# hover $! "  OCM join managed kind-hub1-cluster1" 
+# checkManagedCluster "kind-hub1" "kind-hub1-cluster1" 2>&1 >> "$LEAF_HUB_LOG"
+
+# initHub "kind-hub2" 2>&1 >> "$LEAF_HUB_LOG" &
+# hover $! "  OCM init hub kind-hub2" 
+# initManaged "kind-hub2" "kind-hub2-cluster1" 2>&1 >> "$LEAF_HUB_LOG" &
+# hover $! "  OCM join managed kind-hub2-cluster1" 
+# checkManagedCluster "kind-hub2" "kind-hub2-cluster1" 2>&1 >> "$LEAF_HUB_LOG"
 
 # init app
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do

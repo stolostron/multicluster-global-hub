@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"crypto/tls"
+	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,12 +39,27 @@ const (
 var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("e2e-tests-prune"), Ordered, func() {
 	ctx := context.Background()
 	var runtimeClient client.Client
-	var managedClusterName1 string
-	var managedClusterName2 string
-	var managedClusterUID1 string
-	var managedClusterUID2 string
+	var managedClusterNames []string
+	var managedClusterUIDs []string
 
 	BeforeAll(func() {
+		Eventually(func() error {
+			By("Config request of the api")
+			transport := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
+			managedClusters, err := getManagedCluster(httpClient, httpToken)
+			if err != nil {
+				return err
+			}
+			for _, managedCluster := range managedClusters {
+				managedClusterNames = append(managedClusterNames, managedCluster.Name)
+				managedClusterUIDs = append(managedClusterUIDs, string(managedCluster.GetUID()))
+			}
+			return nil
+		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
 		By("Get the runtimeClient client")
 		scheme := runtime.NewScheme()
 		appsv1alpha1.AddToScheme(scheme)
@@ -60,37 +77,27 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		var err error
 		runtimeClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
-
-		By("Get managed cluster name")
-		Eventually(func() error {
-			managedClusters, err := getManagedCluster(httpClient, httpToken)
-			if err != nil {
-				return err
-			}
-			managedClusterName1 = managedClusters[0].Name
-			managedClusterName2 = managedClusters[1].Name
-			managedClusterUID1 = string(managedClusters[0].GetUID())
-			managedClusterUID2 = string(managedClusters[1].GetUID())
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
 	It("create application", func() {
-		By("Add app label to the managedcluster1")
-		patches := []patch{
-			{
-				Op:    "add",
-				Path:  "/metadata/labels/" + APP_LABEL_KEY,
-				Value: APP_LABEL_VALUE,
-			},
-		}
-		Eventually(func() error {
-			if err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID1); err != nil {
-				return err
+		for _, managedClusterUID := range managedClusterUIDs {
+			By("Add app label to the managedcluster1")
+			patches := []patch{
+				{
+					Op:    "add",
+					Path:  "/metadata/labels/" + APP_LABEL_KEY,
+					Value: APP_LABEL_VALUE,
+				},
 			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 
+			Eventually(func() error {
+				if err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID); err != nil {
+					return err
+				}
+				return nil
+			}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+		}
+		
 		By("Apply the appsub to labeled cluster")
 		Eventually(func() error {
 			_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", APP_SUB_YAML)
@@ -102,27 +109,28 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Check the appsub is applied to the cluster")
 		Eventually(func() error {
-			return checkAppsubreport(runtimeClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 1,
-				[]string{managedClusterName1})
+			return checkAppsubreport(runtimeClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 2,
+				managedClusterNames)
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
 	It("create policy", func() {
-		By("Add policy label to the managedcluster2")
-		patches := []patch{
-			{
-				Op:    "add", // or remove
-				Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
-				Value: POLICY_LABEL_VALUE,
-			},
-		}
-		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID2)
-			if err != nil {
-				return err
+		for _, managedClusterUID := range managedClusterUIDs {
+			patches := []patch{
+				{
+					Op:    "add", // or remove
+					Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
+					Value: POLICY_LABEL_VALUE,
+				},
 			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+			Eventually(func() error {
+				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID)
+				if err != nil {
+					return err
+				}
+				return nil
+			}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+		}
 
 		By("Apply the policy to labeled cluster")
 		Eventually(func() error {
@@ -138,14 +146,19 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			if err != nil {
 				return err
 			}
-			for _, policyInfo := range status.Status {
-				if policyInfo.ClusterName == managedClusterName2 {
-					if policyInfo.ComplianceState == policiesv1.NonCompliant {
-						return nil
+			for _, managedClusterName := range managedClusterNames {
+				var foundNonCompliantPolicy bool
+				for _, policyInfo := range status.Status {
+					if policyInfo.ClusterName == managedClusterName && policyInfo.ComplianceState == policiesv1.NonCompliant {
+						foundNonCompliantPolicy = true
+						break
 					}
 				}
+				if !foundNonCompliantPolicy {
+					return fmt.Errorf("the policy has not been applied to the managed cluster %s or it is already compliant", managedClusterName)
+				}
 			}
-			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterName2)
+			return nil
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 

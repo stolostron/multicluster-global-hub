@@ -67,7 +67,7 @@ var _ = BeforeSuite(func() {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	httpClient = &http.Client{Timeout: time.Second * 10, Transport: transport}
+	httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
 })
 
 var _ = AfterSuite(func() {

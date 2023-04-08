@@ -32,15 +32,15 @@ const (
 	PLACEMENT_APP_SUB_YAML      = "../../resources/app/app-helloworld-appsub-placement.yaml"
 	PLACEMENT_LOCAL_POLICY_YAML = "../../resources/policy/local-inform-limitrange-policy-placement.yaml"
 
-	// PLACEMENT_APP    = "../../resources/policy/enforce-limitrange-policy.yaml"
+	PLACEMENT_APP    = "../../resources/policy/enforce-limitrange-policy.yaml"
 	CLUSTERSET_LABEL_KEY = "cluster.open-cluster-management.io/clusterset"
 )
 
 var _ = Describe("Apply policy/app with placement on the global hub", Ordered, Label("e2e-tests-placement"), func() {
-	var managedCluster1 clusterv1.ManagedCluster
-	var managedCluster2 clusterv1.ManagedCluster
-	var globalClient, leafhubClient client.Client
-	// var policyPlacementName string
+	var managedClusters []clusterv1.ManagedCluster
+	var leafhubNames []string
+	var globalClient client.Client
+	var leafhubClients []client.Client
 	var policyName, policyNamespace, policyClusterset string
 	var localPolicyName, localPolicyNamespace, localPlacementName, localPolicyLabelKey, localPolicyLabelVal string
 	var postgresConn *pgx.Conn
@@ -55,15 +55,14 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		localPlacementName = "placement-policy-limitrange"
 		localPolicyLabelKey = "local-policy-placement"
 		localPolicyLabelVal = "test"
+		var err error
 
 		policyClusterset = "clusterset1"
 		Eventually(func() error {
-			managedClusters, err := getManagedCluster(httpClient, httpToken)
+			managedClusters, err = getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
 			}
-			managedCluster1 = managedClusters[0]
-			managedCluster2 = managedClusters[1]
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -77,11 +76,16 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		Expect(clusterv1.AddToScheme(scheme))
 		Expect(appsv1.SchemeBuilder.AddToScheme(scheme))
 		Expect(appsv1alpha1.AddToScheme(scheme))
-		var err error
 		globalClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 		Expect(err).ShouldNot(HaveOccurred())
-		leafhubClient, err = clients.ControllerRuntimeClient((clients.LeafHubClusterName()), scheme)
-		Expect(err).ShouldNot(HaveOccurred())
+
+		leafhubNames = clients.GetLeafHubClusterNames()
+		for _, leafhubName := range leafhubNames{
+			leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
+			Expect(err).ShouldNot(HaveOccurred())
+			// create local namespace on each leafhub
+			leafhubClients = append(leafhubClients, leafhubClient)
+		}
 
 		By("Create Postgres connection")
 		databaseURI := strings.Split(testOptions.HubCluster.DatabaseURI, "?")[0]
@@ -99,35 +103,45 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: localPolicyLabelVal,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster1.UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
 
 			By("Deploy the placement policy to the leafhub")
-			output, err := clients.Kubectl(clients.LeafHubClusterName(), "apply", "-f", PLACEMENT_LOCAL_POLICY_YAML)
+			output, err := clients.Kubectl(leafhubNames[0], "apply", "-f", PLACEMENT_LOCAL_POLICY_YAML)
+			klog.V(5).Info(fmt.Sprintf("deploy inform local policy: %s", output))
+			Expect(err).Should(Succeed())
+
+			output, err = clients.Kubectl(leafhubNames[1], "apply", "-f", PLACEMENT_LOCAL_POLICY_YAML)
 			klog.V(5).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 			Expect(err).Should(Succeed())
 
 			By("Verify the local policy is directly synchronized to the global hub spec table")
-			policy := &policiesv1.Policy{}
+			policies := make(map[string]*policiesv1.Policy)
 			Eventually(func() error {
-				rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.policies")
+				rows, err := postgresConn.Query(context.TODO(), "select leaf_hub_name,payload from local_spec.policies")
 				if err != nil {
 					return err
 				}
 				defer rows.Close()
 				for rows.Next() {
-					if err := rows.Scan(policy); err != nil {
+					policy := &policiesv1.Policy{}
+					leafhub := ""	
+					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
 					fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-					if policy.Name == localPolicyName && policy.Namespace == localPolicyNamespace {
-						return nil
+					if policy.Name != localPolicyName || policy.Namespace != localPolicyNamespace {
+						return fmt.Errorf("expect policy(placement) [%s/%s] but got [%s/%s]", localPolicyNamespace, localPolicyName, policy.Namespace, policy.Name)
 					}
+					policies[leafhub] = policy
 				}
-				return fmt.Errorf("expect policy(placement) [%s/%s] but got [%s/%s]", localPolicyNamespace,
-					localPolicyName, policy.Namespace, policy.Name)
+				if len(policies) != len(leafhubNames) {
+					return fmt.Errorf("expect policy has not synchronized")
+				}
+				return nil
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
-			By("Verify the local placement policy is synchronized to the global hub status table")
+			By("Verify the local policy is synchronized to the global hub status table")
 			Eventually(func() error {
 				rows, err := postgresConn.Query(context.TODO(),
 					"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
@@ -135,7 +149,8 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					return err
 				}
 				defer rows.Close()
-
+			
+				// policies, if leahfubname check remove the kv
 				for rows.Next() {
 					columnValues, _ := rows.Values()
 					if len(columnValues) < 3 {
@@ -145,13 +160,14 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 						return err
 					}
-					fmt.Println(policyId, leafhub, cluster)
-					if policyId == string(policy.UID) && leafhub == clients.LeafHubClusterName() &&
-						cluster == managedCluster1.Name {
-						return nil
+					if string(policies[leafhub].UID) == policyId {
+						delete(policies, leafhub)
 					}
 				}
-				return fmt.Errorf("the policy(placement) is not synchronized to the global hub status table")
+				if len(policies) > 0 {
+					return fmt.Errorf("not get policy from local_status.compliance")
+				}
+				return nil
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
@@ -160,17 +176,19 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		It("check the local policy(placement) resource isn't added the global cleanup finalizer", func() {
 			By("Verify the local policy(placement) hasn't been added the global hub cleanup finalizer")
 			Eventually(func() error {
-				policy := &policiesv1.Policy{}
-				err := leafhubClient.Get(context.TODO(), client.ObjectKey{
-					Namespace: localPolicyNamespace,
-					Name:      localPolicyName,
-				}, policy)
-				if err != nil {
-					return err
-				}
-				for _, finalizer := range policy.Finalizers {
-					if finalizer == constants.GlobalHubCleanupFinalizer {
-						return fmt.Errorf("the local policy(%s) has been added the cleanup finalizer", policy.GetName())
+				for _, leafhubClient := range leafhubClients {
+					policy := &policiesv1.Policy{}
+					err := leafhubClient.Get(context.TODO(), client.ObjectKey{
+						Namespace: localPolicyNamespace,
+						Name:      localPolicyName,
+					}, policy)
+					if err != nil {
+						return err
+					}
+					for _, finalizer := range policy.Finalizers {
+						if finalizer == constants.GlobalHubCleanupFinalizer {
+							return fmt.Errorf("the local policy(%s) has been added the cleanup finalizer", policy.GetName())
+						}
 					}
 				}
 				return nil
@@ -179,18 +197,20 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			// placement is not be synchronized to the global hub database, so it doesn't need the finalizer
 			By("Verify the local placement hasn't been added the global hub cleanup finalizer")
 			Eventually(func() error {
-				placement := &clusterv1beta1.Placement{}
-				err := leafhubClient.Get(context.TODO(), client.ObjectKey{
-					Namespace: localPolicyNamespace,
-					Name:      localPlacementName,
-				}, placement)
-				if err != nil {
-					return err
-				}
-				for _, finalizer := range placement.Finalizers {
-					if finalizer == constants.GlobalHubCleanupFinalizer {
-						return fmt.Errorf("the local placement(%s) has been added the cleanup finalizer",
-							placement.GetName())
+				for _, leafhubClient := range leafhubClients {
+					placement := &clusterv1beta1.Placement{}
+					err := leafhubClient.Get(context.TODO(), client.ObjectKey{
+						Namespace: localPolicyNamespace,
+						Name:      localPlacementName,
+					}, placement)
+					if err != nil {
+						return err
+					}
+					for _, finalizer := range placement.Finalizers {
+						if finalizer == constants.GlobalHubCleanupFinalizer {
+							return fmt.Errorf("the local placement(%s) has been added the cleanup finalizer",
+								placement.GetName())
+						}
 					}
 				}
 				return nil
@@ -199,7 +219,11 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 		It("delete the local policy(placement) from the leafhub", func() {
 			By("Delete the local policy from leafhub")
-			output, err := clients.Kubectl(clients.LeafHubClusterName(), "delete", "-f", PLACEMENT_LOCAL_POLICY_YAML)
+			output, err := clients.Kubectl(leafhubNames[0], "delete", "-f", PLACEMENT_LOCAL_POLICY_YAML)
+			fmt.Println(output)
+			Expect(err).Should(Succeed())
+
+			output, err = clients.Kubectl(leafhubNames[1], "delete", "-f", PLACEMENT_LOCAL_POLICY_YAML)
 			fmt.Println(output)
 			Expect(err).Should(Succeed())
 
@@ -209,9 +233,10 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				if err != nil {
 					return err
 				}
-				defer rows.Close()
-				policy := &policiesv1.Policy{}
+				fmt.Println("Verify the local policy(placement) is deleted from the spec tabl")
+				defer rows.Close()				
 				for rows.Next() {
+					policy := &policiesv1.Policy{}
 					if err := rows.Scan(policy); err != nil {
 						return err
 					}
@@ -224,13 +249,13 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 			By("Verify the local policy(placement) is deleted from the global hub status table")
 			Eventually(func() error {
-				rows, err := postgresConn.Query(context.TODO(),
-					"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+				rows, err := postgresConn.Query(context.TODO(), "SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
 				if err != nil {
+					fmt.Println(err)
 					return err
 				}
+				fmt.Println("Verify the local policy(placement) is deleted from the global hub status table")
 				defer rows.Close()
-
 				for rows.Next() {
 					columnValues, _ := rows.Values()
 					return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", columnValues)
@@ -246,7 +271,8 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: localPolicyLabelVal,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster1.UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
 		})
 	})
 
@@ -259,9 +285,9 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: policyClusterset,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster2.UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
 			Eventually(func() error {
-				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedCluster2.Name)
+				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusters[1].Name)
 				if err != nil {
 					return err
 				}
@@ -285,10 +311,10 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					return err
 				}
 				if len(status.Status) == 1 && status.Status[0].ComplianceState == "NonCompliant" &&
-					status.Status[0].ClusterName == managedCluster2.Name {
+					status.Status[0].ClusterName == managedClusters[1].Name {
 					return nil
 				}
-				return fmt.Errorf("the policy have not applied to the managed cluster %s", managedCluster2.Name)
+				return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusters[1].Name)
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
@@ -300,7 +326,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: policyClusterset,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster2.UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
 
 			By("Check the inform policy in global hub")
 			Eventually(func() error {
@@ -312,7 +338,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				if len(status.Status) == 0 {
 					return nil
 				}
-				return fmt.Errorf("the policy should removed from managed cluster %s", managedCluster2.Name)
+				return fmt.Errorf("the policy should removed from managed cluster %s", managedClusters[1].Name)
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
@@ -346,8 +372,8 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: APP_LABEL_VALUE,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster1.UID))).Should(Succeed())
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster2.UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
 
 			By("Apply the appsub to labeled clusters")
 			Eventually(func() error {
@@ -361,7 +387,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
 				return checkAppsubreport(globalClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 2,
-					[]string{managedCluster1.Name, managedCluster2.Name})
+					[]string{managedClusters[0].Name, managedClusters[1].Name})
 			}, 3*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
@@ -374,12 +400,12 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: policyClusterset,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster2.UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
 
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
 				return checkAppsubreport(globalClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 1,
-					[]string{managedCluster1.Name})
+					[]string{managedClusters[0].Name})
 			}, 3*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
@@ -396,7 +422,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: policyClusterset,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster2.UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
 
 			By("Remove app label")
 			patches = []patch{
@@ -406,20 +432,20 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: APP_LABEL_VALUE,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster1.UID))).Should(Succeed())
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster2.UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
 
 			By("manually remove the appsubreport in the regional hub") // TODO: remove this step after the issue is fixed
 			appsubreport := &appsv1alpha1.SubscriptionReport{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      managedCluster1.Name,
-					Namespace: managedCluster1.Name,
+					Name:      managedClusters[0].Name,
+					Namespace: managedClusters[0].Name,
 				},
 			}
-			Expect(leafhubClient.Delete(context.TODO(), appsubreport, &client.DeleteOptions{})).Should(Succeed())
-			appsubreport.SetName(managedCluster2.Name)
-			appsubreport.SetNamespace(managedCluster2.Name)
-			Expect(leafhubClient.Delete(context.TODO(), appsubreport, &client.DeleteOptions{})).Should(Succeed())
+			Expect(leafhubClients[0].Delete(context.TODO(), appsubreport, &client.DeleteOptions{})).Should(Succeed())
+			appsubreport.SetName(managedClusters[1].Name)
+			appsubreport.SetNamespace(managedClusters[1].Name)
+			Expect(leafhubClients[1].Delete(context.TODO(), appsubreport, &client.DeleteOptions{})).Should(Succeed())
 
 			By("Check the appsub is deleted")
 			Eventually(func() error {
@@ -432,14 +458,15 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					return fmt.Errorf("the appsub is not deleted from global hub")
 				}
 
-				rows, err := postgresConn.Query(context.TODO(), "select payload from status.subscription_reports")
+				rows, err := postgresConn.Query(context.TODO(), "select leaf_hub_name,payload from status.subscription_reports")
 				if err != nil {
 					return err
 				}
 				defer rows.Close()
 				appsubreport := &appsv1alpha1.SubscriptionReport{}
+				leafhub := ""
 				for rows.Next() {
-					if err := rows.Scan(appsubreport); err != nil {
+					if err := rows.Scan(&leafhub, appsubreport); err != nil {
 						return err
 					}
 					fmt.Printf("status.subscription_reports: %s/%s \n", appsubreport.Namespace, appsubreport.Name)
