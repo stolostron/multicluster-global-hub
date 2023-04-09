@@ -204,8 +204,8 @@ kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index 
 
 3. `LoadBalancer`
 ```bash
-# modify the service to LoadBalancer, set the port to 5432
-kubectl patch postgrescluster hoh -n hoh-postgres -p '{"spec":{"service":{"type":"LoadBalancer", "port": 5432}}}'  --type merge
+# modify the service to LoadBalancer, default port is 5432
+kubectl patch postgrescluster hoh -n hoh-postgres -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
 # host/ user/ password/ database
 kubectl get svc -n hoh-postgres hoh-ha -ojsonpath='{.status.loadBalancer.ingress[0].hostname}'
 kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
