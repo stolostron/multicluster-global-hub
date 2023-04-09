@@ -122,7 +122,7 @@ function initManaged() {
     
   SECOND=0
   while true; do
-    if [ $SECOND -gt 300 ]; then
+    if [ $SECOND -gt 1000 ]; then
       echo "Timeout waiting for ${hub} + ${managed}."
       exit 1
     fi
@@ -364,15 +364,15 @@ function enableOLM() {
 }
 
 function connectMicroshift() {
-  invokeContainerName=$1
+  leafhubName=$1
   microshiftContainerName=$2
-  invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $invokeContainerName)
+  invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $leafhubName-control-plane)
   microshiftContainerNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $microshiftContainerName)
   if [[ "$invokeNetwork" =~ "$microshiftContainerNetwork" ]]; then
     echo "Microshift network is already connected to ${invokeNetwork}"
     exit 1
   else 
-    docker network connect $microshiftContainerNetwork $invokeContainerName
+    docker network connect $microshiftContainerNetwork ${leafhubName}-control-plane
   fi
 }
 
@@ -434,7 +434,7 @@ function checkManagedCluster() {
   context=$1
   cluster=$2
   available=$(kubectl get mcl --context "$context" | grep "$cluster" |awk '{print $5}')
-  seconds=100
+  seconds=200
   while [[ "$available" != "True" && $seconds -gt 0 ]]; do
     echo "retry to import managed cluster $cluster to $context"
     initManaged $context $cluster
