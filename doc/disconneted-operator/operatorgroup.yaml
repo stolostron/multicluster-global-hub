@@ -1,0 +1,8 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: global-hub-operator-sdk-og
+  namespace: default
+spec:
+  targetNamespaces:
+  - default

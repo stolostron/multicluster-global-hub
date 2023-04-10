@@ -1,0 +1,11 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: multicluster-global-hub-operator
+  namespace: default
+spec:
+  channel: prerelease-2.8
+  installPlanApproval: Automatic
+  name: multicluster-global-hub-operator
+  source: global-hub-operator-catalog
+  sourceNamespace: openshift-marketplace
