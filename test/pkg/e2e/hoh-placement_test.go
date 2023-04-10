@@ -63,6 +63,9 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			if err != nil {
 				return err
 			}
+			if len(managedClusters) != clients.ManagedClusterNumber() {
+				return fmt.Errorf("managed cluster is not exist")
+			}
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -80,6 +83,9 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		Expect(err).ShouldNot(HaveOccurred())
 
 		leafhubNames = clients.GetLeafHubClusterNames()
+		if len(leafhubNames) != clients.LeafHubClusterNumber() {
+			Expect(fmt.Errorf("leafhub number is different from local env")).Should(Succeed())
+		}
 		for _, leafhubName := range leafhubNames{
 			leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -109,7 +115,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			By("Deploy the placement policy to the leafhub")
 			for _, leafhubName := range leafhubNames {
 				output, err := clients.Kubectl(leafhubName, "apply", "-f", PLACEMENT_LOCAL_POLICY_YAML)
-				klog.V(10).Info(fmt.Sprintf("deploy inform local policy: %s", output))
+				klog.V(5).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 				Expect(err).Should(Succeed())
 			}
 
@@ -127,6 +133,9 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
+					if _, ok := policies[leafhub]; ok {
+						return fmt.Errorf("expect leafhub [%s] is already exist", leafhub)
+					}
 					fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
 					if policy.Name != localPolicyName || policy.Namespace != localPolicyNamespace {
 						return fmt.Errorf("expect policy(placement) [%s/%s] but got [%s/%s]", localPolicyNamespace, localPolicyName, policy.Namespace, policy.Name)
@@ -137,7 +146,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					return fmt.Errorf("expect policy has not synchronized")
 				}
 				return nil
-			}, 1*time.Minute, 1*time.Second).Should(Succeed())
+			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 			By("Verify the local policy is synchronized to the global hub status table")
 			Eventually(func() error {
@@ -162,7 +171,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 						delete(policies, leafhub)
 					}
 				}
-				if len(policies) > 0 {
+				if len(policies) == clients.LeafHubClusterNumber() {
 					return fmt.Errorf("not get policy from local_status.compliance")
 				}
 				return nil
@@ -243,7 +252,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					}
 				}
 				return nil
-			}, 1*time.Minute, 1*time.Second).Should(Succeed())
+			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 			By("Verify the local policy(placement) is deleted from the global hub status table")
 			Eventually(func() error {

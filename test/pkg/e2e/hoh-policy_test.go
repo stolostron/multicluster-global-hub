@@ -54,7 +54,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			if err != nil {
 				return err
 			}
-			if len(managedClusters) == 0 {
+			if len(managedClusters) != clients.ManagedClusterNumber() {
 				return fmt.Errorf("managed cluster is not exist")
 			}
 			return nil

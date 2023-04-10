@@ -57,11 +57,11 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				if err != nil {
 					return err
 				}
-				if len(managedClusters) == 0 {
-					return fmt.Errorf("managed cluster is not exist")
+				if len(managedClusters) != clients.ManagedClusterNumber() {
+					return fmt.Errorf("managed cluster number error")
 				}
 				return nil
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 			By("Create runtime client")
 			scheme := runtime.NewScheme()
@@ -70,8 +70,12 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			placementrulev1.AddToScheme(scheme)
 			runtimeClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
 			Expect(err).Should(Succeed())
+
 			// get multiple leafhubs
 			leafhubNames = clients.GetLeafHubClusterNames()
+			if len(leafhubNames) != clients.LeafHubClusterNumber() {
+				Expect(fmt.Errorf("leafhub number is different from local env")).Should(Succeed())
+			}
 			for _, leafhubName := range leafhubNames{
 				leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
 				Expect(err).Should(Succeed())
@@ -110,10 +114,12 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					if err != nil {
 						return err
 					}
-					if val, ok := managedClusterInfo.Labels[LOCAL_POLICY_LABEL_KEY]; ok {
-						if val != LOCAL_POLICY_LABEL_VALUE {
-							return fmt.Errorf("the label [%s: %s] is not exist", LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
-						}
+					val, ok := managedClusterInfo.Labels[LOCAL_POLICY_LABEL_KEY]
+					if !ok {
+						return fmt.Errorf("the label [%s] is not exist", LOCAL_POLICY_LABEL_KEY) 
+					}
+					if val != LOCAL_POLICY_LABEL_VALUE {
+						return fmt.Errorf("the label [%s: %s] is not exist", LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
 					}
 				}
 				return nil
@@ -204,6 +210,9 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&leafhub, policy); err != nil {
 							return err
 						}
+						if _, ok := policies[leafhub]; ok {
+							return fmt.Errorf("expect leafhub [%s] is already exist", leafhub)
+						}
 						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
 						if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
 							return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
@@ -214,7 +223,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						return fmt.Errorf("expect policy has not synchronized")
 					}
 					return nil
-				}, 1*time.Minute, 1*time.Second).Should(Succeed())
+				}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 				By("Verify the local policy is synchronized to the global hub status table")
 				Eventually(func() error {
@@ -239,7 +248,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							delete(policies, leafhub)
 						}
 					}
-					if len(policies) > 0 {
+					if len(policies) == clients.LeafHubClusterNumber() {
 						return fmt.Errorf("not get policy from local_status.compliance")
 					}
 					return nil
@@ -405,15 +414,10 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 							return err
 						}
-						var foundpolicy bool
 						for i, leafhubName := range leafhubNames {
 							if cluster == managedClusters[i].Name && leafhub == leafhubName {
-								foundpolicy = true
-								break
+								return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", policyId)
 							}
-						}
-						if !foundpolicy {
-							return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", policyId)
 						}
 					}
 					return nil

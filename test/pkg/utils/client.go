@@ -25,6 +25,8 @@ type Client interface {
 	HubClusterName() string
 	LeafHubClusterName() string
 	GetLeafHubClusterNames() []string
+	LeafHubClusterNumber() int
+	ManagedClusterNumber() int
 }
 
 type client struct {
@@ -165,4 +167,24 @@ func (c *client) LeafHubClusterName() string {
 		}
 	}
 	return ""
+}
+
+func (c *client) LeafHubClusterNumber() int {
+	leafhubNum := 0
+	for _, cluster := range c.options.ManagedClusters {
+		if cluster.Name == cluster.LeafHubName {
+			leafhubNum += 1
+		}
+	}
+	return leafhubNum
+}
+
+func (c *client) ManagedClusterNumber() int {
+	managedClusterNum := 0
+	for _, cluster := range c.options.ManagedClusters {
+		if cluster.Name != cluster.LeafHubName {
+			managedClusterNum += 1
+		}
+	}
+	return managedClusterNum
 }

@@ -46,7 +46,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			if err != nil {
 				return err
 			}
-			if len(managedClusters) == 0 {
+			if len(managedClusters) != clients.ManagedClusterNumber() {
 				return fmt.Errorf("managed cluster is not exist")
 			}
 			return nil
