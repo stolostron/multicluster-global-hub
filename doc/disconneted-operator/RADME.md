@@ -18,8 +18,6 @@ Installing global hub in a disconnected environment involves the use of a mirror
 export REGISTRY=<operator-mirror-registry>
 export VERSION=0.0.1
 export IMAGE_TAG_BASE=${REGISTRY}/multicluster-global-hub-operator
-# Important: You need to use the image with digest, otherwise the ImageContentSourcePolicy configuration will not take effect.
-export IMG=quay.io/stolostron/multicluster-global-hub-operator@sha256:f385a9cfa78442526d6721fc7aa182ec6b98dffdabc78e2732bf9adbc5c8e0df
 
 cd ./operator
 # update bundle
@@ -81,7 +79,7 @@ multicluster-global-hub-operator   Community Operators   28m
 ```
 
 ### Configure Image Content Source Policies
-In order to have your cluster obtain container images for the global hub operator from your mirror registry, rather than from the internet-hosted registries, you must configure an ImageContentSourcePolicy on your disconnected cluster to redirect image references to your mirror registry.
+In order to have your cluster obtain container images for the global hub operator from your mirror registry, rather than from the internet-hosted registries, you must configure an ImageContentSourcePolicy on your disconnected cluster to redirect image references to your mirror registry.(Note: You need to use the operator image with digest, otherwise the ImageContentSourcePolicy configuration will not take effect. export the `IMG` variable to update operator image in the CSV when build the bundle image for testing)
 ```bash
 cat ./doc/disconneted-operator/imagecontentpolicy.yaml
 apiVersion: operator.openshift.io/v1alpha1
