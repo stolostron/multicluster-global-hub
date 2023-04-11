@@ -108,8 +108,7 @@ oc registry login --registry=${REGISTRY} --auth-basic="$USER:$PASSWORD" --to=pul
 oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=pull_secret.yaml
 rm pull_secret.yaml
 ```
-
-### Installing Operator from the CLI
+### Installing the Operator from OperatorHub using the CLI
 - Create the `OperatorGroup`
   
   Each namespace can have only one operator group. Replace `default` with the name of your operator group. Replace namespace with the name of your project namespace.
@@ -165,6 +164,8 @@ rm pull_secret.yaml
   ```
   In a disconnection environment, although it can be seen from the events in the operator pod that the image is pulled from the public registry `quay.io/stolostron`, it is actually pulled from the `$REGISTRY` configured by the `ImageContentSourcePolicy`
 
+### Installing the Operator from OperatorHub using the web console
+You can install and subscribe to an Operator from OperatorHub using the OpenShift Container Platform web console. For more details, please refer [here](https://docs.openshift.com/container-platform/4.10/operators/admin/olm-adding-operators-to-cluster.html)
 
 ## References
 - [Mirroring an Operator catalog](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-mirror-catalog_olm-restricted-networks)
