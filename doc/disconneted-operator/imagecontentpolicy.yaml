@@ -6,4 +6,4 @@ spec:
   repositoryDigestMirrors:
   - mirrors:
     - ${REGISTRY}/multicluster-global-hub-operator
-    source: quay.io/stolostron/multicluster-global-hub-operator
+    source: quayy.io/stolostron/multicluster-global-hub-operator

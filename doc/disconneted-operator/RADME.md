@@ -5,7 +5,6 @@
 - Have OLM installed on your cluster
 - The ACM hub has been installed on your cluster
 - Make sure your user is authorized with cluster-admin permissions
-- The `operator-sdk` must be v1.22.0 or later
 
 ## Mirror Registry
 
@@ -13,12 +12,14 @@ Installing global hub in a disconnected environment involves the use of a mirror
 - [Creating a mirror registry](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-creating-registry.html#installing-mirroring-creating-registry)
 - [Mirroring images for a disconnected installation](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-installation-images.html)
 
-## Adding Global Hub Operator Catalog Source to a Cluster[Optional]
+## Adding Global Hub Operator CatalogSource to a Cluster [Optional]
 ### Build the Global Hub Bundle Image and Index Image
 ```bash
 export REGISTRY=<operator-mirror-registry>
 export VERSION=0.0.1
 export IMAGE_TAG_BASE=${REGISTRY}/multicluster-global-hub-operator
+# Important: You need to use the image with digest, otherwise the ImageContentSourcePolicy configuration will not take effect.
+export IMG=quay.io/stolostron/multicluster-global-hub-operator@sha256:f385a9cfa78442526d6721fc7aa182ec6b98dffdabc78e2732bf9adbc5c8e0df
 
 cd ./operator
 # update bundle
@@ -55,7 +56,7 @@ After running the above command, the following images have been built and pushed
 
 ### Create the CatalogSource Object with the Pull Secret
 ```bash
-$ cat ./doc/disconneted-operator/catalogsourc.yaml
+$ cat ./doc/disconneted-operator/catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
@@ -67,7 +68,7 @@ spec:
   grpcPodConfig: {}
   secrets:
   - global-hub-secret
-  image: ${REGISTRY}/multicluster-global-hub-operator-catalog:v0.0.1
+  image: ${REGISTRY}/multicluster-global-hub-operator-catalog:v${VERSION}
   publisher: global-hub-squad  
 
 $ envsubst < ./doc/disconneted-operator/catalogsource.yaml | kubectl apply -f -
@@ -79,11 +80,10 @@ NAME                               CATALOG               AGE
 multicluster-global-hub-operator   Community Operators   28m
 ```
 
-## S
 ### Configure Image Content Source Policies
 In order to have your cluster obtain container images for the global hub operator from your mirror registry, rather than from the internet-hosted registries, you must configure an ImageContentSourcePolicy on your disconnected cluster to redirect image references to your mirror registry.
 ```bash
-$ cat ./doc/disconneted-operator/imagecontentpolicy.yaml 
+cat ./doc/disconneted-operator/imagecontentpolicy.yaml
 apiVersion: operator.openshift.io/v1alpha1
 kind: ImageContentSourcePolicy
 metadata:
@@ -96,8 +96,10 @@ spec:
 
 $ envsubst < ./doc/disconneted-operator/imagecontentpolicy.yaml | kubectl apply -f -
 ```
-If the Operator or Operand images that are referenced by a subscribed Operator require access to a private registry, you can either [provide access to all namespaces in the cluster, or individual target tenant namespaces](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-creating-catalog-from-index_olm-managing-custom-catalogs).
 
+If the Operator or Operand images that are referenced by a subscribed Operator require access to a private registry, you can either [provide access to all namespaces in the cluster, or individual target tenant namespaces](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-creating-catalog-from-index_olm-managing-custom-catalogs). 
+
+Here we add the $REGISTRY pull-secret to the OpenShift main pull-secret. (Caution: if you apply this on a pre-existing cluster, it will cause a rolling restart of all nodes).
 ```bash
 export USER=<the-registry-user>
 export PASSWORD=<the-registry-password>
@@ -112,7 +114,7 @@ rm pull_secret.yaml
   
   Each namespace can have only one operator group. Replace `default` with the name of your operator group. Replace namespace with the name of your project namespace.
   ```bash
-  $ cat ./doc/disconneted-operator/operatorgroup.yaml     
+  $ cat ./doc/disconneted-operator/operatorgroup.yaml  
   apiVersion: operators.coreos.com/v1
   kind: OperatorGroup
   metadata:
@@ -121,11 +123,13 @@ rm pull_secret.yaml
   spec:
     targetNamespaces:
     - default
-  $ oc apply -f ./doc/disconneted-operator/operatorgroup.yaml  
+
+  $ oc apply -f ./doc/disconneted-operator/operatorgroup.yaml   
   ```
+ 
 - Create the `Subscription`
   ```bash
-  $ cat ./doc/disconneted-operator/subscription.yaml                                
+  $ cat ./doc/disconneted-operator/subscription.yaml
   apiVersion: operators.coreos.com/v1alpha1
   kind: Subscription
   metadata:
@@ -137,69 +141,36 @@ rm pull_secret.yaml
     name: multicluster-global-hub-operator
     source: global-hub-operator-catalog
     sourceNamespace: openshift-marketplace
-  $ oc apply -f ./doc/disconneted-operator/subscription.yaml 
+
+  $ oc apply -f ./doc/disconneted-operator/subscription.yaml
   ```
+  
 - Check the global hub operator
   ```bash
   $ oc get pods -n default
   NAME                                                READY   STATUS    RESTARTS   AGE
-  multicluster-global-hub-operator-687584cb7c-fnftj   1/1     Running   0          12m
+  multicluster-global-hub-operator-687584cb7c-fnftj   1/1     Running   0          2m12s
+  $ oc describe pod multicluster-global-hub-operator-687584cb7c-fnftj
+  ...
+  Events:
+  Type    Reason          Age    From               Message
+  ----    ------          ----   ----               -------
+  Normal  Scheduled       2m52s  default-scheduler  Successfully assigned default/multicluster-global-hub-operator-5546668786-f7b7v to ip-10-0-137-91.ec2.internal
+  Normal  AddedInterface  2m50s  multus             Add eth0 [10.128.1.7/23] from openshift-sdn
+  Normal  Pulling         2m49s  kubelet            Pulling image "quay.io/stolostron/multicluster-global-hub-operator@sha256:f385a9cfa78442526d6721fc7aa182ec6b98dffdabc78e2732bf9adbc5c8e0df"
+  Normal  Pulled          2m35s  kubelet            Successfully pulled image "quay.io/stolostron/multicluster-global-hub-operator@sha256:f385a9cfa78442526d6721fc7aa182ec6b98dffdabc78e2732bf9adbc5c8e0df" in 14.180033246s
+  Normal  Created         2m35s  kubelet            Created container multicluster-global-hub-operator
+  Normal  Started         2m35s  kubelet            Started container multicluster-global-hub-operator
+  ...
   ```
+  In a disconnection environment, although it can be seen from the events in the operator pod that the image is pulled from the public registry `quay.io/stolostron`, it is actually pulled from the `$REGISTRY` configured by the `ImageContentSourcePolicy`
 
-## Steps
-
-### Build the Multicluster Global Hub Operator Image [Optional]
-If you already have the global operator image in your registry, you can skip this step.
-```bash
-export REGISTRY=<operator-image-registry>
-make build-operator-image && make push-operator-image
-```
-
-### Update the Bundle for Global Hub Operator
-- If you specify a private registry, you need to append the `imagePullSecrets` in file `./operator/config/manager/manager.yaml`
-```yaml
-...
-            cpu: 10m
-            memory: 64Mi
-      imagePullSecrets:
-        - name: <image-pull-secret>
-      serviceAccountName: multicluster-global-hub-operator
-      terminationGracePeriodSeconds: 10
-...
-```
-- Update the bundle with Global Hub Operator Image
-```
-export IMG=${REGISTRY}/multicluster-global-hub-operator:latest
-cd ./operator
-make bundle
-cd ..
-```
-
-### Build the Bundle Image 
-```bash
-export VERSION=0.0.1
-export IMAGE_TAG_BASE=${REGISTRY}/multicluster-global-hub-operator
-cd ./operator
-make bundle-build bundle-push catalog-build catalog-push
-cd ..
-```
-
-### Running the Global Hub Operator with the Bundle Image
-```bash
-operator-sdk run bundle ${REGISTRY}/multicluster-global-hub-operator-bundle:v0.0.1 \
-  --pull-secret-name ecr-image-pull-secret \
-  --namespace=<provisioned namespace>
-```
-
-### Cleanup the Operator
-```bash
-operator-sdk cleanup multicluster-global-hub-operator --delete-all
-```
 
 ## References
 - [Mirroring an Operator catalog](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-mirror-catalog_olm-restricted-networks)
 - [Accessing images for Operators from private registries](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-accessing-images-private-registries_olm-managing-custom-catalogs)
 - [Adding a catalog source to a cluster](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-creating-catalog-from-index_olm-restricted-networks)
 - [ACM Deploy](https://github.com/stolostron/deploy)
-- [Operator SDK Integration with Operator Lifecycle Manager](https://sdk.operatorframework.io/docs/olm-integration/)
+- [Install in disconnected network environments](https://gitlab.cee.redhat.com/red-hat-enterprise-openshift-documentation/advanced-cluster-management/-/blob/406eaf2b653d5d9cf287c2c5d2a0baccb19b3092/install/install_disconnected.adoc)
 - [Mirroring images for a disconnected installation](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-installation-images.html#installing-mirroring-installation-images)
+- [Operator SDK Integration with Operator Lifecycle Manager](https://sdk.operatorframework.io/docs/olm-integration/)

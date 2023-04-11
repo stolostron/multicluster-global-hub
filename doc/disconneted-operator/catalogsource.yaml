@@ -9,5 +9,5 @@ spec:
   grpcPodConfig: {}
   secrets:
   - global-hub-secret
-  image: ${REGISTRY}/multicluster-global-hub-operator-catalog:v0.0.1
+  image: ${REGISTRY}/multicluster-global-hub-operator-catalog:v${VERSION}
   publisher: global-hub-squad
