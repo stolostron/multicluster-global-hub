@@ -106,7 +106,7 @@ var _ = Describe("addon controller", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(8))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
 		})
 
 		It("Should update the image pull secret when remove it from the mgh cr", func() {
