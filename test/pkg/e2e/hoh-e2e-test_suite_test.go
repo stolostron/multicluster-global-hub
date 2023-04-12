@@ -27,6 +27,11 @@ var (
 	clients    utils.Client
 	httpToken  string
 	httpClient *http.Client
+
+	GlobalHubName string
+	LeafHubNames []string
+	ExpectedLeafHubNum int
+	ExpectedManagedClusterNum int
 )
 
 func TestClient(t *testing.T) {
@@ -92,4 +97,24 @@ func initVars() {
 
 	s, _ := json.MarshalIndent(testOptionsContainer, "", "  ")
 	klog.V(6).Infof("OptionsContainer %s", s)
+
+	GlobalHubName = testOptions.HubCluster.Name
+
+	for _, cluster := range testOptions.ManagedClusters {
+		if cluster.Name == cluster.LeafHubName {
+			LeafHubNames = append(LeafHubNames, cluster.Name)
+		}
+	}
+
+	for _, cluster := range testOptions.ManagedClusters {
+		if cluster.Name == cluster.LeafHubName {
+			ExpectedLeafHubNum += 1
+		}
+	}
+
+	for _, cluster := range testOptions.ManagedClusters {
+		if cluster.Name != cluster.LeafHubName {
+			ExpectedManagedClusterNum += 1
+		}
+	}
 }

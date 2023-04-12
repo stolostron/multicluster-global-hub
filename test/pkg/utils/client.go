@@ -22,11 +22,11 @@ type Client interface {
 	ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error)
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
-	HubClusterName() string
-	LeafHubClusterName() string
-	GetLeafHubClusterNames() []string
-	LeafHubClusterNumber() int
-	ManagedClusterNumber() int
+	// HubClusterName() string
+	// LeafHubClusterName() string
+	// GetLeafHubClusterNames() []string
+	// LeafHubClusterNumber() int
+	// ManagedClusterNumber() int
 }
 
 type client struct {
@@ -146,45 +146,45 @@ func LoadConfig(url, kubeconfig, context string) (*rest.Config, error) {
 	return nil, fmt.Errorf("could not create a valid kubeconfig")
 }
 
-func (c *client) HubClusterName() string {
-	return c.options.HubCluster.Name
-}
+// func (c *client) HubClusterName() string {
+// 	return c.options.HubCluster.Name
+// }
 
-func (c *client) GetLeafHubClusterNames() []string {
-	var clusters []string
-	for _, cluster := range c.options.ManagedClusters {
-		if cluster.Name == cluster.LeafHubName {
-			clusters = append(clusters, cluster.Name)
-		}
-	}
-	return clusters
-}
+// func (c *client) GetLeafHubClusterNames() []string {
+// 	var clusters []string
+// 	for _, cluster := range c.options.ManagedClusters {
+// 		if cluster.Name == cluster.LeafHubName {
+// 			clusters = append(clusters, cluster.Name)
+// 		}
+// 	}
+// 	return clusters
+// }
 
-func (c *client) LeafHubClusterName() string {
-	for _, cluster := range c.options.ManagedClusters {
-		if cluster.Name == cluster.LeafHubName {
-			return cluster.Name
-		}
-	}
-	return ""
-}
+// func (c *client) LeafHubClusterName() string {
+// 	for _, cluster := range c.options.ManagedClusters {
+// 		if cluster.Name == cluster.LeafHubName {
+// 			return cluster.Name
+// 		}
+// 	}
+// 	return ""
+// }
 
-func (c *client) LeafHubClusterNumber() int {
-	leafhubNum := 0
-	for _, cluster := range c.options.ManagedClusters {
-		if cluster.Name == cluster.LeafHubName {
-			leafhubNum += 1
-		}
-	}
-	return leafhubNum
-}
+// func (c *client) LeafHubClusterNumber() int {
+// 	leafhubNum := 0
+// 	for _, cluster := range c.options.ManagedClusters {
+// 		if cluster.Name == cluster.LeafHubName {
+// 			leafhubNum += 1
+// 		}
+// 	}
+// 	return leafhubNum
+// }
 
-func (c *client) ManagedClusterNumber() int {
-	managedClusterNum := 0
-	for _, cluster := range c.options.ManagedClusters {
-		if cluster.Name != cluster.LeafHubName {
-			managedClusterNum += 1
-		}
-	}
-	return managedClusterNum
-}
+// func (c *client) ManagedClusterNumber() int {
+// 	managedClusterNum := 0
+// 	for _, cluster := range c.options.ManagedClusters {
+// 		if cluster.Name != cluster.LeafHubName {
+// 			managedClusterNum += 1
+// 		}
+// 	}
+// 	return managedClusterNum
+// }

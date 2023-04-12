@@ -38,7 +38,6 @@ const (
 
 var _ = Describe("Apply policy/app with placement on the global hub", Ordered, Label("e2e-tests-placement"), func() {
 	var managedClusters []clusterv1.ManagedCluster
-	var leafhubNames []string
 	var globalClient client.Client
 	var leafhubClients []client.Client
 	var policyName, policyNamespace, policyClusterset string
@@ -63,7 +62,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			if err != nil {
 				return err
 			}
-			if len(managedClusters) != clients.ManagedClusterNumber() {
+			if len(managedClusters) != ExpectedManagedClusterNum {
 				return fmt.Errorf("managed cluster is not exist")
 			}
 			return nil
@@ -79,14 +78,10 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		Expect(clusterv1.AddToScheme(scheme))
 		Expect(appsv1.SchemeBuilder.AddToScheme(scheme))
 		Expect(appsv1alpha1.AddToScheme(scheme))
-		globalClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
+		globalClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		leafhubNames = clients.GetLeafHubClusterNames()
-		if len(leafhubNames) != clients.LeafHubClusterNumber() {
-			Expect(fmt.Errorf("leafhub number is different from local env")).Should(Succeed())
-		}
-		for _, leafhubName := range leafhubNames{
+		for _, leafhubName := range LeafHubNames{
 			leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
 			Expect(err).ShouldNot(HaveOccurred())
 			// create local namespace on each leafhub
@@ -113,7 +108,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
 
 			By("Deploy the placement policy to the leafhub")
-			for _, leafhubName := range leafhubNames {
+			for _, leafhubName := range LeafHubNames {
 				output, err := clients.Kubectl(leafhubName, "apply", "-f", PLACEMENT_LOCAL_POLICY_YAML)
 				klog.V(5).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 				Expect(err).Should(Succeed())
@@ -142,7 +137,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					}
 					policies[leafhub] = policy
 				}
-				if len(policies) != len(leafhubNames) {
+				if len(policies) != len(LeafHubNames) {
 					return fmt.Errorf("expect policy has not synchronized")
 				}
 				return nil
@@ -171,7 +166,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 						delete(policies, leafhub)
 					}
 				}
-				if len(policies) == clients.LeafHubClusterNumber() {
+				if len(policies) == ExpectedLeafHubNum {
 					return fmt.Errorf("not get policy from local_status.compliance")
 				}
 				return nil
@@ -226,11 +221,11 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 		It("delete the local policy(placement) from the leafhub", func() {
 			By("Delete the local policy from leafhub")
-			output, err := clients.Kubectl(leafhubNames[0], "delete", "-f", PLACEMENT_LOCAL_POLICY_YAML)
+			output, err := clients.Kubectl(LeafHubNames[0], "delete", "-f", PLACEMENT_LOCAL_POLICY_YAML)
 			fmt.Println(output)
 			Expect(err).Should(Succeed())
 
-			output, err = clients.Kubectl(leafhubNames[1], "delete", "-f", PLACEMENT_LOCAL_POLICY_YAML)
+			output, err = clients.Kubectl(LeafHubNames[1], "delete", "-f", PLACEMENT_LOCAL_POLICY_YAML)
 			fmt.Println(output)
 			Expect(err).Should(Succeed())
 
@@ -307,7 +302,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 		It("apply policy with placement", func() {
 			By("Deploy the policy to the global hub")
-			output, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", PLACEMENT_POLICY_YAML)
+			output, err := clients.Kubectl(GlobalHubName, "apply", "-f", PLACEMENT_POLICY_YAML)
 			klog.V(5).Info(fmt.Sprintf("deploy inform policy with placement: %s", output))
 			Expect(err).Should(Succeed())
 
@@ -351,7 +346,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 		It("delete policy with placement", func() {
 			By("Delete the policy in the global hub")
-			output, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", PLACEMENT_POLICY_YAML)
+			output, err := clients.Kubectl(GlobalHubName, "delete", "-f", PLACEMENT_POLICY_YAML)
 			klog.V(5).Info(fmt.Sprintf("delete inform policy with placement: %s", output))
 			Expect(err).Should(Succeed())
 
@@ -384,7 +379,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 			By("Apply the appsub to labeled clusters")
 			Eventually(func() error {
-				_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", PLACEMENT_APP_SUB_YAML)
+				_, err := clients.Kubectl(GlobalHubName, "apply", "-f", PLACEMENT_APP_SUB_YAML)
 				if err != nil {
 					return err
 				}
@@ -418,7 +413,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 		It("delete application with placement", func() {
 			By("Delete the appsub")
-			_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", PLACEMENT_APP_SUB_YAML)
+			_, err := clients.Kubectl(GlobalHubName, "delete", "-f", PLACEMENT_APP_SUB_YAML)
 			Expect(err).Should(Succeed())
 
 			By("Move managedCluster2 to the default clusterset")

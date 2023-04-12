@@ -42,7 +42,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		var runtimeClient client.Client
 		var leafhubClients []client.Client
 		var managedClusters []clusterv1.ManagedCluster
-		var leafhubNames []string
 		var postgresConn *pgx.Conn
 		var err error
 
@@ -57,7 +56,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				if err != nil {
 					return err
 				}
-				if len(managedClusters) != clients.ManagedClusterNumber() {
+				if len(managedClusters) != ExpectedManagedClusterNum {
 					return fmt.Errorf("managed cluster number error")
 				}
 				return nil
@@ -68,15 +67,11 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			v1.AddToScheme(scheme)
 			policiesv1.AddToScheme(scheme)
 			placementrulev1.AddToScheme(scheme)
-			runtimeClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
+			runtimeClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
 			Expect(err).Should(Succeed())
 
 			// get multiple leafhubs
-			leafhubNames = clients.GetLeafHubClusterNames()
-			if len(leafhubNames) != clients.LeafHubClusterNumber() {
-				Expect(fmt.Errorf("leafhub number is different from local env")).Should(Succeed())
-			}
-			for _, leafhubName := range leafhubNames{
+			for _, leafhubName := range LeafHubNames{
 				leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
 				Expect(err).Should(Succeed())
 				// create local namespace on each leafhub
@@ -190,7 +185,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		Context("When deploy local policy to the leafhub", func() {
 			It("deploy policy to the cluster to the leafhub", func() {
 				By("Deploy the policy to the leafhub")
-				for _, leafhubName := range leafhubNames {
+				for _, leafhubName := range LeafHubNames {
 					output, err := clients.Kubectl(leafhubName, "apply", "-f", LOCAL_INFORM_POLICY_YAML)
 					klog.V(10).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 					Expect(err).Should(Succeed())
@@ -219,7 +214,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						}
 						policies[leafhub] = policy
 					}
-					if len(policies) != len(leafhubNames) {
+					if len(policies) != len(LeafHubNames) {
 						return fmt.Errorf("expect policy has not synchronized")
 					}
 					return nil
@@ -248,7 +243,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							delete(policies, leafhub)
 						}
 					}
-					if len(policies) == clients.LeafHubClusterNumber() {
+					if len(policies) == ExpectedLeafHubNum {
 						return fmt.Errorf("not get policy from local_status.compliance")
 					}
 					return nil
@@ -326,7 +321,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		Context("When delete the local policy from the leafhub", func() {
 			It("delete the local policy from the leafhub", func() {
 				By("Delete the policy from leafhub")
-				for _, leafhubName := range leafhubNames {
+				for _, leafhubName := range LeafHubNames {
 					output, err := clients.Kubectl(leafhubName, "delete", "-f", LOCAL_INFORM_POLICY_YAML)
 					fmt.Println(output)
 					Expect(err).Should(Succeed())
@@ -414,7 +409,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 							return err
 						}
-						for i, leafhubName := range leafhubNames {
+						for i, leafhubName := range LeafHubNames {
 							if cluster == managedClusters[i].Name && leafhub == leafhubName {
 								return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", policyId)
 							}
