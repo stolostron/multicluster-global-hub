@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -21,12 +20,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("config")
-	// set image overrides
-	if err := config.SetImageOverrides(mgh); err != nil {
-		return err
-	}
-	log.Info("global hub image overrides set")
-
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.GHSystemNamespace,

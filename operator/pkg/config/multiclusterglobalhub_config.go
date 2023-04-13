@@ -126,7 +126,7 @@ func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) str
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)
 }
 
-func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
+func setImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
 	// first check for environment variables containing the 'OPERAND_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)
@@ -149,6 +149,9 @@ func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
 }
 
 // GetImage is used to retrieve image for given component
-func GetImage(componentName string) string {
-	return imageOverrides[componentName]
+func GetImage(mgh *operatorv1alpha2.MulticlusterGlobalHub, componentName string) (string, error) {
+	if err := setImageOverrides(mgh); err != nil {
+		return "", err
+	}
+	return imageOverrides[componentName], nil
 }

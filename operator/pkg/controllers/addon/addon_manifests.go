@@ -4,10 +4,8 @@ import (
 	"context"
 	"embed"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -20,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
-	"github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1"
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -160,11 +157,11 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 	}
 
-	imageName, err := a.getOverrideImage(mgh, cluster)
+	image, err := a.getOverrideImage(mgh, cluster)
 	if err != nil {
 		return nil, err
 	}
-	log.Info("rendering manifests", "image", imageName)
+	log.Info("rendering manifests", "image", image)
 
 	imagePullPolicy := corev1.PullAlways
 	if mgh.Spec.ImagePullPolicy != "" {
@@ -172,7 +169,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 
 	manifestsConfig := ManifestsConfig{
-		HoHAgentImage:          imageName,
+		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
@@ -212,36 +209,26 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 func (a *HohAgentAddon) setImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	cluster *clusterv1.ManagedCluster, manifestsConfig *ManifestsConfig,
 ) error {
-	secretName := ""
-	secretNamespace := ""
+	imagePullSecret := &corev1.Secret{}
 	// pull secret from the mgh
 	if len(mgh.Spec.ImagePullSecret) > 0 {
-		secretName = mgh.Spec.ImagePullSecret
-		secretNamespace = mgh.Namespace
+		var err error
+		imagePullSecret, err = a.kubeClient.CoreV1().Secrets(mgh.Namespace).Get(a.ctx, mgh.Spec.ImagePullSecret,
+			metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
 	// pull secret from the cluster annotation(added by ManagedClusterImageRegistry controller)
-	if _, ok := cluster.Annotations[v1alpha1.ClusterImageRegistriesAnnotation]; ok {
-		imageRegistries := v1alpha1.ImageRegistries{}
-		err := json.Unmarshal([]byte(cluster.Annotations[v1alpha1.ClusterImageRegistriesAnnotation]), &imageRegistries)
-		if err != nil {
-			return err
-		}
-		if len(imageRegistries.PullSecret) > 0 {
-			items := strings.Split(imageRegistries.PullSecret, ".")
-			if len(items) != 2 {
-				return fmt.Errorf("invalid pull secret name from cluster annotation %v", imageRegistries.PullSecret)
-			}
-			secretNamespace = items[0]
-			secretName = items[1]
-		}
+	c := imageregistry.NewClient(a.kubeClient)
+	if pullSecret, err := c.Cluster(cluster).PullSecret(); err != nil {
+		return err
+	} else if pullSecret != nil {
+		imagePullSecret = pullSecret
 	}
 
-	if len(secretName) > 0 && len(secretNamespace) > 0 {
-		imagePullSecret, err := a.kubeClient.CoreV1().Secrets(secretNamespace).Get(a.ctx, secretName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
+	if len(imagePullSecret.Name) > 0 && len(imagePullSecret.Data[corev1.DockerConfigJsonKey]) > 0 {
 		manifestsConfig.ImagePullSecretName = imagePullSecret.GetName()
 		manifestsConfig.ImagePullSecretData = base64.StdEncoding.EncodeToString(
 			imagePullSecret.Data[corev1.DockerConfigJsonKey])
@@ -253,14 +240,15 @@ func (a *HohAgentAddon) getOverrideImage(mgh *operatorv1alpha2.MulticlusterGloba
 	cluster *clusterv1.ManagedCluster,
 ) (string, error) {
 	// image registry override by operator environment variable and mgh annotation
-	if err := config.SetImageOverrides(mgh); err != nil {
-		return "", err
-	}
-	// image registry override by cluster annotation(added by the ManagedClusterImageRegistry)
-	overrideName, err := imageregistry.OverrideImageByAnnotation(cluster.GetAnnotations(),
-		config.GetImage(config.GlobalHubAgentImageKey))
+	configOverrideImage, err := config.GetImage(mgh, config.GlobalHubAgentImageKey)
 	if err != nil {
 		return "", err
 	}
-	return overrideName, nil
+
+	// image registry override by cluster annotation(added by the ManagedClusterImageRegistry)
+	image, err := imageregistry.OverrideImageByAnnotation(cluster.GetAnnotations(), configOverrideImage)
+	if err != nil {
+		return "", err
+	}
+	return image, nil
 }
