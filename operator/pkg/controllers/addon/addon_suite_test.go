@@ -135,6 +135,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
+	By("Add the addon install reconciler to the manager")
 	err = (&addon.HoHAddonInstallReconciler{
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("addon install controller"),
@@ -145,6 +146,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	electionConfig, err := getElectionConfig(kubeClient)
 	Expect(err).ToNot(HaveOccurred())
+
+	By("Add the addon controller to the manager")
 	err = k8sManager.Add(addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient, electionConfig))
 	Expect(err).ToNot(HaveOccurred())
 

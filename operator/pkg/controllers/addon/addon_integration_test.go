@@ -18,6 +18,7 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -59,7 +60,7 @@ func prepareCluster(name string, labels, annotations map[string]string,
 	})).Should(Succeed())
 }
 
-var _ = Describe("addon controller", Ordered, func() {
+var _ = Describe("addon integration", Ordered, func() {
 	BeforeAll(func() {
 		By("Create clustermanagementaddon instance")
 		clusterManagementAddon := &addonv1alpha1.ClusterManagementAddOn{
@@ -71,6 +72,125 @@ var _ = Describe("addon controller", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, clusterManagementAddon)).Should(Succeed())
+	})
+
+	Context("When configure the image registry and pull secret", func() {
+		It("Should update the image pull secret from the mgh cr", func() {
+			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
+			workName := fmt.Sprintf("addon-%s-deploy-0",
+				operatorconstants.GHManagedClusterAddonName)
+
+			By("By preparing an OCP Managed Clusters")
+			prepareCluster(clusterName,
+				map[string]string{"vendor": "OpenShift"},
+				map[string]string{},
+				[]clusterv1.ManagedClusterClaim{},
+				clusterAvailableCondition)
+
+			By("By checking the addon CR is is created in the cluster ns")
+			addon := &addonv1alpha1.ManagedClusterAddOn{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      operatorconstants.GHManagedClusterAddonName,
+					Namespace: clusterName,
+				}, addon)
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			Expect(len(addon.GetAnnotations())).Should(Equal(0))
+
+			By("By checking the mgh image pull secret is created in the cluster's manifestworks")
+			Eventually(func() error {
+				work := &workv1.ManifestWork{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      workName,
+					Namespace: clusterName,
+				}, work)
+				if err != nil {
+					return err
+				}
+				fmt.Println("===", "manifests size", len(work.Spec.Workload.Manifests))
+				for _, manifest := range work.Spec.Workload.Manifests {
+					unstructuredObj := &unstructured.Unstructured{}
+					err := json.Unmarshal(manifest.Raw, unstructuredObj)
+					if err != nil {
+						return err
+					}
+					fmt.Println("===", unstructuredObj.GetKind(),
+						unstructuredObj.GetName(), unstructuredObj.GetNamespace())
+					if unstructuredObj.GetKind() == "Secret" &&
+						unstructuredObj.GetName() == mgh.Spec.ImagePullSecret {
+						return nil
+					}
+				}
+				return fmt.Errorf("image global hub pull secret is not created")
+			}, timeout, interval).ShouldNot(HaveOccurred())
+		})
+
+		It("Should update the image registry and pull secret from ManagedClusterImageRegistry", func() {
+			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
+			workName := fmt.Sprintf("addon-%s-deploy-0",
+				operatorconstants.GHManagedClusterAddonName)
+
+			By("By preparing the image registry pull secret")
+			imageRegistrySecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "image-registry-pull-secret",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					".dockerconfigjson": []byte(`{"test":"secret by the managedclusterimageregistries"}`),
+				},
+				Type: corev1.SecretTypeDockerConfigJson,
+			}
+			Expect(k8sClient.Create(ctx, imageRegistrySecret)).Should(Succeed())
+
+			By("By preparing an OCP Managed Clusters")
+			prepareCluster(clusterName,
+				map[string]string{"vendor": "OpenShift"},
+				map[string]string{
+					v1alpha1.ClusterImageRegistriesAnnotation: `{"pullSecret":"default.image-registry-pull-secret","registries":[{"mirror":"quay.io/test","source":"quay.io/stolostron"}]}`,
+				},
+				[]clusterv1.ManagedClusterClaim{},
+				clusterAvailableCondition)
+
+			By("By checking the addon CR is is created in the cluster ns")
+			addon := &addonv1alpha1.ManagedClusterAddOn{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      operatorconstants.GHManagedClusterAddonName,
+					Namespace: clusterName,
+				}, addon)
+			}, timeout, interval).ShouldNot(HaveOccurred())
+
+			Expect(len(addon.GetAnnotations())).Should(Equal(0))
+
+			By("By checking the mgh image pull secret is created in the cluster's manifestworks")
+			Eventually(func() error {
+				work := &workv1.ManifestWork{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      workName,
+					Namespace: clusterName,
+				}, work)
+				if err != nil {
+					return err
+				}
+				fmt.Println("+++", "manifests size", len(work.Spec.Workload.Manifests))
+				for _, manifest := range work.Spec.Workload.Manifests {
+					unstructuredObj := &unstructured.Unstructured{}
+					err := json.Unmarshal(manifest.Raw, unstructuredObj)
+					if err != nil {
+						return err
+					}
+					fmt.Println("+++", unstructuredObj.GetKind(),
+						unstructuredObj.GetName(), unstructuredObj.GetNamespace())
+					if unstructuredObj.GetKind() == "Secret" &&
+						unstructuredObj.GetName() == imageRegistrySecret.GetName() {
+						return nil
+					}
+				}
+				return fmt.Errorf("image registry pull secret is not created")
+			}, timeout, interval).ShouldNot(HaveOccurred())
+		})
 	})
 
 	Context("When a cluster is imported in default mode", func() {
@@ -107,56 +227,6 @@ var _ = Describe("addon controller", Ordered, func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
-		})
-
-		It("Should update the image pull secret when remove it from the mgh cr", func() {
-			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
-			workName := fmt.Sprintf("addon-%s-deploy-0",
-				operatorconstants.GHManagedClusterAddonName)
-
-			By("By preparing an OCP Managed Clusters")
-			prepareCluster(clusterName,
-				map[string]string{"vendor": "OpenShift"},
-				map[string]string{},
-				[]clusterv1.ManagedClusterClaim{},
-				clusterAvailableCondition)
-
-			By("By checking the addon CR is is created in the cluster ns")
-			addon := &addonv1alpha1.ManagedClusterAddOn{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{
-					Name:      operatorconstants.GHManagedClusterAddonName,
-					Namespace: clusterName,
-				}, addon)
-			}, timeout, interval).ShouldNot(HaveOccurred())
-
-			Expect(len(addon.GetAnnotations())).Should(Equal(0))
-
-			By("By checking the mgh image pull secret is created in the cluster ns")
-			Eventually(func() error {
-				work := &workv1.ManifestWork{}
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      workName,
-					Namespace: clusterName,
-				}, work)
-				if err != nil {
-					return err
-				}
-				for _, manifest := range work.Spec.Workload.Manifests {
-					unstructuredObj := &unstructured.Unstructured{}
-					err := json.Unmarshal(manifest.Raw, unstructuredObj)
-					if err != nil {
-						return err
-					}
-					fmt.Println("===", unstructuredObj.GetKind(),
-						unstructuredObj.GetName(), unstructuredObj.GetNamespace())
-					if unstructuredObj.GetKind() == "Secret" &&
-						unstructuredObj.GetName() == mgh.Spec.ImagePullSecret {
-						return nil
-					}
-				}
-				return fmt.Errorf("image global hub pull secret is not created")
-			}, timeout, interval).ShouldNot(HaveOccurred())
 		})
 
 		It("Should create HoH agent and ACM when an OCP is imported", func() {

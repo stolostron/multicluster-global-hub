@@ -1534,6 +1534,8 @@ github.com/spf13/viper v1.7.0/go.mod h1:8WkrPz2fc9jxqZNCJI/76HCieCp4Q8HaLFoCha5q
 github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980/go.mod h1:AO3tvPzVZ/ayst6UlUKUv6rcPQInYe3IknH3jYhAKu8=
 github.com/stoewer/go-strcase v1.2.0/go.mod h1:IBiWB2sKIp3wVVQ3Y035++gc+knqhUQag1KpM8ahLw8=
 github.com/stolostron/backplane-operator v0.0.0-20220727154840-1f60baf1fb98 h1:fb77iXzaY4kud+wPqNPT6UgvPITK9q+O1D5FeUJ6qP0=
+github.com/stolostron/cluster-lifecycle-api v0.0.0-20230222063645-5b18b26381ff h1:psHMqHMefkFtr7y4JT5tz8oKwmChvLJe/cHUUM9tcMI=
+github.com/stolostron/cluster-lifecycle-api v0.0.0-20230222063645-5b18b26381ff/go.mod h1:pNeVzujoHsTHDloNHVfp1QPYlQy8MkXMuuZme96/x8M=
 github.com/stolostron/hypershift-deployment-controller v0.0.0-20220728190014-4f85d5954f19 h1:ugFnlHhbnFtkh/qE5LYQbAYvQfFD0+4SqUq783MEkMo=
 github.com/stolostron/hypershift-deployment-controller v0.0.0-20220728190014-4f85d5954f19/go.mod h1:lRt5bv12QpdnJRtGQH5ELPZz4/+hPqX8dWeuQ0zWLos=
 github.com/stolostron/multiclusterhub-operator v0.0.0-20220902185016-e81ccfbecf55 h1:sNpuRgbyAEvOjayzShyPNt+Eg34jmJPNIUY9cFvUlwU=
