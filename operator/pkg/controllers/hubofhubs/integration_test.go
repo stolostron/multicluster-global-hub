@@ -349,12 +349,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				imagePullPolicy = mgh.Spec.ImagePullPolicy
 			}
 
-			proxyImage, err := config.GetImage(mgh, config.OauthProxyImageKey)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			managerImage, err := config.GetImage(mgh, config.GlobalHubManagerImageKey)
-			Expect(err).ShouldNot(HaveOccurred())
-
+			var err error
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {
@@ -377,8 +372,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					NodeSelector           map[string]string
 					Tolerations            []corev1.Toleration
 				}{
-					Image:                  managerImage,
-					ProxyImage:             proxyImage,
+					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
+					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
 					ImagePullPolicy:        string(imagePullPolicy),
 					ImagePullSecret:        mgh.Spec.ImagePullSecret,
 					ProxySessionSecret:     "testing",
@@ -415,9 +410,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return nil
 			}, timeout, interval).Should(Succeed())
 
-			grafanaImage, err := config.GetImage(mgh, config.GrafanaImageKey)
-			Expect(err).ShouldNot(HaveOccurred())
-
 			// get the grafana objects
 			By("By checking the multicluster-global-hub-grafana resources are created as expected")
 			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
@@ -434,8 +426,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}{
 					Namespace:            config.GetDefaultNamespace(),
 					SessionSecret:        "testing",
-					ProxyImage:           proxyImage,
-					GrafanaImage:         grafanaImage,
+					ProxyImage:           config.GetImage(config.OauthProxyImageKey),
+					GrafanaImage:         config.GetImage(config.GrafanaImageKey),
 					ImagePullPolicy:      string(imagePullPolicy),
 					ImagePullSecret:      mgh.Spec.ImagePullSecret,
 					DatasourceSecretName: datasourceSecretName,

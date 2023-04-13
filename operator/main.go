@@ -133,15 +133,22 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
-	if err = (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
-		Manager:        mgr,
-		Client:         mgr.GetClient(),
-		KubeClient:     kubeClient,
-		Scheme:         mgr.GetScheme(),
-		LeaderElection: electionConfig,
-		Log:            ctrl.Log.WithName("global-hub-reconciler"),
+	// start addon controller
+	if err = (&hubofhubsaddon.HoHAddonInstallReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("addon-reconciler"),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
+		setupLog.Error(err, "unable to create addon reconciler")
+		return 1
+	}
+
+	addonController, err := hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(), electionConfig)
+	if err != nil {
+		setupLog.Error(err, "unable to create addon controller")
+		return 1
+	}
+	if err = mgr.Add(addonController); err != nil {
+		setupLog.Error(err, "unable to add addon controller to manager")
 		return 1
 	}
 
@@ -153,17 +160,16 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
-	// start addon controller
-	if err = (&hubofhubsaddon.HoHAddonInstallReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("addon-reconciler"),
+	if err = (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
+		Manager:        mgr,
+		Client:         mgr.GetClient(),
+		AddonManager:   addonController.AddonManager(),
+		KubeClient:     kubeClient,
+		Scheme:         mgr.GetScheme(),
+		LeaderElection: electionConfig,
+		Log:            ctrl.Log.WithName("global-hub-reconciler"),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create addon reconciler")
-		return 1
-	}
-
-	if err = mgr.Add(hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(), electionConfig)); err != nil {
-		setupLog.Error(err, "unable to add addon controller")
+		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
 		return 1
 	}
 

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
+	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -17,7 +18,6 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -161,7 +161,6 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	if err != nil {
 		return nil, err
 	}
-	log.Info("rendering manifests", "image", image)
 
 	imagePullPolicy := corev1.PullAlways
 	if mgh.Spec.ImagePullPolicy != "" {
@@ -187,7 +186,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {
 		return nil, err
 	}
-	log.Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName)
+	log.Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName,
+		"image", manifestsConfig.HoHAgentImage)
 
 	if a.installACMHub(cluster) {
 		manifestsConfig.InstallACMHub = true
@@ -240,10 +240,7 @@ func (a *HohAgentAddon) getOverrideImage(mgh *operatorv1alpha2.MulticlusterGloba
 	cluster *clusterv1.ManagedCluster,
 ) (string, error) {
 	// image registry override by operator environment variable and mgh annotation
-	configOverrideImage, err := config.GetImage(mgh, config.GlobalHubAgentImageKey)
-	if err != nil {
-		return "", err
-	}
+	configOverrideImage := config.GetImage(config.GlobalHubAgentImageKey)
 
 	// image registry override by cluster annotation(added by the ManagedClusterImageRegistry)
 	image, err := imageregistry.OverrideImageByAnnotation(cluster.GetAnnotations(), configOverrideImage)

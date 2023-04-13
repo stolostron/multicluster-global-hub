@@ -68,16 +68,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
-	proxyImage, err := config.GetImage(mgh, config.OauthProxyImageKey)
-	if err != nil {
-		return fmt.Errorf("failed to get oauth-proxy image: %v", err)
-	}
-
-	managerImage, err := config.GetImage(mgh, config.GlobalHubManagerImageKey)
-	if err != nil {
-		return fmt.Errorf("failed to get manager image: %v", err)
-	}
-
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                  string
@@ -98,8 +88,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
 		}{
-			Image:                  managerImage,
-			ProxyImage:             proxyImage,
+			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
+			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
 			ImagePullSecret:        mgh.Spec.ImagePullSecret,
 			ImagePullPolicy:        string(imagePullPolicy),
 			ProxySessionSecret:     proxySessionSecret,

@@ -43,17 +43,25 @@ type HoHAddonController struct {
 	client         client.Client
 	leaderElection *commonobjects.LeaderElectionConfig
 	log            logr.Logger
+	addonManager   addonmanager.AddonManager
 }
 
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 	leaderElection *commonobjects.LeaderElectionConfig,
-) *HoHAddonController {
+) (*HoHAddonController, error) {
+	log := ctrl.Log.WithName("agent-addon-controller")
+	addonMgr, err := addonmanager.New(kubeConfig)
+	if err != nil {
+		log.Error(err, "failed to create addon manager")
+		return nil, err
+	}
 	return &HoHAddonController{
 		kubeConfig:     kubeConfig,
 		client:         client,
 		leaderElection: leaderElection,
 		log:            ctrl.Log.WithName("agent-addon-controller"),
-	}
+		addonManager:   addonMgr,
+	}, nil
 }
 
 func (a *HoHAddonController) Start(ctx context.Context) error {
@@ -89,12 +97,6 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		log:                  a.log.WithName("addon-values"),
 	}
 
-	mgr, err := addonmanager.New(a.kubeConfig)
-	if err != nil {
-		a.log.Error(err, "failed to create addon manager")
-		return err
-	}
-
 	agentAddon, err := addonfactory.NewAgentAddonFactory(
 		operatorconstants.GHManagedClusterAddonName, FS, "manifests").
 		WithAgentHostedModeEnabledOption().
@@ -112,12 +114,16 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = mgr.AddAgent(agentAddon)
+	err = a.addonManager.AddAgent(agentAddon)
 	if err != nil {
 		a.log.Error(err, "failed to add agent addon to manager")
 		return err
 	}
 
 	a.log.Info("starting addon manager")
-	return mgr.Start(ctx)
+	return a.addonManager.Start(ctx)
+}
+
+func (a *HoHAddonController) AddonManager() addonmanager.AddonManager {
+	return a.addonManager
 }

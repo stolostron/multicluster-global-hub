@@ -101,7 +101,7 @@ func TestSetImageOverrides(t *testing.T) {
 		// set init imageManifests
 		imageOverrides = tt.initImageManifests
 		t.Run(tt.desc, func(t *testing.T) {
-			_, err := GetImage(tt.mghInstance, GlobalHubAgentImageKey)
+			err := SetImageOverrides(tt.mghInstance)
 			if ((err != nil && tt.wantErr == nil) || (err == nil && tt.wantErr != nil)) ||
 				!reflect.DeepEqual(imageOverrides, tt.wantImageManifests) {
 				t.Errorf("%s:\nwanted imageManifests & err:\n%+v\n%v\ngot imageManifests & err \n%+v\n%v",

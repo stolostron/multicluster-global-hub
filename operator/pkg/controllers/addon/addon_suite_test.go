@@ -148,7 +148,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon controller to the manager")
-	err = k8sManager.Add(addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient, electionConfig))
+	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient, electionConfig)
+	Expect(err).ToNot(HaveOccurred())
+	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {

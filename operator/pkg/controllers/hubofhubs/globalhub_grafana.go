@@ -50,16 +50,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
-	proxyImage, err := config.GetImage(mgh, config.OauthProxyImageKey)
-	if err != nil {
-		return fmt.Errorf("failed to get oauth-proxy image: %v", err)
-	}
-
-	grafanaImage, err := config.GetImage(mgh, config.GrafanaImageKey)
-	if err != nil {
-		return fmt.Errorf("failed to get grafana image: %v", err)
-	}
-
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
 	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
@@ -76,8 +66,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		}{
 			Namespace:            config.GetDefaultNamespace(),
 			SessionSecret:        proxySessionSecret,
-			ProxyImage:           proxyImage,
-			GrafanaImage:         grafanaImage,
+			ProxyImage:           config.GetImage(config.OauthProxyImageKey),
+			GrafanaImage:         config.GetImage(config.GrafanaImageKey),
 			ImagePullSecret:      mgh.Spec.ImagePullSecret,
 			ImagePullPolicy:      string(imagePullPolicy),
 			DatasourceSecretName: datasourceSecretName,
