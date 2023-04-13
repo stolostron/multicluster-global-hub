@@ -1,0 +1,9 @@
+apiVersion: operator.openshift.io/v1alpha1
+kind: ImageContentSourcePolicy
+metadata:
+  name: global-hub-operator-icsp
+spec:
+  repositoryDigestMirrors:
+  - mirrors:
+    - ${REGISTRY}/multicluster-global-hub-operator
+    source: quayy.io/stolostron/multicluster-global-hub-operator
