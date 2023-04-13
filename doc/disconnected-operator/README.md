@@ -2,7 +2,7 @@
 
 ## Prerequisites
 - Make sure you have an image registry, and a bastion host that has access to both the Internet and your mirror registry
-- Have OLM([Operator Lifecycle Manager](https://docs.openshift.com/container-platform/4.8/operators/understanding/olm/olm-understanding-olm.html)) installed on your cluster
+- Have OLM([Operator Lifecycle Manager](https://docs.openshift.com/container-platform/4.11/operators/understanding/olm/olm-understanding-olm.html)) installed on your cluster
 - The Advanced Cluster Management for Kubernetes has been installed on your cluster
 - Make sure your user is authorized with cluster-admin permissions
 
@@ -177,13 +177,13 @@ oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
   In a disconnection environment, although it can be seen from the events in the operator pod that the image is pulled from the public registry `quay.io/stolostron`, it is actually pulled from the `$REGISTRY` configured by the `ImageContentSourcePolicy`
 
 ### Installing the Operator from OperatorHub using the web console
-You can install and subscribe to an Operator from OperatorHub using the OpenShift Container Platform web console. For more details, please refer [here](https://docs.openshift.com/container-platform/4.10/operators/admin/olm-adding-operators-to-cluster.html)
+You can install and subscribe to an Operator from OperatorHub using the OpenShift Container Platform web console. For more details, please refer [here](https://docs.openshift.com/container-platform/4.11/operators/admin/olm-adding-operators-to-cluster.html)
 
 ## References
 - [Mirroring an Operator catalog](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-mirror-catalog_olm-restricted-networks)
 - [Accessing images for Operators from private registries](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-accessing-images-private-registries_olm-managing-custom-catalogs)
 - [Adding a catalog source to a cluster](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-creating-catalog-from-index_olm-restricted-networks)
 - [ACM Deploy](https://github.com/stolostron/deploy)
-- [Install in disconnected network environments](https://gitlab.cee.redhat.com/red-hat-enterprise-openshift-documentation/advanced-cluster-management/-/blob/406eaf2b653d5d9cf287c2c5d2a0baccb19b3092/install/install_disconnected.adoc)
+- [Install in disconnected network environments](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html/install/installing#install-on-disconnected-networks)
 - [Mirroring images for a disconnected installation](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-installation-images.html#installing-mirroring-installation-images)
 - [Operator SDK Integration with Operator Lifecycle Manager](https://sdk.operatorframework.io/docs/olm-integration/)
