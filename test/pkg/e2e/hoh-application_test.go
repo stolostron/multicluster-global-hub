@@ -9,12 +9,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"crypto/tls"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,23 +31,24 @@ const (
 )
 
 var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tests-app"), Ordered, func() {
-	var managedClusterName1 string
-	var managedClusterName2 string
-	var managedClusterUID1 string
-	var managedClusterUID2 string
 	var appClient client.Client
+	var managedClusters []clusterv1.ManagedCluster
 
 	BeforeAll(func() {
-		By("Get managed cluster name")
 		Eventually(func() error {
-			managedClusters, err := getManagedCluster(httpClient, httpToken)
+			By("Config request of the api")
+			transport := &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
+			var err error
+			managedClusters, err = getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
 			}
-			managedClusterName1 = managedClusters[0].Name
-			managedClusterName2 = managedClusters[1].Name
-			managedClusterUID1 = string(managedClusters[0].GetUID())
-			managedClusterUID2 = string(managedClusters[1].GetUID())
+			if len(managedClusters) != ExpectedManagedClusterNum {
+				return fmt.Errorf("managed cluster is not exist")
+			}
 			return nil
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
@@ -54,12 +57,12 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		appsv1.SchemeBuilder.AddToScheme(scheme)
 		appsv1alpha1.AddToScheme(scheme)
 		var err error
-		appClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
+		appClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
-	It(fmt.Sprintf("add the app label[ %s: %s ] to the %s", APP_LABEL_KEY, APP_LABEL_VALUE, managedClusterName1), func() {
-		By("Add label to the managedcluster1")
+	It(fmt.Sprintf("add the app label[ %s: %s ]", APP_LABEL_KEY, APP_LABEL_VALUE), func() {
+		By("Add label to the managedcluster")
 		patches := []patch{
 			{
 				Op:    "add",
@@ -68,22 +71,18 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			},
 		}
 
-		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID1)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
 		By("Check the label is added")
 		Eventually(func() error {
-			managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName1)
+			err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].GetUID()))
 			if err != nil {
 				return err
 			}
-			if val, ok := managedCluster.Labels[APP_LABEL_KEY]; ok {
-				if val == APP_LABEL_VALUE && managedCluster.Name == managedClusterName1 {
+			managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedClusters[0].Name)
+			if err != nil {
+				return err
+			}
+			if val, ok := managedClusterInfo.Labels[APP_LABEL_KEY]; ok {
+				if val == APP_LABEL_VALUE && managedClusterInfo.Name == managedClusters[0].Name {
 					return nil
 				}
 			}
@@ -93,61 +92,52 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 	Context("deploy the application", func() {
 		It("deploy the application/subscription", func() {
-			By("Apply the appsub to labeled cluster")
-			Eventually(func() error {
-				_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", APP_SUB_YAML)
-				if err != nil {
-					return err
-				}
-				return nil
-			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
+				_, err := clients.Kubectl(GlobalHubName, "apply", "-f", APP_SUB_YAML)
+				if err != nil {
+					return err
+				}
 				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 1,
-					[]string{managedClusterName1})
+					[]string{managedClusters[0].Name})
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
-		It(fmt.Sprintf("Add the app label[ %s: %s ] to the %s", APP_LABEL_KEY,
-			APP_LABEL_VALUE, managedClusterName2), func() {
-			By("Add the lablel to managedcluster2")
-			patches := []patch{
-				{
-					Op:    "add",
-					Path:  "/metadata/labels/" + APP_LABEL_KEY,
-					Value: APP_LABEL_VALUE,
-				},
-			}
-			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID2)
-				if err != nil {
-					return err
+		for i:=1; i<len(managedClusters); i++ {
+			It(fmt.Sprintf("Add the app label[ %s: %s ]", APP_LABEL_KEY, APP_LABEL_VALUE), func() {
+				By("Add the lablel to managedcluster")
+				patches := []patch{
+					{
+						Op:    "add",
+						Path:  "/metadata/labels/" + APP_LABEL_KEY,
+						Value: APP_LABEL_VALUE,
+					},
 				}
-				return nil
-			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-			By("Check the label is added to managedcluster2")
-			Eventually(func() error {
-				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusterName2)
-				if err != nil {
-					return err
-				}
-				if val, ok := managedCluster.Labels[APP_LABEL_KEY]; ok {
-					if val == APP_LABEL_VALUE && managedCluster.Name == managedClusterName2 {
-						return nil
+				By("Check the label is added to managedcluster")
+				Eventually(func() error {
+					err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[i].GetUID()))
+					if err != nil {
+						return err
 					}
-				}
-				return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+					managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedClusters[i].Name)
+					if err != nil {
+						return err
+					}
+					if val, ok := managedClusterInfo.Labels[APP_LABEL_KEY]; ok {
+						if val == APP_LABEL_VALUE && managedClusterInfo.Name == managedClusters[i].Name {
+							return nil
+						}
+					}
+					return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
+				}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
-			By("Check the appsub apply to the clusters")
-			Eventually(func() error {
-				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 2, []string{
-					managedClusterName1, managedClusterName2,
-				})
-			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-		})
+				By("Check the appsub apply to the clusters")
+				Eventually(func() error {
+					return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 2, []string{managedClusters[0].Name, managedClusters[1].Name})
+				}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			})
+		}
 
 		AfterEach(func() {
 			if CurrentSpecReport().Failed() {
@@ -170,24 +160,18 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID1)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
-		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID2)
-			if err != nil {
-				return err
+			for _, managedCluster := range managedClusters {
+				err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.GetUID()))
+				if err != nil {
+					return err
+				}
 			}
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Remove the appsub resource")
 		Eventually(func() error {
-			_, err := clients.Kubectl(clients.HubClusterName(), "delete", "-f", APP_SUB_YAML)
+			_, err := clients.Kubectl(GlobalHubName, "delete", "-f", APP_SUB_YAML)
 			if err != nil {
 				return err
 			}

@@ -58,7 +58,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		placementrulesv1.AddToScheme(scheme)
 		mghv1alpha2.AddToScheme(scheme)
 		var err error
-		runtimeClient, err = clients.ControllerRuntimeClient(clients.HubClusterName(), scheme)
+		runtimeClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Get managed cluster name")
@@ -93,7 +93,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Apply the appsub to labeled cluster")
 		Eventually(func() error {
-			_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", APP_SUB_YAML)
+			_, err := clients.Kubectl(GlobalHubName, "apply", "-f", APP_SUB_YAML)
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Apply the policy to labeled cluster")
 		Eventually(func() error {
-			_, err := clients.Kubectl(clients.HubClusterName(), "apply", "-f", INFORM_POLICY_YAML)
+			_, err := clients.Kubectl(GlobalHubName, "apply", "-f", INFORM_POLICY_YAML)
 			if err != nil {
 				return err
 			}

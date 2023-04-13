@@ -29,7 +29,8 @@ rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
 # create leader election configuration
 kubectl apply -f ${currentDir}/components/leader-election-configmap.yaml -n "$namespace"
 # install crds
-kubectl --context kind-$LEAF_HUB_NAME apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+kubectl --context kind-hub1 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+kubectl --context kind-hub2 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 
 # replace images
 sed -i "s|quay.io/stolostron/multicluster-global-hub-manager:latest|${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}|g" ${rootDir}/operator/config/manager/manager.yaml
@@ -77,8 +78,8 @@ ca=$(kubectl get secret multicluster-global-hub-webhook-certs -n $namespace -o j
 kubectl patch mutatingwebhookconfiguration multicluster-global-hub-mutator -n $namespace -p "{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"$ca\"}}]}"
 
 SECOND=0
-while [[ -z $(kubectl get deploy -n $agenAddonNamespace multicluster-global-hub-agent --context kind-$LEAF_HUB_NAME --ignore-not-found) ]]; do
-  if [ $SECOND -gt 200 ]; then
+while [[ -z $(kubectl get deploy -n $agenAddonNamespace multicluster-global-hub-agent --context kind-hub1 --ignore-not-found) ]]; do
+  if [ $SECOND -gt 500 ]; then
     echo "Timeout waiting for deploying multicluster-global-hub-agent in namespace $agenAddonNamespace"
     exit 1
   fi
@@ -86,4 +87,16 @@ while [[ -z $(kubectl get deploy -n $agenAddonNamespace multicluster-global-hub-
   sleep 2;
   (( SECOND = SECOND + 2 ))
 done;
-kubectl --context kind-$LEAF_HUB_NAME wait deployment -n $agenAddonNamespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s
+kubectl --context kind-hub1 wait deployment -n $agenAddonNamespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s
+
+SECOND=0
+while [[ -z $(kubectl get deploy -n $agenAddonNamespace multicluster-global-hub-agent --context kind-hub2 --ignore-not-found) ]]; do
+  if [ $SECOND -gt 500 ]; then
+    echo "Timeout waiting for deploying multicluster-global-hub-agent in namespace $agenAddonNamespace"
+    exit 1
+  fi
+  echo "Waiting for multicluster-global-hub-agent to be created..."
+  sleep 2;
+  (( SECOND = SECOND + 2 ))
+done;
+kubectl --context kind-hub2 wait deployment -n $agenAddonNamespace multicluster-global-hub-agent --for condition=Available=True --timeout=600s
