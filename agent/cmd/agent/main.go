@@ -88,7 +88,10 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		return 1
 	}
 
-	go startEventExporter(ctx, log, restConfig, agentConfig)
+	watcher, _ := newEventWatcher(ctx, log, restConfig, agentConfig)
+	if watcher != nil {
+		go watcher.Start()
+	}
 
 	log.Info("starting the agent controller manager")
 	if err := mgr.Start(ctx); err != nil {
@@ -98,19 +101,20 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 	return 0
 }
 
-func startEventExporter(ctx context.Context, log logr.Logger, restConfig *rest.Config, agentConfig *config.AgentConfig) {
+func newEventWatcher(ctx context.Context, log logr.Logger, restConfig *rest.Config,
+	agentConfig *config.AgentConfig) (*kube.EventWatcher, error) {
 
 	b, err := os.ReadFile(agentConfig.KubeEventExporterConfigPath)
 	if err != nil {
-		log.Info("no kube event exporter config file found, don't start the event watcher")
-		return
+		log.Info("no kube event exporter config file found. don't start the event watcher")
+		return nil, err
 	}
 
 	var cfg exporter.Config
 	err = yaml.Unmarshal(b, &cfg)
 	if err != nil {
-		log.Error(err, "cannot parse config to YAML")
-		return
+		log.Error(err, "cannot parse config to YAML. don't start the event watcher")
+		return nil, err
 	}
 
 	metrics.Init(*flag.String("metrics-address", ":2112", "The address to listen on for HTTP requests."))
@@ -118,11 +122,8 @@ func startEventExporter(ctx context.Context, log logr.Logger, restConfig *rest.C
 
 	engine := exporter.NewEngine(&cfg, &exporter.ChannelBasedReceiverRegistry{MetricsStore: metricsStore})
 	onEvent := engine.OnEvent
-	kube.NewEventWatcher(
-		restConfig, cfg.Namespace,
-		cfg.MaxEventAgeSeconds, metricsStore,
-		onEvent).
-		Start()
+	return kube.NewEventWatcher(restConfig, cfg.Namespace,
+		cfg.MaxEventAgeSeconds, metricsStore, onEvent), nil
 }
 
 func initLog() logr.Logger {
