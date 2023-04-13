@@ -49,7 +49,7 @@ type HoHAddonController struct {
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 	leaderElection *commonobjects.LeaderElectionConfig,
 ) (*HoHAddonController, error) {
-	log := ctrl.Log.WithName("agent-addon-controller")
+	log := ctrl.Log.WithName("addon-controller")
 	addonMgr, err := addonmanager.New(kubeConfig)
 	if err != nil {
 		log.Error(err, "failed to create addon manager")
@@ -59,7 +59,7 @@ func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 		kubeConfig:     kubeConfig,
 		client:         client,
 		leaderElection: leaderElection,
-		log:            ctrl.Log.WithName("agent-addon-controller"),
+		log:            log,
 		addonManager:   addonMgr,
 	}, nil
 }
@@ -94,7 +94,7 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		client:               a.client,
 		dynamicClient:        dynamicClient,
 		leaderElectionConfig: a.leaderElection,
-		log:                  a.log.WithName("addon-values"),
+		log:                  a.log.WithName("values"),
 	}
 
 	agentAddon, err := addonfactory.NewAgentAddonFactory(
