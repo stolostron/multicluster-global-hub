@@ -1,9 +1,9 @@
 # Deploy Global Hub Operator on a Disconnected Environment 
 
 ## Prerequisites
-- Make sure you have an image registry, and a workstation that has access to both the Internet and your mirror registry
-- Have OLM installed on your cluster
-- The ACM hub has been installed on your cluster
+- Make sure you have an image registry, and a bastion host that has access to both the Internet and your mirror registry
+- Have OLM([Operator Lifecycle Manager](https://docs.openshift.com/container-platform/4.8/operators/understanding/olm/olm-understanding-olm.html)) installed on your cluster
+- The Advanced Cluster Management for Kubernetes has been installed on your cluster
 - Make sure your user is authorized with cluster-admin permissions
 
 ## Mirror Registry
@@ -52,9 +52,9 @@ After running the above command, the following images have been built and pushed
       --type=kubernetes.io/dockerconfigjson
     ```
 
-### Create the CatalogSource Object with the Pull Secret
+### Create the CatalogSource Object with the Image Pull Secret
 ```bash
-$ cat ./doc/disconneted-operator/catalogsource.yaml
+$ cat ./doc/disconnected-operator/catalogsource.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
@@ -69,7 +69,7 @@ spec:
   image: ${REGISTRY}/multicluster-global-hub-operator-catalog:v${VERSION}
   publisher: global-hub-squad  
 
-$ envsubst < ./doc/disconneted-operator/catalogsource.yaml | kubectl apply -f -
+$ envsubst < ./doc/disconnected-operator/catalogsource.yaml | kubectl apply -f -
 ```
 OLM polls catalog sources for available packages on a regular timed interval. After OLM polls the catalog source for your mirrored catalog, you can verify that the required packages are available from on your disconnected cluster by querying the available PackageManifest resources.
 ```bash
@@ -81,7 +81,7 @@ multicluster-global-hub-operator   Community Operators   28m
 ### Configure Image Content Source Policies
 In order to have your cluster obtain container images for the global hub operator from your mirror registry, rather than from the internet-hosted registries, you must configure an ImageContentSourcePolicy on your disconnected cluster to redirect image references to your mirror registry.(Note: You need to use the operator image with digest, otherwise the ImageContentSourcePolicy configuration will not take effect. export the `IMG` variable to update operator image in the CSV when build the bundle image for testing)
 ```bash
-cat ./doc/disconneted-operator/imagecontentpolicy.yaml
+cat ./doc/disconnected-operator/imagecontentpolicy.yaml
 apiVersion: operator.openshift.io/v1alpha1
 kind: ImageContentSourcePolicy
 metadata:
@@ -92,12 +92,13 @@ spec:
     - ${REGISTRY}/multicluster-global-hub-operator
     source: quay.io/stolostron/multicluster-global-hub-operator
 
-$ envsubst < ./doc/disconneted-operator/imagecontentpolicy.yaml | kubectl apply -f -
+$ envsubst < ./doc/disconnected-operator/imagecontentpolicy.yaml | kubectl apply -f -
 ```
 
 If the Operator or Operand images that are referenced by a subscribed Operator require access to a private registry, you can either [provide access to all namespaces in the cluster, or individual target tenant namespaces](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-creating-catalog-from-index_olm-managing-custom-catalogs). 
 
-Here we add the $REGISTRY pull-secret to the OpenShift main pull-secret. (Caution: if you apply this on a pre-existing cluster, it will cause a rolling restart of all nodes).
+#### Sample 1. Configure image pull secret to the Openshift global pull secret.
+Caution: if you apply this on a pre-existing cluster, it will cause a rolling restart of all nodes.
 ```bash
 export USER=<the-registry-user>
 export PASSWORD=<the-registry-password>
@@ -106,12 +107,25 @@ oc registry login --registry=${REGISTRY} --auth-basic="$USER:$PASSWORD" --to=pul
 oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=pull_secret.yaml
 rm pull_secret.yaml
 ```
+
+#### Sample 2. Configure image pull secret to a individual namespace.
+```bash
+# create the secret in the tenant namespace
+oc create secret generic <secret_name> \
+    -n <tenant_namespace> \
+    --from-file=.dockerconfigjson=<path/to/registry/credentials> \
+    --type=kubernetes.io/dockerconfigjson
+
+# link the secret to the service account for your operator/operand
+oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
+```
+
 ### Installing the Operator from OperatorHub using the CLI
 - Create the `OperatorGroup`
   
   Each namespace can have only one operator group. Replace `default` with the name of your operator group. Replace namespace with the name of your project namespace.
   ```bash
-  $ cat ./doc/disconneted-operator/operatorgroup.yaml  
+  $ cat ./doc/disconnected-operator/operatorgroup.yaml  
   apiVersion: operators.coreos.com/v1
   kind: OperatorGroup
   metadata:
@@ -121,12 +135,12 @@ rm pull_secret.yaml
     targetNamespaces:
     - default
 
-  $ oc apply -f ./doc/disconneted-operator/operatorgroup.yaml   
+  $ oc apply -f ./doc/disconnected-operator/operatorgroup.yaml   
   ```
  
 - Create the `Subscription`
   ```bash
-  $ cat ./doc/disconneted-operator/subscription.yaml
+  $ cat ./doc/disconnected-operator/subscription.yaml
   apiVersion: operators.coreos.com/v1alpha1
   kind: Subscription
   metadata:
@@ -139,7 +153,7 @@ rm pull_secret.yaml
     source: global-hub-operator-catalog
     sourceNamespace: openshift-marketplace
 
-  $ oc apply -f ./doc/disconneted-operator/subscription.yaml
+  $ oc apply -f ./doc/disconnected-operator/subscription.yaml
   ```
   
 - Check the global hub operator
