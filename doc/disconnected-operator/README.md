@@ -12,7 +12,7 @@ Installing global hub in a disconnected environment involves the use of a mirror
 - [Creating a mirror registry](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-creating-registry.html#installing-mirroring-creating-registry)
 - [Mirroring images for a disconnected installation](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-installation-images.html)
 
-## Adding Global Hub Operator CatalogSource to a Cluster [Optional]
+## Add Global Hub Operator CatalogSource to a Cluster [Optional]
 ### Build the Global Hub Bundle Image and Index Image
 ```bash
 export REGISTRY=<operator-mirror-registry>
@@ -78,8 +78,9 @@ NAME                               CATALOG               AGE
 multicluster-global-hub-operator   Community Operators   28m
 ```
 
-### Configure Image Content Source Policies
-In order to have your cluster obtain container images for the global hub operator from your mirror registry, rather than from the internet-hosted registries, you must configure an ImageContentSourcePolicy on your disconnected cluster to redirect image references to your mirror registry.(Note: You need to use the operator image with digest, otherwise the ImageContentSourcePolicy configuration will not take effect. export the `IMG` variable to update operator image in the CSV when build the bundle image for testing)
+## Configure the Image Pull Secret
+### Create Image Content Source Policies
+In order to have your cluster obtain container images for the global hub operator from your mirror registry, rather than from the internet-hosted registries, you must configure an `ImageContentSourcePolicy` on your disconnected cluster to redirect image references to your mirror registry.(Note: You need to use the operator image with digest, otherwise the ImageContentSourcePolicy configuration will not take effect. export the `IMG` variable to update operator image in the CSV when build the bundle image for testing)
 ```bash
 cat ./doc/disconnected-operator/imagecontentpolicy.yaml
 apiVersion: operator.openshift.io/v1alpha1
@@ -95,9 +96,11 @@ spec:
 $ envsubst < ./doc/disconnected-operator/imagecontentpolicy.yaml | kubectl apply -f -
 ```
 
+### Create Image Pull Secret for the Operator or Operand
+
 If the Operator or Operand images that are referenced by a subscribed Operator require access to a private registry, you can either [provide access to all namespaces in the cluster, or individual target tenant namespaces](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-creating-catalog-from-index_olm-managing-custom-catalogs). 
 
-#### Sample 1. Configure image pull secret to the Openshift global pull secret.
+#### Sample 1. Configure image pull secret to all the namespaces on a Openshift cluster.
 Caution: if you apply this on a pre-existing cluster, it will cause a rolling restart of all nodes.
 ```bash
 export USER=<the-registry-user>
@@ -108,7 +111,7 @@ oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson
 rm pull_secret.yaml
 ```
 
-#### Sample 2. Configure image pull secret to a individual namespace.
+#### Sample 2. Configure image pull secret to an individual namespace.
 ```bash
 # create the secret in the tenant namespace
 oc create secret generic <secret_name> \
@@ -120,7 +123,8 @@ oc create secret generic <secret_name> \
 oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
 ```
 
-### Installing the Operator from OperatorHub using the CLI
+## Install the Global Hub Operator
+### Install the Operator from OperatorHub using the CLI
 - Create the `OperatorGroup`
   
   Each namespace can have only one operator group. Replace `default` with the name of your operator group. Replace namespace with the name of your project namespace.
@@ -176,7 +180,7 @@ oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
   ```
   In a disconnection environment, although it can be seen from the events in the operator pod that the image is pulled from the public registry `quay.io/stolostron`, it is actually pulled from the `$REGISTRY` configured by the `ImageContentSourcePolicy`
 
-### Installing the Operator from OperatorHub using the web console
+### Install the Operator from OperatorHub using the web console
 You can install and subscribe to an Operator from OperatorHub using the OpenShift Container Platform web console. For more details, please refer [here](https://docs.openshift.com/container-platform/4.11/operators/admin/olm-adding-operators-to-cluster.html)
 
 ## References
