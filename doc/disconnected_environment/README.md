@@ -100,7 +100,7 @@ $ envsubst < ./doc/disconnected-operator/imagecontentpolicy.yaml | kubectl apply
 
 If the Operator or Operand images that are referenced by a subscribed Operator require access to a private registry, you can either [provide access to all namespaces in the cluster, or individual target tenant namespaces](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-creating-catalog-from-index_olm-managing-custom-catalogs). 
 
-#### Sample 1. Configure image pull secret to all the namespaces on a Openshift cluster.
+#### Sample 1. Configure image pull secret to all the namespaces on a Openshift cluster
 Caution: if you apply this on a pre-existing cluster, it will cause a rolling restart of all nodes.
 ```bash
 export USER=<the-registry-user>
@@ -111,7 +111,7 @@ oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson
 rm pull_secret.yaml
 ```
 
-#### Sample 2. Configure image pull secret to an individual namespace.
+#### Sample 2. Configure image pull secret to an individual namespace
 ```bash
 # create the secret in the tenant namespace
 oc create secret generic <secret_name> \
@@ -183,6 +183,104 @@ oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
 ### Install the Operator from OperatorHub using the web console
 You can install and subscribe to an Operator from OperatorHub using the OpenShift Container Platform web console. For more details, please refer [here](https://docs.openshift.com/container-platform/4.11/operators/admin/olm-adding-operators-to-cluster.html)
 
+
+## Image Registries Configuration
+
+The following types of image should be consider when running the global hub.
+
+- Index image: `${REGISTRY}/multicluster-global-hub-operator-catalog`
+- Bundle image: `${REGISTRY}/multicluster-global-hub-operator-bundle`
+- Operator image: `quay.io/stolostron/multicluster-global-hub-operator`
+- Operand Images
+  - Manager image: `quay.io/stolostron/multicluster-global-hub-manager`
+  - Grafana image: `quay.io/stolostron/grafana`
+  - Oauth Proxy image: `quay.io/stolostron/origin-oauth-proxy`
+  - Agent image: `quay.io/stolostron/multicluster-global-hub-agent`
+
+In most cases the customers don't need to pay attention to the first three images, because they are used to build the global hub CatalogSource. So we will mainly describe how to configure the registries and pull secret of operand images
+
+### Configure the Operand Image Registry by Annotation
+
+This is achieved by adding annotation to the MGH CR and specifying the image pull secret and image pull policy. e.g:
+```yaml
+apiVersion: operator.open-cluster-management.io/v1alpha2
+kind: MulticlusterGlobalHub
+metadata:
+  annotations:
+    mgh-image-repository: <private-image-registry>
+  name: multiclusterglobalhub
+  namespace: open-cluster-management
+spec:
+  imagePullPolicy: Always
+  imagePullSecret: ecr-image-pull-secret
+  dataLayer:
+    type: largeScale
+    largeScale:
+      kafka:
+        name: transport-secret 
+        transportFormat: cloudEvents # or message
+      postgres:
+        name: storage-secret
+```
+The advantage of this way is that it's easy to configure. But because the **Agent image** runs in the regional hub cluster. And different clusters might have different registries, then the above method cannot reach this situation. Here is another way to achieve this.
+
+### Config the Agent Image Registry By ManagedClusterImageRegistry
+
+- Create the placement/clusterset to select the target regional hub cluster, for example:
+  ```yaml
+  apiVersion: cluster.open-cluster-management.io/v1beta1
+  kind: Placement
+  metadata:
+    name: <placement-name>
+    namespace: <placement-namespace>
+  spec:
+    clusterSets:
+      - <cluster-set>
+    predicates:
+    - requiredClusterSelector:
+        labelSelector:
+          matchLabels:
+            <key>: <label>
+  ---
+  apiVersion: cluster.open-cluster-management.io/v1beta1
+  kind: ManagedClusterSetBinding
+  metadata:
+    name: <cluster-set>
+    namespace: <placement-namespace>
+  spec:
+    clusterSet: <cluster-set>
+  ---
+  apiVersion: cluster.open-cluster-management.io/v1beta1
+  kind: ManagedClusterSet
+  metadata:
+    name: <cluster-set>
+  spec:
+    clusterSelector:
+      selectorType: LegacyClusterSetLabel
+  ```
+- Create the `ManagedClusterImageRegistry` to replace the `Agent image`
+  ```yaml
+  apiVersion: imageregistry.open-cluster-management.io/v1alpha1
+  kind: ManagedClusterImageRegistry
+  metadata:
+    name: <global-hub-cluster-image-registry>
+    namespace: <placement-namespace>
+  spec:
+    placementRef:
+      group: cluster.open-cluster-management.io
+      resource: placements
+      name: <placement-name>
+    pullSecret:
+      name: <image-pull-secret>
+    registries:
+      - mirror: <mirror-image-registry>
+        source: <image-will-be-overridden-by-mirror>
+  ```
+By configuring the above, a label and an annotation will be added to the selected `ManagedCluster`. This means that the agent image in the cluster will be replaced with the mirror image.
+  - Label: `open-cluster-management.io/image-registry=Namespace.ManagedClusterImageRegistryName`
+  - Annotation: `open-cluster-management.io/image-registries`
+
+
 ## References
 - [Mirroring an Operator catalog](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-mirror-catalog_olm-restricted-networks)
 - [Accessing images for Operators from private registries](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-accessing-images-private-registries_olm-managing-custom-catalogs)
@@ -191,3 +289,4 @@ You can install and subscribe to an Operator from OperatorHub using the OpenShif
 - [Install in disconnected network environments](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html/install/installing#install-on-disconnected-networks)
 - [Mirroring images for a disconnected installation](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-installation-images.html#installing-mirroring-installation-images)
 - [Operator SDK Integration with Operator Lifecycle Manager](https://sdk.operatorframework.io/docs/olm-integration/)
+- [ManagedClusterImageRegistry CRD](https://github.com/stolostron/multicloud-operators-foundation/blob/main/docs/imageregistry/imageregistry.md)
