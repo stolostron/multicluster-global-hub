@@ -2,36 +2,37 @@
 
 List all labels are used by the multicluster global hub.
 
-Label | Description
---- | ----------
-global-hub.open-cluster-management.io/managed-by=`global-hub-operator\|global-hub\|global-hub-agent` | If the value is `global-hub-operator`, it means the resources are created by the global hub operator. The global hub operator watches the resources based on this label.
-global-hub.open-cluster-management.io/global-resource= | This label is added during creating global resources. It is used to identify the resource need to be propagated to the regional hub by transport.
-global-hub.open-cluster-management.io/agent-deploy-mode = `Hosted\| Default\| None` | This label is used on ManagedCluster.<br>`Hosted` means the HoH agent will be deployed on Hosting cluster.<br>`Default` means the HoH agent will be deployed on managed cluster.<br>`None` means the HoH agent should not be installed. 
-global-hub.open-cluster-management.io/hub-cluster-install= | This label is used on ManagedCluster. The global hub agent will install ACM if this label exists. Otherwise, it will not be installed.
+| Label                                                                                                | Description                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| global-hub.open-cluster-management.io/managed-by=`global-hub-operator\|global-hub\|global-hub-agent` | If the value is `global-hub-operator`, it means the resources are created by the global hub operator. The global hub operator watches the resources based on this label.                                                                                     |
+| global-hub.open-cluster-management.io/global-resource=                                               | This label is added during creating the global resources. It is used to identify the resource need to be propagated to the regional hub clusters by transport.                                                                                               |
+| global-hub.open-cluster-management.io/agent-deploy-mode = `Hosted\| Default\| None`                  | This label is used on ManagedCluster.<br>`Hosted` means the global hub agent will be deployed on Hosting cluster.<br>`Default` means the global hub agent will be deployed on managed cluster.<br>`None` means the global hub agent should not be installed. |
+| global-hub.open-cluster-management.io/hub-cluster-install=                                           | This label is used on ManagedCluster. The global hub operator will install the ACM on managed cluster if this label exists. Otherwise, The ACM will not be installed on managed cluster by the global hub operator.                                          |
 
 # Annotations
 
 List all annotations are used by multicluster global hub.
 
-Annotation | Description
---- | ----------
-global-hub.open-cluster-management.io/managed-by= | This annotation is used to identify the managed cluster is managed by which regional hub cluster.
-global-hub.open-cluster-management.io/origin-ownerreference-uid= | This annotation is used to identify the resource is from the global hub cluster. The global hub agent is only handled with the resource which has this annotation.
-mgh-image-repository= | This annotation is used on MCGH/MGH CR to identify a custom image repository.
+| Annotation                                                       | Description                                                                                                                                                        |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| global-hub.open-cluster-management.io/managed-by=                | This annotation is used to identify the managed cluster is managed by which regional hub cluster.                                                                  |
+| global-hub.open-cluster-management.io/origin-ownerreference-uid= | This annotation is used to identify the resource is from the global hub cluster. The global hub agent is only handled with the resource which has this annotation. |
+| mgh-image-repository=                                            | This annotation is used on MCGH/MGH CR to identify a custom image repository.                                                                                      |
+
 
 # Finalizer
 
 List all finalizers are used by the multicluster global hub.
 
-Finalizer | Description
---- | ----------
-global-hub.open-cluster-management.io/resource-cleanup | This is the finalizer which is used by the multicluster global hub.
+| Finalizer                                              | Description                                                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------- |
+| global-hub.open-cluster-management.io/resource-cleanup | This is the finalizer which is used by the multicluster global hub. |
 
 # ClusterClaim 
 
-List the ClusterClaim generated by the HoH agent on the regional Hub.
+List the ClusterClaim generated by the global hub agent on the regional hub clusters.
 
-Name | Description
---- | ----------
-version.open-cluster-management.io | The value is the version of ACM.
-hub.open-cluster-management.io | The value is the ACM Hub installation mode.<br> `NotInstalled`: The ACM Hub is not installed on the cluster.<br>`InstalledByUser`: The ACM(or OCM) Hub has been installed before the global hub is deployed.<br>`InstalledByGlobalHub`: The ACM Hub has been installed by Global Hub.
+| Name                               | Description                                                                                                                                                                                                                                                                      |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| version.open-cluster-management.io | The value is the version of ACM.                                                                                                                                                                                                                                                 |
+| hub.open-cluster-management.io     | The value is the ACM Hub installation mode.<br> `NotInstalled`: The ACM Hub is not installed on the cluster.<br>`InstalledByUser`: The ACM(or OCM) Hub has been installed before the global hub is deployed.<br>`InstalledByGlobalHub`: The ACM Hub was installed by Global Hub. |

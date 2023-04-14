@@ -26,10 +26,10 @@ The Operator also leverages the manifestwork to deploy the Advanced Cluster Mana
 The manager is used to persist the data into the postgreSQL. The data is from Kafka transport. The manager is also used to post the data to Kafka transport so that it can be synced to the regional hub clusters.
 
 ### Multicluster Global Hub Agent
-The agent is running in the regional hub clusters. It is responsible to sync-up the data between the global cluster hub and the regional hub clusters. For instance, sync-up the managed clusters' info from the regional hub clusters to the global hub cluster and sync-up the policy or application from the global hub cluster to the regional hub clusters.
+The agent is running in the regional hub clusters. It is responsible to sync-up the data between the global hub cluster and the regional hub clusters. For instance, sync-up the managed clusters' info from the regional hub clusters to the global hub cluster and sync-up the policy or application from the global hub cluster to the regional hub clusters.
 
 ### Multicluster Global Hub Observability
-Grafana runs on the global hub cluster, as the main service for Global Hub Observability. The Postgres data collected by the Global Hub Manager services as its default DataSource. By exposing the service via route(`multicluster-global-hub-grafana`), you can access the global hub grafana dashboards just like accessing the openshift console.
+Grafana runs on the global hub cluster as the main service for Global Hub Observability. The Postgres data collected by the Global Hub Manager services as its default DataSource. By exposing the service via route(`multicluster-global-hub-grafana`), you can access the global hub grafana dashboards just like accessing the openshift console.
 
 ## Quick Start
 
@@ -52,7 +52,7 @@ Both the global hub manager and grafana services need a postgres database to col
 4. Click the `multicluster global hub operator` to start the installation. You will see the prerequisites for the installation:
     - Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed.
     - PostgreSQL needs to be installed and you must create database for the multicluster global hub
-    - Kafka needs to be installed, and you must create two topics: spec and status.
+    - Kafka needs to be installed, and you must create two topics: `spec` and `status`.
 > Note: There are sample scripts provided to allow you to install PostgreSQL and Kafka easily.
 5. Click the `Install` button to start the installation when you are ready.
 6. Wait for the installation to complete. You can check the status in the `Installed Operators` page.
@@ -65,7 +65,7 @@ Both the global hub manager and grafana services need a postgres database to col
 
 
 ### Create a regional hub cluster
-Refer to the original [Create cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.6/html/multicluster_engine/multicluster_engine_overview#creating-a-cluster) document to create the managed cluster in the global hub cluster. The new created managed cluster can be switched to be a regional hub cluster automatically. In other words, the latest released RHACM is installed in this managed cluster. You can get the ACM hub information in the cluster overview page.
+Refer to the original [Create cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.6/html/multicluster_engine/multicluster_engine_overview#creating-a-cluster) document to create the managed cluster in the global hub cluster. add labels of `global-hub.open-cluster-management.io/hub-cluster-install: ''` in managedcluster CR and then the new created managed cluster can be switched to be a regional hub cluster automatically. In other words, the latest released RHACM is installed in this managed cluster. You can get the ACM hub information in the cluster overview page.
 ![cluster overview](cluster_overview.png)
 ### Import a reginal hub cluster
 #### Import a regional hub cluster in default mode
@@ -106,7 +106,7 @@ oc create secret generic work-manager-managed-kubeconfig --from-file=kubeconfig=
 ```
 
 #### Access the grafana
-The grafana is exposed through Route, you can use the following command to get the login URL. The authentication method of this URL is the same as the openshift console, so you don't have to worry about using another authentication.
+The grafana is exposed through Route, you can use the following command to get the login URL. The authentication method of this URL is same as the openshift console, so you don't have to worry about using another authentication.
 ```bash
 oc get route multicluster-global-hub-grafana -n <the-namespace-of-multicluster-global-hub-instance>
 ```
