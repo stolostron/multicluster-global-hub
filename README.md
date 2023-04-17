@@ -40,7 +40,7 @@ kubectl create secret generic storage-secret -n "open-cluster-management" \
 > You can run this sample script `./operator/config/samples/storage/deploy_postgres.sh`(Note: the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script. By default, we are using `ClusterIP` for accessing the postgres database, because we assume run this sample script in global hub cluster. If you want to deploy postgres in another cluster, you can consider to use the service type with `nodePort` or `LoadBalancer`. For more information, please refer to [this document](./doc/README.md#access-to-the-provisioned-postgres-database).
 
 
-4. Kafka is installed and two topics `spec` and `status` are created, also a secret with name `transport-secret` that contains the kafka access information should be created in `open-cluster-management` namespace:
+4. Kafka is installed and three topics `spec` `status` and `event` are created, also a secret with name `transport-secret` that contains the kafka access information should be created in `open-cluster-management` namespace:
 
 ```bash
 kubectl create secret generic transport-secret -n "open-cluster-management" \

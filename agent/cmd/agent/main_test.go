@@ -327,3 +327,42 @@ func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 		t.Fatalf("expect to have `failed to create incarnation config-map` error, but we got %v", err)
 	}
 }
+
+func TestNewEventWatcher(t *testing.T) {
+
+	testenv := &envtest.Environment{
+		CRDDirectoryPaths:     []string{},
+		ErrorIfCRDPathMissing: true,
+	}
+	log := initLog()
+
+	cfg, err := testenv.Start()
+	if err != nil {
+		panic(err)
+	}
+	// stop testenv
+	defer testenv.Stop()
+
+	agentConfig := initMockAgentConfig()
+
+	watcher, _ := newEventWatcher(context.Background(), log, cfg, agentConfig)
+	if watcher != nil {
+		t.Fatalf("expect to have no watcher, but we got %v", watcher)
+	}
+
+	agentConfig.KubeEventExporterConfigPath = filepath.Join("..", "..", "..", "pkg", "testdata",
+		"event", "kube-event-exporter-bad-config.yaml")
+	watcher, _ = newEventWatcher(context.Background(), log, cfg, agentConfig)
+	if watcher != nil {
+		t.Fatalf("expect to have no watcher, but we got %v", watcher)
+	}
+
+	agentConfig.KubeEventExporterConfigPath = filepath.Join("..", "..", "..", "pkg", "testdata",
+		"event", "kube-event-exporter-good-config.yaml")
+
+	watcher, err = newEventWatcher(context.Background(), log, cfg, agentConfig)
+	if watcher == nil {
+		t.Fatalf("expect to have watcher, but we got %v", err)
+	}
+
+}

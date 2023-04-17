@@ -14,4 +14,5 @@ type AgentConfig struct {
 	TransportConfig              *transport.TransportConfig
 	ElectionConfig               *commonobjects.LeaderElectionConfig
 	Terminating                  bool
+	KubeEventExporterConfigPath  string
 }

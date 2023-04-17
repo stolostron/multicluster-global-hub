@@ -1,0 +1,34 @@
+{{ if .InstallHostedMode }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubernetes-event-exporter-config
+  namespace: {{ .AddonInstallNamespace }}
+  labels:
+    addon.open-cluster-management.io/hosted-manifest-location: hosting
+data:
+  config.yaml: |
+    logLevel: error
+    logFormat: json
+    maxEventAgeSeconds: 60
+    metricsNamePrefix: "mcgh"
+    # namespace: my-namespace-only # Omitting it defaults to all namespaces.
+    route:
+      # Main route
+      routes:
+        # This a final route for user messages
+        - match:
+            - kind: "Policy|ManagedCluster"
+              receiver: "kafka"
+    receivers:
+      - name: "kafka"
+        kafka:
+          topic: "event"
+          clientId: {{ .LeafHubID }}
+          brokers:
+            - {{ .KafkaBootstrapServer }}
+          tls:
+            enable: true
+            caFile: /kafka-ca/ca.crt
+            insecureSkipVerify: true
+{{ end }}
