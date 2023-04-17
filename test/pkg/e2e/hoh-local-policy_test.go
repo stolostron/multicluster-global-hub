@@ -202,11 +202,15 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&leafhub, policy); err != nil {
 							return err
 						}
-						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-						if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
-							return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
-						}
-						policies[leafhub] = policy
+						for _, leafhubName := range  LeafHubNames{
+							if leafhub == leafhubName {
+								fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
+								if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
+									return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
+								}
+								policies[leafhub] = policy
+							}
+						}		
 					}
 					if len(policies) != len(LeafHubNames) {
 						return fmt.Errorf("expect policy has not synchronized")
