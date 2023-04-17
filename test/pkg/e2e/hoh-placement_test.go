@@ -128,9 +128,6 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
-					// if _, ok := policies[leafhub]; ok {
-					// 	return fmt.Errorf("expect leafhub [%s] is already exist", leafhub)
-					// }
 					fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
 					if policy.Name != localPolicyName || policy.Namespace != localPolicyNamespace {
 						return fmt.Errorf("expect policy(placement) [%s/%s] but got [%s/%s]", localPolicyNamespace, localPolicyName, policy.Namespace, policy.Name)

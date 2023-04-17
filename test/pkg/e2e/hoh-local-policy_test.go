@@ -109,10 +109,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					if err != nil {
 						return err
 					}
-					val, ok := managedClusterInfo.Labels[LOCAL_POLICY_LABEL_KEY]
-					if !ok {
-						return fmt.Errorf("the label [%s] is not exist", LOCAL_POLICY_LABEL_KEY) 
-					}
+					val, _ := managedClusterInfo.Labels[LOCAL_POLICY_LABEL_KEY]
 					if val != LOCAL_POLICY_LABEL_VALUE {
 						return fmt.Errorf("the label [%s: %s] is not exist", LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
 					}
@@ -205,9 +202,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&leafhub, policy); err != nil {
 							return err
 						}
-						// if _, ok := policies[leafhub]; ok {
-						// 	return fmt.Errorf("expect leafhub [%s] is already exist", leafhub)
-						// }
 						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
 						if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
 							return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
