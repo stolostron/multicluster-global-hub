@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS  local_spec.policies (
     updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  local_status.compliance (
+CREATE TABLE IF NOT EXISTS local_status.compliance (
     id uuid NOT NULL,
     cluster_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
@@ -100,7 +100,13 @@ CREATE TABLE IF NOT EXISTS  local_status.compliance (
     compliance local_status.compliance_type NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.applications (
+CREATE TABLE IF NOT EXISTS local_status.compliance_history (
+    id uuid REFERENCES local_status.compliance (id),
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    compliance local_status.compliance_type NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS spec.applications (
     id uuid NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
