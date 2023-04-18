@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"open-cluster-management.io/api/addon/v1alpha1"
@@ -155,9 +154,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		CreateFunc: func(e event.CreateEvent) bool {
 			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
 				e.Object.GetLabels()["openshiftVersion"] == "3" ||
-				e.Object.GetName() == operatorconstants.LocalClusterName ||
-				!meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
-					"ManagedClusterConditionAvailable") {
+				e.Object.GetName() == operatorconstants.LocalClusterName {
 				return false
 			}
 
@@ -166,9 +163,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			if e.ObjectNew.GetLabels()["vendor"] != "OpenShift" ||
 				e.ObjectNew.GetLabels()["openshiftVersion"] == "3" ||
-				e.ObjectNew.GetName() == operatorconstants.LocalClusterName ||
-				!meta.IsStatusConditionTrue(e.ObjectNew.(*clusterv1.ManagedCluster).Status.Conditions,
-					"ManagedClusterConditionAvailable") {
+				e.ObjectNew.GetName() == operatorconstants.LocalClusterName {
 				return false
 			}
 			if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
@@ -180,9 +175,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
 				e.Object.GetLabels()["openshiftVersion"] == "3" ||
-				e.Object.GetName() == operatorconstants.LocalClusterName ||
-				!meta.IsStatusConditionTrue(e.Object.(*clusterv1.ManagedCluster).Status.Conditions,
-					"ManagedClusterConditionAvailable") {
+				e.Object.GetName() == operatorconstants.LocalClusterName {
 				return false
 			}
 
