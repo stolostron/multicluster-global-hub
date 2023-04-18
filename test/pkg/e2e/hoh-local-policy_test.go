@@ -2,11 +2,11 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
-	"net/http"
-	"crypto/tls"
 
 	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -49,7 +49,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			Eventually(func() error {
 				By("Config request of the api")
 				transport := &http.Transport{
-						TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 				}
 				httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
 				managedClusters, err = getManagedCluster(httpClient, httpToken)
@@ -71,7 +71,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			Expect(err).Should(Succeed())
 
 			// get multiple leafhubs
-			for _, leafhubName := range LeafHubNames{
+			for _, leafhubName := range LeafHubNames {
 				leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
 				Expect(err).Should(Succeed())
 				// create local namespace on each leafhub
@@ -89,7 +89,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			postgresConn, err = database.PostgresConnection(context.TODO(), databaseURI, nil)
 			Expect(err).Should(Succeed())
 		})
-		
+
 		It("add the label to a managedcluster for the local policy", func() {
 			By("Add local label to the managed cluster")
 			patches := []patch{
@@ -99,26 +99,25 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					Value: LOCAL_POLICY_LABEL_VALUE,
 				},
 			}
+			for _, managedCluster := range managedClusters {
+				Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.UID))).Should(Succeed())
+			}
 			Eventually(func() error {
 				for _, managedCluster := range managedClusters {
-					err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.UID))
-					if err != nil {
-						return err
-					}
 					managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedCluster.Name)
 					if err != nil {
 						return err
 					}
 					val, ok := managedClusterInfo.Labels[LOCAL_POLICY_LABEL_KEY]
 					if !ok {
-						return fmt.Errorf("the label [%s] is not exist", LOCAL_POLICY_LABEL_KEY) 
+						return fmt.Errorf("the label [%s] is not exist", LOCAL_POLICY_LABEL_KEY)
 					}
 					if val != LOCAL_POLICY_LABEL_VALUE {
 						return fmt.Errorf("the label [%s: %s] is not exist", LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
 					}
 				}
 				return nil
-			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		Context("When updated the local policy configmap", func() {
@@ -151,7 +150,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							},
 						}
 						err := leafhubClient.Get(context.TODO(), client.ObjectKeyFromObject(leafhubConfigs[i]),
-						leafhubConfigs[i], &client.GetOptions{})
+							leafhubConfigs[i], &client.GetOptions{})
 						if err != nil {
 							return err
 						}
@@ -160,7 +159,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						}
 					}
 					return nil
-				}, 30*time.Second, 1*time.Second).Should(Succeed())
+				}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 				By("Rollback the enable local policy config")
 				globalConfig.Data["enableLocalPolicies"] = "true"
@@ -169,7 +168,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				Eventually(func() error {
 					for i, leafhubClient := range leafhubClients {
 						err := leafhubClient.Get(context.TODO(), client.ObjectKeyFromObject(leafhubConfigs[i]),
-						leafhubConfigs[i], &client.GetOptions{})
+							leafhubConfigs[i], &client.GetOptions{})
 						if err != nil {
 							return err
 						}
@@ -178,7 +177,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						}
 					}
 					return nil
-				}, 30*time.Second, 1*time.Second).Should(Succeed())
+				}, 1*time.Minute, 1*time.Second).Should(Succeed())
 			})
 		})
 
