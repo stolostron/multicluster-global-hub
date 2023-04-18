@@ -26,6 +26,7 @@ require (
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/resmoio/kubernetes-event-exporter v0.0.0-20230317084058-f4b7ad969e5c
 	github.com/spf13/pflag v1.0.5
+	github.com/stolostron/cluster-lifecycle-api v0.0.0-20230222063645-5b18b26381ff
 	github.com/stolostron/hypershift-deployment-controller v0.0.0-20220728190014-4f85d5954f19
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20220902185016-e81ccfbecf55
 	gopkg.in/yaml.v2 v2.4.0

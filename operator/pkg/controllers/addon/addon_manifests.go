@@ -8,11 +8,11 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
+	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -129,37 +129,26 @@ func (a *HohAgentAddon) setACMPackageConfigs(manifestsConfig *ManifestsConfig) e
 	manifestsConfig.CurrentCSV = pm.ACMCurrentCSV
 	manifestsConfig.Source = operatorconstants.ACMSubscriptionPublicSource
 	manifestsConfig.SourceNamespace = operatorconstants.OpenshiftMarketPlaceNamespace
-
-	mgh, err := a.getMulticlusterGlobalHub()
-	if err != nil {
-		klog.Errorf("failed to get MulticlusterGlobalHub for image pull secret. err: %v", err)
-	}
-
-	pullSecretName, pullSecretData := a.getImagePullSecret(mgh)
-	if len(pullSecretName) > 0 && len(pullSecretData) > 0 {
-		manifestsConfig.ImagePullSecretName = pullSecretName
-		manifestsConfig.ImagePullSecretData = pullSecretData
-	}
 	return nil
 }
 
 func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	addon *addonapiv1alpha1.ManagedClusterAddOn,
 ) (addonfactory.Values, error) {
+	log := a.log.WithValues("cluster", cluster.Name)
 	installNamespace := addon.Spec.InstallNamespace
 	if len(installNamespace) == 0 {
 		installNamespace = operatorconstants.GHAgentInstallNamespace
 	}
-	a.log.Info("rendering manifests", "installNamespace", installNamespace)
 	mgh, err := a.getMulticlusterGlobalHub()
 	if err != nil {
-		klog.Errorf("failed to get MulticlusterGlobalHub. err: %v", err)
+		log.Error(err, "failed to get MulticlusterGlobalHub")
 		return nil, err
 	}
 
 	kafkaBootstrapServer, kafkaCACert, err := utils.GetKafkaConfig(a.ctx, a.kubeClient, mgh)
 	if err != nil {
-		klog.Errorf("failed to get kafkaConfig. err: %v", err)
+		log.Error(err, "failed to get kafkaConfig")
 		return nil, err
 	}
 
@@ -168,7 +157,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
 	}
 
-	if err := config.SetImageOverrides(mgh); err != nil {
+	image, err := a.getOverrideImage(mgh, cluster)
+	if err != nil {
 		return nil, err
 	}
 
@@ -178,7 +168,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 
 	manifestsConfig := ManifestsConfig{
-		HoHAgentImage:          config.GetImage(config.GlobalHubAgentImageKey),
+		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
@@ -193,16 +183,15 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KlusterletWorkSA:       "klusterlet-work-sa",
 	}
 
-	pullSecretName, pullSecretData := a.getImagePullSecret(mgh)
-	if len(pullSecretName) > 0 && len(pullSecretData) > 0 {
-		manifestsConfig.ImagePullSecretName = pullSecretName
-		manifestsConfig.ImagePullSecretData = pullSecretData
+	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {
+		return nil, err
 	}
-	a.log.Info("rendering manifests with pull secret", "name", pullSecretName)
+	log.Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName,
+		"image", manifestsConfig.HoHAgentImage)
 
 	if a.installACMHub(cluster) {
 		manifestsConfig.InstallACMHub = true
-		a.log.Info("installing ACM on regional hub", "name", cluster.Name)
+		log.Info("installing ACM on regional hub")
 		if err := a.setACMPackageConfigs(&manifestsConfig); err != nil {
 			return nil, err
 		}
@@ -217,14 +206,46 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 }
 
 // GetImagePullSecret returns the image pull secret name and data
-func (a *HohAgentAddon) getImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlobalHub) (string, string) {
-	// 1. get image pull secret from mgh
-	if mgh != nil && len(mgh.Spec.ImagePullSecret) > 0 {
-		if imagePullSecret, err := a.kubeClient.CoreV1().Secrets(mgh.Namespace).Get(a.ctx,
-			mgh.Spec.ImagePullSecret, metav1.GetOptions{}); err == nil {
-			return imagePullSecret.GetName(), base64.StdEncoding.EncodeToString(
-				imagePullSecret.Data[corev1.DockerConfigJsonKey])
+func (a *HohAgentAddon) setImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	cluster *clusterv1.ManagedCluster, manifestsConfig *ManifestsConfig,
+) error {
+	imagePullSecret := &corev1.Secret{}
+	// pull secret from the mgh
+	if len(mgh.Spec.ImagePullSecret) > 0 {
+		var err error
+		imagePullSecret, err = a.kubeClient.CoreV1().Secrets(mgh.Namespace).Get(a.ctx, mgh.Spec.ImagePullSecret,
+			metav1.GetOptions{})
+		if err != nil {
+			return err
 		}
 	}
-	return "", ""
+
+	// pull secret from the cluster annotation(added by ManagedClusterImageRegistry controller)
+	c := imageregistry.NewClient(a.kubeClient)
+	if pullSecret, err := c.Cluster(cluster).PullSecret(); err != nil {
+		return err
+	} else if pullSecret != nil {
+		imagePullSecret = pullSecret
+	}
+
+	if len(imagePullSecret.Name) > 0 && len(imagePullSecret.Data[corev1.DockerConfigJsonKey]) > 0 {
+		manifestsConfig.ImagePullSecretName = imagePullSecret.GetName()
+		manifestsConfig.ImagePullSecretData = base64.StdEncoding.EncodeToString(
+			imagePullSecret.Data[corev1.DockerConfigJsonKey])
+	}
+	return nil
+}
+
+func (a *HohAgentAddon) getOverrideImage(mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	cluster *clusterv1.ManagedCluster,
+) (string, error) {
+	// image registry override by operator environment variable and mgh annotation
+	configOverrideImage := config.GetImage(config.GlobalHubAgentImageKey)
+
+	// image registry override by cluster annotation(added by the ManagedClusterImageRegistry)
+	image, err := imageregistry.OverrideImageByAnnotation(cluster.GetAnnotations(), configOverrideImage)
+	if err != nil {
+		return "", err
+	}
+	return image, nil
 }

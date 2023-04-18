@@ -85,8 +85,10 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	if !cluster.DeletionTimestamp.IsZero() {
 		log.V(4).Info("Cluster is deleting, skip addon deploy", clusterName)
+		config.DeleteManagedCluster(clusterName)
 		return ctrl.Result{}, nil
 	}
+	config.AppendManagedCluster(clusterName)
 
 	addon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{

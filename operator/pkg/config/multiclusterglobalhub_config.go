@@ -51,6 +51,7 @@ const (
 )
 
 var (
+	managedClusters      = []string{}
 	hohMGHNamespacedName = types.NamespacedName{}
 	oauthSessionSecret   = ""
 	imageOverrides       = map[string]string{
@@ -151,4 +152,27 @@ func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
 // GetImage is used to retrieve image for given component
 func GetImage(componentName string) string {
 	return imageOverrides[componentName]
+}
+
+// cache the managed clusters
+func AppendManagedCluster(name string) {
+	for index := range managedClusters {
+		if managedClusters[index] == name {
+			return
+		}
+	}
+	managedClusters = append(managedClusters, name)
+}
+
+func DeleteManagedCluster(name string) {
+	for index := range managedClusters {
+		if managedClusters[index] == name {
+			managedClusters = append(managedClusters[:index], managedClusters[index+1:]...)
+			return
+		}
+	}
+}
+
+func GetManagedClusters() []string {
+	return managedClusters
 }

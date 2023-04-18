@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -47,6 +48,7 @@ import (
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -61,6 +63,7 @@ var fs embed.FS
 type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
+	AddonManager   addonmanager.AddonManager
 	KubeClient     kubernetes.Interface
 	Scheme         *runtime.Scheme
 	LeaderElection *commonobjects.LeaderElectionConfig
@@ -203,7 +206,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	// reconcile config: need to be done before reconciling manager and grafana
 	// 1. global configMap: open-cluster-management-global-hub-system/multicluster-global-hub-config
-	// 2. global image: configMap -> env -> default
+	// 2. global image: annotation -> env -> default
 	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
 		return err
 	}
@@ -225,6 +228,12 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 	// reconcile grafana
 	if err := r.reconcileGrafana(ctx, mgh); err != nil {
 		return err
+	}
+
+	// reconcile addon
+	r.Log.Info("trigger addon on managed clusters", "size", len(config.GetManagedClusters()))
+	for _, clusterName := range config.GetManagedClusters() {
+		r.AddonManager.Trigger(clusterName, operatorconstants.GHClusterManagementAddonName)
 	}
 
 	return nil
