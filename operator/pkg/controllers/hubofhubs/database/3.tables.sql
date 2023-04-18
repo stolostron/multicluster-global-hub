@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS  local_spec.policies (
 );
 
 CREATE TABLE IF NOT EXISTS local_status.compliance (
-    id uuid NOT NULL,
+    id uuid NOT NULL PRIMARY KEY,
     cluster_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     error status.error_type NOT NULL,
