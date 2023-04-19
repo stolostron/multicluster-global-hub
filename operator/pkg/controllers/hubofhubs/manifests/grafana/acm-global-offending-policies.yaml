@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1681927625383,
+      "iteration": 1681929455973,
       "links": [
         {
           "asDropdown": false,
@@ -41,7 +41,7 @@ data:
       ],
       "panels": [
         {
-          "datasource": null,
+          "datasource": "${datasource}",
           "description": "Total number of managed cluster policies that were non compliant.",
           "fieldConfig": {
             "defaults": {
@@ -148,7 +148,7 @@ data:
           "type": "stat"
         },
         {
-          "datasource": null,
+          "datasource": "${datasource}",
           "description": "Total number of managed cluster policies that were  compliant.",
           "fieldConfig": {
             "defaults": {
@@ -228,7 +228,7 @@ data:
           "type": "stat"
         },
         {
-          "datasource": null,
+          "datasource": "${datasource}",
           "description": "Total number of managed cluster policies.",
           "fieldConfig": {
             "defaults": {
@@ -304,7 +304,7 @@ data:
           "type": "stat"
         },
         {
-          "datasource": null,
+          "datasource": "${datasource}",
           "description": "List of offending managed cluster policies by standard ($standard), category ($category), and control ($control)",
           "fieldConfig": {
             "defaults": {
@@ -457,7 +457,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": [
                 "All"
               ],
@@ -485,7 +485,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": [
                 "All"
               ],
@@ -513,7 +513,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": [
                 "All"
               ],
@@ -541,7 +541,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": [
                 "All"
               ],

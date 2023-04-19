@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1681928557593,
+      "iteration": 1681929322279,
       "links": [
         {
           "asDropdown": false,
@@ -78,8 +78,9 @@ data:
               },
               "links": [
                 {
-                  "title": "View offending policies",
-                  "url": "d/YDNZ5Ua5z/offending-policies?orgId=1&from=${__value.time}&var-standard=All&var-category=All&var-group=${__field.name}&to=${__value.time}"
+                  "targetBlank": true,
+                  "title": "View Offending Policies for Control Group: ${__field.name}",
+                  "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1&from=${__value.time}&var-standard=All&var-category=All&var-control=${__field.name}&to=${__value.time}"
                 }
               ],
               "mappings": [],
@@ -150,7 +151,7 @@ data:
           "type": "timeseries"
         }
       ],
-      "refresh": false,
+      "refresh": "",
       "schemaVersion": 30,
       "style": "dark",
       "tags": [],
@@ -180,7 +181,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": [
                 "All"
               ],
@@ -208,7 +209,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": [
                 "All"
               ],
@@ -236,7 +237,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": [
                 "All"
               ],
@@ -264,7 +265,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": [
                 "All"
               ],
