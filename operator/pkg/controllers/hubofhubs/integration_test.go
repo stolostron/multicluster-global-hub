@@ -36,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -862,6 +863,38 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		It("Should get the datasource config", func() {
 			_, err := hubofhubs.GrafanaDataSource(testPostgres.URI, []byte("test"))
 			Expect(err).Should(Succeed())
+		})
+	})
+
+	Context("When get delete the global managedclusteraddons", func() {
+		It("Prepare the global managedclusteraddons", func() {
+			existAddon := &addonv1alpha1.ManagedClusterAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Labels: map[string]string{
+						constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+					},
+					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
+				},
+			}
+			err := k8sClient.Create(context.TODO(), existAddon, &client.CreateOptions{})
+			Expect(err).Should(Succeed())
+		})
+
+		It("Should force delete the global managedclusteraddons", func() {
+			err := hubofhubs.ForceDeleteAllManagedClusterAddons(context.TODO(), k8sClient)
+			Expect(err).Should(Succeed())
+
+			addonList := &addonv1alpha1.ManagedClusterAddOnList{}
+			listOptions := []client.ListOption{
+				client.MatchingLabels(map[string]string{
+					constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+				}),
+			}
+			err = k8sClient.List(ctx, addonList, listOptions...)
+			Expect(err).Should(Succeed())
+			Expect(len(addonList.Items)).Should(Equal(0))
 		})
 	})
 })
