@@ -193,19 +193,12 @@ func (r *MulticlusterGlobalHubReconciler) waitUtilAddonDeleted(ctx context.Conte
 				return false, nil
 			}
 		})
-	if err == nil {
-		return nil
-	}
 
-	if err.Error() == wait.ErrWaitTimeout.Error() {
+	if err != nil && err.Error() == wait.ErrWaitTimeout.Error() {
 		log.Info("timed out waiting for all addons to be deleted and force delete them")
-		if err := ForceDeleteAllManagedClusterAddons(ctx, r.Client); err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
+		return ForceDeleteAllManagedClusterAddons(ctx, r.Client)
 	}
-	return nil
+	return err
 }
 
 // refer: https://github.com/stolostron/managedcluster-import-controller/blob/main/pkg/helpers/helpers.go#L661
