@@ -35,7 +35,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Co
 	log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
 
 	// prune the hub resources until all addons are cleaned up
-	if err := r.waitUtilAddonDeleted(ctx, log); err != nil {
+	if err := r.waitUtilAddonDeleted(ctx, log, 5*time.Minute); err != nil {
 		return fmt.Errorf("failed to wait until all addons are deleted: %w", err)
 	}
 	log.Info("all addons are deleted")
@@ -166,27 +166,89 @@ func (r *MulticlusterGlobalHubReconciler) deleteClusterManagementAddon(ctx conte
 	return nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) waitUtilAddonDeleted(ctx context.Context, log logr.Logger) error {
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+// delete the managedclusteraddons with graceful duration, if reach out of the graceful duration,
+// then force delete them.
+func (r *MulticlusterGlobalHubReconciler) waitUtilAddonDeleted(ctx context.Context, log logr.Logger,
+	gracefulDeletion time.Duration,
+) error {
+	timeOutContext, cancel := context.WithTimeout(ctx, gracefulDeletion)
 	defer cancel()
-	if err := wait.PollUntilWithContext(ctx, 3*time.Second, func(ctx context.Context) (done bool, err error) {
-		addonList := &addonv1alpha1.ManagedClusterAddOnList{}
-		listOptions := []client.ListOption{
-			client.MatchingLabels(map[string]string{
-				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-			}),
+	err := wait.PollUntilWithContext(timeOutContext, 2*time.Second,
+		func(
+			timeOutContext context.Context,
+		) (done bool, err error) {
+			addonList := &addonv1alpha1.ManagedClusterAddOnList{}
+			listOptions := []client.ListOption{
+				client.MatchingLabels(map[string]string{
+					constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+				}),
+			}
+			if err := r.List(timeOutContext, addonList, listOptions...); err != nil {
+				return false, err
+			}
+			if len(addonList.Items) == 0 {
+				return true, nil
+			} else {
+				log.Info("waiting for managedclusteraddon to be deleted", "addon size", len(addonList.Items))
+				return false, nil
+			}
+		})
+	if err == nil {
+		return nil
+	}
+
+	if err.Error() == wait.ErrWaitTimeout.Error() {
+		log.Info("timed out waiting for all addons to be deleted and force delete them")
+		if err := ForceDeleteAllManagedClusterAddons(ctx, r.Client); err != nil {
+			return err
 		}
-		if err := r.List(ctx, addonList, listOptions...); err != nil {
-			return false, err
-		}
-		if len(addonList.Items) == 0 {
-			return true, nil
-		} else {
-			log.Info("waiting for managedclusteraddon to be deleted", "addon size", len(addonList.Items))
-			return false, nil
-		}
-	}); err != nil {
+	} else if err != nil {
 		return err
+	}
+	return nil
+}
+
+// refer: https://github.com/stolostron/managedcluster-import-controller/blob/main/pkg/helpers/helpers.go#L661
+func ForceDeleteAllManagedClusterAddons(ctx context.Context, runtimeClient client.Client) error {
+	addonList := &addonv1alpha1.ManagedClusterAddOnList{}
+	listOptions := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+		}),
+	}
+	if err := runtimeClient.List(ctx, addonList, listOptions...); err != nil {
+		return err
+	}
+	for _, item := range addonList.Items {
+		// get the addon
+		addon := addonv1alpha1.ManagedClusterAddOn{}
+		if err := runtimeClient.Get(ctx, types.NamespacedName{Namespace: item.Namespace, Name: item.Name},
+			&addon); err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+		// delete the addon
+		if addon.DeletionTimestamp.IsZero() {
+			if err := runtimeClient.Delete(ctx, &addon); err != nil {
+				if errors.IsNotFound(err) {
+					continue
+				}
+				return err
+			}
+		}
+		// remove the finalizer
+		if len(addon.Finalizers) > 0 {
+			patch := client.MergeFrom(addon.DeepCopy())
+			addon.Finalizers = []string{}
+			if err := runtimeClient.Patch(ctx, &addon, patch); err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+		}
 	}
 	return nil
 }

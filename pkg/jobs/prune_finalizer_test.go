@@ -41,6 +41,7 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "app1",
 				Namespace:  "default",
+				Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 		}
@@ -54,6 +55,7 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "appsub1",
 				Namespace:  "default",
+				Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 		}
@@ -67,6 +69,7 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "channel1",
 				Namespace:  "default",
+				Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: chnv1.ChannelSpec{
@@ -85,6 +88,7 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "placementrule1",
 				Namespace:  "default",
+				Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: placementrulesv1.PlacementRuleSpec{
@@ -101,6 +105,7 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "placement1",
 				Namespace:  "default",
+				Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: clusterv1beta1.PlacementSpec{},
@@ -115,6 +120,7 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "policy1",
 				Namespace:  "default",
+				Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: policyv1.PolicySpec{
@@ -143,6 +149,7 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-managedclustersetbinding-1",
 					Namespace:  "default",
+					Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: clusterv1beta2.ManagedClusterSetBindingSpec{
@@ -161,6 +168,7 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-managedclusterset-1",
 					Namespace:  "default",
+					Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 			}
@@ -175,6 +183,7 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "test-placementbinding-1",
 				Namespace:  "default",
+				Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			PlacementRef: policyv1.PlacementSubject{

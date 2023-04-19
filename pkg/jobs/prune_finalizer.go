@@ -28,6 +28,13 @@ type PruneFinalizer struct {
 	finalizer string
 }
 
+// only delete the finalizer from the global resources.
+var globalResourceListOptions = []client.ListOption{
+	client.MatchingLabels(map[string]string{
+		constants.GlobalHubGlobalResourceLabel: "",
+	}),
+}
+
 func NewPruneFinalizer(ctx context.Context, runtimeClient client.Client) Runnable {
 	return &PruneFinalizer{
 		ctx:       ctx,
@@ -72,7 +79,7 @@ func (p *PruneFinalizer) pruneFinalizer(object client.Object) error {
 func (p *PruneFinalizer) prunePlacementResources() error {
 	p.log.Info("clean up the placement finalizer")
 	placements := &clusterv1beta1.PlacementList{}
-	if err := p.client.List(p.ctx, placements, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, placements, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list placements")
 	}
 	for idx := range placements.Items {
@@ -83,7 +90,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 
 	p.log.Info("clean up the managedclusterset finalizer")
 	managedclustersets := &clusterv1beta2.ManagedClusterSetList{}
-	if err := p.client.List(p.ctx, managedclustersets, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, managedclustersets, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list managedclustersets")
 	}
 	for idx := range managedclustersets.Items {
@@ -94,7 +101,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 
 	p.log.Info("clean up the managedclustersetbinding finalizer")
 	managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
-	if err := p.client.List(p.ctx, managedclustersetbindings, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, managedclustersetbindings, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list managedclustersetbindings")
 	}
 	for idx := range managedclustersetbindings.Items {
@@ -105,7 +112,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 
 	p.log.Info("clean up the managedclusterset finalizer")
 	managedclustersetv1beta1 := &clusterv1beta1.ManagedClusterSetList{}
-	if err := p.client.List(p.ctx, managedclustersetv1beta1, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, managedclustersetv1beta1, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list managedclustersets")
 	}
 	for idx := range managedclustersetv1beta1.Items {
@@ -116,7 +123,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 
 	p.log.Info("clean up the managedclustersetbinding finalizer")
 	managedclustersetbindingv1beta1 := &clusterv1beta1.ManagedClusterSetBindingList{}
-	if err := p.client.List(p.ctx, managedclustersetbindingv1beta1, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, managedclustersetbindingv1beta1, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list managedclustersetbindings")
 	}
 	for idx := range managedclustersetbindingv1beta1.Items {
@@ -127,7 +134,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 
 	p.log.Info("clean up the application placementrule finalizer")
 	palcementrules := &placementrulesv1.PlacementRuleList{}
-	if err := p.client.List(p.ctx, palcementrules, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, palcementrules, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list placementrules")
 	}
 	for idx := range palcementrules.Items {
@@ -138,7 +145,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 
 	p.log.Info("clean up the placementbindings finalizer")
 	placementbindings := &policyv1.PlacementBindingList{}
-	if err := p.client.List(p.ctx, placementbindings, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, placementbindings, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list placementbindings")
 	}
 	for idx := range placementbindings.Items {
@@ -154,7 +161,7 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 func (p *PruneFinalizer) pruneApplication() error {
 	p.log.Info("clean up the application finalizer")
 	applications := &appv1beta1.ApplicationList{}
-	if err := p.client.List(p.ctx, applications, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, applications, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list applications")
 	}
 	for idx := range applications.Items {
@@ -165,7 +172,7 @@ func (p *PruneFinalizer) pruneApplication() error {
 
 	p.log.Info("clean up the application subscription finalizer")
 	appsubs := &appsubv1.SubscriptionList{}
-	if err := p.client.List(p.ctx, appsubs, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, appsubs, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list application subscriptions")
 	}
 	for idx := range appsubs.Items {
@@ -176,7 +183,7 @@ func (p *PruneFinalizer) pruneApplication() error {
 
 	p.log.Info("clean up the application channel finalizer")
 	channels := &chnv1.ChannelList{}
-	if err := p.client.List(p.ctx, channels, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, channels, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list application channels")
 	}
 	for idx := range channels.Items {
@@ -191,7 +198,7 @@ func (p *PruneFinalizer) pruneApplication() error {
 func (p *PruneFinalizer) prunePolicy() error {
 	p.log.Info("clean up the policies finalizer")
 	policies := &policyv1.PolicyList{}
-	if err := p.client.List(p.ctx, policies, &client.ListOptions{}); err != nil {
+	if err := p.client.List(p.ctx, policies, globalResourceListOptions...); err != nil {
 		p.log.Error(err, "failed to list policies")
 	}
 	for idx := range policies.Items {

@@ -603,6 +603,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-placement-1",
 					Namespace:  config.GetDefaultNamespace(),
+					Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: clusterv1beta1.PlacementSpec{},
@@ -614,6 +615,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-application-1",
 					Namespace:  config.GetDefaultNamespace(),
+					Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: applicationv1beta1.ApplicationSpec{
@@ -629,6 +631,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-policy-1",
 					Namespace:  config.GetDefaultNamespace(),
+					Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: policyv1.PolicySpec{
@@ -643,6 +646,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-placementrule-1",
 					Namespace:  config.GetDefaultNamespace(),
+					Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: placementrulesv1.PlacementRuleSpec{
@@ -656,6 +660,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-managedclustersetbinding-1",
 					Namespace:  config.GetDefaultNamespace(),
+					Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: clusterv1beta2.ManagedClusterSetBindingSpec{
@@ -670,6 +675,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-channel-1",
 					Namespace:  config.GetDefaultNamespace(),
+					Labels:     map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: chnv1.ChannelSpec{
