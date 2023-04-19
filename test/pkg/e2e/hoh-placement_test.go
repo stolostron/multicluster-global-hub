@@ -128,14 +128,15 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
-					// if _, ok := policies[leafhub]; ok {
-					// 	return fmt.Errorf("expect leafhub [%s] is already exist", leafhub)
-					// }
-					fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-					if policy.Name != localPolicyName || policy.Namespace != localPolicyNamespace {
-						return fmt.Errorf("expect policy(placement) [%s/%s] but got [%s/%s]", localPolicyNamespace, localPolicyName, policy.Namespace, policy.Name)
+					for _, leafhubName := range LeafHubNames {
+						if leafhub == leafhubName {
+							fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
+							if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
+								return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
+							}
+							policies[leafhub] = policy
+						}
 					}
-					policies[leafhub] = policy
 				}
 				if len(policies) != len(LeafHubNames) {
 					return fmt.Errorf("expect policy has not synchronized")
