@@ -1,6 +1,6 @@
 apiVersion: v1
 data:
-  acm-global-policy-group-compliancy-overview.json: |
+  acm-global-cluster-group-compliancy-overview.json: |
     {
       "annotations": {
         "list": [
@@ -24,12 +24,25 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1681921830137,
-      "links": [],
+      "iteration": 1681923726788,
+      "links": [
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": false,
+          "keepTime": false,
+          "tags": [],
+          "targetBlank": true,
+          "title": "Offending Clusters",
+          "tooltip": "",
+          "type": "link",
+          "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1"
+        }
+      ],
       "panels": [
         {
           "datasource": "${datasource}",
-          "description": "Aggregated policy group trend by: standard - $standard, category - $category, control - $control, and severity - $severity",
+          "description": "Aggregated cluster group trend by cluster label: \\\"$label\\\":\\\"$value\\\"",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -65,8 +78,9 @@ data:
               },
               "links": [
                 {
-                  "title": "View offending policies",
-                  "url": "d/YDNZ5Ua5z/offending-policies?orgId=1&from=${__value.time}&var-standard=All&var-category=All&var-group=${__field.name}&to=${__value.time}"
+                  "targetBlank": true,
+                  "title": "View Offending Clusters by ${label} = ${__field.name}",
+                  "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1&from=${__value.time}&var-label=${label}&var-value=${__field.name}"
                 }
               ],
               "mappings": [],
@@ -93,7 +107,7 @@ data:
             "x": 0,
             "y": 0
           },
-          "id": 28,
+          "id": 34,
           "options": {
             "legend": {
               "calcs": [],
@@ -111,7 +125,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    fs.date_id,\n    dp.policy_control,\n    COUNT(CASE WHEN fs.non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN fs.non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.dim_policy dp\n  INNER JOIN\n    local_status.fact_summary fs ON dp.policy_id = fs.policy_id\n  WHERE\n    dp.policy_standard IN ($standard) AND dp.policy_category IN ($category) AND dp.policy_control IN ($control) AND dp.severity IN ($severity)\n  GROUP BY\n    fs.date_id, dp.policy_control\n  ORDER BY\n    fs.date_id\n)\nSELECT\n  date_id as \"time\",\n  policy_control as \"metric\",\n  compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nORDER BY\n  date_id",
+              "rawSql": "WITH data as (\n  SELECT\n    fs.date_id as \"time\",\n    dc.labels->>'$label' as \"$label\",\n    COUNT(CASE WHEN fs.non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN fs.non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.dim_cluster dc\n  JOIN\n    local_status.fact_summary fs ON dc.cluster_id = fs.cluster_id\n  WHERE\n    labels->>'$label' IN ($value)\n  GROUP BY (date_id, labels)\n  ORDER BY (date_id)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nORDER BY time",
               "refId": "A",
               "select": [
                 [
@@ -133,7 +147,7 @@ data:
               ]
             }
           ],
-          "title": "Compliancy Trend - Severity ($severity)",
+          "title": "Compliancy Trend (By $label)",
           "type": "timeseries"
         }
       ],
@@ -167,25 +181,21 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
+              "selected": false,
+              "text": "cloud",
+              "value": "cloud"
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  dp.policy_standard\nFROM\n  local_spec.dim_policy dp",
-            "description": "Cluster policy standards",
+            "definition": "SELECT\n  jsonb_object_keys(dc.labels)\nFROM\n  local_spec.dim_cluster dc",
+            "description": "Managed cluster labels",
             "error": null,
             "hide": 0,
-            "includeAll": true,
-            "label": "Standard",
-            "multi": true,
-            "name": "standard",
+            "includeAll": false,
+            "label": "Label",
+            "multi": false,
+            "name": "label",
             "options": [],
-            "query": "SELECT\n  dp.policy_standard\nFROM\n  local_spec.dim_policy dp",
+            "query": "SELECT\n  jsonb_object_keys(dc.labels)\nFROM\n  local_spec.dim_cluster dc",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -204,72 +214,16 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  dp.policy_category\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)",
-            "description": "Cluster policy categories",
+            "definition": "SELECT\n  DISTINCT labels->>'$label'\nFROM\n  local_spec.dim_cluster",
+            "description": "Managed clusters label values",
             "error": null,
             "hide": 0,
             "includeAll": true,
-            "label": "Category",
+            "label": "Value",
             "multi": true,
-            "name": "category",
+            "name": "value",
             "options": [],
-            "query": "SELECT\n  dp.policy_category\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)",
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 5,
-            "type": "query"
-          },
-          {
-            "allValue": null,
-            "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "datasource": "${datasource}",
-            "definition": "SELECT\n  dp.policy_control\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)",
-            "description": "Cluster policy controls",
-            "error": null,
-            "hide": 0,
-            "includeAll": true,
-            "label": "Control",
-            "multi": true,
-            "name": "control",
-            "options": [],
-            "query": "SELECT\n  dp.policy_control\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)",
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 5,
-            "type": "query"
-          },
-          {
-            "allValue": null,
-            "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "datasource": "${datasource}",
-            "definition": "SELECT\n  dp.severity\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)\nAND\n  dp.policy_control IN ($control)",
-            "description": "Cluster policy severity",
-            "error": null,
-            "hide": 0,
-            "includeAll": true,
-            "label": "Severity",
-            "multi": true,
-            "name": "severity",
-            "options": [],
-            "query": "SELECT\n  dp.severity\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)\nAND\n  dp.policy_control IN ($control)",
+            "query": "SELECT\n  DISTINCT labels->>'$label'\nFROM\n  local_spec.dim_cluster",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -284,11 +238,11 @@ data:
       },
       "timepicker": {},
       "timezone": "",
-      "title": "Global Hub - Policy Group Compliancy Overview",
-      "uid": "fad31bbc6806481ea0434b509eb53fbcasdsa",
+      "title": "Global Hub - Cluster Group Compliancy Overview",
+      "uid": "868845a4d1334958bd62303c5ccb4c19",
       "version": 1
     }
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-acm-global-policy-group-compliancy-overview
+  name: grafana-dashboard-acm-global-cluster-group-compliancy-overview
   namespace: {{.Namespace}}

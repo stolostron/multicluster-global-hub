@@ -1,0 +1,538 @@
+apiVersion: v1
+data:
+  acm-global-offending-clusters.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "target": {
+              "limit": 100,
+              "matchAny": false,
+              "tags": [],
+              "type": "dashboard"
+            },
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "iteration": 1681927396361,
+      "links": [
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": false,
+          "keepTime": false,
+          "tags": [],
+          "targetBlank": true,
+          "title": "Cluster Group Compliancy Overview",
+          "tooltip": "",
+          "type": "link",
+          "url": "d/868845a4d1334958bd62303c5ccb4c19/global-hub-cluster-group-compliancy-overview?orgId=1"
+        }
+      ],
+      "panels": [
+        {
+          "datasource": null,
+          "description": "Total number of managed clusters that were non compliant.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 0,
+            "y": 0
+          },
+          "id": 42,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "/^count$/",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    date_id as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.fact_summary\n  GROUP BY (date_id, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            },
+            {
+              "format": "table",
+              "group": [],
+              "hide": false,
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "-- SELECT\n--   SUM(COUNT(DISTINCT fs.policy_id)) OVER (ORDER BY fs.date_id)\n-- FROM\n--   local_status.fact_summary fs\n-- WHERE\n--   $__timeFilter(fs.date_id)\n-- GROUP BY (fs.date_id)",
+              "refId": "B",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Non Compliant Managed Clusters",
+          "type": "stat"
+        },
+        {
+          "datasource": null,
+          "description": "Total number of managed clusters that were  compliant.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 8,
+            "y": 0
+          },
+          "id": 48,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "/^count$/",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "time_series",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    date_id as \"p_time\",\n    fs.cluster_id,\n    COUNT(CASE WHEN non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.fact_summary fs\n  GROUP BY (date_id, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Compliant Managed Clusters",
+          "type": "stat"
+        },
+        {
+          "datasource": null,
+          "description": "Total number of managed clusters.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 16,
+            "y": 0
+          },
+          "id": 47,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "/^count$/",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "SELECT\n  $__timeGroupAlias(date_id, $__interval),\n  COUNT(distinct fs.cluster_id)\nFROM\n  local_status.fact_summary fs\nWHERE\n  $__timeFilter(date_id)\nGROUP BY (date_id)",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Managed Clusters",
+          "type": "stat"
+        },
+        {
+          "datasource": null,
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto",
+                "filterable": true
+              },
+              "links": [],
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 0.01
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Name"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View What's Changed dashboard for policy \"${__value.text}\"",
+                        "url": "d/CttYgw-4k/whats-changed?orgId=1&var-policy=${__value.text}&var-cluster=All&to=${__value.time}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "value"
+                },
+                "properties": [
+                  {
+                    "id": "custom.displayMode",
+                    "value": "color-background"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "cloud"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": null
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 6
+          },
+          "id": 50,
+          "options": {
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    fs.date_id as \"time\",\n    dc.cluster_name as \"cluster\",\n    dc.hub_name as \"hub\",\n    dc.labels->>'$label' as \"$label\",\n    COUNT(CASE WHEN fs.non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN fs.non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.dim_cluster dc\n  JOIN\n    local_status.fact_summary fs ON dc.cluster_id = fs.cluster_id\n  WHERE\n    dc.labels->>'$label' IN ($value)\n  GROUP BY (fs.date_id, dc.cluster_name, dc.hub_name, dc.labels)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  cluster,\n  hub,\n  $label,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Offending Clusters (By $label)",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "category": "Category",
+                  "cluster": "Cluster",
+                  "control": "Control",
+                  "hub": "Hub",
+                  "name": "Name",
+                  "severity": "Severity",
+                  "standard": "Standard",
+                  "time": "Time",
+                  "value": "Non Compliant"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "refresh": false,
+      "schemaVersion": 30,
+      "style": "dark",
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "selected": false,
+              "text": "Global-Hub-DataSource",
+              "value": "Global-Hub-DataSource"
+            },
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "postgres",
+            "queryValue": "",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "cloud",
+              "value": "cloud"
+            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  jsonb_object_keys(dc.labels)\nFROM\n  local_spec.dim_cluster dc",
+            "description": "Managed cluster labels",
+            "error": null,
+            "hide": 0,
+            "includeAll": false,
+            "label": "Label",
+            "multi": false,
+            "name": "label",
+            "options": [],
+            "query": "SELECT\n  jsonb_object_keys(dc.labels)\nFROM\n  local_spec.dim_cluster dc",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": true,
+              "text": [
+                "Amazon"
+              ],
+              "value": [
+                "Amazon"
+              ]
+            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  DISTINCT labels->>'$label'\nFROM\n  local_spec.dim_cluster",
+            "description": "Managed cluster label values",
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Value",
+            "multi": true,
+            "name": "value",
+            "options": [],
+            "query": "SELECT\n  DISTINCT labels->>'$label'\nFROM\n  local_spec.dim_cluster",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-7d",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Global Hub - Offending Clusters",
+      "uid": "0e0ddb7f16b946f99d96a483a4a3f95f",
+      "version": 1
+    }
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-acm-global-offending-clusters
+  namespace: {{.Namespace}}
