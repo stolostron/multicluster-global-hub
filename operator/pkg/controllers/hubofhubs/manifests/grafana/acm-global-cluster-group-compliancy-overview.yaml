@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1681923726788,
+      "iteration": 1681931576165,
       "links": [
         {
           "asDropdown": false,
@@ -42,7 +42,7 @@ data:
       "panels": [
         {
           "datasource": "${datasource}",
-          "description": "Aggregated cluster group trend by cluster label: \\\"$label\\\":\\\"$value\\\"",
+          "description": "Aggregated cluster group trend by cluster label: \"$label\":\"$value\"",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -79,8 +79,8 @@ data:
               "links": [
                 {
                   "targetBlank": true,
-                  "title": "View Offending Clusters by ${label} = ${__field.name}",
-                  "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1&from=${__value.time}&var-label=${label}&var-value=${__field.name}"
+                  "title": "View Offending Clusters by ${label}:${__field.name}",
+                  "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1&from=${__value.time}&to=${__value.time}&var-label=${label}&var-value=${__field.name}"
                 }
               ],
               "mappings": [],

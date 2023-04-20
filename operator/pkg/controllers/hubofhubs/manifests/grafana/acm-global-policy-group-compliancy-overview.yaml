@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1681929322279,
+      "iteration": 1681931686592,
       "links": [
         {
           "asDropdown": false,
@@ -80,7 +80,7 @@ data:
                 {
                   "targetBlank": true,
                   "title": "View Offending Policies for Control Group: ${__field.name}",
-                  "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1&from=${__value.time}&var-standard=All&var-category=All&var-control=${__field.name}&to=${__value.time}"
+                  "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1&from=${__value.time}&to=${__value.time}&var-standard=All&var-category=All&var-control=${__field.name}"
                 }
               ],
               "mappings": [],
@@ -181,7 +181,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -209,7 +209,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -237,7 +237,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -265,7 +265,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
