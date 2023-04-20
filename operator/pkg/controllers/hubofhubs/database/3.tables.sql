@@ -85,23 +85,28 @@ CREATE TABLE IF NOT EXISTS  local_spec.placementrules (
     updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  local_spec.policies (
+CREATE TABLE IF NOT EXISTS local_spec.policies (
     leaf_hub_name text,
     payload jsonb NOT NULL,
+    policy_id uuid NOT NULL,
+    policy_name character varying(255) generated always as (payload -> 'metadata' ->> 'name') stored,
+    policy_standard character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards') stored,
+    policy_category character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
+    policy_control character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls') stored,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS local_status.compliance (
-    id uuid NOT NULL PRIMARY KEY,
-    cluster_name character varying(63) NOT NULL,
-    leaf_hub_name character varying(63) NOT NULL,
+    policy_id uuid NOT NULL,
+    cluster_id uuid NOT NULL,
     error status.error_type NOT NULL,
     compliance local_status.compliance_type NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS local_status.compliance_history (
-    id uuid REFERENCES local_status.compliance (id),
+    policy_id uuid NOT NULL,
+    cluster_id uuid NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     compliance local_status.compliance_type NOT NULL
 );
@@ -224,8 +229,10 @@ CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
     last_timestamp timestamp without time zone DEFAULT now() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.managed_clusters (
+CREATE TABLE IF NOT EXISTS status.managed_clusters (
+    cluster_id uuid NOT NULL PRIMARY KEY,
     leaf_hub_name character varying(63) NOT NULL,
+    cluster_name character varying(63) generated always as (payload -> 'metadata' ->> 'name') stored,
     payload jsonb NOT NULL,
     error status.error_type NOT NULL
 );
