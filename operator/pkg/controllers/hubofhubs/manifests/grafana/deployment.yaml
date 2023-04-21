@@ -63,7 +63,7 @@ spec:
         - mountPath: /grafana-dashboards/0/acm-global-policy-overview
           name: grafana-dashboard-acm-global-policy-overview
         - mountPath: /grafana-dashboards/0/acm-global-cluster-group-compliancy-overview
-          name: grafana-dashboard-acm-global-policy-cluster-compliancy-overview
+          name: grafana-dashboard-acm-global-cluster-group-compliancy-overview
         - mountPath: /grafana-dashboards/0/acm-global-policy-group-compliancy-overview
           name: grafana-dashboard-acm-global-policy-group-compliancy-overview
         - mountPath: /etc/grafana
