@@ -86,9 +86,9 @@ CREATE TABLE IF NOT EXISTS  local_spec.placementrules (
 );
 
 CREATE TABLE IF NOT EXISTS local_spec.policies (
-    leaf_hub_name text,
+    leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
-    policy_id uuid NOT NULL,
+    policy_id uuid generated always as (uuid(payload->'metadata'->>'uid')) stored,
     policy_name character varying(255) generated always as (payload -> 'metadata' ->> 'name') stored,
     policy_standard character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards') stored,
     policy_category character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
@@ -98,15 +98,17 @@ CREATE TABLE IF NOT EXISTS local_spec.policies (
 );
 
 CREATE TABLE IF NOT EXISTS local_status.compliance (
-    policy_id uuid NOT NULL,
-    cluster_id uuid NOT NULL,
+    id uuid NOT NULL,
+    cluster_name character varying(63) NOT NULL,
+    leaf_hub_name character varying(63) NOT NULL,
     error status.error_type NOT NULL,
     compliance local_status.compliance_type NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS local_status.compliance_history (
-    policy_id uuid NOT NULL,
-    cluster_id uuid NOT NULL,
+    id uuid NOT NULL,
+    cluster_name character varying(63) NOT NULL,
+    leaf_hub_name character varying(63) NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     compliance local_status.compliance_type NOT NULL
 );
@@ -230,7 +232,6 @@ CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
 );
 
 CREATE TABLE IF NOT EXISTS status.managed_clusters (
-    cluster_id uuid NOT NULL PRIMARY KEY,
     leaf_hub_name character varying(63) NOT NULL,
     cluster_name character varying(63) generated always as (payload -> 'metadata' ->> 'name') stored,
     payload jsonb NOT NULL,
