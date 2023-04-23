@@ -151,7 +151,8 @@ func (builder *baseBatchBuilder) generateInsertStatement() string {
 	if builder.tableColumns == "" {
 		stringBuilder.WriteString(fmt.Sprintf("INSERT into %s.%s values ", builder.schema, builder.tableName))
 	} else {
-		stringBuilder.WriteString(fmt.Sprintf("INSERT into %s.%s (%s) values ", builder.schema, builder.tableName, builder.tableColumns))
+		stringBuilder.WriteString(fmt.Sprintf("INSERT into %s.%s (%s) values ",
+			builder.schema, builder.tableName, builder.tableColumns))
 	}
 	columnsCount := len(builder.insertArgs) / builder.insertRowsCount // total num of args divided by num of rows
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.insertRowsCount, columnsCount,
