@@ -1,0 +1,584 @@
+apiVersion: v1
+data:
+  acm-global-offending-policies.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "target": {
+              "limit": 100,
+              "matchAny": false,
+              "tags": [],
+              "type": "dashboard"
+            },
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "iteration": 1681929455973,
+      "links": [
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": true,
+          "keepTime": true,
+          "tags": [],
+          "targetBlank": true,
+          "title": "Global Hub - Policy Group Compliancy Overview",
+          "tooltip": "",
+          "type": "link",
+          "url": "d/9bb3bee6a17e47f9a231f6d77f2408fa/global-hub-policy-group-compliancy-overview?orgId=1"
+        }
+      ],
+      "panels": [
+        {
+          "datasource": "${datasource}",
+          "description": "Total number of managed cluster policies that were non compliant.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 0,
+            "y": 0
+          },
+          "id": 42,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "/^sum$/",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    date_id as \"p_time\",\n    fs.policy_id,\n    COUNT(CASE WHEN non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.fact_summary fs\n  GROUP BY (date_id, policy_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT policy_id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time)",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            },
+            {
+              "format": "table",
+              "group": [],
+              "hide": false,
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "-- SELECT\n--   SUM(COUNT(DISTINCT fs.policy_id)) OVER (ORDER BY fs.date_id)\n-- FROM\n--   local_status.fact_summary fs\n-- WHERE\n--   $__timeFilter(fs.date_id)\n-- GROUP BY (fs.date_id)",
+              "refId": "B",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Non Compliant Policies",
+          "type": "stat"
+        },
+        {
+          "datasource": "${datasource}",
+          "description": "Total number of managed cluster policies that were  compliant.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 8,
+            "y": 0
+          },
+          "id": 48,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "/^sum$/",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    date_id as \"p_time\",\n    fs.policy_id,\n    COUNT(CASE WHEN non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.fact_summary fs\n  GROUP BY (date_id, policy_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT policy_id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time)",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Compliant Policies",
+          "type": "stat"
+        },
+        {
+          "datasource": "${datasource}",
+          "description": "Total number of managed cluster policies.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 16,
+            "y": 0
+          },
+          "id": 47,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "/^sum$/",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "SELECT\n  $__timeGroupAlias(date_id, $__interval),\n  SUM(COUNT(DISTINCT policy_id)) OVER (ORDER BY date_id)\nFROM\n  local_status.fact_summary fs\nWHERE\n  $__timeFilter(date_id)\nGROUP BY (date_id)\nORDER BY (date_id)",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Policies",
+          "type": "stat"
+        },
+        {
+          "datasource": "${datasource}",
+          "description": "List of offending managed cluster policies by standard ($standard), category ($category), and control ($control)",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto",
+                "filterable": true
+              },
+              "links": [],
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 0.01
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Name"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View What's Changed dashboard for policy \"${__value.text}\"",
+                        "url": "d/CttYgw-4k/whats-changed?orgId=1&var-policy=${__value.text}&var-cluster=All&to=${__value.time}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "value"
+                },
+                "properties": [
+                  {
+                    "id": "custom.displayMode",
+                    "value": "color-background"
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 6
+          },
+          "id": 52,
+          "options": {
+            "showHeader": true
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    fs.date_id as \"time\",\n    dp.policy_name as \"name\",\n    dp.policy_standard as \"standard\",\n    dp.policy_category as \"category\",\n    dp.policy_control as \"control\",\n    dp.severity,\n    COUNT(CASE WHEN fs.non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN fs.non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.dim_policy dp\n  JOIN\n    local_status.fact_summary fs ON dp.policy_id = fs.policy_id\n  WHERE\n    dp.policy_standard IN ($standard) AND dp.policy_category IN ($category) AND dp.policy_control IN ($control) AND dp.severity IN ($severity)\n  GROUP BY (fs.date_id, dp.policy_name, dp.policy_standard, dp.policy_category, dp.policy_control, dp.severity)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  standard,\n  category,\n  control,\n  severity,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Offending Policies - Severity ($severity)",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "category": "Category",
+                  "control": "Control",
+                  "name": "Name",
+                  "severity": "Severity",
+                  "standard": "Standard",
+                  "time": "Time",
+                  "value": "Non Compliant"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "refresh": false,
+      "schemaVersion": 30,
+      "style": "dark",
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "selected": false,
+              "text": "Global-Hub-DataSource",
+              "value": "Global-Hub-DataSource"
+            },
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "postgres",
+            "queryValue": "",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  dp.policy_standard\nFROM\n  local_spec.dim_policy dp",
+            "description": "Managed cluster policy standards",
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Standard",
+            "multi": true,
+            "name": "standard",
+            "options": [],
+            "query": "SELECT\n  dp.policy_standard\nFROM\n  local_spec.dim_policy dp",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  dp.policy_category\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)",
+            "description": "Managed cluster policy categories",
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Category",
+            "multi": true,
+            "name": "category",
+            "options": [],
+            "query": "SELECT\n  dp.policy_category\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  dp.policy_control\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)",
+            "description": "Managed cluster labels policy controls",
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Control",
+            "multi": true,
+            "name": "control",
+            "options": [],
+            "query": "SELECT\n  dp.policy_control\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  dp.severity\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)\nAND\n  dp.policy_control IN ($control)",
+            "description": "Managed cluster policy severities",
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Severity",
+            "multi": true,
+            "name": "severity",
+            "options": [],
+            "query": "SELECT\n  dp.severity\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)\nAND\n  dp.policy_control IN ($control)",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-2d",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Global Hub - Offending Policies",
+      "uid": "b67e0727891f4121ae2dde09671520ae",
+      "version": 1
+    }
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-acm-global-offending-policies
+  namespace: {{.Namespace}}
