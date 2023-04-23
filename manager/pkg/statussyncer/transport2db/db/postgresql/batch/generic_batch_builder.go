@@ -19,7 +19,7 @@ func NewGenericBatchBuilder(schema string, tableName string, leafHubName string)
 	tableSpecialColumns[genericUUIDColumnIndex] = database.UUID
 	tableSpecialColumns[genericJsonbColumnIndex] = database.Jsonb
 	builder := &GenericBatchBuilder{
-		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
+		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, "", tableSpecialColumns, leafHubName,
 			genericDeleteRowKey),
 	}
 

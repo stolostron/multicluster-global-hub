@@ -10,6 +10,7 @@ import (
 const (
 	managedClustersJsonbColumnIndex = 2
 	managedClustersDeleteRowKey     = "payload->'metadata'->>'name'"
+	managedClustersTableColumns     = "leaf_hub_name, payload, error"
 )
 
 // NewManagedClustersBatchBuilder creates a new instance of PostgreSQL ManagedClustersBatchBuilder.
@@ -18,8 +19,8 @@ func NewManagedClustersBatchBuilder(schema string, tableName string, leafHubName
 	tableSpecialColumns[managedClustersJsonbColumnIndex] = database.Jsonb
 
 	builder := &ManagedClustersBatchBuilder{
-		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
-			managedClustersDeleteRowKey),
+		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, managedClustersTableColumns,
+			tableSpecialColumns, leafHubName, managedClustersDeleteRowKey),
 	}
 
 	builder.setUpdateStatementFunc(builder.generateUpdateStatement)

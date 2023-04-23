@@ -21,7 +21,7 @@ type batchItem struct {
 	arguments []interface{}
 }
 
-func newBaseBatchBuilder(schema string, tableName string, tableSpecialColumns map[int]string, leafHubName string,
+func newBaseBatchBuilder(schema, tableName, tableColumns string, tableSpecialColumns map[int]string, leafHubName string,
 	deleteRowKey string,
 ) *baseBatchBuilder {
 	return &baseBatchBuilder{
@@ -30,6 +30,7 @@ func newBaseBatchBuilder(schema string, tableName string, tableSpecialColumns ma
 		updateBatchItems:    make([]*batchItem, 0),
 		schema:              schema,
 		tableName:           tableName,
+		tableColumns:        tableColumns,
 		tableSpecialColumns: tableSpecialColumns,
 		leafHubName:         leafHubName,
 		insertArgs:          make([]interface{}, 0),
@@ -48,6 +49,7 @@ type baseBatchBuilder struct {
 	updateBatchItems        []*batchItem
 	schema                  string
 	tableName               string
+	tableColumns            string
 	tableSpecialColumns     map[int]string
 	leafHubName             string
 	insertArgs              []interface{}
@@ -146,8 +148,11 @@ func (builder *baseBatchBuilder) setUpdateStatementFunc(generateUpdateStatementF
 func (builder *baseBatchBuilder) generateInsertStatement() string {
 	var stringBuilder strings.Builder
 
-	stringBuilder.WriteString(fmt.Sprintf("INSERT into %s.%s values ", builder.schema, builder.tableName))
-
+	if builder.tableColumns == "" {
+		stringBuilder.WriteString(fmt.Sprintf("INSERT into %s.%s values ", builder.schema, builder.tableName))
+	} else {
+		stringBuilder.WriteString(fmt.Sprintf("INSERT into %s.%s (%s) values ", builder.schema, builder.tableName, builder.tableColumns))
+	}
 	columnsCount := len(builder.insertArgs) / builder.insertRowsCount // total num of args divided by num of rows
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.insertRowsCount, columnsCount,
 		builder.tableSpecialColumns))
