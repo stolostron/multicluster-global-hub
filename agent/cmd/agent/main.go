@@ -293,14 +293,16 @@ func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config
 			return nil, fmt.Errorf("failed to add status syncer: %w", err)
 		}
 
-		if err := controllers.AddToManager(mgr); err != nil {
-			return nil, fmt.Errorf("failed to add controllers: %w", err)
-		}
-
 		if err := lease.AddHoHLeaseUpdater(mgr, agentConfig.PodNameSpace,
 			"multicluster-global-hub-controller"); err != nil {
 			return nil, fmt.Errorf("failed to add lease updater: %w", err)
 		}
+	}
+
+	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
+	// we use the value to decide whether install the ACM or not
+	if err := controllers.AddToManager(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
 	return mgr, nil
