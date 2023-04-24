@@ -52,10 +52,9 @@ spec:
       loggers:
         zookeeper.root.logger: "INFO"
     storage:
-      storage:
-        type: persistent-claim
-        size: 10Gi
-        deleteClaim: false
+      type: persistent-claim
+      size: 10Gi
+      deleteClaim: false
   entityOperator:
     topicOperator: {}
     userOperator: {}
