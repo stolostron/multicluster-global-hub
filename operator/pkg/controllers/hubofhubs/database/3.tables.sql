@@ -79,20 +79,25 @@ CREATE TABLE IF NOT EXISTS  history.subscriptions (
 );
 
 CREATE TABLE IF NOT EXISTS  local_spec.placementrules (
-    leaf_hub_name text,
+    leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  local_spec.policies (
-    leaf_hub_name text,
+CREATE TABLE IF NOT EXISTS local_spec.policies (
+    leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    policy_id uuid generated always as (uuid(payload->'metadata'->>'uid')) stored,
+    policy_name character varying(255) generated always as (payload -> 'metadata' ->> 'name') stored,
+    policy_standard character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards') stored,
+    policy_category character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
+    policy_control character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls') stored
 );
 
-CREATE TABLE IF NOT EXISTS  local_status.compliance (
+CREATE TABLE IF NOT EXISTS local_status.compliance (
     id uuid NOT NULL,
     cluster_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
@@ -100,7 +105,15 @@ CREATE TABLE IF NOT EXISTS  local_status.compliance (
     compliance local_status.compliance_type NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.applications (
+CREATE TABLE IF NOT EXISTS local_status.compliance_history (
+    id uuid NOT NULL,
+    cluster_name character varying(63) NOT NULL,
+    leaf_hub_name character varying(63) NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    compliance local_status.compliance_type NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS spec.applications (
     id uuid NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -218,8 +231,9 @@ CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
     last_timestamp timestamp without time zone DEFAULT now() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.managed_clusters (
+CREATE TABLE IF NOT EXISTS status.managed_clusters (
     leaf_hub_name character varying(63) NOT NULL,
+    cluster_name character varying(63) generated always as (payload -> 'metadata' ->> 'name') stored,
     payload jsonb NOT NULL,
     error status.error_type NOT NULL
 );

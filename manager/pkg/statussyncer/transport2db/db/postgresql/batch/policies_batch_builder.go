@@ -22,7 +22,7 @@ func NewPoliciesBatchBuilder(schema string, tableName string, leafHubName string
 	tableSpecialColumns[policyUUIDColumnIndex] = database.UUID
 
 	builder := &PoliciesBatchBuilder{
-		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
+		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, "", tableSpecialColumns, leafHubName,
 			policyDeleteRowKey),
 		updateClusterComplianceArgs:      make([]interface{}, 0),
 		updateClusterComplianceRowsCount: 0,
