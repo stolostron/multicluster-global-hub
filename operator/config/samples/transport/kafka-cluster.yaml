@@ -39,7 +39,12 @@ spec:
       ssl.enabled.protocols: "TLSv1.2"
       ssl.protocol: "TLSv1.2"
     storage:
-      type: ephemeral
+      type: jbod       # You can add the volumes you need
+      volumes:
+      - id: 0
+        type: persistent-claim
+        size: 10Gi
+        deleteClaim: false
   zookeeper:
     replicas: 3
     logging:
@@ -47,7 +52,10 @@ spec:
       loggers:
         zookeeper.root.logger: "INFO"
     storage:
-      type: ephemeral
+      storage:
+        type: persistent-claim
+        size: 10Gi
+        deleteClaim: false
   entityOperator:
     topicOperator: {}
     userOperator: {}
