@@ -20,8 +20,7 @@ func StartJobScheduler(ctx context.Context, pool *pgxpool.Pool) (*gocron.Schedul
 	if err != nil {
 		return nil, err
 	}
-	log.Info("set compliance job", "tags", complianceJob.Tags, "scheduleAt",
-		complianceJob.ScheduledTime().Format("2006-01-02 15:04:05"))
+	log.Info("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 
 	s.StartAsync()
 	return s, nil

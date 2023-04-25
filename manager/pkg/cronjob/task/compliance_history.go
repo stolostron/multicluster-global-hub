@@ -14,8 +14,8 @@ var batchSize = 100
 
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) error {
 	log := ctrl.Log.WithName("local-compliance-job")
-	log.Info("this job's last run: %s this job's next run: %s\n", job.LastRun().Format("2006-01-02 15:04:05"),
-		job.NextRun().Format("2006-01-02 15:04:05"))
+	log.Info("this job is start running", "LastRun", job.LastRun().Format("2006-01-02 15:04:05"),
+		"NextRun", job.NextRun().Format("2006-01-02 15:04:05"))
 
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
@@ -23,14 +23,14 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	}
 	defer conn.Release()
 
-	// delete the recent data  HOURS/MINUTES/SECONDS
+	// clean the recent data  HOURS/MINUTES/SECONDS
 	result, err := conn.Exec(ctx, `
 	DELETE FROM local_status.compliance_history AS "compliance_history" 
 	WHERE "compliance_history"."updated_at" BETWEEN NOW() - INTERVAL '1 HOURS' AND NOW()`)
 	if err != nil {
 		return err
 	}
-	log.Info("clean rows", "delete", result.RowsAffected())
+	log.Info("clean rows", "count", result.RowsAffected())
 
 	// batch insert
 	var count int64
@@ -38,7 +38,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	if err != nil {
 		return err
 	}
-	log.Info("total rows", "rows", count)
+	log.Info("total rows", "count", count)
 
 	for offset := 0; offset < int(count); offset += batchSize {
 		result, err = conn.Exec(ctx, `
@@ -48,7 +48,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 		if err != nil {
 			return err
 		}
-		log.Info("insert rows", "batchSize", batchSize, "offset", offset, "insert", result.RowsAffected())
+		log.Info("insert rows", "batchSize", batchSize, "offset", offset, "insertCount", result.RowsAffected())
 	}
 	return nil
 }
