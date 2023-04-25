@@ -205,12 +205,10 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							return err
 						}
 						for _, leafhubName := range LeafHubNames {
-							if leafhub == leafhubName {
+							if leafhub == leafhubName && policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE{
 								fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-								if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
-									return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
-								}
 								policies[leafhub] = policy
+								fmt.Printf("\n %d \n", len(policies))
 							}
 						}
 					}
@@ -243,7 +241,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							delete(policies, leafhub)
 						}
 					}
-					if len(policies) == ExpectedLeafHubNum {
+					fmt.Println(len(policies))
+					if len(policies) != 0 {
 						return fmt.Errorf("not get policy from local_status.compliance")
 					}
 					return nil

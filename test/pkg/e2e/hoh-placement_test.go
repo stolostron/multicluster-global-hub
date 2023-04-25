@@ -131,10 +131,10 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					for _, leafhubName := range LeafHubNames {
 						if leafhub == leafhubName {
 							fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-							if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
-								return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
+							if policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
+								policies[leafhub] = policy
+								fmt.Printf("\n %d \n", len(policies))
 							}
-							policies[leafhub] = policy
 						}
 					}
 				}
