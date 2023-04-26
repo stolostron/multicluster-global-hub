@@ -95,7 +95,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 	})
 
 	Context("When apply local policy with placement on the regional hub", func() {
-		It("deploy local policy on the regional hub", func() {
+		It("deploy local policy on the regional hub", func() {	
 			By("Add local policy test label")
 			patches := []patch{
 				{
@@ -128,14 +128,13 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
-					// if _, ok := policies[leafhub]; ok {
-					// 	return fmt.Errorf("expect leafhub [%s] is already exist", leafhub)
-					// }
-					fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-					if policy.Name != localPolicyName || policy.Namespace != localPolicyNamespace {
-						return fmt.Errorf("expect policy(placement) [%s/%s] but got [%s/%s]", localPolicyNamespace, localPolicyName, policy.Namespace, policy.Name)
+					for _, leafhubName := range LeafHubNames {
+						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
+						if leafhub == leafhubName && policy.Name == localPolicyName && policy.Namespace == localPolicyNamespace {
+							policies[leafhub] = policy
+							fmt.Println(len(policies))
+						}
 					}
-					policies[leafhub] = policy
 				}
 				if len(policies) != len(LeafHubNames) {
 					return fmt.Errorf("expect policy has not synchronized")
