@@ -83,8 +83,9 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			continue // do not handle objects other than ManagedCluster
 		}
 
-		// get clusterID from clusterclaim
-		clusterID := ""
+		// Initially, we used cluster.uid as the clusterID to avoid null in case the clusterclaim is not generated
+		// and then get clusterID from clusterclaim
+		clusterID := string(cluster.GetUID())
 		for _, claim := range cluster.Status.ClusterClaims {
 			if claim.Name == "id.k8s.io" {
 				clusterID = claim.Value

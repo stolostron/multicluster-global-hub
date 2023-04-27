@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	managedClustersJsonbColumnIndex = 2
+	managedClustersJsonbColumnIndex = 3
+	managedClustersUUIDColumnIndex  = 1
 	managedClustersDeleteRowKey     = "payload->'metadata'->>'name'"
 	managedClustersTableColumns     = "cluster_id, leaf_hub_name, payload, error"
 )
@@ -16,6 +17,7 @@ const (
 // NewManagedClustersBatchBuilder creates a new instance of PostgreSQL ManagedClustersBatchBuilder.
 func NewManagedClustersBatchBuilder(schema string, tableName string, leafHubName string) *ManagedClustersBatchBuilder {
 	tableSpecialColumns := make(map[int]string)
+	tableSpecialColumns[managedClustersUUIDColumnIndex] = database.UUID
 	tableSpecialColumns[managedClustersJsonbColumnIndex] = database.Jsonb
 
 	builder := &ManagedClustersBatchBuilder{

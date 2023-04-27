@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
 CREATE TABLE IF NOT EXISTS status.managed_clusters (
     leaf_hub_name character varying(63) NOT NULL,
     cluster_name character varying(63) generated always as (payload -> 'metadata' ->> 'name') stored,
-    cluster_id uuid,
+    cluster_id uuid NOT NULL,
     payload jsonb NOT NULL,
     error status.error_type NOT NULL
 );
