@@ -55,13 +55,8 @@ func (builder *GenericLocalBatchBuilder) Build() interface{} {
 func (builder *GenericLocalBatchBuilder) generateUpdateStatement() string {
 	var stringBuilder strings.Builder
 
-	if builder.tableColumns == "" {
-		stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET payload=new.payload FROM (values ",
-			builder.schema, builder.tableName))
-	} else {
-		stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s (%s) AS old SET payload=new.payload FROM (values ",
-			builder.schema, builder.tableName, builder.tableColumns))
-	}
+	stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET payload=new.payload FROM (values ",
+		builder.schema, builder.tableName))
 
 	numberOfColumns := len(builder.updateArgs) / builder.updateRowsCount // total num of args divided by num of rows
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,

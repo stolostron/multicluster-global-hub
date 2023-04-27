@@ -116,13 +116,8 @@ func (builder *PoliciesBatchBuilder) Build() interface{} {
 func (builder *PoliciesBatchBuilder) generateUpdatePolicyComplianceStatement() string {
 	var stringBuilder strings.Builder
 
-	if builder.tableColumns == "" {
-		stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET compliance=new.compliance FROM (values ",
-			builder.schema, builder.tableName))
-	} else {
-		stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s (%s) AS old SET compliance=new.compliance FROM (values ",
-			builder.schema, builder.tableName, builder.tableColumns))
-	}
+	stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET compliance=new.compliance FROM (values ",
+		builder.schema, builder.tableName))
 
 	specialColumns := make(map[int]string)
 	specialColumns[policyUUIDColumnIndex] = database.UUID
@@ -142,13 +137,8 @@ func (builder *PoliciesBatchBuilder) generateUpdatePolicyComplianceStatement() s
 func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() string {
 	var stringBuilder strings.Builder
 
-	if builder.tableColumns == "" {
-		stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET compliance=new.compliance FROM (values ",
-			builder.schema, builder.tableName))
-	} else {
-		stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s (%s) AS old SET compliance=new.compliance FROM (values ",
-			builder.schema, builder.tableName, builder.tableColumns))
-	}
+	stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET compliance=new.compliance FROM (values ",
+		builder.schema, builder.tableName))
 
 	specialColumns := make(map[int]string)
 	specialColumns[policyUUIDColumnIndex] = database.UUID

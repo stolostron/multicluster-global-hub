@@ -58,19 +58,14 @@ func (builder *ManagedClustersBatchBuilder) Build() interface{} {
 func (builder *ManagedClustersBatchBuilder) generateUpdateStatement() string {
 	var stringBuilder strings.Builder
 
-	if builder.tableColumns == "" {
-		stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET payload=new.payload FROM (values ",
-			builder.schema, builder.tableName))
-	} else {
-		stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s (%s) AS old SET payload=new.payload FROM (values ",
-			builder.schema, builder.tableName, builder.tableColumns))
-	}
+	stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET payload=new.payload FROM (values ",
+		builder.schema, builder.tableName))
 
 	numberOfColumns := len(builder.updateArgs) / builder.updateRowsCount // total num of args divided by num of rows
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,
 		builder.tableSpecialColumns))
 
-	stringBuilder.WriteString(") AS new(leaf_hub_name,payload,cluster_name) ")
+	stringBuilder.WriteString(") AS new(cluster_id,leaf_hub_name,payload,cluster_name) ")
 	stringBuilder.WriteString("WHERE old.leaf_hub_name=new.leaf_hub_name ")
 	stringBuilder.WriteString("AND old.payload->'metadata'->>'name'=new.cluster_name")
 
