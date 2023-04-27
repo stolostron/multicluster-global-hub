@@ -287,3 +287,14 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION public.set_cluster_id_to_compliance() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  UPDATE local_status.compliance set cluster_id=(SELECT cluster_id FROM status.managed_clusters
+  WHERE payload -> 'metadata' ->> 'name' = NEW.cluster_name AND leaf_hub_name = NEW.leaf_hub_name)
+  WHERE cluster_name = NEW.cluster_name AND leaf_hub_name = NEW.leaf_hub_name;
+  RETURN NEW;
+END;
+$$;

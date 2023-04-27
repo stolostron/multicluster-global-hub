@@ -14,6 +14,7 @@ const (
 	updatePolicyComplianceTypeColumnIndex  = 3
 	updateClusterComplianceTypeColumnIndex = 4
 	clusterComplianceUpdateArgsCount       = 4
+	policyComplianceTableColumns           = "id, cluster_name, leaf_hub_name, error, compliance"
 )
 
 // NewPoliciesBatchBuilder creates a new instance of PostgreSQL PoliciesBatchBuilder.
@@ -22,7 +23,7 @@ func NewPoliciesBatchBuilder(schema string, tableName string, leafHubName string
 	tableSpecialColumns[policyUUIDColumnIndex] = database.UUID
 
 	builder := &PoliciesBatchBuilder{
-		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, "", tableSpecialColumns, leafHubName,
+		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, policyComplianceTableColumns, tableSpecialColumns, leafHubName,
 			policyDeleteRowKey),
 		updateClusterComplianceArgs:      make([]interface{}, 0),
 		updateClusterComplianceRowsCount: 0,

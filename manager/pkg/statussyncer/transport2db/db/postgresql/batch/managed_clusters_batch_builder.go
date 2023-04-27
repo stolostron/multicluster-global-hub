@@ -10,7 +10,7 @@ import (
 const (
 	managedClustersJsonbColumnIndex = 2
 	managedClustersDeleteRowKey     = "payload->'metadata'->>'name'"
-	managedClustersTableColumns     = "leaf_hub_name, payload, error"
+	managedClustersTableColumns     = "cluster_id, leaf_hub_name, payload, error"
 )
 
 // NewManagedClustersBatchBuilder creates a new instance of PostgreSQL ManagedClustersBatchBuilder.
@@ -34,13 +34,13 @@ type ManagedClustersBatchBuilder struct {
 }
 
 // Insert adds the given (cluster payload, error string) to the batch to be inserted to the db.
-func (builder *ManagedClustersBatchBuilder) Insert(payload interface{}, errorString string) {
-	builder.insert(builder.leafHubName, payload, errorString)
+func (builder *ManagedClustersBatchBuilder) Insert(clusterID string, payload interface{}, errorString string) {
+	builder.insert(clusterID, builder.leafHubName, payload, errorString)
 }
 
 // Update adds the given arguments to the batch to update clusterName with the given payload in db.
-func (builder *ManagedClustersBatchBuilder) Update(clusterName string, payload interface{}) {
-	builder.update(builder.leafHubName, payload, clusterName)
+func (builder *ManagedClustersBatchBuilder) Update(clusterID string, clusterName string, payload interface{}) {
+	builder.update(clusterID, builder.leafHubName, payload, clusterName)
 }
 
 // Delete adds delete statement to the batch to delete the given cluster from db.

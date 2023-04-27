@@ -83,9 +83,18 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			continue // do not handle objects other than ManagedCluster
 		}
 
+		// get clusterID from clusterclaim
+		clusterID := ""
+		for _, claim := range cluster.Status.ClusterClaims {
+			if claim.Name == "id.k8s.io" {
+				clusterID = claim.Value
+				break
+			}
+		}
+
 		resourceVersionFromDB, clusterExistsInDB := clustersFromDB[cluster.GetName()]
 		if !clusterExistsInDB { // cluster not found in the db table
-			batchBuilder.Insert(cluster, database.ErrorNone)
+			batchBuilder.Insert(clusterID, cluster, database.ErrorNone)
 			continue
 		}
 
@@ -95,7 +104,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			continue // update cluster in db only if what we got is a different (newer) version of the resource
 		}
 
-		batchBuilder.Update(cluster.GetName(), cluster)
+		batchBuilder.Update(clusterID, cluster.GetName(), cluster)
 	}
 	// delete clusters that in the db but were not sent in the bundle (leaf hub sends only living resources).
 	for clusterName := range clustersFromDB {
