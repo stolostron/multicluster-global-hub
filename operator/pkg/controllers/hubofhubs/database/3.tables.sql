@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS local_status.compliance (
     leaf_hub_name character varying(63) NOT NULL,
     error status.error_type NOT NULL,
     compliance local_status.compliance_type NOT NULL,
-    cluster_id uuid NOT NULL
+    cluster_id uuid
 );
 
 CREATE TABLE IF NOT EXISTS local_status.compliance_history (
