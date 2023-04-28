@@ -9,6 +9,8 @@ CREATE SCHEMA IF NOT EXISTS spec;
 
 CREATE SCHEMA IF NOT EXISTS status;
 
+CREATE SCHEMA IF NOT EXISTS event;
+
 DO $$ BEGIN
   CREATE TYPE local_status.compliance_type AS ENUM (
     'compliant',
