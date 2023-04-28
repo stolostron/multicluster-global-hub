@@ -151,7 +151,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, ctrl.Manager) error {
+func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
@@ -249,7 +249,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, ctrl.M
 					r.Log.Error(err, "failed to list managed clusters to trigger addoninstall reconciler")
 					return requests
 				}
-			
+
 				for _, managedCluster := range managedClusterList.Items {
 					requests = append(requests, reconcile.Request{
 						NamespacedName: types.NamespacedName{
