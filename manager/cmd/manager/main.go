@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
@@ -256,8 +257,15 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()},
 	})
 
-	log.Info("Starting the Cmd.")
+	log.Info("starting the cron job scheduler")
+	jobScheduler, err := cronjob.StartJobScheduler(ctx, processPostgreSQL.GetConn())
+	if err != nil {
+		log.Error(err, "failed to start job scheduler")
+		return 1
+	}
+	defer jobScheduler.Stop()
 
+	log.Info("Starting the Manager")
 	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1
