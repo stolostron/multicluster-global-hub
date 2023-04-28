@@ -67,3 +67,8 @@ DROP TRIGGER IF EXISTS set_timestamp ON spec.policies;
 CREATE TRIGGER set_timestamp BEFORE UPDATE ON spec.policies FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
 DROP TRIGGER IF EXISTS set_timestamp ON spec.subscriptions;
 CREATE TRIGGER set_timestamp BEFORE UPDATE ON spec.subscriptions FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+
+DROP TRIGGER IF EXISTS update_compliance_table ON local_status.compliance;
+CREATE TRIGGER update_compliance_table AFTER INSERT ON local_status.compliance FOR EACH ROW EXECUTE FUNCTION public.set_cluster_id_to_local_compliance();
+DROP TRIGGER IF EXISTS update_compliance_table ON status.compliance;
+CREATE TRIGGER update_compliance_table AFTER INSERT ON status.compliance FOR EACH ROW EXECUTE FUNCTION public.set_cluster_id_to_compliance();
