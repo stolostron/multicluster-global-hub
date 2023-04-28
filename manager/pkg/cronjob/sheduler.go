@@ -15,7 +15,7 @@ func StartJobScheduler(ctx context.Context, pool *pgxpool.Pool) (*gocron.Schedul
 	log := ctrl.Log.WithName("cronjob-scheduler")
 	s := gocron.NewScheduler(time.UTC)
 
-	complianceJob, err := s.Every(1).Day().At("01:00").Tag("LocalCompliance").DoWithJobDetails(
+	complianceJob, err := s.Every(1).Day().At("00:00").Tag("LocalComplianceHistory").DoWithJobDetails(
 		task.SyncLocalCompliance, ctx, pool)
 	if err != nil {
 		return nil, err

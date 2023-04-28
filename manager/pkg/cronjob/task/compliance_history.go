@@ -14,7 +14,7 @@ var batchSize = 100
 
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) error {
 	log := ctrl.Log.WithName("local-compliance-job")
-	log.Info("this job is start running", "LastRun", job.LastRun().Format("2006-01-02 15:04:05"),
+	log.Info("start running", "LastRun", job.LastRun().Format("2006-01-02 15:04:05"),
 		"NextRun", job.NextRun().Format("2006-01-02 15:04:05"))
 
 	conn, err := pool.Acquire(ctx)
@@ -22,14 +22,6 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 		return err
 	}
 	defer conn.Release()
-
-	// clean the recent data  HOURS/MINUTES/SECONDS
-	result, err := conn.Exec(ctx,
-		`DELETE FROM local_status.compliance_history WHERE updated_at BETWEEN NOW() - INTERVAL '1 HOURS' AND NOW()`)
-	if err != nil {
-		return err
-	}
-	log.Info("clean rows", "count", result.RowsAffected())
 
 	// create view
 	_, err = conn.Exec(ctx, `
@@ -40,7 +32,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 		return err
 	}
 	defer func(ctx context.Context) {
-		_, err = conn.Exec(ctx, `DROP VIEW local_compliance_view`)
+		_, err = conn.Exec(ctx, `DROP VIEW IF EXISTS local_compliance_view`)
 		if err != nil {
 			log.Error(err, "drop local_compliance_view failed")
 		}
