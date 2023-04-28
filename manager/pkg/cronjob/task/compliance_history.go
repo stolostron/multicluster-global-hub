@@ -47,7 +47,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	log.Info("total rows", "count", count)
 
 	for offset := 0; offset < int(count); offset += batchSize {
-		result, err = conn.Exec(ctx, `
+		result, err := conn.Exec(ctx, `
 		INSERT INTO local_status.compliance_history (id, cluster_id, compliance) 
 		SELECT id,cluster_id,compliance 
 		FROM local_compliance_view LIMIT $1 OFFSET $2`, batchSize, offset)

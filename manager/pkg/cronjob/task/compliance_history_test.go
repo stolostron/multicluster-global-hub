@@ -90,9 +90,9 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 			INSERT INTO local_status.compliance (id, cluster_name, leaf_hub_name, error, compliance, cluster_id) VALUES
 			('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster1', 'leaf1', 'none', 'compliant', 
 			'0cd723ab-4649-42e8-b8aa-aa094ccf06b4'),
-			('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster2', 'leaf2', 'none', 'compliant', 
+			('f8c4479f-fec5-44d8-8060-da9a92d5e139', 'local_cluster2', 'leaf2', 'none', 'compliant', 
 			'0cd723ab-4649-42e8-b8aa-aa094ccf06b4'),
-			('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster3', 'leaf3', 'none', 'compliant', 
+			('f8c4479f-fec5-44d8-8060-da9a92d5e137', 'local_cluster3', 'leaf3', 'none', 'compliant', 
 			'0cd723ab-4649-42e8-b8aa-aa094ccf06b4');
 		`)
 		Expect(err).ToNot(HaveOccurred())
@@ -114,6 +114,11 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 			}
 			defer rows.Close()
 			syncCount := 0
+			expectRecordMap := map[string]string{
+				"f8c4479f-fec5-44d8-8060-da9a92d5e138": "compliant",
+				"f8c4479f-fec5-44d8-8060-da9a92d5e139": "compliant",
+				"f8c4479f-fec5-44d8-8060-da9a92d5e137": "compliant",
+			}
 			for rows.Next() {
 				var id, cluster_id, compliance string
 				err := rows.Scan(&id, &cluster_id, &compliance)
@@ -121,8 +126,9 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 					return err
 				}
 				fmt.Println("found record", "id", id, "cluster_id", cluster_id, "compliance", compliance)
-				if id == "f8c4479f-fec5-44d8-8060-da9a92d5e138" && cluster_id == "0cd723ab-4649-42e8-b8aa-aa094ccf06b4" {
+				if status, ok := expectRecordMap[id]; ok && status == compliance {
 					syncCount++
+					delete(expectRecordMap, id)
 				}
 			}
 			if syncCount != 3 {
