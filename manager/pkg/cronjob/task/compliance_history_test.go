@@ -45,14 +45,15 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				cluster_name character varying(63) NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
 				error status.error_type NOT NULL,
-				compliance local_status.compliance_type NOT NULL
+				compliance local_status.compliance_type NOT NULL,
+				cluster_id uuid
 			);
 			CREATE TABLE IF NOT EXISTS local_status.compliance_history (
-					id uuid NOT NULL,
-					cluster_name character varying(63) NOT NULL,
-					leaf_hub_name character varying(63) NOT NULL,
-					updated_at timestamp without time zone DEFAULT now() NOT NULL,
-					compliance local_status.compliance_type NOT NULL
+				id uuid NOT NULL,
+				cluster_id uuid NOT NULL,
+				updated_at timestamp without time zone DEFAULT now() NOT NULL,
+				compliance local_status.compliance_type NOT NULL,
+				compliance_changed_frequency integer NOT NULL DEFAULT 0
 			);
 		`)
 		Expect(err).ToNot(HaveOccurred())
@@ -86,10 +87,13 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 	It("sync the data from the source table to the target", func() {
 		By("Create the data to the source table")
 		_, err := pool.Exec(ctx, `
-			INSERT INTO local_status.compliance (id, cluster_name, leaf_hub_name, error, compliance) VALUES
-			('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster1', 'leaf1', 'none', 'compliant'),
-			('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster2', 'leaf2', 'none', 'compliant'),
-			('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster3', 'leaf3', 'none', 'compliant');
+			INSERT INTO local_status.compliance (id, cluster_name, leaf_hub_name, error, compliance, cluster_id) VALUES
+			('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster1', 'leaf1', 'none', 'compliant', 
+			'0cd723ab-4649-42e8-b8aa-aa094ccf06b4'),
+			('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster2', 'leaf2', 'none', 'compliant', 
+			'0cd723ab-4649-42e8-b8aa-aa094ccf06b4'),
+			('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster3', 'leaf3', 'none', 'compliant', 
+			'0cd723ab-4649-42e8-b8aa-aa094ccf06b4');
 		`)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -104,28 +108,25 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 
 		By("Check whether the data is copied to the target table")
 		Eventually(func() error {
-			rows, err := pool.Query(ctx, "SELECT * FROM local_status.compliance_history")
+			rows, err := pool.Query(ctx, "SELECT id, cluster_id, compliance FROM local_status.compliance_history")
 			if err != nil {
 				return err
 			}
 			defer rows.Close()
-			expectedRecordsSet := map[string]bool{
-				"local_cluster1": true,
-				"local_cluster2": true,
-				"local_cluster3": true,
-			}
 			syncCount := 0
 			for rows.Next() {
-				columnValues, _ := rows.Values()
-				clusterName := columnValues[1]
-				fmt.Println("found record", "clusterName", clusterName)
-				if expectedRecordsSet[clusterName.(string)] {
+				var id, cluster_id, compliance string
+				err := rows.Scan(&id, &cluster_id, &compliance)
+				if err != nil {
+					return err
+				}
+				fmt.Println("found record", "id", id, "cluster_id", cluster_id, "compliance", compliance)
+				if id == "f8c4479f-fec5-44d8-8060-da9a92d5e138" && cluster_id == "0cd723ab-4649-42e8-b8aa-aa094ccf06b4" {
 					syncCount++
-					delete(expectedRecordsSet, clusterName.(string))
 				}
 			}
-			if len(expectedRecordsSet) > 0 && syncCount != 3 {
-				return fmt.Errorf("table local_status.compliance_history records %v are not created", expectedRecordsSet)
+			if syncCount != 3 {
+				return fmt.Errorf("table local_status.compliance_history records are not synced")
 			}
 			return nil
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())

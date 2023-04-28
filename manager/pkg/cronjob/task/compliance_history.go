@@ -24,17 +24,31 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	defer conn.Release()
 
 	// clean the recent data  HOURS/MINUTES/SECONDS
-	result, err := conn.Exec(ctx, `
-	DELETE FROM local_status.compliance_history AS "compliance_history" 
-	WHERE "compliance_history"."updated_at" BETWEEN NOW() - INTERVAL '1 HOURS' AND NOW()`)
+	result, err := conn.Exec(ctx,
+		`DELETE FROM local_status.compliance_history WHERE updated_at BETWEEN NOW() - INTERVAL '1 HOURS' AND NOW()`)
 	if err != nil {
 		return err
 	}
 	log.Info("clean rows", "count", result.RowsAffected())
 
+	// create view
+	_, err = conn.Exec(ctx, `
+	CREATE OR REPLACE VIEW local_compliance_view AS 
+		SELECT id,cluster_id,compliance 
+		FROM local_status.compliance`)
+	if err != nil {
+		return err
+	}
+	defer func(ctx context.Context) {
+		_, err = conn.Exec(ctx, `DROP VIEW local_compliance_view`)
+		if err != nil {
+			log.Error(err, "drop local_compliance_view failed")
+		}
+	}(ctx)
+
 	// batch insert
 	var count int64
-	err = conn.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", "local_status.compliance")).Scan(&count)
+	err = conn.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", "local_compliance_view")).Scan(&count)
 	if err != nil {
 		return err
 	}
@@ -42,9 +56,9 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 
 	for offset := 0; offset < int(count); offset += batchSize {
 		result, err = conn.Exec(ctx, `
-		INSERT INTO local_status.compliance_history (id, cluster_name, leaf_hub_name, compliance) 
-		SELECT id,cluster_name,leaf_hub_name,compliance 
-		FROM local_status.compliance LIMIT $1 OFFSET $2`, batchSize, offset)
+		INSERT INTO local_status.compliance_history (id, cluster_id, compliance) 
+		SELECT id,cluster_id,compliance 
+		FROM local_compliance_view LIMIT $1 OFFSET $2`, batchSize, offset)
 		if err != nil {
 			return err
 		}
