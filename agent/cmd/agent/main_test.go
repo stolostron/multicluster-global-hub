@@ -188,7 +188,11 @@ func TestNoMCHClusterManagerCRD(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	defer testenv.Stop()
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
 
 	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
 	if err != nil {
@@ -210,7 +214,11 @@ func TestHasMCHCRDWithoutCR(t *testing.T) {
 		panic(err)
 	}
 	// stop testenv
-	defer testenv.Stop()
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
 
 	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
 	if err != nil {
@@ -231,8 +239,11 @@ func TestHasMCHCRDCR(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// stop testenv
-	defer testenv.Stop()
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
 
 	// generate the client based off of the config
 	dynamicClient, err := dynamic.NewForConfig(cfg)
@@ -251,7 +262,10 @@ func TestHasMCHCRDCR(t *testing.T) {
 		},
 	}
 
-	resource := schema.GroupVersionResource{Group: "operator.open-cluster-management.io", Version: "v1", Resource: "multiclusterhubs"}
+	resource := schema.GroupVersionResource{
+		Group:   "operator.open-cluster-management.io",
+		Version: "v1", Resource: "multiclusterhubs",
+	}
 	_, err = dynamicClient.Resource(resource).Namespace("default").
 		Create(context.TODO(), obj, metav1.CreateOptions{})
 	if err != nil {
@@ -267,7 +281,8 @@ func TestHasMCHCRDCR(t *testing.T) {
 func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds", "0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds",
+				"0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -277,8 +292,11 @@ func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// stop testenv
-	defer testenv.Stop()
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
 
 	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
 	if err != nil {
@@ -289,7 +307,8 @@ func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
 func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds", "0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds",
+				"0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -299,8 +318,11 @@ func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// stop testenv
-	defer testenv.Stop()
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
 
 	// generate the client based off of the config
 	dynamicClient, err := dynamic.NewForConfig(cfg)
@@ -317,7 +339,10 @@ func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 			},
 		},
 	}
-	resource := schema.GroupVersionResource{Group: "operator.open-cluster-management.io", Version: "v1", Resource: "clustermanagers"}
+	resource := schema.GroupVersionResource{
+		Group:   "operator.open-cluster-management.io",
+		Version: "v1", Resource: "clustermanagers",
+	}
 	_, err = dynamicClient.Resource(resource).
 		Create(context.TODO(), obj, metav1.CreateOptions{})
 	if err != nil {

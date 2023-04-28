@@ -29,12 +29,8 @@ const (
 		WHERE payload->'metadata'->>'name'=$1 AND payload->'metadata'->>'namespace'=$2`
 )
 
-var (
-	subReportCustomResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(subscriptionRepostCRDName,
-		appsv1alpha1.SchemeGroupVersion.Version)
-	subStatusCustomResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(subscriptionStatusCRDName,
-		appsv1alpha1.SchemeGroupVersion.Version)
-)
+var subReportCustomResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(subscriptionRepostCRDName,
+	appsv1alpha1.SchemeGroupVersion.Version)
 
 // GetSubscriptionReport godoc
 // @summary get application subscription report
@@ -138,19 +134,6 @@ func getAggregatedSubscriptionReport(dbConnectionPool *pgxpool.Pool, subscriptio
 	}
 
 	return subscriptionReport, nil
-}
-
-func cleanSubscriptionStatusObject(subscriptionStatus appsv1alpha1.SubscriptionStatus,
-) *appsv1alpha1.SubscriptionStatus {
-	clone := subscriptionStatus.DeepCopy()
-	// assign annotations
-	clone.Annotations = map[string]string{}
-	// assign labels
-	clone.Labels = map[string]string{}
-	clone.Labels[appsv1.AnnotationHosting] = fmt.Sprintf("%s.%s",
-		subscriptionStatus.Namespace, subscriptionStatus.Name)
-
-	return clone
 }
 
 func cleanSubscriptionReportObject(subscriptionReport appsv1alpha1.SubscriptionReport,
