@@ -7,21 +7,38 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/go-co-op/gocron"
+	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
 )
 
-func StartJobScheduler(ctx context.Context, pool *pgxpool.Pool) (*gocron.Scheduler, error) {
-	log := ctrl.Log.WithName("cronjob-scheduler")
-	s := gocron.NewScheduler(time.UTC)
+type GlobalHubJobScheduler struct {
+	log       logr.Logger
+	scheduler *gocron.Scheduler
+}
 
-	complianceJob, err := s.Every(1).Day().At("00:00").Tag("LocalComplianceHistory").DoWithJobDetails(
+func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool) error {
+	log := ctrl.Log.WithName("cronjob-scheduler")
+	scheduler := gocron.NewScheduler(time.Local) // or time.UTC
+
+	complianceJob, err := scheduler.Every(1).Day().At("00:00").Tag("LocalComplianceHistory").DoWithJobDetails(
 		task.SyncLocalCompliance, ctx, pool)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	log.Info("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 
-	s.StartAsync()
-	return s, nil
+	mgr.Add(&GlobalHubJobScheduler{
+		log:       log,
+		scheduler: scheduler,
+	})
+	return nil
+}
+
+func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
+	s.log.Info("start job scheduler")
+	s.scheduler.StartAsync()
+	<-ctx.Done()
+	s.scheduler.Stop()
+	return nil
 }

@@ -151,7 +151,7 @@ func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 }
 
-func createManager(restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
+func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
 	processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
@@ -216,6 +216,10 @@ func createManager(restConfig *rest.Config, managerConfig *managerconfig.Manager
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
+	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn()); err != nil {
+		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
+	}
+
 	return mgr, nil
 }
 
@@ -245,7 +249,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	}
 	defer transportBridgePostgreSQL.Stop()
 
-	mgr, err := createManager(restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
+	mgr, err := createManager(ctx, restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
@@ -256,14 +260,6 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	hookServer.Register("/mutating", &webhook.Admission{
 		Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()},
 	})
-
-	log.Info("starting the cron job scheduler")
-	jobScheduler, err := cronjob.StartJobScheduler(ctx, processPostgreSQL.GetConn())
-	if err != nil {
-		log.Error(err, "failed to start job scheduler")
-		return 1
-	}
-	defer jobScheduler.Stop()
 
 	log.Info("Starting the Manager")
 	if err := mgr.Start(ctx); err != nil {
