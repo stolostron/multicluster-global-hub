@@ -28,11 +28,10 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	}
 	log.Info("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 
-	mgr.Add(&GlobalHubJobScheduler{
+	return mgr.Add(&GlobalHubJobScheduler{
 		log:       log,
 		scheduler: scheduler,
 	})
-	return nil
 }
 
 func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
