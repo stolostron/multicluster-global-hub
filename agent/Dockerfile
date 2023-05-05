@@ -1,7 +1,7 @@
 # Copyright Contributors to the Open Cluster Management project
 
 # Stage 1: build the target binaries
-FROM registry.ci.openshift.org/stolostron/builder:go1.19-linux AS builder
+FROM registry.ci.openshift.org/stolostron/builder:go1.18-linux AS builder
 
 WORKDIR /workspace
 
