@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1681929455973,
+      "iteration": 1683222645414,
       "links": [
         {
           "asDropdown": false,
@@ -95,35 +95,8 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    date_id as \"p_time\",\n    fs.policy_id,\n    COUNT(CASE WHEN non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.fact_summary fs\n  GROUP BY (date_id, policy_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT policy_id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time)",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.updated_at as \"p_time\",\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history ch\n  GROUP BY (ch.updated_at, ch.id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time)",
               "refId": "A",
-              "select": [
-                [
-                  {
-                    "params": [
-                      "value"
-                    ],
-                    "type": "column"
-                  }
-                ]
-              ],
-              "timeColumn": "time",
-              "where": [
-                {
-                  "name": "$__timeFilter",
-                  "params": [],
-                  "type": "macro"
-                }
-              ]
-            },
-            {
-              "format": "table",
-              "group": [],
-              "hide": false,
-              "metricColumn": "none",
-              "rawQuery": true,
-              "rawSql": "-- SELECT\n--   SUM(COUNT(DISTINCT fs.policy_id)) OVER (ORDER BY fs.date_id)\n-- FROM\n--   local_status.fact_summary fs\n-- WHERE\n--   $__timeFilter(fs.date_id)\n-- GROUP BY (fs.date_id)",
-              "refId": "B",
               "select": [
                 [
                   {
@@ -202,7 +175,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    date_id as \"p_time\",\n    fs.policy_id,\n    COUNT(CASE WHEN non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.fact_summary fs\n  GROUP BY (date_id, policy_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT policy_id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time)",
+              "rawSql": "WITH data AS (\n  SELECT\n    updated_at as \"p_time\",\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history ch\n  GROUP BY (ch.updated_at, ch.id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time)",
               "refId": "A",
               "select": [
                 [
@@ -278,7 +251,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  $__timeGroupAlias(date_id, $__interval),\n  SUM(COUNT(DISTINCT policy_id)) OVER (ORDER BY date_id)\nFROM\n  local_status.fact_summary fs\nWHERE\n  $__timeFilter(date_id)\nGROUP BY (date_id)\nORDER BY (date_id)",
+              "rawSql": "SELECT\n  $__timeGroupAlias(updated_at, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY updated_at)\nFROM\n  local_status.compliance_history ch\nWHERE\n  $__timeFilter(updated_at)\nGROUP BY (updated_at)\nORDER BY (updated_at)",
               "refId": "A",
               "select": [
                 [
@@ -383,7 +356,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    fs.date_id as \"time\",\n    dp.policy_name as \"name\",\n    dp.policy_standard as \"standard\",\n    dp.policy_category as \"category\",\n    dp.policy_control as \"control\",\n    dp.severity,\n    COUNT(CASE WHEN fs.non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN fs.non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.dim_policy dp\n  JOIN\n    local_status.fact_summary fs ON dp.policy_id = fs.policy_id\n  WHERE\n    dp.policy_standard IN ($standard) AND dp.policy_category IN ($category) AND dp.policy_control IN ($control) AND dp.severity IN ($severity)\n  GROUP BY (fs.date_id, dp.policy_name, dp.policy_standard, dp.policy_category, dp.policy_control, dp.severity)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  standard,\n  category,\n  control,\n  severity,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.updated_at as \"time\",\n    p.policy_name as \"name\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    local_status.compliance_history ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY\n    ch.updated_at, p.policy_name, p.policy_standard, p.policy_category, p.policy_control, p.payload\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  standard,\n  category,\n  control,\n  severity,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  severity IN ($severity)\nAND\n  non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
               "refId": "A",
               "select": [
                 [
@@ -466,7 +439,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  dp.policy_standard\nFROM\n  local_spec.dim_policy dp",
+            "definition": "SELECT\n  policy_standard\nFROM\n  local_spec.policies",
             "description": "Managed cluster policy standards",
             "error": null,
             "hide": 0,
@@ -475,7 +448,7 @@ data:
             "multi": true,
             "name": "standard",
             "options": [],
-            "query": "SELECT\n  dp.policy_standard\nFROM\n  local_spec.dim_policy dp",
+            "query": "SELECT\n  policy_standard\nFROM\n  local_spec.policies",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -494,7 +467,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  dp.policy_category\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)",
+            "definition": "SELECT\n  policy_category\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)",
             "description": "Managed cluster policy categories",
             "error": null,
             "hide": 0,
@@ -503,7 +476,7 @@ data:
             "multi": true,
             "name": "category",
             "options": [],
-            "query": "SELECT\n  dp.policy_category\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)",
+            "query": "SELECT\n  policy_category\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -522,7 +495,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  dp.policy_control\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)",
+            "definition": "SELECT\n  policy_control\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)",
             "description": "Managed cluster labels policy controls",
             "error": null,
             "hide": 0,
@@ -531,7 +504,7 @@ data:
             "multi": true,
             "name": "control",
             "options": [],
-            "query": "SELECT\n  dp.policy_control\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)",
+            "query": "SELECT\n  policy_control\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -541,7 +514,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -550,7 +523,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  dp.severity\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)\nAND\n  dp.policy_control IN ($control)",
+            "definition": "SELECT\n   jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' \nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IN ($control)",
             "description": "Managed cluster policy severities",
             "error": null,
             "hide": 0,
@@ -559,7 +532,7 @@ data:
             "multi": true,
             "name": "severity",
             "options": [],
-            "query": "SELECT\n  dp.severity\nFROM\n  local_spec.dim_policy dp\nWHERE\n  dp.policy_standard IN ($standard)\nAND\n  dp.policy_category IN ($category)\nAND\n  dp.policy_control IN ($control)",
+            "query": "SELECT\n   jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' \nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IN ($control)",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
