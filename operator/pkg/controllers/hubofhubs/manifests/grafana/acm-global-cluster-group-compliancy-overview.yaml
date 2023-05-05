@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1681931576165,
+      "iteration": 1683220094242,
       "links": [
         {
           "asDropdown": false,
@@ -125,7 +125,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    fs.date_id as \"time\",\n    dc.labels->>'$label' as \"$label\",\n    COUNT(CASE WHEN fs.non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN fs.non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.dim_cluster dc\n  JOIN\n    local_status.fact_summary fs ON dc.cluster_id = fs.cluster_id\n  WHERE\n    labels->>'$label' IN ($value)\n  GROUP BY (date_id, labels)\n  ORDER BY (date_id)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nORDER BY time",
+              "rawSql": "WITH data as (\n  SELECT\n    ch.updated_at as \"time\",\n    payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    local_status.compliance_history ch ON mc.cluster_id = ch.cluster_id\n  GROUP BY (ch.updated_at, mc.payload)\n  ORDER BY (ch.updated_at)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nORDER BY (time)",
               "refId": "A",
               "select": [
                 [
@@ -186,7 +186,7 @@ data:
               "value": "cloud"
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  jsonb_object_keys(dc.labels)\nFROM\n  local_spec.dim_cluster dc",
+            "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
             "description": "Managed cluster labels",
             "error": null,
             "hide": 0,
@@ -195,7 +195,7 @@ data:
             "multi": false,
             "name": "label",
             "options": [],
-            "query": "SELECT\n  jsonb_object_keys(dc.labels)\nFROM\n  local_spec.dim_cluster dc",
+            "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -214,7 +214,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  DISTINCT labels->>'$label'\nFROM\n  local_spec.dim_cluster",
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
             "description": "Managed clusters label values",
             "error": null,
             "hide": 0,
@@ -223,7 +223,7 @@ data:
             "multi": true,
             "name": "value",
             "options": [],
-            "query": "SELECT\n  DISTINCT labels->>'$label'\nFROM\n  local_spec.dim_cluster",
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,

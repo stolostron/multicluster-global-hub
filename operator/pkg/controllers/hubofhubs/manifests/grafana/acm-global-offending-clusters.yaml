@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1681927396361,
+      "iteration": 1683225465909,
       "links": [
         {
           "asDropdown": false,
@@ -95,35 +95,8 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    date_id as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.fact_summary\n  GROUP BY (date_id, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    updated_at as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history\n  GROUP BY (updated_at, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
               "refId": "A",
-              "select": [
-                [
-                  {
-                    "params": [
-                      "value"
-                    ],
-                    "type": "column"
-                  }
-                ]
-              ],
-              "timeColumn": "time",
-              "where": [
-                {
-                  "name": "$__timeFilter",
-                  "params": [],
-                  "type": "macro"
-                }
-              ]
-            },
-            {
-              "format": "table",
-              "group": [],
-              "hide": false,
-              "metricColumn": "none",
-              "rawQuery": true,
-              "rawSql": "-- SELECT\n--   SUM(COUNT(DISTINCT fs.policy_id)) OVER (ORDER BY fs.date_id)\n-- FROM\n--   local_status.fact_summary fs\n-- WHERE\n--   $__timeFilter(fs.date_id)\n-- GROUP BY (fs.date_id)",
-              "refId": "B",
               "select": [
                 [
                   {
@@ -202,7 +175,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    date_id as \"p_time\",\n    fs.cluster_id,\n    COUNT(CASE WHEN non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.fact_summary fs\n  GROUP BY (date_id, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    updated_at as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history\n  GROUP BY (updated_at, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
               "refId": "A",
               "select": [
                 [
@@ -278,7 +251,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  $__timeGroupAlias(date_id, $__interval),\n  COUNT(distinct fs.cluster_id)\nFROM\n  local_status.fact_summary fs\nWHERE\n  $__timeFilter(date_id)\nGROUP BY (date_id)",
+              "rawSql": "SELECT\n  $__timeGroupAlias(updated_at, $__interval),\n  COUNT(distinct cluster_id)\nFROM\n  local_status.compliance_history\nWHERE\n  $__timeFilter(updated_at)\nGROUP BY (updated_at)",
               "refId": "A",
               "select": [
                 [
@@ -395,7 +368,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    fs.date_id as \"time\",\n    dc.cluster_name as \"cluster\",\n    dc.hub_name as \"hub\",\n    dc.labels->>'$label' as \"$label\",\n    COUNT(CASE WHEN fs.non_compliant > 0 THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN fs.non_compliant = 0 THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.dim_cluster dc\n  JOIN\n    local_status.fact_summary fs ON dc.cluster_id = fs.cluster_id\n  WHERE\n    dc.labels->>'$label' IN ($value)\n  GROUP BY (fs.date_id, dc.cluster_name, dc.hub_name, dc.labels)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  cluster,\n  hub,\n  $label,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.updated_at as \"time\",\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    local_status.compliance_history ch ON mc.cluster_id = ch.cluster_id\n  GROUP BY (ch.updated_at, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  cluster,\n  hub,\n  $label,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time) AND $label IN ($value) AND non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
               "refId": "A",
               "select": [
                 [
@@ -472,11 +445,11 @@ data:
             "allValue": null,
             "current": {
               "selected": false,
-              "text": "cloud",
-              "value": "cloud"
+              "text": "",
+              "value": ""
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  jsonb_object_keys(dc.labels)\nFROM\n  local_spec.dim_cluster dc",
+            "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
             "description": "Managed cluster labels",
             "error": null,
             "hide": 0,
@@ -485,7 +458,7 @@ data:
             "multi": false,
             "name": "label",
             "options": [],
-            "query": "SELECT\n  jsonb_object_keys(dc.labels)\nFROM\n  local_spec.dim_cluster dc",
+            "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -497,14 +470,14 @@ data:
             "current": {
               "selected": true,
               "text": [
-                "Amazon"
+                "All"
               ],
               "value": [
-                "Amazon"
+                "$__all"
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  DISTINCT labels->>'$label'\nFROM\n  local_spec.dim_cluster",
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
             "description": "Managed cluster label values",
             "error": null,
             "hide": 0,
@@ -513,7 +486,7 @@ data:
             "multi": true,
             "name": "value",
             "options": [],
-            "query": "SELECT\n  DISTINCT labels->>'$label'\nFROM\n  local_spec.dim_cluster",
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -523,7 +496,7 @@ data:
         ]
       },
       "time": {
-        "from": "now-7d",
+        "from": "now-24h",
         "to": "now"
       },
       "timepicker": {},
