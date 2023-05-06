@@ -95,7 +95,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.updated_at as \"p_time\",\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history ch\n  GROUP BY (ch.updated_at, ch.id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time)",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"p_time\",\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history ch\n  GROUP BY (ch.compliance_date, ch.id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time)",
               "refId": "A",
               "select": [
                 [
@@ -175,7 +175,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    updated_at as \"p_time\",\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history ch\n  GROUP BY (ch.updated_at, ch.id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time)",
+              "rawSql": "WITH data AS (\n  SELECT\n    compliance_date as \"p_time\",\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history ch\n  GROUP BY (ch.compliance_date, ch.id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time)",
               "refId": "A",
               "select": [
                 [
@@ -251,7 +251,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  $__timeGroupAlias(updated_at, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY updated_at)\nFROM\n  local_status.compliance_history ch\nWHERE\n  $__timeFilter(updated_at)\nGROUP BY (updated_at)\nORDER BY (updated_at)",
+              "rawSql": "SELECT\n  $__timeGroupAlias(compliance_date, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY compliance_date)\nFROM\n  local_status.compliance_history ch\nWHERE\n  $__timeFilter(compliance_date)\nGROUP BY (compliance_date)\nORDER BY (compliance_date)",
               "refId": "A",
               "select": [
                 [
@@ -356,7 +356,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.updated_at as \"time\",\n    p.policy_name as \"name\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    local_status.compliance_history ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY\n    ch.updated_at, p.policy_name, p.policy_standard, p.policy_category, p.policy_control, p.payload\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  standard,\n  category,\n  control,\n  severity,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  severity IN ($severity)\nAND\n  non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"name\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    local_status.compliance_history ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY\n    ch.compliance_date, p.policy_name, p.policy_standard, p.policy_category, p.policy_control, p.payload\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  standard,\n  category,\n  control,\n  severity,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  severity IN ($severity)\nAND\n  non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
               "refId": "A",
               "select": [
                 [

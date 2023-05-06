@@ -95,7 +95,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    updated_at as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history\n  GROUP BY (updated_at, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    compliance_date as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history\n  GROUP BY (compliance_date, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
               "refId": "A",
               "select": [
                 [
@@ -175,7 +175,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    updated_at as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history\n  GROUP BY (updated_at, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    compliance_date as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history\n  GROUP BY (compliance_date, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
               "refId": "A",
               "select": [
                 [
@@ -251,7 +251,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  $__timeGroupAlias(updated_at, $__interval),\n  COUNT(distinct cluster_id)\nFROM\n  local_status.compliance_history\nWHERE\n  $__timeFilter(updated_at)\nGROUP BY (updated_at)",
+              "rawSql": "SELECT\n  $__timeGroupAlias(compliance_date, $__interval),\n  COUNT(distinct cluster_id)\nFROM\n  local_status.compliance_history\nWHERE\n  $__timeFilter(compliance_date)\nGROUP BY (compliance_date)",
               "refId": "A",
               "select": [
                 [
@@ -368,7 +368,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.updated_at as \"time\",\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    local_status.compliance_history ch ON mc.cluster_id = ch.cluster_id\n  GROUP BY (ch.updated_at, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  cluster,\n  hub,\n  $label,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time) AND $label IN ($value) AND non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    local_status.compliance_history ch ON mc.cluster_id = ch.cluster_id\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  cluster,\n  hub,\n  $label,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time) AND $label IN ($value) AND non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
               "refId": "A",
               "select": [
                 [
