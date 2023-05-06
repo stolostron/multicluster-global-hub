@@ -118,8 +118,6 @@ CREATE TABLE IF NOT EXISTS local_status.job_log (
     name varchar(63) NOT NULL,
     start_at timestamp NOT NULL DEFAULT now(),
     end_at timestamp NOT NULL DEFAULT now(),
-    source varchar(63) NOT NULL,
-    target varchar(63) NOT NULL,
     synced_count int8,
     total_count int8,
     error TEXT

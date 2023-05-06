@@ -59,8 +59,6 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				name varchar(63) NOT NULL,
 				start_at timestamp NOT NULL DEFAULT now(),
 				end_at timestamp NOT NULL DEFAULT now(),
-				source varchar(63) NOT NULL,
-				target varchar(63) NOT NULL,
 				synced_count int8,
 				total_count int8,
 				error TEXT
@@ -149,7 +147,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 
 		By("Check whether the job log is created")
 		Eventually(func() error {
-			rows, err := pool.Query(ctx, "SELECT name, source, target, synced_count, total_count, error FROM local_status.job_log")
+			rows, err := pool.Query(ctx, "SELECT name, synced_count, total_count, error FROM local_status.job_log")
 			if err != nil {
 				return err
 			}
@@ -157,15 +155,15 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 
 			logCount := 0
 			for rows.Next() {
-				var name, source, target, errMessage string
+				var name, errMessage string
 				var syncedCount, totalCount int64
-				err := rows.Scan(&name, &source, &target, &syncedCount, &totalCount, &errMessage)
+				err := rows.Scan(&name, &syncedCount, &totalCount, &errMessage)
 				if err != nil {
 					return err
 				}
 				logCount += 1
-				fmt.Println("found job log", "name", name, "source", source, "target", target,
-					"synced_count", syncedCount, "total_count", totalCount, "error", errMessage)
+				fmt.Println("found job log", "name", name, "synced_count", syncedCount, "total_count", totalCount,
+					"error", errMessage)
 			}
 			if logCount == 0 {
 				return fmt.Errorf("table local_status.job_log records are not synced")

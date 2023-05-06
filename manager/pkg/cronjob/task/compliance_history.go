@@ -27,14 +27,18 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	defer conn.Release()
 
 	// batchSize = 1000 for now
-	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on several factors such as the size of the table, available memory, network bandwidth, and hardware specifications. However, as a general rule of thumb, a batch size of around 1000 to 5000 records is a good starting point. This size provides a balance between minimizing the number of queries sent to the server while still being efficient and not overloading the system. To determine the optimal batchSize, it may be helpful to test different batch sizes and measure the performance of the queries.
+	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
+	// several factors such as the size of the table, available memory, network bandwidth, and hardware specifications.
+	// However, as a general rule of thumb, a batch size of around 1000 to 5000 records is a good starting point. This
+	// size provides a balance between minimizing the number of queries sent to the server while still being efficient
+	// and not overloading the system. To determine the optimal batchSize, it may be helpful to test different batch
+	// sizes and measure the performance of the queries.
 	totalCount, syncedCount, err := syncToLocalComplianceHistory(ctx, conn, 1000)
 	if err != nil {
 		log.Error(err, "sync to local_status.compliance_history failed")
 	}
 
-	if err := traceJob(ctx, conn, jobName, "local_status.compliance", "local_status.compliance_history",
-		totalCount, syncedCount, start, err); err != nil {
+	if err := traceJob(ctx, conn, jobName, totalCount, syncedCount, start, err); err != nil {
 		log.Error(err, "trace job failed")
 	}
 
@@ -121,18 +125,17 @@ func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, bat
 	return insertCount, err
 }
 
-func traceJob(ctx context.Context, conn *pgxpool.Conn, name, source, target string, total, synced int64,
-	start time.Time, err error,
+func traceJob(ctx context.Context, conn *pgxpool.Conn, name string, total, synced int64, start time.Time,
+	err error,
 ) error {
 	end := time.Now()
-	errMessage := ""
+	errMessage := "none"
 	if err != nil {
 		errMessage = err.Error()
 	}
 	_, err = conn.Exec(ctx, `
-	INSERT INTO local_status.job_log (name, start_at, end_at, source, target, synced_count, total_count, error) 
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-		name, start, end, source, target, synced, total, errMessage)
+	INSERT INTO local_status.job_log (name, start_at, end_at, synced_count, total_count, error) 
+	VALUES ($1, $2, $3, $4, $5, $6);`, name, start, end, synced, total, errMessage)
 
 	return err
 }
