@@ -69,7 +69,7 @@ func syncToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, batch
 		if err != nil {
 			return totalCount, syncedCount, err
 		}
-		totalCount += insertCount
+		syncedCount += insertCount
 	}
 	return totalCount, syncedCount, nil
 }
@@ -100,7 +100,7 @@ func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, bat
 		result, err := tx.Exec(ctx, `
 				INSERT INTO local_status.compliance_history (id, cluster_id, compliance) 
 				SELECT id,cluster_id,compliance 
-				FROM local_compliance_view 
+				FROM local_compliance_mv 
 				ORDER BY id, cluster_id
 				LIMIT $1 
 				OFFSET $2`,

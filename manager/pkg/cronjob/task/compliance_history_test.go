@@ -55,6 +55,16 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				compliance local_status.compliance_type NOT NULL,
 				compliance_changed_frequency integer NOT NULL DEFAULT 0
 			);
+			CREATE TABLE IF NOT EXISTS local_status.job_log (
+				name varchar(63) NOT NULL,
+				start_at timestamp NOT NULL DEFAULT now(),
+				end_at timestamp NOT NULL DEFAULT now(),
+				source varchar(63) NOT NULL,
+				target varchar(63) NOT NULL,
+				synced_count int8,
+				total_count int8,
+				error TEXT
+			);
 		`)
 		Expect(err).ToNot(HaveOccurred())
 		By("Check whether the tables are created")
@@ -133,6 +143,32 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 			}
 			if syncCount != 3 {
 				return fmt.Errorf("table local_status.compliance_history records are not synced")
+			}
+			return nil
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+
+		By("Check whether the job log is created")
+		Eventually(func() error {
+			rows, err := pool.Query(ctx, "SELECT name, source, target, synced_count, total_count, error FROM local_status.job_log")
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+
+			logCount := 0
+			for rows.Next() {
+				var name, source, target, errMessage string
+				var syncedCount, totalCount int64
+				err := rows.Scan(&name, &source, &target, &syncedCount, &totalCount, &errMessage)
+				if err != nil {
+					return err
+				}
+				logCount += 1
+				fmt.Println("found job log", "name", name, "source", source, "target", target,
+					"synced_count", syncedCount, "total_count", totalCount, "error", errMessage)
+			}
+			if logCount == 0 {
+				return fmt.Errorf("table local_status.job_log records are not synced")
 			}
 			return nil
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
