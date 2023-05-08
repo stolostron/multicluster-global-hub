@@ -53,6 +53,14 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
+  clusterCa:
+    renewalDays: 181 # We want the cert to be only valid for 6 month. So the cert will not be renewed
+    validityDays: 180
+    generateCertificateAuthority: true
+  clientsCa:
+    renewalDays: 181
+    validityDays: 180
+    generateCertificateAuthority: true
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
@@ -79,3 +87,14 @@ spec:
   replicas: 2
   config:
     cleanup.policy: compact
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: global-hub-kafka-user
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka-brokers-cluster
+spec:
+  authentication:
+    type: tls

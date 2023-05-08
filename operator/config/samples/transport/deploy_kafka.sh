@@ -31,12 +31,24 @@ waitAppear "kubectl get kafkatopic spec -n kafka --ignore-not-found | grep spec 
 waitAppear "kubectl get kafkatopic status -n kafka --ignore-not-found | grep status || true"
 echo "Kafka topics spec and status are ready!"
 
+# step5: deploy Kafka user to generate tls secret
+kafkaUser=global-hub-kafka-user
+kubectl apply -f ${currentDir}/kafka-user.yaml
+waitAppear "kubectl get secret ${kafkaUser} -n kafka --ignore-not-found"
+
 # step5: generate transport-secret
 bootstrapServers=$(kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].bootstrapServers}')
-kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' > $currentDir/kafka-cert.pem
+kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' > $currentDir/kafka-ca-cert.pem
+kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.crt}' | base64 -d > $currentDir/kafka-client-cert.pem
+kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.key}' | base64 -d > $currentDir/kafka-client-key.pem
+
 kubectl create secret generic ${transportSecret} -n $targetNamespace \
     --from-literal=bootstrap_server=$bootstrapServers \
-    --from-file=ca.crt=$currentDir/kafka-cert.pem
+    --from-file=ca.crt=$currentDir/kafka-ca-cert.pem \
+    --from-file=client.crt=$currentDir/kafka-client-cert.pem \
+    --from-file=client.key=$currentDir/kafka-client-key.pem 
 
-rm $currentDir/kafka-cert.pem
+rm $currentDir/kafka-ca-cert.pem
+rm $currentDir/kafka-client-cert.pem
+rm $currentDir/kafka-client-key.pem
 echo "transport secret is ready in $targetNamespace namespace!"
