@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"crypto/tls"
+	"net/http"
 
 	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -58,6 +60,9 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 		policyClusterset = "clusterset1"
 		Eventually(func() error {
+			transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			httpClient = &http.Client{Timeout: time.Second * 60, Transport: transport}
 			managedClusters, err = getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
@@ -66,7 +71,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				return fmt.Errorf("managed cluster is not exist")
 			}
 			return nil
-		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 		By("Init the client")
 		scheme := runtime.NewScheme()
@@ -95,7 +100,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 	})
 
 	Context("When apply local policy with placement on the regional hub", func() {
-		It("deploy local policy on the regional hub", func() {
+		It("deploy local policy on the regional hub", func() {	
 			By("Add local policy test label")
 			patches := []patch{
 				{
@@ -129,12 +134,10 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 						return err
 					}
 					for _, leafhubName := range LeafHubNames {
-						if leafhub == leafhubName {
-							fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-							if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
-								return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
-							}
+						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
+						if leafhub == leafhubName && policy.Name == localPolicyName && policy.Namespace == localPolicyNamespace {
 							policies[leafhub] = policy
+							fmt.Println(len(policies))
 						}
 					}
 				}

@@ -37,9 +37,9 @@ container_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPA
 hub_nonk8s_api_server="https://${container_node_ip}:30080"
 
 # container postgres uri
-container_pg_port="32432"
-database_uri=$(kubectl get secret storage-secret -n $hub_namespace --kubeconfig ${hub_kubeconfig} -ojsonpath='{.data.database_uri}' | base64 -d)
-container_pg_uri=$(echo $database_uri | sed "s|@.*hoh|@${container_node_ip}:${container_pg_port}/hoh|g")
+# container_pg_port="32432"
+# database_uri=$(kubectl get secret storage-secret -n $hub_namespace --kubeconfig ${hub_kubeconfig} -ojsonpath='{.data.database_uri}' | base64 -d)
+# container_pg_uri=$(echo $database_uri | sed "s|@.*hoh|@${container_node_ip}:${container_pg_port}/hoh|g")
 
 printf "options:" > $OPTIONS_FILE
 printf "\n  hub:" >> $OPTIONS_FILE
@@ -49,7 +49,7 @@ printf "\n    apiServer: ${hub_api_server}" >> $OPTIONS_FILE
 printf "\n    nonk8sApiServer: ${hub_nonk8s_api_server}" >> $OPTIONS_FILE
 printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
 printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
-printf '\n    databaseURI: %s' ${container_pg_uri} >> $OPTIONS_FILE # contain $ need to use %s
+# printf '\n    databaseURI: %s' ${container_pg_uri} >> $OPTIONS_FILE # contain $ need to use %s
 printf "\n  clusters:" >> $OPTIONS_FILE
 
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do

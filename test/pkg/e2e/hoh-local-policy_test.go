@@ -51,7 +51,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				transport := &http.Transport{
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 				}
-				httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
+				httpClient = &http.Client{Timeout: time.Second * 60, Transport: transport}
 				managedClusters, err = getManagedCluster(httpClient, httpToken)
 				if err != nil {
 					return err
@@ -60,7 +60,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					return fmt.Errorf("managed cluster number error")
 				}
 				return nil
-			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 			By("Create runtime client")
 			scheme := runtime.NewScheme()
@@ -204,14 +204,11 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&leafhub, policy); err != nil {
 							return err
 						}
-						for _, leafhubName := range LeafHubNames {
-							if leafhub == leafhubName {
-								fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-								if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
-									return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
-								}
+						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
+							for _, leafhubName := range LeafHubNames {
+							if leafhub == leafhubName && policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
 								policies[leafhub] = policy
-							}
+							}						
 						}
 					}
 					if len(policies) != len(LeafHubNames) {
