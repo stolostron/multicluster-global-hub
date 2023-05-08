@@ -113,7 +113,10 @@ func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, vie
 					fmt.Printf("rollback failed: %v\n", e)
 				}
 			}
-			traceComplianceHistory(ctx, conn, localComplianceJobName, totalCount, offset, insertCount, startTime, err)
+			e := traceComplianceHistory(ctx, conn, localComplianceJobName, totalCount, offset, insertCount, startTime, err)
+			if e != nil {
+				fmt.Printf("trace compliance job failed: %v\n", e)
+			}
 		}()
 		selectInsertSQL := `
 			INSERT INTO local_status.compliance_history (id, cluster_id, compliance) 
