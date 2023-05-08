@@ -19,7 +19,9 @@ type GlobalHubJobScheduler struct {
 
 func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool) error {
 	log := ctrl.Log.WithName("cronjob-scheduler")
-	scheduler := gocron.NewScheduler(time.Local) // or time.UTC
+	// Scheduler timezone:
+	// The cluster may be in a different timezones, Here we choose to be consistent with the local GH timezone.
+	scheduler := gocron.NewScheduler(time.Local)
 
 	complianceJob, err := scheduler.Every(1).Day().At("00:00").Tag("LocalComplianceHistory").DoWithJobDetails(
 		task.SyncLocalCompliance, ctx, pool)
