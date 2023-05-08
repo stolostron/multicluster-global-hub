@@ -79,28 +79,52 @@ CREATE TABLE IF NOT EXISTS  history.subscriptions (
 );
 
 CREATE TABLE IF NOT EXISTS  local_spec.placementrules (
-    leaf_hub_name text,
+    leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  local_spec.policies (
-    leaf_hub_name text,
+CREATE TABLE IF NOT EXISTS local_spec.policies (
+    leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    policy_id uuid generated always as (uuid(payload->'metadata'->>'uid')) stored,
+    policy_name character varying(255) generated always as (payload -> 'metadata' ->> 'name') stored,
+    policy_standard character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards') stored,
+    policy_category character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
+    policy_control character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls') stored
 );
 
-CREATE TABLE IF NOT EXISTS  local_status.compliance (
+CREATE TABLE IF NOT EXISTS local_status.compliance (
     id uuid NOT NULL,
     cluster_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     error status.error_type NOT NULL,
-    compliance local_status.compliance_type NOT NULL
+    compliance local_status.compliance_type NOT NULL,
+    cluster_id uuid
 );
 
-CREATE TABLE IF NOT EXISTS  spec.applications (
+CREATE TABLE IF NOT EXISTS local_status.compliance_history (
+    id uuid NOT NULL,
+    cluster_id uuid NOT NULL,
+    compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL, 
+    compliance local_status.compliance_type NOT NULL,
+    compliance_changed_frequency integer NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS local_status.compliance_history_job_log (
+    name varchar(63) NOT NULL,
+    start_at timestamp NOT NULL DEFAULT now(),
+    end_at timestamp NOT NULL DEFAULT now(),
+    total int8,
+    inserted int8,
+    offsets int8, 
+    error TEXT
+);
+
+CREATE TABLE IF NOT EXISTS spec.applications (
     id uuid NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -205,12 +229,13 @@ CREATE TABLE IF NOT EXISTS  status.aggregated_compliance (
     non_compliant_clusters integer NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.compliance (
+CREATE TABLE IF NOT EXISTS status.compliance (
     id uuid NOT NULL,
     cluster_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     error status.error_type NOT NULL,
-    compliance status.compliance_type NOT NULL
+    compliance status.compliance_type NOT NULL,
+    cluster_id uuid
 );
 
 CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
@@ -218,8 +243,10 @@ CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
     last_timestamp timestamp without time zone DEFAULT now() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.managed_clusters (
+CREATE TABLE IF NOT EXISTS status.managed_clusters (
     leaf_hub_name character varying(63) NOT NULL,
+    cluster_name character varying(63) generated always as (payload -> 'metadata' ->> 'name') stored,
+    cluster_id uuid NOT NULL,
     payload jsonb NOT NULL,
     error status.error_type NOT NULL
 );
@@ -252,6 +279,16 @@ CREATE TABLE IF NOT EXISTS  status.subscription_statuses (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS event.local_policies (
+    policy_id uuid NOT NULL,
+    cluster_id uuid NOT NULL,
+    message text,
+    reason text,
+    source text,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    compliance status.compliance_type NOT NULL
 );
 
 ALTER TABLE history.applications DROP CONSTRAINT IF EXISTS applications_pkey;

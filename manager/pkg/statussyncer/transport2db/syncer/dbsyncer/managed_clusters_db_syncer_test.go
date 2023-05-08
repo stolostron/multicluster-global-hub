@@ -40,7 +40,8 @@ var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
 			CREATE TABLE IF NOT EXISTS  status.managed_clusters (
 				leaf_hub_name character varying(63) NOT NULL,
 				payload jsonb NOT NULL,
-				error status.error_type NOT NULL
+				error status.error_type NOT NULL,
+				cluster_id uuid
 			);
 			CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_uid_idx ON status.managed_clusters USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
 			CREATE INDEX IF NOT EXISTS managed_clusters_metadata_name_idx ON status.managed_clusters USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)));
@@ -72,6 +73,14 @@ var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testManagedCluster",
 				Namespace: "default",
+			},
+			Status: clusterv1.ManagedClusterStatus{
+				ClusterClaims: []clusterv1.ManagedClusterClaim{
+					{
+						Name:  "id.k8s.io",
+						Value: "3f406177-34b2-4852-88dd-ff2809680335",
+					},
+				},
 			},
 		}
 		statusBundle := &GenericStatusBundle{

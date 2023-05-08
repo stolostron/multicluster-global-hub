@@ -2,10 +2,7 @@
 
 set -euo pipefail
 
-branch=$TAG
-if [ $TAG == "latest" ]; then
-  branch="main"
-fi
+export TAG=${TAG:-"latest"}
 export OPENSHIFT_CI=${OPENSHIFT_CI:-"false"}
 export REGISTRY=${REGISTRY:-"quay.io/stolostron"}
 

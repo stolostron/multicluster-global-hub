@@ -11,7 +11,7 @@ spec:
       databases: ["hoh"]
   instances:
     - name: pgha1
-      replicas: 1
+      replicas: 3
       dataVolumeClaimSpec:
         accessModes:
           - "ReadWriteOnce"
@@ -43,7 +43,7 @@ spec:
   proxy:
     pgBouncer:
       image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:ubi8-1.17-1
-      replicas: 1
+      replicas: 3
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -68,4 +68,4 @@ metadata:
   name: pgo-config
   namespace: hoh-postgres
 data:
-  DisableAutofail: "true"
+  DisableAutofail: "false"

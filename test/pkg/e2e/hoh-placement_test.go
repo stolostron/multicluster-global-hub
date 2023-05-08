@@ -95,7 +95,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 	})
 
 	Context("When apply local policy with placement on the regional hub", func() {
-		It("deploy local policy on the regional hub", func() {
+		It("deploy local policy on the regional hub", func() {	
 			By("Add local policy test label")
 			patches := []patch{
 				{
@@ -129,12 +129,10 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 						return err
 					}
 					for _, leafhubName := range LeafHubNames {
-						if leafhub == leafhubName {
-							fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-							if policy.Name != LOCAL_POLICY_NAME || policy.Namespace != LOCAL_POLICY_NAMESPACE {
-								return fmt.Errorf("expect policy [%s/%s] but got [%s/%s]", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME, policy.Namespace, policy.Name)
-							}
+						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
+						if leafhub == leafhubName && policy.Name == localPolicyName && policy.Namespace == localPolicyNamespace {
 							policies[leafhub] = policy
+							fmt.Println(len(policies))
 						}
 					}
 				}

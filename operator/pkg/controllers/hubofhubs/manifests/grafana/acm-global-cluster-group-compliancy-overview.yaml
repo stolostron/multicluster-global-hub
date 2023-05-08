@@ -1,0 +1,248 @@
+apiVersion: v1
+data:
+  acm-global-cluster-group-compliancy-overview.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "target": {
+              "limit": 100,
+              "matchAny": false,
+              "tags": [],
+              "type": "dashboard"
+            },
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "iteration": 1683220094242,
+      "links": [
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": false,
+          "keepTime": false,
+          "tags": [],
+          "targetBlank": true,
+          "title": "Offending Clusters",
+          "tooltip": "",
+          "type": "link",
+          "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1"
+        }
+      ],
+      "panels": [
+        {
+          "datasource": "${datasource}",
+          "description": "Aggregated cluster group trend by cluster label: \"$label\":\"$value\"",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "links": [
+                {
+                  "targetBlank": true,
+                  "title": "View Offending Clusters by ${label}:${__field.name}",
+                  "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1&from=${__value.time}&to=${__value.time}&var-label=${label}&var-value=${__field.name}"
+                }
+              ],
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 34,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "time_series",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date as \"time\",\n    payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    local_status.compliance_history ch ON mc.cluster_id = ch.cluster_id\n  GROUP BY (ch.compliance_date, mc.payload)\n  ORDER BY (ch.compliance_date)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nORDER BY (time)",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Compliancy Trend (By $label)",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": false,
+      "schemaVersion": 30,
+      "style": "dark",
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "selected": false,
+              "text": "Global-Hub-DataSource",
+              "value": "Global-Hub-DataSource"
+            },
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "postgres",
+            "queryValue": "",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "cloud",
+              "value": "cloud"
+            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
+            "description": "Managed cluster labels",
+            "error": null,
+            "hide": 0,
+            "includeAll": false,
+            "label": "Label",
+            "multi": false,
+            "name": "label",
+            "options": [],
+            "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "description": "Managed clusters label values",
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Value",
+            "multi": true,
+            "name": "value",
+            "options": [],
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-7d",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Global Hub - Cluster Group Compliancy Overview",
+      "uid": "868845a4d1334958bd62303c5ccb4c19",
+      "version": 1
+    }
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-acm-global-cluster-group-compliancy-overview
+  namespace: {{.Namespace}}

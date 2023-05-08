@@ -91,6 +91,7 @@ require (
 	github.com/opsgenie/opsgenie-go-sdk-v2 v1.2.14 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rs/zerolog v1.28.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/slack-go/slack v0.12.0 // indirect
@@ -132,6 +133,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
+	github.com/go-co-op/gocron v1.23.0
 	github.com/go-logr/zapr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.20.0 // indirect

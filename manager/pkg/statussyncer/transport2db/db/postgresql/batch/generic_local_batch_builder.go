@@ -10,6 +10,7 @@ import (
 const (
 	genericLocalJsonbColumnIndex = 2
 	genericLocalDeleteRowKey     = "payload->'metadata'->>'uid'"
+	genericLocalTableColumns     = "leaf_hub_name, payload"
 )
 
 // NewGenericLocalBatchBuilder creates a new instance of PostgreSQL GenericLocalBatchBuilder.
@@ -17,7 +18,7 @@ func NewGenericLocalBatchBuilder(schema string, tableName string, leafHubName st
 	tableSpecialColumns := make(map[int]string)
 	tableSpecialColumns[genericLocalJsonbColumnIndex] = database.Jsonb
 	builder := &GenericLocalBatchBuilder{
-		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
+		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, genericLocalTableColumns, tableSpecialColumns, leafHubName,
 			genericLocalDeleteRowKey),
 	}
 

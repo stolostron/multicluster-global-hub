@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
@@ -150,7 +151,7 @@ func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 }
 
-func createManager(restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
+func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
 	processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
@@ -215,6 +216,10 @@ func createManager(restConfig *rest.Config, managerConfig *managerconfig.Manager
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
+	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn()); err != nil {
+		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
+	}
+
 	return mgr, nil
 }
 
@@ -244,7 +249,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	}
 	defer transportBridgePostgreSQL.Stop()
 
-	mgr, err := createManager(restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
+	mgr, err := createManager(ctx, restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
@@ -256,8 +261,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()},
 	})
 
-	log.Info("Starting the Cmd.")
-
+	log.Info("Starting the Manager")
 	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		return 1

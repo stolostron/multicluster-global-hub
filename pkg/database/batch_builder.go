@@ -10,9 +10,9 @@ type BatchBuilder interface {
 type ManagedClustersBatchBuilder interface {
 	BatchBuilder
 	// Insert adds the given (cluster payload, error string) to the batch to be inserted to the db.
-	Insert(payload interface{}, errorString string)
+	Insert(clusterID string, payload interface{}, errorString string)
 	// Update adds the given arguments to the batch to update clusterName with the given payload in db.
-	Update(clusterName string, payload interface{})
+	Update(clusterID string, clusterName string, payload interface{})
 	// Delete adds delete statement to the batch to delete the given cluster from db.
 	Delete(clusterName string)
 }
