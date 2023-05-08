@@ -1,0 +1,13 @@
+apiVersion: operator.open-cluster-management.io/v1alpha2
+kind: MulticlusterGlobalHub
+metadata:
+  name: multiclusterglobalhub
+spec:
+  dataLayer:
+    type: largeScale
+    largeScale:
+      kafka:
+        name: ${TRANSPORT_SECRET_NAME}
+        transportFormat: cloudEvents # or message
+      postgres:
+        name: ${STORAGE_SECRET_NAME}
