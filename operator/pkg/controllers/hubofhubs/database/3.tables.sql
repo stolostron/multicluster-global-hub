@@ -114,12 +114,13 @@ CREATE TABLE IF NOT EXISTS local_status.compliance_history (
     compliance_changed_frequency integer NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS local_status.job_log (
+CREATE TABLE IF NOT EXISTS local_status.compliance_history_job_log (
     name varchar(63) NOT NULL,
     start_at timestamp NOT NULL DEFAULT now(),
     end_at timestamp NOT NULL DEFAULT now(),
-    synced_count int8,
-    total_count int8,
+    total int8,
+    inserted int8,
+    offsets int8, 
     error TEXT
 );
 

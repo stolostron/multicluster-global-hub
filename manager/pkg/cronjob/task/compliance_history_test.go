@@ -55,15 +55,15 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				compliance local_status.compliance_type NOT NULL,
 				compliance_changed_frequency integer NOT NULL DEFAULT 0
 			);
-			CREATE TABLE IF NOT EXISTS local_status.job_log (
+			CREATE TABLE IF NOT EXISTS local_status.compliance_history_job_log (
 				name varchar(63) NOT NULL,
 				start_at timestamp NOT NULL DEFAULT now(),
 				end_at timestamp NOT NULL DEFAULT now(),
-				synced_count int8,
-				total_count int8,
+				total int8,
+				inserted int8,
+				offsets int8, 
 				error TEXT
-			);
-		`)
+			);`)
 		Expect(err).ToNot(HaveOccurred())
 		By("Check whether the tables are created")
 		Eventually(func() error {
@@ -147,7 +147,8 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 
 		By("Check whether the job log is created")
 		Eventually(func() error {
-			rows, err := pool.Query(ctx, "SELECT name, synced_count, total_count, error FROM local_status.job_log")
+			rows, err := pool.Query(ctx, `SELECT name, total, inserted, offsets, error FROM 
+			local_status.compliance_history_job_log`)
 			if err != nil {
 				return err
 			}
@@ -156,17 +157,16 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 			logCount := 0
 			for rows.Next() {
 				var name, errMessage string
-				var syncedCount, totalCount int64
-				err := rows.Scan(&name, &syncedCount, &totalCount, &errMessage)
+				var total, inserted, offsets int64
+				err := rows.Scan(&name, &total, &inserted, &offsets, &errMessage)
 				if err != nil {
 					return err
 				}
 				logCount += 1
-				fmt.Println("found job log", "name", name, "synced_count", syncedCount, "total_count", totalCount,
-					"error", errMessage)
+				fmt.Println("found log", "name", name, "total", total, "inserted", inserted, "offsets", offsets)
 			}
 			if logCount == 0 {
-				return fmt.Errorf("table local_status.job_log records are not synced")
+				return fmt.Errorf("table local_status.compliance_history_job_log records are not synced")
 			}
 			return nil
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())

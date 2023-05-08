@@ -12,13 +12,17 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+var (
+	localComplianceJobName string = "local-compliance-job"
+	startTime              time.Time
+)
+
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
-	jobName := "local-compliance-job"
-	log := ctrl.Log.WithName(jobName)
+	log := ctrl.Log.WithName(localComplianceJobName)
 
 	log.Info("start running", "LastRun", job.LastRun().Format("2006-01-02 15:04:05"),
 		"NextRun", job.NextRun().Format("2006-01-02 15:04:05"))
-	start := time.Now()
+	startTime = time.Now()
 
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
@@ -33,52 +37,62 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	// size provides a balance between minimizing the number of queries sent to the server while still being efficient
 	// and not overloading the system. To determine the optimal batchSize, it may be helpful to test different batch
 	// sizes and measure the performance of the queries.
-	totalCount, syncedCount, err := syncToLocalComplianceHistory(ctx, conn, 1000)
+	totalCount, insertedCount, err := syncToLocalComplianceHistory(ctx, conn, 1000)
 	if err != nil {
 		log.Error(err, "sync to local_status.compliance_history failed")
 	}
 
-	if err := traceJob(ctx, conn, jobName, totalCount, syncedCount, start, err); err != nil {
-		log.Error(err, "trace job failed")
-	}
+	// if err := traceComplianceHistory(ctx, conn, jobName, totalCount, syncedCount, start, err); err != nil {
+	// 	log.Error(err, "trace job failed")
+	// }
 
-	log.Info("finish running", "totalCount", totalCount, "syncedCount", syncedCount)
+	log.Info("finish running", "totalCount", totalCount, "insertedCount", insertedCount)
 }
 
-func syncToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, batchSize int,
-) (totalCount int64, syncedCount int64, err error) {
+func syncToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, batchSize int64,
+) (totalCount int64, insertedCount int64, err error) {
 	// create materialized view
-	_, err = conn.Exec(ctx, `
-		CREATE MATERIALIZED VIEW IF NOT EXISTS local_compliance_mv AS 
-			SELECT id,cluster_id,compliance 
-			FROM local_status.compliance;
-		CREATE INDEX IF NOT EXISTS idx_local_compliance_mv ON local_compliance_mv (id, cluster_id);
-		`)
+	viewName := fmt.Sprintf("local_status.compliance_view_%s", time.Now().AddDate(0, 0, -1).Format("2006_01_02"))
+	createViewSQL := `
+		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS 
+		SELECT id,cluster_id,compliance 
+		FROM local_status.compliance;
+		CREATE INDEX IF NOT EXISTS idx_local_compliance_view ON %s (id, cluster_id);`
+	_, err = conn.Exec(ctx, fmt.Sprintf(createViewSQL, viewName, viewName))
 	if err != nil {
-		return totalCount, syncedCount, err
+		return totalCount, insertedCount, err
 	}
 	// refresh the materialized view
-	_, err = conn.Exec(ctx, "REFRESH MATERIALIZED VIEW local_compliance_mv")
+	// _, err = conn.Exec(ctx, "REFRESH MATERIALIZED VIEW local_compliance_mv")
+	// if err != nil {
+	// 	return totalCount, syncedCount, err
+	// }
+
+	err = conn.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", viewName)).Scan(&totalCount)
 	if err != nil {
-		return totalCount, syncedCount, err
+		return totalCount, insertedCount, err
 	}
 
-	err = conn.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", "local_compliance_mv")).Scan(&totalCount)
-	if err != nil {
-		return totalCount, syncedCount, err
-	}
-
-	for offset := 0; offset < int(totalCount); offset += batchSize {
-		insertCount, err := insertToLocalComplianceHistory(ctx, conn, batchSize, offset)
+	for offset := int64(0); offset < totalCount; offset += batchSize {
+		count, err := insertToLocalComplianceHistory(ctx, conn, viewName, totalCount, batchSize, offset)
 		if err != nil {
-			return totalCount, syncedCount, err
+			return totalCount, insertedCount, err
 		}
-		syncedCount += insertCount
+		insertedCount += count
 	}
-	return totalCount, syncedCount, nil
+
+	// success, drop the materialized view if exists
+	_, err = conn.Exec(ctx, fmt.Sprintf("DROP MATERIALIZED VIEW IF EXISTS %s", viewName))
+	if err != nil {
+		return totalCount, insertedCount, err
+	}
+
+	return totalCount, insertedCount, nil
 }
 
-func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, batchSize, offset int) (int64, error) {
+func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, viewName string,
+	totalCount, batchSize, offset int64,
+) (int64, error) {
 	// retry until success, use timeout context to avoid long running
 	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
@@ -99,16 +113,16 @@ func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, bat
 					fmt.Printf("rollback failed: %v\n", e)
 				}
 			}
+			traceComplianceHistory(ctx, conn, localComplianceJobName, totalCount, offset, insertCount, startTime, err)
 		}()
-
-		result, err := tx.Exec(ctx, `
-				INSERT INTO local_status.compliance_history (id, cluster_id, compliance) 
-				SELECT id,cluster_id,compliance 
-				FROM local_compliance_mv 
-				ORDER BY id, cluster_id
-				LIMIT $1 
-				OFFSET $2`,
-			batchSize, offset)
+		selectInsertSQL := `
+			INSERT INTO local_status.compliance_history (id, cluster_id, compliance) 
+			SELECT id,cluster_id,compliance 
+			FROM %s 
+			ORDER BY id, cluster_id
+			LIMIT $1 
+			OFFSET $2`
+		result, err := tx.Exec(ctx, fmt.Sprintf(selectInsertSQL, viewName), batchSize, offset)
 		if err != nil {
 			fmt.Printf("exec failed: %v\n", err)
 			return false, nil
@@ -125,8 +139,8 @@ func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, bat
 	return insertCount, err
 }
 
-func traceJob(ctx context.Context, conn *pgxpool.Conn, name string, total, synced int64, start time.Time,
-	err error,
+func traceComplianceHistory(ctx context.Context, conn *pgxpool.Conn, name string, total, offset, inserted int64,
+	start time.Time, err error,
 ) error {
 	end := time.Now()
 	errMessage := "none"
@@ -134,8 +148,8 @@ func traceJob(ctx context.Context, conn *pgxpool.Conn, name string, total, synce
 		errMessage = err.Error()
 	}
 	_, err = conn.Exec(ctx, `
-	INSERT INTO local_status.job_log (name, start_at, end_at, synced_count, total_count, error) 
-	VALUES ($1, $2, $3, $4, $5, $6);`, name, start, end, synced, total, errMessage)
+	INSERT INTO local_status.compliance_history_job_log (name, start_at, end_at, total, offsets, inserted, error) 
+	VALUES ($1, $2, $3, $4, $5, $6, $7);`, name, start, end, total, offset, inserted, errMessage)
 
 	return err
 }
