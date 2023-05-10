@@ -15,12 +15,13 @@ func GetSaramaConfig(kafkaConfig *transport.KafkaConfig) (*sarama.Config, error)
 	saramaConfig.Version = sarama.V2_0_0_0
 
 	if kafkaConfig.EnableTLS {
-		tlsConfig, err := NewTLSConfig(kafkaConfig.ClientCertPath, kafkaConfig.ClientKeyPath, kafkaConfig.CaCertPath)
+		var err error
+		saramaConfig.Net.TLS.Enable = true
+		saramaConfig.Net.TLS.Config, err = NewTLSConfig(kafkaConfig.ClientCertPath, kafkaConfig.ClientKeyPath,
+			kafkaConfig.CaCertPath)
 		if err != nil {
 			return nil, err
 		}
-		saramaConfig.Net.TLS.Enable = true
-		saramaConfig.Net.TLS.Config = tlsConfig
 	}
 	return saramaConfig, nil
 }
@@ -28,13 +29,6 @@ func GetSaramaConfig(kafkaConfig *transport.KafkaConfig) (*sarama.Config, error)
 func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config, error) {
 	// #nosec G402
 	tlsConfig := tls.Config{}
-
-	// Load client cert
-	cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
-	if err != nil {
-		return &tlsConfig, err
-	}
-	tlsConfig.Certificates = []tls.Certificate{cert}
 
 	// Load CA cert
 	caCert, err := ioutil.ReadFile(filepath.Clean(caCertFile))
@@ -44,6 +38,13 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 	tlsConfig.RootCAs = caCertPool
+
+	// Load client cert
+	cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
+	if err != nil {
+		return &tlsConfig, err
+	}
+	tlsConfig.Certificates = []tls.Certificate{cert}
 
 	tlsConfig.BuildNameToCertificate()
 	return &tlsConfig, err
