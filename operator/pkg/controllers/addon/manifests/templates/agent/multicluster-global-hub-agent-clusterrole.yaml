@@ -139,7 +139,7 @@ rules:
   - clusterrolebindings
   - clusterroles
   - rolebindings
-  - roles'
+  - roles
   verbs:
   - create
   - delete
