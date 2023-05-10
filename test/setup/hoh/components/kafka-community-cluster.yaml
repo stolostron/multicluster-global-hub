@@ -27,9 +27,7 @@ spec:
       - name: external
         port: 9095
         type: nodeport
-        tls: true
-        authentication:
-          type: tls
+        tls: true # https://strimzi.io/blog/2019/04/23/accessing-kafka-part-2/
         configuration:
           bootstrap:
             nodePort: 30095
