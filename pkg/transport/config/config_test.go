@@ -1,6 +1,8 @@
 package config
 
 import (
+	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -45,13 +47,22 @@ func TestConfluentConfig(t *testing.T) {
 
 func TestGetSaramaConfig(t *testing.T) {
 	kafkaConfig := &transport.KafkaConfig{
-		EnableTLS:      true,
-		ClientCertPath: "/path/to/client/cert",
-		ClientKeyPath:  "/path/to/client/key",
-		CaCertPath:     "/path/to/ca/cert",
+		EnableTLS:      false,
+		ClientCertPath: "/tmp/client.crt",
+		ClientKeyPath:  "/tmp/client.key",
+		CaCertPath:     "/tmp/ca.crt",
 	}
 	_, err := GetSaramaConfig(kafkaConfig)
 	if err != nil {
+		t.Errorf("failed to get sarama config - %v", err)
+	}
+
+	kafkaConfig.EnableTLS = true
+	if er := ioutil.WriteFile(kafkaConfig.CaCertPath, []byte("test"), 0o644); er != nil { // #nosec G304
+		t.Errorf("failed to write cert file - %v", er)
+	}
+	_, err = GetSaramaConfig(kafkaConfig)
+	if err != nil && !strings.Contains(err.Error(), "failed to find any PEM data in certificate") {
 		t.Errorf("failed to get sarama config - %v", err)
 	}
 }
