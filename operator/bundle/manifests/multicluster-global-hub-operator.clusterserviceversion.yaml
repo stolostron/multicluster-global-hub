@@ -78,8 +78,9 @@ spec:
     kafka access information should be created in `open-cluster-management` namespace.
     You can run the following command to create the secret: \n\n```\nkubectl create
     secret generic transport-secret -n open-cluster-management \\\n  --from-literal=bootstrap_server=<kafka-bootstrap-server-address>
-    \\\n  --from-literal=CA=<CA-for-kafka-server>\n```\n >_Note:_ There is a sample
-    script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/transport)
+    \\\n      --from-file=ca.crt=<CA-cert-for-kafka-server> --from-file=client.crt=<Client-cert-for-kafka-server>
+    --from-file=client.key=<Client-key-for-kafka-server> \n```\n >_Note:_ There is
+    a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/transport)
     to install kafka in `kafka` namespace and create the secret `transport-secret`
     in namespace `open-cluster-management` automatically. To override the secret namespace,
     set `TARGET_NAMESPACE` environment variable to the RHACM installation namespace
