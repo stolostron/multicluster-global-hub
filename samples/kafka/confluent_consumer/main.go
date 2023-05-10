@@ -30,10 +30,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get kafka config map: %v", err)
 	}
-	kafkaConfigMap.SetKey("client.id", consumerId)
-	kafkaConfigMap.SetKey("group.id", consumerId)
-	kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
-	kafkaConfigMap.SetKey("enable.auto.commit", "false")
+	_ = kafkaConfigMap.SetKey("client.id", consumerId)
+	_ = kafkaConfigMap.SetKey("group.id", consumerId)
+	// kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
+	// kafkaConfigMap.SetKey("enable.auto.commit", "false")
 
 	consumer, err := kafka.NewConsumer(kafkaConfigMap)
 	if err != nil {
@@ -77,7 +77,8 @@ func main() {
 			log.Println("context is done")
 			return
 		case msg := <-messageChan:
-			log.Printf("Received message: partition=%d offset=%d val=%s\n", msg.TopicPartition.Partition, msg.TopicPartition.Offset, msg.Value)
+			log.Printf("Received message: partition=%d offset=%d val=%s\n", msg.TopicPartition.Partition,
+				msg.TopicPartition.Offset, msg.Value)
 			if offset := msg.TopicPartition.Offset; offset%2 == 0 {
 				kafkaMessages = append(kafkaMessages, msg)
 			}

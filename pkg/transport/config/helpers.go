@@ -2,7 +2,6 @@ package config
 
 import (
 	"crypto/x509"
-	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 

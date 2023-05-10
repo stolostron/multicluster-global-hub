@@ -46,7 +46,9 @@ func NewKafkaProducer(compressor compressor.Compressor, kafkaConfig *transport.K
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure kafka-producer - %w", err)
 	}
-	kafkaConfigMap.SetKey("client.id", kafkaConfig.ProducerConfig.ProducerID)
+	if err := kafkaConfigMap.SetKey("client.id", kafkaConfig.ProducerConfig.ProducerID); err != nil {
+		return nil, fmt.Errorf("failed to SetKey client.id - %w", err)
+	}
 
 	producer, err := kafka.NewProducer(kafkaConfigMap)
 	if err != nil {

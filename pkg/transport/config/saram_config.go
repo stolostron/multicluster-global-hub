@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/Shopify/sarama"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -25,6 +26,7 @@ func GetSaramaConfig(kafkaConfig *transport.KafkaConfig) (*sarama.Config, error)
 }
 
 func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config, error) {
+	// #nosec G402
 	tlsConfig := tls.Config{}
 
 	// Load client cert
@@ -35,7 +37,7 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 	tlsConfig.Certificates = []tls.Certificate{cert}
 
 	// Load CA cert
-	caCert, err := ioutil.ReadFile(caCertFile)
+	caCert, err := ioutil.ReadFile(filepath.Clean(caCertFile))
 	if err != nil {
 		return &tlsConfig, err
 	}

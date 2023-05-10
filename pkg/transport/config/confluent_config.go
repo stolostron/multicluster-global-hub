@@ -9,11 +9,10 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig) (*kafka.ConfigMap
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       kafkaConfig.BootstrapServer,
 		"socket.keepalive.enable": "true",
-		"auto.offset.reset":       "earliest",                            // consumer
-		"enable.auto.commit":      "false",                               // consumer
-		"group.id":                kafkaConfig.ConsumerConfig.ConsumerID, // consumer
-		"acks":                    "1",                                   // producer
-		"retries":                 "0",                                   // producer
+		"auto.offset.reset":       "earliest", // consumer
+		"enable.auto.commit":      "false",    // consumer
+		"acks":                    "1",        // producer
+		"retries":                 "0",        // producer
 		// silence spontaneous disconnection logs, kafka recovers by itself.
 		"log.connection.close": "false",
 	}

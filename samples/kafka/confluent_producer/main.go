@@ -27,9 +27,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get kafka config map: %v", err)
 	}
-	kafkaConfigMap.SetKey("client.id", producerId)
-	kafkaConfigMap.SetKey("acks", "1")
-	kafkaConfigMap.SetKey("retries", "0")
+	_ = kafkaConfigMap.SetKey("client.id", producerId)
+	// kafkaConfigMap.SetKey("acks", "1")
+	// kafkaConfigMap.SetKey("retries", "0")
 
 	producer, err := kafka.NewProducer(kafkaConfigMap)
 	if err != nil {
@@ -59,7 +59,8 @@ func main() {
 				continue
 			}
 			// the offset
-			log.Printf("Finished to send: partition=%d offset=%d val=%s\n", kafkaMessage.TopicPartition.Partition, kafkaMessage.TopicPartition.Offset, kafkaMessage.Value)
+			log.Printf("Finished to send: partition=%d offset=%d val=%s\n", kafkaMessage.TopicPartition.Partition,
+				kafkaMessage.TopicPartition.Offset, kafkaMessage.Value)
 		case sig := <-signals:
 			log.Printf("Got signal: %v\n", sig)
 			return

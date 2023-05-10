@@ -44,7 +44,9 @@ func main() {
 	go func() {
 		for {
 			// this method calls the methods handler on each stage: setup, consume and cleanup
-			consumerGroup.Consume(ctx, []string{TopicDefault}, cgh)
+			if err := consumerGroup.Consume(ctx, []string{TopicDefault}, cgh); err != nil {
+				log.Printf("Error from consumer: %v", err)
+			}
 		}
 	}()
 
@@ -80,9 +82,12 @@ func (cgh *consumerGroupHandler) Cleanup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-func (cgh *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+func (cgh *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
+	claim sarama.ConsumerGroupClaim,
+) error {
 	for message := range claim.Messages() {
-		log.Printf("Message received: value=%s, partition=%d, offset=%d", string(message.Value), message.Partition, message.Offset)
+		log.Printf("Message received: value=%s, partition=%d, offset=%d", string(message.Value),
+			message.Partition, message.Offset)
 		session.MarkMessage(message, "") // must mark the message after consume, otherwise the auto commit will not work
 		if cgh.toReceive--; cgh.toReceive == 0 {
 			cgh.end <- 1

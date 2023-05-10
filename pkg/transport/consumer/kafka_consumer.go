@@ -71,6 +71,9 @@ func NewKafkaConsumer(kafkaConfig *transport.KafkaConfig, log logr.Logger,
 	if err := kafkaConfigMap.SetKey("client.id", kafkaConfig.ConsumerConfig.ConsumerID); err != nil {
 		return nil, fmt.Errorf("failed to set client id: %w", err)
 	}
+	if err := kafkaConfigMap.SetKey("group.id", kafkaConfig.ConsumerConfig.ConsumerID); err != nil {
+		return nil, fmt.Errorf("failed to set group id: %w", err)
+	}
 
 	consumer, err := kafka.NewConsumer(kafkaConfigMap)
 	if err != nil {
