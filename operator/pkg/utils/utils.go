@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"path/filepath"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -95,11 +96,10 @@ func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
 	if err != nil {
 		return "", "", "", "", err
 	}
-
-	return string(kafkaSecret.Data["bootstrap_server"]),
-		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["ca.crt"]),
-		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["client.crt"]),
-		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["client.key"]),
+	return string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
+		base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
+		base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
+		base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
 		nil
 }
 

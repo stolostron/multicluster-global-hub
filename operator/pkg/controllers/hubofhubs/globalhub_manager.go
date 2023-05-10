@@ -31,7 +31,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 	log.Info("retrieving transport secret for the manager", "name",
 		mgh.Spec.DataLayer.LargeScale.Kafka.Name)
-	kafkaBootstrapServer, kafkaCACert, KafkaClientCert, KafkaClientKey, err := utils.GetKafkaConfig(ctx,
+	kafkaBootstrapServer, kafkaCACert, kafkaClientCert, kafkaClientKey, err := utils.GetKafkaConfig(ctx,
 		r.KubeClient, mgh)
 	if err != nil {
 		return err
@@ -98,8 +98,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			ProxySessionSecret:     proxySessionSecret,
 			DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 			KafkaCACert:            kafkaCACert,
-			KafkaClientCert:        KafkaClientCert,
-			KafkaClientKey:         KafkaClientKey,
+			KafkaClientCert:        kafkaClientCert,
+			KafkaClientKey:         kafkaClientKey,
 			KafkaBootstrapServer:   kafkaBootstrapServer,
 			MessageCompressionType: messageCompressionType,
 			TransportType:          string(transport.Kafka),
