@@ -24,7 +24,8 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1683225465909,
+      "id": 2,
+      "iteration": 1683648676404,
       "links": [
         {
           "asDropdown": false,
@@ -368,7 +369,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    local_status.compliance_history ch ON mc.cluster_id = ch.cluster_id\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  cluster,\n  hub,\n  $label,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time) AND $label IN ($value) AND non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    local_status.compliance_history ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value) \n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  cluster,\n  hub,\n  $label,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time) AND non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
               "refId": "A",
               "select": [
                 [
@@ -460,7 +461,7 @@ data:
             "options": [],
             "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
             "refresh": 1,
-            "regex": "",
+            "regex": "/^[a-z]+$/",
             "skipUrlSync": false,
             "sort": 5,
             "type": "query"
