@@ -86,18 +86,21 @@ func RemoveDuplicates(elements []string) []string {
 	return result
 }
 
-// GetKafkaConfig retrieves kafka server and CA from kafka secret
+// GetKafkaConfig retrieves kafka server, caCert, clientCert, clientKey from the secret
 func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
-) (string, string, error) {
+) (string, string, string, string, error) {
 	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
 		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
 	if err != nil {
-		return "", "", err
+		return "", "", "", "", err
 	}
 
 	return string(kafkaSecret.Data["bootstrap_server"]),
-		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["ca.crt"]), nil
+		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["ca.crt"]),
+		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["client.crt"]),
+		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["client.key"]),
+		nil
 }
 
 func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.Object) error {

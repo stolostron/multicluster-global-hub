@@ -582,7 +582,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By checking the kafkaBootstrapServer")
 			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
-			server, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
+			server, _, _, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(server).To(Equal(kafkaBootstrapServer))
 
@@ -593,7 +593,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Namespace: config.GetDefaultNamespace(),
 				},
 			})).Should(Succeed())
-			_, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
+			_, _, _, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
 			Expect(err).To(HaveOccurred())
 		})
 

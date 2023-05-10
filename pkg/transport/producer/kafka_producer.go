@@ -2,6 +2,7 @@ package producer
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -11,8 +12,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
 const (
@@ -40,22 +40,13 @@ type KafkaProducer struct {
 }
 
 // NewProducer returns a new instance of Producer object.
-func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, caPath string,
-	producerConfig *protocol.KafkaProducerConfig, log logr.Logger,
+func NewKafkaProducer(compressor compressor.Compressor, kafkaConfig *transport.KafkaConfig, log logr.Logger,
 ) (*KafkaProducer, error) {
-	kafkaConfigMap := &kafka.ConfigMap{
-		"bootstrap.servers":       bootstrapServer,
-		"client.id":               producerConfig.ProducerID,
-		"acks":                    "1",
-		"retries":                 "0",
-		"socket.keepalive.enable": "true",
-		"log.connection.close":    "false", // silence spontaneous disconnection logs, kafka recovers by itself.
-	}
-
-	err := helpers.LoadCACertToConfigMap(caPath, kafkaConfigMap)
+	kafkaConfigMap, err := config.GetConfluentConfigMap(kafkaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure kafka-producer - %w", err)
 	}
+	kafkaConfigMap.SetKey("client.id", kafkaConfig.ProducerConfig.ProducerID)
 
 	producer, err := kafka.NewProducer(kafkaConfigMap)
 	if err != nil {
@@ -65,8 +56,8 @@ func NewKafkaProducer(compressor compressor.Compressor, bootstrapServer, caPath 
 	return &KafkaProducer{
 		log:                  log,
 		producer:             producer,
-		messageSizeLimit:     producerConfig.MessageSizeLimitKB * kiloBytesToBytes,
-		topic:                producerConfig.ProducerTopic,
+		messageSizeLimit:     kafkaConfig.ProducerConfig.MessageSizeLimitKB * kiloBytesToBytes,
+		topic:                kafkaConfig.ProducerConfig.ProducerTopic,
 		eventSubscriptionMap: make(map[string]map[EventType]EventCallback),
 		compressor:           compressor,
 		deliveryChan:         make(chan kafka.Event),
@@ -215,10 +206,10 @@ func (p *KafkaProducer) getMessageFragments(key string, topic *string, partition
 			fmt.Sprintf("%s_%d", key, index), topic, partition,
 			headers, chunk).
 			Header(kafka.Header{
-				Key: transport.Size, Value: helpers.ToByteArray(len(payload)),
+				Key: transport.Size, Value: toByteArray(len(payload)),
 			}).
 			Header(kafka.Header{
-				Key: transport.Offset, Value: helpers.ToByteArray(index * p.messageSizeLimit),
+				Key: transport.Offset, Value: toByteArray(index * p.messageSizeLimit),
 			}).
 			Header(kafka.Header{
 				Key: transport.FragmentationTimestamp, Value: []byte(fragmentationTimestamp),
@@ -244,4 +235,11 @@ func (p *KafkaProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 	}
 
 	return chunks
+}
+
+func toByteArray(i int) []byte {
+	arr := make([]byte, 4)
+	binary.BigEndian.PutUint32(arr[0:4], uint32(i))
+
+	return arr
 }

@@ -28,6 +28,8 @@ spec:
         port: 9093
         type: route
         tls: true
+        authentication:
+          type: tls
     config:
       auto.create.topics.enable: "false"
       offsets.topic.replication.factor: 2
@@ -58,11 +60,3 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
-  clusterCa:
-    renewalDays: 181 # We want the cert to be only valid for 6 month. So the cert will not be renewed
-    validityDays: 180
-    generateCertificateAuthority: true
-  clientsCa:
-    renewalDays: 181
-    validityDays: 180
-    generateCertificateAuthority: true

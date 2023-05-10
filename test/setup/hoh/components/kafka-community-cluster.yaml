@@ -28,6 +28,8 @@ spec:
         port: 9095
         type: nodeport
         tls: true
+        authentication:
+          type: tls
         configuration:
           bootstrap:
             nodePort: 30095
@@ -53,14 +55,6 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
-  clusterCa:
-    renewalDays: 181 # We want the cert to be only valid for 6 month. So the cert will not be renewed
-    validityDays: 180
-    generateCertificateAuthority: true
-  clientsCa:
-    renewalDays: 181
-    validityDays: 180
-    generateCertificateAuthority: true
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic

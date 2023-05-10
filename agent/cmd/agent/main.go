@@ -36,7 +36,6 @@ import (
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 const (
@@ -102,8 +101,8 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 }
 
 func newEventWatcher(ctx context.Context, log logr.Logger, restConfig *rest.Config,
-	agentConfig *config.AgentConfig) (*kube.EventWatcher, error) {
-
+	agentConfig *config.AgentConfig,
+) (*kube.EventWatcher, error) {
 	b, err := os.ReadFile(agentConfig.KubeEventExporterConfigPath)
 	if err != nil {
 		log.Info("no kube event exporter config file found. don't start the event watcher")
@@ -138,9 +137,9 @@ func parseFlags() *config.AgentConfig {
 	agentConfig := &config.AgentConfig{
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
 		TransportConfig: &transport.TransportConfig{
-			KafkaConfig: &protocol.KafkaConfig{
-				ProducerConfig: &protocol.KafkaProducerConfig{},
-				ConsumerConfig: &protocol.KafkaConsumerConfig{},
+			KafkaConfig: &transport.KafkaConfig{
+				ProducerConfig: &transport.KafkaProducerConfig{},
+				ConsumerConfig: &transport.KafkaConsumerConfig{},
 			},
 		},
 	}
@@ -152,8 +151,12 @@ func parseFlags() *config.AgentConfig {
 	pflag.StringVar(&agentConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server", "",
 		"The bootstrap server for kafka.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.CertPath, "kafka-ca-path", "",
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.CaCertPath, "kafka-ca-cert-path", "",
 		"The certificate path of CA certificate for kafka bootstrap server.")
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ClientCertPath, "kafka-client-cert-path", "",
+		"The certificate path of client certificate for kafka bootstrap server.")
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ClientKeyPath, "kafka-client-key-path", "",
+		"The certificate path of client key for kafka bootstrap server.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kafka-producer-id", "",
 		"Producer Id for the kafka, default is the leaf hub name.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
@@ -309,7 +312,6 @@ func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config
 }
 
 func ensureMulticlusterHub(ctx context.Context, log logr.Logger, dynamicClient dynamic.Interface) (bool, error) {
-
 	mch, err := dynamicClient.Resource(mchv1.GroupVersion.WithResource("multiclusterhubs")).
 		Namespace("").
 		List(ctx, metav1.ListOptions{})
@@ -320,7 +322,8 @@ func ensureMulticlusterHub(ctx context.Context, log logr.Logger, dynamicClient d
 }
 
 func ensureClusterManager(ctx context.Context, log logr.Logger, dynamicClient dynamic.Interface) (
-	bool, error) {
+	bool, error,
+) {
 	clusterManager, err := dynamicClient.Resource(operatorv1.GroupVersion.WithResource("clustermanagers")).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {

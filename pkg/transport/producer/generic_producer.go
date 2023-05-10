@@ -17,7 +17,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+)
+
+const (
+	MaxMessageKBLimit    = 1024
+	DefaultMessageKBSize = 960
 )
 
 type GenericProducer struct {
@@ -28,11 +33,19 @@ type GenericProducer struct {
 
 func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.Producer, error) {
 	var sender interface{}
-	messageSize := 960 * 1000
+	messageSize := DefaultMessageKBSize * 1000
+
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
-		var err error
-		sender, err = protocol.NewKafkaSender(transportConfig.KafkaConfig)
+		saramaConfig, err := config.GetSaramaConfig(transportConfig.KafkaConfig)
+		if err != nil {
+			return nil, err
+		}
+		// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
+		saramaConfig.Producer.MaxMessageBytes = MaxMessageKBLimit * 1000
+		saramaConfig.Producer.Return.Successes = true
+		sender, err = kafka_sarama.NewSender([]string{transportConfig.KafkaConfig.BootstrapServer},
+			saramaConfig, transportConfig.KafkaConfig.ProducerConfig.ProducerTopic)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +68,7 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.P
 	}
 
 	return &GenericProducer{
-		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportFormat)),
 		client:           client,
 		messageSizeLimit: messageSize,
 	}, nil

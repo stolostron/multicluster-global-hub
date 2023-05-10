@@ -39,6 +39,7 @@ waitAppear "kubectl get secret ${kafkaUser} -n kafka --ignore-not-found"
 # step5: generate transport-secret
 bootstrapServers=$(kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].bootstrapServers}')
 kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' > $currentDir/kafka-ca-cert.pem
+# kubectl get secret kafka-brokers-cluster-clients-ca-cert -n kafka -o jsonpath='{.data.ca\.crt}' | base64 -d > $currentDir/kafka-ca-cert.pem
 kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.crt}' | base64 -d > $currentDir/kafka-client-cert.pem
 kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.key}' | base64 -d > $currentDir/kafka-client-key.pem
 

@@ -24,7 +24,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -130,10 +129,10 @@ func TestConsumer(t *testing.T) {
 		TransportConfig: &transport.TransportConfig{
 			TransportType:   string(transport.Kafka),
 			TransportFormat: string(operatorv1alpha2.KafkaMessage),
-			KafkaConfig: &protocol.KafkaConfig{
+			KafkaConfig: &transport.KafkaConfig{
 				BootstrapServer: mockKafkaCluster.BootstrapServers(),
 				EnableTLS:       false,
-				ConsumerConfig: &protocol.KafkaConsumerConfig{
+				ConsumerConfig: &transport.KafkaConsumerConfig{
 					ConsumerID:    "hello",
 					ConsumerTopic: "world",
 				},

@@ -20,32 +20,37 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 var _ = Describe("Transport", Ordered, func() {
 	ctx := context.Background()
 	It("Test consumer without conflation to handle the message", func() {
 		By("Start kafka producer")
-		kafkaProducerConfig := &protocol.KafkaProducerConfig{
+		kafkaProducerConfig := &transport.KafkaProducerConfig{
 			ProducerTopic:      "spec",
 			ProducerID:         "spec-producer",
 			MessageSizeLimitKB: 100,
 		}
 		kafkaProducer, err := producer.NewKafkaProducer(&compressor.CompressorGZip{},
-			mockCluster.BootstrapServers(), "", kafkaProducerConfig,
-			ctrl.Log.WithName("kafka-producer"))
+			&transport.KafkaConfig{
+				BootstrapServer: mockCluster.BootstrapServers(),
+				EnableTLS:       false,
+				ProducerConfig:  kafkaProducerConfig,
+			}, ctrl.Log.WithName("kafka-producer"))
 		Expect(err).NotTo(HaveOccurred())
 		go kafkaProducer.Start(ctx)
 
 		By("Start kafka consumer")
-		kafkaConsumerConfig := &protocol.KafkaConsumerConfig{
+		kafkaConsumerConfig := &transport.KafkaConsumerConfig{
 			ConsumerTopic: "spec",
 			ConsumerID:    "spec-consumer",
 		}
-		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
-			ctrl.Log.WithName("kafka-consumer"))
+		kafkaConfig := &transport.KafkaConfig{
+			BootstrapServer: mockCluster.BootstrapServers(),
+			EnableTLS:       false,
+			ConsumerConfig:  kafkaConsumerConfig,
+		}
+		kafkaConsumer, err := consumer.NewKafkaConsumer(kafkaConfig, ctrl.Log.WithName("kafka-consumer"))
 		Expect(err).NotTo(HaveOccurred())
 		kafkaConsumer.SetLeafHubName("hub1")
 		go kafkaConsumer.Start(ctx)
@@ -205,25 +210,32 @@ var _ = Describe("Transport", Ordered, func() {
 
 	It("Test consumer with conflation to handle the message", func() {
 		By("Start kafka producer")
-		kafkaProducerConfig := &protocol.KafkaProducerConfig{
+		kafkaProducerConfig := &transport.KafkaProducerConfig{
 			ProducerTopic:      "status",
 			ProducerID:         "status-producer",
 			MessageSizeLimitKB: 1,
 		}
 		kafkaProducer, err := producer.NewKafkaProducer(&compressor.CompressorGZip{},
-			mockCluster.BootstrapServers(), "", kafkaProducerConfig,
+			&transport.KafkaConfig{
+				BootstrapServer: mockCluster.BootstrapServers(),
+				EnableTLS:       false,
+				ProducerConfig:  kafkaProducerConfig,
+			},
 			ctrl.Log.WithName("kafka-producer"))
 		Expect(err).NotTo(HaveOccurred())
 		go kafkaProducer.Start(ctx)
 
 		By("Start kafka consumer")
-		kafkaConsumerConfig := &protocol.KafkaConsumerConfig{
+		kafkaConsumerConfig := &transport.KafkaConsumerConfig{
 			ConsumerTopic: "status",
 			ConsumerID:    "status-consumer",
 		}
-		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			mockCluster.BootstrapServers(), "", kafkaConsumerConfig,
-			ctrl.Log.WithName("kafka-consumer"))
+		kafkaConfig := &transport.KafkaConfig{
+			BootstrapServer: mockCluster.BootstrapServers(),
+			EnableTLS:       false,
+			ConsumerConfig:  kafkaConsumerConfig,
+		}
+		kafkaConsumer, err := consumer.NewKafkaConsumer(kafkaConfig, ctrl.Log.WithName("kafka-consumer"))
 		Expect(err).NotTo(HaveOccurred())
 
 		stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), &statistics.StatisticsConfig{},

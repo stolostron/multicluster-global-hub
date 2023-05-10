@@ -27,7 +27,9 @@ spec:
             - --transport-type={{.TransportType}}
             - --transport-format={{.TransportFormat}}
             - --kafka-bootstrap-server={{.KafkaBootstrapServer}}
-            - --kafka-ca-path=/kafka-ca/ca.crt
+            - --kafka-ca-cert-path=/kafka-certs/ca.crt
+            - --kafka-client-cert-path=/kafka-certs/client.crt
+            - --kafka-client-key-path=/kafka-certs/client.key
             - --postgres-ca-path=/postgres-ca/ca.crt
             - --transport-message-compression-type={{.MessageCompressionType}}
             - --process-database-url=$(DATABASE_URL)
@@ -58,8 +60,8 @@ spec:
           - mountPath: /webhook-certs
             name: webhook-certs
             readOnly: true
-          - mountPath: /kafka-ca
-            name: kafka-ca
+          - mountPath: /kafka-certs
+            name: kafka-certs
             readOnly: true
           - mountPath: /postgres-ca
             name: postgres-ca
@@ -133,9 +135,9 @@ spec:
       - name: cookie-secret
         secret:
           secretName: nonk8s-apiserver-cookie-secret
-      - name: kafka-ca
+      - name: kafka-certs
         secret:
-          secretName: kafka-ca-secret
+          secretName: kafka-certs-secret
       - name: postgres-ca
         secret:
           secretName: {{.DBSecret}}
