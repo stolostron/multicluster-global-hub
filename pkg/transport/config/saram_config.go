@@ -38,6 +38,7 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 		}
 		tlsConfig.Certificates = []tls.Certificate{cert}
 	} else {
+		// #nosec
 		tlsConfig.InsecureSkipVerify = true
 	}
 

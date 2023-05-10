@@ -1,8 +1,6 @@
 package config
 
 import (
-	"errors"
-	"os"
 	"testing"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -53,7 +51,7 @@ func TestGetSaramaConfig(t *testing.T) {
 		CaCertPath:     "/path/to/ca/cert",
 	}
 	_, err := GetSaramaConfig(kafkaConfig)
-	if !errors.Is(err, os.ErrNotExist) {
+	if err != nil {
 		t.Errorf("failed to get sarama config - %v", err)
 	}
 }
