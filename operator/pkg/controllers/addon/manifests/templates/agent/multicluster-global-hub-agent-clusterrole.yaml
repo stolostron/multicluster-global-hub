@@ -22,7 +22,11 @@ rules:
 - apiGroups:
   - "apps.open-cluster-management.io"
   resources:
-  - '*'
+  - channels
+  - placementrules
+  - subscriptionreports
+  - subscriptions
+  - subscriptionstatuses
   verbs:
   - create
   - delete
@@ -35,7 +39,10 @@ rules:
 - apiGroups:
   - "policy.open-cluster-management.io"
   resources:
-  - '*'
+  - placementbindings
+  - policies
+  - policyautomations
+  - policysets
   verbs:
   - create
   - delete
@@ -129,9 +136,18 @@ rules:
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
-  - '*'
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - apiextensions.k8s.io
   resources:
