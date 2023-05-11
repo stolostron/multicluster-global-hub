@@ -29,6 +29,8 @@ data:
             - {{ .KafkaBootstrapServer }}
           tls:
             enable: true
-            caFile: /kafka-certs/ca.crt
+            caFile: "/kafka-certs/ca.crt"
+            certFile: "/kafka-certs/client.crt"
+            keyFile: "/kafka-certs/client.key"
             insecureSkipVerify: true
 {{ end }}

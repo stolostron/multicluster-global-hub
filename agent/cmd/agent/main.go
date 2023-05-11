@@ -152,11 +152,11 @@ func parseFlags() *config.AgentConfig {
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server", "",
 		"The bootstrap server for kafka.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.CaCertPath, "kafka-ca-cert-path", "",
-		"The certificate path of CA certificate for kafka bootstrap server.")
+		"The path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ClientCertPath, "kafka-client-cert-path", "",
-		"The certificate path of client certificate for kafka bootstrap server.")
+		"The path of client certificate for kafka bootstrap server.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ClientKeyPath, "kafka-client-key-path", "",
-		"The certificate path of client key for kafka bootstrap server.")
+		"The path of client key for kafka bootstrap server.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kafka-producer-id", "",
 		"Producer Id for the kafka, default is the leaf hub name.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",

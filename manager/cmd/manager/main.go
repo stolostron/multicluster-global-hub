@@ -94,13 +94,13 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server",
 		"kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.CaCertPath, "kafka-ca-cert-path", "",
-		"The certificate path of CA certificate for kafka bootstrap server.")
+		"The path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ClientCertPath, "kafka-client-cert-path", "",
-		"The certificate path of client certificate for kafka bootstrap server.")
+		"The path of client certificate for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ClientKeyPath, "kafka-client-key-path", "",
-		"The certificate path of client key for kafka bootstrap server.")
+		"The path of client key for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.CACertPath, "postgres-ca-path", "/postgres-ca/ca.crt",
-		"The certificate path of CA certificate for kafka bootstrap server.")
+		"The path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kakfa-producer-id",
 		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
