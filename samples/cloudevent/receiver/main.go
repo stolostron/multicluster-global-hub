@@ -8,6 +8,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
@@ -21,7 +22,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get sarama config: %v", err)
 	}
-	// if set this to false, it will consume message from beginning when restart the client
+	// if set this to false, it will consume message from beginning when restart the client,
+	// otherwise it will consume message from the last committed offset.
 	saramaConfig.Consumer.Offsets.AutoCommit.Enable = false
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 
