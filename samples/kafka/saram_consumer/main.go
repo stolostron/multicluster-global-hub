@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	TopicDefault        = "status"
-	GroupIDDefault      = "my-group2"
-	MessageCountDefault = 10
+	TopicDefault   = "status"
+	GroupIDDefault = "my-group2"
 )
 
 func main() {
@@ -36,28 +35,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	cgh := &consumerGroupHandler{
-		toReceive: MessageCountDefault,
-		end:       make(chan int, 1),
-	}
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.TODO())
 	go func() {
-		for {
-			// this method calls the methods handler on each stage: setup, consume and cleanup
-			if err := consumerGroup.Consume(ctx, []string{TopicDefault}, cgh); err != nil {
-				log.Printf("Error from consumer: %v", err)
-			}
+		// this method calls the methods handler on each stage: setup, consume and cleanup
+		if err := consumerGroup.Consume(ctx, []string{TopicDefault}, &consumerGroupHandler{}); err != nil {
+			log.Printf("Error from consumer: %v", err)
 		}
 	}()
 
 	// waiting for the end of all messages received or an OS signal
-	select {
-	case <-cgh.end:
-		log.Printf("Finished to receive %d messages\n", MessageCountDefault)
-	case sig := <-signals:
-		log.Printf("Got signal: %v\n", sig)
-	}
+	sig := <-signals
+	log.Printf("Got signal: %v\n", sig)
+	cancel()
 
+	log.Printf("Closing consumer group")
 	err = consumerGroup.Close()
 	if err != nil {
 		log.Printf("Error closing the Sarama consumer: %v", err)
@@ -67,10 +58,7 @@ func main() {
 }
 
 // struct defining the handler for the consuming Sarama method
-type consumerGroupHandler struct {
-	toReceive int64
-	end       chan int
-}
+type consumerGroupHandler struct{}
 
 func (cgh *consumerGroupHandler) Setup(sarama.ConsumerGroupSession) error {
 	log.Printf("Consumer group handler setup\n")
@@ -89,10 +77,6 @@ func (cgh *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSessio
 		log.Printf("Message received: value=%s, partition=%d, offset=%d", string(message.Value),
 			message.Partition, message.Offset)
 		session.MarkMessage(message, "") // must mark the message after consume, otherwise the auto commit will not work
-		if cgh.toReceive--; cgh.toReceive == 0 {
-			cgh.end <- 1
-			break
-		}
 	}
 	return nil
 }
