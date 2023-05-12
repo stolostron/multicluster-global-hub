@@ -21,8 +21,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
 const pollTimeoutMs = 100
@@ -63,19 +62,17 @@ type KafkaConsumer struct {
 }
 
 // NewConsumer creates a new instance of Consumer.
-func NewKafkaConsumer(bootstrapServer, caPath string, consumerConfig *protocol.KafkaConsumerConfig, log logr.Logger,
+func NewKafkaConsumer(kafkaConfig *transport.KafkaConfig, log logr.Logger,
 ) (*KafkaConsumer, error) {
-	kafkaConfigMap := &kafka.ConfigMap{
-		"bootstrap.servers":       bootstrapServer,
-		"client.id":               consumerConfig.ConsumerID,
-		"group.id":                consumerConfig.ConsumerID,
-		"auto.offset.reset":       "earliest",
-		"enable.auto.commit":      "false",
-		"socket.keepalive.enable": "true",
-	}
-	err := helpers.LoadCACertToConfigMap(caPath, kafkaConfigMap)
+	kafkaConfigMap, err := config.GetConfluentConfigMap(kafkaConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to configure kafka-consumer - %w", err)
+		return nil, fmt.Errorf("failed to get kafka config map: %w", err)
+	}
+	if err := kafkaConfigMap.SetKey("client.id", kafkaConfig.ConsumerConfig.ConsumerID); err != nil {
+		return nil, fmt.Errorf("failed to set client id: %w", err)
+	}
+	if err := kafkaConfigMap.SetKey("group.id", kafkaConfig.ConsumerConfig.ConsumerID); err != nil {
+		return nil, fmt.Errorf("failed to set group id: %w", err)
 	}
 
 	consumer, err := kafka.NewConsumer(kafkaConfigMap)
@@ -91,7 +88,7 @@ func NewKafkaConsumer(bootstrapServer, caPath string, consumerConfig *protocol.K
 		messageAssembler: newKafkaMessageAssembler(),
 		stopChan:         make(chan struct{}, 1),
 		compressorsMap:   make(map[compressor.CompressionType]compressor.Compressor),
-		topic:            consumerConfig.ConsumerTopic,
+		topic:            kafkaConfig.ConsumerConfig.ConsumerTopic,
 		messageChan:      messageChan,
 
 		genericBundlesChan:         make(chan *bundle.GenericBundle),
@@ -101,10 +98,11 @@ func NewKafkaConsumer(bootstrapServer, caPath string, consumerConfig *protocol.K
 		partitionToOffsetToCommitMap:    make(map[int32]kafka.Offset),
 	}
 
-	if err := kafkaConsumer.Subscribe(consumerConfig.ConsumerTopic); err != nil {
+	if err := kafkaConsumer.Subscribe(kafkaConfig.ConsumerConfig.ConsumerTopic); err != nil {
 		close(messageChan)
 		kafkaConsumer.log.Info(kafkaConsumer.consumer.Close().Error())
-		return nil, fmt.Errorf("failed to subscribe to requested topic - %v: %w", consumerConfig.ConsumerTopic, err)
+		return nil, fmt.Errorf("failed to subscribe to requested topic - %v: %w",
+			kafkaConfig.ConsumerConfig.ConsumerTopic, err)
 	}
 
 	return kafkaConsumer, nil

@@ -45,7 +45,10 @@ kubectl create secret generic storage-secret -n "open-cluster-management" \
 ```bash
 kubectl create secret generic transport-secret -n "open-cluster-management" \
     --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \
-    --from-literal=CA=<CA-for-kafka-server>
+    --from-file=ca.crt=<CA-cert-for-kafka-server> \
+    --from-file=client.crt=<Client-cert-for-kafka-server> \
+    --from-file=client.key=<Client-key-for-kafka-server> 
+
 ```
 > As above, You can run this sample script `./operator/config/samples/transport/deploy_kafka.sh` to install kafka in kafka namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script.
 

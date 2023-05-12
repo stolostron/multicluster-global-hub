@@ -91,10 +91,7 @@ func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.Confl
 	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
 ) (dbsyncer.BundleRegisterable, error) {
 	if managerConfig.TransportConfig.TransportFormat == string(transport.KafkaMessageFormat) {
-		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			managerConfig.TransportConfig.KafkaConfig.BootstrapServer,
-			managerConfig.TransportConfig.KafkaConfig.CertPath,
-			managerConfig.TransportConfig.KafkaConfig.ConsumerConfig,
+		kafkaConsumer, err := consumer.NewKafkaConsumer(managerConfig.TransportConfig.KafkaConfig,
 			ctrl.Log.WithName("message-consumer"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)

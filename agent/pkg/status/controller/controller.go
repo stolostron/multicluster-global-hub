@@ -89,10 +89,7 @@ func getProducer(mgr ctrl.Manager, agentConfig *config.AgentConfig) (transport.P
 		if err != nil {
 			return nil, isAsync, fmt.Errorf("failed to create kafka message-compressor: %w", err)
 		}
-		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
-			agentConfig.TransportConfig.KafkaConfig.BootstrapServer,
-			agentConfig.TransportConfig.KafkaConfig.CertPath,
-			agentConfig.TransportConfig.KafkaConfig.ProducerConfig,
+		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor, agentConfig.TransportConfig.KafkaConfig,
 			ctrl.Log.WithName("kafka-message-producer"))
 		if err != nil {
 			return nil, isAsync, fmt.Errorf("failed to create kafka-message-producer: %w", err)
