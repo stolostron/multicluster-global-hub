@@ -30,7 +30,9 @@ spec:
             - --transport-type={{ .TransportType }}
             - --transport-format={{.TransportFormat}}
             - --kafka-bootstrap-server={{ .KafkaBootstrapServer }}
-            - --kafka-ca-path=/kafka-ca/ca.crt
+            - --kafka-ca-cert-path=/kafka-certs/ca.crt
+            - --kafka-client-cert-path=/kafka-certs/client.crt
+            - --kafka-client-key-path=/kafka-certs/client.key
             - --transport-message-compression-type={{.MessageCompressionType}}
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
@@ -48,8 +50,8 @@ spec:
                  apiVersion: v1
                  fieldPath: metadata.namespace
           volumeMounts:
-          - mountPath: /kafka-ca
-            name: kafka-ca
+          - mountPath: /kafka-certs
+            name: kafka-certs
             readOnly: true
           - mountPath: /kube-event
             name: kubernetes-event-exporter-config
@@ -72,9 +74,9 @@ spec:
           {{- end}}
         {{- end}}
       volumes:
-      - name: kafka-ca
+      - name: kafka-certs
         secret:
-          secretName: kafka-ca-secret
+          secretName: kafka-certs-secret
       - name: kubernetes-event-exporter-config
         configMap:
           name: kubernetes-event-exporter-config

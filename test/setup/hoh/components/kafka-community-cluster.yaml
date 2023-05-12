@@ -27,7 +27,9 @@ spec:
       - name: external
         port: 9095
         type: nodeport
-        tls: true
+        tls: true 
+        # authentication: # the hostname of nodeport is not fixed, so we can't use tls, 
+        #   type: tls     # https://strimzi.io/blog/2019/04/23/accessing-kafka-part-2/
         configuration:
           bootstrap:
             nodePort: 30095
@@ -79,3 +81,14 @@ spec:
   replicas: 2
   config:
     cleanup.policy: compact
+# ---
+# apiVersion: kafka.strimzi.io/v1beta2
+# kind: KafkaUser
+# metadata:
+#   name: global-hub-kafka-user
+#   namespace: kafka
+#   labels:
+#     strimzi.io/cluster: kafka-brokers-cluster
+# spec:
+#   authentication:
+#     type: tls

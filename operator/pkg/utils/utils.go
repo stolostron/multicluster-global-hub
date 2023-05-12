@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"path/filepath"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -86,18 +87,20 @@ func RemoveDuplicates(elements []string) []string {
 	return result
 }
 
-// GetKafkaConfig retrieves kafka server and CA from kafka secret
+// GetKafkaConfig retrieves kafka server, caCert, clientCert, clientKey from the secret
 func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
-) (string, string, error) {
+) (string, string, string, string, error) {
 	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
 		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
 	if err != nil {
-		return "", "", err
+		return "", "", "", "", err
 	}
-
-	return string(kafkaSecret.Data["bootstrap_server"]),
-		base64.RawStdEncoding.EncodeToString(kafkaSecret.Data["ca.crt"]), nil
+	return string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
+		base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
+		base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
+		base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
+		nil
 }
 
 func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.Object) error {

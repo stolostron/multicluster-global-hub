@@ -67,6 +67,8 @@ const (
 	StorageSecretName    = "storage-secret"
 	TransportSecretName  = "transport-secret"
 	kafkaCACert          = "foobar"
+	kafkaClientCert      = "foobar"
+	KafkaClientKey       = "foobar"
 	kafkaBootstrapServer = "https://test-kafka.example.com"
 	datasourceSecretName = "multicluster-global-hub-grafana-datasources"
 
@@ -282,6 +284,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				},
 				Data: map[string][]byte{
 					"ca.crt":           []byte(kafkaCACert),
+					"client.crt":       []byte(kafkaClientCert),
+					"client.key":       []byte(KafkaClientKey),
 					"bootstrap_server": []byte(kafkaBootstrapServer),
 				},
 				Type: corev1.SecretTypeOpaque,
@@ -361,6 +365,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ProxySessionSecret     string
 					DBSecret               string
 					KafkaCACert            string
+					KafkaClientCert        string
+					KafkaClientKey         string
 					KafkaBootstrapServer   string
 					TransportType          string
 					TransportFormat        string
@@ -379,6 +385,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ProxySessionSecret:     "testing",
 					DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
+					KafkaClientCert:        base64.RawStdEncoding.EncodeToString([]byte(kafkaClientCert)),
+					KafkaClientKey:         base64.RawStdEncoding.EncodeToString([]byte(KafkaClientKey)),
 					KafkaBootstrapServer:   kafkaBootstrapServer,
 					MessageCompressionType: messageCompressionType,
 					TransportType:          string(transport.Kafka),
@@ -582,7 +590,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By checking the kafkaBootstrapServer")
 			createdMGH := &operatorv1alpha2.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
-			server, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
+			server, _, _, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(server).To(Equal(kafkaBootstrapServer))
 
@@ -593,7 +601,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Namespace: config.GetDefaultNamespace(),
 				},
 			})).Should(Succeed())
-			_, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
+			_, _, _, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH)
 			Expect(err).To(HaveOccurred())
 		})
 

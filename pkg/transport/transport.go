@@ -6,8 +6,32 @@ package transport
 import (
 	"context"
 	"time"
+)
 
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+const (
+	// DestinationHub is the key used for destination-hub name header.
+	DestinationHub = "destination-hub"
+	// CompressionType is the key used for compression type header.
+	CompressionType = "content-encoding"
+	// Size is the key used for total bundle size header.
+	Size = "size"
+	// Offset is the key used for message fragment offset header.
+	Offset = "offset"
+	// FragmentationTimestamp is the key used for bundle fragmentation time header.
+	FragmentationTimestamp = "fragmentation-timestamp"
+	// Broadcast can be used as destination when a bundle should be broadcasted.
+	Broadcast = ""
+
+	// Kafka transportType and transportFormat values
+	Kafka              TransportType   = "kafka"
+	Chan               TransportType   = "chan"
+	KafkaMessageFormat TransportFormat = "message"
+	CloudEventsFormat  TransportFormat = "cloudEvents"
+)
+
+type (
+	TransportType   string
+	TransportFormat string
 )
 
 type Producer interface {
@@ -20,18 +44,6 @@ type Consumer interface {
 	// provide a blocking message to get the message
 	MessageChan() chan *Message
 }
-
-type (
-	TransportType   string
-	TransportFormat string
-)
-
-const (
-	Kafka              TransportType   = "kafka"
-	Chan               TransportType   = "chan"
-	KafkaMessageFormat TransportFormat = "message"
-	CloudEventsFormat  TransportFormat = "cloudEvents"
-)
 
 // Message abstracts a message object to be used by different transport components.
 type Message struct {
@@ -48,21 +60,28 @@ type TransportConfig struct {
 	TransportFormat        string
 	MessageCompressionType string
 	CommitterInterval      time.Duration
-	KafkaConfig            *protocol.KafkaConfig
+	KafkaConfig            *KafkaConfig
 	Extends                map[string]interface{}
 }
 
-const (
-	// DestinationHub is the key used for destination-hub name header.
-	DestinationHub = "destination-hub"
-	// CompressionType is the key used for compression type header.
-	CompressionType = "content-encoding"
-	// Size is the key used for total bundle size header.
-	Size = "size"
-	// Offset is the key used for message fragment offset header.
-	Offset = "offset"
-	// FragmentationTimestamp is the key used for bundle fragmentation time header.
-	FragmentationTimestamp = "fragmentation-timestamp"
-	// Broadcast can be used as destination when a bundle should be broadcasted.
-	Broadcast = ""
-)
+// Kafka Config
+type KafkaConfig struct {
+	BootstrapServer string
+	CaCertPath      string
+	ClientCertPath  string
+	ClientKeyPath   string
+	EnableTLS       bool
+	ProducerConfig  *KafkaProducerConfig
+	ConsumerConfig  *KafkaConsumerConfig
+}
+
+type KafkaProducerConfig struct {
+	ProducerID         string
+	ProducerTopic      string
+	MessageSizeLimitKB int
+}
+
+type KafkaConsumerConfig struct {
+	ConsumerID    string
+	ConsumerTopic string
+}

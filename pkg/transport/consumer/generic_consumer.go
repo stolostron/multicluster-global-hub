@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Shopify/sarama"
+	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	ceprotocol "github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
@@ -14,7 +16,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
 type GenericConsumer struct {
@@ -29,9 +31,18 @@ func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericCon
 	var receiver interface{}
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
-		var err error
 		log.Info("transport consumer with cloudevents-kafka receiver")
-		receiver, err = protocol.NewKafkaReceiver(transportConfig.KafkaConfig)
+		saramaConfig, err := config.GetSaramaConfig(transportConfig.KafkaConfig)
+		if err != nil {
+			return nil, err
+		}
+		// if set this to false, it will consume message from beginning when restart the client
+		saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
+		saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
+		// set the consumer groupId = clientId
+		receiver, err = kafka_sarama.NewConsumer([]string{transportConfig.KafkaConfig.BootstrapServer}, saramaConfig,
+			transportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
+			transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic)
 		if err != nil {
 			return nil, err
 		}

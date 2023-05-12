@@ -1,8 +1,7 @@
-package helpers
+package config
 
 import (
 	"crypto/x509"
-	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 
@@ -48,11 +47,4 @@ func appendCACertificate(caCertBytes []byte) error {
 	}
 
 	return nil
-}
-
-func ToByteArray(i int) []byte {
-	arr := make([]byte, 4)
-	binary.BigEndian.PutUint32(arr[0:4], uint32(i))
-
-	return arr
 }

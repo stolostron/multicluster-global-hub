@@ -29,6 +29,8 @@ data:
             - {{ .KafkaBootstrapServer }}
           tls:
             enable: true
-            caFile: /kafka-ca/ca.crt
+            caFile: /kafka-certs/ca.crt
+            certFile: ""   # need to be empty for now. https://github.com/resmoio/kubernetes-event-exporter/pull/80
+            keyFile: ""
             insecureSkipVerify: true
 {{ end }}

@@ -43,6 +43,8 @@ type ManifestsConfig struct {
 	TransportType          string
 	TransportFormat        string
 	KafkaCACert            string
+	KafkaClientCert        string
+	KafkaClientKey         string
 	MessageCompressionType string
 	InstallACMHub          bool
 	Channel                string
@@ -146,7 +148,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	kafkaBootstrapServer, kafkaCACert, err := utils.GetKafkaConfig(a.ctx, a.kubeClient, mgh)
+	kafkaBootstrapServer, kafkaCACert, kafkaClientCert, kafkaClientKey, err := utils.GetKafkaConfig(a.ctx,
+		a.kubeClient, mgh)
 	if err != nil {
 		log.Error(err, "failed to get kafkaConfig")
 		return nil, err
@@ -173,6 +176,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		LeafHubID:              cluster.Name,
 		KafkaBootstrapServer:   kafkaBootstrapServer,
 		KafkaCACert:            kafkaCACert,
+		KafkaClientCert:        kafkaClientCert,
+		KafkaClientKey:         kafkaClientKey,
 		MessageCompressionType: messageCompressionType,
 		TransportType:          string(transport.Kafka),
 		TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
