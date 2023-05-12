@@ -94,6 +94,10 @@ func TestMain(m *testing.M) {
 	// stop testenv
 	err = testenv.Stop()
 	if err != nil {
+		time.Sleep(4 * time.Second)
+	}
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+	if err = testenv.Stop(); err != nil {
 		panic(err)
 	}
 
@@ -132,6 +136,8 @@ func TestAgent(t *testing.T) {
 			"2",
 			"--transport-type",
 			string(transport.Chan),
+			"--kubernetes-event-exporter-config",
+			filepath.Join("..", "..", "..", "pkg", "testdata", "event", "kube-event-exporter-good-config.yaml"),
 			// "--kafka-bootstrap-server",
 			// mockKafkaCluster.BootstrapServers(),
 		}, 0},
