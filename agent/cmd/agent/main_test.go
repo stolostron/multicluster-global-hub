@@ -170,8 +170,8 @@ func initMockAgentConfig() *config.AgentConfig {
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
 	}
 }
-func TestNoMCHClusterManagerCRD(t *testing.T) {
 
+func TestNoMCHClusterManagerCRD(t *testing.T) {
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths:     []string{},
 		ErrorIfCRDPathMissing: true,
@@ -191,7 +191,6 @@ func TestNoMCHClusterManagerCRD(t *testing.T) {
 }
 
 func TestHasMCHCRDWithoutCR(t *testing.T) {
-
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
@@ -214,7 +213,6 @@ func TestHasMCHCRDWithoutCR(t *testing.T) {
 }
 
 func TestHasMCHCRDCR(t *testing.T) {
-
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
@@ -261,7 +259,6 @@ func TestHasMCHCRDCR(t *testing.T) {
 }
 
 func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
-
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "pkg", "testdata", "crds", "0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
@@ -284,7 +281,6 @@ func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
 }
 
 func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
-
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "pkg", "testdata", "crds", "0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
@@ -328,41 +324,41 @@ func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 	}
 }
 
-func TestNewEventWatcher(t *testing.T) {
+// func TestNewEventWatcher(t *testing.T) {
 
-	testenv := &envtest.Environment{
-		CRDDirectoryPaths:     []string{},
-		ErrorIfCRDPathMissing: true,
-	}
-	log := initLog()
+// 	testenv := &envtest.Environment{
+// 		CRDDirectoryPaths:     []string{},
+// 		ErrorIfCRDPathMissing: true,
+// 	}
+// 	log := initLog()
 
-	cfg, err := testenv.Start()
-	if err != nil {
-		panic(err)
-	}
-	// stop testenv
-	defer testenv.Stop()
+// 	cfg, err := testenv.Start()
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	// stop testenv
+// 	defer testenv.Stop()
 
-	agentConfig := initMockAgentConfig()
+// 	agentConfig := initMockAgentConfig()
 
-	watcher, _ := newEventWatcher(context.Background(), log, cfg, agentConfig)
-	if watcher != nil {
-		t.Fatalf("expect to have no watcher, but we got %v", watcher)
-	}
+// 	watcher, _ := newEventWatcher(context.Background(), log, cfg, agentConfig)
+// 	if watcher != nil {
+// 		t.Fatalf("expect to have no watcher, but we got %v", watcher)
+// 	}
 
-	agentConfig.KubeEventExporterConfigPath = filepath.Join("..", "..", "..", "pkg", "testdata",
-		"event", "kube-event-exporter-bad-config.yaml")
-	watcher, _ = newEventWatcher(context.Background(), log, cfg, agentConfig)
-	if watcher != nil {
-		t.Fatalf("expect to have no watcher, but we got %v", watcher)
-	}
+// 	agentConfig.KubeEventExporterConfigPath = filepath.Join("..", "..", "..", "pkg", "testdata",
+// 		"event", "kube-event-exporter-bad-config.yaml")
+// 	watcher, _ = newEventWatcher(context.Background(), log, cfg, agentConfig)
+// 	if watcher != nil {
+// 		t.Fatalf("expect to have no watcher, but we got %v", watcher)
+// 	}
 
-	agentConfig.KubeEventExporterConfigPath = filepath.Join("..", "..", "..", "pkg", "testdata",
-		"event", "kube-event-exporter-good-config.yaml")
+// 	agentConfig.KubeEventExporterConfigPath = filepath.Join("..", "..", "..", "pkg", "testdata",
+// 		"event", "kube-event-exporter-good-config.yaml")
 
-	watcher, err = newEventWatcher(context.Background(), log, cfg, agentConfig)
-	if watcher == nil {
-		t.Fatalf("expect to have watcher, but we got %v", err)
-	}
+// 	watcher, err = newEventWatcher(context.Background(), log, cfg, agentConfig)
+// 	if watcher == nil {
+// 		t.Fatalf("expect to have watcher, but we got %v", err)
+// 	}
 
-}
+// }

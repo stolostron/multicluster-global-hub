@@ -40,7 +40,7 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Adding the controllers to the manager")
-		Expect(controllers.AddToManager(mgr)).NotTo(HaveOccurred())
+		Expect(controllers.AddClusterClaimController(mgr)).NotTo(HaveOccurred())
 
 		go func() {
 			Expect(mgr.Start(ctx)).NotTo(HaveOccurred())
