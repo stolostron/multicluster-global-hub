@@ -35,7 +35,7 @@ func (e *eventExporterController) Start(ctx context.Context) error {
 	}
 
 	// issue: https://github.com/resmoio/kubernetes-event-exporter/pull/80
-	validateEventConfig(&cfg, log)
+	ValidateEventConfig(&cfg, log)
 	log.Info("starting event exporter", "config", cfg)
 
 	metrics.Init(*flag.String("metrics-address", ":2112",
@@ -49,7 +49,7 @@ func (e *eventExporterController) Start(ctx context.Context) error {
 	return nil
 }
 
-func validateEventConfig(eventConfig *exporter.Config, log logr.Logger) {
+func ValidateEventConfig(eventConfig *exporter.Config, log logr.Logger) {
 	if len(eventConfig.Receivers) == 0 || eventConfig.Receivers[0].Kafka == nil {
 		log.Info("No kafka config found, skipping validate kafka sinker for event exporter")
 		return
