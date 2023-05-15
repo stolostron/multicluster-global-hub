@@ -16,10 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -28,31 +26,11 @@ const (
 )
 
 var _ = Describe("controller", Ordered, func() {
-	ctx, cancel := context.WithCancel(context.Background())
-	var mgr ctrl.Manager
-
 	BeforeEach(func() {
-		By("Creating the Manager")
-		var err error
-		mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-			MetricsBindAddress: "0", // disable the metrics serving
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Adding the controllers to the manager")
-		Expect(controllers.AddClusterClaimController(mgr)).NotTo(HaveOccurred())
-
-		go func() {
-			Expect(mgr.Start(ctx)).NotTo(HaveOccurred())
-		}()
-
-		By("Waiting for the manager to be ready")
-		Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 		cleanup(ctx, mgr.GetClient())
 	})
 
 	AfterAll(func() {
-		defer cancel()
 		cleanup(ctx, mgr.GetClient())
 	})
 	It("clusterClaim testing only clusterManager is installed", func() {

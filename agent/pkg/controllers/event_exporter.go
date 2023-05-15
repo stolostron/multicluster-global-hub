@@ -13,12 +13,12 @@ import (
 )
 
 type eventExporterController struct {
-	kubeConfig  *rest.Config
-	eventConfig string
+	kubeConfig      *rest.Config
+	eventConfigFile string
 }
 
 func (e *eventExporterController) Start(ctx context.Context) error {
-	b, err := os.ReadFile(e.eventConfig)
+	b, err := os.ReadFile(e.eventConfigFile)
 	if err != nil {
 		return err
 	}
