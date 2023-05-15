@@ -128,7 +128,7 @@ func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) str
 }
 
 func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
-	// first check for environment variables containing the 'OPERAND_IMAGE_' prefix
+	// first check for environment variables containing the 'RELATED_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)
 		if strings.HasPrefix(envKeyVal[0], operatorconstants.MGHOperandImagePrefix) {
