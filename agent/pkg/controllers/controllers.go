@@ -9,8 +9,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// AddToManager adds all the render controllers to the Manager.
-func AddToManager(mgr ctrl.Manager) error {
+// AddClusterClaimController adds all the render controllers to the Manager.
+func AddClusterClaimController(mgr ctrl.Manager) error {
 	addControllerFunctions := []func(ctrl.Manager) error{
 		StartClusterClaimController,
 		StartHubClusterClaimController,
@@ -23,4 +23,11 @@ func AddToManager(mgr ctrl.Manager) error {
 	}
 
 	return nil
+}
+
+func AddEventExporter(mgr ctrl.Manager, eventConfig string) error {
+	return mgr.Add(&eventExporterController{
+		kubeConfig:      mgr.GetConfig(),
+		eventConfigFile: eventConfig,
+	})
 }
