@@ -1,4 +1,4 @@
-# Running the must-gather command for troubleshooting
+## Running the must-gather command for troubleshooting
 
 Run `must-gather` to gather details, logs, and take steps in debugging issues, these debugging information is also useful when opening a support case. The `oc adm must-gather CLI` command collects the information from your cluster that is most likely needed for debugging issues, including:
 
@@ -48,3 +48,36 @@ oc adm must-gather --image=quay.io/stolostron/must-gather:SNAPSHOTNAME --dest-di
 6. For the regional hub cluster, you can check the multicluster global hub agent pods and logs in `pods` of `namespaces` resources.
 
 ![must-gather-regional-hub-pods](must-gather/must-gather-regional-hub-pods.png)
+
+
+## Database Dump and Restore
+
+In a production environment, no matter how large or small our PostgreSQL database may be, regular back is an essential aspect of database management, it is also used for debugging.
+
+### Dump Database for Debugging
+
+Sometimes we need to dump the tables in global hub database for debugging purpose, postgreSQL provides `pg_dump` command line tool to dump the database. To dump data from localhost database server:
+
+```shell
+pg_dump hoh > hoh.sql
+```
+
+If we want to dump global hub database located on some remote server with compressed format, we should use command-line options which allows us to control connection details:
+
+```shell
+pg_dump -h my.host.com -p 5432 -U postgres -F t hoh -f hoh-$(date +%d-%m-%y_%H-%M).tar
+```
+
+### Restore Database from Dump
+
+To restore a PostgreSQL database, you can use the `psql` or `pg_restore` command line tools. `psql` is used to restore plain text files created by `pg_dump`:
+
+```shell
+psql -h another.host.com -p 5432 -U postgres -d hoh < hoh.sql
+```
+
+Whereas `pg_restore` is used to restore a PostgreSQL database from an archive created by `pg_dump` in one of the non-plain-text formats (custom, tar, or directory):
+
+```shell
+pg_restore -h another.host.com -p 5432 -U postgres -d hoh hoh-$(date +%d-%m-%y_%H-%M).tar
+```
