@@ -36,7 +36,7 @@ const (
 	// to identify a custom configmap containing image overrides
 	AnnotationImageOverridesCM = "mgh-image-overrides-cm"
 	// MGHOperandImagePrefix ...
-	MGHOperandImagePrefix = "OPERAND_IMAGE_"
+	MGHOperandImagePrefix = "RELATED_IMAGE_"
 )
 
 // hub installation constants

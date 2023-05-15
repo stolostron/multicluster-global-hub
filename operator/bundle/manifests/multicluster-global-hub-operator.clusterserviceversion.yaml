@@ -635,13 +635,13 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
-                - name: OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER
+                - name: RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER
                   value: quay.io/stolostron/multicluster-global-hub-manager:latest
-                - name: OPERAND_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT
+                - name: RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT
                   value: quay.io/stolostron/multicluster-global-hub-agent:latest
-                - name: OPERAND_IMAGE_GRAFANA
+                - name: RELATED_IMAGE_GRAFANA
                   value: quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34
-                - name: OPERAND_IMAGE_OAUTH_PROXY
+                - name: RELATED_IMAGE_OAUTH_PROXY
                   value: quay.io/stolostron/origin-oauth-proxy:4.9
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 livenessProbe:
@@ -785,4 +785,13 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
+  relatedImages:
+  - image: quay.io/stolostron/multicluster-global-hub-manager:latest
+    name: multicluster-global-hub-manager
+  - image: quay.io/stolostron/multicluster-global-hub-agent:latest
+    name: multicluster-global-hub-agent
+  - image: quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34
+    name: grafana
+  - image: quay.io/stolostron/origin-oauth-proxy:4.9
+    name: oauth-proxy
   version: 0.7.0-dev
