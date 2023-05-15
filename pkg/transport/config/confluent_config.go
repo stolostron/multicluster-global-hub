@@ -21,7 +21,7 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig) (*kafka.ConfigMap
 		"log.connection.close": "false",
 	}
 
-	if kafkaConfig.EnableTLS && validate(kafkaConfig.CaCertPath) {
+	if kafkaConfig.EnableTLS && Validate(kafkaConfig.CaCertPath) {
 		if err := kafkaConfigMap.SetKey("security.protocol", "ssl"); err != nil {
 			return nil, err
 		}
@@ -29,7 +29,7 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig) (*kafka.ConfigMap
 			return nil, err
 		}
 
-		if validate(kafkaConfig.ClientCertPath) && validate(kafkaConfig.ClientKeyPath) {
+		if Validate(kafkaConfig.ClientCertPath) && Validate(kafkaConfig.ClientKeyPath) {
 			_ = kafkaConfigMap.SetKey("ssl.certificate.location", kafkaConfig.ClientCertPath)
 			_ = kafkaConfigMap.SetKey("ssl.key.location", kafkaConfig.ClientKeyPath)
 		}
@@ -37,8 +37,8 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig) (*kafka.ConfigMap
 	return kafkaConfigMap, nil
 }
 
-// validate checks if the file exists and the content is not empty
-func validate(filePath string) bool {
+// Validate checks if the file exists and the content is not empty
+func Validate(filePath string) bool {
 	if len(filePath) == 0 {
 		return false
 	}

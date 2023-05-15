@@ -8,8 +8,10 @@ import (
 	"github.com/resmoio/kubernetes-event-exporter/pkg/exporter"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/metrics"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type eventExporterController struct {
@@ -18,6 +20,7 @@ type eventExporterController struct {
 }
 
 func (e *eventExporterController) Start(ctx context.Context) error {
+	log := ctrl.Log.WithName("event-exporter")
 	b, err := os.ReadFile(e.eventConfigFile)
 	if err != nil {
 		return err
@@ -28,6 +31,17 @@ func (e *eventExporterController) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	kafkaConfig := cfg.Receivers[0].Kafka
+	// issue: https://github.com/resmoio/kubernetes-event-exporter/pull/80
+	if config.Validate(kafkaConfig.TLS.CertFile) && config.Validate(kafkaConfig.TLS.KeyFile) {
+		kafkaConfig.TLS.InsecureSkipVerify = false
+	} else {
+		kafkaConfig.TLS.InsecureSkipVerify = true
+		kafkaConfig.TLS.CertFile = ""
+		kafkaConfig.TLS.KeyFile = ""
+	}
+	log.Info("event exporter config", "config", cfg)
 
 	metrics.Init(*flag.String("metrics-address", ":2112", "The address to listen on for HTTP requests."))
 	metricsStore := metrics.NewMetricsStore(cfg.MetricsNamePrefix)
