@@ -25,7 +25,7 @@ const (
 	MCHVersion = "2.6.0"
 )
 
-var _ = Describe("controller", Ordered, func() {
+var _ = Describe("claim controllers", Ordered, func() {
 	BeforeEach(func() {
 		cleanup(ctx, mgr.GetClient())
 	})
