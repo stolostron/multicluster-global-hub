@@ -68,6 +68,8 @@ spec:
           name: grafana-dashboard-acm-global-offending-clusters
         - mountPath: /grafana-dashboards/0/acm-global-offending-policies
           name: grafana-dashboard-acm-global-offending-policies
+        - mountPath: /grafana-dashboards/0/acm-global-whats-changed
+          name: grafana-dashboard-acm-global-whats-changed
         - mountPath: /etc/grafana
           name: grafana-config
       - readinessProbe:
@@ -154,6 +156,10 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-global-offending-policies
         name: grafana-dashboard-acm-global-offending-policies
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-global-whats-changed
+        name: grafana-dashboard-acm-global-whats-changed
       - name: grafana-config
         secret:
           defaultMode: 420
