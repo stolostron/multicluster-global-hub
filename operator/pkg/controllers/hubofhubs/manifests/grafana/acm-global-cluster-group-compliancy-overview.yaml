@@ -24,8 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "id": 6,
-      "iteration": 1683648816650,
+      "iteration": 1684248650651,
       "links": [
         {
           "asDropdown": false,
@@ -238,7 +237,7 @@ data:
         "to": "now"
       },
       "timepicker": {},
-      "timezone": "",
+      "timezone": "utc",
       "title": "Global Hub - Cluster Group Compliancy Overview",
       "uid": "868845a4d1334958bd62303c5ccb4c19",
       "version": 1

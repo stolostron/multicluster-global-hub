@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1683225484949,
+      "iteration": 1684248651924,
       "links": [
         {
           "asDropdown": false,
@@ -285,7 +285,7 @@ data:
         "to": "now"
       },
       "timepicker": {},
-      "timezone": "",
+      "timezone": "utc",
       "title": "Global Hub - Policy Group Compliancy Overview",
       "uid": "9bb3bee6a17e47f9a231f6d77f2408fa",
       "version": 1

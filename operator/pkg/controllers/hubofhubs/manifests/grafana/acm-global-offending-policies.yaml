@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1683222645414,
+      "iteration": 1684248651521,
       "links": [
         {
           "asDropdown": false,
@@ -430,7 +430,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -458,7 +458,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -486,7 +486,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -542,11 +542,11 @@ data:
         ]
       },
       "time": {
-        "from": "now-2d",
+        "from": "now-24h",
         "to": "now"
       },
       "timepicker": {},
-      "timezone": "",
+      "timezone": "utc",
       "title": "Global Hub - Offending Policies",
       "uid": "b67e0727891f4121ae2dde09671520ae",
       "version": 1

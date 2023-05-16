@@ -24,8 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "id": 2,
-      "iteration": 1683648676404,
+      "iteration": 1684248650735,
       "links": [
         {
           "asDropdown": false,
@@ -501,7 +500,7 @@ data:
         "to": "now"
       },
       "timepicker": {},
-      "timezone": "",
+      "timezone": "utc",
       "title": "Global Hub - Offending Clusters",
       "uid": "0e0ddb7f16b946f99d96a483a4a3f95f",
       "version": 1
