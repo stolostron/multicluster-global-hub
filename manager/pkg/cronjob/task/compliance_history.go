@@ -94,9 +94,16 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, vie
 	insertCount := int64(0)
 	err := wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
 		// insert data with transaction
-		tx, err := pool.Begin(ctx)
+		conn, err := pool.Acquire(ctx)
 		if err != nil {
-			fmt.Printf("begin failed: %v\n", err)
+			fmt.Printf("acquire failed: %v, retrying\n", err)
+			return false, nil
+		}
+		defer conn.Release()
+
+		tx, err := conn.Begin(ctx) // the pool.Begin(ctx) will automatically release the connection after tx.Commit()
+		if err != nil {
+			fmt.Printf("begin failed: %v, retrying\n", err)
 			return false, nil
 		}
 
@@ -121,11 +128,11 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, vie
 			OFFSET $2`
 		result, err := tx.Exec(ctx, fmt.Sprintf(selectInsertSQL, viewName), batchSize, offset)
 		if err != nil {
-			fmt.Printf("exec failed: %v\n", err)
+			fmt.Printf("exec failed: %v, retrying\n", err)
 			return false, nil
 		}
 		if err := tx.Commit(ctx); err != nil {
-			fmt.Printf("commit failed: %v\n", err)
+			fmt.Printf("commit failed: %v, retrying\n", err)
 			return false, nil
 		} else {
 			insertCount = result.RowsAffected()
