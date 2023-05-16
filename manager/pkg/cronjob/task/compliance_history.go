@@ -24,12 +24,6 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 		"NextRun", job.NextRun().Format("2006-01-02 15:04:05"))
 	startTime = time.Now()
 
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		log.Error(err, "acquire connection failed")
-	}
-	defer conn.Release()
-
 	// batchSize = 1000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
 	// several factors such as the size of the table, available memory, network bandwidth, and hardware specifications.
@@ -37,7 +31,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	// size provides a balance between minimizing the number of queries sent to the server while still being efficient
 	// and not overloading the system. To determine the optimal batchSize, it may be helpful to test different batch
 	// sizes and measure the performance of the queries.
-	totalCount, insertedCount, err := syncToLocalComplianceHistory(ctx, conn, 1000)
+	totalCount, insertedCount, err := syncToLocalComplianceHistory(ctx, pool, 1000)
 	if err != nil {
 		log.Error(err, "sync to local_status.compliance_history failed")
 	}
@@ -49,7 +43,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	log.Info("finish running", "totalCount", totalCount, "insertedCount", insertedCount)
 }
 
-func syncToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, batchSize int64,
+func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batchSize int64,
 ) (totalCount int64, insertedCount int64, err error) {
 	// create materialized view
 	viewName := fmt.Sprintf("local_status.compliance_view_%s", time.Now().AddDate(0, 0, -1).Format("2006_01_02"))
@@ -58,7 +52,7 @@ func syncToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, batch
 		SELECT id,cluster_id,compliance 
 		FROM local_status.compliance;
 		CREATE INDEX IF NOT EXISTS idx_local_compliance_view ON %s (id, cluster_id);`
-	_, err = conn.Exec(ctx, fmt.Sprintf(createViewSQL, viewName, viewName))
+	_, err = pool.Exec(ctx, fmt.Sprintf(createViewSQL, viewName, viewName))
 	if err != nil {
 		return totalCount, insertedCount, err
 	}
@@ -68,13 +62,13 @@ func syncToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, batch
 	// 	return totalCount, syncedCount, err
 	// }
 
-	err = conn.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", viewName)).Scan(&totalCount)
+	err = pool.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", viewName)).Scan(&totalCount)
 	if err != nil {
 		return totalCount, insertedCount, err
 	}
 
 	for offset := int64(0); offset < totalCount; offset += batchSize {
-		count, err := insertToLocalComplianceHistory(ctx, conn, viewName, totalCount, batchSize, offset)
+		count, err := insertToLocalComplianceHistory(ctx, pool, viewName, totalCount, batchSize, offset)
 		if err != nil {
 			return totalCount, insertedCount, err
 		}
@@ -82,7 +76,7 @@ func syncToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, batch
 	}
 
 	// success, drop the materialized view if exists
-	_, err = conn.Exec(ctx, fmt.Sprintf("DROP MATERIALIZED VIEW IF EXISTS %s", viewName))
+	_, err = pool.Exec(ctx, fmt.Sprintf("DROP MATERIALIZED VIEW IF EXISTS %s", viewName))
 	if err != nil {
 		return totalCount, insertedCount, err
 	}
@@ -90,7 +84,7 @@ func syncToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, batch
 	return totalCount, insertedCount, nil
 }
 
-func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, viewName string,
+func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, viewName string,
 	totalCount, batchSize, offset int64,
 ) (int64, error) {
 	// retry until success, use timeout context to avoid long running
@@ -100,9 +94,16 @@ func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, vie
 	insertCount := int64(0)
 	err := wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
 		// insert data with transaction
-		tx, err := conn.Begin(ctx)
+		conn, err := pool.Acquire(ctx)
 		if err != nil {
-			fmt.Printf("begin failed: %v\n", err)
+			fmt.Printf("acquire failed: %v, retrying\n", err)
+			return false, nil
+		}
+		defer conn.Release()
+
+		tx, err := conn.Begin(ctx) // the pool.Begin(ctx) will automatically release the connection after tx.Commit()
+		if err != nil {
+			fmt.Printf("begin failed: %v, retrying\n", err)
 			return false, nil
 		}
 
@@ -113,7 +114,7 @@ func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, vie
 					fmt.Printf("rollback failed: %v\n", e)
 				}
 			}
-			e := traceComplianceHistory(ctx, conn, localComplianceJobName, totalCount, offset, insertCount, startTime, err)
+			e := traceComplianceHistory(ctx, pool, localComplianceJobName, totalCount, offset, insertCount, startTime, err)
 			if e != nil {
 				fmt.Printf("trace compliance job failed: %v\n", e)
 			}
@@ -127,11 +128,11 @@ func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, vie
 			OFFSET $2`
 		result, err := tx.Exec(ctx, fmt.Sprintf(selectInsertSQL, viewName), batchSize, offset)
 		if err != nil {
-			fmt.Printf("exec failed: %v\n", err)
+			fmt.Printf("exec failed: %v, retrying\n", err)
 			return false, nil
 		}
 		if err := tx.Commit(ctx); err != nil {
-			fmt.Printf("commit failed: %v\n", err)
+			fmt.Printf("commit failed: %v, retrying\n", err)
 			return false, nil
 		} else {
 			insertCount = result.RowsAffected()
@@ -142,7 +143,7 @@ func insertToLocalComplianceHistory(ctx context.Context, conn *pgxpool.Conn, vie
 	return insertCount, err
 }
 
-func traceComplianceHistory(ctx context.Context, conn *pgxpool.Conn, name string, total, offset, inserted int64,
+func traceComplianceHistory(ctx context.Context, pool *pgxpool.Pool, name string, total, offset, inserted int64,
 	start time.Time, err error,
 ) error {
 	end := time.Now()
@@ -150,7 +151,7 @@ func traceComplianceHistory(ctx context.Context, conn *pgxpool.Conn, name string
 	if err != nil {
 		errMessage = err.Error()
 	}
-	_, err = conn.Exec(ctx, `
+	_, err = pool.Exec(ctx, `
 	INSERT INTO local_status.compliance_history_job_log (name, start_at, end_at, total, offsets, inserted, error) 
 	VALUES ($1, $2, $3, $4, $5, $6, $7);`, name, start, end, total, offset, inserted, errMessage)
 
