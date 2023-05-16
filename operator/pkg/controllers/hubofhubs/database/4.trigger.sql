@@ -70,5 +70,7 @@ CREATE TRIGGER set_timestamp BEFORE UPDATE ON spec.subscriptions FOR EACH ROW EX
 
 DROP TRIGGER IF EXISTS update_compliance_table ON local_status.compliance;
 CREATE TRIGGER update_compliance_table AFTER INSERT ON local_status.compliance FOR EACH ROW EXECUTE FUNCTION public.set_cluster_id_to_local_compliance();
+CREATE TRIGGER update_compliance_table BEFORE UPDATE ON local_status.compliance FOR EACH ROW EXECUTE FUNCTION public.set_cluster_id_to_local_compliance();
 DROP TRIGGER IF EXISTS update_compliance_table ON status.compliance;
 CREATE TRIGGER update_compliance_table AFTER INSERT ON status.compliance FOR EACH ROW EXECUTE FUNCTION public.set_cluster_id_to_compliance();
+CREATE TRIGGER update_compliance_table BEFORE UPDATE ON local_status.compliance FOR EACH ROW EXECUTE FUNCTION public.set_cluster_id_to_compliance();
