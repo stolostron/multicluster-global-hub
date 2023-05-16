@@ -34,13 +34,15 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 
 	switch interval {
 	case EveryMonth:
-		scheduler = scheduler.Every(1).Month()
+		scheduler = scheduler.Every(1).Month(1)
 	case EveryWeek:
 		scheduler = scheduler.Every(1).Week()
 	case EveryHour:
 		scheduler = scheduler.Every(1).Hour()
 	case EveryMinute:
 		scheduler = scheduler.Every(1).Minute()
+	case EverySecond:
+		scheduler = scheduler.Every(1).Second()
 	default:
 		scheduler = scheduler.Every(1).Day()
 	}

@@ -75,7 +75,7 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		"The watching namespace of the controllers, multiple namespace must be splited by comma.")
 	pflag.StringVar(&managerConfig.SchedulerInterval, "scheduler-interval", "day",
 		"The job scheduler interval for moving policy compliance history, "+
-			"can be 'month', 'week', 'day', 'hour' or 'minute', default value is 'day'.")
+			"can be 'month', 'week', 'day', 'hour', 'minute' or 'second', default value is 'day'.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.SpecSyncInterval, "spec-sync-interval", 5*time.Second,
 		"The synchronization interval of resources in spec.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.StatusSyncInterval, "status-sync-interval", 5*time.Second,

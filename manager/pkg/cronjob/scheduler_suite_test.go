@@ -71,6 +71,11 @@ var _ = BeforeSuite(func() {
 
 	// By("Add to Scheme")
 	// Expect(managerscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
+	Expect(cronjob.AddSchedulerToManager(context.TODO(), mgr, pool, "month")).Should(Succeed())
+	Expect(cronjob.AddSchedulerToManager(context.TODO(), mgr, pool, "week")).Should(Succeed())
+	Expect(cronjob.AddSchedulerToManager(context.TODO(), mgr, pool, "day")).Should(Succeed())
+	Expect(cronjob.AddSchedulerToManager(context.TODO(), mgr, pool, "hour")).Should(Succeed())
+	Expect(cronjob.AddSchedulerToManager(context.TODO(), mgr, pool, "minute")).Should(Succeed())
 	Expect(cronjob.AddSchedulerToManager(context.TODO(), mgr, pool, "second")).Should(Succeed())
 })
 
