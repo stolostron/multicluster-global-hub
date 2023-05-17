@@ -122,6 +122,11 @@ func SkipDBInit(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
 	return false
 }
 
+// GetSchedulerInterval returns the scheduler interval for moving policy compliance history
+func GetSchedulerInterval(mgh *operatorv1alpha2.MulticlusterGlobalHub) string {
+	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
+}
+
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
 func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)

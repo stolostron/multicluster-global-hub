@@ -73,6 +73,9 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		"The manager running namespace, also used as leader election namespace.")
 	pflag.StringVar(&managerConfig.WatchNamespace, "watch-namespace", "",
 		"The watching namespace of the controllers, multiple namespace must be splited by comma.")
+	pflag.StringVar(&managerConfig.SchedulerInterval, "scheduler-interval", "day",
+		"The job scheduler interval for moving policy compliance history, "+
+			"can be 'month', 'week', 'day', 'hour', 'minute' or 'second', default value is 'day'.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.SpecSyncInterval, "spec-sync-interval", 5*time.Second,
 		"The synchronization interval of resources in spec.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.StatusSyncInterval, "status-sync-interval", 5*time.Second,
@@ -218,7 +221,8 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
-	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn()); err != nil {
+	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn(),
+		managerConfig.SchedulerInterval); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
 

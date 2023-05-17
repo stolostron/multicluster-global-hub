@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,7 +53,10 @@ var _ = BeforeSuite(func() {
 	cfg, err = testenv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{})
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		MetricsBindAddress: "0",
+		Scheme:             scheme.Scheme,
+	})
 	Expect(err).NotTo(HaveOccurred())
 
 	// add scheme

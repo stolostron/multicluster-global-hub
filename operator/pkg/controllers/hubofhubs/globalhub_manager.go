@@ -88,6 +88,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			LeaseDuration          string
 			RenewDeadline          string
 			RetryPeriod            string
+			SchedulerInterval      string
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
 		}{
@@ -108,6 +109,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
 			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
+			SchedulerInterval:      config.GetSchedulerInterval(mgh),
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
 		}, nil
