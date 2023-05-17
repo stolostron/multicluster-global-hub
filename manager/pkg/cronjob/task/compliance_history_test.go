@@ -147,7 +147,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 
 		By("Check whether the job log is created")
 		Eventually(func() error {
-			rows, err := pool.Query(ctx, `SELECT name, total, inserted, offsets, error FROM 
+			rows, err := pool.Query(ctx, `SELECT start_at, end_at, name, total, inserted, offsets, error FROM 
 			local_status.compliance_history_job_log`)
 			if err != nil {
 				return err
@@ -158,14 +158,17 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 			for rows.Next() {
 				var name, errMessage string
 				var total, inserted, offsets int64
-				err := rows.Scan(&name, &total, &inserted, &offsets, &errMessage)
+				var startAt, endAt time.Time
+				err := rows.Scan(&startAt, &endAt, &name, &total, &inserted, &offsets, &errMessage)
 				if err != nil {
 					return err
 				}
 				logCount += 1
-				fmt.Println("found log", "name", name, "total", total, "inserted", inserted, "offsets", offsets)
+				fmt.Println("found log", "startAt", startAt.Format("2006-01-02 15:04:05"),
+					"endAt", endAt.Format("2006-01-02 15:04:05"), "name", name, "total", total, "inserted",
+					inserted, "offsets", offsets, "err", errMessage)
 			}
-			if logCount == 0 {
+			if logCount < 1 {
 				return fmt.Errorf("table local_status.compliance_history_job_log records are not synced")
 			}
 			return nil
