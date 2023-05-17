@@ -375,6 +375,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					LeaseDuration          string
 					RenewDeadline          string
 					RetryPeriod            string
+					SchedulerInterval      string
 					NodeSelector           map[string]string
 					Tolerations            []corev1.Toleration
 				}{
@@ -395,6 +396,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",
 					RetryPeriod:            "26",
+					SchedulerInterval:      config.GetSchedulerInterval(mgh),
 					NodeSelector:           map[string]string{"foo": "bar"},
 					Tolerations: []corev1.Toleration{
 						{

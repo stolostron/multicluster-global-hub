@@ -72,7 +72,7 @@ batchSize: 1000, insert: 1000, offset: 10000
 5. After about 6 hours, check the row count of `local_status.compliance_history` table:
 
 ```bash
- kubectl exec -it $(kubectl get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n hoh-postgres -- psql -U postgres -d hoh -c "SELECT count(*) from local_status.compliance_history"
+# oc exec -it $(oc get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n hoh-postgres -- psql -U postgres -d hoh -c "SELECT count(*) from local_status.compliance_history"
  count
 --------
  7942000
@@ -90,7 +90,7 @@ tmpfs            64M     0   64M   0% /dev
 tmpfs            31G     0   31G   0% /sys/fs/cgroup
 tmpfs            31G   84M   31G   1% /etc/passwd
 /dev/nvme0n1p4  120G   30G   90G  26% /tmp
-/dev/nvme4n1     20G    3G   20G   2% /pgdata
+/dev/nvme4n1     20G  1.3G   20G   2% /pgdata
 tmpfs            61G   24K   61G   1% /pgconf/tls
 tmpfs            61G   24K   61G   1% /etc/database-containerinfo
 tmpfs            61G   16K   61G   1% /etc/patroni

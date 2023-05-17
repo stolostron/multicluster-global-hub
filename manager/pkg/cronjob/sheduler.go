@@ -12,18 +12,42 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
 )
 
+const (
+	EveryMonth  string = "month"
+	EveryWeek   string = "week"
+	EveryDay    string = "day"
+	EveryHour   string = "hour"
+	EveryMinute string = "minute"
+	EverySecond string = "second"
+)
+
 type GlobalHubJobScheduler struct {
 	log       logr.Logger
 	scheduler *gocron.Scheduler
 }
 
-func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool) error {
+func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool, interval string) error {
 	log := ctrl.Log.WithName("cronjob-scheduler")
 	// Scheduler timezone:
 	// The cluster may be in a different timezones, Here we choose to be consistent with the local GH timezone.
 	scheduler := gocron.NewScheduler(time.Local)
 
-	complianceJob, err := scheduler.Every(1).Day().At("00:00").Tag("LocalComplianceHistory").DoWithJobDetails(
+	switch interval {
+	case EveryMonth:
+		scheduler = scheduler.Every(1).Month(1)
+	case EveryWeek:
+		scheduler = scheduler.Every(1).Week()
+	case EveryHour:
+		scheduler = scheduler.Every(1).Hour()
+	case EveryMinute:
+		scheduler = scheduler.Every(1).Minute()
+	case EverySecond:
+		scheduler = scheduler.Every(1).Second()
+	default:
+		scheduler = scheduler.Every(1).Day()
+	}
+
+	complianceJob, err := scheduler.Tag("LocalComplianceHistory").DoWithJobDetails(
 		task.SyncLocalCompliance, ctx, pool)
 	if err != nil {
 		return err
