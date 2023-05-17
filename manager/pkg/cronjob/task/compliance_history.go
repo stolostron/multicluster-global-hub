@@ -9,6 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/go-co-op/gocron"
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -108,14 +109,15 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, vie
 		}
 
 		// Defer rollback in case of error
+		var insertError error
 		defer func() {
-			if err != nil {
+			if insertError != nil {
 				if e := tx.Rollback(ctx); e != nil {
 					fmt.Printf("rollback failed: %v\n", e)
 				}
 			}
-			e := traceComplianceHistory(ctx, pool, localComplianceJobName, totalCount, offset, insertCount, startTime, err)
-			if e != nil {
+			if e := traceComplianceHistory(ctx, pool, localComplianceJobName, totalCount, offset, insertCount,
+				startTime, insertError); e != nil {
 				fmt.Printf("trace compliance job failed: %v\n", e)
 			}
 		}()
@@ -126,13 +128,14 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, vie
 			ORDER BY id, cluster_id
 			LIMIT $1 
 			OFFSET $2`
-		result, err := tx.Exec(ctx, fmt.Sprintf(selectInsertSQL, viewName), batchSize, offset)
-		if err != nil {
-			fmt.Printf("exec failed: %v, retrying\n", err)
+		var result pgconn.CommandTag
+		result, insertError = tx.Exec(ctx, fmt.Sprintf(selectInsertSQL, viewName), batchSize, offset)
+		if insertError != nil {
+			fmt.Printf("exec failed: %v, retrying\n", insertError)
 			return false, nil
 		}
-		if err := tx.Commit(ctx); err != nil {
-			fmt.Printf("commit failed: %v, retrying\n", err)
+		if insertError = tx.Commit(ctx); insertError != nil {
+			fmt.Printf("commit failed: %v, retrying\n", insertError)
 			return false, nil
 		} else {
 			insertCount = result.RowsAffected()
