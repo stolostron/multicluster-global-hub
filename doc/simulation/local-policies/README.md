@@ -23,6 +23,7 @@ kind: MulticlusterGlobalHub
 metadata:
   annotations:
     mgh-scheduler-interval: minute # change scheduler interval of moving to compliance_history to 1 minute
+    mgh-enable-simulation: "true" # enable data simulation for scheduler job
   name: multiclusterglobalhub
   namespace: open-cluster-management
 spec:

@@ -89,6 +89,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RenewDeadline          string
 			RetryPeriod            string
 			SchedulerInterval      string
+			EnableSimulation       bool
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
 		}{
@@ -110,6 +111,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
 			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
 			SchedulerInterval:      config.GetSchedulerInterval(mgh),
+			EnableSimulation:       config.EnableSimulation(mgh),
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
 		}, nil

@@ -76,6 +76,8 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 	pflag.StringVar(&managerConfig.SchedulerInterval, "scheduler-interval", "day",
 		"The job scheduler interval for moving policy compliance history, "+
 			"can be 'month', 'week', 'day', 'hour', 'minute' or 'second', default value is 'day'.")
+	pflag.BoolVar(&managerConfig.EnableSimulation, "enable-simulation", false,
+		"The flag to indicate whether to enable data simulation for policy compliance history.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.SpecSyncInterval, "spec-sync-interval", 5*time.Second,
 		"The synchronization interval of resources in spec.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.StatusSyncInterval, "status-sync-interval", 5*time.Second,
@@ -222,7 +224,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	}
 
 	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn(),
-		managerConfig.SchedulerInterval); err != nil {
+		managerConfig.SchedulerInterval, managerConfig.EnableSimulation); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
 

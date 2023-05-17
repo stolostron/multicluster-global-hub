@@ -127,6 +127,17 @@ func GetSchedulerInterval(mgh *operatorv1alpha2.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
 }
 
+// EnableSimulation returns true if the MulticlusterGlobalHub instance is annotated to
+// enable data simulation for global hub
+func EnableSimulation(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
+	enableSimulation := getAnnotation(mgh, operatorconstants.AnnotationMGHEnableSimulation)
+	if enableSimulation != "" && strings.EqualFold(enableSimulation, "true") {
+		return true
+	}
+
+	return false
+}
+
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
 func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)
