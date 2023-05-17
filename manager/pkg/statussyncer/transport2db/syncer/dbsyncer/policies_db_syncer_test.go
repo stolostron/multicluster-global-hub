@@ -168,7 +168,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &leafHubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("ClustersPerPolicy: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("ClustersPerPolicy: id(%s) %s-%s %s \n", policyId,
+					leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId {
 					createdPolicyCount++
 				}
@@ -199,7 +200,8 @@ var _ = Describe("Policies", Ordered, func() {
 			UnknownComplianceClusters: []string{"cluster3"},
 		})
 		// transport bundle
-		policyCompleteComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
+		policyCompleteComplianceTransportKey :=
+			fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
 		completePayloadBytes, err := json.Marshal(transportCompletePayload)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -234,7 +236,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("CompleteCompliance: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("CompleteCompliance: id(%s) %s-%s %s \n", policyId,
+					leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId && hubName == leafHubName {
 					if clusterName == "cluster1" && complianceStatus == "non_compliant" {
 						cluster1Updated = true
@@ -308,7 +311,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("DeltaCompliance1: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("DeltaCompliance1: id(%s) %s-%s %s \n", policyId,
+					leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId && hubName == leafHubName {
 					// delete record: createdPolicyId hub1 cluster1 compliant
 					if clusterName == "cluster1" && complianceStatus == "compliant" {
@@ -387,7 +391,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &clusterName, &hubName, &complianceStatus); err != nil {
 					return err
 				}
-				fmt.Printf("DeltaCompliance2: id(%s) %s-%s %s \n", policyId, leafHubName, clusterName, complianceStatus)
+				fmt.Printf("DeltaCompliance2: id(%s) %s-%s %s \n", policyId,
+					leafHubName, clusterName, complianceStatus)
 				if policyId == createdPolicyId && hubName == leafHubName {
 					// update record: createdPolicyId hub1 cluster1 compliant => createdPolicyId hub1 cluster1 noncompliant
 					if clusterName == "cluster1" && complianceStatus == "non_compliant" {
@@ -432,7 +437,8 @@ var _ = Describe("Policies", Ordered, func() {
 			AppliedClusters:      3,
 		})
 		// transport bundle
-		minimalPolicyComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
+		minimalPolicyComplianceTransportKey :=
+			fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
 		payloadBytes, err := json.Marshal(transportPayload)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -464,7 +470,8 @@ var _ = Describe("Policies", Ordered, func() {
 				if err := rows.Scan(&policyId, &hubName, &appliedClusters, &nonCompliantClusters); err != nil {
 					return err
 				}
-				fmt.Printf("MinimalCompliance: id(%s) %s %d %d \n", policyId, hubName, appliedClusters, nonCompliantClusters)
+				fmt.Printf("MinimalCompliance: id(%s) %s %d %d \n", policyId,
+					hubName, appliedClusters, nonCompliantClusters)
 				if policyId == createdPolicyId && hubName == leafHubName &&
 					appliedClusters == 3 && nonCompliantClusters == 2 {
 					return nil

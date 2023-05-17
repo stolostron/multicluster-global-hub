@@ -294,7 +294,8 @@ func ensureMulticlusterHub(ctx context.Context, log logr.Logger, dynamicClient d
 func ensureClusterManager(ctx context.Context, log logr.Logger, dynamicClient dynamic.Interface) (
 	bool, error,
 ) {
-	clusterManager, err := dynamicClient.Resource(operatorv1.GroupVersion.WithResource("clustermanagers")).
+	clusterManager, err := dynamicClient.Resource(
+		operatorv1.GroupVersion.WithResource("clustermanagers")).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return false, err

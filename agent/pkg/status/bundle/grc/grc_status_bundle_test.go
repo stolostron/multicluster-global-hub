@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func TestClusterPerPolicyStatusBundle(t *testing.T) {

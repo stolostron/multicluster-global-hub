@@ -139,7 +139,7 @@ var _ = BeforeSuite(func() {
 	err = (&addon.HoHAddonInstallReconciler{
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("addon install controller"),
-	}).SetupWithManager(k8sManager)
+	}).SetupWithManager(ctx, k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())

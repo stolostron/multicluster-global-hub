@@ -108,7 +108,9 @@ func TestConsumer(t *testing.T) {
 	}
 
 	mghSystemNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
-	kubeClient.Create(context.TODO(), mghSystemNamespace)
+	if err := kubeClient.Create(context.TODO(), mghSystemNamespace); err != nil {
+		t.Errorf("failed to create namespace: %v", err)
+	}
 	mghSystemConfigMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.GHConfigCMName,

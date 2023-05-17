@@ -117,7 +117,8 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 ) error {
 	// only add finalizer for the global resources
 	_, globalLabelResource := object.GetLabels()[constants.GlobalHubGlobalResourceLabel]
-	if globalLabelResource || helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) {
+	if globalLabelResource || helper.HasAnnotation(object,
+		constants.OriginOwnerReferenceAnnotation) {
 		if err := c.addFinalizer(ctx, object, log); err != nil {
 			return fmt.Errorf("failed to add finalizer - %w", err)
 		}

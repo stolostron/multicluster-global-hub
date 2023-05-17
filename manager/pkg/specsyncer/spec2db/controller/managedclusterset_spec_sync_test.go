@@ -64,7 +64,8 @@ var _ = Describe("managedclusterset controller", Ordered, func() {
 					return err
 				}
 				if gotManagedClusterSet.Name == "test-managedclusterset-1" &&
-					string(gotManagedClusterSet.Spec.ClusterSelector.SelectorType) == string(clusterv1beta2.ExclusiveClusterSetLabel) {
+					string(gotManagedClusterSet.Spec.ClusterSelector.SelectorType) ==
+						string(clusterv1beta2.ExclusiveClusterSetLabel) {
 					return nil
 				}
 			}
