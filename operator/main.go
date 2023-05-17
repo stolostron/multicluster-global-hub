@@ -137,7 +137,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	if err = (&hubofhubsaddon.HoHAddonInstallReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("addon-reconciler"),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create addon reconciler")
 		return 1
 	}
