@@ -9,6 +9,7 @@ import (
 	"github.com/resmoio/kubernetes-event-exporter/pkg/exporter"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/metrics"
+	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,6 +43,14 @@ func (e *eventExporterController) Start(ctx context.Context) error {
 	metrics.Init(*flag.String("metrics-address", ":2112",
 		"The address to listen on for HTTP requests."))
 	metricsStore := metrics.NewMetricsStore(cfg.MetricsNamePrefix)
+
+	if cfg.LogLevel != "" {
+		level, err := zerolog.ParseLevel(cfg.LogLevel)
+		if err != nil {
+			log.Error(err, "invalid log level")
+		}
+		zerolog.SetGlobalLevel(level)
+	}
 
 	engine := exporter.NewEngine(&cfg, &exporter.ChannelBasedReceiverRegistry{MetricsStore: metricsStore})
 	onEvent := func(event *kube.EnhancedEvent) {
