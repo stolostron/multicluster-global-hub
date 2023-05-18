@@ -69,7 +69,7 @@ var _ = BeforeSuite(func() {
 	By("Adding the controllers to the manager")
 	Expect(controllers.AddClusterClaimController(mgr)).NotTo(HaveOccurred())
 	Expect(controllers.AddEventExporter(mgr, filepath.Join("..", "..", "..", "pkg",
-		"testdata", "event", "kube-event-exporter-good-config.yaml"))).NotTo(HaveOccurred())
+		"testdata", "event", "kube-event-exporter-good-config.yaml"), "hub1")).NotTo(HaveOccurred())
 
 	go func() {
 		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())

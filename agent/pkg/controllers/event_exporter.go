@@ -18,6 +18,7 @@ import (
 
 type eventExporterController struct {
 	kubeConfig      *rest.Config
+	leafHubName     string
 	eventConfigFile string
 }
 
@@ -43,8 +44,13 @@ func (e *eventExporterController) Start(ctx context.Context) error {
 	metricsStore := metrics.NewMetricsStore(cfg.MetricsNamePrefix)
 
 	engine := exporter.NewEngine(&cfg, &exporter.ChannelBasedReceiverRegistry{MetricsStore: metricsStore})
+	onEvent := func(event *kube.EnhancedEvent) {
+		// note that per code this value is not set anywhere on the kubernetes side
+		event.ClusterName = e.leafHubName
+		engine.OnEvent(event)
+	}
 	watcher := kube.NewEventWatcher(e.kubeConfig, cfg.Namespace,
-		cfg.MaxEventAgeSeconds, metricsStore, engine.OnEvent)
+		cfg.MaxEventAgeSeconds, metricsStore, onEvent)
 	watcher.Start()
 	return nil
 }
