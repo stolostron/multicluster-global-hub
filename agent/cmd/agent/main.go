@@ -274,7 +274,8 @@ func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
-	if err := controllers.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath); err != nil {
+	if err := controllers.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath,
+		agentConfig.LeafHubName); err != nil {
 		return nil, fmt.Errorf("failed to add event exporter: %w", err)
 	}
 
