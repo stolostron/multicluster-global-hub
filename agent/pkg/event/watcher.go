@@ -29,7 +29,9 @@ type EventWatcher struct {
 	metricsStore    *metrics.Store
 }
 
-func NewEventWatcher(config *rest.Config, namespace string, MaxEventAgeSeconds int64, metricsStore *metrics.Store, fn EventHandler) *EventWatcher {
+func NewEventWatcher(config *rest.Config, namespace string, MaxEventAgeSeconds int64,
+	metricsStore *metrics.Store, fn EventHandler,
+) *EventWatcher {
 	clientset := kubernetes.NewForConfigOrDie(config)
 	factory := informers.NewSharedInformerFactoryWithOptions(clientset, 0, informers.WithNamespace(namespace))
 	informer := factory.Core().V1().Events().Informer()
@@ -45,9 +47,12 @@ func NewEventWatcher(config *rest.Config, namespace string, MaxEventAgeSeconds i
 	}
 
 	informer.AddEventHandler(watcher)
-	informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	err := informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		watcher.metricsStore.WatchErrors.Inc()
 	})
+	if err != nil {
+		log.Error().Err(err).Msg("Cannot set watch error handler")
+	}
 
 	return watcher
 }
@@ -144,4 +149,15 @@ func (e *EventWatcher) Start() {
 func (e *EventWatcher) Stop() {
 	e.stopper <- struct{}{}
 	close(e.stopper)
+}
+
+func NewMockEventWatcher(MaxEventAgeSeconds int64, metricsStore *metrics.Store) *EventWatcher {
+	watcher := &EventWatcher{
+		labelCache:      kube.NewMockLabelCache(),
+		annotationCache: kube.NewMockAnnotationCache(),
+		maxEventAge:     time.Second * time.Duration(MaxEventAgeSeconds),
+		fn:              func(event *kube.EnhancedEvent) {},
+		metricsStore:    metricsStore,
+	}
+	return watcher
 }

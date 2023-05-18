@@ -25,10 +25,12 @@ require (
 	github.com/operator-framework/operator-lifecycle-manager v0.21.2
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/resmoio/kubernetes-event-exporter v0.0.0-20230317084058-f4b7ad969e5c
+	github.com/rs/zerolog v1.28.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20230222063645-5b18b26381ff
 	github.com/stolostron/hypershift-deployment-controller v0.0.0-20220728190014-4f85d5954f19
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20220902185016-e81ccfbecf55
+	github.com/stretchr/testify v1.8.2
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.26.0
 	k8s.io/apiextensions-apiserver v0.25.0
@@ -92,9 +94,9 @@ require (
 	github.com/opensearch-project/opensearch-go v1.1.0 // indirect
 	github.com/opsgenie/opsgenie-go-sdk-v2 v1.2.14 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/rs/zerolog v1.28.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/slack-go/slack v0.12.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -160,7 +162,7 @@ require (
 	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
-	github.com/jackc/pgconn v1.12.1 // indirect
+	github.com/jackc/pgconn v1.12.1
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.0 // indirect
@@ -183,7 +185,7 @@ require (
 	github.com/openshift/hypershift v0.0.0-20220719064944-685115caee6b // indirect
 	github.com/operator-framework/operator-registry v1.17.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.14.0 // indirect
+	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.39.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
