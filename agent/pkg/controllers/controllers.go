@@ -25,7 +25,7 @@ func AddClusterClaimController(mgr ctrl.Manager) error {
 	return nil
 }
 
-func AddEventExporter(mgr ctrl.Manager, eventConfig string) error {
+func AddEventExporter(mgr ctrl.Manager, eventConfig, leafHubName string) error {
 	return mgr.Add(&eventExporterController{
 		kubeConfig:      mgr.GetConfig(),
 		eventConfigFile: eventConfig,
