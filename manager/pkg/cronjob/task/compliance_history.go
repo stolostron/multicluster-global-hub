@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"github.com/go-co-op/gocron"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"k8s.io/apimachinery/pkg/util/wait"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
@@ -47,7 +46,8 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batchSize int64,
 ) (totalCount int64, insertedCount int64, err error) {
 	// create materialized view
-	viewName := fmt.Sprintf("local_status.compliance_view_%s", time.Now().AddDate(0, 0, -1).Format("2006_01_02"))
+	viewName := fmt.Sprintf("local_status.compliance_view_%s",
+		time.Now().AddDate(0, 0, -1).Format("2006_01_02"))
 	createViewSQL := `
 		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS 
 		SELECT id,cluster_id,compliance 

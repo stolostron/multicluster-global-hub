@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -108,7 +108,7 @@ func setAuthenticatedUser(ginCtx *gin.Context, authorizationHeader string, clust
 		return false
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, "unable to read authentication response body: %v\n", err)
 		return false

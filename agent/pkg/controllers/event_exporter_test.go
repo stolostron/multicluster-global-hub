@@ -6,10 +6,10 @@ package controllers_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"github.com/resmoio/kubernetes-event-exporter/pkg/exporter"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/sinks"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 )
 
