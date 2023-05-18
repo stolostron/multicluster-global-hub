@@ -24,12 +24,36 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "id": 52,
-      "iteration": 1681827493664,
-      "links": [],
+      "iteration": 1684431476195,
+      "links": [
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": false,
+          "keepTime": false,
+          "tags": [],
+          "targetBlank": true,
+          "title": "Offending Clusters",
+          "tooltip": "Open dashboard",
+          "type": "link",
+          "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1"
+        },
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": false,
+          "keepTime": false,
+          "tags": [],
+          "targetBlank": true,
+          "title": "Offending Policies",
+          "tooltip": "Open dashboard",
+          "type": "link",
+          "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1"
+        }
+      ],
       "panels": [
         {
-          "datasource": null,
+          "datasource": "${datasource}",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -44,25 +68,30 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "red",
                     "value": null
                   },
                   {
-                    "color": "red",
-                    "value": 80
+                    "color": "yellow",
+                    "value": 0.5
+                  },
+                  {
+                    "color": "green",
+                    "value": 0.9
                   }
                 ]
-              }
+              },
+              "unit": "percentunit"
             },
             "overrides": []
           },
           "gridPos": {
-            "h": 10,
+            "h": 11,
             "w": 24,
             "x": 0,
             "y": 0
           },
-          "id": 50,
+          "id": 12,
           "options": {
             "alignValue": "left",
             "legend": {
@@ -76,25 +105,53 @@ data:
               "mode": "single"
             }
           },
-          "title": "Panel Title",
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "time_series",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history ch\n  -- INNER JOIN\n    -- local_spec.policies p ON ch.id = p.policy_id\n  INNER JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.cluster_name IN ($cluster)\n  -- AND\n    -- policy_name IN ($policy)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  cluster_name as \"metric\",\n  compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "timeFrom": null,
+          "title": "Policy State Timeline",
           "type": "state-timeline"
         },
         {
-          "collapsed": true,
           "datasource": null,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 10
+            "y": 11
           },
-          "id": 46,
-          "panels": [],
+          "id": 6,
           "title": "Events",
           "type": "row"
         },
         {
-          "datasource": null,
+          "datasource": "${datasource}",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -102,7 +159,8 @@ data:
               },
               "custom": {
                 "align": "auto",
-                "displayMode": "auto"
+                "displayMode": "auto",
+                "filterable": true
               },
               "mappings": [],
               "thresholds": {
@@ -122,21 +180,51 @@ data:
             "overrides": []
           },
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 12,
             "x": 0,
-            "y": 11
+            "y": 12
           },
-          "id": 48,
+          "id": 2,
           "options": {
             "showHeader": true
           },
           "pluginVersion": "8.5.20",
-          "title": "Panel Title",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "hide": true,
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "SELECT\n  $__timeGroupAlias(lp.created_at, $__interval),\n  p.policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  policy_name IN ($policy)\nAND\n  cluster_name IN ($cluster)\nORDER BY (lp.created_at) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "timeFrom": null,
+          "title": "Cluster Events",
           "type": "table"
         },
         {
-          "datasource": null,
+          "datasource": "${datasource}",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -144,9 +232,26 @@ data:
               },
               "custom": {
                 "align": "auto",
-                "displayMode": "auto"
+                "displayMode": "auto",
+                "filterable": true
               },
-              "mappings": [],
+              "mappings": [
+                {
+                  "options": {
+                    "compliant": {
+                      "color": "green",
+                      "index": 0,
+                      "text": "true"
+                    },
+                    "non_compliant": {
+                      "color": "red",
+                      "index": 1,
+                      "text": "false"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -161,24 +266,99 @@ data:
                 ]
               }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "compliance"
+                },
+                "properties": [
+                  {
+                    "id": "custom.displayMode",
+                    "value": "color-background"
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
-            "h": 8,
+            "h": 7,
             "w": 12,
             "x": 12,
-            "y": 11
+            "y": 12
           },
-          "id": 49,
+          "id": 4,
+          "interval": null,
           "options": {
-            "showHeader": true
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "date_id"
+              }
+            ]
           },
           "pluginVersion": "8.5.20",
-          "title": "Panel Title",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "SELECT\n  $__timeGroupAlias(lp.created_at, $__interval),\n  p.policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  policy_name IN ($policy)\nAND\n  cluster_name IN ($cluster)\nORDER BY (lp.created_at) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "timeFrom": null,
+          "title": "Policy Events",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "cluster_name": 2,
+                  "message": 3,
+                  "policy_name": 1,
+                  "reason": 4,
+                  "source": 5,
+                  "time": 0
+                },
+                "renameByName": {
+                  "cluster_id": "ClusterID",
+                  "cluster_name": "Cluster",
+                  "compliance": "Compliance",
+                  "message": "Message",
+                  "policy_name": "Policy",
+                  "reason": "Reason",
+                  "source": "Source",
+                  "time": "Time"
+                }
+              }
+            }
+          ],
           "type": "table"
         },
         {
-          "datasource": null,
+          "datasource": "${datasource}",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -188,6 +368,7 @@ data:
                 "align": "auto",
                 "displayMode": "auto"
               },
+              "links": [],
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
@@ -203,20 +384,71 @@ data:
                 ]
               }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "policy_name"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Open ACM Governance page for hub cluster: ${__data.fields.hub_name}",
+                        "url": "https://console-openshift-console.apps.${__data.fields.hub_basedomain}/multicloud/governance/policies?violations=with-violations"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
-            "h": 11,
+            "h": 9,
             "w": 24,
             "x": 0,
             "y": 19
           },
-          "id": 47,
+          "id": 3,
           "options": {
-            "showHeader": true
+            "showHeader": true,
+            "sortBy": []
           },
           "pluginVersion": "8.5.20",
-          "title": "Panel Title",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "hide": true,
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "SELECT\n  $__timeGroupAlias(lp.created_at, $__interval),\n  p.policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  policy_name IN ($policy)\nAND\n  cluster_name IN ($cluster)\nORDER BY (lp.created_at) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "timeFrom": null,
+          "title": "Cluster Policy Events",
+          "transformations": [],
           "type": "table"
         }
       ],
@@ -229,19 +461,18 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "PostgreSQL",
-              "value": "PostgreSQL"
+              "text": "Global-Hub-DataSource",
+              "value": "Global-Hub-DataSource"
             },
             "description": null,
             "error": null,
             "hide": 2,
             "includeAll": false,
-            "label": null,
+            "label": "Datasource",
             "multi": false,
             "name": "datasource",
             "options": [],
             "query": "postgres",
-            "queryValue": "",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -258,48 +489,21 @@ data:
                 "$__all"
               ]
             },
-            "datasource": null,
-            "definition": "SELECT\n  p.payload-> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards' AS \"policy_standard\"\nFROM\n  local_spec.policies p",
-            "description": "Cluster policy standards",
-            "error": {
-              "config": {
-                "data": {
-                  "end": "1681827494",
-                  "match[]": "SELECT\n  p.payload-> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards' AS \"policy_standard\"\nFROM\n  local_spec.policies p",
-                  "start": "1681741094"
-                },
-                "headers": {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                  "X-Grafana-Org-Id": 1
-                },
-                "hideFromInspector": true,
-                "method": "POST",
-                "retry": 0,
-                "url": "api/datasources/proxy/1/api/v1/series"
-              },
-              "data": {
-                "error": "Bad Request",
-                "message": "cannot parse parameter match[]",
-                "response": "cannot parse parameter match[]"
-              },
-              "message": "cannot parse parameter match[]",
-              "status": 400,
-              "statusText": "Bad Request"
-            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nJOIN\n  event.local_policies lp ON mc.cluster_id = lp.cluster_id",
+            "description": null,
+            "error": null,
             "hide": 0,
             "includeAll": true,
-            "label": "Standard",
+            "label": "Cluster",
             "multi": true,
-            "name": "standard",
+            "name": "cluster",
             "options": [],
-            "query": {
-              "query": "SELECT\n  p.payload-> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards' AS \"policy_standard\"\nFROM\n  local_spec.policies p",
-              "refId": "Observatorium-standard-Variable-Query"
-            },
+            "query": "SELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nJOIN\n  event.local_policies lp ON mc.cluster_id = lp.cluster_id",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
-            "sort": 0,
+            "sort": 1,
             "type": "query"
           },
           {
@@ -313,154 +517,17 @@ data:
                 "$__all"
               ]
             },
-            "datasource": null,
-            "definition": "SELECT\n  p.payload-> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories' AS \"policy_category\"\nFROM\n  local_spec.policies p\nWHERE\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/standards' IN ($standard)",
-            "description": "Cluster policy categories",
-            "error": {
-              "config": {
-                "data": {
-                  "end": "1681827494",
-                  "match[]": "SELECT\n  p.payload-> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories' AS \"policy_category\"\nFROM\n  local_spec.policies p\nWHERE\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/standards' IN (())",
-                  "start": "1681741094"
-                },
-                "headers": {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                  "X-Grafana-Org-Id": 1
-                },
-                "hideFromInspector": true,
-                "method": "POST",
-                "retry": 0,
-                "url": "api/datasources/proxy/1/api/v1/series"
-              },
-              "data": {
-                "error": "Bad Request",
-                "message": "cannot parse parameter match[]",
-                "response": "cannot parse parameter match[]"
-              },
-              "message": "cannot parse parameter match[]",
-              "status": 400,
-              "statusText": "Bad Request"
-            },
+            "datasource": "${datasource}",
+            "definition": "SELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  event.local_policies lp ON p.policy_id = lp.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
+            "description": null,
+            "error": null,
             "hide": 0,
             "includeAll": true,
-            "label": "Category",
+            "label": "Policy",
             "multi": true,
-            "name": "category",
+            "name": "policy",
             "options": [],
-            "query": {
-              "query": "SELECT\n  p.payload-> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories' AS \"policy_category\"\nFROM\n  local_spec.policies p\nWHERE\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/standards' IN ($standard)",
-              "refId": "Observatorium-category-Variable-Query"
-            },
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 0,
-            "type": "query"
-          },
-          {
-            "allValue": null,
-            "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "datasource": null,
-            "definition": "SELECT\n  p.payload-> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls' AS \"policy_control\"\nFROM\n  local_spec.policies p\nWHERE\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/standards' IN ($standard)\nAND\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/categories' IN ($category)",
-            "description": "Cluster policy controls",
-            "error": {
-              "config": {
-                "data": {
-                  "end": "1681827494",
-                  "match[]": "SELECT\n  p.payload-> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls' AS \"policy_control\"\nFROM\n  local_spec.policies p\nWHERE\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/standards' IN (())\nAND\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/categories' IN (())",
-                  "start": "1681741094"
-                },
-                "headers": {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                  "X-Grafana-Org-Id": 1
-                },
-                "hideFromInspector": true,
-                "method": "POST",
-                "retry": 0,
-                "url": "api/datasources/proxy/1/api/v1/series"
-              },
-              "data": {
-                "error": "Bad Request",
-                "message": "cannot parse parameter match[]",
-                "response": "cannot parse parameter match[]"
-              },
-              "message": "cannot parse parameter match[]",
-              "status": 400,
-              "statusText": "Bad Request"
-            },
-            "hide": 0,
-            "includeAll": true,
-            "label": "Control",
-            "multi": true,
-            "name": "control",
-            "options": [],
-            "query": {
-              "query": "SELECT\n  p.payload-> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls' AS \"policy_control\"\nFROM\n  local_spec.policies p\nWHERE\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/standards' IN ($standard)\nAND\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/categories' IN ($category)",
-              "refId": "Observatorium-control-Variable-Query"
-            },
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 0,
-            "type": "query"
-          },
-          {
-            "allValue": null,
-            "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "datasource": null,
-            "definition": "SELECT\n  jsonb_array_elements(p.payload-> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\"\nFROM local_spec.policies p\nWHERE\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/standards' IN ($standard)\nAND\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/categories' IN ($category)\nAND\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/controls' IN ($control)",
-            "description": "Cluster policy severity",
-            "error": {
-              "config": {
-                "data": {
-                  "end": "1681827494",
-                  "match[]": "SELECT\n  jsonb_array_elements(p.payload-> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\"\nFROM local_spec.policies p\nWHERE\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/standards' IN (())\nAND\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/categories' IN (())\nAND\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/controls' IN (())",
-                  "start": "1681741094"
-                },
-                "headers": {
-                  "Content-Type": "application/x-www-form-urlencoded",
-                  "X-Grafana-Org-Id": 1
-                },
-                "hideFromInspector": true,
-                "method": "POST",
-                "retry": 0,
-                "url": "api/datasources/proxy/1/api/v1/series"
-              },
-              "data": {
-                "error": "Bad Request",
-                "message": "cannot parse parameter match[]",
-                "response": "cannot parse parameter match[]"
-              },
-              "message": "cannot parse parameter match[]",
-              "status": 400,
-              "statusText": "Bad Request"
-            },
-            "hide": 0,
-            "includeAll": true,
-            "label": "Severity",
-            "multi": true,
-            "name": "severity",
-            "options": [],
-            "query": {
-              "query": "SELECT\n  jsonb_array_elements(p.payload-> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\"\nFROM local_spec.policies p\nWHERE\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/standards' IN ($standard)\nAND\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/categories' IN ($category)\nAND\n  p.payload->'metadata'-> 'annotations'->> 'policy.open-cluster-management.io/controls' IN ($control)",
-              "refId": "Observatorium-severity-Variable-Query"
-            },
+            "query": "SELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  event.local_policies lp ON p.policy_id = lp.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -474,9 +541,9 @@ data:
         "to": "now"
       },
       "timepicker": {},
-      "timezone": "utc",
+      "timezone": "",
       "title": "Global Hub - What's Changed",
-      "uid": "fad31bbc6806481ea0434b509eb53fbc",
+      "uid": "5a3a577af7894943aa6e7ca8408502fa",
       "version": 1
     }
 kind: ConfigMap
