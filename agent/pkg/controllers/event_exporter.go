@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
@@ -58,7 +59,7 @@ func (e *eventExporterController) Start(ctx context.Context) error {
 		event.ClusterName = e.leafHubName
 		engine.OnEvent(event)
 	}
-	watcher := kube.NewEventWatcher(e.kubeConfig, cfg.Namespace,
+	watcher := event.NewEventWatcher(e.kubeConfig, cfg.Namespace,
 		cfg.MaxEventAgeSeconds, metricsStore, onEvent)
 	watcher.Start()
 	return nil
