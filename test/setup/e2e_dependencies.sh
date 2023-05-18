@@ -95,7 +95,7 @@ function checkKind() {
 
 function checkGinkgo() {
   if ! command -v ginkgo >/dev/null 2>&1; then 
-    go install github.com/onsi/ginkgo/v2/ginkgo@latest
+    go install github.com/onsi/ginkgo/v2/ginkgo@v2.9.2
     go get github.com/onsi/gomega/...
     sudo mv $(go env GOPATH)/bin/ginkgo ${binDir}/ginkgo
   fi 
