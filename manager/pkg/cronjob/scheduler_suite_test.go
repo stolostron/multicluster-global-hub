@@ -20,9 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 	// managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
 var (

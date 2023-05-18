@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"github.com/go-co-op/gocron"
 	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4/pgxpool"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
 )
 
