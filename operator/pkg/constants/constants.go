@@ -39,9 +39,6 @@ const (
 	// to identify the scheduler interval for moving policy compliance history
 	// valid value can be "month, week, day, hour, minute, second"
 	AnnotationMGHSchedulerInterval = "mgh-scheduler-interval"
-	// AnnotationMGHEnableSimulation sits in MulticlusterGlobalHub annotations
-	// to identify whether to enable simulation for global hub
-	AnnotationMGHEnableSimulation = "mgh-enable-simulation"
 	// MGHOperandImagePrefix ...
 	MGHOperandImagePrefix = "RELATED_IMAGE_"
 )

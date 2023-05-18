@@ -38,7 +38,6 @@ spec:
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
             - --scheduler-interval={{.SchedulerInterval}}
-            - --enable-simulation={{.EnableSimulation}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

@@ -82,6 +82,10 @@ func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batch
 		return totalCount, insertedCount, err
 	}
 
+	if enableSimulation {
+		simulationCounter = simulationCounter + 1
+	}
+
 	return totalCount, insertedCount, nil
 }
 
@@ -148,9 +152,6 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, vie
 			fmt.Printf("commit failed: %v, retrying\n", insertError)
 			return false, nil
 		} else {
-			if enableSimulation {
-				simulationCounter = simulationCounter + 1
-			}
 			insertCount = result.RowsAffected()
 			fmt.Printf("batchSize: %d, insert: %d, offset: %d\n", batchSize, insertCount, offset)
 			return true, nil
