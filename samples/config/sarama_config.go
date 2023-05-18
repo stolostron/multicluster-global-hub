@@ -14,17 +14,26 @@ func GetSaramaConfig() (string, *sarama.Config, error) {
 	}
 	bootstrapSever := kafkaSecret.Data["bootstrap_server"]
 	caCrt := kafkaSecret.Data["ca.crt"]
-	cert, err := tls.X509KeyPair(kafkaSecret.Data["client.crt"], kafkaSecret.Data["client.key"])
-	if err != nil {
-		return "", nil, err
-	}
+
+	// #nosec G402
+	tlsConfig := &tls.Config{}
+
+	// Load CA cert
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCrt)
-	// #nosec G402
-	tlsConfig := &tls.Config{
-		RootCAs:            caCertPool,
-		InsecureSkipVerify: false,
-		Certificates:       []tls.Certificate{cert},
+	tlsConfig.RootCAs = caCertPool
+
+	// Load client cert
+	if len(kafkaSecret.Data["client.crt"]) > 0 && len(kafkaSecret.Data["client.key"]) > 0 {
+		cert, err := tls.X509KeyPair(kafkaSecret.Data["client.crt"], kafkaSecret.Data["client.key"])
+		if err != nil {
+			return "", nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+		tlsConfig.InsecureSkipVerify = false
+	} else {
+		// #nosec
+		tlsConfig.InsecureSkipVerify = true
 	}
 
 	// or manual generate client cert(the client ca and crt from the kafka operator)

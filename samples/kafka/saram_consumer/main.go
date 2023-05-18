@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/Shopify/sarama"
@@ -12,8 +13,8 @@ import (
 )
 
 const (
-	TopicDefault   = "status"
-	GroupIDDefault = "my-group2"
+	TopicDefault   = "event"
+	GroupIDDefault = "my-group"
 )
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 		os.Exit(1)
 	}
 	// if set this to false, it will consume message from beginning when restart the client
-	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
+	saramaConfig.Consumer.Offsets.AutoCommit.Enable = false
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 
 	consumerGroup, err := sarama.NewConsumerGroup([]string{string(bootstrapSever)}, GroupIDDefault, saramaConfig)
@@ -36,10 +37,22 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
-		// this method calls the methods handler on each stage: setup, consume and cleanup
-		if err := consumerGroup.Consume(ctx, []string{TopicDefault}, &consumerGroupHandler{}); err != nil {
-			log.Printf("Error from consumer: %v", err)
+		defer wg.Done()
+		for {
+			// `Consume` should be called inside an infinite loop, when a
+			// server-side rebalance happens, the consumer session will need to be
+			// recreated to get the new claims
+			if err := consumerGroup.Consume(ctx, []string{TopicDefault}, &consumerGroupHandler{}); err != nil {
+				log.Printf("Error from consumer: %v", err)
+			}
+
+			// check if context was cancelled, signaling that the consumer should stop
+			if ctx.Err() != nil {
+				return
+			}
 		}
 	}()
 
@@ -47,6 +60,7 @@ func main() {
 	sig := <-signals
 	log.Printf("Got signal: %v\n", sig)
 	cancel()
+	wg.Wait()
 
 	log.Printf("Closing consumer group")
 	err = consumerGroup.Close()
@@ -73,10 +87,27 @@ func (cgh *consumerGroupHandler) Cleanup(sarama.ConsumerGroupSession) error {
 func (cgh *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 	claim sarama.ConsumerGroupClaim,
 ) error {
-	for message := range claim.Messages() {
-		log.Printf("Message received: value=%s, partition=%d, offset=%d", string(message.Value),
-			message.Partition, message.Offset)
-		session.MarkMessage(message, "") // must mark the message after consume, otherwise the auto commit will not work
+	// NOTE:
+	// Do not move the code below to a goroutine.
+	// The `ConsumeClaim` itself is called within a goroutine, see:
+	// https://github.com/Shopify/sarama/blob/main/consumer_group.go#L27-L29
+	for {
+		select {
+		case message := <-claim.Messages():
+			log.Printf("[ %s => %d - %d ]: value=%s, key=%s\n", message.Topic, message.Partition, message.Offset, string(message.Value), string(message.Key))
+			for _, h := range message.Headers {
+				log.Printf("header: %s=%s\n", h.Key, string(h.Value))
+			}
+			// for _, h := range message.Headers {
+			// 	log.Printf("header: %s=%s\n", h.Key, string(h.Value))
+			// }
+			session.MarkMessage(message, "")
+
+		// Should return when `session.Context()` is done.
+		// If not, will raise `ErrRebalanceInProgress` or `read tcp <ip>:<port>: i/o timeout` when kafka rebalance. see:
+		// https://github.com/Shopify/sarama/issues/1192
+		case <-session.Context().Done():
+			return nil
+		}
 	}
-	return nil
 }
