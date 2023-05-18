@@ -3,11 +3,12 @@ package specsyncer
 import (
 	"fmt"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func AddSpecSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig,

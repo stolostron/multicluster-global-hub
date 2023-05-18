@@ -16,6 +16,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	"github.com/go-logr/logr"
+	"github.com/mohae/deepcopy"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -26,6 +27,7 @@ import (
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
@@ -108,6 +110,7 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
 		"spec", "Topic for the kafka producer.")
+	pflag.StringVar(&managerConfig.EventExporterTopic, "event-exporter-topic", "event", "Topic for the event exporter.")
 	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
@@ -222,6 +225,13 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn(),
 		managerConfig.SchedulerInterval, enableSimulation); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
+	}
+
+	eventKafkaConfig := deepcopy.Copy(managerConfig.TransportConfig.KafkaConfig).(*transport.KafkaConfig)
+	eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
+	if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig,
+		processPostgreSQL.GetConn()); err != nil {
+		return nil, fmt.Errorf("failed to add event collector: %w", err)
 	}
 
 	return mgr, nil

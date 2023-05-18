@@ -16,6 +16,7 @@ type ManagerConfig struct {
 	ManagerNamespace      string
 	WatchNamespace        string
 	SchedulerInterval     string
+	EventExporterTopic    string
 	SyncerConfig          *SyncerConfig
 	DatabaseConfig        *DatabaseConfig
 	TransportConfig       *transport.TransportConfig

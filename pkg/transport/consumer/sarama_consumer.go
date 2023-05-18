@@ -2,7 +2,6 @@ package consumer
 
 import (
 	"context"
-	"log"
 
 	"github.com/Shopify/sarama"
 	"github.com/go-logr/logr"
@@ -20,7 +19,9 @@ type SaramaConsumer struct {
 	messageChan chan *sarama.ConsumerMessage
 }
 
-func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig) (*SaramaConsumer, error) {
+func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig,
+	messageChan chan *sarama.ConsumerMessage,
+) (*SaramaConsumer, error) {
 	log := ctrl.Log.WithName("sarama-consumer")
 	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
 	if err != nil {
@@ -33,8 +34,6 @@ func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig) 
 	if err != nil {
 		return nil, err
 	}
-
-	messageChan := make(chan *sarama.ConsumerMessage)
 
 	handler := &consumeGroupHandler{
 		log:         log.WithName("handler"),
@@ -57,24 +56,15 @@ func (c *SaramaConsumer) Start(ctx context.Context) error {
 		// server-side rebalance happens, the consumer session will need to be
 		// recreated to get the new claims
 		if err := c.client.Consume(ctx, []string{c.kafkaConfig.ConsumerConfig.ConsumerTopic}, c.handler); err != nil {
-			log.Panicf("Error from consumer: %v", err)
+			c.log.Error(err, "Error from sarama consumer")
 		}
 		// check if context was cancelled, signaling that the consumer should stop
 		if ctx.Err() != nil {
 			c.log.Info("context was cancelled, signaling that the consumer should stop", "ctx err", ctx.Err())
-			return nil
+			close(c.messageChan)
+			return c.client.Close()
 		}
 	}
-}
-
-func (c *SaramaConsumer) Stop() error {
-	c.log.Info("Sarama consumer is stopping")
-	close(c.messageChan)
-	return c.client.Close()
-}
-
-func (c *SaramaConsumer) MessageChan() <-chan *sarama.ConsumerMessage {
-	return c.messageChan
 }
 
 // Consumer represents a Sarama consumer group consumer
