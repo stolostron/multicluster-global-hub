@@ -24,8 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "id": 2,
-      "iteration": 1683648676404,
+      "iteration": 1684421094108,
       "links": [
         {
           "asDropdown": false,
@@ -445,9 +444,9 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
-              "text": "",
-              "value": ""
+              "selected": true,
+              "text": "vendor",
+              "value": "vendor"
             },
             "datasource": "${datasource}",
             "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
@@ -478,7 +477,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "description": "Managed cluster label values",
             "error": null,
             "hide": 0,
@@ -487,7 +486,7 @@ data:
             "multi": true,
             "name": "value",
             "options": [],
-            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
