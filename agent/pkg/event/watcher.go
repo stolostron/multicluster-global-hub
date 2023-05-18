@@ -156,8 +156,10 @@ func NewMockEventWatcher(MaxEventAgeSeconds int64, metricsStore *metrics.Store) 
 		labelCache:      kube.NewMockLabelCache(),
 		annotationCache: kube.NewMockAnnotationCache(),
 		maxEventAge:     time.Second * time.Duration(MaxEventAgeSeconds),
-		fn:              func(event *kube.EnhancedEvent) {},
-		metricsStore:    metricsStore,
+		fn: func(event *kube.EnhancedEvent) {
+			// do nothing
+		},
+		metricsStore: metricsStore,
 	}
 	return watcher
 }
