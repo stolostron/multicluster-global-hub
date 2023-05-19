@@ -53,6 +53,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				id uuid NOT NULL,
 				cluster_id uuid NOT NULL,
 				updated_at timestamp without time zone DEFAULT now() NOT NULL,
+				compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL,
 				compliance local_status.compliance_type NOT NULL,
 				compliance_changed_frequency integer NOT NULL DEFAULT 0
 			);
@@ -109,7 +110,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 		By("Create the sync job")
 		s := gocron.NewScheduler(time.UTC)
 		complianceJob, err := s.Every(1).Second().Tag("LocalCompliance").DoWithJobDetails(
-			task.SyncLocalCompliance, ctx, pool)
+			task.SyncLocalCompliance, ctx, pool, true)
 		Expect(err).ToNot(HaveOccurred())
 		fmt.Println("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 		s.StartAsync()

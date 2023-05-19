@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
-	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -15,9 +14,10 @@ import (
 var (
 	localComplianceJobName string = "local-compliance-job"
 	startTime              time.Time
+	simulationCounter      int64 = 1
 )
 
-func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
+func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
 	log := ctrl.Log.WithName(localComplianceJobName)
 
 	log.Info("start running", "LastRun", job.LastRun().Format("2006-01-02 15:04:05"),
@@ -31,7 +31,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	// size provides a balance between minimizing the number of queries sent to the server while still being efficient
 	// and not overloading the system. To determine the optimal batchSize, it may be helpful to test different batch
 	// sizes and measure the performance of the queries.
-	totalCount, insertedCount, err := syncToLocalComplianceHistory(ctx, pool, 1000)
+	totalCount, insertedCount, err := syncToLocalComplianceHistory(ctx, pool, 1000, enableSimulation)
 	if err != nil {
 		log.Error(err, "sync to local_status.compliance_history failed")
 	}
@@ -43,7 +43,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, job gocron.Job
 	log.Info("finish running", "totalCount", totalCount, "insertedCount", insertedCount)
 }
 
-func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batchSize int64,
+func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batchSize int64, enableSimulation bool,
 ) (totalCount int64, insertedCount int64, err error) {
 	// create materialized view
 	viewName := fmt.Sprintf("local_status.compliance_view_%s",
@@ -69,7 +69,7 @@ func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batch
 	}
 
 	for offset := int64(0); offset < totalCount; offset += batchSize {
-		count, err := insertToLocalComplianceHistory(ctx, pool, viewName, totalCount, batchSize, offset)
+		count, err := insertToLocalComplianceHistory(ctx, pool, viewName, totalCount, batchSize, offset, enableSimulation)
 		if err != nil {
 			return totalCount, insertedCount, err
 		}
@@ -82,11 +82,15 @@ func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batch
 		return totalCount, insertedCount, err
 	}
 
+	if enableSimulation {
+		simulationCounter = simulationCounter + 1
+	}
+
 	return totalCount, insertedCount, nil
 }
 
 func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, viewName string,
-	totalCount, batchSize, offset int64,
+	totalCount, batchSize, offset int64, enableSimulation bool,
 ) (int64, error) {
 	// retry until success, use timeout context to avoid long running
 	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -121,17 +125,27 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, vie
 				fmt.Printf("trace compliance job failed: %v\n", e)
 			}
 		}()
-		selectInsertSQL := `
+		selectInsertSQLTemplate := `
 			INSERT INTO local_status.compliance_history (id, cluster_id, compliance) 
 			SELECT id,cluster_id,compliance 
 			FROM %s 
 			ORDER BY id, cluster_id
 			LIMIT $1 
 			OFFSET $2`
-		var result pgconn.CommandTag
-		result, insertError = tx.Exec(ctx, fmt.Sprintf(selectInsertSQL, viewName), batchSize, offset)
-		if insertError != nil {
-			fmt.Printf("exec failed: %v, retrying\n", insertError)
+		selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, viewName)
+		if enableSimulation {
+			selectInsertSQLTemplate = `
+				INSERT INTO local_status.compliance_history (id, cluster_id, compliance, compliance_date) 
+				SELECT id,cluster_id,compliance,(CURRENT_DATE - INTERVAL '%d day') 
+				FROM %s 
+				ORDER BY id, cluster_id
+				LIMIT $1 
+				OFFSET $2`
+			selectInsertSQL = fmt.Sprintf(selectInsertSQLTemplate, simulationCounter, viewName)
+		}
+		result, err := tx.Exec(ctx, selectInsertSQL, batchSize, offset)
+		if err != nil {
+			fmt.Printf("exec failed: %v, retrying\n", err)
 			return false, nil
 		}
 		if insertError = tx.Commit(ctx); insertError != nil {

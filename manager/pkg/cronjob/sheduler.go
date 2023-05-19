@@ -26,7 +26,9 @@ type GlobalHubJobScheduler struct {
 	scheduler *gocron.Scheduler
 }
 
-func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool, interval string) error {
+func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool, interval string,
+	enableSimulation bool,
+) error {
 	log := ctrl.Log.WithName("cronjob-scheduler")
 	// Scheduler timezone:
 	// The cluster may be in a different timezones, Here we choose to be consistent with the local GH timezone.
@@ -48,7 +50,7 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	}
 
 	complianceJob, err := scheduler.Tag("LocalComplianceHistory").DoWithJobDetails(
-		task.SyncLocalCompliance, ctx, pool)
+		task.SyncLocalCompliance, ctx, pool, enableSimulation)
 	if err != nil {
 		return err
 	}
