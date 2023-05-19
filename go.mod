@@ -17,6 +17,7 @@ require (
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lib/pq v1.10.6
+	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/onsi/ginkgo/v2 v2.9.2
 	github.com/onsi/gomega v1.27.6
 	github.com/openshift/api v0.0.0-20220531073726-6c4f186339a7
@@ -91,7 +92,6 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/opensearch-project/opensearch-go v1.1.0 // indirect
 	github.com/opsgenie/opsgenie-go-sdk-v2 v1.2.14 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect

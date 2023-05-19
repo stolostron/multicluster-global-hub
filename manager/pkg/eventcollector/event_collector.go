@@ -34,7 +34,7 @@ func AddEventCollector(ctx context.Context, mgr ctrl.Manager, kafkaConfig *trans
 	eventDispatcher := newEventDispatcher(messageChan)
 
 	// register event processors with the event dispatcher
-	eventDispatcher.RegisterProcessor(policyv1.Kind, processor.NewPolicyProcessor(pool))
+	eventDispatcher.RegisterProcessor(policyv1.Kind, processor.NewPolicyProcessor(ctx, pool))
 
 	// add the event dispatcher to manager
 	if err := mgr.Add(eventDispatcher); err != nil {
@@ -65,7 +65,8 @@ func (e *eventDispatcher) Start(ctx context.Context) error {
 			e.log.Info("context cancelled, exiting event dispatcher")
 			return nil
 		case message := <-e.messageChan:
-			e.log.Info("received message", "message", message)
+			e.log.Info("received message", "topic", message.Topic, "partition",
+				message.Partition, "offset", message.Offset)
 			event := &kube.EnhancedEvent{}
 			if err := json.Unmarshal(message.Value, &event); err != nil {
 				e.log.Error(err, "failed to unmarshal message to EnhancedEvent", "message", message)

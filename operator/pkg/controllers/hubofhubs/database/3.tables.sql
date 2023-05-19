@@ -286,9 +286,10 @@ CREATE TABLE IF NOT EXISTS event.local_policies (
     cluster_id uuid NOT NULL,
     message text,
     reason text,
-    source text,
+    source jsonb,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
-    compliance status.compliance_type NOT NULL
+    compliance status.compliance_type NOT NULL,
+    CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, created_at)
 );
 
 ALTER TABLE history.applications DROP CONSTRAINT IF EXISTS applications_pkey;
