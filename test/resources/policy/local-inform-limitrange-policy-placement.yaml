@@ -66,11 +66,11 @@ metadata:
 spec:
   clusterSets:
     - default
-  # predicates:
-  # - requiredClusterSelector:
-  #     labelSelector:
-  #       matchLabels:
-  #         local-policy-placement: test
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchLabels:
+          local-policy-placement: test
 ---
 apiVersion: cluster.open-cluster-management.io/v1beta1
 kind: ManagedClusterSetBinding
