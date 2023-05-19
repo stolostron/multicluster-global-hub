@@ -97,6 +97,7 @@ func (e *eventExporterController) addPolicyInfo(ctx context.Context, event *kube
 		return
 	}
 	event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey] = string(policy.GetUID())
+	event.InvolvedObject.Labels[constants.PolicyEventClusterComplianceLabelKey] = string(policy.Status.ComplianceState)
 
 	clusterName, ok := event.InvolvedObject.Labels[constants.PolicyEventClusterNameLabelKey]
 	if !ok {
