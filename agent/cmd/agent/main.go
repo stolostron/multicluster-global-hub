@@ -23,6 +23,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/event"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/incarnation"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
@@ -274,7 +275,7 @@ func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config
 		return nil, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
-	if err := controllers.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath,
+	if err := event.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath,
 		agentConfig.LeafHubName); err != nil {
 		return nil, fmt.Errorf("failed to add event exporter: %w", err)
 	}
