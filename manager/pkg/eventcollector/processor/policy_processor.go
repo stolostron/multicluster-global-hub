@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -67,11 +66,11 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent) {
 		Message:    event.Message,
 		Reason:     event.Reason,
 		Source:     event.Source,
-		CreatedAt:  event.LastTimestamp,
+		CreatedAt:  event.LastTimestamp.Time,
 		Compliance: compliance,
 	}
 
-	ctx, cancel := context.WithTimeout(p.ctx, 1*time.Second)
+	ctx, cancel := context.WithTimeout(p.ctx, 1*time.Minute)
 	defer cancel()
 	err := wait.PollUntilWithContext(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
 		err := insertOrUpdate(ctx, p.pool, localPolicyEvent)
@@ -92,7 +91,7 @@ type LocalPolicyEvent struct {
 	Message    string
 	Reason     string
 	Source     corev1.EventSource
-	CreatedAt  metav1.Time
+	CreatedAt  time.Time
 	Compliance string
 }
 
