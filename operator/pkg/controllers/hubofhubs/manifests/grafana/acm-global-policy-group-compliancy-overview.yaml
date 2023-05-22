@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1683225484949,
+      "iteration": 1684776038161,
       "links": [
         {
           "asDropdown": false,
@@ -42,7 +42,7 @@ data:
       "panels": [
         {
           "datasource": "${datasource}",
-          "description": "Aggregated policy group trend by: standard - $standard, category - $category, control - $control, and severity - $severity",
+          "description": "Aggregated policy group trend by standard, category, control, and severity.",
           "fieldConfig": {
             "defaults": {
               "color": {

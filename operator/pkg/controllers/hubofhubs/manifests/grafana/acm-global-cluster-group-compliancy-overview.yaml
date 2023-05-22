@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1684424083123,
+      "iteration": 1684776206097,
       "links": [
         {
           "asDropdown": false,
@@ -42,7 +42,7 @@ data:
       "panels": [
         {
           "datasource": "${datasource}",
-          "description": "Aggregated cluster group trend by cluster label: \"$label\":\"$value\"",
+          "description": "Aggregated cluster group trend by cluster label: \"$label\"",
           "fieldConfig": {
             "defaults": {
               "color": {
