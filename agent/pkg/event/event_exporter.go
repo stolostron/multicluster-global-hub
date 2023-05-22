@@ -1,4 +1,4 @@
-package controllers
+package event
 
 import (
 	"context"
@@ -12,20 +12,57 @@ import (
 	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/rest"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/event"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/event/enhancers"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
-type eventExporterController struct {
-	kubeConfig      *rest.Config
-	leafHubName     string
-	eventConfigFile string
+type EventEnhancer interface {
+	// Enhance is used to modify the event before it is omitted by the exporter
+	Enhance(ctx context.Context, event *kube.EnhancedEvent)
 }
 
-func (e *eventExporterController) Start(ctx context.Context) error {
-	log := ctrl.Log.WithName("event-exporter")
+type EventExporter interface {
+	// Start starts the event exporter and make sure it can be added to the manager
+	Start(ctx context.Context) error
+	// RegisterEnhancer registers an event enhancer
+	RegisterEnhancer(enhancer EventEnhancer)
+}
+
+type eventExporter struct {
+	kubeConfig      *rest.Config
+	eventConfigFile string
+	runtimeClient   client.Client
+	leafHubName     string
+	log             logr.Logger
+	enhancers       map[string]EventEnhancer
+}
+
+func AddEventExporter(mgr ctrl.Manager, eventConfigFile string, leafHubName string) error {
+	eventExporter := &eventExporter{
+		kubeConfig:      mgr.GetConfig(),
+		runtimeClient:   mgr.GetClient(),
+		leafHubName:     leafHubName,
+		eventConfigFile: eventConfigFile,
+		log:             ctrl.Log.WithName("event-exporter"),
+		enhancers:       make(map[string]EventEnhancer),
+	}
+
+	// add policy event enhancer
+	eventExporter.RegisterEnhancer(policyv1.Kind,
+		enhancers.NewPolicyEventEnhancer(eventExporter.runtimeClient))
+
+	return mgr.Add(eventExporter)
+}
+
+func (e *eventExporter) RegisterEnhancer(eventKey string, enhancer EventEnhancer) {
+	e.enhancers[eventKey] = enhancer
+}
+
+func (e *eventExporter) Start(ctx context.Context) error {
 	b, err := os.ReadFile(e.eventConfigFile)
 	if err != nil {
 		return err
@@ -38,8 +75,8 @@ func (e *eventExporterController) Start(ctx context.Context) error {
 	}
 
 	// issue: https://github.com/resmoio/kubernetes-event-exporter/pull/80
-	ValidateEventConfig(&cfg, log)
-	log.Info("starting event exporter", "config", cfg)
+	validateEventConfig(&cfg, e.log)
+	e.log.Info("starting event exporter", "config", cfg)
 
 	metrics.Init(*flag.String("metrics-address", ":2112",
 		"The address to listen on for HTTP requests."))
@@ -48,7 +85,7 @@ func (e *eventExporterController) Start(ctx context.Context) error {
 	if cfg.LogLevel != "" {
 		level, err := zerolog.ParseLevel(cfg.LogLevel)
 		if err != nil {
-			log.Error(err, "invalid log level")
+			e.log.Error(err, "invalid log level")
 		}
 		zerolog.SetGlobalLevel(level)
 	}
@@ -56,16 +93,20 @@ func (e *eventExporterController) Start(ctx context.Context) error {
 	engine := exporter.NewEngine(&cfg, &exporter.ChannelBasedReceiverRegistry{MetricsStore: metricsStore})
 	onEvent := func(event *kube.EnhancedEvent) {
 		// note that per code this value is not set anywhere on the kubernetes side
+		enhancer := e.enhancers[event.InvolvedObject.Kind]
+		if enhancer != nil {
+			enhancer.Enhance(ctx, event)
+		}
 		event.ClusterName = e.leafHubName
 		engine.OnEvent(event)
 	}
-	watcher := event.NewEventWatcher(e.kubeConfig, cfg.Namespace,
+	watcher := NewEventWatcher(e.kubeConfig, cfg.Namespace,
 		cfg.MaxEventAgeSeconds, metricsStore, onEvent)
 	watcher.Start()
 	return nil
 }
 
-func ValidateEventConfig(eventConfig *exporter.Config, log logr.Logger) {
+func validateEventConfig(eventConfig *exporter.Config, log logr.Logger) {
 	if len(eventConfig.Receivers) == 0 || eventConfig.Receivers[0].Kafka == nil {
 		log.Info("No kafka config found, skipping validate kafka sinker for event exporter")
 		return

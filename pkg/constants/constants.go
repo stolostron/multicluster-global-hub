@@ -107,3 +107,18 @@ const (
 	// PlacementDecisionMsgKey - placement-decision message key.
 	PlacementDecisionMsgKey = "PlacementDecision"
 )
+
+// event exporter reference object label keys
+const (
+	// the label is added by the event exporter
+	PolicyEventRootPolicyIdLabelKey = "policy.open-cluster-management.io/root-policy-id"
+	// the label is added by the event exporter
+	PolicyEventClusterIdLabelKey = "policy.open-cluster-management.io/cluster-id"
+	// the label is added by the event exporter
+	PolicyEventClusterComplianceLabelKey = "policy.open-cluster-management.io/cluster-compliance"
+
+	// the label is from the reference object itself
+	PolicyEventRootPolicyNameLabelKey = "policy.open-cluster-management.io/root-policy"
+	// the label is from the reference object itself
+	PolicyEventClusterNameLabelKey = "policy.open-cluster-management.io/cluster-name"
+)
