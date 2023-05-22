@@ -75,4 +75,25 @@ var _ = Describe("policy enhancer", Ordered, func() {
 
 		Expect(true).To(BeTrue())
 	})
+
+	It("should parse the policy status with regular expression", func() {
+		By("Parsing the expected message")
+		expectedMessage := "Policy policy1 status was updated to Compliant in cluster namespace cluster1"
+		matches := PolicyMessageStatusRe.FindStringSubmatch(expectedMessage)
+		Expect(len(matches)).To(Equal(4))
+		Expect(matches[1]).To(Equal("policy1"))
+		Expect(matches[2]).To(Equal("Compliant"))
+		Expect(matches[3]).To(Equal("cluster1"))
+
+		status := parsePolicyStatus(expectedMessage)
+		Expect(status).To(Equal("Compliant"))
+
+		By("Parsing the unexpected message")
+		unExpectedMessage := "Policy policy2 status was updated in cluster namespace cluster2"
+		matches = PolicyMessageStatusRe.FindStringSubmatch(unExpectedMessage)
+		Expect(matches).To(BeNil())
+
+		status = parsePolicyStatus(unExpectedMessage)
+		Expect(status).To(Equal(""))
+	})
 })

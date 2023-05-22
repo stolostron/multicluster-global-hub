@@ -3,6 +3,7 @@ package enhancers
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
+
+var PolicyMessageStatusRe = regexp.MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 
 type PolicyEventEnhancer struct {
 	runtimeClient client.Client
@@ -49,7 +52,13 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 		return
 	}
 	event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey] = string(policy.GetUID())
-	event.InvolvedObject.Labels[constants.PolicyEventClusterComplianceLabelKey] = string(policy.Status.ComplianceState)
+
+	parsedPolicyStatus := parsePolicyStatus(event.Message)
+	if parsedPolicyStatus != "" {
+		event.InvolvedObject.Labels[constants.PolicyEventClusterComplianceLabelKey] = parsedPolicyStatus
+	} else {
+		event.InvolvedObject.Labels[constants.PolicyEventClusterComplianceLabelKey] = string(policy.Status.ComplianceState)
+	}
 
 	// add cluster id
 	clusterName, ok := event.InvolvedObject.Labels[constants.PolicyEventClusterNameLabelKey]
@@ -68,4 +77,12 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 		}
 	}
 	event.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey] = clusterId
+}
+
+func parsePolicyStatus(eventMessage string) string {
+	matches := PolicyMessageStatusRe.FindStringSubmatch(eventMessage)
+	if len(matches) != 4 {
+		return ""
+	}
+	return matches[2]
 }
