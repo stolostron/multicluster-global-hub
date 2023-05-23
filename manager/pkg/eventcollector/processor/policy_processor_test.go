@@ -117,7 +117,8 @@ var _ = Describe("configmaps to database controller", func() {
 			}
 			defer rows.Close()
 			for rows.Next() {
-				if err := rows.Scan(&policy_id, &cluster_id, &message, &reason, &source, &created_at, &compliance); err != nil {
+				if err := rows.Scan(&policy_id, &cluster_id, &message, &reason,
+					&source, &created_at, &compliance); err != nil {
 					return err
 				}
 				if policy_id.String() == "37c9a640-af05-4bea-9dcc-1873e86bebcd" &&

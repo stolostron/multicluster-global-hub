@@ -21,7 +21,6 @@ type saramaConsumer struct {
 	log           logr.Logger
 	kafkaConfig   *transport.KafkaConfig
 	client        sarama.ConsumerGroup
-	handler       sarama.ConsumerGroupHandler
 	messageChan   chan *sarama.ConsumerMessage
 	processedChan chan *sarama.ConsumerMessage
 }
@@ -45,18 +44,11 @@ func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig) 
 	processedChan := make(chan *sarama.ConsumerMessage)
 	messageChan := make(chan *sarama.ConsumerMessage)
 
-	handler := &consumeGroupHandler{
-		log:           log.WithName("handler"),
-		messageChan:   messageChan,
-		processedChan: processedChan,
-	}
-
 	consumer := &saramaConsumer{
 		ctx:           ctx,
 		log:           log,
 		kafkaConfig:   kafkaConfig,
 		client:        client,
-		handler:       handler,
 		messageChan:   messageChan,
 		processedChan: processedChan,
 	}
@@ -77,7 +69,11 @@ func (c *saramaConsumer) MarkOffset(topic string, partition int32, offset int64)
 
 func (c *saramaConsumer) Start(ctx context.Context) error {
 	for {
-		err := c.client.Consume(ctx, []string{c.kafkaConfig.ConsumerConfig.ConsumerTopic}, c.handler)
+		err := c.client.Consume(ctx, []string{c.kafkaConfig.ConsumerConfig.ConsumerTopic}, &consumeGroupHandler{
+			log:           c.log.WithName("handler"),
+			messageChan:   c.messageChan,
+			processedChan: c.processedChan,
+		})
 		if err != nil {
 			c.log.Error(err, "Error from sarama consumer")
 		}
