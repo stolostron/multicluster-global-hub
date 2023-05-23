@@ -35,7 +35,8 @@ func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig) 
 	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	client, err := sarama.NewConsumerGroup([]string{kafkaConfig.BootstrapServer}, kafkaConfig.ConsumerConfig.ConsumerID, saramaConfig)
+	client, err := sarama.NewConsumerGroup([]string{kafkaConfig.BootstrapServer}, kafkaConfig.ConsumerConfig.ConsumerID,
+		saramaConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +51,7 @@ func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig) 
 		processedChan: processedChan,
 	}
 
-	return &saramaConsumer{
+	consumer := &saramaConsumer{
 		ctx:           ctx,
 		log:           log,
 		kafkaConfig:   kafkaConfig,
@@ -58,7 +59,8 @@ func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig) 
 		handler:       handler,
 		messageChan:   messageChan,
 		processedChan: processedChan,
-	}, nil
+	}
+	return consumer, nil
 }
 
 func (c *saramaConsumer) MessageChan() chan *sarama.ConsumerMessage {
@@ -75,9 +77,6 @@ func (c *saramaConsumer) MarkOffset(topic string, partition int32, offset int64)
 
 func (c *saramaConsumer) Start(ctx context.Context) error {
 	for {
-		// `Consume` should be called inside an infinite loop, when a
-		// server-side rebalance happens, the consumer session will need to be
-		// recreated to get the new claims
 		if err := c.client.Consume(ctx, []string{c.kafkaConfig.ConsumerConfig.ConsumerTopic}, c.handler); err != nil {
 			c.log.Error(err, "Error from sarama consumer")
 		}
@@ -100,12 +99,10 @@ type consumeGroupHandler struct {
 // Setup is run at the beginning of a new session, before ConsumeClaim
 func (cgh *consumeGroupHandler) Setup(session sarama.ConsumerGroupSession) error {
 	cgh.log.Info("Sarama consumer handler setup")
-	// commit offset asynchronously
 	go func() {
 		for {
 			select {
 			case msg := <-cgh.processedChan:
-				// commit offset
 				cgh.log.Info("mark offset", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
 				session.MarkMessage(msg, "")
 			case <-session.Context().Done():
@@ -126,19 +123,11 @@ func (cgh *consumeGroupHandler) Cleanup(sarama.ConsumerGroupSession) error {
 func (cgh *consumeGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 	claim sarama.ConsumerGroupClaim,
 ) error {
-	// NOTE:
-	// Do not move the code below to a goroutine.
-	// The `ConsumeClaim` itself is called within a goroutine, see:
-	// https://github.com/Shopify/sarama/blob/main/consumer_group.go#L27-L29
 	for {
 		select {
 		case message := <-claim.Messages():
 			cgh.messageChan <- message
 			// session.MarkMessage(message, "")
-
-		// Should return when `session.Context()` is done.
-		// If not, will raise `ErrRebalanceInProgress` or `read tcp <ip>:<port>: i/o timeout` when kafka rebalance. see:
-		// https://github.com/Shopify/sarama/issues/1192
 		case <-session.Context().Done():
 			return nil
 		}
