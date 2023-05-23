@@ -50,7 +50,6 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 	if !ok {
 		return
 	}
-
 	// algin with the database enum values
 	compliance := "unknown"
 	switch clusterCompliance {
