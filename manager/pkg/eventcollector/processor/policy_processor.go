@@ -17,20 +17,22 @@ import (
 )
 
 type policyProcessor struct {
-	log  logr.Logger
-	ctx  context.Context
-	pool *pgxpool.Pool
+	log           logr.Logger
+	ctx           context.Context
+	pool          *pgxpool.Pool
+	offsetManager OffsetManager
 }
 
-func NewPolicyProcessor(ctx context.Context, pool *pgxpool.Pool) *policyProcessor {
+func NewPolicyProcessor(ctx context.Context, pool *pgxpool.Pool, offsetManager OffsetManager) *policyProcessor {
 	return &policyProcessor{
-		log:  ctrl.Log.WithName("policy-event-processor"),
-		ctx:  ctx,
-		pool: pool,
+		log:           ctrl.Log.WithName("policy-event-processor"),
+		ctx:           ctx,
+		pool:          pool,
+		offsetManager: offsetManager,
 	}
 }
 
-func (p *policyProcessor) Process(event *kube.EnhancedEvent) {
+func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventOffset) {
 	p.log.Info("process policy event", "name", fmt.Sprintf("%s - %s/%s", event.ClusterName,
 		event.InvolvedObject.Namespace, event.InvolvedObject.Name), "count",
 		fmt.Sprintf("%d", event.Count), "lastTimestamp", event.LastTimestamp)
@@ -82,7 +84,9 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent) {
 	})
 	if err != nil {
 		p.log.Error(err, "insert or update local_policies failed")
+		return
 	}
+	p.offsetManager.MarkOffset(eventOffset.Topic, eventOffset.Partition, eventOffset.Offset)
 }
 
 type LocalPolicyEvent struct {

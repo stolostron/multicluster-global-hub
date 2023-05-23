@@ -10,18 +10,23 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type SaramaConsumer struct {
-	ctx         context.Context
-	log         logr.Logger
-	kafkaConfig *transport.KafkaConfig
-	client      sarama.ConsumerGroup
-	handler     sarama.ConsumerGroupHandler
-	messageChan chan *sarama.ConsumerMessage
+type SaramaConsumer interface {
+	Start(ctx context.Context) error
+	MessageChan() chan *sarama.ConsumerMessage
+	MarkOffset(topic string, partition int32, offset int64)
 }
 
-func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig,
-	messageChan chan *sarama.ConsumerMessage,
-) (*SaramaConsumer, error) {
+type saramaConsumer struct {
+	ctx           context.Context
+	log           logr.Logger
+	kafkaConfig   *transport.KafkaConfig
+	client        sarama.ConsumerGroup
+	handler       sarama.ConsumerGroupHandler
+	messageChan   chan *sarama.ConsumerMessage
+	processedChan chan *sarama.ConsumerMessage
+}
+
+func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig) (SaramaConsumer, error) {
 	log := ctrl.Log.WithName("sarama-consumer")
 	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
 	if err != nil {
@@ -35,22 +40,40 @@ func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig,
 		return nil, err
 	}
 
+	// used to commit offset asynchronously
+	processedChan := make(chan *sarama.ConsumerMessage)
+	messageChan := make(chan *sarama.ConsumerMessage)
+
 	handler := &consumeGroupHandler{
-		log:         log.WithName("handler"),
-		messageChan: messageChan,
+		log:           log.WithName("handler"),
+		messageChan:   messageChan,
+		processedChan: processedChan,
 	}
 
-	return &SaramaConsumer{
-		ctx:         ctx,
-		log:         log,
-		kafkaConfig: kafkaConfig,
-		client:      client,
-		handler:     handler,
-		messageChan: messageChan,
+	return &saramaConsumer{
+		ctx:           ctx,
+		log:           log,
+		kafkaConfig:   kafkaConfig,
+		client:        client,
+		handler:       handler,
+		messageChan:   messageChan,
+		processedChan: processedChan,
 	}, nil
 }
 
-func (c *SaramaConsumer) Start(ctx context.Context) error {
+func (c *saramaConsumer) MessageChan() chan *sarama.ConsumerMessage {
+	return c.messageChan
+}
+
+func (c *saramaConsumer) MarkOffset(topic string, partition int32, offset int64) {
+	c.processedChan <- &sarama.ConsumerMessage{
+		Topic:     topic,
+		Partition: partition,
+		Offset:    offset,
+	}
+}
+
+func (c *saramaConsumer) Start(ctx context.Context) error {
 	for {
 		// `Consume` should be called inside an infinite loop, when a
 		// server-side rebalance happens, the consumer session will need to be
@@ -69,13 +92,27 @@ func (c *SaramaConsumer) Start(ctx context.Context) error {
 
 // Consumer represents a Sarama consumer group consumer
 type consumeGroupHandler struct {
-	log         logr.Logger
-	messageChan chan *sarama.ConsumerMessage
+	log           logr.Logger
+	messageChan   chan *sarama.ConsumerMessage
+	processedChan chan *sarama.ConsumerMessage
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
-func (cgh *consumeGroupHandler) Setup(sarama.ConsumerGroupSession) error {
+func (cgh *consumeGroupHandler) Setup(session sarama.ConsumerGroupSession) error {
 	cgh.log.Info("Sarama consumer handler setup")
+	// commit offset asynchronously
+	go func() {
+		for {
+			select {
+			case msg := <-cgh.processedChan:
+				// commit offset
+				cgh.log.Info("mark offset", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
+				session.MarkMessage(msg, "")
+			case <-session.Context().Done():
+				return
+			}
+		}
+	}()
 	return nil
 }
 
@@ -97,7 +134,7 @@ func (cgh *consumeGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession
 		select {
 		case message := <-claim.Messages():
 			cgh.messageChan <- message
-			session.MarkMessage(message, "")
+			// session.MarkMessage(message, "")
 
 		// Should return when `session.Context()` is done.
 		// If not, will raise `ErrRebalanceInProgress` or `read tcp <ip>:<port>: i/o timeout` when kafka rebalance. see:

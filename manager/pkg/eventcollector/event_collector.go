@@ -12,7 +12,7 @@ import (
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector/processor"
+	eventprocessor "github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector/processor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
@@ -20,9 +20,8 @@ import (
 func AddEventCollector(ctx context.Context, mgr ctrl.Manager, kafkaConfig *transport.KafkaConfig,
 	pool *pgxpool.Pool,
 ) error {
-	messageChan := make(chan *sarama.ConsumerMessage)
 	// add the event consumer to manager
-	eventConsumer, err := consumer.NewSaramaConsumer(ctx, kafkaConfig, messageChan)
+	eventConsumer, err := consumer.NewSaramaConsumer(ctx, kafkaConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create event consumer: %w", err)
 	}
@@ -31,10 +30,11 @@ func AddEventCollector(ctx context.Context, mgr ctrl.Manager, kafkaConfig *trans
 	}
 
 	// create the event dispatcher
-	eventDispatcher := newEventDispatcher(messageChan)
+	eventDispatcher := newEventDispatcher(eventConsumer.MessageChan())
 
 	// register event processors with the event dispatcher
-	eventDispatcher.RegisterProcessor(policyv1.Kind, processor.NewPolicyProcessor(ctx, pool))
+	eventDispatcher.RegisterProcessor(policyv1.Kind,
+		eventprocessor.NewPolicyProcessor(ctx, pool, eventConsumer))
 
 	// add the event dispatcher to manager
 	if err := mgr.Add(eventDispatcher); err != nil {
@@ -47,14 +47,14 @@ func AddEventCollector(ctx context.Context, mgr ctrl.Manager, kafkaConfig *trans
 type eventDispatcher struct {
 	log         logr.Logger
 	messageChan <-chan *sarama.ConsumerMessage
-	processors  map[string]processor.EventProcessor
+	processors  map[string]eventprocessor.EventProcessor
 }
 
 func newEventDispatcher(messageChan <-chan *sarama.ConsumerMessage) *eventDispatcher {
 	return &eventDispatcher{
 		log:         ctrl.Log.WithName("event-dispatcher"),
 		messageChan: messageChan,
-		processors:  make(map[string]processor.EventProcessor),
+		processors:  make(map[string]eventprocessor.EventProcessor),
 	}
 }
 
@@ -78,11 +78,15 @@ func (e *eventDispatcher) Start(ctx context.Context) error {
 					"objectKind", event.InvolvedObject.Kind)
 				continue
 			}
-			processor.Process(event)
+			processor.Process(event, &eventprocessor.EventOffset{
+				Topic:     message.Topic,
+				Partition: message.Partition,
+				Offset:    message.Offset,
+			})
 		}
 	}
 }
 
-func (e *eventDispatcher) RegisterProcessor(objectKind string, processor processor.EventProcessor) {
+func (e *eventDispatcher) RegisterProcessor(objectKind string, processor eventprocessor.EventProcessor) {
 	e.processors[objectKind] = processor
 }
