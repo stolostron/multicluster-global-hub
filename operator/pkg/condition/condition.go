@@ -66,6 +66,13 @@ const (
 	CONDITION_MESSAGE_MANAGER_AVAILABLE = "Multicluster Global Hub Manager has been deployed"
 )
 
+// NOTE: the status of ManagerDeployed can only be True; otherwise there is no condition
+const (
+	CONDITION_TYPE_GRC_DISABLED    = "GRCDISABLED"
+	CONDITION_REASON_GRC_DISABLED  = "GRCDISABLED"
+	CONDITION_MESSAGE_GRC_DISABLED = "GRC has been disabled in MultiClusterHub"
+)
+
 // NOTE: the status of LeafHubDeployed can only be True; otherwise there is no condition
 const (
 	CONDITION_TYPE_LEAFHUB_DEPLOY           = "LeafHubDeployed"
@@ -110,6 +117,13 @@ func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *ope
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MANAGER_AVAILABLE, status,
 		CONDITION_REASON_MANAGER_AVAILABLE, CONDITION_MESSAGE_MANAGER_AVAILABLE)
+}
+
+func SetConditionGRCDisabled(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	status metav1.ConditionStatus,
+) error {
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRC_DISABLED, status,
+		CONDITION_REASON_GRC_DISABLED, CONDITION_MESSAGE_GRC_DISABLED)
 }
 
 func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
