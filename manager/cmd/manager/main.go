@@ -133,7 +133,7 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 
 	pflag.Visit(func(f *pflag.Flag) {
 		// set enableSimulation to be true when manually set 'scheduler-interval' flag
-		if f.Name == "scheduler-interval" {
+		if f.Name == "scheduler-interval" && f.Changed {
 			enableSimulation = true
 		}
 	})
