@@ -16,6 +16,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	"github.com/go-logr/logr"
+	"github.com/mohae/deepcopy"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -26,11 +27,11 @@ import (
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -109,6 +110,7 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
 		"spec", "Topic for the kafka producer.")
+	pflag.StringVar(&managerConfig.EventExporterTopic, "event-exporter-topic", "event", "Topic for the event exporter.")
 	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
@@ -165,7 +167,7 @@ func printVersion(log logr.Logger) {
 }
 
 func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
-	processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL,
+	processPostgreSQL *postgresql.PostgreSQL,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
@@ -212,17 +214,8 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
-	if err := spec2db.AddSpec2DBControllers(mgr, processPostgreSQL); err != nil {
-		return nil, fmt.Errorf("failed to add spec-to-db controllers: %w", err)
-	}
-
-	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, managerConfig); err != nil {
-		return nil, fmt.Errorf("failed to add db-to-transport syncers: %w", err)
-	}
-
-	if err := specsyncer.AddStatusDBWatchers(mgr, processPostgreSQL, transportBridgePostgreSQL,
-		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval); err != nil {
-		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
+	if err := specsyncer.AddSpecSyncers(mgr, managerConfig, processPostgreSQL); err != nil {
+		return nil, fmt.Errorf("failed to add spec syncers: %w", err)
 	}
 
 	if _, err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
@@ -232,6 +225,13 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn(),
 		managerConfig.SchedulerInterval, enableSimulation); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
+	}
+
+	eventKafkaConfig := deepcopy.Copy(managerConfig.TransportConfig.KafkaConfig).(*transport.KafkaConfig)
+	eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
+	if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig,
+		processPostgreSQL.GetConn()); err != nil {
+		return nil, fmt.Errorf("failed to add event collector: %w", err)
 	}
 
 	return mgr, nil
@@ -255,15 +255,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	}
 	defer processPostgreSQL.Stop()
 
-	// db layer initialization for transport-bridge user
-	transportBridgePostgreSQL, err := postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
-	if err != nil {
-		log.Error(err, "failed to initialize transport-bridge PostgreSQL")
-		return 1
-	}
-	defer transportBridgePostgreSQL.Stop()
-
-	mgr, err := createManager(ctx, restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
+	mgr, err := createManager(ctx, restConfig, managerConfig, processPostgreSQL)
 	if err != nil {
 		log.Error(err, "failed to create manager")
 		return 1
