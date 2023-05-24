@@ -110,9 +110,10 @@ func parseFlags() *config.AgentConfig {
 			enc.AppendString(t.Format("2006-01-02 15:04:05 MST"))
 		},
 	}
-	opts.BindFlags(flag.CommandLine)
+	defaultFlags := flag.CommandLine
+	opts.BindFlags(defaultFlags)
+	pflag.CommandLine.AddGoFlagSet(defaultFlags)
 
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.StringVar(&agentConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server", "",
 		"The bootstrap server for kafka.")
@@ -188,7 +189,9 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	return nil
 }
 
-func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) (ctrl.Manager, error) {
+func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) (
+	ctrl.Manager, error,
+) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second

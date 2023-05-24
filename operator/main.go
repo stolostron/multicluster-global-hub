@@ -210,8 +210,9 @@ func parseFlags() *operatorConfig {
 			enc.AppendString(t.Format("2006-01-02 15:04:05 MST"))
 		},
 	}
-	opts.BindFlags(flag.CommandLine)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	defaultFlags := flag.CommandLine
+	opts.BindFlags(defaultFlags)
+	pflag.CommandLine.AddGoFlagSet(defaultFlags)
 	pflag.StringVar(&config.MetricsAddress, "metrics-bind-address", ":8080",
 		"The address the metric endpoint binds to.")
 	pflag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081",

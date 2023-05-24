@@ -78,9 +78,10 @@ func parseFlags() *managerconfig.ManagerConfig {
 			enc.AppendString(t.Format("2006-01-02 15:04:05 MST"))
 		},
 	}
-	opts.BindFlags(flag.CommandLine)
+	defaultFlags := flag.CommandLine
+	opts.BindFlags(defaultFlags)
+	pflag.CommandLine.AddGoFlagSet(defaultFlags)
 
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", "open-cluster-management",
 		"The manager running namespace, also used as leader election namespace.")
 	pflag.StringVar(&managerConfig.WatchNamespace, "watch-namespace", "",
