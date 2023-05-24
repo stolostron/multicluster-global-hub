@@ -205,7 +205,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							return err
 						}
 						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-							for _, leafhubName := range LeafHubNames {
+						for _, leafhubName := range LeafHubNames {
 							if leafhub == leafhubName && policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
 								policies[leafhub] = policy
 							}						

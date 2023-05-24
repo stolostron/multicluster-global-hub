@@ -151,7 +151,6 @@ func getLeafHubName(managedClusterName string) string {
 
 func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCluster, error) {
 	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
-	fmt.Println(managedClusterUrl)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
