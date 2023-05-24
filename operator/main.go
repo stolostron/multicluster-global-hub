@@ -27,7 +27,6 @@ import (
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	"github.com/spf13/pflag"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
-	"go.uber.org/zap/zapcore"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -204,12 +203,7 @@ func parseFlags() *operatorConfig {
 	}
 
 	// add zap flags
-	opts := zap.Options{
-		Development: true,
-		TimeEncoder: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-			enc.AppendString(t.Format("2006-01-02 15:04:05 MST"))
-		},
-	}
+	opts := utils.CtrlZapOptions()
 	defaultFlags := flag.CommandLine
 	opts.BindFlags(defaultFlags)
 	pflag.CommandLine.AddGoFlagSet(defaultFlags)

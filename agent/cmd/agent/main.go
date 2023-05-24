@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/pflag"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
-	"go.uber.org/zap/zapcore"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -104,12 +103,7 @@ func parseFlags() *config.AgentConfig {
 	}
 
 	// add flags for logger
-	opts := zap.Options{
-		Development: true,
-		TimeEncoder: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-			enc.AppendString(t.Format("2006-01-02 15:04:05 MST"))
-		},
-	}
+	opts := utils.CtrlZapOptions()
 	defaultFlags := flag.CommandLine
 	opts.BindFlags(defaultFlags)
 	pflag.CommandLine.AddGoFlagSet(defaultFlags)

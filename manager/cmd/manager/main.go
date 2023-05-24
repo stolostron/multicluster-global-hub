@@ -15,7 +15,6 @@ import (
 
 	"github.com/mohae/deepcopy"
 	"github.com/spf13/pflag"
-	"go.uber.org/zap/zapcore"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -72,12 +71,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 	}
 
 	// add zap flags
-	opts := zap.Options{
-		Development: true,
-		TimeEncoder: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-			enc.AppendString(t.Format("2006-01-02 15:04:05 MST"))
-		},
-	}
+	opts := utils.CtrlZapOptions()
 	defaultFlags := flag.CommandLine
 	opts.BindFlags(defaultFlags)
 	pflag.CommandLine.AddGoFlagSet(defaultFlags)
