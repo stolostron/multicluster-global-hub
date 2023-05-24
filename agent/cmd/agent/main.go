@@ -5,13 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
 	"time"
 
-	"github.com/go-logr/logr"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -20,6 +18,7 @@ import (
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
@@ -33,6 +32,7 @@ import (
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -41,10 +41,13 @@ const (
 	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
 )
 
+var setupLog = ctrl.Log.WithName("setup")
+
 func main() {
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
 	// otherwise kubeconfig will not be passed to agent main process
 	agentConfig := parseFlags()
+	utils.PrintVersion(setupLog)
 	if agentConfig.Terminating {
 		os.Exit(doTermination(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
 	}
@@ -52,18 +55,17 @@ func main() {
 }
 
 func doTermination(ctx context.Context, restConfig *rest.Config) int {
-	log := initLog()
 	if err := agentscheme.AddToScheme(scheme.Scheme); err != nil {
-		log.Error(err, "failed to add to scheme")
+		setupLog.Error(err, "failed to add to scheme")
 		return 1
 	}
 	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
-		log.Error(err, "failed to int controller runtime client")
+		setupLog.Error(err, "failed to int controller runtime client")
 		return 1
 	}
 	if err := jobs.NewPruneFinalizer(ctx, client).Run(); err != nil {
-		log.Error(err, "failed to prune resources finalizer")
+		setupLog.Error(err, "failed to prune resources finalizer")
 		return 1
 	}
 	return 0
@@ -71,33 +73,23 @@ func doTermination(ctx context.Context, restConfig *rest.Config) int {
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
 func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) int {
-	log := initLog()
-
 	if err := completeConfig(agentConfig); err != nil {
-		log.Error(err, "failed to get regional hub configuration from command line flags")
+		setupLog.Error(err, "failed to get regional hub configuration from command line flags")
 		return 1
 	}
 
-	mgr, err := createManager(ctx, log, restConfig, agentConfig)
+	mgr, err := createManager(ctx, restConfig, agentConfig)
 	if err != nil {
-		log.Error(err, "failed to create manager")
+		setupLog.Error(err, "failed to create manager")
 		return 1
 	}
 
-	log.Info("starting the agent controller manager")
+	setupLog.Info("starting the agent controller manager")
 	if err := mgr.Start(ctx); err != nil {
-		log.Error(err, "manager exited non-zero")
+		setupLog.Error(err, "manager exited non-zero")
 		return 1
 	}
 	return 0
-}
-
-func initLog() logr.Logger {
-	ctrl.SetLogger(zap.Logger())
-	log := ctrl.Log.WithName("cmd")
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	return log
 }
 
 func parseFlags() *config.AgentConfig {
@@ -112,9 +104,15 @@ func parseFlags() *config.AgentConfig {
 	}
 
 	// add flags for logger
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	opts := zap.Options{
+		Development: true,
+		TimeEncoder: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+			enc.AppendString(t.Format("2006-01-02 15:04:05 MST"))
+		},
+	}
+	opts.BindFlags(flag.CommandLine)
 
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.StringVar(&agentConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server", "",
 		"The bootstrap server for kafka.")
@@ -163,6 +161,10 @@ func parseFlags() *config.AgentConfig {
 		"The configuration file for the kubernetes event exporter")
 
 	pflag.Parse()
+
+	// set zap logger
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
 	return agentConfig
 }
 
@@ -186,9 +188,7 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	return nil
 }
 
-func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config,
-	agentConfig *config.AgentConfig,
-) (ctrl.Manager, error) {
+func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second
@@ -231,17 +231,17 @@ func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config
 		return nil, fmt.Errorf("failed to create dynamic client %v", err)
 	}
 	// check the acm is installed and then add the following controllers to mgr
-	mchExists, err := ensureMulticlusterHub(ctx, log, dynamicClient)
+	mchExists, err := ensureMulticlusterHub(ctx, dynamicClient)
 	if err != nil {
-		log.Error(err, "You need install ACM before using the agent")
+		setupLog.Error(err, "You need install ACM before using the agent")
 	}
 
 	var clusterManagerExists bool
 	if !mchExists {
 		// we are using ocm for e2e test
-		clusterManagerExists, err = ensureClusterManager(ctx, log, dynamicClient)
+		clusterManagerExists, err = ensureClusterManager(ctx, dynamicClient)
 		if err != nil {
-			log.Error(err, "You need install OCM before using the agent")
+			setupLog.Error(err, "You need install OCM before using the agent")
 		}
 	}
 
@@ -251,13 +251,13 @@ func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config
 		if err != nil {
 			return nil, fmt.Errorf("failed to get incarnation version: %w", err)
 		}
-		log.Info("start agent with incarnation version", "version", incarnation)
+		setupLog.Info("start agent with incarnation version", "version", incarnation)
 
 		// add spec controllers
 		if err := specController.AddToManager(mgr, agentConfig); err != nil {
 			return nil, fmt.Errorf("failed to add spec syncer: %w", err)
 		}
-		log.Info("add spec controllers to manager")
+		setupLog.Info("add spec controllers to manager")
 
 		if err := statusController.AddControllers(mgr, agentConfig, incarnation); err != nil {
 			return nil, fmt.Errorf("failed to add status syncer: %w", err)
@@ -283,7 +283,7 @@ func createManager(ctx context.Context, log logr.Logger, restConfig *rest.Config
 	return mgr, nil
 }
 
-func ensureMulticlusterHub(ctx context.Context, log logr.Logger, dynamicClient dynamic.Interface) (bool, error) {
+func ensureMulticlusterHub(ctx context.Context, dynamicClient dynamic.Interface) (bool, error) {
 	mch, err := dynamicClient.Resource(mchv1.GroupVersion.WithResource("multiclusterhubs")).
 		Namespace("").
 		List(ctx, metav1.ListOptions{})
@@ -293,7 +293,7 @@ func ensureMulticlusterHub(ctx context.Context, log logr.Logger, dynamicClient d
 	return len(mch.Items) > 0, nil
 }
 
-func ensureClusterManager(ctx context.Context, log logr.Logger, dynamicClient dynamic.Interface) (
+func ensureClusterManager(ctx context.Context, dynamicClient dynamic.Interface) (
 	bool, error,
 ) {
 	clusterManager, err := dynamicClient.Resource(

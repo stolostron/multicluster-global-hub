@@ -10,19 +10,17 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 	"time"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	"github.com/go-logr/logr"
 	"github.com/mohae/deepcopy"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
+	"go.uber.org/zap/zapcore"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
@@ -38,6 +36,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -53,9 +52,10 @@ var (
 	errFlagParameterEmpty        = errors.New("flag parameter empty")
 	errFlagParameterIllegalValue = errors.New("flag parameter illegal value")
 	enableSimulation             = false
+	setupLog                     = ctrl.Log.WithName("setup")
 )
 
-func parseFlags() (*managerconfig.ManagerConfig, error) {
+func parseFlags() *managerconfig.ManagerConfig {
 	managerConfig := &managerconfig.ManagerConfig{
 		SyncerConfig:   &managerconfig.SyncerConfig{},
 		DatabaseConfig: &managerconfig.DatabaseConfig{},
@@ -71,6 +71,16 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
 
+	// add zap flags
+	opts := zap.Options{
+		Development: true,
+		TimeEncoder: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+			enc.AppendString(t.Format("2006-01-02 15:04:05 MST"))
+		},
+	}
+	opts.BindFlags(flag.CommandLine)
+
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", "open-cluster-management",
 		"The manager running namespace, also used as leader election namespace.")
 	pflag.StringVar(&managerConfig.WatchNamespace, "watch-namespace", "",
@@ -128,10 +138,10 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 	pflag.IntVar(&managerConfig.ElectionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
 	pflag.IntVar(&managerConfig.ElectionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
 	pflag.IntVar(&managerConfig.ElectionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
-	// add flags for logger
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+
 	pflag.Parse()
+	// set zap logger
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	pflag.Visit(func(f *pflag.Flag) {
 		// set enableSimulation to be true when manually set 'scheduler-interval' flag
@@ -139,31 +149,18 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 			enableSimulation = true
 		}
 	})
+	return managerConfig
+}
 
+func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	if managerConfig.DatabaseConfig.ProcessDatabaseURL == "" {
-		return nil, fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
-	}
-	if managerConfig.DatabaseConfig.TransportBridgeDatabaseURL == "" {
-		return nil, fmt.Errorf("database url for transport-bridge user: %w", errFlagParameterEmpty)
+		return fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
 	}
 	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
-		return nil, fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
+		return fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
 	}
-
-	return managerConfig, nil
-}
-
-func initializeLogger() logr.Logger {
-	ctrl.SetLogger(zap.Logger())
-	log := ctrl.Log.WithName("cmd")
-
-	return log
-}
-
-func printVersion(log logr.Logger) {
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+	return nil
 }
 
 func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
@@ -239,37 +236,35 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
 func doMain(ctx context.Context, restConfig *rest.Config) int {
-	log := initializeLogger()
-	printVersion(log)
-	// create hoh manager configuration from command parameters
-	managerConfig, err := parseFlags()
-	if err != nil {
-		log.Error(err, "flags parse error")
+	managerConfig := parseFlags()
+	if err := completeConfig(managerConfig); err != nil {
+		setupLog.Error(err, "failed to complete configuration")
 		return 1
 	}
+	utils.PrintVersion(setupLog)
 
 	processPostgreSQL, err := postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
 	if err != nil {
-		log.Error(err, "failed to initialize process PostgreSQL")
+		setupLog.Error(err, "failed to initialize process PostgreSQL")
 		return 1
 	}
 	defer processPostgreSQL.Stop()
 
 	mgr, err := createManager(ctx, restConfig, managerConfig, processPostgreSQL)
 	if err != nil {
-		log.Error(err, "failed to create manager")
+		setupLog.Error(err, "failed to create manager")
 		return 1
 	}
 
 	hookServer := mgr.GetWebhookServer()
-	log.Info("registering webhooks to the webhook server")
+	setupLog.Info("registering webhooks to the webhook server")
 	hookServer.Register("/mutating", &webhook.Admission{
 		Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()},
 	})
 
-	log.Info("Starting the Manager")
+	setupLog.Info("Starting the Manager")
 	if err := mgr.Start(ctx); err != nil {
-		log.Error(err, "manager exited non-zero")
+		setupLog.Error(err, "manager exited non-zero")
 		return 1
 	}
 

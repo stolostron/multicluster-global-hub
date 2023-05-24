@@ -183,7 +183,6 @@ func TestNoMCHClusterManagerCRD(t *testing.T) {
 		CRDDirectoryPaths:     []string{},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
@@ -195,7 +194,7 @@ func TestNoMCHClusterManagerCRD(t *testing.T) {
 		}
 	}()
 
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -208,7 +207,6 @@ func TestHasMCHCRDWithoutCR(t *testing.T) {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
@@ -221,7 +219,7 @@ func TestHasMCHCRDWithoutCR(t *testing.T) {
 		}
 	}()
 
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -234,7 +232,6 @@ func TestHasMCHCRDCR(t *testing.T) {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
@@ -273,7 +270,7 @@ func TestHasMCHCRDCR(t *testing.T) {
 		panic(err)
 	}
 
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if !strings.Contains(err.Error(), "failed to create incarnation config-map") {
 		t.Fatalf("expect to have `failed to create incarnation config-map` error, but we got %v", err)
 	}
@@ -287,7 +284,6 @@ func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
@@ -299,7 +295,7 @@ func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
 		}
 	}()
 
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -313,7 +309,6 @@ func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
@@ -350,7 +345,7 @@ func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 		panic(err)
 	}
 
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if !strings.Contains(err.Error(), "failed to create incarnation config-map") {
 		t.Fatalf("expect to have `failed to create incarnation config-map` error, but we got %v", err)
 	}
