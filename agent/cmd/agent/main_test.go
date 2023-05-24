@@ -177,6 +177,7 @@ func initMockAgentConfig() *config.AgentConfig {
 	return &config.AgentConfig{
 		PodNameSpace:   "default",
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
+		MetricsAddress: "0",
 	}
 }
 
@@ -195,7 +196,6 @@ func TestNoMCHClusterManagerCRD(t *testing.T) {
 			panic(err)
 		}
 	}()
-
 	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if err != nil {
 		panic(err)
@@ -220,7 +220,6 @@ func TestHasMCHCRDWithoutCR(t *testing.T) {
 			panic(err)
 		}
 	}()
-
 	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if err != nil {
 		panic(err)

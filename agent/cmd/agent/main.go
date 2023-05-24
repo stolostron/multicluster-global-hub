@@ -186,6 +186,9 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 			agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, producer.MaxMessageSizeLimit)
 	}
 	agentConfig.TransportConfig.KafkaConfig.EnableTLS = true
+	if agentConfig.MetricsAddress == "" {
+		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
+	}
 	return nil
 }
 
@@ -208,7 +211,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	}
 
 	options := ctrl.Options{
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		MetricsBindAddress:      agentConfig.MetricsAddress,
 		LeaderElection:          true,
 		LeaderElectionConfig:    leaderElectionConfig,
 		LeaderElectionID:        leaderElectionLockID,
