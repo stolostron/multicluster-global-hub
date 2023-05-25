@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -138,6 +139,7 @@ func TestManager(t *testing.T) {
 	for _, tc := range cases {
 		// this call is required because otherwise flags panics, if args are set between flag.Parse call
 		pflag.CommandLine = pflag.NewFlagSet(tc.name, pflag.ExitOnError)
+		flag.CommandLine = flag.NewFlagSet(tc.name, flag.ExitOnError)
 		// we need a value to set Args[0] to cause flag begins parsing at Args[1]
 		os.Args = append([]string{tc.name}, tc.args...)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

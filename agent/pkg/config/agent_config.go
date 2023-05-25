@@ -15,4 +15,5 @@ type AgentConfig struct {
 	ElectionConfig               *commonobjects.LeaderElectionConfig
 	Terminating                  bool
 	KubeEventExporterConfigPath  string
+	MetricsAddress               string
 }

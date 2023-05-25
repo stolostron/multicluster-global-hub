@@ -119,9 +119,10 @@ func TestEventCollector(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	messageChan := make(chan *sarama.ConsumerMessage)
 	eventDispatcher := newEventDispatcher(messageChan)
-	eventDispatcher.RegisterProcessor(policyv1.Kind, eventprocessor.NewPolicyProcessor(ctx, pool, &offsetManagerMock{}))
+	eventDispatcher.RegisterProcessor(policyv1.Kind,
+		eventprocessor.NewPolicyProcessor(ctx, pool, &offsetManagerMock{}))
 	go func() {
-		eventDispatcher.Start(ctx)
+		_ = eventDispatcher.Start(ctx)
 	}()
 	event := getEvent()
 	val, err := json.Marshal(event)

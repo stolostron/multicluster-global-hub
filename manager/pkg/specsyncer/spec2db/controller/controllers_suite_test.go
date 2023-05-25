@@ -125,9 +125,9 @@ var _ = AfterSuite(func() {
 	// Set 4 with random
 	if err != nil {
 		time.Sleep(4 * time.Second)
+		Expect(testenv.Stop()).NotTo(HaveOccurred())
 	}
-	cancel()
 	postgresSQL.Stop()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
-	Expect(testenv.Stop()).NotTo(HaveOccurred())
+	cancel()
 })
