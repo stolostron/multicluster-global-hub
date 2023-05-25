@@ -89,9 +89,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				}
 
 				gotTable := fmt.Sprintf("%s.%s", schema, table)
-				if expectedTableSet[gotTable] {
-					delete(expectedTableSet, gotTable)
-				}
+				delete(expectedTableSet, gotTable)
 			}
 			if len(expectedTableSet) > 0 {
 				return fmt.Errorf("tables %v are not created", expectedTableSet)
@@ -148,7 +146,8 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				if id == "f4f888bb-9c87-4db9-aacf-231d550315e1" &&
 					cluster_id == "a71a6b5c-8361-4f50-9890-3de9e2df0b1c" &&
 					compliance == "non_compliant" &&
-					compliance_date.Format("2006-01-02") == time.Now().AddDate(0, 0, -1).Format("2006-01-02") &&
+					compliance_date.Format("2006-01-02") ==
+						time.Now().AddDate(0, 0, -1).Format("2006-01-02") &&
 					compliance_changed_frequency == 2 {
 					syncCount++
 				}
@@ -179,7 +178,8 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 					return err
 				}
 				logCount += 1
-				fmt.Println(startAt.Format("2006-01-02 15:04:05"), endAt.Format("2006-01-02 15:04:05"), name, total,
+				fmt.Println(startAt.Format("2006-01-02 15:04:05"),
+					endAt.Format("2006-01-02 15:04:05"), name, total,
 					inserted, offsets, errMessage)
 			}
 			if logCount < 1 {

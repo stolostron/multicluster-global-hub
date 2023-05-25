@@ -133,27 +133,28 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 			}
 		}()
 		selectInsertSQLTemplate := `
-			INSERT INTO local_status.compliance_history (id, cluster_id, compliance_date, compliance, compliance_changed_frequency)
+			INSERT INTO local_status.compliance_history (id, cluster_id, compliance_date, compliance, 
+					compliance_changed_frequency)
 			WITH compliance_aggregate AS (
 					SELECT cluster_id, policy_id,
-								CASE
-										WHEN bool_and(compliance = 'compliant') THEN 'compliant'
-										ELSE 'non_compliant'
-								END::local_status.compliance_type AS aggregated_compliance
+							CASE
+									WHEN bool_and(compliance = 'compliant') THEN 'compliant'
+									ELSE 'non_compliant'
+							END::local_status.compliance_type AS aggregated_compliance
 					FROM event.local_policies
 					WHERE created_at BETWEEN (CURRENT_DATE - INTERVAL '%d day') AND CURRENT_DATE
 					GROUP BY cluster_id, policy_id
 			)
 			SELECT policy_id, cluster_id, (CURRENT_DATE - INTERVAL '%d day'), aggregated_compliance,
-						(SELECT COUNT(*) FROM (
-								SELECT created_at, compliance, 
-											LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC)
-											AS prev_compliance
-								FROM event.local_policies lp
-								WHERE (lp.created_at BETWEEN (CURRENT_DATE - INTERVAL '%d day') AND CURRENT_DATE) 
-										AND lp.cluster_id = ca.cluster_id AND lp.policy_id = ca.policy_id
-								ORDER BY created_at ASC
-						) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
+					(SELECT COUNT(*) FROM (
+							SELECT created_at, compliance, 
+									LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC)
+									AS prev_compliance
+							FROM event.local_policies lp
+							WHERE (lp.created_at BETWEEN (CURRENT_DATE - INTERVAL '%d day') AND CURRENT_DATE) 
+									AND lp.cluster_id = ca.cluster_id AND lp.policy_id = ca.policy_id
+							ORDER BY created_at ASC
+					) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
 			FROM compliance_aggregate ca
 			ORDER BY cluster_id, policy_id
 			LIMIT $1 OFFSET $2`
