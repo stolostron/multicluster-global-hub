@@ -514,6 +514,16 @@ spec:
           - patch
           - update
         - apiGroups:
+          - operator.open-cluster-management.io
+          resources:
+          - multiclusterhubs
+          verbs:
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - packages.operators.coreos.com
           resources:
           - packagemanifests

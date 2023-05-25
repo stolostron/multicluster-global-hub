@@ -27,6 +27,7 @@ import (
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"gopkg.in/yaml.v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -290,6 +291,25 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				},
 				Type: corev1.SecretTypeOpaque,
 			})).Should(Succeed())
+
+			By("By creating a new MCH instance")
+			mch := &mchv1.MultiClusterHub{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multiclusterhub",
+					Namespace: config.GetDefaultNamespace(),
+				},
+				Spec: mchv1.MultiClusterHubSpec{
+					Overrides: &mchv1.Overrides{
+						Components: []mchv1.ComponentConfig{
+							{
+								Name:    "grc",
+								Enabled: true,
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, mch)).Should(Succeed())
 
 			By("By creating a new MGH instance")
 			mgh.SetNamespace(config.GetDefaultNamespace())
