@@ -137,9 +137,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		if err := r.pruneGlobalHubResources(ctx, mgh); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
 		}
-		if err := r.recoverMCH(ctx, mgh); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to recover MCH %v", err)
-		}
 		return ctrl.Result{}, nil
 	}
 
