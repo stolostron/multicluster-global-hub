@@ -25,6 +25,7 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+	"github.com/spf13/pflag"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,6 +39,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -65,6 +67,7 @@ import (
 	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
@@ -111,6 +114,7 @@ func main() {
 
 func doMain(ctx context.Context, cfg *rest.Config) int {
 	operatorConfig := parseFlags()
+	utils.PrintVersion(setupLog)
 
 	// build filtered resource map
 	newCacheFunc := buildResourceFilterMap()
@@ -194,21 +198,25 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 }
 
 func parseFlags() *operatorConfig {
-	config := &operatorConfig{}
-	flag.StringVar(&config.MetricsAddress, "metrics-bind-address", ":8080",
-		"The address the metric endpoint binds to.")
-	flag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081",
-		"The address the probe endpoint binds to.")
-	flag.BoolVar(&config.LeaderElection, "leader-election", false,
-		"Enable leader election for controller manager. ")
-	opts := zap.Options{
-		Development: true,
+	config := &operatorConfig{
+		PodNamespace: hubofhubsconfig.GetDefaultNamespace(),
 	}
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
 
-	config.PodNamespace = hubofhubsconfig.GetDefaultNamespace()
+	// add zap flags
+	opts := utils.CtrlZapOptions()
+	defaultFlags := flag.CommandLine
+	opts.BindFlags(defaultFlags)
+	pflag.CommandLine.AddGoFlagSet(defaultFlags)
+	pflag.StringVar(&config.MetricsAddress, "metrics-bind-address", ":8080",
+		"The address the metric endpoint binds to.")
+	pflag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081",
+		"The address the probe endpoint binds to.")
+	pflag.BoolVar(&config.LeaderElection, "leader-election", false,
+		"Enable leader election for controller manager. ")
+	pflag.Parse()
+
+	// set zap logger
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	return config
 }
 
