@@ -68,8 +68,8 @@ const (
 
 // NOTE: the status of ManagerDeployed can only be True; otherwise there is no condition
 const (
-	CONDITION_TYPE_GRC_DISABLED    = "GRCDISABLED"
-	CONDITION_REASON_GRC_DISABLED  = "GRCDISABLED"
+	CONDITION_TYPE_GRC_DISABLED    = "GRCDisabled"
+	CONDITION_REASON_GRC_DISABLED  = "GRCDisabled"
 	CONDITION_MESSAGE_GRC_DISABLED = "GRC has been disabled in MultiClusterHub"
 )
 

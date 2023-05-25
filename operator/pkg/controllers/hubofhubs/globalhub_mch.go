@@ -21,43 +21,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMCH(ctx context.Context,
 		return fmt.Errorf("failed to get MCH instance. err = %v", err)
 	}
 
-	// grcDisabledByMGH := false
-	if mch.Spec.Overrides != nil {
-		found := false
-		for _, c := range mch.Spec.Overrides.Components {
-			if c.Name == "grc" {
-				if c.Enabled {
-					c.Enabled = false
-					// grcDisabledByMGH = true
-				}
-				found = true
-				break
-			}
-		}
-		if !found {
-			mch.Spec.Overrides.Components = append(mch.Spec.Overrides.Components,
-				mchv1.ComponentConfig{
-					Name:    "grc",
-					Enabled: false,
-				})
-			// grcDisabledByMGH = true
-		}
-	} else {
-		mch.Spec.Overrides = &mchv1.Overrides{
-			Components: []mchv1.ComponentConfig{
-				{
-					Name:    "grc",
-					Enabled: false,
-				},
-			},
-		}
-		// grcDisabledByMGH = true
-	}
-
-	if err := condition.SetConditionGRCDisabled(ctx, r.Client, mgh,
-		condition.CONDITION_STATUS_TRUE); err != nil {
-		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
-	}
+	mch, _ = disableGRCInMCH(mch)
 
 	// if grcDisabledByMGH {
 	// 	// set the annotation to remember grc status
@@ -69,7 +33,53 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMCH(ctx context.Context,
 	// 	}
 	// }
 
-	return r.Client.Update(ctx, mch)
+	if err := r.Client.Update(ctx, mch); err != nil {
+		return fmt.Errorf("failed to update MCH instance. err = %v", err)
+	}
+
+	if err := condition.SetConditionGRCDisabled(ctx, r.Client, mgh,
+		condition.CONDITION_STATUS_TRUE); err != nil {
+		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
+	}
+
+	return nil
+}
+
+func disableGRCInMCH(mch *mchv1.MultiClusterHub) (*mchv1.MultiClusterHub, bool) {
+	grcDisabledByMGH := false
+	if mch.Spec.Overrides != nil {
+		found := false
+		for i, c := range mch.Spec.Overrides.Components {
+			if c.Name == "grc" {
+				if c.Enabled {
+					mch.Spec.Overrides.Components[i].Enabled = false
+					grcDisabledByMGH = true
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			mch.Spec.Overrides.Components = append(mch.Spec.Overrides.Components,
+				mchv1.ComponentConfig{
+					Name:    "grc",
+					Enabled: false,
+				})
+			grcDisabledByMGH = true
+		}
+	} else {
+		mch.Spec.Overrides = &mchv1.Overrides{
+			Components: []mchv1.ComponentConfig{
+				{
+					Name:    "grc",
+					Enabled: false,
+				},
+			},
+		}
+		grcDisabledByMGH = true
+	}
+
+	return mch, grcDisabledByMGH
 }
 
 func getMCH(ctx context.Context, k8sClient client.Client) (*mchv1.MultiClusterHub, error) {
