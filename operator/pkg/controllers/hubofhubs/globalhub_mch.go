@@ -16,9 +16,10 @@ import (
 func (r *MulticlusterGlobalHubReconciler) reconcileMCH(ctx context.Context,
 	mgh *operatorv1alpha2.MulticlusterGlobalHub,
 ) error {
-	mch, err := getMCH(ctx, r.Client)
-	if err != nil {
-		return fmt.Errorf("failed to get MCH instance. err = %v", err)
+	mch, _ := getMCH(ctx, r.Client)
+	// skip reconcile mch if it is not found
+	if mch == nil {
+		return nil
 	}
 
 	mch, _ = disableGRCInMCH(mch)
