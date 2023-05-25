@@ -98,6 +98,7 @@ type MulticlusterGlobalHubReconciler struct {
 // +kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons,verbs=create;delete;get;list;update;watch
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons/finalizers,verbs=update
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterhubs,verbs=get;list;patch;update;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -217,6 +218,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 			condition.CONDITION_STATUS_FALSE); e != nil {
 			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
 		}
+		return err
+	}
+
+	// disable grc component in mch instance
+	if err := r.reconcileMCH(ctx, mgh); err != nil {
 		return err
 	}
 
