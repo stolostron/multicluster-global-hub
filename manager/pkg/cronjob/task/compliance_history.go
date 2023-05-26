@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
+	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -14,15 +15,18 @@ import (
 var (
 	localComplianceTaskName string = "local-compliance-history"
 	startTime               time.Time
-	simulationCounter       = 1
-	log                     = ctrl.Log.WithName(localComplianceTaskName)
+	log                     logr.Logger
+	timeFormat              string = "2006-01-02 15:04:05"
+	dateFormat              string = "2006-01-02"
+	simulationCounter              = 1
 )
 
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
 	startTime = time.Now()
 	historyDate := startTime.AddDate(0, 0, -simulationCounter)
-	log.Info("start running", "history", historyDate.Format("2006-01-02"),
-		"lastRun", job.LastRun().Format("2006-01-02 15:04:05"))
+	log = ctrl.Log.WithName(localComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
+
+	log.Info("start running", "currentRun", job.LastRun().Format(timeFormat))
 
 	// batchSize = 1000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
@@ -36,9 +40,8 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 		log.Error(err, "sync to local_status.compliance_history failed")
 	}
 
-	log.Info("finish running", "history", historyDate.Format("2006-01-02"),
-		"totalCount", totalCount, "insertedCount", insertedCount,
-		"nextRun", job.NextRun().Format("2006-01-02 15:04:05"))
+	log.Info("finish running", "totalCount", totalCount, "insertedCount", insertedCount,
+		"nextRun", job.NextRun().Format(timeFormat))
 }
 
 func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batchSize int64, enableSimulation bool,
