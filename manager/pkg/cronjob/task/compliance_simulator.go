@@ -78,30 +78,6 @@ func simulateToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 
 	insertCount := int64(0)
 	err := wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
-		// insert data with transaction
-		conn, err := pool.Acquire(ctx)
-		if err != nil {
-			log.Info("acquire connection failed, retrying", "error", err)
-			return false, nil
-		}
-		defer conn.Release()
-
-		tx, err := conn.Begin(ctx) // the pool.Begin(ctx) will automatically release the connection after tx.Commit()
-		if err != nil {
-			log.Info("begin failed: retrying", "error", err)
-			return false, nil
-		}
-
-		// Defer rollback in case of error
-		var insertError error
-		defer func() {
-			if insertError != nil {
-				if e := tx.Rollback(ctx); e != nil {
-					log.Info("rollback failed: retrying", "error", e)
-				}
-			}
-		}()
-
 		selectInsertSQLTemplate := `
 			INSERT INTO local_status.compliance_history (id, cluster_id, compliance, compliance_date) 
 			SELECT id,cluster_id,compliance,(CURRENT_DATE - INTERVAL '%d day') 
@@ -111,20 +87,14 @@ func simulateToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 			OFFSET $2
 		`
 		selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, counter, viewName)
-
-		result, insertError := tx.Exec(ctx, selectInsertSQL, batchSize, offset)
+		result, insertError := pool.Exec(ctx, selectInsertSQL, batchSize, offset)
 		if insertError != nil {
 			log.Info("exec failed, retrying", "error", insertError)
 			return false, nil
 		}
-		if insertError = tx.Commit(ctx); insertError != nil {
-			log.Info("commit failed, retrying", "error", insertError)
-			return false, nil
-		} else {
-			insertCount = result.RowsAffected()
-			log.Info("insert success", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
-			return true, nil
-		}
+		insertCount = result.RowsAffected()
+		log.Info("insert success", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
+		return true, nil
 	})
 	return insertCount, err
 }

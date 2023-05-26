@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-co-op/gocron"
 	"github.com/go-logr/logr"
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -85,28 +86,8 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 
 	insertCount := int64(0)
 	err := wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
-		// insert data with transaction
-		conn, err := pool.Acquire(ctx)
-		if err != nil {
-			log.Info("acquire connection failed, retrying", "error", err)
-			return false, nil
-		}
-		defer conn.Release()
-
-		tx, err := conn.Begin(ctx) // the pool.Begin(ctx) will automatically release the connection after tx.Commit()
-		if err != nil {
-			log.Info("begin transaction failed, retrying", "error", err)
-			return false, nil
-		}
-
-		// Defer rollback in case of error
 		var insertError error
 		defer func() {
-			if insertError != nil {
-				if e := tx.Rollback(ctx); e != nil {
-					log.Info("rollback failed, retrying", "error", e)
-				}
-			}
 			if e := traceComplianceHistory(ctx, pool, localComplianceTaskName, totalCount, offset, insertCount,
 				startTime, insertError); e != nil {
 				log.Info("trace compliance job failed, retrying", "error", e)
@@ -143,22 +124,18 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 				compliance = EXCLUDED.compliance,
 				compliance_changed_frequency = EXCLUDED.compliance_changed_frequency;
 			`
-
 		selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, dateInterval, dateInterval-1,
 			dateInterval, dateInterval, dateInterval-1)
-		result, insertError := tx.Exec(ctx, selectInsertStatement, batchSize, offset)
+
+		var result pgconn.CommandTag
+		result, insertError = pool.Exec(ctx, selectInsertStatement, batchSize, offset)
 		if insertError != nil {
 			log.Info("insert failed, retrying", "error", insertError)
 			return false, nil
 		}
-		if insertError = tx.Commit(ctx); insertError != nil {
-			log.Info("commit failed, retrying", "error", insertError)
-			return false, nil
-		} else {
-			insertCount = result.RowsAffected()
-			log.Info("insert success", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
-			return true, nil
-		}
+		insertCount = result.RowsAffected()
+		log.Info("insert success", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
+		return true, nil
 	})
 	return insertCount, err
 }
