@@ -65,7 +65,7 @@ metadata:
   namespace: local-placement
 spec:
   clusterSets:
-    - default
+    - global
   predicates:
   - requiredClusterSelector:
       labelSelector:
@@ -75,15 +75,7 @@ spec:
 apiVersion: cluster.open-cluster-management.io/v1beta2
 kind: ManagedClusterSetBinding
 metadata:
-  name: default
+  name: global
   namespace: local-placement
 spec:
-  clusterSet: default
----
-apiVersion: cluster.open-cluster-management.io/v1beta2
-kind: ManagedClusterSet
-metadata:
-  name: default
-spec:
-  clusterSelector:
-    selectorType: ExclusiveClusterSetLabel
+  clusterSet: global
