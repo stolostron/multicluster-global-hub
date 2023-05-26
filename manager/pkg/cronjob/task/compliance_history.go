@@ -137,7 +137,13 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 					) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
 			FROM compliance_aggregate ca
 			ORDER BY cluster_id, policy_id
-			LIMIT $1 OFFSET $2`
+			LIMIT $1 OFFSET $2
+			ON CONFLICT (id, cluster_id, compliance_date)
+			DO UPDATE SET
+				compliance = EXCLUDED.compliance,
+				compliance_changed_frequency = EXCLUDED.compliance_changed_frequency;
+			`
+
 		selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, dateInterval, dateInterval-1,
 			dateInterval, dateInterval, dateInterval-1)
 		result, insertError := tx.Exec(ctx, selectInsertStatement, batchSize, offset)

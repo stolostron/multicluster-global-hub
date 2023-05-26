@@ -58,7 +58,8 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				updated_at timestamp without time zone DEFAULT now() NOT NULL,
 				compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL,
 				compliance local_status.compliance_type NOT NULL,
-				compliance_changed_frequency integer NOT NULL DEFAULT 0
+				compliance_changed_frequency integer NOT NULL DEFAULT 0,
+				CONSTRAINT local_policies_unique_constraint UNIQUE (id, cluster_id, compliance_date)
 			);
 			CREATE TABLE IF NOT EXISTS local_status.compliance_history_job_log (
 				name varchar(63) NOT NULL,
