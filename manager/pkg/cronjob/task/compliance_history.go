@@ -13,21 +13,13 @@ import (
 )
 
 var (
-	localComplianceTaskName string = "local-compliance-history"
+	localComplianceTaskName = "local-compliance-history"
 	startTime               time.Time
 	log                     logr.Logger
-	timeFormat              string = "2006-01-02 15:04:05"
-	dateFormat              string = "2006-01-02"
-	simulationCounter              = 1
-)
-
-func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
-	startTime = time.Now()
-	historyDate := startTime.AddDate(0, 0, -simulationCounter)
-	log = ctrl.Log.WithName(localComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
-
-	log.Info("start running", "currentRun", job.LastRun().Format(timeFormat))
-
+	timeFormat              = "2006-01-02 15:04:05"
+	dateFormat              = "2006-01-02"
+	dateInterval            = 1
+	batchSize               = int64(1000)
 	// batchSize = 1000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
 	// several factors such as the size of the table, available memory, network bandwidth, and hardware specifications.
@@ -35,7 +27,21 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 	// size provides a balance between minimizing the number of queries sent to the server while still being efficient
 	// and not overloading the system. To determine the optimal batchSize, it may be helpful to test different batch
 	// sizes and measure the performance of the queries.
-	totalCount, insertedCount, err := syncToLocalComplianceHistory(ctx, pool, 1000, enableSimulation)
+)
+
+func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
+	startTime = time.Now()
+
+	if enableSimulation {
+		simulateLocalComplianceHistory(ctx, pool, batchSize, job)
+		return
+	}
+
+	historyDate := startTime.AddDate(0, 0, -dateInterval)
+	log = ctrl.Log.WithName(localComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
+	log.Info("start running", "currentRun", job.LastRun().Format(timeFormat))
+
+	totalCount, insertedCount, err := syncToLocalComplianceHistory(ctx, pool, batchSize)
 	if err != nil {
 		log.Error(err, "sync to local_status.compliance_history failed")
 	}
@@ -44,61 +50,34 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 		"nextRun", job.NextRun().Format(timeFormat))
 }
 
-func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batchSize int64, enableSimulation bool,
-) (totalCount int64, insertedCount int64, err error) {
-	// NOTE: since we get data from event.local_policies instead of local_status.compliance, we don't need to the view
-	// create materialized view
-	// viewName := fmt.Sprintf("local_status.compliance_view_%s",
-	// 	time.Now().AddDate(0, 0, -1).Format("2006_01_02"))
-	// createViewSQL := `
-	// 	CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS
-	// 	SELECT id,cluster_id,compliance
-	// 	FROM local_status.compliance;
-	// 	CREATE INDEX IF NOT EXISTS idx_local_compliance_view ON %s (id, cluster_id);`
-	// _, err = pool.Exec(ctx, fmt.Sprintf(createViewSQL, viewName, viewName))
-	// if err != nil {
-	// 	return totalCount, insertedCount, err
-	// }
-	// refresh the materialized view
-	// _, err = conn.Exec(ctx, "REFRESH MATERIALIZED VIEW local_compliance_mv")
-	// if err != nil {
-	// 	return totalCount, syncedCount, err
-	// }
+func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batchSize int64) (
+	totalCount int64, insertedCount int64, err error,
+) {
 	totalCountSQLTemplate := `
 		SELECT COUNT(*) FROM (
 			SELECT DISTINCT policy_id, cluster_id FROM event.local_policies
 			WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
 		) AS subquery
 	`
-	totalCountStatement := fmt.Sprintf(totalCountSQLTemplate, simulationCounter, simulationCounter-1)
+	totalCountStatement := fmt.Sprintf(totalCountSQLTemplate, dateInterval, dateInterval-1)
 
 	if err := pool.QueryRow(ctx, totalCountStatement).Scan(&totalCount); err != nil {
 		return totalCount, insertedCount, err
 	}
 
 	for offset := int64(0); offset < totalCount; offset += batchSize {
-		count, err := insertToLocalComplianceHistory(ctx, pool, totalCount, batchSize, offset, enableSimulation)
+		count, err := insertToLocalComplianceHistory(ctx, pool, totalCount, batchSize, offset)
 		if err != nil {
 			return totalCount, insertedCount, err
 		}
 		insertedCount += count
 	}
 
-	// success, drop the materialized view if exists
-	// _, err = pool.Exec(ctx, fmt.Sprintf("DROP MATERIALIZED VIEW IF EXISTS %s", viewName))
-	// if err != nil {
-	// 	return totalCount, insertedCount, err
-	// }
-
-	if enableSimulation {
-		simulationCounter = simulationCounter + 1
-	}
-
 	return totalCount, insertedCount, nil
 }
 
 func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
-	totalCount, batchSize, offset int64, enableSimulation bool,
+	totalCount, batchSize, offset int64,
 ) (int64, error) {
 	// retry until success, use timeout context to avoid long running
 	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -159,8 +138,8 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 			FROM compliance_aggregate ca
 			ORDER BY cluster_id, policy_id
 			LIMIT $1 OFFSET $2`
-		selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, simulationCounter, simulationCounter-1,
-			simulationCounter, simulationCounter, simulationCounter-1)
+		selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, dateInterval, dateInterval-1,
+			dateInterval, dateInterval, dateInterval-1)
 		result, insertError := tx.Exec(ctx, selectInsertStatement, batchSize, offset)
 		if insertError != nil {
 			log.Info("insert failed, retrying", "error", insertError)
