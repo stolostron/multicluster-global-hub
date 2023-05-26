@@ -12,17 +12,17 @@ import (
 )
 
 var (
-	localComplianceJobName string = "local-compliance-job"
-	startTime              time.Time
-	simulationCounter      int64 = 1
+	localComplianceTaskName string = "local-compliance-history"
+	startTime               time.Time
+	simulationCounter       = 1
+	log                     = ctrl.Log.WithName(localComplianceTaskName)
 )
 
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
-	log := ctrl.Log.WithName(localComplianceJobName)
-
-	log.Info("start running", "LastRun", job.LastRun().Format("2006-01-02 15:04:05"),
-		"NextRun", job.NextRun().Format("2006-01-02 15:04:05"))
 	startTime = time.Now()
+	historyDate := startTime.AddDate(0, 0, -simulationCounter)
+	log.Info("start running", "history", historyDate.Format("2006-01-02"),
+		"lastRun", job.LastRun().Format("2006-01-02 15:04:05"))
 
 	// batchSize = 1000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
@@ -36,7 +36,9 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 		log.Error(err, "sync to local_status.compliance_history failed")
 	}
 
-	log.Info("finish running", "totalCount", totalCount, "insertedCount", insertedCount)
+	log.Info("finish running", "history", historyDate.Format("2006-01-02"),
+		"totalCount", totalCount, "insertedCount", insertedCount,
+		"nextRun", job.NextRun().Format("2006-01-02 15:04:05"))
 }
 
 func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batchSize int64, enableSimulation bool,
@@ -62,14 +64,10 @@ func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batch
 	totalCountSQLTemplate := `
 		SELECT COUNT(*) FROM (
 			SELECT DISTINCT policy_id, cluster_id FROM event.local_policies
-			WHERE created_at BETWEEN (CURRENT_DATE - INTERVAL '%d day') AND CURRENT_DATE
+			WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
 		) AS subquery
 	`
-	beforeToday := int64(1)
-	if enableSimulation {
-		beforeToday = simulationCounter
-	}
-	totalCountStatement := fmt.Sprintf(totalCountSQLTemplate, beforeToday)
+	totalCountStatement := fmt.Sprintf(totalCountSQLTemplate, simulationCounter, simulationCounter-1)
 
 	if err := pool.QueryRow(ctx, totalCountStatement).Scan(&totalCount); err != nil {
 		return totalCount, insertedCount, err
@@ -108,14 +106,14 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 		// insert data with transaction
 		conn, err := pool.Acquire(ctx)
 		if err != nil {
-			fmt.Printf("acquire failed: %v, retrying\n", err)
+			log.Info("acquire connection failed, retrying", "error", err)
 			return false, nil
 		}
 		defer conn.Release()
 
 		tx, err := conn.Begin(ctx) // the pool.Begin(ctx) will automatically release the connection after tx.Commit()
 		if err != nil {
-			fmt.Printf("begin failed: %v, retrying\n", err)
+			log.Info("begin transaction failed, retrying", "error", err)
 			return false, nil
 		}
 
@@ -124,12 +122,12 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 		defer func() {
 			if insertError != nil {
 				if e := tx.Rollback(ctx); e != nil {
-					fmt.Printf("rollback failed: %v\n", e)
+					log.Info("rollback failed, retrying", "error", e)
 				}
 			}
-			if e := traceComplianceHistory(ctx, pool, localComplianceJobName, totalCount, offset, insertCount,
+			if e := traceComplianceHistory(ctx, pool, localComplianceTaskName, totalCount, offset, insertCount,
 				startTime, insertError); e != nil {
-				fmt.Printf("trace compliance job failed: %v\n", e)
+				log.Info("trace compliance job failed, retrying", "error", e)
 			}
 		}()
 		selectInsertSQLTemplate := `
@@ -142,7 +140,7 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 									ELSE 'non_compliant'
 							END::local_status.compliance_type AS aggregated_compliance
 					FROM event.local_policies
-					WHERE created_at BETWEEN (CURRENT_DATE - INTERVAL '%d day') AND CURRENT_DATE
+					WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
 					GROUP BY cluster_id, policy_id
 			)
 			SELECT policy_id, cluster_id, (CURRENT_DATE - INTERVAL '%d day'), aggregated_compliance,
@@ -151,29 +149,26 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 									LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC)
 									AS prev_compliance
 							FROM event.local_policies lp
-							WHERE (lp.created_at BETWEEN (CURRENT_DATE - INTERVAL '%d day') AND CURRENT_DATE) 
+							WHERE (lp.created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day') 
 									AND lp.cluster_id = ca.cluster_id AND lp.policy_id = ca.policy_id
 							ORDER BY created_at ASC
 					) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
 			FROM compliance_aggregate ca
 			ORDER BY cluster_id, policy_id
 			LIMIT $1 OFFSET $2`
-		beforeTody := int64(1)
-		if enableSimulation {
-			beforeTody = simulationCounter
-		}
-		selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, beforeTody, beforeTody, beforeTody)
+		selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, simulationCounter, simulationCounter-1,
+			simulationCounter, simulationCounter, simulationCounter-1)
 		result, insertError := tx.Exec(ctx, selectInsertStatement, batchSize, offset)
 		if insertError != nil {
-			fmt.Printf("exec failed: %v, retrying\n", insertError)
+			log.Info("insert failed, retrying", "error", insertError)
 			return false, nil
 		}
 		if insertError = tx.Commit(ctx); insertError != nil {
-			fmt.Printf("commit failed: %v, retrying\n", insertError)
+			log.Info("commit failed, retrying", "error", insertError)
 			return false, nil
 		} else {
 			insertCount = result.RowsAffected()
-			fmt.Printf("batchSize: %d, insert: %d, offset: %d\n", batchSize, insertCount, offset)
+			log.Info("insert success", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
 			return true, nil
 		}
 	})
