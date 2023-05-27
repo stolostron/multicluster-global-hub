@@ -62,4 +62,5 @@ var _ = AfterSuite(func() {
 	testAuthServer.Close()
 	err := testPostgres.Stop()
 	Expect(err).NotTo(HaveOccurred())
+	cancel()
 })
