@@ -154,18 +154,10 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
-				e.Object.GetLabels()["openshiftVersion"] == "3" ||
-				e.Object.GetName() == operatorconstants.LocalClusterName {
-				return false
-			}
-
-			return true
+			return !filterManagedCluster(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()["vendor"] != "OpenShift" ||
-				e.ObjectNew.GetLabels()["openshiftVersion"] == "3" ||
-				e.ObjectNew.GetName() == operatorconstants.LocalClusterName {
+			if filterManagedCluster(e.ObjectNew) {
 				return false
 			}
 			if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
@@ -175,13 +167,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
-				e.Object.GetLabels()["openshiftVersion"] == "3" ||
-				e.Object.GetName() == operatorconstants.LocalClusterName {
-				return false
-			}
-
-			return true
+			return !filterManagedCluster(e.Object)
 		},
 	}
 
@@ -251,6 +237,9 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 				}
 
 				for _, managedCluster := range managedClusterList.Items {
+					if filterManagedCluster(&managedCluster) {
+						continue
+					}
 					requests = append(requests, reconcile.Request{
 						NamespacedName: types.NamespacedName{
 							Name: managedCluster.GetName(),
@@ -261,4 +250,10 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 				return requests
 			}), builder.WithPredicates(clusterManagementAddonPred)).
 		Complete(r)
+}
+
+func filterManagedCluster(obj client.Object) bool {
+	return obj.GetLabels()["vendor"] != "OpenShift" ||
+		obj.GetLabels()["openshiftVersion"] == "3" ||
+		obj.GetName() == operatorconstants.LocalClusterName
 }
