@@ -236,7 +236,8 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 					return requests
 				}
 
-				for _, managedCluster := range managedClusterList.Items {
+				for i := range managedClusterList.Items {
+					managedCluster := managedClusterList.Items[i]
 					if filterManagedCluster(&managedCluster) {
 						continue
 					}
