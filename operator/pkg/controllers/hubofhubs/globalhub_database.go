@@ -19,7 +19,7 @@ import (
 
 var (
 	CheckDatabaseInterval = time.Duration(10) * time.Second
-	SchemeTableCounter    = map[string]int{
+	ExpectedSchemaTables  = map[string]int{
 		"spec":         12,
 		"status":       9,
 		"event":        1,
@@ -116,8 +116,8 @@ func (r *MulticlusterGlobalHubReconciler) checkSchemaTable(ctx context.Context, 
 	GROUP BY
 		table_schema;`
 	// Build the dynamic IN condition for the schemas
-	schemas := make([]string, 0, len(SchemeTableCounter))
-	for schema := range SchemeTableCounter {
+	schemas := make([]string, 0, len(ExpectedSchemaTables))
+	for schema := range ExpectedSchemaTables {
 		schemas = append(schemas, schema)
 	}
 	schemaCountStatement := fmt.Sprintf(schemaCountTemplate,
@@ -139,7 +139,7 @@ func (r *MulticlusterGlobalHubReconciler) checkSchemaTable(ctx context.Context, 
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("failed to iterate over rows: %w", err)
 	}
-	for schema, count := range SchemeTableCounter {
+	for schema, count := range ExpectedSchemaTables {
 		if queryResult[schema] < count {
 			return fmt.Errorf("schema %s table count is %d, expected at least %d", schema, queryResult[schema], count)
 		}
