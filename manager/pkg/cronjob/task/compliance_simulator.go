@@ -23,7 +23,7 @@ func simulateLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, bat
 
 	totalCount, insertedCount := int64(0), int64(0)
 	// create materialized view
-	viewName = fmt.Sprintf("local_status.compliance_view_%s",
+	viewName = fmt.Sprintf("history.local_compliance_view_%s",
 		time.Now().AddDate(0, 0, -counter).Format("2006_01_02"))
 	createViewTemplate := `
 		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS 
@@ -79,7 +79,7 @@ func simulateToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 	insertCount := int64(0)
 	err := wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
 		selectInsertSQLTemplate := `
-			INSERT INTO local_status.compliance_history (id, cluster_id, compliance, compliance_date) 
+			INSERT INTO history.local_compliance (id, cluster_id, compliance, compliance_date) 
 			SELECT id,cluster_id,compliance,(CURRENT_DATE - INTERVAL '%d day') 
 			FROM %s 
 			ORDER BY id, cluster_id
