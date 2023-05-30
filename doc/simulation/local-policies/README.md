@@ -11,7 +11,7 @@ Which means:
 2. `local_spec.policies` will have around 90 rows
 3. `status.managed_clusters` will have around 699 rows
 
-And daily summary will add to `local_status.compliance_history` 20970 rows/day, which means around `4 million` for 6 months and `8 million` for 1 year.
+And daily summary will add to `history.local_compliance` 20970 rows/day, which means around `4 million` for 6 months and `8 million` for 1 year.
 
 ## How To Use
 
@@ -69,10 +69,10 @@ batchSize: 1000, insert: 1000, offset: 10000
 ...
 ```
 
-5. After about 6 hours, check the row count of `local_status.compliance_history` table:
+5. After about 6 hours, check the row count of `history.local_compliance` table:
 
 ```bash
-# oc exec -it $(oc get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n hoh-postgres -- psql -U postgres -d hoh -c "SELECT count(*) from local_status.compliance_history"
+# oc exec -it $(oc get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n hoh-postgres -- psql -U postgres -d hoh -c "SELECT count(*) from history.local_compliance"
  count
 --------
  7942000

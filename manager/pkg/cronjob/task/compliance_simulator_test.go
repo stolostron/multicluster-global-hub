@@ -13,7 +13,7 @@ import (
 
 var _ = Describe("simulate to sync the compliance data", Ordered, func() {
 	const sourceTable = "local_status.compliance"
-	const targetTable = "local_status.compliance_history"
+	const targetTable = "history.local_compliance"
 
 	BeforeAll(func() {
 		By("Creating test table in the database")
@@ -23,6 +23,7 @@ var _ = Describe("simulate to sync the compliance data", Ordered, func() {
 		_, err = conn.Exec(ctx, `
 			CREATE SCHEMA IF NOT EXISTS local_status;
 			CREATE SCHEMA IF NOT EXISTS status;
+			CREATE SCHEMA IF NOT EXISTS history;
 			DO $$ BEGIN
 				CREATE TYPE local_status.compliance_type AS ENUM (
 					'compliant',
@@ -48,7 +49,7 @@ var _ = Describe("simulate to sync the compliance data", Ordered, func() {
 				compliance local_status.compliance_type NOT NULL,
 				cluster_id uuid
 			);
-			CREATE TABLE IF NOT EXISTS local_status.compliance_history (
+			CREATE TABLE IF NOT EXISTS history.local_compliance (
 				id uuid NOT NULL,
 				cluster_id uuid NOT NULL,
 				updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -57,7 +58,7 @@ var _ = Describe("simulate to sync the compliance data", Ordered, func() {
 				compliance_changed_frequency integer NOT NULL DEFAULT 0,
 				CONSTRAINT local_policies_unique_constraint UNIQUE (id, cluster_id, compliance_date)
 			);
-			CREATE TABLE IF NOT EXISTS local_status.compliance_history_job_log (
+			CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
 				name varchar(63) NOT NULL,
 				start_at timestamp NOT NULL DEFAULT now(),
 				end_at timestamp NOT NULL DEFAULT now(),
@@ -120,7 +121,7 @@ var _ = Describe("simulate to sync the compliance data", Ordered, func() {
 		Eventually(func() error {
 			rows, err := pool.Query(ctx, `
 			SELECT id, cluster_id, compliance,compliance_changed_frequency 
-			FROM local_status.compliance_history`)
+			FROM history.local_compliance`)
 			if err != nil {
 				return err
 			}
@@ -146,7 +147,7 @@ var _ = Describe("simulate to sync the compliance data", Ordered, func() {
 				}
 			}
 			if len(expectRecordMap) > 0 {
-				return fmt.Errorf("table local_status.compliance_history records are not synced")
+				return fmt.Errorf("table history.local_compliance records are not synced")
 			}
 			return nil
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())

@@ -44,7 +44,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 
 	totalCount, insertedCount, err := syncToLocalComplianceHistory(ctx, pool, batchSize)
 	if err != nil {
-		log.Error(err, "sync to local_status.compliance_history failed")
+		log.Error(err, "sync to history.local_compliance failed")
 	}
 
 	log.Info("finish running", "totalCount", totalCount, "insertedCount", insertedCount,
@@ -94,7 +94,7 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 			}
 		}()
 		selectInsertSQLTemplate := `
-			INSERT INTO local_status.compliance_history (id, cluster_id, compliance_date, compliance, 
+			INSERT INTO history.local_compliance (id, cluster_id, compliance_date, compliance, 
 					compliance_changed_frequency)
 			WITH compliance_aggregate AS (
 					SELECT cluster_id, policy_id,
@@ -149,7 +149,7 @@ func traceComplianceHistory(ctx context.Context, pool *pgxpool.Pool, name string
 		errMessage = err.Error()
 	}
 	_, err = pool.Exec(ctx, `
-	INSERT INTO local_status.compliance_history_job_log (name, start_at, end_at, total, offsets, inserted, error) 
+	INSERT INTO history.local_compliance_job_log (name, start_at, end_at, total, offsets, inserted, error) 
 	VALUES ($1, $2, $3, $4, $5, $6, $7);`, name, start, end, total, offset, inserted, errMessage)
 
 	return err
