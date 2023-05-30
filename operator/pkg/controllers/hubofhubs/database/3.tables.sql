@@ -105,6 +105,18 @@ CREATE TABLE IF NOT EXISTS history.managed_clusters (
     error status.error_type NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS history.local_policies (
+    leaf_hub_name character varying(63) NOT NULL,
+    payload jsonb NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    policy_id uuid generated always as (uuid(payload->'metadata'->>'uid')) stored,
+    policy_name character varying(255) generated always as (payload -> 'metadata' ->> 'name') stored,
+    policy_standard character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards') stored,
+    policy_category character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
+    policy_control character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls') stored
+);
+
 CREATE TABLE IF NOT EXISTS  local_spec.placementrules (
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,

@@ -79,3 +79,8 @@ CREATE TRIGGER trigger_backup_deleted_managed_cluster
 AFTER DELETE ON status.managed_clusters
 FOR EACH ROW
 EXECUTE FUNCTION history.move_managed_cluster_to_history();
+
+CREATE TRIGGER trigger_backup_deleted_local_policy
+AFTER DELETE ON local_spec.policies
+FOR EACH ROW
+EXECUTE FUNCTION history.move_local_policy_to_history();
