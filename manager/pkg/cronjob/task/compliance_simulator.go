@@ -23,7 +23,7 @@ func simulateLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, bat
 
 	totalCount, insertedCount := int64(0), int64(0)
 	// create materialized view
-	viewName = fmt.Sprintf("local_status.compliance_view_%s",
+	viewName = fmt.Sprintf("history.local_compliance_view_%s",
 		time.Now().AddDate(0, 0, -counter).Format("2006_01_02"))
 	createViewTemplate := `
 		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS 
