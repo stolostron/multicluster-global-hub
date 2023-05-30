@@ -13,7 +13,7 @@ import (
 
 var _ = Describe("sync the compliance data", Ordered, func() {
 	const sourceTable = "event.local_policies"
-	const targetTable = "local_status.compliance_history"
+	const targetTable = "history.local_compliance"
 
 	BeforeAll(func() {
 		By("Creating test table in the database")
@@ -22,6 +22,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 		defer conn.Release()
 		_, err = conn.Exec(ctx, `
 			CREATE SCHEMA IF NOT EXISTS local_status;
+			CREATE SCHEMA IF NOT EXISTS history;
 			CREATE SCHEMA IF NOT EXISTS status;
 			CREATE SCHEMA IF NOT EXISTS event;
 			DO $$ BEGIN
@@ -52,7 +53,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				compliance local_status.compliance_type NOT NULL,
 				CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, created_at)
 			);
-			CREATE TABLE IF NOT EXISTS local_status.compliance_history (
+			CREATE TABLE IF NOT EXISTS history.local_compliance (
 				id uuid NOT NULL,
 				cluster_id uuid NOT NULL,
 				updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -61,7 +62,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				compliance_changed_frequency integer NOT NULL DEFAULT 0,
 				CONSTRAINT local_policies_unique_constraint UNIQUE (id, cluster_id, compliance_date)
 			);
-			CREATE TABLE IF NOT EXISTS local_status.compliance_history_job_log (
+			CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
 				name varchar(63) NOT NULL,
 				start_at timestamp NOT NULL DEFAULT now(),
 				end_at timestamp NOT NULL DEFAULT now(),
@@ -127,7 +128,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 		Eventually(func() error {
 			rows, err := pool.Query(ctx, `
 			SELECT id, cluster_id, compliance, compliance_date, compliance_changed_frequency
-			FROM local_status.compliance_history`)
+			FROM history.local_compliance`)
 			if err != nil {
 				return err
 			}
@@ -154,7 +155,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				}
 			}
 			if syncCount >= 1 {
-				return fmt.Errorf("table local_status.compliance_history records are not synced")
+				return fmt.Errorf("table history.local_compliance records are not synced")
 			}
 			return nil
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
@@ -162,7 +163,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 		By("Check whether the job log is created")
 		Eventually(func() error {
 			rows, err := pool.Query(ctx, `SELECT start_at, end_at, name, total, inserted, offsets, error FROM 
-			local_status.compliance_history_job_log`)
+			history.local_compliance_job_log`)
 			if err != nil {
 				return err
 			}
@@ -184,7 +185,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 					inserted, offsets, errMessage)
 			}
 			if logCount < 1 {
-				return fmt.Errorf("table local_status.compliance_history_job_log records are not synced")
+				return fmt.Errorf("table history.local_compliance_job_log records are not synced")
 			}
 			return nil
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())

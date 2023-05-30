@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS local_status.compliance (
     cluster_id uuid
 );
 
-CREATE TABLE IF NOT EXISTS local_status.compliance_history (
+CREATE TABLE IF NOT EXISTS history.local_compliance (
     id uuid NOT NULL,
     cluster_id uuid NOT NULL,
     compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL, 
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS local_status.compliance_history (
     CONSTRAINT local_policies_unique_constraint UNIQUE (id, cluster_id, compliance_date)
 );
 
-CREATE TABLE IF NOT EXISTS local_status.compliance_history_job_log (
+CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
     name varchar(63) NOT NULL,
     start_at timestamp NOT NULL DEFAULT now(),
     end_at timestamp NOT NULL DEFAULT now(),

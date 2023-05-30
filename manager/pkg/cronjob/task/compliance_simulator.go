@@ -79,7 +79,7 @@ func simulateToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 	insertCount := int64(0)
 	err := wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
 		selectInsertSQLTemplate := `
-			INSERT INTO local_status.compliance_history (id, cluster_id, compliance, compliance_date) 
+			INSERT INTO history.local_compliance (id, cluster_id, compliance, compliance_date) 
 			SELECT id,cluster_id,compliance,(CURRENT_DATE - INTERVAL '%d day') 
 			FROM %s 
 			ORDER BY id, cluster_id
