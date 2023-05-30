@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS  history.applications (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS  history.applications (
 );
 
 CREATE TABLE IF NOT EXISTS  history.channels (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS  history.channels (
 );
 
 CREATE TABLE IF NOT EXISTS  history.configs (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS  history.configs (
 );
 
 CREATE TABLE IF NOT EXISTS  history.managedclustersetbindings (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS  history.managedclustersetbindings (
 );
 
 CREATE TABLE IF NOT EXISTS  history.managedclustersets (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS  history.managedclustersets (
 );
 
 CREATE TABLE IF NOT EXISTS  history.placementbindings (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS  history.placementbindings (
 );
 
 CREATE TABLE IF NOT EXISTS  history.placementrules (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS  history.placementrules (
 );
 
 CREATE TABLE IF NOT EXISTS  history.placements (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS  history.placements (
 );
 
 CREATE TABLE IF NOT EXISTS  history.policies (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -71,11 +71,38 @@ CREATE TABLE IF NOT EXISTS  history.policies (
 );
 
 CREATE TABLE IF NOT EXISTS  history.subscriptions (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     deleted boolean DEFAULT false NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS history.local_compliance (
+    id uuid NOT NULL,
+    cluster_id uuid NOT NULL,
+    compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL, 
+    compliance local_status.compliance_type NOT NULL,
+    compliance_changed_frequency integer NOT NULL DEFAULT 0,
+    CONSTRAINT local_policies_unique_constraint UNIQUE (id, cluster_id, compliance_date)
+);
+
+CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
+    name varchar(63) NOT NULL,
+    start_at timestamp NOT NULL DEFAULT now(),
+    end_at timestamp NOT NULL DEFAULT now(),
+    total int8,
+    inserted int8,
+    offsets int8, 
+    error TEXT
+);
+
+CREATE TABLE IF NOT EXISTS history.managed_clusters (
+    leaf_hub_name character varying(63) NOT NULL,
+    cluster_name character varying(63) generated always as (payload -> 'metadata' ->> 'name') stored,
+    cluster_id uuid NOT NULL,
+    payload jsonb NOT NULL,
+    error status.error_type NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  local_spec.placementrules (
@@ -106,27 +133,8 @@ CREATE TABLE IF NOT EXISTS local_status.compliance (
     cluster_id uuid
 );
 
-CREATE TABLE IF NOT EXISTS history.local_compliance (
-    id uuid NOT NULL,
-    cluster_id uuid NOT NULL,
-    compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL, 
-    compliance local_status.compliance_type NOT NULL,
-    compliance_changed_frequency integer NOT NULL DEFAULT 0,
-    CONSTRAINT local_policies_unique_constraint UNIQUE (id, cluster_id, compliance_date)
-);
-
-CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
-    name varchar(63) NOT NULL,
-    start_at timestamp NOT NULL DEFAULT now(),
-    end_at timestamp NOT NULL DEFAULT now(),
-    total int8,
-    inserted int8,
-    offsets int8, 
-    error TEXT
-);
-
 CREATE TABLE IF NOT EXISTS spec.applications (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -134,7 +142,7 @@ CREATE TABLE IF NOT EXISTS spec.applications (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.channels (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -142,7 +150,7 @@ CREATE TABLE IF NOT EXISTS  spec.channels (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.configs (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -168,7 +176,7 @@ CREATE TABLE IF NOT EXISTS  spec.managed_clusters_labels (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.managedclustersetbindings (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -176,7 +184,7 @@ CREATE TABLE IF NOT EXISTS  spec.managedclustersetbindings (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.managedclustersets (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -184,7 +192,7 @@ CREATE TABLE IF NOT EXISTS  spec.managedclustersets (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.placementbindings (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -192,7 +200,7 @@ CREATE TABLE IF NOT EXISTS  spec.placementbindings (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.placementrules (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -200,7 +208,7 @@ CREATE TABLE IF NOT EXISTS  spec.placementrules (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.placements (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -208,7 +216,7 @@ CREATE TABLE IF NOT EXISTS  spec.placements (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.policies (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -216,7 +224,7 @@ CREATE TABLE IF NOT EXISTS  spec.policies (
 );
 
 CREATE TABLE IF NOT EXISTS  spec.subscriptions (
-    id uuid NOT NULL,
+    id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -292,90 +300,6 @@ CREATE TABLE IF NOT EXISTS event.local_policies (
     compliance local_status.compliance_type NOT NULL,
     CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, created_at)
 );
-
-ALTER TABLE history.applications DROP CONSTRAINT IF EXISTS applications_pkey;
-ALTER TABLE ONLY history.applications
-    ADD CONSTRAINT applications_pkey PRIMARY KEY (id);
-
-ALTER TABLE history.channels DROP CONSTRAINT IF EXISTS channels_pkey;
-ALTER TABLE ONLY history.channels
-    ADD CONSTRAINT channels_pkey PRIMARY KEY (id);
-
-ALTER TABLE history.configs DROP CONSTRAINT IF EXISTS configs_pkey;
-ALTER TABLE ONLY history.configs
-    ADD CONSTRAINT configs_pkey PRIMARY KEY (id);
-
-ALTER TABLE history.managedclustersetbindings DROP CONSTRAINT IF EXISTS managedclustersetbindings_pkey;
-ALTER TABLE ONLY history.managedclustersetbindings
-    ADD CONSTRAINT managedclustersetbindings_pkey PRIMARY KEY (id);
-
-ALTER TABLE history.managedclustersets DROP CONSTRAINT IF EXISTS managedclustersets_pkey;
-ALTER TABLE ONLY history.managedclustersets
-    ADD CONSTRAINT managedclustersets_pkey PRIMARY KEY (id);
-
-ALTER TABLE history.placementbindings DROP CONSTRAINT IF EXISTS placementbindings_pkey;
-ALTER TABLE ONLY history.placementbindings
-    ADD CONSTRAINT placementbindings_pkey PRIMARY KEY (id);
-
-ALTER TABLE history.placementrules DROP CONSTRAINT IF EXISTS placementrules_pkey;
-ALTER TABLE ONLY history.placementrules
-    ADD CONSTRAINT placementrules_pkey PRIMARY KEY (id);
-
-ALTER TABLE history.placements DROP CONSTRAINT IF EXISTS placements_pkey;
-ALTER TABLE ONLY history.placements
-    ADD CONSTRAINT placements_pkey PRIMARY KEY (id);
-
-
-ALTER TABLE history.policies DROP CONSTRAINT IF EXISTS policies_pkey;
-ALTER TABLE ONLY history.policies
-    ADD CONSTRAINT policies_pkey PRIMARY KEY (id);
-
-ALTER TABLE history.subscriptions DROP CONSTRAINT IF EXISTS subscriptions_pkey;
-ALTER TABLE ONLY history.subscriptions
-    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (id);
-
-ALTER TABLE spec.applications DROP CONSTRAINT IF EXISTS applications_pkey;
-ALTER TABLE ONLY spec.applications
-    ADD CONSTRAINT applications_pkey PRIMARY KEY (id);
-
-
-ALTER TABLE spec.channels DROP CONSTRAINT IF EXISTS channels_pkey;
-ALTER TABLE ONLY spec.channels
-    ADD CONSTRAINT channels_pkey PRIMARY KEY (id);
-
-ALTER TABLE spec.configs DROP CONSTRAINT IF EXISTS configs_pkey;
-ALTER TABLE ONLY spec.configs
-    ADD CONSTRAINT configs_pkey PRIMARY KEY (id);
-
-
-ALTER TABLE spec.managedclustersetbindings DROP CONSTRAINT IF EXISTS managedclustersetbindings_pkey;
-ALTER TABLE ONLY spec.managedclustersetbindings
-    ADD CONSTRAINT managedclustersetbindings_pkey PRIMARY KEY (id);
-
-
-ALTER TABLE spec.managedclustersets DROP CONSTRAINT IF EXISTS managedclustersets_pkey;
-ALTER TABLE ONLY spec.managedclustersets
-    ADD CONSTRAINT managedclustersets_pkey PRIMARY KEY (id);
-
-ALTER TABLE spec.placementbindings DROP CONSTRAINT IF EXISTS placementbindings_pkey;
-ALTER TABLE ONLY spec.placementbindings
-    ADD CONSTRAINT placementbindings_pkey PRIMARY KEY (id);
-
-ALTER TABLE spec.placementrules DROP CONSTRAINT IF EXISTS placementrules_pkey;
-ALTER TABLE ONLY spec.placementrules
-    ADD CONSTRAINT placementrules_pkey PRIMARY KEY (id);
-
-ALTER TABLE spec.placements DROP CONSTRAINT IF EXISTS placements_pkey;
-ALTER TABLE ONLY spec.placements
-    ADD CONSTRAINT placements_pkey PRIMARY KEY (id);
-
-ALTER TABLE spec.policies DROP CONSTRAINT IF EXISTS policies_pkey;
-ALTER TABLE ONLY spec.policies
-    ADD CONSTRAINT policies_pkey PRIMARY KEY (id);
-
-ALTER TABLE spec.subscriptions DROP CONSTRAINT IF EXISTS subscriptions_pkey;
-ALTER TABLE ONLY spec.subscriptions
-    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (id);
 
 
 CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_id_idx ON local_spec.placementrules USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));

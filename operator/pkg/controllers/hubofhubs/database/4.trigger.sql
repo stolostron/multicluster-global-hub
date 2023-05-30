@@ -72,3 +72,9 @@ DROP TRIGGER IF EXISTS update_compliance_table ON local_status.compliance;
 CREATE TRIGGER update_compliance_table AFTER INSERT OR UPDATE ON local_status.compliance FOR EACH ROW WHEN (pg_trigger_depth() < 1) EXECUTE FUNCTION public.set_cluster_id_to_local_compliance();
 DROP TRIGGER IF EXISTS update_compliance_table ON status.compliance;
 CREATE TRIGGER update_compliance_table AFTER INSERT OR UPDATE ON status.compliance FOR EACH ROW WHEN (pg_trigger_depth() < 1) EXECUTE FUNCTION public.set_cluster_id_to_compliance();
+
+--- history tiger
+CREATE TRIGGER trigger_backup_deleted_managed_cluster
+AFTER DELETE ON status.managed_clusters
+FOR EACH ROW
+EXECUTE FUNCTION history.move_managed_cluster_to_history();
