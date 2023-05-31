@@ -35,6 +35,10 @@ spec:
         name: storage-secret
     type: largeScale
 ```
+Note: You may need to restart the `multicluster-global-hub-operator` pod after the `multiclusterglobalhub` instance updated
+```bash
+oc delete pod multicluster-global-hub-operator-xxx -n open-cluster-management
+```
 
 2. Insert the simulated data into database:
 
@@ -53,7 +57,7 @@ kubectl exec -it $(kubectl get pods -n hoh-postgres -l postgres-operator.crunchy
 4. Check the manager logs to make sure the scheduler job running successfully:
 
 ```bash
-# oc -n open-cluster-management logs -f deploy/multicluster-global-hub-manager
+# oc -n open-cluster-management logs -f deploy/multicluster-global-hub-manager multicluster-global-hub-manager
 {"level":"info","ts":1684217414.735211,"logger":"local-compliance-job","msg":"start running","LastRun":"2023-05-16 06:10:14","NextRun":"2023-05-16 06:11:14"}
 batchSize: 1000, insert: 1000, offset: 0
 batchSize: 1000, insert: 1000, offset: 1000
