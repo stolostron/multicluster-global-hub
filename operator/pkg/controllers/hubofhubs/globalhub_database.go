@@ -29,6 +29,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		return nil
 	}
 
+	if condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
+		log.Info("database has been initialized, checking the reconcile counter")
+		// if the operator is restarted, reconcile the database again
+		if DatabaseReconcileCounter > 0 {
+			return nil
+		}
+	}
+
 	storageNamespace := config.GetDefaultNamespace()
 	storageName := mgh.Spec.DataLayer.LargeScale.Postgres.Name
 
@@ -50,14 +58,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 			log.Error(err, "failed to close connection to database")
 		}
 	}()
-
-	if condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
-		log.Info("database has been initialized, checking the reconcile counter")
-		// if the operator is restarted, reconcile the database again
-		if DatabaseReconcileCounter > 0 {
-			return nil
-		}
-	}
 
 	err = iofs.WalkDir(databaseFS, "database", func(file string, d iofs.DirEntry, beforeError error) error {
 		if beforeError != nil {
