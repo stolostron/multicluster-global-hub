@@ -79,3 +79,16 @@ CREATE TRIGGER trigger_backup_deleted_managed_cluster
 AFTER DELETE ON status.managed_clusters
 FOR EACH ROW
 EXECUTE FUNCTION history.move_managed_cluster_to_history();
+--- set cluster_id to local_status/status compliance history
+DROP TRIGGER IF EXISTS set_cluster_id_to_compliance ON local_status.compliance;
+CREATE TRIGGER set_cluster_id_to_compliance
+BEFORE INSERT OR UPDATE ON local_status.compliance
+FOR EACH ROW
+EXECUTE FUNCTION local_status.set_cluster_id_to_compliance();
+
+
+DROP TRIGGER IF EXISTS set_cluster_id_to_compliance ON status.compliance;
+CREATE TRIGGER set_cluster_id_to_compliance
+BEFORE INSERT OR UPDATE ON status.compliance
+FOR EACH ROW
+EXECUTE FUNCTION status.set_cluster_id_to_compliance();

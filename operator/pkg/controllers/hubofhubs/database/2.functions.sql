@@ -288,24 +288,36 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.set_cluster_id_to_local_compliance() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  UPDATE local_status.compliance set cluster_id=(SELECT cluster_id FROM status.managed_clusters
-  WHERE payload -> 'metadata' ->> 'name' = NEW.cluster_name AND leaf_hub_name = NEW.leaf_hub_name)
-  WHERE cluster_name = NEW.cluster_name AND leaf_hub_name = NEW.leaf_hub_name;
-  RETURN NEW;
-END;
-$$;
 
-CREATE OR REPLACE FUNCTION public.set_cluster_id_to_compliance() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
+CREATE OR REPLACE FUNCTION local_status.set_cluster_id_to_compliance()
+  RETURNS TRIGGER AS $$
+DECLARE
+  retry_count INT := 0;
 BEGIN
-  UPDATE status.compliance set cluster_id=(SELECT cluster_id FROM status.managed_clusters
-  WHERE payload -> 'metadata' ->> 'name' = NEW.cluster_name AND leaf_hub_name = NEW.leaf_hub_name)
-  WHERE cluster_name = NEW.cluster_name AND leaf_hub_name = NEW.leaf_hub_name;
+  -- Retry loop with a maximum of 12 attempts = 2 min
+  WHILE retry_count < 12 LOOP
+    BEGIN
+      NEW.cluster_id := (
+        SELECT cluster_id
+        FROM status.managed_clusters
+        WHERE payload -> 'metadata' ->> 'name' = NEW.cluster_name
+          AND leaf_hub_name = NEW.leaf_hub_name
+        LIMIT 1
+      );
+      
+      IF NEW.cluster_id IS NOT NULL THEN
+        RETURN NEW;
+      END IF;
+      
+      retry_count := retry_count + 1;
+      PERFORM pg_sleep(10); -- Wait for 10 seconds before retrying
+    EXCEPTION
+      WHEN OTHERS THEN
+        retry_count := retry_count + 1;
+        PERFORM pg_sleep(10); -- Wait for 10 seconds before retrying
+    END;
+  END LOOP;
+
   RETURN NEW;
 END;
 $$;
@@ -318,5 +330,38 @@ BEGIN
     INSERT INTO history.managed_clusters (leaf_hub_name, cluster_id, payload, error)
     VALUES (OLD.leaf_hub_name, OLD.cluster_id, OLD.payload, OLD.error);
     RETURN OLD;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION status.set_cluster_id_to_compliance()
+  RETURNS TRIGGER AS $$
+DECLARE
+  retry_count INT := 0;
+BEGIN
+  -- Retry loop with a maximum of 12 attempts = 2 min
+  WHILE retry_count < 12 LOOP
+    BEGIN
+      NEW.cluster_id := (
+        SELECT cluster_id
+        FROM status.managed_clusters
+        WHERE payload -> 'metadata' ->> 'name' = NEW.cluster_name
+          AND leaf_hub_name = NEW.leaf_hub_name
+        LIMIT 1
+      );
+      
+      IF NEW.cluster_id IS NOT NULL THEN
+        RETURN NEW;
+      END IF;
+      
+      retry_count := retry_count + 1;
+      PERFORM pg_sleep(10); 
+    EXCEPTION
+      WHEN OTHERS THEN
+        retry_count := retry_count + 1;
+        PERFORM pg_sleep(10);
+    END;
+  END LOOP;
+
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
