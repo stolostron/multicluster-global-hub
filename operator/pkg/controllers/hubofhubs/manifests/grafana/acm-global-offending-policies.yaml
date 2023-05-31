@@ -54,7 +54,7 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "red",
                     "value": null
                   },
                   {
@@ -122,7 +122,7 @@ data:
         },
         {
           "datasource": "${datasource}",
-          "description": "Total number of managed cluster policies that were  compliant.",
+          "description": "Total number of managed cluster policies that were compliant.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -134,7 +134,7 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
+                    "color": "green",
                     "value": null
                   },
                   {
