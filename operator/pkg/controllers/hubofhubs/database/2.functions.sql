@@ -309,3 +309,14 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- Create the trigger function
+CREATE OR REPLACE FUNCTION history.move_managed_cluster_to_history()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Insert the deleted row into history.managed_clusters
+    INSERT INTO history.managed_clusters (leaf_hub_name, cluster_id, payload, error)
+    VALUES (OLD.leaf_hub_name, OLD.cluster_id, OLD.payload, OLD.error);
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
