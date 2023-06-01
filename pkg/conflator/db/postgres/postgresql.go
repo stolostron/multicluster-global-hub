@@ -21,7 +21,8 @@ var (
 
 // NewStatusPostgreSQL creates a new instance of PostgreSQL object.
 func NewStatusPostgreSQL(ctx context.Context, dataConfig *database.DatabaseConfig) (*PostgreSQL, error) {
-	dbConnectionPool, err := database.PostgresConnPool(ctx, dataConfig.URL, dataConfig.CaCertPath, int32(dataConfig.PoolSize))
+	dbConnectionPool, err := database.PostgresConnPool(ctx, dataConfig.URL, dataConfig.CaCertPath,
+		int32(dataConfig.PoolSize))
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to status db: %w", err)
 	}
