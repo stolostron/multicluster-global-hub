@@ -151,21 +151,13 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
-				e.Object.GetLabels()["openshiftVersion"] == "3" ||
-				e.Object.GetName() == operatorconstants.LocalClusterName {
-				return false
-			}
-
-			return true
+			return !filterManagedCluster(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()["vendor"] != "OpenShift" ||
-				e.ObjectNew.GetLabels()["openshiftVersion"] == "3" ||
-				e.ObjectNew.GetName() == operatorconstants.LocalClusterName {
+			if filterManagedCluster(e.ObjectNew) {
 				return false
 			}
 			if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
@@ -175,19 +167,31 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			if e.Object.GetLabels()["vendor"] != "OpenShift" ||
-				e.Object.GetLabels()["openshiftVersion"] == "3" ||
-				e.Object.GetName() == operatorconstants.LocalClusterName {
-				return false
-			}
-
-			return true
+			return !filterManagedCluster(e.Object)
 		},
 	}
 
 	addonPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectNew.GetName() != operatorconstants.GHManagedClusterAddonName {
+				return false
+			}
+			if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
+				return false
+			}
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
+		},
+	}
+
+	clusterManagementAddonPred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			if e.ObjectNew.GetName() != operatorconstants.GHManagedClusterAddonName {
@@ -216,5 +220,41 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					}},
 				}
 			}), builder.WithPredicates(addonPred)).
+		// secondary watch for managedclusteraddon
+		Watches(&source.Kind{Type: &v1alpha1.ClusterManagementAddOn{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				requests := []reconcile.Request{}
+				// list all the managedCluster
+				managedClusterList := &clusterv1.ManagedClusterList{}
+				err := r.List(ctx, managedClusterList)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						r.Log.Info("no managed cluster found to trigger addoninstall reconciler")
+						return requests
+					}
+					r.Log.Error(err, "failed to list managed clusters to trigger addoninstall reconciler")
+					return requests
+				}
+
+				for i := range managedClusterList.Items {
+					managedCluster := managedClusterList.Items[i]
+					if filterManagedCluster(&managedCluster) {
+						continue
+					}
+					requests = append(requests, reconcile.Request{
+						NamespacedName: types.NamespacedName{
+							Name: managedCluster.GetName(),
+						},
+					})
+				}
+				r.Log.Info("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
+				return requests
+			}), builder.WithPredicates(clusterManagementAddonPred)).
 		Complete(r)
+}
+
+func filterManagedCluster(obj client.Object) bool {
+	return obj.GetLabels()["vendor"] != "OpenShift" ||
+		obj.GetLabels()["openshiftVersion"] == "3" ||
+		obj.GetName() == operatorconstants.LocalClusterName
 }

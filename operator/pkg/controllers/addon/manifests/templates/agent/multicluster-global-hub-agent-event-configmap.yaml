@@ -8,8 +8,7 @@ metadata:
     addon.open-cluster-management.io/hosted-manifest-location: none
 data:
   config.yaml: |
-    logLevel: error
-    logFormat: json
+    logLevel: disabled
     maxEventAgeSeconds: 60
     metricsNamePrefix: "mcgh"
     # namespace: my-namespace-only # Omitting it defaults to all namespaces.

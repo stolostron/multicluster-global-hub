@@ -11,7 +11,7 @@ Which means:
 2. `local_spec.policies` will have around 90 rows
 3. `status.managed_clusters` will have around 699 rows
 
-And daily summary will add to `local_status.compliance_history` 20970 rows/day, which means around `4 million` for 6 months and `8 million` for 1 year.
+And daily summary will add to `history.local_compliance` 20970 rows/day, which means around `4 million` for 6 months and `8 million` for 1 year.
 
 ## How To Use
 
@@ -35,6 +35,10 @@ spec:
         name: storage-secret
     type: largeScale
 ```
+Note: You may need to restart the `multicluster-global-hub-operator` pod after the `multiclusterglobalhub` instance updated
+```bash
+oc delete pod multicluster-global-hub-operator-xxx -n open-cluster-management
+```
 
 2. Insert the simulated data into database:
 
@@ -53,7 +57,7 @@ kubectl exec -it $(kubectl get pods -n hoh-postgres -l postgres-operator.crunchy
 4. Check the manager logs to make sure the scheduler job running successfully:
 
 ```bash
-# oc -n open-cluster-management logs -f deploy/multicluster-global-hub-manager
+# oc -n open-cluster-management logs -f deploy/multicluster-global-hub-manager multicluster-global-hub-manager
 {"level":"info","ts":1684217414.735211,"logger":"local-compliance-job","msg":"start running","LastRun":"2023-05-16 06:10:14","NextRun":"2023-05-16 06:11:14"}
 batchSize: 1000, insert: 1000, offset: 0
 batchSize: 1000, insert: 1000, offset: 1000
@@ -69,10 +73,10 @@ batchSize: 1000, insert: 1000, offset: 10000
 ...
 ```
 
-5. After about 6 hours, check the row count of `local_status.compliance_history` table:
+5. After about 6 hours, check the row count of `history.local_compliance` table:
 
 ```bash
- kubectl exec -it $(kubectl get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n hoh-postgres -- psql -U postgres -d hoh -c "SELECT count(*) from local_status.compliance_history"
+# oc exec -it $(oc get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n hoh-postgres -- psql -U postgres -d hoh -c "SELECT count(*) from history.local_compliance"
  count
 --------
  7942000
@@ -90,7 +94,7 @@ tmpfs            64M     0   64M   0% /dev
 tmpfs            31G     0   31G   0% /sys/fs/cgroup
 tmpfs            31G   84M   31G   1% /etc/passwd
 /dev/nvme0n1p4  120G   30G   90G  26% /tmp
-/dev/nvme4n1     20G    3G   20G   2% /pgdata
+/dev/nvme4n1     20G  1.3G   20G   2% /pgdata
 tmpfs            61G   24K   61G   1% /pgconf/tls
 tmpfs            61G   24K   61G   1% /etc/database-containerinfo
 tmpfs            61G   16K   61G   1% /etc/patroni

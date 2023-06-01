@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -137,7 +138,8 @@ func TestAgent(t *testing.T) {
 			"--transport-type",
 			string(transport.Chan),
 			"--kubernetes-event-exporter-config",
-			filepath.Join("..", "..", "..", "pkg", "testdata", "event", "kube-event-exporter-good-config.yaml"),
+			filepath.Join("..", "..", "..", "pkg", "testdata", "event",
+				"kube-event-exporter-good-config.yaml"),
 			// "--kafka-bootstrap-server",
 			// mockKafkaCluster.BootstrapServers(),
 		}, 0},
@@ -145,6 +147,7 @@ func TestAgent(t *testing.T) {
 	for _, tc := range cases {
 		// this call is required because otherwise flags panics, if args are set between flag.Parse call
 		pflag.CommandLine = pflag.NewFlagSet(tc.name, pflag.ExitOnError)
+		flag.CommandLine = flag.NewFlagSet(tc.name, flag.ExitOnError)
 		// we need a value to set Args[0] to cause flag begins parsing at Args[1]
 		os.Args = append([]string{tc.name}, tc.args...)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -174,6 +177,7 @@ func initMockAgentConfig() *config.AgentConfig {
 	return &config.AgentConfig{
 		PodNameSpace:   "default",
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
+		MetricsAddress: "0",
 	}
 }
 
@@ -182,15 +186,17 @@ func TestNoMCHClusterManagerCRD(t *testing.T) {
 		CRDDirectoryPaths:     []string{},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
 		panic(err)
 	}
-	defer testenv.Stop()
-
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -203,16 +209,18 @@ func TestHasMCHCRDWithoutCR(t *testing.T) {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
 		panic(err)
 	}
 	// stop testenv
-	defer testenv.Stop()
-
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -225,14 +233,16 @@ func TestHasMCHCRDCR(t *testing.T) {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
 		panic(err)
 	}
-	// stop testenv
-	defer testenv.Stop()
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
 
 	// generate the client based off of the config
 	dynamicClient, err := dynamic.NewForConfig(cfg)
@@ -251,14 +261,17 @@ func TestHasMCHCRDCR(t *testing.T) {
 		},
 	}
 
-	resource := schema.GroupVersionResource{Group: "operator.open-cluster-management.io", Version: "v1", Resource: "multiclusterhubs"}
+	resource := schema.GroupVersionResource{
+		Group:   "operator.open-cluster-management.io",
+		Version: "v1", Resource: "multiclusterhubs",
+	}
 	_, err = dynamicClient.Resource(resource).Namespace("default").
 		Create(context.TODO(), obj, metav1.CreateOptions{})
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if !strings.Contains(err.Error(), "failed to create incarnation config-map") {
 		t.Fatalf("expect to have `failed to create incarnation config-map` error, but we got %v", err)
 	}
@@ -267,20 +280,23 @@ func TestHasMCHCRDCR(t *testing.T) {
 func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds", "0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds",
+				"0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
 		panic(err)
 	}
-	// stop testenv
-	defer testenv.Stop()
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
 
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -289,18 +305,21 @@ func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
 func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds", "0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds",
+				"0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
-	log := initLog()
 
 	cfg, err := testenv.Start()
 	if err != nil {
 		panic(err)
 	}
-	// stop testenv
-	defer testenv.Stop()
+	defer func() {
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+	}()
 
 	// generate the client based off of the config
 	dynamicClient, err := dynamic.NewForConfig(cfg)
@@ -317,14 +336,17 @@ func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 			},
 		},
 	}
-	resource := schema.GroupVersionResource{Group: "operator.open-cluster-management.io", Version: "v1", Resource: "clustermanagers"}
+	resource := schema.GroupVersionResource{
+		Group:   "operator.open-cluster-management.io",
+		Version: "v1", Resource: "clustermanagers",
+	}
 	_, err = dynamicClient.Resource(resource).
 		Create(context.TODO(), obj, metav1.CreateOptions{})
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = createManager(context.Background(), log, cfg, initMockAgentConfig())
+	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	if !strings.Contains(err.Error(), "failed to create incarnation config-map") {
 		t.Fatalf("expect to have `failed to create incarnation config-map` error, but we got %v", err)
 	}

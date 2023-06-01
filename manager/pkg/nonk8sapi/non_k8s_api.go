@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,7 +42,7 @@ func readCertificateAuthority(nonK8sAPIServerConfig *NonK8sAPIServerConfig) ([]b
 	var clusterAPICABundle []byte
 
 	if nonK8sAPIServerConfig.ClusterAPICABundlePath != "" {
-		clusterAPICABundle, err := ioutil.ReadFile(nonK8sAPIServerConfig.ClusterAPICABundlePath)
+		clusterAPICABundle, err := os.ReadFile(nonK8sAPIServerConfig.ClusterAPICABundlePath)
 		if err != nil {
 			return clusterAPICABundle,
 				fmt.Errorf("%w: %s", errFailedToLoadCertificate,

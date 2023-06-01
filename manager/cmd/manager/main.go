@@ -10,33 +10,32 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 	"time"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	"github.com/go-logr/logr"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
+	"github.com/mohae/deepcopy"
 	"github.com/spf13/pflag"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
-	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
+	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -51,9 +50,11 @@ const (
 var (
 	errFlagParameterEmpty        = errors.New("flag parameter empty")
 	errFlagParameterIllegalValue = errors.New("flag parameter illegal value")
+	enableSimulation             = false
+	setupLog                     = ctrl.Log.WithName("setup")
 )
 
-func parseFlags() (*managerconfig.ManagerConfig, error) {
+func parseFlags() *managerconfig.ManagerConfig {
 	managerConfig := &managerconfig.ManagerConfig{
 		SyncerConfig:   &managerconfig.SyncerConfig{},
 		DatabaseConfig: &managerconfig.DatabaseConfig{},
@@ -69,16 +70,27 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
 
+	// add zap flags
+	opts := utils.CtrlZapOptions()
+	defaultFlags := flag.CommandLine
+	opts.BindFlags(defaultFlags)
+	pflag.CommandLine.AddGoFlagSet(defaultFlags)
+
 	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", "open-cluster-management",
 		"The manager running namespace, also used as leader election namespace.")
 	pflag.StringVar(&managerConfig.WatchNamespace, "watch-namespace", "",
 		"The watching namespace of the controllers, multiple namespace must be splited by comma.")
+	pflag.StringVar(&managerConfig.SchedulerInterval, "scheduler-interval", "day",
+		"The job scheduler interval for moving policy compliance history, "+
+			"can be 'month', 'week', 'day', 'hour', 'minute' or 'second', default value is 'day'.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.SpecSyncInterval, "spec-sync-interval", 5*time.Second,
 		"The synchronization interval of resources in spec.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.StatusSyncInterval, "status-sync-interval", 5*time.Second,
 		"The synchronization interval of resources in status.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval, "deleted-labels-trimming-interval",
 		5*time.Second, "The trimming interval of deleted labels.")
+	pflag.IntVar(&managerConfig.DatabaseConfig.MaxOpenConns, "database-pool-size", 10,
+		"The size of database connection pool for the process user.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.ProcessDatabaseURL, "process-database-url", "",
 		"The URL of database server for the process user.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.TransportBridgeDatabaseURL,
@@ -105,6 +117,7 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 		"multicluster-global-hub", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
 		"spec", "Topic for the kafka producer.")
+	pflag.StringVar(&managerConfig.EventExporterTopic, "event-exporter-topic", "event", "Topic for the event exporter.")
 	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
@@ -122,39 +135,33 @@ func parseFlags() (*managerconfig.ManagerConfig, error) {
 	pflag.IntVar(&managerConfig.ElectionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
 	pflag.IntVar(&managerConfig.ElectionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
 	pflag.IntVar(&managerConfig.ElectionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
-	// add flags for logger
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
 
+	pflag.Parse()
+	// set zap logger
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	pflag.Visit(func(f *pflag.Flag) {
+		// set enableSimulation to be true when manually set 'scheduler-interval' flag
+		if f.Name == "scheduler-interval" && f.Changed {
+			enableSimulation = true
+		}
+	})
+	return managerConfig
+}
+
+func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	if managerConfig.DatabaseConfig.ProcessDatabaseURL == "" {
-		return nil, fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
-	}
-	if managerConfig.DatabaseConfig.TransportBridgeDatabaseURL == "" {
-		return nil, fmt.Errorf("database url for transport-bridge user: %w", errFlagParameterEmpty)
+		return fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
 	}
 	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
-		return nil, fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
+		return fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
 	}
-
-	return managerConfig, nil
-}
-
-func initializeLogger() logr.Logger {
-	ctrl.SetLogger(zap.Logger())
-	log := ctrl.Log.WithName("cmd")
-
-	return log
-}
-
-func printVersion(log logr.Logger) {
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+	return nil
 }
 
 func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
-	processPostgreSQL, transportBridgePostgreSQL *postgresql.PostgreSQL,
+	processPostgreSQL *postgresql.PostgreSQL,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
@@ -201,25 +208,24 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
-	if err := spec2db.AddSpec2DBControllers(mgr, processPostgreSQL); err != nil {
-		return nil, fmt.Errorf("failed to add spec-to-db controllers: %w", err)
+	if err := specsyncer.AddSpecSyncers(mgr, managerConfig, processPostgreSQL); err != nil {
+		return nil, fmt.Errorf("failed to add spec syncers: %w", err)
 	}
 
-	if err := specsyncer.AddDB2TransportSyncers(mgr, transportBridgePostgreSQL, managerConfig); err != nil {
-		return nil, fmt.Errorf("failed to add db-to-transport syncers: %w", err)
-	}
-
-	if err := specsyncer.AddStatusDBWatchers(mgr, processPostgreSQL, transportBridgePostgreSQL,
-		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval); err != nil {
-		return nil, fmt.Errorf("failed to add status db watchers: %w", err)
-	}
-
-	if _, err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
+	if _, err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
-	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn()); err != nil {
+	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn(),
+		managerConfig.SchedulerInterval, enableSimulation); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
+	}
+
+	eventKafkaConfig := deepcopy.Copy(managerConfig.TransportConfig.KafkaConfig).(*transport.KafkaConfig)
+	eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
+	if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig,
+		processPostgreSQL.GetConn()); err != nil {
+		return nil, fmt.Errorf("failed to add event collector: %w", err)
 	}
 
 	return mgr, nil
@@ -227,45 +233,35 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
 func doMain(ctx context.Context, restConfig *rest.Config) int {
-	log := initializeLogger()
-	printVersion(log)
-	// create hoh manager configuration from command parameters
-	managerConfig, err := parseFlags()
-	if err != nil {
-		log.Error(err, "flags parse error")
+	managerConfig := parseFlags()
+	if err := completeConfig(managerConfig); err != nil {
+		setupLog.Error(err, "failed to complete configuration")
 		return 1
 	}
+	utils.PrintVersion(setupLog)
 
 	processPostgreSQL, err := postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
 	if err != nil {
-		log.Error(err, "failed to initialize process PostgreSQL")
+		setupLog.Error(err, "failed to initialize process PostgreSQL")
 		return 1
 	}
 	defer processPostgreSQL.Stop()
 
-	// db layer initialization for transport-bridge user
-	transportBridgePostgreSQL, err := postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
+	mgr, err := createManager(ctx, restConfig, managerConfig, processPostgreSQL)
 	if err != nil {
-		log.Error(err, "failed to initialize transport-bridge PostgreSQL")
-		return 1
-	}
-	defer transportBridgePostgreSQL.Stop()
-
-	mgr, err := createManager(ctx, restConfig, managerConfig, processPostgreSQL, transportBridgePostgreSQL)
-	if err != nil {
-		log.Error(err, "failed to create manager")
+		setupLog.Error(err, "failed to create manager")
 		return 1
 	}
 
 	hookServer := mgr.GetWebhookServer()
-	log.Info("registering webhooks to the webhook server")
+	setupLog.Info("registering webhooks to the webhook server")
 	hookServer.Register("/mutating", &webhook.Admission{
 		Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()},
 	})
 
-	log.Info("Starting the Manager")
+	setupLog.Info("Starting the Manager")
 	if err := mgr.Start(ctx); err != nil {
-		log.Error(err, "manager exited non-zero")
+		setupLog.Error(err, "manager exited non-zero")
 		return 1
 	}
 

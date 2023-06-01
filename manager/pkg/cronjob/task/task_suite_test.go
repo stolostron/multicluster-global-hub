@@ -57,7 +57,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Connect to the database")
-	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "ca-cert-path")
+	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "ca-cert-path", 2)
 	Expect(err).NotTo(HaveOccurred())
 })
 
@@ -69,8 +69,8 @@ var _ = AfterSuite(func() {
 	if err != nil {
 		time.Sleep(4 * time.Second)
 	}
-	cancel()
 	pool.Close()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 	Expect(testenv.Stop()).NotTo(HaveOccurred())
+	cancel()
 })

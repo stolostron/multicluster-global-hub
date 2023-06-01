@@ -270,7 +270,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 				Client: fake.NewClientBuilder().WithScheme(addonTestScheme).WithObjects(objects...).Build(),
 				Log:    ctrl.Log.WithName("test"),
 			}
-			err = r.SetupWithManager(mgr)
+			err = r.SetupWithManager(ctx, mgr)
 			if err != nil {
 				t.Errorf("failed to setup addon install controller with manager: %v", err)
 			}

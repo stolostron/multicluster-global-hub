@@ -14,6 +14,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
+var DatabaseReconcileCounter = 0
+
 //go:embed database
 var databaseFS embed.FS
 
@@ -25,6 +27,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	if config.SkipDBInit(mgh) {
 		log.Info("database initialization is skipped")
 		return nil
+	}
+
+	if condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
+		log.Info("database has been initialized, checking the reconcile counter")
+		// if the operator is restarted, reconcile the database again
+		if DatabaseReconcileCounter > 0 {
+			return nil
+		}
 	}
 
 	storageNamespace := config.GetDefaultNamespace()
@@ -71,6 +81,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	}
 
 	log.Info("database initialized")
+	DatabaseReconcileCounter++
 	err = condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE)
 	if err != nil {
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)

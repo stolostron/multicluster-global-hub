@@ -24,8 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "id": 2,
-      "iteration": 1683648676404,
+      "iteration": 1685582822066,
       "links": [
         {
           "asDropdown": false,
@@ -55,12 +54,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
                     "color": "red",
-                    "value": 1
+                    "value": null
                   }
                 ]
               }
@@ -69,7 +64,7 @@ data:
           },
           "gridPos": {
             "h": 6,
-            "w": 8,
+            "w": 6,
             "x": 0,
             "y": 0
           },
@@ -96,7 +91,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    compliance_date as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history\n  GROUP BY (compliance_date, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  non_compliant > 0",
               "refId": "A",
               "select": [
                 [
@@ -123,7 +118,7 @@ data:
         },
         {
           "datasource": null,
-          "description": "Total number of managed clusters that were  compliant.",
+          "description": "Total number of managed clusters that were unknown.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -135,12 +130,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
+                    "color": "yellow",
                     "value": null
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
                   }
                 ]
               }
@@ -149,8 +140,84 @@ data:
           },
           "gridPos": {
             "h": 6,
-            "w": 8,
-            "x": 8,
+            "w": 6,
+            "x": 6,
+            "y": 0
+          },
+          "id": 52,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(unknown) as \"unknown\",\n    SUM(non_compliant) as \"non_compliant\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  non_compliant = 0 and unknown > 0",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Unknown Managed Clusters",
+          "type": "stat"
+        },
+        {
+          "datasource": null,
+          "description": "Total number of managed clusters that were compliant.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 12,
             "y": 0
           },
           "id": 48,
@@ -163,7 +230,7 @@ data:
               "calcs": [
                 "lastNotNull"
               ],
-              "fields": "/^count$/",
+              "fields": "",
               "values": false
             },
             "text": {},
@@ -172,11 +239,11 @@ data:
           "pluginVersion": "8.5.20",
           "targets": [
             {
-              "format": "time_series",
+              "format": "table",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    compliance_date as \"p_time\",\n    cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history\n  GROUP BY (compliance_date, cluster_id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(compliant) as \"compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  non_compliant = 0 and unknown = 0 and compliant > 0",
               "refId": "A",
               "select": [
                 [
@@ -225,8 +292,8 @@ data:
           },
           "gridPos": {
             "h": 6,
-            "w": 8,
-            "x": 16,
+            "w": 6,
+            "x": 18,
             "y": 0
           },
           "id": 47,
@@ -252,7 +319,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  $__timeGroupAlias(compliance_date, $__interval),\n  COUNT(distinct cluster_id)\nFROM\n  local_status.compliance_history\nWHERE\n  $__timeFilter(compliance_date)\nGROUP BY (compliance_date)",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  data\n\n",
               "refId": "A",
               "select": [
                 [
@@ -310,7 +377,7 @@ data:
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Name"
+                  "options": "Cluster"
                 },
                 "properties": [
                   {
@@ -318,8 +385,8 @@ data:
                     "value": [
                       {
                         "targetBlank": true,
-                        "title": "View What's Changed dashboard for policy \"${__value.text}\"",
-                        "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1&var-policy=${__value.text}&var-cluster=All&to=${__value.time}"
+                        "title": "View What's Changed dashboard for cluster \"${__value.text}\"",
+                        "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1&var-cluster=${__value.text}&var-policy=All&to=${__value.time}"
                       }
                     ]
                   }
@@ -334,18 +401,6 @@ data:
                   {
                     "id": "custom.displayMode",
                     "value": "color-background"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "cloud"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": null
                   }
                 ]
               }
@@ -369,7 +424,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    local_status.compliance_history ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value) \n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  cluster,\n  hub,\n  $label,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time) AND non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant'  THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value) \n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    $label,\n    non_compliant::float / (compliant::float + unknown::float + non_compliant) as \"value\" \n  FROM\n    data\n)\nSELECT\n  *\nFROM\n  res\nWHERE\n  value > 0\nORDER BY (\"value\") DESC",
               "refId": "A",
               "select": [
                 [
@@ -399,13 +454,8 @@ data:
                 "excludeByName": {},
                 "indexByName": {},
                 "renameByName": {
-                  "category": "Category",
                   "cluster": "Cluster",
-                  "control": "Control",
                   "hub": "Hub",
-                  "name": "Name",
-                  "severity": "Severity",
-                  "standard": "Standard",
                   "time": "Time",
                   "value": "Non Compliant"
                 }
@@ -446,8 +496,8 @@ data:
             "allValue": null,
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "vendor",
+              "value": "vendor"
             },
             "datasource": "${datasource}",
             "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
@@ -478,7 +528,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "description": "Managed cluster label values",
             "error": null,
             "hide": 0,
@@ -487,7 +537,7 @@ data:
             "multi": true,
             "name": "value",
             "options": [],
-            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -497,7 +547,7 @@ data:
         ]
       },
       "time": {
-        "from": "now-24h",
+        "from": "now-7d",
         "to": "now"
       },
       "timepicker": {},

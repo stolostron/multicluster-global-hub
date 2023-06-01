@@ -24,8 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "id": 6,
-      "iteration": 1683648816650,
+      "iteration": 1685519050306,
       "links": [
         {
           "asDropdown": false,
@@ -43,7 +42,7 @@ data:
       "panels": [
         {
           "datasource": "${datasource}",
-          "description": "Aggregated cluster group trend by cluster label: \"$label\":\"$value\"",
+          "description": "Aggregated cluster group trend by cluster label: \"$label\"",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -126,7 +125,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date as \"time\",\n    payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    local_status.compliance_history ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.payload)\n  ORDER BY (ch.compliance_date)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nORDER BY (time)",
+              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date as \"time\",\n    payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (ch.compliance_date)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / (unknown::float + compliant::float + non_compliant) as \"value\"\nFROM\n  data\nORDER BY (time)",
               "refId": "A",
               "select": [
                 [
@@ -183,8 +182,8 @@ data:
             "allValue": null,
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "vendor",
+              "value": "vendor"
             },
             "datasource": "${datasource}",
             "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
@@ -215,7 +214,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "description": "Managed clusters label values",
             "error": null,
             "hide": 0,
@@ -224,7 +223,7 @@ data:
             "multi": true,
             "name": "value",
             "options": [],
-            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,

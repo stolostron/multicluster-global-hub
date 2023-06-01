@@ -1459,7 +1459,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		cancel()
 		postgresSQL.Stop()
 	})
 })

@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	"github.com/spf13/pflag"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
@@ -69,25 +70,25 @@ func TestOperator(t *testing.T) {
 		expectedExit         int
 	}{
 		{"flag set with leader-election disabled", []string{
-			"-leader-election",
+			"--leader-election",
 			"false",
-			"-metrics-bind-address",
+			"--metrics-bind-address",
 			":18080",
-			"-health-probe-bind-address",
+			"--health-probe-bind-address",
 			":18081",
 		}, nil, 0},
 		{"flag set with leader-election enabled", []string{
-			"-leader-election",
-			"-metrics-bind-address",
+			"--leader-election",
+			"--metrics-bind-address",
 			":18080",
-			"-health-probe-bind-address",
+			"--health-probe-bind-address",
 			":18081",
 		}, nil, 0},
 		{"flag set with customized leader-election configuration", []string{
-			"-leader-election",
-			"-metrics-bind-address",
+			"--leader-election",
+			"--metrics-bind-address",
 			":18080",
-			"-health-probe-bind-address",
+			"--health-probe-bind-address",
 			":18081",
 		}, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -100,6 +101,7 @@ func TestOperator(t *testing.T) {
 	for _, tc := range cases {
 		// this call is required because otherwise flags panics, if args are set between flag.Parse call
 		flag.CommandLine = flag.NewFlagSet(tc.name, flag.ExitOnError)
+		pflag.CommandLine = pflag.NewFlagSet(tc.name, pflag.ExitOnError)
 		// we need a value to set Args[0] to cause flag begins parsing at Args[1]
 		os.Args = append([]string{tc.name}, tc.args...)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

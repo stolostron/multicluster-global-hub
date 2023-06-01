@@ -35,6 +35,10 @@ const (
 	// AnnotationImageOverridesCM sits in MulticlusterGlobalHub annotations
 	// to identify a custom configmap containing image overrides
 	AnnotationImageOverridesCM = "mgh-image-overrides-cm"
+	// AnnotationMGHSchedulerInterval sits in MulticlusterGlobalHub annotations
+	// to identify the scheduler interval for moving policy compliance history
+	// valid value can be "month, week, day, hour, minute, second"
+	AnnotationMGHSchedulerInterval = "mgh-scheduler-interval"
 	// MGHOperandImagePrefix ...
 	MGHOperandImagePrefix = "RELATED_IMAGE_"
 )

@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1683222645414,
+      "iteration": 1685518453763,
       "links": [
         {
           "asDropdown": false,
@@ -54,12 +54,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
                     "color": "red",
-                    "value": 1
+                    "value": null
                   }
                 ]
               }
@@ -68,7 +64,7 @@ data:
           },
           "gridPos": {
             "h": 6,
-            "w": 8,
+            "w": 6,
             "x": 0,
             "y": 0
           },
@@ -82,7 +78,7 @@ data:
               "calcs": [
                 "lastNotNull"
               ],
-              "fields": "/^sum$/",
+              "fields": "",
               "values": false
             },
             "text": {},
@@ -95,7 +91,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"p_time\",\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history ch\n  GROUP BY (ch.compliance_date, ch.id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) < 1\nGROUP BY (p_time)\nORDER BY (p_time)",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(non_compliant) as \"non_compliant\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res\nWHERE\n  non_compliant > 0",
               "refId": "A",
               "select": [
                 [
@@ -122,7 +118,7 @@ data:
         },
         {
           "datasource": "${datasource}",
-          "description": "Total number of managed cluster policies that were  compliant.",
+          "description": "Total number of managed cluster policies that were unknown.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -134,12 +130,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
+                    "color": "yellow",
                     "value": null
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
                   }
                 ]
               }
@@ -148,11 +140,11 @@ data:
           },
           "gridPos": {
             "h": 6,
-            "w": 8,
-            "x": 8,
+            "w": 6,
+            "x": 6,
             "y": 0
           },
-          "id": 48,
+          "id": 53,
           "options": {
             "colorMode": "value",
             "graphMode": "area",
@@ -162,7 +154,7 @@ data:
               "calcs": [
                 "lastNotNull"
               ],
-              "fields": "/^sum$/",
+              "fields": "",
               "values": false
             },
             "text": {},
@@ -175,7 +167,83 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    compliance_date as \"p_time\",\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_status.compliance_history ch\n  GROUP BY (ch.compliance_date, ch.id)\n)\nSELECT\n  $__timeGroupAlias(p_time, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY p_time)\nFROM\n  data\nWHERE\n  $__timeFilter(p_time)\nAND\n  (compliant::float / (compliant::float + non_compliant)) = 1\nGROUP BY (p_time)\nORDER BY (p_time)",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res\nWHERE\n  non_compliant = 0 and unknown > 0",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Unknown Policies",
+          "type": "stat"
+        },
+        {
+          "datasource": "${datasource}",
+          "description": "Total number of managed cluster policies that were  compliant.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "dark-green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 12,
+            "y": 0
+          },
+          "id": 48,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(compliant) as \"compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res\nWHERE\n  non_compliant = 0 and unknown = 0 and compliant > 0",
               "refId": "A",
               "select": [
                 [
@@ -224,8 +292,8 @@ data:
           },
           "gridPos": {
             "h": 6,
-            "w": 8,
-            "x": 16,
+            "w": 6,
+            "x": 18,
             "y": 0
           },
           "id": 47,
@@ -238,7 +306,7 @@ data:
               "calcs": [
                 "lastNotNull"
               ],
-              "fields": "/^sum$/",
+              "fields": "",
               "values": false
             },
             "text": {},
@@ -251,7 +319,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  $__timeGroupAlias(compliance_date, $__interval),\n  SUM(COUNT(DISTINCT id)) OVER (ORDER BY compliance_date)\nFROM\n  local_status.compliance_history ch\nWHERE\n  $__timeFilter(compliance_date)\nGROUP BY (compliance_date)\nORDER BY (compliance_date)",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, id)\n  ORDER BY (ch.compliance_date) DESC\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  data",
               "refId": "A",
               "select": [
                 [
@@ -356,7 +424,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"name\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    local_status.compliance_history ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY\n    ch.compliance_date, p.policy_name, p.policy_standard, p.policy_category, p.policy_control, p.payload\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  standard,\n  category,\n  control,\n  severity,\n  non_compliant::float / (compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  severity IN ($severity)\nAND\n  non_compliant::float / (compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"name\",\n    p.policy_standard as \"standard\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY\n    ch.compliance_date, p.policy_name,p.leaf_hub_name, p.policy_standard, p.policy_category, p.policy_control, p.payload\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  hub,\n  standard,\n  category,\n  control,\n  severity,\n  non_compliant::float / (unknown::float + compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  severity IN ($severity)\nAND\n  non_compliant::float / (unknown::float + compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
               "refId": "A",
               "select": [
                 [
@@ -389,6 +457,7 @@ data:
                   "category": "Category",
                   "control": "Control",
                   "name": "Name",
+                  "hub": "Hub",
                   "severity": "Severity",
                   "standard": "Standard",
                   "time": "Time",
@@ -430,7 +499,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -458,7 +527,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -486,7 +555,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -542,7 +611,7 @@ data:
         ]
       },
       "time": {
-        "from": "now-2d",
+        "from": "now-7d",
         "to": "now"
       },
       "timepicker": {},

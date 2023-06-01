@@ -37,6 +37,9 @@ spec:
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
+            {{- if .SchedulerInterval}}
+            - --scheduler-interval={{.SchedulerInterval}}
+            {{- end}}
           env:
             - name: POD_NAMESPACE
               valueFrom:
