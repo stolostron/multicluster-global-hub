@@ -1,4 +1,6 @@
-package database
+package postgres
+
+import "github.com/stolostron/multicluster-global-hub/pkg/database"
 
 // BatchBuilder is an interface to build a batch that can be used to be sent to db.
 type BatchBuilder interface {
@@ -21,11 +23,11 @@ type ManagedClustersBatchBuilder interface {
 type PoliciesBatchBuilder interface {
 	BatchBuilder
 	// Insert adds the given (policyID, clusterName, errorString, compliance) to the batch to be inserted to the db.
-	Insert(policyID string, clusterName string, errorString string, compliance ComplianceStatus)
+	Insert(policyID string, clusterName string, errorString string, compliance database.ComplianceStatus)
 	// Update adds the given (policyID, compliance) to the batch to be updated in the db.
-	UpdatePolicyCompliance(policyID string, compliance ComplianceStatus)
+	UpdatePolicyCompliance(policyID string, compliance database.ComplianceStatus)
 	// Update adds the given (policyID, clusterName, compliance) to the batch to be updated in the db.
-	UpdateClusterCompliance(policyID string, clusterName string, compliance ComplianceStatus)
+	UpdateClusterCompliance(policyID string, clusterName string, compliance database.ComplianceStatus)
 	// DeletePolicy adds delete statement to the batch to delete the given policyID from db.
 	DeletePolicy(policyID string)
 	// DeleteClusterStatus adds delete statement to the batch to delete the given (policyID,clusterName) from db.

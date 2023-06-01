@@ -12,8 +12,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 // genericDBSyncer implements generic status resource db sync business logic.
@@ -50,14 +50,14 @@ func (syncer *genericDBSyncer) RegisterBundleHandlerFunctions(conflationManager 
 		syncer.bundlePriority,
 		syncer.bundleSyncMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
 			return syncer.handleResourcesBundle(ctx, bundle, dbClient)
 		},
 	))
 }
 
 func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle status.Bundle,
-	dbClient database.GenericStatusResourceDB,
+	dbClient postgres.GenericStatusResourceDB,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()

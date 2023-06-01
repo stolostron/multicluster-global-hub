@@ -1,4 +1,4 @@
-package postgresql
+package postgres
 
 import (
 	"context"
@@ -10,8 +10,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
-	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/postgresql/batch"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres/batch"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
@@ -21,8 +20,8 @@ var (
 )
 
 // NewStatusPostgreSQL creates a new instance of PostgreSQL object.
-func NewStatusPostgreSQL(ctx context.Context, dataConfig *managerconfig.DatabaseConfig) (*PostgreSQL, error) {
-	dbConnectionPool, err := database.PostgresConnPool(ctx, dataConfig.ProcessDatabaseURL, dataConfig.CACertPath)
+func NewStatusPostgreSQL(ctx context.Context, dataConfig *database.DatabaseConfig) (*PostgreSQL, error) {
+	dbConnectionPool, err := database.PostgresConnPool(ctx, dataConfig.URL, dataConfig.CaCertPath, int32(dataConfig.PoolSize))
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to status db: %w", err)
 	}
@@ -80,7 +79,7 @@ func (p *PostgreSQL) SendBatch(ctx context.Context, batch interface{}) error {
 // NewManagedClustersBatchBuilder creates a new instance of ManagedClustersBatchBuilder.
 func (p *PostgreSQL) NewManagedClustersBatchBuilder(schema string, tableName string,
 	leafHubName string,
-) database.ManagedClustersBatchBuilder {
+) ManagedClustersBatchBuilder {
 	return batch.NewManagedClustersBatchBuilder(schema, tableName, leafHubName)
 }
 
@@ -102,14 +101,14 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, schema str
 // NewPoliciesBatchBuilder creates a new instance of PoliciesBatchBuilder.
 func (p *PostgreSQL) NewPoliciesBatchBuilder(schema string, tableName string,
 	leafHubName string,
-) database.PoliciesBatchBuilder {
+) PoliciesBatchBuilder {
 	return batch.NewPoliciesBatchBuilder(schema, tableName, leafHubName)
 }
 
 // GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
 func (p *PostgreSQL) GetComplianceStatusByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string,
-) (map[string]*database.PolicyClustersSets, error) {
+) (map[string]*PolicyClustersSets, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE 
 			leaf_hub_name=$1`, schema, tableName), leafHubName)
 
@@ -124,7 +123,7 @@ func (p *PostgreSQL) GetComplianceStatusByLeafHub(ctx context.Context, schema st
 // GetNonCompliantClustersByLeafHub returns a map of policies, each maps to sets of (NonCompliant,Unknown) clusters.
 func (p *PostgreSQL) GetNonCompliantClustersByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string,
-) (map[string]*database.PolicyClustersSets, error) {
+) (map[string]*PolicyClustersSets, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE leaf_hub_name=$1
 			 AND compliance!='compliant'`, schema, tableName), leafHubName)
 
@@ -137,9 +136,9 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHub(ctx context.Context, schem
 }
 
 func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (
-	map[string]*database.PolicyClustersSets, error,
+	map[string]*PolicyClustersSets, error,
 ) {
-	result := make(map[string]*database.PolicyClustersSets)
+	result := make(map[string]*PolicyClustersSets)
 
 	for rows.Next() {
 		var (
@@ -153,7 +152,7 @@ func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (
 
 		policyClustersSets, found := result[policyID]
 		if !found {
-			policyClustersSets = database.NewPolicyClusterSets()
+			policyClustersSets = NewPolicyClusterSets()
 			result[policyID] = policyClustersSets
 		}
 
@@ -226,7 +225,7 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string,
 // NewGenericBatchBuilder creates a new instance of GenericBatchBuilder.
 func (p *PostgreSQL) NewGenericBatchBuilder(schema string, tableName string,
 	leafHubName string,
-) database.GenericBatchBuilder {
+) GenericBatchBuilder {
 	return batch.NewGenericBatchBuilder(schema, tableName, leafHubName)
 }
 
@@ -248,7 +247,7 @@ func (p *PostgreSQL) GetResourceIDToVersionByLeafHub(ctx context.Context, schema
 // NewGenericLocalBatchBuilder creates a new instance of GenericLocalBatchBuilder.
 func (p *PostgreSQL) NewGenericLocalBatchBuilder(schema string, tableName string,
 	leafHubName string,
-) database.GenericLocalBatchBuilder {
+) GenericLocalBatchBuilder {
 	return batch.NewGenericLocalBatchBuilder(schema, tableName, leafHubName)
 }
 

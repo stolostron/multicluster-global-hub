@@ -22,8 +22,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
+	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -117,7 +117,7 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
 
 	By("Add controllers to manager")
-	transportDispatcher, err = statussyncer.AddTransport2DBSyncers(mgr, managerConfig)
+	transportDispatcher, err = statussyncer.AddStatusSyncers(mgr, managerConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")

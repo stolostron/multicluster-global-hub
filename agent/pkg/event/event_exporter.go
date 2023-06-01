@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/event/enhancers"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type EventEnhancer interface {
@@ -113,7 +113,7 @@ func validateEventConfig(eventConfig *exporter.Config, log logr.Logger) {
 	}
 
 	kafkaConfig := eventConfig.Receivers[0].Kafka
-	if config.Validate(kafkaConfig.TLS.CertFile) && config.Validate(kafkaConfig.TLS.KeyFile) {
+	if utils.Validate(kafkaConfig.TLS.CertFile) && utils.Validate(kafkaConfig.TLS.KeyFile) {
 		kafkaConfig.TLS.InsecureSkipVerify = false
 	} else {
 		kafkaConfig.TLS.InsecureSkipVerify = true

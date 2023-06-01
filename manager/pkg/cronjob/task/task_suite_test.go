@@ -57,7 +57,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Connect to the database")
-	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "ca-cert-path")
+	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "ca-cert-path", 2)
 	Expect(err).NotTo(HaveOccurred())
 })
 

@@ -15,6 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+// Get message from transport, convert it to bundle and forward it to conflation manager.
 type TransportDispatcher struct {
 	log                 logr.Logger
 	consumer            transport.Consumer

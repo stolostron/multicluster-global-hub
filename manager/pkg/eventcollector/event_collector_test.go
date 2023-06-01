@@ -73,7 +73,7 @@ func TestAddEventCollector(t *testing.T) {
 		err := testPostgres.Stop()
 		assert.Nil(t, err, "Error should be nil")
 	}()
-	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "test-ca-cert-path")
+	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "test-ca-cert-path", 2)
 	assert.Nil(t, err, "Error should be nil")
 	assert.NotNil(t, pool, "Pool should not be nil")
 	defer pool.Close()
