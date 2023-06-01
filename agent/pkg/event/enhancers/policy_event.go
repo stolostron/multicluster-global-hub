@@ -32,37 +32,43 @@ func NewPolicyEventEnhancer(runtimeClient client.Client) *PolicyEventEnhancer {
 
 func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedEvent) {
 	// add policy id and policy compliance state
+	policyNamespace := event.InvolvedObject.Namespace
+	policyName := event.InvolvedObject.Name
+
+	// add compliance to event
+	if err := p.addPolicyCompliance(ctx, event); err != nil {
+		p.log.Error(err, "failed to add policy compliance", "namespace", policyNamespace, "name", policyName)
+		return
+	}
+
+	// cluster policy event, then add root policy id and cluster id
 	rootPolicyNamespacedName, ok := event.InvolvedObject.Labels[constants.PolicyEventRootPolicyNameLabelKey]
 	if !ok {
 		return
 	}
-	policyNameSlice := strings.Split(rootPolicyNamespacedName, ".")
-	if len(policyNameSlice) != 2 {
-		p.log.Error(errors.New("invalid root policy name"),
-			"failed to get root policy name by label",
-			"name", rootPolicyNamespacedName, "label",
-			constants.PolicyEventRootPolicyNameLabelKey)
-		return
-	}
-	policy := policyv1.Policy{}
-	if err := p.runtimeClient.Get(ctx, client.ObjectKey{Name: policyNameSlice[1], Namespace: policyNameSlice[0]},
-		&policy); err != nil {
-		p.log.Error(err, "failed to get rootPolicy", "name", rootPolicyNamespacedName,
-			"label", constants.PolicyEventRootPolicyNameLabelKey)
-		return
-	}
-	event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey] = string(policy.GetUID())
 
-	parsedPolicyStatus := parsePolicyStatus(event.Message)
-	if parsedPolicyStatus != "" {
-		event.InvolvedObject.Labels[constants.PolicyEventClusterComplianceLabelKey] = parsedPolicyStatus
-	} else {
-		event.InvolvedObject.Labels[constants.PolicyEventClusterComplianceLabelKey] = string(policy.Status.ComplianceState)
+	// add root policy id
+	policyNameSlice := strings.Split(rootPolicyNamespacedName, ".")
+	if len(policyNameSlice) < 2 {
+		p.log.Error(errors.New("invalid root policy namespaced name"), "failed to get root policy",
+			"namespacedName", rootPolicyNamespacedName)
+		return
 	}
+
+	rootPolicy := policyv1.Policy{}
+	if err := p.runtimeClient.Get(ctx, client.ObjectKey{
+		Namespace: policyNameSlice[0],
+		Name:      policyNameSlice[1],
+	}, &rootPolicy); err != nil {
+		p.log.Error(err, "failed to get root policy", "namespacedName", rootPolicyNamespacedName)
+		return
+	}
+	event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey] = string(rootPolicy.GetUID())
 
 	// add cluster id
 	clusterName, ok := event.InvolvedObject.Labels[constants.PolicyEventClusterNameLabelKey]
 	if !ok {
+		p.log.Error(errors.New("cluster name not found in cluster policy event"), "failed to get cluster name")
 		return
 	}
 	cluster := clusterv1.ManagedCluster{}
@@ -77,6 +83,35 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 		}
 	}
 	event.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey] = clusterId
+}
+
+func (p *PolicyEventEnhancer) addPolicyCompliance(ctx context.Context, event *kube.EnhancedEvent) error {
+	labels := event.InvolvedObject.Labels
+	if labels == nil {
+		event.InvolvedObject.Labels = make(map[string]string)
+	}
+
+	parsedCompliance := parsePolicyStatus(event.Message)
+	if parsedCompliance != "" {
+		event.InvolvedObject.Labels[constants.PolicyEventComplianceLabelKey] = parsedCompliance
+		return nil
+	}
+
+	compliance := "Unknown"
+	policy := policyv1.Policy{}
+	if err := p.runtimeClient.Get(ctx, client.ObjectKey{
+		Name:      event.InvolvedObject.Name,
+		Namespace: event.InvolvedObject.Namespace,
+	}, &policy); err != nil {
+		return err
+	}
+
+	if policy.Status.ComplianceState != "" {
+		compliance = string(policy.Status.ComplianceState)
+	}
+
+	event.InvolvedObject.Labels[constants.PolicyEventComplianceLabelKey] = compliance
+	return nil
 }
 
 func parsePolicyStatus(eventMessage string) string {

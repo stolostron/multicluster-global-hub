@@ -309,12 +309,23 @@ CREATE TABLE IF NOT EXISTS event.local_policies (
     leaf_hub_name character varying(63) NOT NULL,
     message text,
     reason text,
+    count integer NOT NULL DEFAULT 0,
     source jsonb,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     compliance local_status.compliance_type NOT NULL,
-    CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, created_at)
+    CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, count)
 );
 
+CREATE TABLE IF NOT EXISTS event.local_root_policies (
+    policy_id uuid NOT NULL,
+    leaf_hub_name character varying(63) NOT NULL,
+    message text,
+    reason text,
+    source jsonb,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    compliance local_status.compliance_type NOT NULL,
+    CONSTRAINT local_root_policies_unique_constraint UNIQUE (policy_id, leaf_hub_name, created_at)
+);
 
 CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_id_idx ON local_spec.placementrules (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
 

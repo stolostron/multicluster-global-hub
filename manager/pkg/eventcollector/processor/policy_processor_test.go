@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
@@ -13,6 +12,7 @@ import (
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 var _ = Describe("configmaps to database controller", func() {
@@ -39,36 +39,35 @@ var _ = Describe("configmaps to database controller", func() {
 				leaf_hub_name character varying(63) NOT NULL,
 				message text,
 				reason text,
+				count integer NOT NULL DEFAULT 0,
 				source jsonb,
 				created_at timestamp without time zone DEFAULT now() NOT NULL,
 				compliance local_status.compliance_type NOT NULL,
-				CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, created_at)
+				CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, count)
 			);
 		`)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check whether the table is created")
 		Eventually(func() error {
-			rows, err := pool.Query(ctx, "SELECT * FROM pg_tables")
-			if err != nil {
+			var tables []PGTable
+			if err := g2.Table("pg_tables").Find(&tables).Error; err != nil {
 				return err
 			}
-			defer rows.Close()
-			for rows.Next() {
-				columnValues, _ := rows.Values()
-				schema := columnValues[0]
-				table := columnValues[1]
-				if schema == testSchema && table == testTable {
+
+			for _, table := range tables {
+				if table.Schemaname == testSchema && table.Tablename == testTable {
 					return nil
 				}
 			}
+
 			return fmt.Errorf("failed to create test table %s.%s", testSchema, testTable)
 		}, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("sync the events to database", func() {
 		By("Create a policy processor")
-		policyProcessor := NewPolicyProcessor(ctx, pool, &offsetManagerMock{})
+		policyProcessor := NewPolicyProcessor(ctx, &offsetManagerMock{})
 
 		By("Create a kube.enhancedenvet")
 		e := &kube.EnhancedEvent{
@@ -91,9 +90,9 @@ var _ = Describe("configmaps to database controller", func() {
 					Namespace: "cluster1",
 				},
 				Labels: map[string]string{
-					constants.PolicyEventRootPolicyIdLabelKey:      "37c9a640-af05-4bea-9dcc-1873e86bebcd",
-					constants.PolicyEventClusterIdLabelKey:         "47c9a640-af05-4bea-9dcc-1873e86bebcd",
-					constants.PolicyEventClusterComplianceLabelKey: string(policyv1.Compliant),
+					constants.PolicyEventRootPolicyIdLabelKey: "37c9a640-af05-4bea-9dcc-1873e86bebcd",
+					constants.PolicyEventClusterIdLabelKey:    "47c9a640-af05-4bea-9dcc-1873e86bebcd",
+					constants.PolicyEventComplianceLabelKey:   string(policyv1.Compliant),
 				},
 			},
 		}
@@ -107,24 +106,17 @@ var _ = Describe("configmaps to database controller", func() {
 
 		By("Check whether the event is synced to the database")
 		Eventually(func() error {
-			var message, reason, source, compliance string
-			var created_at time.Time
-			var policy_id, cluster_id uuid.UUID
-			rows, err := pool.Query(ctx,
-				fmt.Sprintf("SELECT policy_id, cluster_id, message, reason, source, created_at, compliance FROM %s.%s",
-					testSchema, testTable))
+			var localPolicyEvents []models.LocalClusterPolicyEvent
+
+			err := g2.Find(&localPolicyEvents).Error
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
-			for rows.Next() {
-				if err := rows.Scan(&policy_id, &cluster_id, &message, &reason,
-					&source, &created_at, &compliance); err != nil {
-					return err
-				}
-				if policy_id.String() == "37c9a640-af05-4bea-9dcc-1873e86bebcd" &&
-					cluster_id.String() == "47c9a640-af05-4bea-9dcc-1873e86bebcd" &&
-					compliance == "compliant" {
+
+			for _, localPolicyEvent := range localPolicyEvents {
+				if localPolicyEvent.PolicyID == "37c9a640-af05-4bea-9dcc-1873e86bebcd" &&
+					localPolicyEvent.ClusterID == "47c9a640-af05-4bea-9dcc-1873e86bebcd" &&
+					localPolicyEvent.Compliance == "compliant" {
 					return nil
 				}
 			}
@@ -132,3 +124,13 @@ var _ = Describe("configmaps to database controller", func() {
 		}, 10*time.Second).ShouldNot(HaveOccurred())
 	})
 })
+
+type PGTable struct {
+	Schemaname  string
+	Tablename   string
+	Tableowner  string
+	Tablespace  string
+	Hasindexes  bool
+	Hasrules    bool
+	Hastriggers bool
+}

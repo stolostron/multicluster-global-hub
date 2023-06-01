@@ -18,7 +18,7 @@ var _ = Describe("policy enhancer", Ordered, func() {
 	var rootPolicy *policyv1.Policy
 	var cluster *clusterv1.ManagedCluster
 	BeforeAll(func() {
-		By("Creating a policy")
+		By("Creating a root policy")
 		rootPolicy = &policyv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "policy1",
@@ -28,6 +28,9 @@ var _ = Describe("policy enhancer", Ordered, func() {
 			Spec: policyv1.PolicySpec{
 				Disabled:        true,
 				PolicyTemplates: []*policyv1.PolicyTemplate{},
+			},
+			Status: policyv1.PolicyStatus{
+				ComplianceState: policyv1.Compliant,
 			},
 		}
 		Expect(runtimeClient.Create(ctx, rootPolicy)).NotTo(HaveOccurred())
@@ -41,20 +44,20 @@ var _ = Describe("policy enhancer", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, cluster)).Should(Succeed())
 	})
 
-	It("should pass policy event enhancer", func() {
+	It("should pass cluster policy event enhancer", func() {
 		// create a kube.enhancedenvet
 		in := kube.EnhancedEvent{
 			Event: corev1.Event{
-				Message: "foovar",
+				Message: "Policy policy1 status was updated to Compliant in cluster namespace cluster1",
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "event1",
-					Namespace: "default",
+					Name:      "default.policy1.17647d9f03cafef6",
+					Namespace: cluster.Name,
 				},
 			},
 			InvolvedObject: kube.EnhancedObjectReference{
 				ObjectReference: corev1.ObjectReference{
 					Kind:      string(policyv1.Kind),
-					Name:      "managed-cluster-policy",
+					Name:      "default.policy1",
 					Namespace: cluster.Name,
 				},
 				Labels: map[string]string{
@@ -64,16 +67,40 @@ var _ = Describe("policy enhancer", Ordered, func() {
 			},
 		}
 		NewPolicyEventEnhancer(runtimeClient).Enhance(ctx, &in)
-		// b, _ := json.MarshalIndent(in, "", "  ")
-		// fmt.Println(string(b))
-		Expect(in.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey]).To(
-			Equal(string(rootPolicy.GetUID())))
-		Expect(in.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey]).To(
-			Equal(string(cluster.GetUID())))
-		Expect(in.InvolvedObject.Labels[constants.PolicyEventClusterComplianceLabelKey]).To(
-			Equal(string(rootPolicy.Status.ComplianceState)))
+		Eventually(func() error {
+			if in.InvolvedObject.Labels[constants.PolicyEventComplianceLabelKey] != "Compliant" {
+				return fmt.Errorf("compliance from message should be Compliant")
+			}
+			if in.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey] != string(rootPolicy.GetUID()) {
+				return fmt.Errorf("the label value of root policy id should be %s", rootPolicy.GetUID())
+			}
+			if in.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey] != string(cluster.GetUID()) {
+				return fmt.Errorf("the label value of cluster id should be %s", cluster.GetUID())
+			}
+			return nil
+		}).Should(Succeed())
+	})
 
-		Expect(true).To(BeTrue())
+	It("should pass root policy event enhancer", func() {
+		// create a kube.enhancedenvet
+		in := kube.EnhancedEvent{
+			Event: corev1.Event{
+				Message: "Policy policy1 status was updated in cluster namespace cluster1",
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "policy1.123r543243242",
+					Namespace: "default",
+				},
+			},
+			InvolvedObject: kube.EnhancedObjectReference{
+				ObjectReference: corev1.ObjectReference{
+					Kind:      string(policyv1.Kind),
+					Name:      "policy1",
+					Namespace: "default",
+				},
+			},
+		}
+		NewPolicyEventEnhancer(runtimeClient).Enhance(ctx, &in)
+		Expect(in.InvolvedObject.Labels[constants.PolicyEventComplianceLabelKey]).To(Equal("Unknown"))
 	})
 
 	It("should parse the policy status with regular expression", func() {

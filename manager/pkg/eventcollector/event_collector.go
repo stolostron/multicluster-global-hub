@@ -7,7 +7,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/go-logr/logr"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -17,9 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
-func AddEventCollector(ctx context.Context, mgr ctrl.Manager, kafkaConfig *transport.KafkaConfig,
-	pool *pgxpool.Pool,
-) error {
+func AddEventCollector(ctx context.Context, mgr ctrl.Manager, kafkaConfig *transport.KafkaConfig) error {
 	// add the event consumer to manager
 	eventConsumer, err := consumer.NewSaramaConsumer(ctx, kafkaConfig)
 	if err != nil {
@@ -34,7 +31,7 @@ func AddEventCollector(ctx context.Context, mgr ctrl.Manager, kafkaConfig *trans
 
 	// register event processors with the event dispatcher
 	eventDispatcher.RegisterProcessor(policyv1.Kind,
-		eventprocessor.NewPolicyProcessor(ctx, pool, eventConsumer))
+		eventprocessor.NewPolicyProcessor(ctx, eventConsumer))
 
 	// add the event dispatcher to manager
 	if err := mgr.Add(eventDispatcher); err != nil {

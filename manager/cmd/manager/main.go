@@ -31,6 +31,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -223,8 +224,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 
 	eventKafkaConfig := deepcopy.Copy(managerConfig.TransportConfig.KafkaConfig).(*transport.KafkaConfig)
 	eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
-	if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig,
-		processPostgreSQL.GetConn()); err != nil {
+	if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig); err != nil {
 		return nil, fmt.Errorf("failed to add event collector: %w", err)
 	}
 
@@ -246,6 +246,18 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 1
 	}
 	defer processPostgreSQL.Stop()
+
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:        managerConfig.DatabaseConfig.ProcessDatabaseURL,
+		Dialect:    database.PostgresDialect,
+		CaCertPath: managerConfig.DatabaseConfig.CACertPath,
+		PoolSize:   managerConfig.DatabaseConfig.MaxOpenConns,
+	})
+	if err != nil {
+		setupLog.Error(err, "failed to initialize GORM instance")
+		return 1
+	}
+	defer database.CloseGorm()
 
 	mgr, err := createManager(ctx, restConfig, managerConfig, processPostgreSQL)
 	if err != nil {

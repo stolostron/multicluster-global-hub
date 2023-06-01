@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -19,6 +20,7 @@ var (
 	ctx          context.Context
 	cancel       context.CancelFunc
 	testPostgres *testpostgres.TestPostgres
+	g2           *gorm.DB
 	pool         *pgxpool.Pool
 )
 
@@ -35,13 +37,21 @@ var _ = BeforeSuite(func() {
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
 
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:        testPostgres.URI,
+		Dialect:    database.PostgresDialect,
+		CaCertPath: "test-ca-cert-path",
+		PoolSize:   2,
+	})
+	Expect(err).NotTo(HaveOccurred())
+	g2 = database.GetGorm()
 	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "test-ca-cert-path", 2)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(pool).NotTo(BeNil())
 })
 
 var _ = AfterSuite(func() {
 	cancel()
+	database.CloseGorm()
 	pool.Close()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 })
