@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1685519050306,
+      "iteration": 1685628971720,
       "links": [
         {
           "asDropdown": false,
@@ -84,6 +84,7 @@ data:
                 }
               ],
               "mappings": [],
+              "noValue": "N/A",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -102,7 +103,7 @@ data:
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 24,
             "x": 0,
             "y": 0
@@ -115,7 +116,7 @@ data:
               "placement": "bottom"
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "single"
             }
           },
           "pluginVersion": "8.5.20",
@@ -125,7 +126,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date as \"time\",\n    payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (ch.compliance_date)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / (unknown::float + compliant::float + non_compliant) as \"value\"\nFROM\n  data\nORDER BY (time)",
+              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date as \"time\",\n    payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (ch.compliance_date)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant), 0) as \"value\"\nFROM\n  data\nORDER BY (time)",
               "refId": "A",
               "select": [
                 [
@@ -151,7 +152,7 @@ data:
           "type": "timeseries"
         }
       ],
-      "refresh": false,
+      "refresh": "",
       "schemaVersion": 30,
       "style": "dark",
       "tags": [],
@@ -237,7 +238,7 @@ data:
         "to": "now"
       },
       "timepicker": {},
-      "timezone": "",
+      "timezone": "utc",
       "title": "Global Hub - Cluster Group Compliancy Overview",
       "uid": "868845a4d1334958bd62303c5ccb4c19",
       "version": 1
