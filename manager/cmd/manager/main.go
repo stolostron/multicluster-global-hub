@@ -29,7 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
+	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -89,6 +89,8 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"The synchronization interval of resources in status.")
 	pflag.DurationVar(&managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval, "deleted-labels-trimming-interval",
 		5*time.Second, "The trimming interval of deleted labels.")
+	pflag.IntVar(&managerConfig.DatabaseConfig.MaxOpenConns, "database-pool-size", 10,
+		"The size of database connection pool for the process user.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.ProcessDatabaseURL, "process-database-url", "",
 		"The URL of database server for the process user.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.TransportBridgeDatabaseURL,
@@ -210,7 +212,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add spec syncers: %w", err)
 	}
 
-	if _, err := statussyncer.AddTransport2DBSyncers(mgr, managerConfig); err != nil {
+	if _, err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 

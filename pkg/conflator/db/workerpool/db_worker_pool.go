@@ -9,7 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/postgresql"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
@@ -27,14 +27,17 @@ func NewDBWorkerPool(dataConfig *config.DatabaseConfig, statistics *statistics.S
 type DBWorkerPool struct {
 	log        logr.Logger
 	dataConfig *config.DatabaseConfig
-	dbConnPool database.StatusTransportBridgeDB
+	dbConnPool postgres.StatusTransportBridgeDB
 	dbWorkers  chan *DBWorker // A pool of workers that are registered within the workers pool
 	statistics *statistics.Statistics
 }
 
 // Start function starts the db workers pool.
 func (pool *DBWorkerPool) Start(ctx context.Context) error {
-	dbConnPool, err := postgresql.NewStatusPostgreSQL(ctx, pool.dataConfig)
+	dbConnPool, err := postgres.NewStatusPostgreSQL(ctx, &database.DatabaseConfig{
+		URL:        pool.dataConfig.ProcessDatabaseURL,
+		CaCertPath: pool.dataConfig.CACertPath,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize db worker pool - %w", err)
 	}

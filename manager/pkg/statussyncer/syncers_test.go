@@ -1,4 +1,4 @@
-package syncer_test
+package statussyncer_test
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
-	syncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 	// start testenv
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "..", "pkg", "testdata", "crds"),
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -143,7 +143,7 @@ func TestConsumer(t *testing.T) {
 		StatisticsConfig: &statistics.StatisticsConfig{},
 	}
 
-	registerable, err := syncer.AddTransport2DBSyncers(mgr, managerConfig)
+	registerable, err := statussyncer.AddStatusSyncers(mgr, managerConfig)
 	if err != nil {
 		t.Errorf("failed to add transport to db: %v", err)
 	}

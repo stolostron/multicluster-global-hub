@@ -29,7 +29,8 @@ type PostgreSQL struct {
 
 // NewSpecPostgreSQL creates a new instance of PostgreSQL object.
 func NewSpecPostgreSQL(ctx context.Context, dataConfig *managerconfig.DatabaseConfig) (*PostgreSQL, error) {
-	pool, err := database.PostgresConnPool(ctx, dataConfig.ProcessDatabaseURL, dataConfig.CACertPath)
+	pool, err := database.PostgresConnPool(ctx, dataConfig.ProcessDatabaseURL, dataConfig.CACertPath,
+		int32(dataConfig.MaxOpenConns))
 	if err != nil {
 		return nil, err
 	}

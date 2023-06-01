@@ -8,12 +8,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
@@ -81,9 +82,9 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 }
 
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,
-	bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+	bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
 	return func(ctx context.Context, bundle status.Bundle,
-		dbClient database.StatusTransportBridgeDB,
+		dbClient postgres.StatusTransportBridgeDB,
 	) error {
 		return syncer.handleLocalObjectsBundle(ctx, bundle, dbClient, database.LocalSpecSchema, tableName)
 	}
@@ -94,7 +95,7 @@ func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName strin
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundle(ctx context.Context, bundle status.Bundle,
-	dbClient database.LocalPoliciesStatusDB, schema string, tableName string,
+	dbClient postgres.LocalPoliciesStatusDB, schema string, tableName string,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()

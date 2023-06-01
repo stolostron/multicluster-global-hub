@@ -2,7 +2,10 @@ package utils
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -23,4 +26,18 @@ func CtrlZapOptions() zap.Options {
 		},
 	}
 	return opts
+}
+
+// Validate return true if the file exists and the content is not empty
+func Validate(filePath string) bool {
+	if len(filePath) == 0 {
+		return false
+	}
+	content, err := ioutil.ReadFile(filePath) // #nosec G304
+	if err != nil {
+		log.Printf("failed to read file %s - %v", filePath, err)
+		return false
+	}
+	trimmedContent := strings.TrimSpace(string(content))
+	return len(trimmedContent) > 0
 }
