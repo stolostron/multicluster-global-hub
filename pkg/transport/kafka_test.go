@@ -8,14 +8,14 @@ import (
 	. "github.com/onsi/gomega"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -248,7 +248,7 @@ var _ = Describe("Transport", Ordered, func() {
 			bundle.CompleteStateMode,
 			"ManagedClustersStatusBundle",
 			func(ctx context.Context, bundle status.Bundle,
-				dbClient database.StatusTransportBridgeDB,
+				dbClient postgres.StatusTransportBridgeDB,
 			) error {
 				return nil
 			},

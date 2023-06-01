@@ -8,12 +8,13 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -116,7 +117,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ClustersPerPolicyPriority, bundle.CompleteStateMode, clustersPerPolicyBundleType,
-		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
 			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient,
 				database.StatusSchema, database.ComplianceTableName)
 		},
@@ -124,7 +125,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.CompleteComplianceStatusPriority, bundle.CompleteStateMode, completeComplianceStatusBundleType,
-		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient,
 				database.StatusSchema, database.ComplianceTableName)
 		}).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)))
@@ -133,7 +134,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.DeltaComplianceStatusPriority, bundle.DeltaStateMode,
 		helpers.GetBundleType(syncer.createDeltaComplianceStatusBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
 			return syncer.handleDeltaComplianceBundle(ctx, bundle, dbClient,
 				database.StatusSchema, database.ComplianceTableName)
 		}).WithDependency(dependency.NewDependency(completeComplianceStatusBundleType, dependency.ExactMatch)))
@@ -142,14 +143,14 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.MinimalComplianceStatusPriority, bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createMinimalComplianceStatusBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
 			return syncer.handleMinimalComplianceBundle(ctx, bundle, dbClient)
 		},
 	))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalClustersPerPolicyPriority, bundle.CompleteStateMode, localClustersPerPolicyBundleType,
-		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
 			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, database.LocalStatusSchema,
 				database.ComplianceTableName)
 		},
@@ -158,7 +159,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalCompleteComplianceStatusPriority, bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalCompleteComplianceStatusBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient database.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, database.LocalStatusSchema,
 				database.ComplianceTableName)
 		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
@@ -171,7 +172,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 // clusters (of at least one policy) to change.
 // in other cases where only compliance status change, only compliance bundle is received.
 func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Context, bundle status.Bundle,
-	dbClient database.PoliciesStatusDB, dbSchema string, dbTableName string,
+	dbClient postgres.PoliciesStatusDB, dbSchema string, dbTableName string,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
@@ -191,7 +192,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 
 		clustersFromDB, policyExistsInDB := complianceRowsFromDB[clustersPerPolicy.PolicyID]
 		if !policyExistsInDB {
-			clustersFromDB = database.NewPolicyClusterSets()
+			clustersFromDB = postgres.NewPolicyClusterSets()
 		}
 
 		syncer.handleClusterPerPolicy(batchBuilder, clustersPerPolicy, clustersFromDB)
@@ -213,8 +214,8 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 	return nil
 }
 
-func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(batchBuilder database.PoliciesBatchBuilder,
-	clustersFromBundle *status.PolicyGenericComplianceStatus, clustersFromDB *database.PolicyClustersSets,
+func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(batchBuilder postgres.PoliciesBatchBuilder,
+	clustersFromBundle *status.PolicyGenericComplianceStatus, clustersFromDB *postgres.PolicyClustersSets,
 ) {
 	allClustersFromDB := clustersFromDB.GetAllClusters()
 
@@ -249,7 +250,7 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(batchBuilder database.Pol
 // typedClustersFromDB is a set that contains the clusters from db with specific compliance status - that is
 // all compliant/nonCompliant/unknown clusters and only them.
 func (syncer *PoliciesDBSyncer) handleClustersPerPolicyWithSpecificCompliance(
-	batchBuilder database.PoliciesBatchBuilder, policyID string, typedClustersFromBundle []string,
+	batchBuilder postgres.PoliciesBatchBuilder, policyID string, typedClustersFromBundle []string,
 	allClustersFromDB set.Set, typedClustersFromDB set.Set, complianceStatus database.ComplianceStatus,
 ) set.Set {
 	for _, clusterName := range typedClustersFromBundle { // go over the clusters from bundle
@@ -273,7 +274,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyWithSpecificCompliance(
 // we assume that 'ClustersPerPolicy' handler function handles the addition or removal of clusters rows.
 // in this handler function, we handle only the existing clusters rows.
 func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Context, bundle status.Bundle,
-	dbClient database.PoliciesStatusDB, dbSchema string, dbTableName string,
+	dbClient postgres.PoliciesStatusDB, dbSchema string, dbTableName string,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
@@ -294,7 +295,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 		nonCompliantClustersFromDB, policyExistsInDB :=
 			nonCompliantRowsFromDB[policyComplianceStatus.PolicyID]
 		if !policyExistsInDB {
-			nonCompliantClustersFromDB = database.NewPolicyClusterSets()
+			nonCompliantClustersFromDB = postgres.NewPolicyClusterSets()
 		}
 
 		syncer.handlePolicyCompleteComplianceStatus(batchBuilder, policyComplianceStatus,
@@ -318,7 +319,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 	return nil
 }
 
-func (syncer *PoliciesDBSyncer) handlePolicyCompleteComplianceStatus(batchBuilder database.PoliciesBatchBuilder,
+func (syncer *PoliciesDBSyncer) handlePolicyCompleteComplianceStatus(batchBuilder postgres.PoliciesBatchBuilder,
 	policyComplianceStatus *status.PolicyCompleteComplianceStatus, nonCompliantClustersFromDB set.Set,
 	unknownClustersFromDB set.Set,
 ) {
@@ -357,7 +358,7 @@ func (syncer *PoliciesDBSyncer) handlePolicyCompleteComplianceStatus(batchBuilde
 
 // if we got to the handler function, then the bundle pre-conditions were satisfied.
 func (syncer *PoliciesDBSyncer) handleDeltaComplianceBundle(ctx context.Context, bundle status.Bundle,
-	dbClient database.PoliciesStatusDB, dbSchema string, dbTableName string,
+	dbClient postgres.PoliciesStatusDB, dbSchema string, dbTableName string,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
@@ -383,7 +384,7 @@ func (syncer *PoliciesDBSyncer) handleDeltaComplianceBundle(ctx context.Context,
 }
 
 // handleDeltaPolicyComplianceStatus updates db with leaf hub's given clusters with the given status as-is.
-func (syncer *PoliciesDBSyncer) handleDeltaPolicyComplianceStatus(batchBuilder database.PoliciesBatchBuilder,
+func (syncer *PoliciesDBSyncer) handleDeltaPolicyComplianceStatus(batchBuilder postgres.PoliciesBatchBuilder,
 	policyComplianceStatus *status.PolicyGenericComplianceStatus,
 ) {
 	for _, cluster := range policyComplianceStatus.CompliantClusters {
@@ -401,7 +402,7 @@ func (syncer *PoliciesDBSyncer) handleDeltaPolicyComplianceStatus(batchBuilder d
 
 // if we got to the handler function, then the bundle pre-conditions are satisfied.
 func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Context, bundle status.Bundle,
-	dbClient database.AggregatedPoliciesStatusDB,
+	dbClient postgres.AggregatedPoliciesStatusDB,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()

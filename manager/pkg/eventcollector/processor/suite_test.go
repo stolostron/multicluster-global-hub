@@ -35,7 +35,7 @@ var _ = BeforeSuite(func() {
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
 
-	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "test-ca-cert-path")
+	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "test-ca-cert-path", 2)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(pool).NotTo(BeNil())
 })

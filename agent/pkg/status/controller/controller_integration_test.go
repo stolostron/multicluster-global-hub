@@ -21,7 +21,7 @@ import (
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"

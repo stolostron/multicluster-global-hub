@@ -45,7 +45,8 @@ func GetPostgresConfig(URI string, cert []byte) (*pgx.ConnConfig, error) {
 	return config, nil
 }
 
-func PostgresConnPool(ctx context.Context, databaseURI string, certPath string) (*pgxpool.Pool, error) {
+// PostgresConnPool returns a new postgres connection pool. size < 0 means deafult size.
+func PostgresConnPool(ctx context.Context, databaseURI string, certPath string, size int32) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(databaseURI)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get postgres pool config: %w", err)
@@ -64,6 +65,10 @@ func PostgresConnPool(ctx context.Context, databaseURI string, certPath string) 
 			//nolint:gosec
 			InsecureSkipVerify: true,
 		}
+	}
+
+	if size > 0 {
+		config.MaxConns = size
 	}
 
 	dbConnectionPool, err := pgxpool.ConnectConfig(ctx, config)

@@ -1,4 +1,4 @@
-package syncer
+package statussyncer
 
 import (
 	"fmt"
@@ -7,23 +7,23 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/db/workerpool"
-	configctl "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/config"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dbsyncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/transport2db/syncer/dispatcher"
+	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
+	configctl "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/dispatcher"
+	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
-// AddTransport2DBSyncers performs the initial setup required before starting the runtime manager.
+// AddStatusSyncers performs the initial setup required before starting the runtime manager.
 // adds controllers and/or runnables to the manager, registers handler functions within the dispatcher
 //
 //	and create bundle functions within the bundle.
-func AddTransport2DBSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
+func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 	dbsyncer.BundleRegisterable, error,
 ) {
 	// register statistics within the runtime manager
