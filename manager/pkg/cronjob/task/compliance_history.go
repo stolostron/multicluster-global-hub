@@ -136,7 +136,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 			return false, nil
 		}
 		insertCount = result.RowsAffected()
-		log.Info("insert success from status", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
+		log.Info("from local_status.compliance", "batch", batchSize, "insert", insertCount, "offset", offset)
 		return true, nil
 	})
 	return insertCount, err
@@ -226,7 +226,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 			return false, nil
 		}
 		insertCount = result.RowsAffected()
-		log.Info("insert success from event", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
+		log.Info("from event.local_policies", "batch", batchSize, "insert", insertCount, "offset", offset)
 		return true, nil
 	})
 	return insertCount, err
