@@ -20,6 +20,7 @@ var (
 	timeFormat              = "2006-01-02 15:04:05"
 	dateFormat              = "2006-01-02"
 	dateInterval            = 1
+	simulationCounter       = 1
 	batchSize               = int64(1000)
 	// batchSize = 1000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
@@ -33,25 +34,115 @@ var (
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
 	startTime = time.Now()
 
-	if enableSimulation {
-		simulateLocalComplianceHistory(ctx, pool, batchSize, job)
-		return
-	}
-
 	historyDate := startTime.AddDate(0, 0, -dateInterval)
 	log = ctrl.Log.WithName(localComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
 	log.Info("start running", "currentRun", job.LastRun().Format(timeFormat))
 
-	totalCount, insertedCount, err := syncToLocalComplianceHistory(ctx, pool, batchSize)
-	if err != nil {
-		log.Error(err, "sync to history.local_compliance failed")
+	interval := dateInterval
+	if enableSimulation {
+		interval = simulationCounter
 	}
 
-	log.Info("finish running", "totalCount", totalCount, "insertedCount", insertedCount,
-		"nextRun", job.NextRun().Format(timeFormat))
+	// insert or update with local_status.compliance
+	statusTotal, statusInsert, err := syncToLocalComplianceHistoryByLocalStatus(ctx, pool, batchSize, interval)
+	if err != nil {
+		log.Error(err, "sync from local_status.compliance to history.local_compliance failed")
+	}
+	log.Info("with local_status.compliance", "totalCount", statusTotal, "insertedCount", statusInsert)
+
+	if enableSimulation {
+		simulationCounter++
+		return
+	}
+
+	// insert or update with event.local_policies
+	eventTotal, eventInsert, err := syncToLocalComplianceHistoryByPolicyEvent(ctx, pool, batchSize)
+	if err != nil {
+		log.Error(err, "sync from history.local_policies to history.local_compliance failed")
+	}
+	log.Info("with event.local_policies", "totalCount", eventTotal, "insertedCount", eventInsert)
+
+	log.Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
 }
 
-func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batchSize int64) (
+func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpool.Pool, batchSize int64, interval int) (
+	totalCount int64, insertedCount int64, err error,
+) {
+	viewName := fmt.Sprintf("history.local_compliance_view_%s",
+		startTime.AddDate(0, 0, -interval).Format("2006_01_02"))
+	createViewTemplate := `
+		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS 
+		SELECT id,cluster_id,compliance 
+		FROM local_status.compliance;
+		CREATE INDEX IF NOT EXISTS idx_local_compliance_view ON %s (id, cluster_id);
+	`
+	_, err = pool.Exec(ctx, fmt.Sprintf(createViewTemplate, viewName, viewName))
+	if err != nil {
+		return totalCount, insertedCount, err
+	}
+
+	err = pool.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", viewName)).Scan(&totalCount)
+	if err != nil {
+		return totalCount, insertedCount, err
+	}
+
+	for offset := int64(0); offset < totalCount; offset += batchSize {
+		count, err := insertToLocalComplianceHistoryByLocalStatus(ctx, viewName, interval, pool, totalCount,
+			batchSize, offset)
+		if err != nil {
+			return totalCount, insertedCount, err
+		}
+		insertedCount += count
+	}
+
+	// success, drop the materialized view if exists
+	_, err = pool.Exec(ctx, fmt.Sprintf("DROP MATERIALIZED VIEW IF EXISTS %s", viewName))
+	if err != nil {
+		return totalCount, insertedCount, err
+	}
+
+	return totalCount, insertedCount, nil
+}
+
+func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName string, interval int,
+	pool *pgxpool.Pool, totalCount, batchSize, offset int64,
+) (int64, error) {
+	// retry until success, use timeout context to avoid long running
+	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	insertCount := int64(0)
+	var err error
+	defer func() {
+		if e := traceComplianceHistory(ctx, pool,
+			fmt.Sprintf("%s/local_status.compliance", localComplianceTaskName),
+			totalCount, offset, insertCount, startTime, err); e != nil {
+			log.Info("trace compliance job failed, retrying", "error", e)
+		}
+	}()
+	err = wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
+		selectInsertSQLTemplate := `
+			INSERT INTO history.local_compliance (id, cluster_id, compliance, compliance_date) 
+			SELECT id,cluster_id,compliance,(CURRENT_DATE - INTERVAL '%d day') 
+			FROM %s 
+			ORDER BY id, cluster_id
+			LIMIT $1 OFFSET $2
+			ON CONFLICT (id, cluster_id, compliance_date) DO NOTHING
+		`
+		selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, interval, tableName)
+		result, err := pool.Exec(ctx, selectInsertSQL, batchSize, offset)
+		if err != nil {
+			log.Info("exec failed, retrying", "error", err)
+			return false, nil
+		}
+		insertCount = result.RowsAffected()
+		log.Info("insert success from status", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
+		return true, nil
+	})
+	return insertCount, err
+}
+
+func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpool.Pool, batchSize int64) (
 	totalCount int64, insertedCount int64, err error,
 ) {
 	totalCountSQLTemplate := `
@@ -67,7 +158,7 @@ func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batch
 	}
 
 	for offset := int64(0); offset < totalCount; offset += batchSize {
-		count, err := insertToLocalComplianceHistory(ctx, pool, totalCount, batchSize, offset)
+		count, err := insertToLocalComplianceHistoryByPolicyEvent(ctx, pool, totalCount, batchSize, offset)
 		if err != nil {
 			return totalCount, insertedCount, err
 		}
@@ -77,7 +168,7 @@ func syncToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool, batch
 	return totalCount, insertedCount, nil
 }
 
-func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
+func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpool.Pool,
 	totalCount, batchSize, offset int64,
 ) (int64, error) {
 	// retry until success, use timeout context to avoid long running
@@ -88,8 +179,9 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 	err := wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
 		var insertError error
 		defer func() {
-			if e := traceComplianceHistory(ctx, pool, localComplianceTaskName, totalCount, offset, insertCount,
-				startTime, insertError); e != nil {
+			if e := traceComplianceHistory(ctx, pool,
+				fmt.Sprintf("%s/event.local_policies", localComplianceTaskName),
+				totalCount, offset, insertCount, startTime, insertError); e != nil {
 				log.Info("trace compliance job failed, retrying", "error", e)
 			}
 		}()
@@ -134,7 +226,7 @@ func insertToLocalComplianceHistory(ctx context.Context, pool *pgxpool.Pool,
 			return false, nil
 		}
 		insertCount = result.RowsAffected()
-		log.Info("insert success", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
+		log.Info("insert success from event", "inserted", insertCount, "offset", offset, "batchSize", batchSize)
 		return true, nil
 	})
 	return insertCount, err
