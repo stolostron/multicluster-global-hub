@@ -41,6 +41,7 @@ var _ = Describe("configmaps to database controller", func() {
 				reason text,
 				count integer NOT NULL DEFAULT 0,
 				source jsonb,
+				count integer NOT NULL DEFAULT 0,
 				created_at timestamp without time zone DEFAULT now() NOT NULL,
 				compliance local_status.compliance_type NOT NULL,
 				CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, count)
