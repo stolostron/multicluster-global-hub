@@ -63,9 +63,7 @@ func (e *EventWatcher) OnAdd(obj interface{}) {
 }
 
 func (e *EventWatcher) OnUpdate(oldObj, newObj interface{}) {
-	if oldObj.(*corev1.Event).LastTimestamp != newObj.(*corev1.Event).LastTimestamp {
-		e.onEvent(newObj.(*corev1.Event))
-	}
+	e.onEvent(newObj.(*corev1.Event))
 }
 
 // Ignore events older than the maxEventAgeSeconds
