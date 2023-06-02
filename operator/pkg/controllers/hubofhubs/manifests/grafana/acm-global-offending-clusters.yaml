@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1685629418982,
+      "iteration": 1685728160463,
       "links": [
         {
           "asDropdown": false,
@@ -78,12 +78,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
                     "color": "red",
-                    "value": 1
+                    "value": null
                   }
                 ]
               }
@@ -119,7 +115,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  non_compliant > 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  non_compliant > 0",
               "refId": "A",
               "select": [
                 [
@@ -158,12 +154,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
-                    "value": null
-                  },
-                  {
                     "color": "green",
-                    "value": 1
+                    "value": null
                   }
                 ]
               }
@@ -199,7 +191,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\n-- AND\n--   unknown = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0",
               "refId": "A",
               "select": [
                 [
@@ -238,12 +230,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
                     "color": "yellow",
-                    "value": 1
+                    "value": null
                   }
                 ]
               }
@@ -279,7 +267,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0\nAND\n  compliant = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0",
               "refId": "A",
               "select": [
                 [
@@ -511,6 +499,7 @@ data:
                 "renameByName": {
                   "cluster": "Cluster",
                   "hub": "Hub",
+                  "name": "Name",
                   "time": "Time",
                   "value": "Non Compliant"
                 }
@@ -609,7 +598,7 @@ data:
                 "h": 8,
                 "w": 24,
                 "x": 0,
-                "y": 16
+                "y": 18
               },
               "id": 56,
               "options": {
@@ -655,6 +644,7 @@ data:
                     "renameByName": {
                       "cluster": "Cluster",
                       "hub": "Hub",
+                      "name": "Name",
                       "time": "Time",
                       "value": "Status"
                     }

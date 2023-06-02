@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1685629420107,
+      "iteration": 1685724017670,
       "links": [
         {
           "asDropdown": false,
@@ -126,7 +126,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date AS \"time\",\n    p.policy_standard AS \"standard\",\n    p.policy_category AS \"category\",\n    p.policy_control AS \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  INNER JOIN\n    history.local_compliance ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY (time, p.policy_standard, p.policy_category, p.policy_control)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  $group as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant), 0) as \"value\"\nFROM\n  data\nORDER BY\n  time",
+              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date AS \"time\",\n    p.policy_standard AS \"standard\",\n    p.policy_category AS \"category\",\n    p.policy_control AS \"control\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    local_spec.policies p\n  INNER JOIN\n    history.local_compliance ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY (time, p.policy_standard, p.policy_category, p.policy_control)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  $group as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data\nORDER BY\n  time",
               "refId": "A",
               "select": [
                 [
