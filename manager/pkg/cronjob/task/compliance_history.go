@@ -72,7 +72,7 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpoo
 		startTime.AddDate(0, 0, -interval).Format("2006_01_02"))
 	createViewTemplate := `
 		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS 
-		SELECT policy_id,cluster_id,compliance 
+		SELECT policy_id,cluster_id,leaf_hub_name,compliance 
 		FROM local_status.compliance;
 		CREATE INDEX IF NOT EXISTS idx_local_compliance_view ON %s (policy_id, cluster_id);
 	`
@@ -196,7 +196,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 							END::local_status.compliance_type AS aggregated_compliance
 					FROM event.local_policies
 					WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
-					GROUP BY cluster_id, policy_id
+					GROUP BY cluster_id, policy_id, leaf_hub_name
 			)
 			SELECT policy_id, cluster_id, leaf_hub_name, (CURRENT_DATE - INTERVAL '%d day'), aggregated_compliance,
 					(SELECT COUNT(*) FROM (

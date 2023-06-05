@@ -66,7 +66,6 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				policy_id uuid NOT NULL,
 				cluster_id uuid NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
 				compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL,
 				compliance local_status.compliance_type NOT NULL,
 				compliance_changed_frequency integer NOT NULL DEFAULT 0,

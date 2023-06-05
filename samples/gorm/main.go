@@ -53,12 +53,12 @@ func main() {
 
 	// Use the localCompliances slice which contains the query results
 	for _, lc := range localCompliances {
-		fmt.Println(lc.ID, lc.ClusterID, lc.ComplianceDate, lc.Compliance, lc.ComplianceChangedFreq)
+		fmt.Println(lc.PolicyID, lc.ClusterID, lc.ComplianceDate, lc.Compliance, lc.ComplianceChangedFreq)
 	}
 }
 
 type LocalCompliance struct {
-	ID                    string `gorm:"type:uuid;primaryKey"`
+	PolicyID              string `gorm:"type:uuid;primaryKey"`
 	ClusterID             string `gorm:"type:uuid;primaryKey"`
 	ComplianceDate        time.Time
 	Compliance            string `gorm:"type:local_status.compliance_type"`
