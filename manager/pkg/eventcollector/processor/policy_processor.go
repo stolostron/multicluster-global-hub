@@ -62,13 +62,14 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 	}
 
 	localPolicyEvent := &LocalPolicyEvent{
-		PolicyID:   rootPolicyId,
-		ClusterID:  clusterId,
-		Message:    event.Message,
-		Reason:     event.Reason,
-		Source:     event.Source,
-		CreatedAt:  event.LastTimestamp.Time,
-		Compliance: compliance,
+		PolicyID:    rootPolicyId,
+		ClusterID:   clusterId,
+		LeafHubName: event.ClusterName,
+		Message:     event.Message,
+		Reason:      event.Reason,
+		Source:      event.Source,
+		CreatedAt:   event.LastTimestamp.Time,
+		Compliance:  compliance,
 	}
 
 	ctx, cancel := context.WithTimeout(p.ctx, 1*time.Minute)
@@ -89,23 +90,25 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 }
 
 type LocalPolicyEvent struct {
-	PolicyID   string
-	ClusterID  string
-	Message    string
-	Reason     string
-	Source     corev1.EventSource
-	CreatedAt  time.Time
-	Compliance string
+	PolicyID    string
+	ClusterID   string
+	LeafHubName string
+	Message     string
+	Reason      string
+	Source      corev1.EventSource
+	CreatedAt   time.Time
+	Compliance  string
 }
 
 func insertOrUpdate(ctx context.Context, pool *pgxpool.Pool, policyEvent *LocalPolicyEvent) error {
 	insertSql := `
-		INSERT INTO event.local_policies (policy_id, cluster_id, message, reason, source, created_at, compliance)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO event.local_policies (policy_id, cluster_id, leaf_hub_name, message, reason, 
+			source, created_at, compliance)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (policy_id, cluster_id, created_at) DO UPDATE
 		SET message = excluded.message, reason = excluded.reason, source = excluded.source, compliance = excluded.compliance
 	`
-	_, err := pool.Exec(ctx, insertSql, policyEvent.PolicyID, policyEvent.ClusterID, policyEvent.Message,
-		policyEvent.Reason, policyEvent.Source, policyEvent.CreatedAt, policyEvent.Compliance)
+	_, err := pool.Exec(ctx, insertSql, policyEvent.PolicyID, policyEvent.ClusterID, policyEvent.LeafHubName,
+		policyEvent.Message, policyEvent.Reason, policyEvent.Source, policyEvent.CreatedAt, policyEvent.Compliance)
 	return err
 }

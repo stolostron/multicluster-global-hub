@@ -32,7 +32,7 @@ const (
 	PLACEMENT_APP_SUB_YAML      = "../../resources/app/app-helloworld-appsub-placement.yaml"
 	PLACEMENT_LOCAL_POLICY_YAML = "../../resources/policy/local-inform-limitrange-policy-placement.yaml"
 
-	PLACEMENT_APP    = "../../resources/policy/enforce-limitrange-policy.yaml"
+	PLACEMENT_APP        = "../../resources/policy/enforce-limitrange-policy.yaml"
 	CLUSTERSET_LABEL_KEY = "cluster.open-cluster-management.io/clusterset"
 )
 
@@ -81,7 +81,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		globalClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		for _, leafhubName := range LeafHubNames{
+		for _, leafhubName := range LeafHubNames {
 			leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
 			Expect(err).ShouldNot(HaveOccurred())
 			// create local namespace on each leafhub
@@ -95,7 +95,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 	})
 
 	Context("When apply local policy with placement on the regional hub", func() {
-		It("deploy local policy on the regional hub", func() {	
+		It("deploy local policy on the regional hub", func() {
 			By("Add local policy test label")
 			patches := []patch{
 				{
@@ -124,7 +124,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				defer rows.Close()
 				for rows.Next() {
 					policy := &policiesv1.Policy{}
-					leafhub := ""	
+					leafhub := ""
 					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
@@ -145,12 +145,12 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			By("Verify the local policy is synchronized to the global hub status table")
 			Eventually(func() error {
 				rows, err := postgresConn.Query(context.TODO(),
-					"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+					"SELECT policy_id,cluster_name,leaf_hub_name FROM local_status.compliance")
 				if err != nil {
 					return err
 				}
 				defer rows.Close()
-			
+
 				// policies, if leahfubname check remove the kv
 				for rows.Next() {
 					columnValues, _ := rows.Values()
@@ -235,7 +235,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					return err
 				}
 				fmt.Println("Verify the local policy(placement) is deleted from the spec tabl")
-				defer rows.Close()				
+				defer rows.Close()
 				for rows.Next() {
 					policy := &policiesv1.Policy{}
 					if err := rows.Scan(policy); err != nil {
@@ -250,7 +250,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 			By("Verify the local policy(placement) is deleted from the global hub status table")
 			Eventually(func() error {
-				rows, err := postgresConn.Query(context.TODO(), "SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+				rows, err := postgresConn.Query(context.TODO(), "SELECT policy_id,cluster_name,leaf_hub_name FROM local_status.compliance")
 				if err != nil {
 					fmt.Println(err)
 					return err

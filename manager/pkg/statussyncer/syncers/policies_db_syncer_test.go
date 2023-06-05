@@ -47,15 +47,15 @@ var _ = Describe("Policies", Ordered, func() {
 			EXCEPTION
 				WHEN duplicate_object THEN null;
 			END $$;
-			CREATE TABLE IF NOT EXISTS  status.compliance (
-				id uuid NOT NULL,
+			CREATE TABLE IF NOT EXISTS status.compliance (
+				policy_id uuid NOT NULL,
 				cluster_name character varying(63) NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
 				error status.error_type NOT NULL,
 				compliance status.compliance_type NOT NULL
 			);
-			CREATE TABLE IF NOT EXISTS  status.aggregated_compliance (
-				id uuid NOT NULL,
+			CREATE TABLE IF NOT EXISTS status.aggregated_compliance (
+				policy_id uuid NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
 				applied_clusters integer NOT NULL,
 				non_compliant_clusters integer NOT NULL
@@ -95,14 +95,14 @@ var _ = Describe("Policies", Ordered, func() {
 		By("Add an expired policy to the database")
 		deletedPolicyId := "b8b3e164-477e-4be1-a870-992265f31f7d"
 		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			fmt.Sprintf(`INSERT INTO %s.%s (id,cluster_name,leaf_hub_name,error,compliance) VALUES($1, $2, $3, $4, $5)`,
+			fmt.Sprintf(`INSERT INTO %s.%s (policy_id,cluster_name,leaf_hub_name,error,compliance) VALUES($1, $2, $3, $4, $5)`,
 				testSchema, complianceTable), deletedPolicyId, "cluster1", leafHubName, "none", "unknown")
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check the expired policy is added in database")
 		Eventually(func() error {
 			rows, err := transportPostgreSQL.GetConn().Query(ctx,
-				fmt.Sprintf("SELECT id FROM %s.%s", testSchema, complianceTable))
+				fmt.Sprintf("SELECT policy_id FROM %s.%s", testSchema, complianceTable))
 			if err != nil {
 				return err
 			}
@@ -152,7 +152,7 @@ var _ = Describe("Policies", Ordered, func() {
 
 		By("Check the ClustersPerPolicy policy is created and expired policy is deleted from database")
 		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
+			querySql := fmt.Sprintf("SELECT policy_id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err
@@ -219,7 +219,7 @@ var _ = Describe("Policies", Ordered, func() {
 
 		By("Check the complete bundle updated all the policy status in the database")
 		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
+			querySql := fmt.Sprintf("SELECT policy_id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
 			fmt.Printf("CompleteCompliance: Query from the %s.%s \n", testSchema, complianceTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
@@ -293,7 +293,7 @@ var _ = Describe("Policies", Ordered, func() {
 
 		By("Check the delta policy bundle is only update compliance status of the existing record in database")
 		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
+			querySql := fmt.Sprintf("SELECT policy_id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
 			fmt.Printf("DeltaCompliance1: Query from the %s.%s \n", testSchema, complianceTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
@@ -375,7 +375,7 @@ var _ = Describe("Policies", Ordered, func() {
 
 		By("Check the updated delta policy bundle is synchronized to database")
 		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
+			querySql := fmt.Sprintf("SELECT policy_id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
 			fmt.Printf("DeltaCompliance2: Query from the %s.%s \n", testSchema, complianceTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
@@ -456,7 +456,7 @@ var _ = Describe("Policies", Ordered, func() {
 
 		By("Check the minimal policy is synchronized to database")
 		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT id,leaf_hub_name,applied_clusters,non_compliant_clusters FROM %s.%s", testSchema, aggregatedComplianceTable)
+			querySql := fmt.Sprintf("SELECT policy_id,leaf_hub_name,applied_clusters,non_compliant_clusters FROM %s.%s", testSchema, aggregatedComplianceTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err

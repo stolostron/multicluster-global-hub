@@ -12,9 +12,9 @@ const (
 )
 
 const (
-	policyQuery           = `SELECT payload FROM spec.policies WHERE deleted = FALSE AND id=$1`
+	policyQuery           = `SELECT payload FROM spec.policies WHERE deleted = FALSE AND policy_id=$1`
 	policyComplianceQuery = `SELECT cluster_name,leaf_hub_name,compliance FROM status.compliance
-		WHERE id=$1 ORDER BY leaf_hub_name, cluster_name`
+		WHERE policy_id=$1 ORDER BY leaf_hub_name, cluster_name`
 	policyMappingQuery = `SELECT p.payload -> 'metadata' ->> 'name' AS policy,
 								 pb.payload -> 'metadata' ->> 'name' AS binding,
 								 pr.payload -> 'metadata' ->> 'name' AS placementrule
