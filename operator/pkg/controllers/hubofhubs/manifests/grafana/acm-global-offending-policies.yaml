@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1685518453763,
+      "iteration": 1685728831686,
       "links": [
         {
           "asDropdown": false,
@@ -37,12 +37,38 @@ data:
           "tooltip": "",
           "type": "link",
           "url": "d/9bb3bee6a17e47f9a231f6d77f2408fa/global-hub-policy-group-compliancy-overview?orgId=1"
+        },
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": true,
+          "keepTime": true,
+          "tags": [],
+          "targetBlank": true,
+          "title": "What's Changed",
+          "tooltip": "",
+          "type": "link",
+          "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1"
         }
       ],
       "panels": [
         {
+          "collapsed": false,
+          "datasource": null,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 62,
+          "panels": [],
+          "title": "Policy Status (Not impacted by selected filters)",
+          "type": "row"
+        },
+        {
           "datasource": "${datasource}",
-          "description": "Total number of managed cluster policies that were non compliant.",
+          "description": "The distinct number of policies that were \"non compliant\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -66,7 +92,7 @@ data:
             "h": 6,
             "w": 6,
             "x": 0,
-            "y": 0
+            "y": 1
           },
           "id": 42,
           "options": {
@@ -91,7 +117,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(non_compliant) as \"non_compliant\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res\nWHERE\n  non_compliant > 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, ch.id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(non_compliant) as \"non_compliant\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res\nWHERE\n  non_compliant > 0",
               "refId": "A",
               "select": [
                 [
@@ -118,7 +144,7 @@ data:
         },
         {
           "datasource": "${datasource}",
-          "description": "Total number of managed cluster policies that were unknown.",
+          "description": "The distinct number of policies that were \"compliant\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -130,7 +156,7 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "yellow",
+                    "color": "green",
                     "value": null
                   }
                 ]
@@ -142,83 +168,7 @@ data:
             "h": 6,
             "w": 6,
             "x": 6,
-            "y": 0
-          },
-          "id": 53,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.5.20",
-          "targets": [
-            {
-              "format": "table",
-              "group": [],
-              "metricColumn": "none",
-              "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res\nWHERE\n  non_compliant = 0 and unknown > 0",
-              "refId": "A",
-              "select": [
-                [
-                  {
-                    "params": [
-                      "value"
-                    ],
-                    "type": "column"
-                  }
-                ]
-              ],
-              "timeColumn": "time",
-              "where": [
-                {
-                  "name": "$__timeFilter",
-                  "params": [],
-                  "type": "macro"
-                }
-              ]
-            }
-          ],
-          "title": "Number of Unknown Policies",
-          "type": "stat"
-        },
-        {
-          "datasource": "${datasource}",
-          "description": "Total number of managed cluster policies that were  compliant.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "noValue": "0",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "dark-green",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 6,
-            "x": 12,
-            "y": 0
+            "y": 1
           },
           "id": 48,
           "options": {
@@ -243,7 +193,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(compliant) as \"compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res\nWHERE\n  non_compliant = 0 and unknown = 0 and compliant > 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, ch.id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0",
               "refId": "A",
               "select": [
                 [
@@ -270,7 +220,83 @@ data:
         },
         {
           "datasource": "${datasource}",
-          "description": "Total number of managed cluster policies.",
+          "description": "The distinct number of policies that were \"unknown\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "yellow",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 12,
+            "y": 1
+          },
+          "id": 58,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, ch.id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Unknown Policies",
+          "type": "stat"
+        },
+        {
+          "datasource": "${datasource}",
+          "description": "The distinct number of policies in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -294,7 +320,7 @@ data:
             "h": 6,
             "w": 6,
             "x": 18,
-            "y": 0
+            "y": 1
           },
           "id": 47,
           "options": {
@@ -319,7 +345,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, id)\n  ORDER BY (ch.compliance_date) DESC\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  data",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, ch.id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (id)\n)\nSELECT\n  COUNT(DISTINCT id)\nFROM\n  res",
               "refId": "A",
               "select": [
                 [
@@ -345,8 +371,22 @@ data:
           "type": "stat"
         },
         {
+          "collapsed": false,
+          "datasource": null,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 7
+          },
+          "id": 64,
+          "panels": [],
+          "title": "Policy Status > Non Compliant",
+          "type": "row"
+        },
+        {
           "datasource": "${datasource}",
-          "description": "List of offending managed cluster policies by standard ($standard), category ($category), and control ($control)",
+          "description": "List of offending managed cluster policies by standard, category, and control.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -359,6 +399,7 @@ data:
               },
               "links": [],
               "mappings": [],
+              "noValue": "-",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -387,7 +428,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View What's Changed dashboard for policy \"${__value.text}\"",
-                        "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1&var-policy=${__value.text}&var-cluster=All&to=${__value.time}"
+                        "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1&var-policy=${__value.text}&var-cluster=All&from=${__value.time}"
                       }
                     ]
                   }
@@ -404,6 +445,18 @@ data:
                     "value": "color-background"
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Non Compliant"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 259
+                  }
+                ]
               }
             ]
           },
@@ -411,11 +464,12 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 6
+            "y": 8
           },
           "id": 52,
           "options": {
-            "showHeader": true
+            "showHeader": true,
+            "sortBy": []
           },
           "pluginVersion": "8.5.20",
           "targets": [
@@ -424,7 +478,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"name\",\n    p.policy_standard as \"standard\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY\n    ch.compliance_date, p.policy_name,p.leaf_hub_name, p.policy_standard, p.policy_category, p.policy_control, p.payload\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  hub,\n  standard,\n  category,\n  control,\n  severity,\n  non_compliant::float / (unknown::float + compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  severity IN ($severity)\nAND\n  non_compliant::float / (unknown::float + compliant::float + non_compliant) > 0\nORDER BY (time, non_compliant) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"name\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  hub,\n  standard,\n  category,\n  control,\n  non_compliant::float / NULLIF((compliant::float + non_compliant), 0) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  non_compliant::float / NULLIF((compliant::float + non_compliant), 0) > 0\nORDER BY (time, non_compliant) DESC",
               "refId": "A",
               "select": [
                 [
@@ -446,7 +500,7 @@ data:
               ]
             }
           ],
-          "title": "Offending Policies - Severity ($severity)",
+          "title": "Offending Policies",
           "transformations": [
             {
               "id": "organize",
@@ -456,8 +510,8 @@ data:
                 "renameByName": {
                   "category": "Category",
                   "control": "Control",
-                  "name": "Name",
                   "hub": "Hub",
+                  "name": "Name",
                   "severity": "Severity",
                   "standard": "Standard",
                   "time": "Time",
@@ -467,6 +521,166 @@ data:
             }
           ],
           "type": "table"
+        },
+        {
+          "collapsed": true,
+          "datasource": null,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 16
+          },
+          "id": 56,
+          "panels": [
+            {
+              "datasource": "${datasource}",
+              "description": "List of offending managed cluster policies by standard, category, and control.",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "displayMode": "auto",
+                    "filterable": true
+                  },
+                  "links": [],
+                  "mappings": [],
+                  "noValue": "-",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "dark-yellow",
+                        "value": null
+                      },
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 0.01
+                      }
+                    ]
+                  },
+                  "unit": "percentunit"
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Name"
+                    },
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "targetBlank": true,
+                            "title": "View What's Changed dashboard for policy \"${__value.text}\"",
+                            "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1&var-policy=${__value.text}&var-cluster=All&from=${__value.time}"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "value"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.displayMode",
+                        "value": "color-background"
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "options": {
+                              "match": "null+nan",
+                              "result": {
+                                "color": "dark-yellow",
+                                "index": 0,
+                                "text": "Unknown"
+                              }
+                            },
+                            "type": "special"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 17
+              },
+              "id": 57,
+              "options": {
+                "showHeader": true
+              },
+              "pluginVersion": "8.5.20",
+              "targets": [
+                {
+                  "format": "table",
+                  "group": [],
+                  "metricColumn": "none",
+                  "rawQuery": true,
+                  "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"name\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n)\nSELECT\n  $__timeGroupAlias(time, $__interval),\n  name,\n  hub,\n  standard,\n  category,\n  control,\n  non_compliant::float / NULLIF((compliant::float + non_compliant), 0) as \"value\"\nFROM\n  data\nWHERE\n  $__timeFilter(time)\nAND\n  non_compliant::float / NULLIF((compliant::float + non_compliant), 0) IS NULL\nORDER BY (time, non_compliant) DESC",
+                  "refId": "A",
+                  "select": [
+                    [
+                      {
+                        "params": [
+                          "value"
+                        ],
+                        "type": "column"
+                      }
+                    ]
+                  ],
+                  "timeColumn": "time",
+                  "where": [
+                    {
+                      "name": "$__timeFilter",
+                      "params": [],
+                      "type": "macro"
+                    }
+                  ]
+                }
+              ],
+              "title": "Offending Policies",
+              "transformations": [
+                {
+                  "id": "organize",
+                  "options": {
+                    "excludeByName": {},
+                    "indexByName": {},
+                    "renameByName": {
+                      "category": "Category",
+                      "control": "Control",
+                      "hub": "Hub",
+                      "name": "Name",
+                      "severity": "Severity",
+                      "standard": "Standard",
+                      "time": "Time",
+                      "value": "Status"
+                    }
+                  }
+                }
+              ],
+              "type": "table"
+            }
+          ],
+          "title": "Policy Status > Unknown",
+          "type": "row"
         }
       ],
       "refresh": false,
@@ -549,7 +763,7 @@ data:
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
-            "sort": 0,
+            "sort": 5,
             "type": "query"
           },
           {
@@ -579,34 +793,6 @@ data:
             "skipUrlSync": false,
             "sort": 5,
             "type": "query"
-          },
-          {
-            "allValue": null,
-            "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "datasource": "${datasource}",
-            "definition": "SELECT\n   jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' \nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IN ($control)",
-            "description": "Managed cluster policy severities",
-            "error": null,
-            "hide": 0,
-            "includeAll": true,
-            "label": "Severity",
-            "multi": true,
-            "name": "severity",
-            "options": [],
-            "query": "SELECT\n   jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' \nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IN ($control)",
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 5,
-            "type": "query"
           }
         ]
       },
@@ -615,7 +801,7 @@ data:
         "to": "now"
       },
       "timepicker": {},
-      "timezone": "",
+      "timezone": "utc",
       "title": "Global Hub - Offending Policies",
       "uid": "b67e0727891f4121ae2dde09671520ae",
       "version": 1

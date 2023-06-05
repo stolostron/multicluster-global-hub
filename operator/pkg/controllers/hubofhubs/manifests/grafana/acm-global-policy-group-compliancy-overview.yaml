@@ -24,11 +24,11 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1685519144608,
+      "iteration": 1685724017670,
       "links": [
         {
           "asDropdown": false,
-          "icon": "external link",
+          "icon": "dashboard",
           "includeVars": true,
           "keepTime": true,
           "tags": [],
@@ -42,7 +42,7 @@ data:
       "panels": [
         {
           "datasource": "${datasource}",
-          "description": "Aggregated policy group trend by standard, category, control, and severity.",
+          "description": "Aggregated policy group trend by standard, category, and control.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -79,11 +79,12 @@ data:
               "links": [
                 {
                   "targetBlank": true,
-                  "title": "View Offending Policies for Control Group: ${__field.name}",
-                  "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1&from=${__value.time}&to=${__value.time}&var-standard=All&var-category=All&var-control=${__field.name}"
+                  "title": "View Offending Policies for $group group: ${__field.name}",
+                  "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1&from=${__value.time}&to=${__value.time}&var-${group}=${__field.name}"
                 }
               ],
               "mappings": [],
+              "noValue": "N/A",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -102,7 +103,7 @@ data:
             "overrides": []
           },
           "gridPos": {
-            "h": 9,
+            "h": 12,
             "w": 24,
             "x": 0,
             "y": 0
@@ -115,7 +116,7 @@ data:
               "placement": "bottom"
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "single"
             }
           },
           "pluginVersion": "8.5.20",
@@ -125,7 +126,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date,\n    p.policy_control,\n    jsonb_array_elements(p.payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' AS \"severity\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  INNER JOIN\n    history.local_compliance ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY\n    ch.compliance_date, p.payload, p.policy_control\n  ORDER BY\n    ch.compliance_date\n)\nSELECT\n  compliance_date as \"time\",\n  policy_control as \"metric\",\n  compliant::float / (unknown::float + compliant::float + non_compliant) as \"value\"\nFROM\n  data\nWHERE\n  severity IN ($severity)\nORDER BY\n  compliance_date",
+              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date AS \"time\",\n    p.policy_standard AS \"standard\",\n    p.policy_category AS \"category\",\n    p.policy_control AS \"control\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    local_spec.policies p\n  INNER JOIN\n    history.local_compliance ch ON p.policy_id = ch.id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY (time, p.policy_standard, p.policy_category, p.policy_control)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  $group as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data\nORDER BY\n  time",
               "refId": "A",
               "select": [
                 [
@@ -147,7 +148,7 @@ data:
               ]
             }
           ],
-          "title": "Compliancy Trend - Severity ($severity)",
+          "title": "Compliancy Trend (By $group)",
           "type": "timeseries"
         }
       ],
@@ -181,9 +182,13 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
-              "text": "All",
-              "value": "$__all"
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
             },
             "datasource": "${datasource}",
             "definition": "SELECT\n  policy_standard\nFROM\n  local_spec.policies",
@@ -205,9 +210,13 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
-              "text": "All",
-              "value": "$__all"
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
             },
             "datasource": "${datasource}",
             "definition": "SELECT\n  policy_category\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)",
@@ -229,9 +238,13 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
-              "text": "All",
-              "value": "$__all"
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
             },
             "datasource": "${datasource}",
             "definition": "SELECT\n  policy_control\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)",
@@ -254,29 +267,37 @@ data:
             "allValue": null,
             "current": {
               "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
+              "text": "standard",
+              "value": "standard"
             },
-            "datasource": "${datasource}",
-            "definition": "SELECT\n  jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\"\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IN ($control)",
-            "description": "Cluster policy severity",
+            "description": "Filter priority for policy grouping on the x-axis.",
             "error": null,
             "hide": 0,
-            "includeAll": true,
-            "label": "Severity",
-            "multi": true,
-            "name": "severity",
-            "options": [],
-            "query": "SELECT\n  jsonb_array_elements(payload -> 'spec' -> 'policy-templates') -> 'objectDefinition' -> 'spec' ->> 'severity' as \"severity\"\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IN ($control)",
-            "refresh": 1,
-            "regex": "",
+            "includeAll": false,
+            "label": "XAxis Group",
+            "multi": false,
+            "name": "group",
+            "options": [
+              {
+                "selected": true,
+                "text": "category",
+                "value": "category"
+              },
+              {
+                "selected": false,
+                "text": "control",
+                "value": "control"
+              },
+              {
+                "selected": false,
+                "text": "standard",
+                "value": "standard"
+              }
+            ],
+            "query": "category, control, standard",
+            "queryValue": "",
             "skipUrlSync": false,
-            "sort": 5,
-            "type": "query"
+            "type": "custom"
           }
         ]
       },
@@ -285,7 +306,7 @@ data:
         "to": "now"
       },
       "timepicker": {},
-      "timezone": "",
+      "timezone": "utc",
       "title": "Global Hub - Policy Group Compliancy Overview",
       "uid": "9bb3bee6a17e47f9a231f6d77f2408fa",
       "version": 1
