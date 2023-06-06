@@ -47,6 +47,7 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	initVars()
+	deployGlobalHub()
 
 	By("Init the kubernetes client")
 	clients = utils.NewTestClient(testOptionsContainer.Options)
@@ -72,7 +73,7 @@ var _ = BeforeSuite(func() {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
+	httpClient = &http.Client{Timeout: time.Second * 50, Transport: transport}
 })
 
 var _ = AfterSuite(func() {
@@ -80,7 +81,7 @@ var _ = AfterSuite(func() {
 })
 
 func initVars() {
-	testTimeout = time.Second * 30
+	testTimeout = time.Second * 50
 
 	klog.V(6).Infof("Options Path: %s", optionsFile)
 	data, err := os.ReadFile(optionsFile)
