@@ -7,16 +7,29 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
-func TestDisableGRCInMCH(t *testing.T) {
+func TestDisableComponentsInMCH(t *testing.T) {
 	cases := []struct {
-		name        string
-		mch         *mchv1.MultiClusterHub
-		grcDisabled bool
+		name       string
+		components []string
+		mch        *mchv1.MultiClusterHub
 	}{
 		{
-			name: "no need to disable grc",
+			name:       "empty components",
+			components: []string{},
+			mch: &mchv1.MultiClusterHub{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multiclusterhub",
+					Namespace: config.GetDefaultNamespace(),
+				},
+				Spec: mchv1.MultiClusterHubSpec{},
+			},
+		},
+		{
+			name:       "no need to disable single component",
+			components: []string{"grc"},
 			mch: &mchv1.MultiClusterHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "multiclusterhub",
@@ -33,10 +46,34 @@ func TestDisableGRCInMCH(t *testing.T) {
 					},
 				},
 			},
-			grcDisabled: false,
 		},
 		{
-			name: "disable grc explicitly",
+			name:       "no need to disable multiple components",
+			components: []string{"grc", "app-lifecycle"},
+			mch: &mchv1.MultiClusterHub{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multiclusterhub",
+					Namespace: config.GetDefaultNamespace(),
+				},
+				Spec: mchv1.MultiClusterHubSpec{
+					Overrides: &mchv1.Overrides{
+						Components: []mchv1.ComponentConfig{
+							{
+								Name:    "grc",
+								Enabled: false,
+							},
+							{
+								Name:    "app-lifecycle",
+								Enabled: false,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:       "disable one component explicitly",
+			components: []string{"grc", "app-lifecycle"},
 			mch: &mchv1.MultiClusterHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "multiclusterhub",
@@ -49,14 +86,42 @@ func TestDisableGRCInMCH(t *testing.T) {
 								Name:    "grc",
 								Enabled: true,
 							},
+							{
+								Name:    "app-lifecycle",
+								Enabled: false,
+							},
 						},
 					},
 				},
 			},
-			grcDisabled: true,
 		},
 		{
-			name: "disable grc by adding component explicitly",
+			name:       "disable multiple components explicitly",
+			components: []string{"grc", "app-lifecycle"},
+			mch: &mchv1.MultiClusterHub{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multiclusterhub",
+					Namespace: config.GetDefaultNamespace(),
+				},
+				Spec: mchv1.MultiClusterHubSpec{
+					Overrides: &mchv1.Overrides{
+						Components: []mchv1.ComponentConfig{
+							{
+								Name:    "grc",
+								Enabled: true,
+							},
+							{
+								Name:    "app-lifecycle",
+								Enabled: true,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:       "disable components by adding component explicitly",
+			components: []string{"grc", "app-lifecycle"},
 			mch: &mchv1.MultiClusterHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "multiclusterhub",
@@ -68,10 +133,10 @@ func TestDisableGRCInMCH(t *testing.T) {
 					},
 				},
 			},
-			grcDisabled: true,
 		},
 		{
-			name: "disable grc by adding overrides explicitly",
+			name:       "disable components by adding overrides explicitly",
+			components: []string{"grc", "app-lifecycle"},
 			mch: &mchv1.MultiClusterHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "multiclusterhub",
@@ -79,31 +144,30 @@ func TestDisableGRCInMCH(t *testing.T) {
 				},
 				Spec: mchv1.MultiClusterHubSpec{},
 			},
-			grcDisabled: true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			newMCH, getGRCDisabled := disableGRCInMCH(tc.mch)
-			if newMCH.Spec.Overrides == nil {
-				t.Errorf("empty MCH component overrides")
-			}
-			foundGRC := false
-			for _, c := range newMCH.Spec.Overrides.Components {
-				if c.Name == "grc" {
-					foundGRC = true
-					if c.Enabled == true {
-						t.Errorf("GRC is not disabled in MCH")
-					}
-					break
+			disableComponentsInMCH(tc.mch, tc.components)
+			if len(tc.components) != 0 {
+				if tc.mch.Spec.Overrides == nil {
+					t.Errorf("empty MCH component overrides")
 				}
-			}
-			if !foundGRC {
-				t.Errorf("GRC is not add to MCH component overrides")
-			}
-			if getGRCDisabled != tc.grcDisabled {
-				t.Errorf("unexpected grcDisabled, got: %v, want: %v", getGRCDisabled, tc.grcDisabled)
+				foundMap := make(map[string]struct{}, len(tc.components))
+				for _, c := range tc.mch.Spec.Overrides.Components {
+					if utils.Contains(tc.components, c.Name) {
+						foundMap[c.Name] = struct{}{}
+						if c.Enabled == true {
+							t.Errorf("%s is not disabled in MCH", c.Name)
+						}
+					}
+				}
+				for _, c := range tc.components {
+					if _, existing := foundMap[c]; !existing {
+						t.Errorf("%s is not add to MCH component overrides", c)
+					}
+				}
 			}
 		})
 	}
