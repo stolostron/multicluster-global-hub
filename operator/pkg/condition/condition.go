@@ -66,11 +66,11 @@ const (
 	CONDITION_MESSAGE_MANAGER_AVAILABLE = "Multicluster Global Hub Manager has been deployed"
 )
 
-// NOTE: the status of ManagerDeployed can only be True; otherwise there is no condition
+// NOTE: the status of MCHConfigured can only be True; otherwise there is no condition
 const (
-	CONDITION_TYPE_GRC_DISABLED    = "GRCDisabled"
-	CONDITION_REASON_GRC_DISABLED  = "GRCDisabled"
-	CONDITION_MESSAGE_GRC_DISABLED = "GRC has been disabled in MultiClusterHub"
+	CONDITION_TYPE_MCH_CONFIGURED    = "MCHConfigured"
+	CONDITION_REASON_MCH_CONFIGURED  = "MCHConfigured"
+	CONDITION_MESSAGE_MCH_CONFIGURED = "MultiClusterHub instance has been configured"
 )
 
 // NOTE: the status of LeafHubDeployed can only be True; otherwise there is no condition
@@ -119,11 +119,11 @@ func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *ope
 		CONDITION_REASON_MANAGER_AVAILABLE, CONDITION_MESSAGE_MANAGER_AVAILABLE)
 }
 
-func SetConditionGRCDisabled(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionMCHConfigured(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRC_DISABLED, status,
-		CONDITION_REASON_GRC_DISABLED, CONDITION_MESSAGE_GRC_DISABLED)
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MCH_CONFIGURED, status,
+		CONDITION_REASON_MCH_CONFIGURED, CONDITION_MESSAGE_MCH_CONFIGURED)
 }
 
 func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,

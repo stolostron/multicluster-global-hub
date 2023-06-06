@@ -11,6 +11,7 @@ import (
 
 	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileMCH(ctx context.Context,
@@ -22,23 +23,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMCH(ctx context.Context,
 		return nil
 	}
 
-	mch, _ = disableGRCInMCH(mch)
-
-	// if grcDisabledByMGH {
-	// 	// set the annotation to remember grc status
-	// 	annotations := mgh.GetAnnotations()
-	// 	annotations[GRCDisabledByMGHAnnotation] = strconv.FormatBool(grcDisabledByMGH)
-	// 	mgh.SetAnnotations(annotations)
-	// 	if err := r.Client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
-	// 		return fmt.Errorf("failed to annotation(%s) to mgh. err = %v", GRCDisabledByMGHAnnotation, err)
-	// 	}
-	// }
+	disableComponentsInMCH(mch, []string{"app-lifecycle", "grc"})
 
 	if err := r.Client.Update(ctx, mch); err != nil {
 		return fmt.Errorf("failed to update MCH instance. err = %v", err)
 	}
 
-	if err := condition.SetConditionGRCDisabled(ctx, r.Client, mgh,
+	if err := condition.SetConditionMCHConfigured(ctx, r.Client, mgh,
 		condition.CONDITION_STATUS_TRUE); err != nil {
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
 	}
@@ -46,41 +37,41 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMCH(ctx context.Context,
 	return nil
 }
 
-func disableGRCInMCH(mch *mchv1.MultiClusterHub) (*mchv1.MultiClusterHub, bool) {
-	grcDisabledByMGH := false
+func disableComponentsInMCH(mch *mchv1.MultiClusterHub, components []string) {
+	if len(components) == 0 {
+		return
+	}
 	if mch.Spec.Overrides != nil {
-		found := false
+		foundMap := make(map[string]struct{}, len(components))
 		for i, c := range mch.Spec.Overrides.Components {
-			if c.Name == "grc" {
+			if utils.Contains(components, c.Name) {
 				if c.Enabled {
 					mch.Spec.Overrides.Components[i].Enabled = false
-					grcDisabledByMGH = true
 				}
-				found = true
-				break
+				foundMap[c.Name] = struct{}{}
 			}
 		}
-		if !found {
-			mch.Spec.Overrides.Components = append(mch.Spec.Overrides.Components,
-				mchv1.ComponentConfig{
-					Name:    "grc",
-					Enabled: false,
-				})
-			grcDisabledByMGH = true
+		for _, c := range components {
+			if _, existing := foundMap[c]; !existing {
+				mch.Spec.Overrides.Components = append(mch.Spec.Overrides.Components,
+					mchv1.ComponentConfig{
+						Name:    c,
+						Enabled: false,
+					})
+			}
 		}
 	} else {
-		mch.Spec.Overrides = &mchv1.Overrides{
-			Components: []mchv1.ComponentConfig{
-				{
-					Name:    "grc",
-					Enabled: false,
-				},
-			},
+		componentConfigs := make([]mchv1.ComponentConfig, len(components))
+		for _, c := range components {
+			componentConfigs = append(componentConfigs, mchv1.ComponentConfig{
+				Name:    c,
+				Enabled: false,
+			})
 		}
-		grcDisabledByMGH = true
+		mch.Spec.Overrides = &mchv1.Overrides{
+			Components: componentConfigs,
+		}
 	}
-
-	return mch, grcDisabledByMGH
 }
 
 func getMCH(ctx context.Context, k8sClient client.Client) (*mchv1.MultiClusterHub, error) {

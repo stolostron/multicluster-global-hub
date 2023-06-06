@@ -302,6 +302,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Overrides: &mchv1.Overrides{
 						Components: []mchv1.ComponentConfig{
 							{
+								Name:    "app-lifecycle",
+								Enabled: true,
+							},
+							{
 								Name:    "grc",
 								Enabled: true,
 							},
