@@ -72,9 +72,9 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpoo
 		startTime.AddDate(0, 0, -interval).Format("2006_01_02"))
 	createViewTemplate := `
 		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS 
-		SELECT id,cluster_id,compliance 
+		SELECT policy_id,cluster_id,leaf_hub_name,compliance 
 		FROM local_status.compliance;
-		CREATE INDEX IF NOT EXISTS idx_local_compliance_view ON %s (id, cluster_id);
+		CREATE INDEX IF NOT EXISTS idx_local_compliance_view ON %s (policy_id, cluster_id);
 	`
 	_, err = pool.Exec(ctx, fmt.Sprintf(createViewTemplate, viewName, viewName))
 	if err != nil {
@@ -122,12 +122,12 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 	}()
 	err = wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
 		selectInsertSQLTemplate := `
-			INSERT INTO history.local_compliance (id, cluster_id, compliance, compliance_date) 
-			SELECT id,cluster_id,compliance,(CURRENT_DATE - INTERVAL '%d day') 
+			INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date) 
+			SELECT policy_id,cluster_id,leaf_hub_name,compliance,(CURRENT_DATE - INTERVAL '%d day') 
 			FROM %s 
-			ORDER BY id, cluster_id
+			ORDER BY policy_id, cluster_id
 			LIMIT $1 OFFSET $2
-			ON CONFLICT (id, cluster_id, compliance_date) DO NOTHING
+			ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING
 		`
 		selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, interval, tableName)
 		result, err := pool.Exec(ctx, selectInsertSQL, batchSize, offset)
@@ -186,19 +186,19 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 			}
 		}()
 		selectInsertSQLTemplate := `
-			INSERT INTO history.local_compliance (id, cluster_id, compliance_date, compliance, 
+			INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance_date, compliance,
 					compliance_changed_frequency)
 			WITH compliance_aggregate AS (
-					SELECT cluster_id, policy_id,
+					SELECT cluster_id, policy_id, leaf_hub_name,
 							CASE
 									WHEN bool_and(compliance = 'compliant') THEN 'compliant'
 									ELSE 'non_compliant'
 							END::local_status.compliance_type AS aggregated_compliance
 					FROM event.local_policies
 					WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
-					GROUP BY cluster_id, policy_id
+					GROUP BY cluster_id, policy_id, leaf_hub_name
 			)
-			SELECT policy_id, cluster_id, (CURRENT_DATE - INTERVAL '%d day'), aggregated_compliance,
+			SELECT policy_id, cluster_id, leaf_hub_name, (CURRENT_DATE - INTERVAL '%d day'), aggregated_compliance,
 					(SELECT COUNT(*) FROM (
 							SELECT created_at, compliance, 
 									LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC)
@@ -211,7 +211,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 			FROM compliance_aggregate ca
 			ORDER BY cluster_id, policy_id
 			LIMIT $1 OFFSET $2
-			ON CONFLICT (id, cluster_id, compliance_date)
+			ON CONFLICT (policy_id, cluster_id, compliance_date)
 			DO UPDATE SET
 				compliance = EXCLUDED.compliance,
 				compliance_changed_frequency = EXCLUDED.compliance_changed_frequency;

@@ -205,10 +205,10 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							return err
 						}
 						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-							for _, leafhubName := range LeafHubNames {
+						for _, leafhubName := range LeafHubNames {
 							if leafhub == leafhubName && policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
 								policies[leafhub] = policy
-							}						
+							}
 						}
 					}
 					if len(policies) != len(LeafHubNames) {
@@ -220,7 +220,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				By("Verify the local policy is synchronized to the global hub status table")
 				Eventually(func() error {
 					rows, err := postgresConn.Query(context.TODO(),
-						"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+						"SELECT policy_id,cluster_name,leaf_hub_name FROM local_status.compliance")
 					if err != nil {
 						return err
 					}
@@ -391,7 +391,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				By("Verify the local policy is deleted from the global hub status table")
 				Eventually(func() error {
 					rows, err := postgresConn.Query(context.TODO(),
-						"SELECT id,cluster_name,leaf_hub_name FROM local_status.compliance")
+						"SELECT policy_id,cluster_name,leaf_hub_name FROM local_status.compliance")
 					if err != nil {
 						return err
 					}

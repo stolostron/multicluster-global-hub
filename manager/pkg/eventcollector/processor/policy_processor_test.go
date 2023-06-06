@@ -36,6 +36,7 @@ var _ = Describe("configmaps to database controller", func() {
 			CREATE TABLE IF NOT EXISTS event.local_policies (
 				policy_id uuid NOT NULL,
 				cluster_id uuid NOT NULL,
+				leaf_hub_name character varying(63) NOT NULL,
 				message text,
 				reason text,
 				source jsonb,
