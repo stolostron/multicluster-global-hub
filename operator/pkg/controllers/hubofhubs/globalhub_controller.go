@@ -197,11 +197,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileNativeGlobalHub(ctx context.C
 func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx context.Context,
 	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
-	// make sure largae scale data type settings are not empty
-	if mgh.Spec.DataLayer.LargeScale == nil {
-		return fmt.Errorf("invalid settings for large scale data layer")
-	}
-
 	// reconcile config: need to be done before reconciling manager and grafana
 	// 1. global configMap: open-cluster-management-global-hub-system/multicluster-global-hub-config
 	// 2. global image: annotation -> env -> default
