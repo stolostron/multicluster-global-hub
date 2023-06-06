@@ -110,7 +110,7 @@ func (p *PostgreSQL) NewPoliciesBatchBuilder(schema string, tableName string,
 func (p *PostgreSQL) GetComplianceStatusByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string,
 ) (map[string]*PolicyClustersSets, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE 
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT policy_id,cluster_name,compliance FROM %s.%s WHERE 
 			leaf_hub_name=$1`, schema, tableName), leafHubName)
 
 	result, err := p.buildComplianceClustersSetsFromRows(rows)
@@ -125,7 +125,7 @@ func (p *PostgreSQL) GetComplianceStatusByLeafHub(ctx context.Context, schema st
 func (p *PostgreSQL) GetNonCompliantClustersByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string,
 ) (map[string]*PolicyClustersSets, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE leaf_hub_name=$1
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT policy_id,cluster_name,compliance FROM %s.%s WHERE leaf_hub_name=$1
 			 AND compliance!='compliant'`, schema, tableName), leafHubName)
 
 	result, err := p.buildComplianceClustersSetsFromRows(rows)
@@ -167,7 +167,7 @@ func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (
 func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string,
 ) (set.Set, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(id) FROM %s.%s WHERE leaf_hub_name=$1`, schema,
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM %s.%s WHERE leaf_hub_name=$1`, schema,
 		tableName), leafHubName)
 
 	result := set.NewSet()
@@ -190,18 +190,18 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 ) error {
 	var exists bool
 	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from %s.%s WHERE leaf_hub_name=$1 AND 
-			id=$2)`, schema, tableName), leafHubName, policyID).Scan(&exists); err != nil {
+			policy_id=$2)`, schema, tableName), leafHubName, policyID).Scan(&exists); err != nil {
 		return fmt.Errorf("failed to read from database: %w", err)
 	}
 
 	if exists { // row for (id,leaf hub) tuple exists, update to the database.
 		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET applied_clusters=$1,non_compliant_clusters=$2
-			 WHERE leaf_hub_name=$3 AND id=$4`, schema, tableName), appliedClusters, nonCompliantClusters, leafHubName,
+			 WHERE leaf_hub_name=$3 AND policy_id=$4`, schema, tableName), appliedClusters, nonCompliantClusters, leafHubName,
 			policyID); err != nil {
 			return fmt.Errorf("failed to update compliance row in database: %w", err)
 		}
 	} else { // row for (id,leaf hub) tuple doesn't exist, insert to the database.
-		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (id,leaf_hub_name,applied_clusters,
+		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (policy_id,leaf_hub_name,applied_clusters,
 			non_compliant_clusters) values($1, $2, $3, $4)`, schema, tableName), policyID, leafHubName,
 			appliedClusters, nonCompliantClusters); err != nil {
 			return fmt.Errorf("failed to insert into database: %w", err)
@@ -215,7 +215,7 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string, tableName string, leafHubName string,
 	policyID string,
 ) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s.%s WHERE leaf_hub_name=$1 AND id=$2`, schema,
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s.%s WHERE leaf_hub_name=$1 AND policy_id=$2`, schema,
 		tableName), leafHubName, policyID); err != nil {
 		return fmt.Errorf("failed to delete compliance rows from database: %w", err)
 	}

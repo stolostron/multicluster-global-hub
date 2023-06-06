@@ -9,12 +9,12 @@ import (
 
 const (
 	policyUUIDColumnIndex                  = 1
-	policyDeleteRowKey                     = "id"
+	policyDeleteRowKey                     = "policy_id"
 	deleteClusterCompliancePrefixArgsCount = 2
 	updatePolicyComplianceTypeColumnIndex  = 3
 	updateClusterComplianceTypeColumnIndex = 4
 	clusterComplianceUpdateArgsCount       = 4
-	policyComplianceTableColumns           = "id, cluster_name, leaf_hub_name, error, compliance"
+	policyComplianceTableColumns           = "policy_id, cluster_name, leaf_hub_name, error, compliance"
 )
 
 // NewPoliciesBatchBuilder creates a new instance of PostgreSQL PoliciesBatchBuilder.
@@ -128,8 +128,8 @@ func (builder *PoliciesBatchBuilder) generateUpdatePolicyComplianceStatement() s
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,
 		specialColumns))
 
-	stringBuilder.WriteString(") AS new(id,leaf_hub_name,compliance) ")
-	stringBuilder.WriteString("WHERE old.id=new.id AND old.leaf_hub_name=new.leaf_hub_name")
+	stringBuilder.WriteString(") AS new(policy_id,leaf_hub_name,compliance) ")
+	stringBuilder.WriteString("WHERE old.policy_id=new.policy_id AND old.leaf_hub_name=new.leaf_hub_name")
 
 	return stringBuilder.String()
 }
@@ -152,8 +152,8 @@ func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() 
 		builder.updateClusterComplianceRowsCount, columnCount,
 		specialColumns))
 
-	stringBuilder.WriteString(") AS new(id,cluster_name,leaf_hub_name,compliance) ")
-	stringBuilder.WriteString("WHERE old.id=new.id AND old.leaf_hub_name=new.leaf_hub_name ")
+	stringBuilder.WriteString(") AS new(policy_id,cluster_name,leaf_hub_name,compliance) ")
+	stringBuilder.WriteString("WHERE old.policy_id=new.policy_id AND old.leaf_hub_name=new.leaf_hub_name ")
 	stringBuilder.WriteString("AND old.cluster_name=new.cluster_name")
 
 	return stringBuilder.String()
@@ -162,7 +162,7 @@ func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() 
 func (builder *PoliciesBatchBuilder) generateDeleteClusterComplianceStatement(policyID string) string {
 	deletedClustersCount := len(builder.deleteClusterComplianceArgs[policyID]) - deleteClusterCompliancePrefixArgsCount
 
-	return fmt.Sprintf("DELETE from %s.%s WHERE id=$1 AND leaf_hub_name=$2 AND cluster_name IN (%s)",
+	return fmt.Sprintf("DELETE from %s.%s WHERE policy_id=$1 AND leaf_hub_name=$2 AND cluster_name IN (%s)",
 		builder.schema, builder.tableName, builder.generateArgsList(deletedClustersCount,
 			deleteClusterCompliancePrefixArgsCount+1, make(map[int]string)))
 }

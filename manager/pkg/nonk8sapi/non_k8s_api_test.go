@@ -127,7 +127,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				payload jsonb NOT NULL
 			);
 			CREATE TABLE IF NOT EXISTS status.compliance (
-				id uuid NOT NULL,
+				policy_id uuid NOT NULL,
 				cluster_name character varying(63) NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
 				error status.error_type NOT NULL,
@@ -257,7 +257,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w1.Body.String()).Should(MatchJSON(
 			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
 
-		By("Check the managedcclusters can be listed with limit and labelSelector")
+		By("Check the managedclusters can be listed with limit and labelSelector")
 		w2 := httptest.NewRecorder()
 		req2, err := http.NewRequest("GET",
 			"/global-hub-api/v1/managedclusters?"+
@@ -656,13 +656,13 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 
 		By("Insert testing compliances")
 		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.compliance (id,cluster_name,leaf_hub_name,error,compliance)
+			`INSERT INTO status.compliance (policy_id,cluster_name,leaf_hub_name,error,compliance)
 			VALUES($1,'mc1','hub1','none','non_compliant');`,
 			plc1ID)
 		Expect(err).ToNot(HaveOccurred())
 
 		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.compliance (id,cluster_name,leaf_hub_name,error,compliance)
+			`INSERT INTO status.compliance (policy_id,cluster_name,leaf_hub_name,error,compliance)
 			VALUES($1,'mc2','hub1','none','compliant');`,
 			plc1ID)
 		Expect(err).ToNot(HaveOccurred())

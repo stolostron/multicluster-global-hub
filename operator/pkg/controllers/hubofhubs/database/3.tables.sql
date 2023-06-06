@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS  history.applications (
+CREATE TABLE IF NOT EXISTS history.applications (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS  history.applications (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  history.channels (
+CREATE TABLE IF NOT EXISTS history.channels (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS  history.channels (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  history.configs (
+CREATE TABLE IF NOT EXISTS history.configs (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS  history.configs (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  history.managedclustersetbindings (
+CREATE TABLE IF NOT EXISTS history.managedclustersetbindings (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS  history.managedclustersetbindings (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  history.managedclustersets (
+CREATE TABLE IF NOT EXISTS history.managedclustersets (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS  history.managedclustersets (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  history.placementbindings (
+CREATE TABLE IF NOT EXISTS history.placementbindings (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS  history.placementbindings (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  history.placementrules (
+CREATE TABLE IF NOT EXISTS history.placementrules (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS  history.placementrules (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  history.placements (
+CREATE TABLE IF NOT EXISTS history.placements (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS  history.placements (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  history.policies (
+CREATE TABLE IF NOT EXISTS history.policies (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS  history.policies (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  history.subscriptions (
+CREATE TABLE IF NOT EXISTS history.subscriptions (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -79,12 +79,13 @@ CREATE TABLE IF NOT EXISTS  history.subscriptions (
 );
 
 CREATE TABLE IF NOT EXISTS history.local_compliance (
-    id uuid NOT NULL,
+    policy_id uuid NOT NULL,
     cluster_id uuid NOT NULL,
+    leaf_hub_name character varying(63) NOT NULL,
     compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL, 
     compliance local_status.compliance_type NOT NULL,
     compliance_changed_frequency integer NOT NULL DEFAULT 0,
-    CONSTRAINT local_policies_unique_constraint UNIQUE (id, cluster_id, compliance_date)
+    CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, compliance_date)
 );
 
 CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
@@ -117,7 +118,7 @@ CREATE TABLE IF NOT EXISTS history.local_policies (
     policy_control character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls') stored
 );
 
-CREATE TABLE IF NOT EXISTS  local_spec.placementrules (
+CREATE TABLE IF NOT EXISTS local_spec.placementrules (
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -129,7 +130,7 @@ CREATE TABLE IF NOT EXISTS local_spec.policies (
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    policy_id uuid generated always as (uuid(payload->'metadata'->>'uid')) stored,
+    policy_id uuid PRIMARY KEY generated always as (uuid(payload->'metadata'->>'uid')) stored,
     policy_name character varying(255) generated always as (payload -> 'metadata' ->> 'name') stored,
     policy_standard character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards') stored,
     policy_category character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
@@ -137,7 +138,7 @@ CREATE TABLE IF NOT EXISTS local_spec.policies (
 );
 
 CREATE TABLE IF NOT EXISTS local_status.compliance (
-    id uuid NOT NULL,
+    policy_id uuid NOT NULL,
     cluster_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     error status.error_type NOT NULL,
@@ -153,7 +154,7 @@ CREATE TABLE IF NOT EXISTS spec.applications (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.channels (
+CREATE TABLE IF NOT EXISTS spec.channels (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -161,7 +162,7 @@ CREATE TABLE IF NOT EXISTS  spec.channels (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.configs (
+CREATE TABLE IF NOT EXISTS spec.configs (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -169,14 +170,14 @@ CREATE TABLE IF NOT EXISTS  spec.configs (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.managed_cluster_sets_tracking (
+CREATE TABLE IF NOT EXISTS spec.managed_cluster_sets_tracking (
     cluster_set_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     managed_clusters jsonb DEFAULT '[]'::jsonb NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.managed_clusters_labels (
+CREATE TABLE IF NOT EXISTS spec.managed_clusters_labels (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) DEFAULT ''::character varying NOT NULL,
     managed_cluster_name character varying(63) NOT NULL,
@@ -187,7 +188,7 @@ CREATE TABLE IF NOT EXISTS  spec.managed_clusters_labels (
     CONSTRAINT managed_clusters_labels_version_check CHECK ((version >= 0))
 );
 
-CREATE TABLE IF NOT EXISTS  spec.managedclustersetbindings (
+CREATE TABLE IF NOT EXISTS spec.managedclustersetbindings (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -195,7 +196,7 @@ CREATE TABLE IF NOT EXISTS  spec.managedclustersetbindings (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.managedclustersets (
+CREATE TABLE IF NOT EXISTS spec.managedclustersets (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -203,7 +204,7 @@ CREATE TABLE IF NOT EXISTS  spec.managedclustersets (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.placementbindings (
+CREATE TABLE IF NOT EXISTS spec.placementbindings (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -211,7 +212,7 @@ CREATE TABLE IF NOT EXISTS  spec.placementbindings (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.placementrules (
+CREATE TABLE IF NOT EXISTS spec.placementrules (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -219,7 +220,7 @@ CREATE TABLE IF NOT EXISTS  spec.placementrules (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.placements (
+CREATE TABLE IF NOT EXISTS spec.placements (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -227,7 +228,7 @@ CREATE TABLE IF NOT EXISTS  spec.placements (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.policies (
+CREATE TABLE IF NOT EXISTS spec.policies (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -235,7 +236,7 @@ CREATE TABLE IF NOT EXISTS  spec.policies (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  spec.subscriptions (
+CREATE TABLE IF NOT EXISTS spec.subscriptions (
     id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -243,15 +244,15 @@ CREATE TABLE IF NOT EXISTS  spec.subscriptions (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.aggregated_compliance (
-    id uuid NOT NULL,
+CREATE TABLE IF NOT EXISTS status.aggregated_compliance (
+    policy_id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     applied_clusters integer NOT NULL,
     non_compliant_clusters integer NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS status.compliance (
-    id uuid NOT NULL,
+    policy_id uuid NOT NULL,
     cluster_name character varying(63) NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     error status.error_type NOT NULL,
@@ -259,7 +260,7 @@ CREATE TABLE IF NOT EXISTS status.compliance (
     cluster_id uuid
 );
 
-CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
+CREATE TABLE IF NOT EXISTS status.leaf_hub_heartbeats (
     leaf_hub_name character varying(63) NOT NULL,
     last_timestamp timestamp without time zone DEFAULT now() NOT NULL
 );
@@ -272,31 +273,31 @@ CREATE TABLE IF NOT EXISTS status.managed_clusters (
     error status.error_type NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.placementdecisions (
+CREATE TABLE IF NOT EXISTS status.placementdecisions (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.placementrules (
+CREATE TABLE IF NOT EXISTS status.placementrules (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.placements (
+CREATE TABLE IF NOT EXISTS status.placements (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.subscription_reports (
+CREATE TABLE IF NOT EXISTS status.subscription_reports (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS  status.subscription_statuses (
+CREATE TABLE IF NOT EXISTS status.subscription_statuses (
     id uuid NOT NULL,
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL
@@ -305,6 +306,7 @@ CREATE TABLE IF NOT EXISTS  status.subscription_statuses (
 CREATE TABLE IF NOT EXISTS event.local_policies (
     policy_id uuid NOT NULL,
     cluster_id uuid NOT NULL,
+    leaf_hub_name character varying(63) NOT NULL,
     message text,
     reason text,
     source jsonb,
@@ -314,40 +316,40 @@ CREATE TABLE IF NOT EXISTS event.local_policies (
 );
 
 
-CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_id_idx ON local_spec.placementrules USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_id_idx ON local_spec.placementrules (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS policies_leaf_hub_name_id_idx ON local_spec.policies USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS policies_leaf_hub_name_id_idx ON local_spec.policies (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS managed_cluster_sets_tracking_cluster_set_name_and_leaf_hub_name_idx ON spec.managed_cluster_sets_tracking USING btree (cluster_set_name, leaf_hub_name);
+CREATE UNIQUE INDEX IF NOT EXISTS managed_cluster_sets_tracking_cluster_set_name_and_leaf_hub_name_idx ON spec.managed_cluster_sets_tracking (cluster_set_name, leaf_hub_name);
 
-CREATE INDEX IF NOT EXISTS compliance_leaf_hub_cluster_idx ON status.compliance USING btree (leaf_hub_name, cluster_name);
+CREATE INDEX IF NOT EXISTS compliance_leaf_hub_cluster_idx ON status.compliance (leaf_hub_name, cluster_name);
 
-CREATE INDEX IF NOT EXISTS compliance_leaf_hub_non_compliant_idx ON status.compliance USING btree (leaf_hub_name, compliance) WHERE (compliance <> 'compliant'::status.compliance_type);
+CREATE INDEX IF NOT EXISTS compliance_leaf_hub_non_compliant_idx ON status.compliance (leaf_hub_name, compliance) WHERE (compliance <> 'compliant'::status.compliance_type);
 
-CREATE UNIQUE INDEX IF NOT EXISTS compliance_leaf_hub_policy_cluster_idx ON status.compliance USING btree (leaf_hub_name, id, cluster_name);
+CREATE UNIQUE INDEX IF NOT EXISTS compliance_leaf_hub_policy_cluster_idx ON status.compliance (leaf_hub_name, policy_id, cluster_name);
 
-CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats USING btree (leaf_hub_name);
+CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats (leaf_hub_name);
 
-CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_uid_idx ON status.managed_clusters USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_uid_idx ON status.managed_clusters (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
 
-CREATE INDEX IF NOT EXISTS managed_clusters_metadata_name_idx ON status.managed_clusters USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)));
+CREATE INDEX IF NOT EXISTS managed_clusters_metadata_name_idx ON status.managed_clusters ((((payload -> 'metadata'::text) ->> 'name'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS placementdecisions_leaf_hub_name_and_payload_id_namespace_idx ON status.placementdecisions USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS placementdecisions_leaf_hub_name_and_payload_id_namespace_idx ON status.placementdecisions (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE INDEX IF NOT EXISTS placementdecisions_payload_name_and_namespace_idx ON status.placementdecisions USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE INDEX IF NOT EXISTS placementdecisions_payload_name_and_namespace_idx ON status.placementdecisions ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_and_payload_id_namespace_idx ON status.placementrules USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_and_payload_id_namespace_idx ON status.placementrules (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE INDEX IF NOT EXISTS placementrules_payload_name_and_namespace_idx ON status.placementrules USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE INDEX IF NOT EXISTS placementrules_payload_name_and_namespace_idx ON status.placementrules ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS placements_leaf_hub_name_and_payload_id_namespace_idx ON status.placements USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS placements_leaf_hub_name_and_payload_id_namespace_idx ON status.placements (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE INDEX IF NOT EXISTS placements_payload_name_and_namespace_idx ON status.placements USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE INDEX IF NOT EXISTS placements_payload_name_and_namespace_idx ON status.placements ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS subscription_reports_leaf_hub_name_and_payload_id_namespace_idx ON status.subscription_reports USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS subscription_reports_leaf_hub_name_and_payload_id_namespace_idx ON status.subscription_reports (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE INDEX IF NOT EXISTS subscription_reports_payload_name_and_namespace_idx ON status.subscription_reports USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE INDEX IF NOT EXISTS subscription_reports_payload_name_and_namespace_idx ON status.subscription_reports ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE UNIQUE INDEX IF NOT EXISTS subscription_statuses_leaf_hub_name_and_payload_id_namespace_idx ON status.subscription_statuses USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS subscription_statuses_leaf_hub_name_and_payload_id_namespace_idx ON status.subscription_statuses (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
-CREATE INDEX IF NOT EXISTS subscription_statuses_payload_name_and_namespace_idx ON status.subscription_statuses USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
+CREATE INDEX IF NOT EXISTS subscription_statuses_payload_name_and_namespace_idx ON status.subscription_statuses ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
