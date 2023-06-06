@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +35,6 @@ var (
 	cancel       context.CancelFunc
 	mgr          ctrl.Manager
 	testPostgres *testpostgres.TestPostgres
-	pool         *pgxpool.Pool
 )
 
 func TestAddEventCollector(t *testing.T) {
@@ -73,10 +71,14 @@ func TestAddEventCollector(t *testing.T) {
 		err := testPostgres.Stop()
 		assert.Nil(t, err, "Error should be nil")
 	}()
-	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "test-ca-cert-path", 2)
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:        testPostgres.URI,
+		Dialect:    database.PostgresDialect,
+		CaCertPath: "test-ca-cert-path",
+		PoolSize:   2,
+	})
 	assert.Nil(t, err, "Error should be nil")
-	assert.NotNil(t, pool, "Pool should not be nil")
-	defer pool.Close()
+	defer database.CloseGorm()
 
 	// By("Prepare kafka cluster")
 	val, err := json.Marshal(getEvent())
@@ -101,7 +103,7 @@ func TestAddEventCollector(t *testing.T) {
 	assert.Nil(t, err, "Error should be nil")
 
 	// By("Adding the controllers to the manager")
-	err = AddEventCollector(ctx, mgr, kafkaConfig, pool)
+	err = AddEventCollector(ctx, mgr, kafkaConfig)
 	assert.Nil(t, err, "Error should be nil")
 
 	// By("Waiting for the manager to be ready")
@@ -120,7 +122,7 @@ func TestEventCollector(t *testing.T) {
 	messageChan := make(chan *sarama.ConsumerMessage)
 	eventDispatcher := newEventDispatcher(messageChan)
 	eventDispatcher.RegisterProcessor(policyv1.Kind,
-		eventprocessor.NewPolicyProcessor(ctx, pool, &offsetManagerMock{}))
+		eventprocessor.NewPolicyProcessor(ctx, &offsetManagerMock{}))
 	go func() {
 		_ = eventDispatcher.Start(ctx)
 	}()
@@ -164,9 +166,9 @@ func getEvent() *kube.EnhancedEvent {
 				Namespace: "cluster1",
 			},
 			Labels: map[string]string{
-				constants.PolicyEventRootPolicyIdLabelKey:      "37c9a640-af05-4bea-9dcc-1873e86bebcd",
-				constants.PolicyEventClusterIdLabelKey:         "47c9a640-af05-4bea-9dcc-1873e86bebcd",
-				constants.PolicyEventClusterComplianceLabelKey: string(policyv1.Compliant),
+				constants.PolicyEventRootPolicyIdLabelKey: "37c9a640-af05-4bea-9dcc-1873e86bebcd",
+				constants.PolicyEventClusterIdLabelKey:    "47c9a640-af05-4bea-9dcc-1873e86bebcd",
+				constants.PolicyEventComplianceLabelKey:   string(policyv1.Compliant),
 			},
 		},
 	}

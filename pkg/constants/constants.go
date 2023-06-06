@@ -115,7 +115,7 @@ const (
 	// the label is added by the event exporter
 	PolicyEventClusterIdLabelKey = "policy.open-cluster-management.io/cluster-id"
 	// the label is added by the event exporter
-	PolicyEventClusterComplianceLabelKey = "policy.open-cluster-management.io/cluster-compliance"
+	PolicyEventComplianceLabelKey = "policy.open-cluster-management.io/compliance"
 
 	// the label is from the reference object itself
 	PolicyEventRootPolicyNameLabelKey = "policy.open-cluster-management.io/root-policy"

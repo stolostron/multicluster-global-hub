@@ -2,113 +2,114 @@ package processor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
-	corev1 "k8s.io/api/core/v1"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/util/wait"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 type policyProcessor struct {
 	log           logr.Logger
 	ctx           context.Context
-	pool          *pgxpool.Pool
+	db            *gorm.DB
 	offsetManager OffsetManager
 }
 
-func NewPolicyProcessor(ctx context.Context, pool *pgxpool.Pool, offsetManager OffsetManager) *policyProcessor {
+func NewPolicyProcessor(ctx context.Context, offsetManager OffsetManager) *policyProcessor {
 	return &policyProcessor{
 		log:           ctrl.Log.WithName("policy-event-processor"),
 		ctx:           ctx,
-		pool:          pool,
+		db:            database.GetGorm(),
 		offsetManager: offsetManager,
 	}
 }
 
 func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventOffset) {
-	p.log.Info("process policy event", "name", fmt.Sprintf("%s - %s/%s", event.ClusterName,
-		event.InvolvedObject.Namespace, event.InvolvedObject.Name), "count",
-		fmt.Sprintf("%d", event.Count), "lastTimestamp", event.LastTimestamp)
+	p.log.Info(event.ClusterName, "namespace", event.Namespace, "name", event.Name, "count",
+		fmt.Sprintf("%d", event.Count), "offset", fmt.Sprintf("%d", eventOffset.Offset))
 
-	// predicate
-	clusterId, ok := event.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey]
+	clusterCompliance, ok := event.InvolvedObject.Labels[constants.PolicyEventComplianceLabelKey]
 	if !ok {
 		return
 	}
-	rootPolicyId, ok := event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey]
-	if !ok {
-		return
-	}
-	clusterCompliance, ok := event.InvolvedObject.Labels[constants.PolicyEventClusterComplianceLabelKey]
-	if !ok {
-		return
-	}
-	// algin with the database enum values
-	compliance := "unknown"
-	switch clusterCompliance {
-	case string(policyv1.Compliant):
-		compliance = "compliant"
-	case string(policyv1.NonCompliant):
-		compliance = "non_compliant"
-	default:
-		p.log.Info("unknown compliance status", "compliance", clusterCompliance)
-	}
+	compliance := p.getPolicyCompliance(clusterCompliance)
 
-	localPolicyEvent := &LocalPolicyEvent{
-		PolicyID:    rootPolicyId,
-		ClusterID:   clusterId,
-		LeafHubName: event.ClusterName,
+	clusterId, hasClusterId := event.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey]
+	rootPolicyId, hasRootPolicyId := event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey]
+
+	source, err := json.Marshal(event.Source)
+	if err != nil {
+		p.log.Error(err, "failed to marshal event")
+		return
+	}
+	baseLocalPolicyEvent := &models.BaseLocalPolicyEvent{
 		Message:     event.Message,
 		Reason:      event.Reason,
-		Source:      event.Source,
+		LeafHubName: event.ClusterName,
+		Source:      source,
+		Count:       int(event.Count),
+		Compliance:  string(compliance),
 		CreatedAt:   event.LastTimestamp.Time,
-		Compliance:  compliance,
+	}
+
+	var insertEvent interface{}
+	conflictColumns := []clause.Column{{Name: "policy_id"}, {Name: "count"}}
+	if hasClusterId || hasRootPolicyId {
+		baseLocalPolicyEvent.PolicyID = rootPolicyId
+		insertEvent = &models.LocalClusterPolicyEvent{
+			BaseLocalPolicyEvent: *baseLocalPolicyEvent,
+			ClusterID:            clusterId,
+		}
+		conflictColumns = append(conflictColumns, clause.Column{Name: "cluster_id"})
+	} else {
+		baseLocalPolicyEvent.PolicyID = string(event.InvolvedObject.UID)
+		insertEvent = &models.LocalRootPolicyEvent{
+			BaseLocalPolicyEvent: *baseLocalPolicyEvent,
+		}
+		conflictColumns = append(conflictColumns, clause.Column{Name: "leaf_hub_name"})
 	}
 
 	ctx, cancel := context.WithTimeout(p.ctx, 1*time.Minute)
 	defer cancel()
-	err := wait.PollUntilWithContext(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		err := insertOrUpdate(ctx, p.pool, localPolicyEvent)
-		if err != nil {
-			p.log.Error(err, "insert or update local_policies failed, retrying...")
+	err = wait.PollUntilWithContext(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
+		result := p.db.Clauses(clause.OnConflict{
+			Columns:   conflictColumns,
+			UpdateAll: true,
+		}).Create(insertEvent)
+		if result.Error != nil {
+			p.log.Error(result.Error, "insert or update local (root) policy event failed, retrying...")
 			return false, nil
 		}
 		return true, nil
 	})
 	if err != nil {
-		p.log.Error(err, "insert or update local_policies failed")
+		p.log.Error(err, "insert or update local (root) policy event failed")
 		return
 	}
 	p.offsetManager.MarkOffset(eventOffset.Topic, eventOffset.Partition, eventOffset.Offset)
 }
 
-type LocalPolicyEvent struct {
-	PolicyID    string
-	ClusterID   string
-	LeafHubName string
-	Message     string
-	Reason      string
-	Source      corev1.EventSource
-	CreatedAt   time.Time
-	Compliance  string
-}
-
-func insertOrUpdate(ctx context.Context, pool *pgxpool.Pool, policyEvent *LocalPolicyEvent) error {
-	insertSql := `
-		INSERT INTO event.local_policies (policy_id, cluster_id, leaf_hub_name, message, reason, 
-			source, created_at, compliance)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (policy_id, cluster_id, created_at) DO UPDATE
-		SET message = excluded.message, reason = excluded.reason, source = excluded.source, compliance = excluded.compliance
-	`
-	_, err := pool.Exec(ctx, insertSql, policyEvent.PolicyID, policyEvent.ClusterID, policyEvent.LeafHubName,
-		policyEvent.Message, policyEvent.Reason, policyEvent.Source, policyEvent.CreatedAt, policyEvent.Compliance)
-	return err
+func (p *policyProcessor) getPolicyCompliance(compliance string) database.ComplianceStatus {
+	// algin with the database enum values
+	status := database.Unknown
+	switch compliance {
+	case string(policyv1.Compliant):
+		status = database.Compliant
+	case string(policyv1.NonCompliant):
+		status = database.NonCompliant
+	default:
+		p.log.Info("unknown compliance status", "compliance", compliance)
+	}
+	return status
 }

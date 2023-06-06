@@ -9,6 +9,7 @@ import (
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -23,6 +24,7 @@ var (
 	// - to setup/close connection because GORM V2 removed gorm.Close()
 	// - to work with pq.CopyIn because connection returned by GORM V2 gorm.DB() in "not the same"
 	sqlDB *sql.DB
+	log   = ctrl.Log.WithName("addon-controller")
 )
 
 type DatabaseConfig struct {
@@ -44,7 +46,8 @@ func InitGormInstance(config *DatabaseConfig) error {
 	gormOnce.Do(func() {
 		sqlDB, err = sql.Open(config.Dialect, urlObj.String())
 		if err != nil {
-			panic(err)
+			log.Error(err, "failed to open database connection")
+			return
 		}
 		sqlDB.SetMaxOpenConns(config.PoolSize)
 		gormDB, err = gorm.Open(postgres.New(postgres.Config{
@@ -55,7 +58,8 @@ func InitGormInstance(config *DatabaseConfig) error {
 			FullSaveAssociations: false,
 		})
 		if err != nil {
-			panic(err)
+			log.Error(err, "failed to open gorm connection")
+			return
 		}
 	})
 	return err
@@ -63,17 +67,17 @@ func InitGormInstance(config *DatabaseConfig) error {
 
 func GetGorm() *gorm.DB {
 	if gormDB == nil {
-		panic("gormDB is not initialized")
+		log.Error(nil, "gorm connection is not initialized")
+		return nil
 	}
 	return gormDB
 }
 
 // Close the sql.DB connection
-func CloseGorm() error {
-	if sqlDB != nil {
-		return sqlDB.Close()
-	} else {
-		return fmt.Errorf("sqlDB is not initialized")
+func CloseGorm() {
+	err := sqlDB.Close()
+	if err != nil {
+		log.Error(err, "failed to close database connection")
 	}
 }
 
