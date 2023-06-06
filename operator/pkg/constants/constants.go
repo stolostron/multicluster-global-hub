@@ -68,8 +68,8 @@ const (
 
 // global hub transport and storage secret names
 const (
-	GHTransportSecretName = "multicluster-global-hub-transport"
-	GHStorageSecretName   = "multicluster-global-hub-storage"
+	GHTransportSecretName = "multicluster-global-hub-transport" // #nosec G101
+	GHStorageSecretName   = "multicluster-global-hub-storage"   // #nosec G101
 )
 
 const (
