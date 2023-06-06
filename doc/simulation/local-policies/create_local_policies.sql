@@ -74,7 +74,7 @@ begin
             raise notice 'managedcluster name %', managed_cluster_name;
             SELECT floor(random() * 2 + 1)::int into compliance_random_index;
             foreach policy_id in array policy_ids loop
-                insert into local_status.compliance (id,cluster_id,cluster_name,leaf_hub_name,compliance,error) VALUES (policy_id,managed_cluster_id,managed_cluster_name,hub_name,all_compliances[compliance_random_index],'none');
+                insert into local_status.compliance (policy_id,cluster_id,cluster_name,leaf_hub_name,compliance,error) VALUES (policy_id,managed_cluster_id,managed_cluster_name,hub_name,all_compliances[compliance_random_index],'none');
             end loop;
         end loop;
 
