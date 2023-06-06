@@ -7,7 +7,7 @@ source $rootDir/test/setup/common.sh
 
 # step1: delete transport secret 
 targetNamespace=${TARGET_NAMESPACE:-"open-cluster-management"}
-transportSecret=${TRANSPORT_SECRET_NAME:-"transport-secret"}
+transportSecret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
 kubectl delete secret ${transportSecret} -n $targetNamespace
 
 # step2: delete kafka topics

@@ -40,6 +40,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -60,7 +61,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	hubofhubsconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
@@ -90,7 +91,7 @@ func init() {
 	utilruntime.Must(workv1.AddToScheme(scheme))
 	utilruntime.Must(addonv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(hypershiftdeploymentv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(operatorv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(operatorv1alpha3.AddToScheme(scheme))
 	utilruntime.Must(appsubv1.SchemeBuilder.AddToScheme(scheme))
 	utilruntime.Must(appsubV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(chnv1.AddToScheme(scheme))

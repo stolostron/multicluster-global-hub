@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha2
+package v1alpha3
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -125,16 +125,6 @@ type NativeConfig struct{}
 
 // LargeScaleConfig is the config of large scale data layer
 type LargeScaleConfig struct {
-	// +optional
-	Kafka *KafkaConfig `json:"kafka,omitempty"`
-	// +optional
-	Postgres corev1.LocalObjectReference `json:"postgres,omitempty"`
-}
-
-// KafkaConfig defines the desired state of kafka
-type KafkaConfig struct {
-	// +optional
-	Name string `json:"name,omitempty"`
 	// TransportFormat defines the transport format for kafka, which is either cloudEvents or kafka message
 	// +kubebuilder:default:="cloudEvents"
 	TransportFormat TransportFormatType `json:"transportFormat,omitempty"`

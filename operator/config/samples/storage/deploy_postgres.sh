@@ -7,7 +7,7 @@ source $rootDir/test/setup/common.sh
 
 # step1: check storage secret
 targetNamespace=${TARGET_NAMESPACE:-"open-cluster-management"}
-storageSecret=${STORAGE_SECRET_NAME:-"storage-secret"}
+storageSecret=${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"}
 ready=$(kubectl get secret $storageSecret -n $targetNamespace --ignore-not-found=true)
 if [ ! -z "$ready" ]; then
   echo "storageSecret $storageSecret already exists in $TARGET_NAMESPACE namespace"

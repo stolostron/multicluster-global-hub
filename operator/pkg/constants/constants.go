@@ -66,6 +66,12 @@ const (
 	GHGrafanaDeploymentName = "multicluster-global-hub-grafana"
 )
 
+// global hub transport and storage secret names
+const (
+	GHTransportSecretName = "multicluster-global-hub-transport"
+	GHStorageSecretName   = "multicluster-global-hub-storage"
+)
+
 const (
 	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
 	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"

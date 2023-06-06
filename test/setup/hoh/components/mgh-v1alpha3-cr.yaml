@@ -1,0 +1,9 @@
+apiVersion: operator.open-cluster-management.io/v1alpha3
+kind: MulticlusterGlobalHub
+metadata:
+  name: multiclusterglobalhub
+spec:
+  dataLayer:
+    type: largeScale
+    largeScale:
+      transportFormat: cloudEvents # or message

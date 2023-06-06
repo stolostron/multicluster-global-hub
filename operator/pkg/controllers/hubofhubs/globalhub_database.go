@@ -8,9 +8,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
@@ -20,7 +21,7 @@ var DatabaseReconcileCounter = 0
 var databaseFS embed.FS
 
 func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("database")
 
@@ -37,11 +38,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		}
 	}
 
-	storageNamespace := config.GetDefaultNamespace()
-	storageName := mgh.Spec.DataLayer.LargeScale.Postgres.Name
+	storageNamespace := mgh.Namespace
+	storageName := operatorconstants.GHStorageSecretName
 
 	log.Info("database initializing with storage secret", "namespace", storageNamespace, "name", storageName)
-	postgresSecret, err := r.KubeClient.CoreV1().Secrets(storageNamespace).Get(ctx, storageName,
+	postgresSecret, err := r.KubeClient.CoreV1().Secrets(mgh.Namespace).Get(ctx, storageName,
 		metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "failed to get storage secret", "namespace", storageNamespace, "name", storageName)

@@ -14,9 +14,10 @@ import (
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -25,14 +26,13 @@ import (
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("manager")
 
-	log.Info("retrieving transport secret for the manager", "name",
-		mgh.Spec.DataLayer.LargeScale.Kafka.Name)
+	log.Info("retrieving transport secret for the manager", "name", operatorconstants.GHTransportSecretName)
 	kafkaBootstrapServer, kafkaCACert, kafkaClientCert, kafkaClientKey, err := utils.GetKafkaConfig(ctx,
-		r.KubeClient, mgh)
+		r.KubeClient, mgh.Namespace, operatorconstants.GHTransportSecretName)
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 	messageCompressionType := string(mgh.Spec.MessageCompressionType)
 	if messageCompressionType == "" {
-		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
+		messageCompressionType = string(operatorv1alpha3.GzipCompressType)
 	}
 
 	// create new HoHRenderer and HoHDeployer
@@ -97,14 +97,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			ImagePullSecret:        mgh.Spec.ImagePullSecret,
 			ImagePullPolicy:        string(imagePullPolicy),
 			ProxySessionSecret:     proxySessionSecret,
-			DBSecret:               mgh.Spec.DataLayer.LargeScale.Postgres.Name,
+			DBSecret:               operatorconstants.GHStorageSecretName,
 			KafkaCACert:            kafkaCACert,
 			KafkaClientCert:        kafkaClientCert,
 			KafkaClientKey:         kafkaClientKey,
 			KafkaBootstrapServer:   kafkaBootstrapServer,
 			MessageCompressionType: messageCompressionType,
 			TransportType:          string(transport.Kafka),
-			TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
+			TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.TransportFormat),
 			Namespace:              config.GetDefaultNamespace(),
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
@@ -127,7 +127,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, objs []*unstructured.Unstructured,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub, log logr.Logger,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub, log logr.Logger,
 ) error {
 	// manipulate the object
 	for _, obj := range objs {

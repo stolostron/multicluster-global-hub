@@ -25,7 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -92,7 +92,7 @@ func GetOauthSessionSecret() (string, error) {
 }
 
 // getAnnotation returns the annotation value for a given key, or an empty string if not set
-func getAnnotation(mgh *operatorv1alpha2.MulticlusterGlobalHub, annotationKey string) string {
+func getAnnotation(mgh *operatorv1alpha3.MulticlusterGlobalHub, annotationKey string) string {
 	annotations := mgh.GetAnnotations()
 	if annotations == nil {
 		return ""
@@ -102,7 +102,7 @@ func getAnnotation(mgh *operatorv1alpha2.MulticlusterGlobalHub, annotationKey st
 }
 
 // IsPaused returns true if the MulticlusterGlobalHub instance is annotated as paused, and false otherwise
-func IsPaused(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
+func IsPaused(mgh *operatorv1alpha3.MulticlusterGlobalHub) bool {
 	isPausedVal := getAnnotation(mgh, operatorconstants.AnnotationMGHPause)
 	if isPausedVal != "" && strings.EqualFold(isPausedVal, "true") {
 		return true
@@ -113,7 +113,7 @@ func IsPaused(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
 
 // SkipDBInit returns true if the MulticlusterGlobalHub instance is annotated as skipping database initialization,
 // and false otherwise, used in dev/test environment
-func SkipDBInit(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
+func SkipDBInit(mgh *operatorv1alpha3.MulticlusterGlobalHub) bool {
 	toSkipDBInit := getAnnotation(mgh, operatorconstants.AnnotationMGHSkipDBInit)
 	if toSkipDBInit != "" && strings.EqualFold(toSkipDBInit, "true") {
 		return true
@@ -123,16 +123,16 @@ func SkipDBInit(mgh *operatorv1alpha2.MulticlusterGlobalHub) bool {
 }
 
 // GetSchedulerInterval returns the scheduler interval for moving policy compliance history
-func GetSchedulerInterval(mgh *operatorv1alpha2.MulticlusterGlobalHub) string {
+func GetSchedulerInterval(mgh *operatorv1alpha3.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
 }
 
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
-func GetImageOverridesConfigmap(mgh *operatorv1alpha2.MulticlusterGlobalHub) string {
+func GetImageOverridesConfigmap(mgh *operatorv1alpha3.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)
 }
 
-func SetImageOverrides(mgh *operatorv1alpha2.MulticlusterGlobalHub) error {
+func SetImageOverrides(mgh *operatorv1alpha3.MulticlusterGlobalHub) error {
 	// first check for environment variables containing the 'RELATED_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)

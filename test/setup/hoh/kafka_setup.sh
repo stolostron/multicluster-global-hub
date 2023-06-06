@@ -7,7 +7,7 @@ setupDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." ; pwd -P)"
 source "$setupDir/common.sh"
 
 # check the transport secret
-transportSecret=${TRANSPORT_SECRET_NAME:-"transport-secret"}
+transportSecret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
 targetNamespace=${TARGET_NAMESPACE:-"open-cluster-management"}
 ready=$(kubectl get secret $transportSecret -n $targetNamespace --ignore-not-found=true)
 if [ ! -z "$ready" ]; then
