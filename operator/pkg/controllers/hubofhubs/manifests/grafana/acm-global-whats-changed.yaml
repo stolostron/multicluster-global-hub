@@ -113,7 +113,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name AS \"metric\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  INNER JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.cluster_name IN ($cluster)\n  AND\n    policy_name IN ($policy)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  metric,\n  compliant::float / NULLIF((compliant::float + non_compliant), 0) as \"value\"\nFROM\n  data",
+              "rawSql": "WITH data as (\n  WITH all_managed_clusters as(\n  SELECT * FROM status.managed_clusters\n  UNION \n  SELECT * FROM history.managed_clusters\n  )\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name AS \"metric\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  INNER JOIN\n    all_managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.cluster_name IN ($cluster)\n  AND\n    policy_name IN ($policy)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  metric,\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data",
               "refId": "A",
               "select": [
                 [
@@ -233,7 +233,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  $__timeGroupAlias(lp.created_at, $__interval),\n  p.policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  policy_name IN ($policy)\nAND\n  cluster_name IN ($cluster)\nORDER BY (lp.created_at) DESC",
+              "rawSql": "WITH all_managed_clusters as(\nSELECT * FROM status.managed_clusters\nUNION \nSELECT * FROM history.managed_clusters\n)\nSELECT\n  $__timeGroupAlias(lp.created_at, $__interval),\n  p.policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  all_managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  policy_name IN ($policy)\nAND\n  cluster_name IN ($cluster)\nORDER BY (lp.created_at) DESC",
               "refId": "A",
               "select": [
                 [
