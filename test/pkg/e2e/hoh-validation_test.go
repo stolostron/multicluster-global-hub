@@ -17,6 +17,43 @@ import (
 )
 
 var _ = Describe("Check all the connection of clients and necessary parameter validation", Label("e2e-tests-validation"), func() {
+	Context("Check all the parameters for e2e-tests", func() {	
+		var ManagedClusterNum = 1
+		It("Check the num of hub clusters and managed clusters on options-local.yaml", func() {
+			opt := testOptions.ManagedClusters
+			var leafhubClusters []string
+			var managedClusters []string
+
+			for _, c := range opt {
+				if c.Name == c.LeafHubName {
+					leafhubClusters = append(leafhubClusters, c.Name)
+				} else {
+					managedClusters = append(managedClusters, c.Name)
+				}
+			}
+			if len(leafhubClusters) != ExpectedLeafHubNum || len(managedClusters) != ManagedClusterNum*ExpectedLeafHubNum {
+				Expect(fmt.Errorf("generate %d hub cluster and %d managed cluster error", ExpectedLeafHubNum, ExpectedManagedClusterNum)).Should(Succeed())
+			}
+		})
+
+		It("Check the num of hub clusters and managed clusters in the kubeconfig", func() {
+			for i := 1; i <= ExpectedLeafHubNum; i++ {
+				hubFileName := fmt.Sprintf("../../resources/kubeconfig/kubeconfig-hub%d", i)
+				_, err := os.Stat(hubFileName)
+				if os.IsNotExist(err) {
+					Expect(fmt.Errorf("kubeconfig-hub%d is not exist", i)).Should(Succeed())
+				}
+				for j := 1; j <= ManagedClusterNum; j++ {
+					managedFileName := fmt.Sprintf("../../resources/kubeconfig/kubeconfig-hub%d-cluster%d", i, j)
+					_, err := os.Stat(managedFileName)
+					if os.IsNotExist(err) {
+						Expect(fmt.Errorf("kubeconfig-hub%d-cluster%d is not exist", i, j)).Should(Succeed())
+					}
+				}
+			}
+		})
+	})
+
 	Context("Check all the clients could connect to the HoH servers", func() {
 		It("connect to the apiserver with kubernetes interface", func() {
 			hubClient := clients.KubeClient()
@@ -62,43 +99,6 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 			klog.V(6).Info(fmt.Sprintf("The Test User Infomation: %s", userRes))
 			users := [2]string{"kube:admin", "system:masters"}
 			Expect(users).To(ContainElement(result["metadata"].(map[string]interface{})["name"].(string)))
-		})
-	})
-
-	Context("Check all the parameters for e2e-tests", func() {	
-		var ManagedClusterNum = 1
-		It("Check the num of hub clusters and managed clusters on options-local.yaml", func() {
-			opt := testOptions.ManagedClusters
-			var leafhubClusters []string
-			var managedClusters []string
-
-			for _, c := range opt {
-				if c.Name == c.LeafHubName {
-					leafhubClusters = append(leafhubClusters, c.Name)
-				} else {
-					managedClusters = append(managedClusters, c.Name)
-				}
-			}
-			if len(leafhubClusters) != ExpectedLeafHubNum || len(managedClusters) != ManagedClusterNum*ExpectedLeafHubNum {
-				Expect(fmt.Errorf("generate %d hub cluster and %d managed cluster error", ExpectedLeafHubNum, ExpectedManagedClusterNum)).Should(Succeed())
-			}
-		})
-
-		It("Check the num of hub clusters and managed clusters in the kubeconfig", func() {
-			for i := 1; i <= ExpectedLeafHubNum; i++ {
-				hubFileName := fmt.Sprintf("../../resources/kubeconfig/kubeconfig-hub%d", i)
-				_, err := os.Stat(hubFileName)
-				if os.IsNotExist(err) {
-					Expect(fmt.Errorf("kubeconfig-hub%d is not exist", i)).Should(Succeed())
-				}
-				for j := 1; j <= ManagedClusterNum; j++ {
-					managedFileName := fmt.Sprintf("../../resources/kubeconfig/kubeconfig-hub%d-cluster%d", i, j)
-					_, err := os.Stat(managedFileName)
-					if os.IsNotExist(err) {
-						Expect(fmt.Errorf("kubeconfig-hub%d-cluster%d is not exist", i, j)).Should(Succeed())
-					}
-				}
-			}
 		})
 	})
 })
