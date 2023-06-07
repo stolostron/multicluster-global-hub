@@ -37,8 +37,8 @@ enableOLM $CTX_HUB 2>&1 >> $LOG &
 hover $! "  Enable OLM for $CTX_HUB"
 
 # install some component in microshift in detached mode
-bash ${CURRENT_DIR}/hoh/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
-bash ${CURRENT_DIR}/hoh/kafka_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
+# bash ${CURRENT_DIR}/hoh/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
+# bash ${CURRENT_DIR}/hoh/kafka_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
 initHub $CTX_HUB 2>&1 >> $LOG &
 
 # init leafhub 
@@ -69,19 +69,19 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
 done
 
 # wait kafka to be ready
-waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
-waitAppear "kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' --ignore-not-found=true" 1200
+# waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
+# waitAppear "kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' --ignore-not-found=true" 1200
 
 # wait postgres to be ready
-waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
+# waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
 
 #deploy hoh
 #need the following labels to enable deploying agent in leaf hub cluster
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
     kubectl label managedcluster kind-$LEAF_HUB_NAME$i vendor=OpenShift --overwrite 2>&1 >> $LOG 
 done
-source ${CURRENT_DIR}/hoh/hoh_setup.sh >> $LOG 2>&1 &
-hover $! "6 Deploy hub-of-hubs with $TAG" 
+# source ${CURRENT_DIR}/hoh/hoh_setup.sh >> $LOG 2>&1 &
+# hover $! "6 Deploy hub-of-hubs with $TAG" 
 
 export KUBECONFIG=$KUBECONFIG
 printf "%s\033[0;32m%s\n\033[0m" "[Access the Clusters]: " "export KUBECONFIG=$KUBECONFIG"

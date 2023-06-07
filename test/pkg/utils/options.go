@@ -19,6 +19,13 @@ type HOHCluster struct {
 	KubeContext     string `yaml:"kubecontext,omitempty"`
 	Nonk8sApiServer string `yaml:"nonk8sApiServer,omitempty"`
 	DatabaseURI     string `yaml:"databaseURI,omitempty"`
+	StoragePath     string `yaml:"storagePath,omitempty"`
+	TransportPath   string `yaml:"transportPath,omitempty"`
+	CrdsDir         string `yaml:"crdsDir,omitempty"`
+	DatabaseExternalHost string `yaml:"databaseExternalHost,omitempty"`
+	DatabaseExternalPort int    `yaml:"databaseExternalPort,omitempty"`
+	MghManagerImageREF   string `yaml:"mghManagerImageREF,omitempty"`
+	MghAgentImageREF     string `yaml:"mghAgentImageREF,omitempty"`
 }
 
 type ManagedCluster struct {
