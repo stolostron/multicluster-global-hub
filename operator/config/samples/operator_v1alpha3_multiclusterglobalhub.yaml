@@ -12,4 +12,5 @@ spec:
   dataLayer:
     type: largeScale
     largeScale:
-      transportFormat: cloudEvents
+      kafka:
+        transportFormat: cloudEvents

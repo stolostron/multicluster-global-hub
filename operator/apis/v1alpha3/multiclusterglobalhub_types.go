@@ -125,6 +125,12 @@ type NativeConfig struct{}
 
 // LargeScaleConfig is the config of large scale data layer
 type LargeScaleConfig struct {
+	// +optional
+	Kafka *KafkaConfig `json:"kafka,omitempty"`
+}
+
+// KafkaConfig defines the desired state of kafka
+type KafkaConfig struct {
 	// TransportFormat defines the transport format for kafka, which is either cloudEvents or kafka message
 	// +kubebuilder:default:="cloudEvents"
 	TransportFormat TransportFormatType `json:"transportFormat,omitempty"`

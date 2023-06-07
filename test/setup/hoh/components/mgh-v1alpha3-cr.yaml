@@ -6,4 +6,5 @@ spec:
   dataLayer:
     type: largeScale
     largeScale:
-      transportFormat: cloudEvents # or message
+      kafka:
+        transportFormat: message

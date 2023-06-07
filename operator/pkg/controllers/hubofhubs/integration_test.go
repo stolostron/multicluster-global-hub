@@ -133,8 +133,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				},
 				Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
 					DataLayer: &operatorv1alpha3.DataLayerConfig{
-						Type:       operatorv1alpha3.LargeScale,
-						LargeScale: &operatorv1alpha3.LargeScaleConfig{},
+						Type: operatorv1alpha3.LargeScale,
 					},
 				},
 			}
@@ -180,9 +179,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
 					DataLayer: &operatorv1alpha3.DataLayerConfig{
 						Type: operatorv1alpha3.LargeScale,
-						LargeScale: &operatorv1alpha3.LargeScaleConfig{
-							TransportFormat: operatorv1alpha3.CloudEvents,
-						},
 					},
 				},
 			}
@@ -234,7 +230,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				DataLayer: &operatorv1alpha3.DataLayerConfig{
 					Type: operatorv1alpha3.LargeScale,
 					LargeScale: &operatorv1alpha3.LargeScaleConfig{
-						TransportFormat: operatorv1alpha3.CloudEvents,
+						Kafka: &operatorv1alpha3.KafkaConfig{
+							TransportFormat: operatorv1alpha3.CloudEvents,
+						},
 					},
 				},
 				NodeSelector: map[string]string{"foo": "bar"},
@@ -401,7 +399,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaBootstrapServer:   kafkaBootstrapServer,
 					MessageCompressionType: messageCompressionType,
 					TransportType:          string(transport.Kafka),
-					TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.TransportFormat),
+					TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 					Namespace:              config.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",

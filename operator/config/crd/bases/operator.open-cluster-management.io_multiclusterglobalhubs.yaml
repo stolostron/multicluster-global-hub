@@ -56,14 +56,18 @@ spec:
                     description: LargeScale is to use kafka as transport layer and
                       use postgres as data layer This is for a large scale environment.
                     properties:
-                      transportFormat:
-                        default: cloudEvents
-                        description: TransportFormat defines the transport format
-                          for kafka, which is either cloudEvents or kafka message
-                        enum:
-                        - message
-                        - cloudEvents
-                        type: string
+                      kafka:
+                        description: KafkaConfig defines the desired state of kafka
+                        properties:
+                          transportFormat:
+                            default: cloudEvents
+                            description: TransportFormat defines the transport format
+                              for kafka, which is either cloudEvents or kafka message
+                            enum:
+                            - message
+                            - cloudEvents
+                            type: string
+                        type: object
                     type: object
                   native:
                     description: Native may use a syncer to sync data from the regional

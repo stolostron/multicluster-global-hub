@@ -194,7 +194,9 @@ var mgh = &operatorv1alpha3.MulticlusterGlobalHub{
 		DataLayer: &operatorv1alpha3.DataLayerConfig{
 			Type: operatorv1alpha3.LargeScale,
 			LargeScale: &operatorv1alpha3.LargeScaleConfig{
-				TransportFormat: operatorv1alpha3.CloudEvents,
+				Kafka: &operatorv1alpha3.KafkaConfig{
+					TransportFormat: operatorv1alpha3.CloudEvents,
+				},
 			},
 		},
 	},

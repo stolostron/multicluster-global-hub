@@ -13,7 +13,9 @@ metadata:
           "spec": {
             "dataLayer": {
               "largeScale": {
-                "transportFormat": "cloudEvents"
+                "kafka": {
+                  "transportFormat": "cloudEvents"
+                }
               },
               "type": "largeScale"
             }
@@ -24,7 +26,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2023-06-05T10:11:41Z"
+    createdAt: "2023-06-07T08:21:46Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     operatorframework.io/suggested-namespace: open-cluster-management
     operators.operatorframework.io/builder: operator-sdk-v1.28.0+git
