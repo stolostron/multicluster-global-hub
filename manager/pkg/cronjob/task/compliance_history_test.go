@@ -168,7 +168,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				return fmt.Errorf("table history.local_compliance records are not synced")
 			}
 			return nil
-		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 
 		By("Check whether the job log is created")
 		Eventually(func() error {
@@ -255,6 +255,6 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				return fmt.Errorf("table history.local_compliance records are not synced")
 			}
 			return nil
-		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 })
