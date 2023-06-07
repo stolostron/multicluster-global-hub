@@ -1,0 +1,32 @@
+options:
+  hub:
+    name: hub-of-hubs
+    namespace: open-cluster-management
+    apiServer: https://172.17.0.2:6443
+    nonk8sApiServer: https://172.17.0.2:30080
+    kubeconfig: /home/cloud-user/multicluster-global-hub/test/setup/config/kubeconfig
+    crdsDir: /home/cloud-user/multicluster-global-hub/pkg/testdata/crds
+    storagePath: /home/cloud-user/multicluster-global-hub/test/setup/hoh/postgres_setup.sh
+    transportPath: /home/cloud-user/multicluster-global-hub/test/setup/hoh/kafka_setup.sh
+    kubecontext: microshift
+    databaseExternalHost: 172.17.0.2
+    databaseExternalPort: 32432
+    mghManagerImageREF: quay.io/stolostron/multicluster-global-hub-manager:latest
+    mghAgentImageREF: quay.io/stolostron/multicluster-global-hub-agent:latest
+  clusters:
+    - name: kind-hub1
+      kubeconfig: /home/cloud-user/multicluster-global-hub/test/resources/kubeconfig/kubeconfig-hub1
+      leafhubname: kind-hub1
+      kubecontext: kind-hub1
+    - name: kind-hub1-cluster1
+      leafhubname: kind-hub1
+      kubeconfig: /home/cloud-user/multicluster-global-hub/test/resources/kubeconfig/kubeconfig-hub1-cluster1
+      kubecontext: kind-hub1-cluster1
+    - name: kind-hub2
+      kubeconfig: /home/cloud-user/multicluster-global-hub/test/resources/kubeconfig/kubeconfig-hub2
+      leafhubname: kind-hub2
+      kubecontext: kind-hub2
+    - name: kind-hub2-cluster1
+      leafhubname: kind-hub2
+      kubeconfig: /home/cloud-user/multicluster-global-hub/test/resources/kubeconfig/kubeconfig-hub2-cluster1
+      kubecontext: kind-hub2-cluster1

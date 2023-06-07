@@ -27,6 +27,5 @@ ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget jq -y
 ssh "${OPT[@]}" "$HOST" "sudo sh -c 'echo \"fs.inotify.max_user_watches=524288\" >> /etc/sysctl.conf && echo \"fs.inotify.max_user_instances=1024\" >> /etc/sysctl.conf && sysctl -p /etc/sysctl.conf'"
 echo "setup e2e environment"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && sudo make e2e-setup-dependencies && make e2e-setup-start" > >(tee "$ARTIFACT_DIR/run-e2e-setup.log") 2>&1
-
 echo "runn e2e tests"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-tests-all && make e2e-tests-prune" > >(tee "$ARTIFACT_DIR/run-e2e-test.log") 2>&1

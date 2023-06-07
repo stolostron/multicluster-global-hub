@@ -1,0 +1,2376 @@
+[
+  {
+    "SuitePath": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e",
+    "SuiteDescription": "Client Suite",
+    "SuiteLabels": [],
+    "SuiteSucceeded": false,
+    "SuiteHasProgrammaticFocus": false,
+    "SpecialSuiteFailureReasons": [
+      "Interrupted by User"
+    ],
+    "PreRunStats": {
+      "TotalSpecs": 40,
+      "SpecsThatWillRun": 3
+    },
+    "StartTime": "2023-06-03T03:15:58.86576141-04:00",
+    "EndTime": "2023-06-03T03:16:51.068555807-04:00",
+    "RunTime": 52202794416,
+    "SuiteConfig": {
+      "RandomSeed": 1685776555,
+      "RandomizeAllSpecs": false,
+      "FocusStrings": null,
+      "SkipStrings": null,
+      "FocusFiles": null,
+      "SkipFiles": null,
+      "LabelFilter": "e2e-tests-label",
+      "FailOnPending": false,
+      "FailFast": false,
+      "FlakeAttempts": 0,
+      "DryRun": false,
+      "PollProgressAfter": 0,
+      "PollProgressInterval": 0,
+      "Timeout": 3596543667731,
+      "EmitSpecProgress": false,
+      "OutputInterceptorMode": "",
+      "SourceRoots": null,
+      "GracePeriod": 30000000000,
+      "ParallelProcess": 1,
+      "ParallelTotal": 1,
+      "ParallelHost": ""
+    },
+    "SpecReports": [
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "BeforeSuite",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+          "LineNumber": 48
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "passed",
+        "StartTime": "2023-06-03T03:15:58.865913578-04:00",
+        "EndTime": "2023-06-03T03:16:44.891315809-04:00",
+        "RunTime": 46025402213,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+              "LineNumber": 48
+            },
+            "TimelineLocation": {
+              "Order": 1,
+              "Time": "2023-06-03T03:15:58.865998779-04:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "BeforeSuite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-deploy_test.go",
+              "LineNumber": 45
+            },
+            "TimelineLocation": {
+              "Order": 2,
+              "Time": "2023-06-03T03:15:58.870118299-04:00"
+            },
+            "Message": "deploy globalbub for e2e ENV"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-deploy_test.go",
+              "LineNumber": 60
+            },
+            "TimelineLocation": {
+              "Order": 3,
+              "Time": "2023-06-03T03:15:59.54991813-04:00"
+            },
+            "Message": "checking postgresql is ready"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-deploy_test.go",
+              "LineNumber": 132
+            },
+            "TimelineLocation": {
+              "Order": 4,
+              "Time": "2023-06-03T03:16:36.552544731-04:00"
+            },
+            "Message": "checking kafka is ready"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-deploy_test.go",
+              "LineNumber": 177
+            },
+            "TimelineLocation": {
+              "Order": 5,
+              "Time": "2023-06-03T03:16:36.631604106-04:00"
+            },
+            "Message": "deploying operator"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-deploy_test.go",
+              "LineNumber": 228
+            },
+            "TimelineLocation": {
+              "Order": 6,
+              "Time": "2023-06-03T03:16:39.021878444-04:00"
+            },
+            "Message": "deploying CR"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-deploy_test.go",
+              "LineNumber": 293
+            },
+            "TimelineLocation": {
+              "Order": 7,
+              "Time": "2023-06-03T03:16:39.035034473-04:00"
+            },
+            "Message": "deploy globalbub for e2e ENV"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-deploy_test.go",
+              "LineNumber": 296
+            },
+            "TimelineLocation": {
+              "Order": 8,
+              "Time": "2023-06-03T03:16:39.035042168-04:00"
+            },
+            "Message": "updating deployment \u0026\u0026 cluster-manager"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-deploy_test.go",
+              "LineNumber": 319
+            },
+            "TimelineLocation": {
+              "Order": 9,
+              "Time": "2023-06-03T03:16:39.618009703-04:00"
+            },
+            "Message": "waiting for core components to be ready"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+              "LineNumber": 52
+            },
+            "TimelineLocation": {
+              "Order": 10,
+              "Time": "2023-06-03T03:16:39.854235823-04:00"
+            },
+            "Message": "Init the kubernetes client"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+              "LineNumber": 57
+            },
+            "TimelineLocation": {
+              "Order": 11,
+              "Time": "2023-06-03T03:16:39.869615037-04:00"
+            },
+            "Message": "Init the bearer token"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+              "LineNumber": 72
+            },
+            "TimelineLocation": {
+              "Order": 12,
+              "Time": "2023-06-03T03:16:44.891285176-04:00"
+            },
+            "Message": "Init the http client"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+              "LineNumber": 48
+            },
+            "TimelineLocation": {
+              "Order": 14,
+              "Time": "2023-06-03T03:16:44.891313457-04:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 46025314666,
+            "NodeType": "BeforeSuite"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy to the managed clusters"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+            "LineNumber": 39
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-policy"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+          "LineNumber": 77
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "add the label to a managedcluster1 for the policy",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:44.891403864-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy to the managed clusters"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+            "LineNumber": 39
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-policy"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+          "LineNumber": 105
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "create a inform policy for the labeled cluster",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:44.891459847-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy to the managed clusters"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+            "LineNumber": 39
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-policy"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+          "LineNumber": 153
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "enforce the inform policy",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:44.891467504-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy to the managed clusters"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+            "LineNumber": 39
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-policy"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+          "LineNumber": 176
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "add the label to a managedcluster for the policy",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:44.891472138-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy to the managed clusters"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+            "LineNumber": 39
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-policy"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+          "LineNumber": 238
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "remove managedcluster1 policy by deleting label",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:44.891480602-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy to the managed clusters"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+            "LineNumber": 39
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-policy"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-policy_test.go",
+          "LineNumber": 284
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "verify the policy resource has been added the global cleanup finalizer",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:44.891484932-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Updating cluster label from HoH manager"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+            "LineNumber": 23
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-label"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+          "LineNumber": 46
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "add the label to the managed cluster",
+        "State": "passed",
+        "StartTime": "2023-06-03T03:16:44.891494454-04:00",
+        "EndTime": "2023-06-03T03:16:44.942904782-04:00",
+        "RunTime": 51410328,
+        "ParallelProcess": 1,
+        "NumAttempts": 1,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 27
+            },
+            "TimelineLocation": {
+              "Order": 15,
+              "Time": "2023-06-03T03:16:44.891505517-04:00"
+            },
+            "Message": "Updating cluster label from HoH manager",
+            "NodeType": "BeforeAll"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 29
+            },
+            "TimelineLocation": {
+              "Order": 16,
+              "Time": "2023-06-03T03:16:44.891571545-04:00"
+            },
+            "Message": "Config request of the api"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 27
+            },
+            "TimelineLocation": {
+              "Order": 18,
+              "Time": "2023-06-03T03:16:44.917243751-04:00"
+            },
+            "Message": "Updating cluster label from HoH manager",
+            "Duration": 25738234,
+            "NodeType": "BeforeAll"
+          },
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 46
+            },
+            "TimelineLocation": {
+              "Order": 19,
+              "Time": "2023-06-03T03:16:44.917300189-04:00"
+            },
+            "Message": "add the label to the managed cluster",
+            "NodeType": "It"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 55
+            },
+            "TimelineLocation": {
+              "Order": 20,
+              "Time": "2023-06-03T03:16:44.917319697-04:00"
+            },
+            "Message": "Check the label is added"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 46
+            },
+            "TimelineLocation": {
+              "Order": 22,
+              "Time": "2023-06-03T03:16:44.942898341-04:00"
+            },
+            "Message": "add the label to the managed cluster",
+            "Duration": 25598151,
+            "NodeType": "It"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Updating cluster label from HoH manager"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+            "LineNumber": 23
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-label"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+          "LineNumber": 74
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "add the label to the managed cluster",
+        "State": "passed",
+        "StartTime": "2023-06-03T03:16:44.942996822-04:00",
+        "EndTime": "2023-06-03T03:16:49.984956633-04:00",
+        "RunTime": 5041959812,
+        "ParallelProcess": 1,
+        "NumAttempts": 1,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 74
+            },
+            "TimelineLocation": {
+              "Order": 23,
+              "Time": "2023-06-03T03:16:44.943000808-04:00"
+            },
+            "Message": "add the label to the managed cluster",
+            "NodeType": "It"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 84
+            },
+            "TimelineLocation": {
+              "Order": 24,
+              "Time": "2023-06-03T03:16:44.943021997-04:00"
+            },
+            "Message": "Check the label is added"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 74
+            },
+            "TimelineLocation": {
+              "Order": 26,
+              "Time": "2023-06-03T03:16:49.984949912-04:00"
+            },
+            "Message": "add the label to the managed cluster",
+            "Duration": 5041949103,
+            "NodeType": "It"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Updating cluster label from HoH manager"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+            "LineNumber": 23
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-label"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+          "LineNumber": 104
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "remove the label from the managed cluster",
+        "State": "interrupted",
+        "StartTime": "2023-06-03T03:16:49.985027278-04:00",
+        "EndTime": "2023-06-03T03:16:51.057207623-04:00",
+        "RunTime": 1072180346,
+        "ParallelProcess": 1,
+        "Failure": {
+          "Message": "Interrupted by User",
+          "Location": {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+            "LineNumber": 104
+          },
+          "TimelineLocation": {
+            "Order": 29,
+            "Time": "2023-06-03T03:16:51.05624149-04:00"
+          },
+          "FailureNodeContext": "leaf-node",
+          "FailureNodeType": "It",
+          "FailureNodeLocation": {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+            "LineNumber": 104
+          },
+          "ProgressReport": {
+            "Message": "{{bold}}This is the Progress Report generated when the interrupt was received:{{/}}",
+            "ParallelProcess": 1,
+            "ContainerHierarchyTexts": [
+              "Updating cluster label from HoH manager"
+            ],
+            "LeafNodeText": "remove the label from the managed cluster",
+            "LeafNodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 104
+            },
+            "SpecStartTime": "2023-06-03T03:16:49.985027278-04:00",
+            "CurrentNodeType": "It",
+            "CurrentNodeText": "remove the label from the managed cluster",
+            "CurrentNodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 104
+            },
+            "CurrentNodeStartTime": "2023-06-03T03:16:49.985029723-04:00",
+            "CurrentStepText": "Check the label is deleted",
+            "CurrentStepLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 114
+            },
+            "CurrentStepStartTime": "2023-06-03T03:16:49.985051713-04:00",
+            "TimelineLocation": {
+              "Order": 30,
+              "Time": "2023-06-03T03:16:51.056266721-04:00"
+            },
+            "Goroutines": [
+              {
+                "ID": 8,
+                "State": "running",
+                "Stack": [
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.extractRunningGoroutines()",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/progress_report.go",
+                    "Line": 181
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.NewProgressReport(_, {{0xc000579190, 0x1, 0x1}, {0xc00062c9c0, 0x1, 0x1}, {0xc000a0aeb8, 0x1, 0x1}, ...}, ...)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/progress_report.go",
+                    "Line": 75
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*Suite).generateProgressReport(_, _)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/suite.go",
+                    "Line": 339
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*Suite).runNode(_, {0x14, 0x4, {0x19a5412, 0x29}, 0xc00044adb0, {{0x1f85dc9, 0x47}, 0x68, {0x0, ...}, ...}, ...}, ...)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/suite.go",
+                    "Line": 900
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*group).attemptSpec(0xc0006e1090, 0x1, {{0xc00043f500?, 0xc00062c9c0?, 0x1?}, 0x0?})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/group.go",
+                    "Line": 190
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*group).run(0xc0006e1090, {0xc000780240?, 0x3?, 0x0?})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/group.go",
+                    "Line": 330
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*Suite).runSpecs(0xc00021c000, {0x1979bf6, 0xc}, {0x28a87d0, 0x0, 0x0}, {0xc00004d3c0, 0x35}, 0x0, {0xc0001bb000, ...})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/suite.go",
+                    "Line": 441
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*Suite).Run(_, {_, _}, {_, _, _}, {_, _}, _, {0x1be8288, ...}, ...)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/suite.go",
+                    "Line": 110
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2.RunSpecs({0x1bd0be0, 0xc000103040}, {0x1979bf6, 0xc}, {0x0?, 0x0, 0x0?})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/core_dsl.go",
+                    "Line": 296
+                  },
+                  {
+                    "Function": "github.com/stolostron/multicluster-global-hub/test/pkg/e2e.TestClient(0x0?)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+                    "Line": 39
+                  },
+                  {
+                    "Function": "testing.tRunner(0xc000103040, 0x1a5c5c0)",
+                    "Filename": "/usr/local/go/src/testing/testing.go",
+                    "Line": 1439
+                  },
+                  {
+                    "Function": "testing.(*T).Run",
+                    "Filename": "/usr/local/go/src/testing/testing.go",
+                    "Line": 1486
+                  }
+                ],
+                "IsSpecGoroutine": false
+              },
+              {
+                "ID": 1,
+                "State": "chan receive",
+                "Stack": [
+                  {
+                    "Function": "testing.(*T).Run(0xc000289d40, {0x19775f3?, 0x516be5?}, 0x1a5c5c0)",
+                    "Filename": "/usr/local/go/src/testing/testing.go",
+                    "Line": 1487
+                  },
+                  {
+                    "Function": "testing.runTests.func1(0xc000289d40?)",
+                    "Filename": "/usr/local/go/src/testing/testing.go",
+                    "Line": 1839
+                  },
+                  {
+                    "Function": "testing.tRunner(0xc000289d40, 0xc0000ffcd8)",
+                    "Filename": "/usr/local/go/src/testing/testing.go",
+                    "Line": 1439
+                  },
+                  {
+                    "Function": "testing.runTests(0xc0004a7d60?, {0x283c770, 0x1, 0x1}, {0x7f4246459108?, 0x40?, 0x0?})",
+                    "Filename": "/usr/local/go/src/testing/testing.go",
+                    "Line": 1837
+                  },
+                  {
+                    "Function": "testing.(*M).Run(0xc0004a7d60)",
+                    "Filename": "/usr/local/go/src/testing/testing.go",
+                    "Line": 1719
+                  },
+                  {
+                    "Function": "main.main()",
+                    "Filename": "_testmain.go",
+                    "Line": 47
+                  }
+                ],
+                "IsSpecGoroutine": false
+              },
+              {
+                "ID": 18,
+                "State": "chan receive",
+                "Stack": [
+                  {
+                    "Function": "k8s.io/klog.(*loggingT).flushDaemon(0xc0001b2240?)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/k8s.io/klog/klog.go",
+                    "Line": 1010
+                  },
+                  {
+                    "Function": "k8s.io/klog.init.0",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/k8s.io/klog/klog.go",
+                    "Line": 411
+                  }
+                ],
+                "IsSpecGoroutine": false
+              },
+              {
+                "ID": 116,
+                "State": "IO wait",
+                "Stack": [
+                  {
+                    "Function": "internal/poll.runtime_pollWait(0x7f421cf819c8, 0x72)",
+                    "Filename": "/usr/local/go/src/runtime/netpoll.go",
+                    "Line": 302
+                  },
+                  {
+                    "Function": "internal/poll.(*pollDesc).wait(0xc00012cd00?, 0xc000315600?, 0x0)",
+                    "Filename": "/usr/local/go/src/internal/poll/fd_poll_runtime.go",
+                    "Line": 83
+                  },
+                  {
+                    "Function": "internal/poll.(*pollDesc).waitRead(...)",
+                    "Filename": "/usr/local/go/src/internal/poll/fd_poll_runtime.go",
+                    "Line": 88
+                  },
+                  {
+                    "Function": "internal/poll.(*FD).Read(0xc00012cd00, {0xc000315600, 0xd6b, 0xd6b})",
+                    "Filename": "/usr/local/go/src/internal/poll/fd_unix.go",
+                    "Line": 167
+                  },
+                  {
+                    "Function": "net.(*netFD).Read(0xc00012cd00, {0xc000315600?, 0xc0004ec840?, 0xc000315605?})",
+                    "Filename": "/usr/local/go/src/net/fd_posix.go",
+                    "Line": 55
+                  },
+                  {
+                    "Function": "net.(*conn).Read(0xc000011870, {0xc000315600?, 0xc0009be200?, 0x6c68c0?})",
+                    "Filename": "/usr/local/go/src/net/net.go",
+                    "Line": 183
+                  },
+                  {
+                    "Function": "crypto/tls.(*atLeastReader).Read(0xc000117848, {0xc000315600?, 0x0?, 0x18a7ec0?})",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 785
+                  },
+                  {
+                    "Function": "bytes.(*Buffer).ReadFrom(0xc0001b5e78, {0x1bcd3a0, 0xc000117848})",
+                    "Filename": "/usr/local/go/src/bytes/buffer.go",
+                    "Line": 204
+                  },
+                  {
+                    "Function": "crypto/tls.(*Conn).readFromUntil(0xc0001b5c00, {0x1bd05c0?, 0xc000011870}, 0x2?)",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 807
+                  },
+                  {
+                    "Function": "crypto/tls.(*Conn).readRecordOrCCS(0xc0001b5c00, 0x0)",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 614
+                  },
+                  {
+                    "Function": "crypto/tls.(*Conn).readRecord(...)",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 582
+                  },
+                  {
+                    "Function": "crypto/tls.(*Conn).Read(0xc0001b5c00, {0xc0009d3000, 0x1000, 0x1?})",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 1285
+                  },
+                  {
+                    "Function": "net/http.(*persistConn).Read(0xc0000d6900, {0xc0009d3000?, 0xc0007c92c0?, 0xc0009d0d30?})",
+                    "Filename": "/usr/local/go/src/net/http/transport.go",
+                    "Line": 1929
+                  },
+                  {
+                    "Function": "bufio.(*Reader).fill(0xc000206840)",
+                    "Filename": "/usr/local/go/src/bufio/bufio.go",
+                    "Line": 106
+                  },
+                  {
+                    "Function": "bufio.(*Reader).Peek(0xc000206840, 0x1)",
+                    "Filename": "/usr/local/go/src/bufio/bufio.go",
+                    "Line": 144
+                  },
+                  {
+                    "Function": "net/http.(*persistConn).readLoop(0xc0000d6900)",
+                    "Filename": "/usr/local/go/src/net/http/transport.go",
+                    "Line": 2093
+                  },
+                  {
+                    "Function": "net/http.(*Transport).dialConn",
+                    "Filename": "/usr/local/go/src/net/http/transport.go",
+                    "Line": 1750
+                  }
+                ],
+                "IsSpecGoroutine": false
+              },
+              {
+                "ID": 40,
+                "State": "syscall",
+                "Stack": [
+                  {
+                    "Function": "os/signal.signal_recv()",
+                    "Filename": "/usr/local/go/src/runtime/sigqueue.go",
+                    "Line": 151
+                  },
+                  {
+                    "Function": "os/signal.loop()",
+                    "Filename": "/usr/local/go/src/os/signal/signal_unix.go",
+                    "Line": 23
+                  },
+                  {
+                    "Function": "os/signal.Notify.func1.1",
+                    "Filename": "/usr/local/go/src/os/signal/signal.go",
+                    "Line": 151
+                  }
+                ],
+                "IsSpecGoroutine": false
+              },
+              {
+                "ID": 10,
+                "State": "select",
+                "Stack": [
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal/interrupt_handler.(*InterruptHandler).registerForInterrupts.func2(0x0?)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/interrupt_handler/interrupt_handler.go",
+                    "Line": 123
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal/interrupt_handler.(*InterruptHandler).registerForInterrupts",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/interrupt_handler/interrupt_handler.go",
+                    "Line": 120
+                  }
+                ],
+                "IsSpecGoroutine": false
+              },
+              {
+                "ID": 25,
+                "State": "select",
+                "Stack": [
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.RegisterForProgressSignal.func1()",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/progress_report.go",
+                    "Line": 32
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.RegisterForProgressSignal",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/progress_report.go",
+                    "Line": 30
+                  }
+                ],
+                "IsSpecGoroutine": false
+              },
+              {
+                "ID": 67,
+                "State": "IO wait",
+                "Stack": [
+                  {
+                    "Function": "internal/poll.runtime_pollWait(0x7f421cf81c98, 0x72)",
+                    "Filename": "/usr/local/go/src/runtime/netpoll.go",
+                    "Line": 302
+                  },
+                  {
+                    "Function": "internal/poll.(*pollDesc).wait(0xc00012de00?, 0xc000142000?, 0x0)",
+                    "Filename": "/usr/local/go/src/internal/poll/fd_poll_runtime.go",
+                    "Line": 83
+                  },
+                  {
+                    "Function": "internal/poll.(*pollDesc).waitRead(...)",
+                    "Filename": "/usr/local/go/src/internal/poll/fd_poll_runtime.go",
+                    "Line": 88
+                  },
+                  {
+                    "Function": "internal/poll.(*FD).Read(0xc00012de00, {0xc000142000, 0xa510, 0xa510})",
+                    "Filename": "/usr/local/go/src/internal/poll/fd_unix.go",
+                    "Line": 167
+                  },
+                  {
+                    "Function": "net.(*netFD).Read(0xc00012de00, {0xc000142000?, 0xc0005c01a0?, 0xc000142005?})",
+                    "Filename": "/usr/local/go/src/net/fd_posix.go",
+                    "Line": 55
+                  },
+                  {
+                    "Function": "net.(*conn).Read(0xc0005bc530, {0xc000142000?, 0x64fa?, 0xc0005c01a0?})",
+                    "Filename": "/usr/local/go/src/net/net.go",
+                    "Line": 183
+                  },
+                  {
+                    "Function": "crypto/tls.(*atLeastReader).Read(0xc0006a05a0, {0xc000142000?, 0x0?, 0x0?})",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 785
+                  },
+                  {
+                    "Function": "bytes.(*Buffer).ReadFrom(0xc0001b4978, {0x1bcd3a0, 0xc0006a05a0})",
+                    "Filename": "/usr/local/go/src/bytes/buffer.go",
+                    "Line": 204
+                  },
+                  {
+                    "Function": "crypto/tls.(*Conn).readFromUntil(0xc0001b4700, {0x1bd05c0?, 0xc0005bc530}, 0xa510?)",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 807
+                  },
+                  {
+                    "Function": "crypto/tls.(*Conn).readRecordOrCCS(0xc0001b4700, 0x0)",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 614
+                  },
+                  {
+                    "Function": "crypto/tls.(*Conn).readRecord(...)",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 582
+                  },
+                  {
+                    "Function": "crypto/tls.(*Conn).Read(0xc0001b4700, {0xc000357000, 0x1000, 0x0?})",
+                    "Filename": "/usr/local/go/src/crypto/tls/conn.go",
+                    "Line": 1285
+                  },
+                  {
+                    "Function": "bufio.(*Reader).Read(0xc0007819e0, {0xc000354740, 0x9, 0xc0004f2508?})",
+                    "Filename": "/usr/local/go/src/bufio/bufio.go",
+                    "Line": 236
+                  },
+                  {
+                    "Function": "io.ReadAtLeast({0x1bcd220, 0xc0007819e0}, {0xc000354740, 0x9, 0x9}, 0x9)",
+                    "Filename": "/usr/local/go/src/io/io.go",
+                    "Line": 331
+                  },
+                  {
+                    "Function": "io.ReadFull(...)",
+                    "Filename": "/usr/local/go/src/io/io.go",
+                    "Line": 350
+                  },
+                  {
+                    "Function": "golang.org/x/net/http2.readFrameHeader({0xc000354740?, 0x9?, 0xc001283da0?}, {0x1bcd220?, 0xc0007819e0?})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/golang.org/x/net/http2/frame.go",
+                    "Line": 237
+                  },
+                  {
+                    "Function": "golang.org/x/net/http2.(*Framer).ReadFrame(0xc000354700)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/golang.org/x/net/http2/frame.go",
+                    "Line": 498
+                  },
+                  {
+                    "Function": "golang.org/x/net/http2.(*clientConnReadLoop).run(0xc0005e3f98)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/golang.org/x/net/http2/transport.go",
+                    "Line": 2224
+                  },
+                  {
+                    "Function": "golang.org/x/net/http2.(*ClientConn).readLoop(0xc000368f00)",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/golang.org/x/net/http2/transport.go",
+                    "Line": 2119
+                  },
+                  {
+                    "Function": "golang.org/x/net/http2.(*Transport).newClientConn",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/golang.org/x/net/http2/transport.go",
+                    "Line": 817
+                  }
+                ],
+                "IsSpecGoroutine": false
+              },
+              {
+                "ID": 63,
+                "State": "select",
+                "Stack": [
+                  {
+                    "Function": "github.com/onsi/gomega/internal.(*AsyncAssertion).match(0xc000625260, {0x1bd98d0?, 0x28a87d0}, 0x0, {0x0, 0x0, 0x0})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/gomega/internal/async_assertion.go",
+                    "Line": 426
+                  },
+                  {
+                    "Function": "github.com/onsi/gomega/internal.(*AsyncAssertion).ShouldNot(0xc000625260, {0x1bd98d0, 0x28a87d0}, {0x0, 0x0, 0x0})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/gomega/internal/async_assertion.go",
+                    "Line": 116
+                  },
+                  {
+                    "Function": "github.com/stolostron/multicluster-global-hub/test/pkg/e2e.glob..func4.4()",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+                    "Line": 131,
+                    "Highlight": true,
+                    "Source": [
+                      "\t\t\t\t}",
+                      "\t\t\t\treturn nil",
+                      "\t\t\t}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())",
+                      "\t\t}",
+                      "\t})"
+                    ],
+                    "SourceHighlight": 2
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3({0x0, 0xc0007c8600})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/node.go",
+                    "Line": 445
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3()",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/suite.go",
+                    "Line": 820
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*Suite).runNode",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/suite.go",
+                    "Line": 807
+                  }
+                ],
+                "IsSpecGoroutine": true
+              },
+              {
+                "ID": 117,
+                "State": "select",
+                "Stack": [
+                  {
+                    "Function": "net/http.(*persistConn).writeLoop(0xc0000d6900)",
+                    "Filename": "/usr/local/go/src/net/http/transport.go",
+                    "Line": 2392
+                  },
+                  {
+                    "Function": "net/http.(*Transport).dialConn",
+                    "Filename": "/usr/local/go/src/net/http/transport.go",
+                    "Line": 1751
+                  }
+                ],
+                "IsSpecGoroutine": false
+              }
+            ]
+          }
+        },
+        "NumAttempts": 1,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "ProgressReports": [
+          {
+            "Message": "{{bold}}{{orange}}Interrupted by User{{/}}\nFirst interrupt received; Ginkgo will run any cleanup and reporting nodes but will skip all remaining specs.  {{bold}}Interrupt again to skip cleanup{{/}}.\nHere's a current progress report:",
+            "ParallelProcess": 1,
+            "ContainerHierarchyTexts": [
+              "Updating cluster label from HoH manager"
+            ],
+            "LeafNodeText": "remove the label from the managed cluster",
+            "LeafNodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 104
+            },
+            "SpecStartTime": "2023-06-03T03:16:49.985027278-04:00",
+            "CurrentNodeType": "It",
+            "CurrentNodeText": "remove the label from the managed cluster",
+            "CurrentNodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 104
+            },
+            "CurrentNodeStartTime": "2023-06-03T03:16:49.985029723-04:00",
+            "CurrentStepText": "Check the label is deleted",
+            "CurrentStepLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 114
+            },
+            "CurrentStepStartTime": "2023-06-03T03:16:49.985051713-04:00",
+            "TimelineLocation": {
+              "Order": 30,
+              "Time": "2023-06-03T03:16:51.056266721-04:00"
+            },
+            "Goroutines": [
+              {
+                "ID": 63,
+                "State": "select",
+                "Stack": [
+                  {
+                    "Function": "github.com/onsi/gomega/internal.(*AsyncAssertion).match(0xc000625260, {0x1bd98d0?, 0x28a87d0}, 0x0, {0x0, 0x0, 0x0})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/gomega/internal/async_assertion.go",
+                    "Line": 426
+                  },
+                  {
+                    "Function": "github.com/onsi/gomega/internal.(*AsyncAssertion).ShouldNot(0xc000625260, {0x1bd98d0, 0x28a87d0}, {0x0, 0x0, 0x0})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/gomega/internal/async_assertion.go",
+                    "Line": 116
+                  },
+                  {
+                    "Function": "github.com/stolostron/multicluster-global-hub/test/pkg/e2e.glob..func4.4()",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+                    "Line": 131,
+                    "Highlight": true,
+                    "Source": [
+                      "\t\t\t\t}",
+                      "\t\t\t\treturn nil",
+                      "\t\t\t}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())",
+                      "\t\t}",
+                      "\t})"
+                    ],
+                    "SourceHighlight": 2
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3({0x0, 0xc0007c8600})",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/node.go",
+                    "Line": 445
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3()",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/suite.go",
+                    "Line": 820
+                  },
+                  {
+                    "Function": "github.com/onsi/ginkgo/v2/internal.(*Suite).runNode",
+                    "Filename": "/home/cloud-user/multicluster-global-hub/vendor/github.com/onsi/ginkgo/v2/internal/suite.go",
+                    "Line": 807
+                  }
+                ],
+                "IsSpecGoroutine": true
+              }
+            ]
+          }
+        ],
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 104
+            },
+            "TimelineLocation": {
+              "Order": 27,
+              "Time": "2023-06-03T03:16:49.985030229-04:00"
+            },
+            "Message": "remove the label from the managed cluster",
+            "NodeType": "It"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 114
+            },
+            "TimelineLocation": {
+              "Order": 28,
+              "Time": "2023-06-03T03:16:49.985051713-04:00"
+            },
+            "Message": "Check the label is deleted"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-label_test.go",
+              "LineNumber": 104
+            },
+            "TimelineLocation": {
+              "Order": 31,
+              "Time": "2023-06-03T03:16:51.057198171-04:00"
+            },
+            "Message": "remove the label from the managed cluster",
+            "Duration": 1072167955,
+            "NodeType": "It"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply local policy with placement on the regional hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 102
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 103
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "deploy local policy on the regional hub",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058751303-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply local policy with placement on the regional hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 102
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 182
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "check the local policy(placement) resource isn't added the global cleanup finalizer",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058762174-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply local policy with placement on the regional hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 102
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 226
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "delete the local policy(placement) from the leafhub",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058771034-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply global policy with placement on the global hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 285
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 286
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "add managedCluster2 to the clusterset1",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058780334-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply global policy with placement on the global hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 285
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 307
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "apply policy with placement",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058788605-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply global policy with placement on the global hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 285
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 327
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "scale policy with placement",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058797909-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply global policy with placement on the global hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 285
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 351
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "delete policy with placement",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058805691-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply global application with placement on the global hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 371
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 372
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "deploy application with placement",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058831518-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply global application with placement on the global hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 371
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 400
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "scale application with placement",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058842221-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply policy/app with placement on the global hub",
+          "When apply global application with placement on the global hub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 41
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+            "LineNumber": 371
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-placement"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-placement_test.go",
+          "LineNumber": 418
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "delete application with placement",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058850656-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply local policy to the managed clusters"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 40
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-local-policy"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+          "LineNumber": 93
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "add the label to a managedcluster for the local policy",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058867626-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply local policy to the managed clusters",
+          "When updated the local policy configmap"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 40
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 123
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-local-policy"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+          "LineNumber": 124
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "verify the multicluster global hub configmap",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058874943-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply local policy to the managed clusters",
+          "When deploy local policy to the leafhub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 40
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 184
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-local-policy"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+          "LineNumber": 185
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "deploy policy to the cluster to the leafhub",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058883859-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply local policy to the managed clusters",
+          "When deploy local policy to the leafhub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 40
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 184
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-local-policy"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+          "LineNumber": 252
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "check the local policy resource isn't added the global cleanup finalizer",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058891976-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply local policy to the managed clusters",
+          "When delete the local policy from the leafhub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 40
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 318
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-local-policy"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+          "LineNumber": 319
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "delete the local policy from the leafhub",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058899654-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Apply local policy to the managed clusters",
+          "When delete the local policy from the leafhub"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 40
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+            "LineNumber": 318
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-local-policy"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-local-policy_test.go",
+          "LineNumber": 352
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "check the local policy resource is deleted from database",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058908538-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Delete the multiclusterglobalhub and prune resources"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+            "LineNumber": 37
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-prune"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+          "LineNumber": 78
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "create application",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058925675-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Delete the multiclusterglobalhub and prune resources"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+            "LineNumber": 37
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-prune"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+          "LineNumber": 110
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "create policy",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058935595-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Delete the multiclusterglobalhub and prune resources"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+            "LineNumber": 37
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-prune"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+          "LineNumber": 152
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "delete multiclusterglobalhub",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058945949-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Delete the multiclusterglobalhub and prune resources"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+            "LineNumber": 37
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-prune"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+          "LineNumber": 181
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "prune the global resources",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058954658-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Delete the multiclusterglobalhub and prune resources"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+            "LineNumber": 37
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-prune"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+          "LineNumber": 261
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "prune the namespaced resources",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058962682-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Delete the multiclusterglobalhub and prune resources"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+            "LineNumber": 37
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-prune"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+          "LineNumber": 294
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "prune application",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058968624-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Delete the multiclusterglobalhub and prune resources"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+            "LineNumber": 37
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-prune"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-prune_test.go",
+          "LineNumber": 357
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "prune policy",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.058978463-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Check all the connection of clients and necessary parameter validation",
+          "Check all the parameters for e2e-tests"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 20
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-validation"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+          "LineNumber": 22
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "Check the num of hub clusters and managed clusters on options-local.yaml",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.05898892-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Check all the connection of clients and necessary parameter validation",
+          "Check all the parameters for e2e-tests"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 20
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-validation"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+          "LineNumber": 39
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "Check the num of hub clusters and managed clusters in the kubeconfig",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.05899661-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Check all the connection of clients and necessary parameter validation",
+          "Check all the clients could connect to the HoH servers"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 57
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-validation"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+          "LineNumber": 58
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "connect to the apiserver with kubernetes interface",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.059005342-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Check all the connection of clients and necessary parameter validation",
+          "Check all the clients could connect to the HoH servers"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 57
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-validation"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+          "LineNumber": 66
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "connect to the apiserver with dynamic interface",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.059013352-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Check all the connection of clients and necessary parameter validation",
+          "Check all the clients could connect to the HoH servers"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 57
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-validation"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+          "LineNumber": 75
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "check whether the cluster is running properly",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.059023225-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Check all the connection of clients and necessary parameter validation",
+          "Check all the clients could connect to the HoH servers"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+            "LineNumber": 57
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-validation"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-validation_test.go",
+          "LineNumber": 82
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "connect to the nonk8s-server with specific user",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.05906138-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Deploy the application to the managed cluster"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-application_test.go",
+            "LineNumber": 33
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-app"
+          ]
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-application_test.go",
+          "LineNumber": 64
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "add the app label[ app: test ]",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.059071295-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Deploy the application to the managed cluster",
+          "deploy the application"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-application_test.go",
+            "LineNumber": 33
+          },
+          {
+            "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-application_test.go",
+            "LineNumber": 93
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [
+            "e2e-tests-app"
+          ],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-application_test.go",
+          "LineNumber": 94
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "deploy the application/subscription",
+        "State": "skipped",
+        "StartTime": "2023-06-03T03:16:51.059076786-04:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "AfterSuite",
+        "LeafNodeLocation": {
+          "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+          "LineNumber": 79
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "passed",
+        "StartTime": "2023-06-03T03:16:51.059085555-04:00",
+        "EndTime": "2023-06-03T03:16:51.068546707-04:00",
+        "RunTime": 9461144,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+              "LineNumber": 79
+            },
+            "TimelineLocation": {
+              "Order": 32,
+              "Time": "2023-06-03T03:16:51.059087571-04:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "AfterSuite"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/home/cloud-user/multicluster-global-hub/test/pkg/e2e/hoh-e2e-test_suite_test.go",
+              "LineNumber": 79
+            },
+            "TimelineLocation": {
+              "Order": 34,
+              "Time": "2023-06-03T03:16:51.068542345-04:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 9454775,
+            "NodeType": "AfterSuite"
+          }
+        ]
+      }
+    ]
+  }
+]
