@@ -150,7 +150,8 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 				var policy_id, cluster_id, compliance string
 				var compliance_date time.Time
 				var compliance_changed_frequency int
-				err := rows.Scan(&policy_id, &cluster_id, &compliance, &compliance_date, &compliance_changed_frequency)
+				err := rows.Scan(&policy_id, &cluster_id, &compliance,
+					&compliance_date, &compliance_changed_frequency)
 				if err != nil {
 					return err
 				}
