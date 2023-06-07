@@ -119,7 +119,7 @@ func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *ope
 		CONDITION_REASON_MANAGER_AVAILABLE, CONDITION_MESSAGE_MANAGER_AVAILABLE)
 }
 
-func SetConditionGRCDisabled(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
+func SetConditionMCHConfigured(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MCH_CONFIGURED, status,
