@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1685728160463,
+      "iteration": 1686213056442,
       "links": [
         {
           "asDropdown": false,
@@ -401,16 +401,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-yellow",
-                    "value": null
-                  },
-                  {
-                    "color": "green",
-                    "value": 0
-                  },
-                  {
                     "color": "red",
-                    "value": 0.01
+                    "value": null
                   }
                 ]
               },
@@ -467,7 +459,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  WITH all_managed_clusters as(\n  SELECT * FROM status.managed_clusters\n  UNION \n  SELECT * FROM history.managed_clusters\n  )\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    all_managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value) \n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    $label,\n    non_compliant::float / NULLIF((compliant::float + non_compliant), 0) as \"value\" \n  FROM\n    data\n)\nSELECT\n  *\nFROM\n  res\nWHERE\n  value > 0\nORDER BY (time, \"value\") DESC",
+              "rawSql": "WITH data AS (\n  WITH all_managed_clusters as(\n  SELECT * FROM status.managed_clusters\n  UNION \n  SELECT * FROM history.managed_clusters\n  )\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    all_managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    $label,\n    non_compliant::float / NULLIF((compliant::float + unknown + non_compliant), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC",
               "refId": "A",
               "select": [
                 [
@@ -539,7 +531,7 @@ data:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "dark-yellow",
+                        "color": "yellow",
                         "value": null
                       }
                     ]
@@ -582,7 +574,7 @@ data:
                             "options": {
                               "match": "null+nan",
                               "result": {
-                                "color": "dark-yellow",
+                                "color": "yellow",
                                 "index": 0,
                                 "text": "Unknown"
                               }
@@ -613,7 +605,7 @@ data:
                   "group": [],
                   "metricColumn": "none",
                   "rawQuery": true,
-                  "rawSql": "WITH data AS (\n  WITH all_managed_clusters as(\n  SELECT * FROM status.managed_clusters\n  UNION \n  SELECT * FROM history.managed_clusters\n  )\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    all_managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value) \n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    $label,\n    non_compliant::float / NULLIF((compliant::float + non_compliant), 0) as \"value\" \n  FROM\n    data\n)\nSELECT\n  *\nFROM\n  res\nWHERE\n  value IS NULL\nORDER BY (\"value\") DESC",
+                  "rawSql": "WITH data AS (\n  WITH all_managed_clusters as(\n  SELECT * FROM status.managed_clusters\n  UNION \n  SELECT * FROM history.managed_clusters\n  )\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    all_managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value) \n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    $label,\n    unknown::float / NULLIF((compliant::float + unknown + non_compliant), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant = 0\n  AND\n    unknown > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (value) DESC",
                   "refId": "A",
                   "select": [
                     [
@@ -695,7 +687,7 @@ data:
               "value": "vendor"
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
+            "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc\nJOIN\n  history.local_compliance ch \nON\n mc.cluster_id = ch.cluster_id",
             "description": "Managed cluster labels",
             "error": null,
             "hide": 0,
@@ -704,7 +696,7 @@ data:
             "multi": false,
             "name": "label",
             "options": [],
-            "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
+            "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc\nJOIN\n  history.local_compliance ch \nON\n mc.cluster_id = ch.cluster_id",
             "refresh": 1,
             "regex": "/^[a-z]+$/",
             "skipUrlSync": false,
@@ -723,7 +715,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters mc \nJOIN\n  history.local_compliance ch \nON\n mc.cluster_id = ch.cluster_id\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "description": "Managed cluster label values",
             "error": null,
             "hide": 0,
@@ -732,7 +724,7 @@ data:
             "multi": true,
             "name": "value",
             "options": [],
-            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters mc \nJOIN\n  history.local_compliance ch \nON\n mc.cluster_id = ch.cluster_id\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,

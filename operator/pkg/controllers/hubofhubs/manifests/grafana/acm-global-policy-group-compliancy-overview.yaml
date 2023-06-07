@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1685724017670,
+      "iteration": 1686214749136,
       "links": [
         {
           "asDropdown": false,
@@ -126,7 +126,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date AS \"time\",\n    p.policy_standard AS \"standard\",\n    p.policy_category AS \"category\",\n    p.policy_control AS \"control\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    local_spec.policies p\n  INNER JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  GROUP BY (time, p.policy_standard, p.policy_category, p.policy_control)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  $group as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data\nORDER BY\n  time",
+              "rawSql": "WITH data as(\n  WITH renamedata as (\n    WITH all_policies as(\n      SELECT policy_name,policy_id,leaf_hub_name,policy_standard,policy_category,policy_control FROM local_spec.policies\n      UNION \n      SELECT policy_name,policy_id,leaf_hub_name,policy_standard,policy_category,policy_control FROM history.local_policies\n      )\n      SELECT\n        ch.compliance_date AS \"time\",\n        p.policy_standard AS \"standard\",\n        p.policy_category AS \"category\",\n        p.policy_control AS \"control\",\n        ch.compliance\n      FROM\n        all_policies p\n      INNER JOIN\n        history.local_compliance ch ON p.policy_id = ch.policy_id\n      WHERE\n        $__timeFilter(ch.compliance_date)\n      AND\n        p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  )\n  SELECT \n    time,\n    $group,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    renamedata\n  GROUP BY (time, $group)\n)\nSELECT\n  time,\n  $group as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data\nORDER BY\n  time",
               "refId": "A",
               "select": [
                 [
@@ -191,7 +191,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  policy_standard\nFROM\n  local_spec.policies",
+            "definition": "SELECT\n  policy_standard\nFROM\n  local_spec.policies\nWHERE\npolicy_standard IS NOT NULL",
             "description": "Cluster policy standards",
             "error": null,
             "hide": 0,
@@ -200,7 +200,7 @@ data:
             "multi": true,
             "name": "standard",
             "options": [],
-            "query": "SELECT\n  policy_standard\nFROM\n  local_spec.policies",
+            "query": "SELECT\n  policy_standard\nFROM\n  local_spec.policies\nWHERE\npolicy_standard IS NOT NULL",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -219,7 +219,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  policy_category\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)",
+            "definition": "SELECT\n  policy_category\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\npolicy_category IS NOT NULL",
             "description": "Cluster policy categories",
             "error": null,
             "hide": 0,
@@ -228,7 +228,7 @@ data:
             "multi": true,
             "name": "category",
             "options": [],
-            "query": "SELECT\n  policy_category\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)",
+            "query": "SELECT\n  policy_category\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\npolicy_category IS NOT NULL",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -247,7 +247,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  policy_control\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)",
+            "definition": "SELECT\n  policy_control\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\npolicy_control IS NOT NULL",
             "description": "Cluster policy controls",
             "error": null,
             "hide": 0,
@@ -256,7 +256,7 @@ data:
             "multi": true,
             "name": "control",
             "options": [],
-            "query": "SELECT\n  policy_control\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)",
+            "query": "SELECT\n  policy_control\nFROM\n  local_spec.policies\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\npolicy_control IS NOT NULL",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
