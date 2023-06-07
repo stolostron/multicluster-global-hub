@@ -40,7 +40,7 @@ kubectl wait deployment -n "$namespace" multicluster-global-hub-operator --for c
 echo "HoH operator is ready!"
 kubectl get deploy multicluster-global-hub-operator -oyaml  -n $namespace
 
-envsubst < ${currentDir}/components/mgh-v1alpha3-cr.yaml | kubectl apply -f - -n "$namespace"
+envsubst < ${rootDir}/operator/config/samples/operator_v1alpha3_multiclusterglobalhub.yaml | kubectl apply -f - -n "$namespace"
 echo "HoH CR is ready!"
 
 kubectl patch deployment governance-policy-propagator -n open-cluster-management -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0"}]}}}}'
