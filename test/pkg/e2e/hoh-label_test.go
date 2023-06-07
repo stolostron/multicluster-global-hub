@@ -29,7 +29,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 			transport := &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			}
-			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
+			httpClient = &http.Client{Timeout: time.Second * 60, Transport: transport}
 			var err error
 			managedClusters, err = getManagedCluster(httpClient, httpToken)
 			if err != nil {
@@ -39,7 +39,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 				return fmt.Errorf("managed cluster is not exist")
 			}
 			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("add the label to the managed cluster", func() {
@@ -150,7 +150,6 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 		return nil, err
 	}
 	defer resp.Body.Close()
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

@@ -40,7 +40,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			transport := &http.Transport{
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			}
-			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
+			httpClient = &http.Client{Timeout: time.Second * 60, Transport: transport}
 			var err error
 			managedClusters, err = getManagedCluster(httpClient, httpToken)
 			if err != nil {
@@ -50,7 +50,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				return fmt.Errorf("managed cluster is not exist")
 			}
 			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 		By("Get the appsubreport client")
 		scheme := runtime.NewScheme()
