@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1685628888333,
+      "iteration": 1686203349679,
       "links": [
         {
           "asDropdown": false,
@@ -352,7 +352,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  history.local_compliance ch ON p.policy_id = ch.id\nINNER JOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
+            "definition": "SELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  history.local_compliance ch ON p.policy_id = ch.policy_id\nINNER JOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
             "description": null,
             "error": null,
             "hide": 0,
@@ -361,7 +361,7 @@ data:
             "multi": true,
             "name": "policy",
             "options": [],
-            "query": "SELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  history.local_compliance ch ON p.policy_id = ch.id\nINNER JOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
+            "query": "SELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  history.local_compliance ch ON p.policy_id = ch.policy_id\nINNER JOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
