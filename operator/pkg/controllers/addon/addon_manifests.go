@@ -18,7 +18,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -70,8 +70,8 @@ type HohAgentAddon struct {
 	log                  logr.Logger
 }
 
-func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha2.MulticlusterGlobalHub, error) {
-	mghList := &operatorv1alpha2.MulticlusterGlobalHubList{}
+func (a *HohAgentAddon) getMulticlusterGlobalHub() (*operatorv1alpha3.MulticlusterGlobalHub, error) {
+	mghList := &operatorv1alpha3.MulticlusterGlobalHubList{}
 	err := a.client.List(a.ctx, mghList)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 
 	kafkaBootstrapServer, kafkaCACert, kafkaClientCert, kafkaClientKey, err := utils.GetKafkaConfig(a.ctx,
-		a.kubeClient, mgh)
+		a.kubeClient, mgh.Namespace, operatorconstants.GHTransportSecretName)
 	if err != nil {
 		log.Error(err, "failed to get kafkaConfig")
 		return nil, err
@@ -157,7 +157,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 
 	messageCompressionType := string(mgh.Spec.MessageCompressionType)
 	if messageCompressionType == "" {
-		messageCompressionType = string(operatorv1alpha2.GzipCompressType)
+		messageCompressionType = string(operatorv1alpha3.GzipCompressType)
 	}
 
 	image, err := a.getOverrideImage(mgh, cluster)
@@ -211,7 +211,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 }
 
 // GetImagePullSecret returns the image pull secret name and data
-func (a *HohAgentAddon) setImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func (a *HohAgentAddon) setImagePullSecret(mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	cluster *clusterv1.ManagedCluster, manifestsConfig *ManifestsConfig,
 ) error {
 	imagePullSecret := &corev1.Secret{}
@@ -241,7 +241,7 @@ func (a *HohAgentAddon) setImagePullSecret(mgh *operatorv1alpha2.MulticlusterGlo
 	return nil
 }
 
-func (a *HohAgentAddon) getOverrideImage(mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func (a *HohAgentAddon) getOverrideImage(mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	cluster *clusterv1.ManagedCluster,
 ) (string, error) {
 	// image registry override by operator environment variable and mgh annotation

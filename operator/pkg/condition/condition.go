@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 )
 
 type ICondition interface {
@@ -84,49 +84,49 @@ const (
 
 // SetConditionFunc is function type that receives the concrete condition method
 type SetConditionFunc func(ctx context.Context, c client.Client,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	status metav1.ConditionStatus) error
 
 func FailToSetConditionError(condition string, err error) error {
 	return fmt.Errorf("failed to set condition(%s): %w", condition, err)
 }
 
-func SetConditionGrafanaAvailable(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionGrafanaAvailable(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_GRAFANA_AVAILABLE, status, CONDITION_REASON_GRAFANA_AVAILABLE,
 		CONDITION_MESSAGE_GRAFANA_AVAILABLE)
 }
 
-func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_DATABASE_INIT, status,
 		CONDITION_REASON_DATABASE_INIT, CONDITION_MESSAGE_DATABASE_INIT)
 }
 
-func SetConditionTransportInit(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionTransportInit(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_TRANSPORT_INIT, status,
 		CONDITION_REASON_TRANSPORT_INIT, CONDITION_MESSAGE_TRANSPORT_INIT)
 }
 
-func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MANAGER_AVAILABLE, status,
 		CONDITION_REASON_MANAGER_AVAILABLE, CONDITION_MESSAGE_MANAGER_AVAILABLE)
 }
 
-func SetConditionMCHConfigured(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionMCHConfigured(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	status metav1.ConditionStatus,
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MCH_CONFIGURED, status,
 		CONDITION_REASON_MCH_CONFIGURED, CONDITION_MESSAGE_MCH_CONFIGURED)
 }
 
-func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	clusterName string, status metav1.ConditionStatus,
 ) error {
 	reason := CONDITION_REASON_LEAFHUB_DEPLOY
@@ -139,7 +139,7 @@ func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *oper
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_LEAFHUB_DEPLOY, status, reason, message)
 }
 
-func SetCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub, typeName string,
+func SetCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub, typeName string,
 	status metav1.ConditionStatus, reason string, message string,
 ) error {
 	if !ContainsCondition(mgh, typeName) {
@@ -159,7 +159,7 @@ func SetCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2.Mu
 	return nil
 }
 
-func ContainsCondition(mgh *operatorv1alpha2.MulticlusterGlobalHub, typeName string) bool {
+func ContainsCondition(mgh *operatorv1alpha3.MulticlusterGlobalHub, typeName string) bool {
 	output := false
 	for _, condition := range mgh.Status.Conditions {
 		if condition.Type == typeName {
@@ -169,7 +169,7 @@ func ContainsCondition(mgh *operatorv1alpha2.MulticlusterGlobalHub, typeName str
 	return output
 }
 
-func ContainConditionStatus(mgh *operatorv1alpha2.MulticlusterGlobalHub, typeName string,
+func ContainConditionStatus(mgh *operatorv1alpha3.MulticlusterGlobalHub, typeName string,
 	status metav1.ConditionStatus,
 ) bool {
 	output := false
@@ -181,7 +181,7 @@ func ContainConditionStatus(mgh *operatorv1alpha2.MulticlusterGlobalHub, typeNam
 	return output
 }
 
-func ContainConditionStatusReason(mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func ContainConditionStatusReason(mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	typeName, reason string, status metav1.ConditionStatus,
 ) bool {
 	output := false
@@ -193,7 +193,7 @@ func ContainConditionStatusReason(mgh *operatorv1alpha2.MulticlusterGlobalHub,
 	return output
 }
 
-func GetConditionStatus(mgh *operatorv1alpha2.MulticlusterGlobalHub, typeName string) metav1.ConditionStatus {
+func GetConditionStatus(mgh *operatorv1alpha3.MulticlusterGlobalHub, typeName string) metav1.ConditionStatus {
 	var output metav1.ConditionStatus = CONDITION_STATUS_UNKNOWN
 	for _, condition := range mgh.Status.Conditions {
 		if condition.Type == typeName {
@@ -203,7 +203,7 @@ func GetConditionStatus(mgh *operatorv1alpha2.MulticlusterGlobalHub, typeName st
 	return output
 }
 
-func DeleteCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func DeleteCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	typeName string, reason string,
 ) error {
 	newConditions := make([]metav1.Condition, 0)
@@ -220,7 +220,7 @@ func DeleteCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2
 	return nil
 }
 
-func UpdateCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha2.MulticlusterGlobalHub,
+func UpdateCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	cond metav1.Condition,
 ) error {
 	if ContainConditionStatusReason(mgh, cond.Type, cond.Reason, cond.Status) {

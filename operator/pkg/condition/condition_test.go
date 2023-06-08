@@ -10,14 +10,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 )
 
 var (
@@ -45,7 +44,7 @@ func TestMain(m *testing.M) {
 	}
 
 	scheme := runtime.NewScheme()
-	err = operatorv1alpha2.AddToScheme(scheme)
+	err = operatorv1alpha3.AddToScheme(scheme)
 	if err != nil {
 		panic(err)
 	}
@@ -67,22 +66,15 @@ func TestMain(m *testing.M) {
 }
 
 func TestCondition(t *testing.T) {
-	mgh := &operatorv1alpha2.MulticlusterGlobalHub{
+	mgh := &operatorv1alpha3.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
 		},
-		Spec: operatorv1alpha2.MulticlusterGlobalHubSpec{
-			DataLayer: &operatorv1alpha2.DataLayerConfig{
-				Type: operatorv1alpha2.LargeScale,
-				LargeScale: &operatorv1alpha2.LargeScaleConfig{
-					Kafka: &operatorv1alpha2.KafkaConfig{
-						Name: "test-transport-name",
-					},
-					Postgres: corev1.LocalObjectReference{
-						Name: "test-secret-name",
-					},
-				},
+		Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
+			DataLayer: &operatorv1alpha3.DataLayerConfig{
+				Type:       operatorv1alpha3.LargeScale,
+				LargeScale: &operatorv1alpha3.LargeScaleConfig{},
 			},
 		},
 	}

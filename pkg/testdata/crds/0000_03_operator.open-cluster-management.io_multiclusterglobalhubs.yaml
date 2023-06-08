@@ -17,7 +17,7 @@ spec:
     singular: multiclusterglobalhub
   scope: Namespaced
   versions:
-  - name: v1alpha2
+  - name: v1alpha3
     schema:
       openAPIV3Schema:
         description: MulticlusterGlobalHub is the Schema for the multiclusterglobalhubs
@@ -58,8 +58,6 @@ spec:
                       kafka:
                         description: KafkaConfig defines the desired state of kafka
                         properties:
-                          name:
-                            type: string
                           transportFormat:
                             default: cloudEvents
                             description: TransportFormat defines the transport format
@@ -67,16 +65,6 @@ spec:
                             enum:
                             - message
                             - cloudEvents
-                            type: string
-                        type: object
-                      postgres:
-                        description: LocalObjectReference contains enough information
-                          to let you locate the referenced object inside the same
-                          namespace.
-                        properties:
-                          name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
                             type: string
                         type: object
                     type: object

@@ -71,7 +71,8 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpoo
 	totalCount int64, insertedCount int64, err error,
 ) {
 	viewSchema := "history"
-	viewTable := fmt.Sprintf("local_compliance_view_%s", startTime.AddDate(0, 0, -interval).Format("2006_01_02"))
+	viewTable := fmt.Sprintf("local_compliance_view_%s",
+		startTime.AddDate(0, 0, -interval).Format("2006_01_02"))
 	viewName := fmt.Sprintf("%s.%s", viewSchema, viewTable)
 	createViewTemplate := `
 		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS

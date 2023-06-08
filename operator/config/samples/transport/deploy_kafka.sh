@@ -7,7 +7,7 @@ source $rootDir/test/setup/common.sh
 
 # step1: check the transport-secret
 targetNamespace=${TARGET_NAMESPACE:-"open-cluster-management"}
-transportSecret=${TRANSPORT_SECRET_NAME:-"transport-secret"}
+transportSecret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
 ready=$(kubectl get secret $transportSecret -n $targetNamespace --ignore-not-found=true)
 if [ ! -z "$ready" ]; then
   echo "transportSecret $transportSecret already exists in $targetNamespace namespace"

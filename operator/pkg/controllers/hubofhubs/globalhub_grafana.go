@@ -17,8 +17,9 @@ import (
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -29,7 +30,7 @@ const (
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("grafana")
 
@@ -98,10 +99,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 // the GrafanaDatasource points to multicluster-global-hub cr
 func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) (string, error) {
-	postgresSecret, err := r.KubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(
-		ctx, mgh.Spec.DataLayer.LargeScale.Postgres.Name, metav1.GetOptions{})
+	postgresSecret, err := r.KubeClient.CoreV1().Secrets(mgh.Namespace).Get(
+		ctx, operatorconstants.GHStorageSecretName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

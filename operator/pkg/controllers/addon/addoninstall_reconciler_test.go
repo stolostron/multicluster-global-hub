@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
@@ -83,8 +83,8 @@ func fakeHoHManagementAddon() *v1alpha1.ClusterManagementAddOn {
 	}
 }
 
-func fakeMGH(name, namespace string) *operatorv1alpha2.MulticlusterGlobalHub {
-	return &operatorv1alpha2.MulticlusterGlobalHub{
+func fakeMGH(name, namespace string) *operatorv1alpha3.MulticlusterGlobalHub {
+	return &operatorv1alpha3.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -119,7 +119,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 		name            string
 		cluster         *v1.ManagedCluster
 		managementAddon *v1alpha1.ClusterManagementAddOn
-		mgh             *operatorv1alpha2.MulticlusterGlobalHub
+		mgh             *operatorv1alpha3.MulticlusterGlobalHub
 		addon           *v1alpha1.ManagedClusterAddOn
 		req             reconcile.Request
 		validateFunc    func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error)

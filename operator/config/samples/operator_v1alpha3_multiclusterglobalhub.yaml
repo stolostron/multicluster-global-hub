@@ -1,4 +1,4 @@
-apiVersion: operator.open-cluster-management.io/v1alpha2
+apiVersion: operator.open-cluster-management.io/v1alpha3
 kind: MulticlusterGlobalHub
 metadata:
   # annotations:
@@ -13,7 +13,4 @@ spec:
     type: largeScale
     largeScale:
       kafka:
-        name: transport-secret
         transportFormat: cloudEvents
-      postgres:
-        name: storage-secret

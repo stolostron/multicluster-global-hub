@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
@@ -32,7 +32,7 @@ type GlobalHubConditionReconciler struct {
 func (r *GlobalHubConditionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.Log.Info("reconciling global hub status condition", "namespace", req.Namespace, "name", req.Name)
 
-	mgh := &operatorv1alpha2.MulticlusterGlobalHub{}
+	mgh := &operatorv1alpha3.MulticlusterGlobalHub{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      req.Name,
 		Namespace: req.Namespace,
@@ -58,7 +58,7 @@ func (r *GlobalHubConditionReconciler) Reconcile(ctx context.Context, req ctrl.R
 }
 
 func (r *GlobalHubConditionReconciler) updateDeploymentStatus(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub, conditionType string, deployName string,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub, conditionType string, deployName string,
 ) error {
 	desiredCondition := metav1.Condition{
 		Type:               conditionType,
@@ -108,11 +108,11 @@ func (r *GlobalHubConditionReconciler) SetupWithManager(mgr manager.Manager) err
 		},
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1alpha2.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
+		For(&operatorv1alpha3.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Watches(&source.Kind{Type: &appsv1.Deployment{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &operatorv1alpha2.MulticlusterGlobalHub{},
+				OwnerType:    &operatorv1alpha3.MulticlusterGlobalHub{},
 			}).
 		Complete(r)
 }

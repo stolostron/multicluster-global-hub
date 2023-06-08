@@ -45,7 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
+	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -113,7 +113,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	r.Log.Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
 
 	// Fetch the multiclusterglobalhub instance
-	mgh := &operatorv1alpha2.MulticlusterGlobalHub{}
+	mgh := &operatorv1alpha3.MulticlusterGlobalHub{}
 	if err := r.Get(ctx, req.NamespacedName, mgh); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -145,11 +145,11 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	switch mgh.Spec.DataLayer.Type {
-	case operatorv1alpha2.Native:
+	case operatorv1alpha3.Native:
 		if err := r.reconcileNativeGlobalHub(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
-	case operatorv1alpha2.LargeScale:
+	case operatorv1alpha3.LargeScale:
 		if err := r.reconcileLargeScaleGlobalHub(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -189,22 +189,14 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *MulticlusterGlobalHubReconciler) reconcileNativeGlobalHub(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
 	return fmt.Errorf("native data layer is not supported yet")
 }
 
 func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx context.Context,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
-	// make sure largae scale data type settings are not empty
-	if mgh.Spec.DataLayer.LargeScale == nil ||
-		mgh.Spec.DataLayer.LargeScale.Postgres.Name == "" ||
-		mgh.Spec.DataLayer.LargeScale.Kafka.Name == "" {
-		return fmt.Errorf("invalid settings for large scale data layer, " +
-			"storage and transport secrets are required")
-	}
-
 	// reconcile config: need to be done before reconciling manager and grafana
 	// 1. global configMap: open-cluster-management-global-hub-system/multicluster-global-hub-config
 	// 2. global image: annotation -> env -> default
@@ -321,7 +313,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1alpha2.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
+		For(&operatorv1alpha3.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).

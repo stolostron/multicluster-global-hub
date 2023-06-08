@@ -26,9 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	operatorv1alpha2 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha2"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 // Remove is used to remove string from a string array
@@ -89,10 +86,9 @@ func RemoveDuplicates(elements []string) []string {
 
 // GetKafkaConfig retrieves kafka server, caCert, clientCert, clientKey from the secret
 func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
-	mgh *operatorv1alpha2.MulticlusterGlobalHub,
+	namespace string, name string,
 ) (string, string, string, string, error) {
-	kafkaSecret, err := kubeClient.CoreV1().Secrets(config.GetDefaultNamespace()).Get(ctx,
-		mgh.Spec.DataLayer.LargeScale.Kafka.Name, metav1.GetOptions{})
+	kafkaSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return "", "", "", "", err
 	}
