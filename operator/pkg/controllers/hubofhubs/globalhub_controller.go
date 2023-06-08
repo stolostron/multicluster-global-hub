@@ -199,8 +199,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
 	// reconcile config: need to be done before reconciling manager and grafana
-	// 1. global configMap: open-cluster-management-global-hub-system/multicluster-global-hub-config
-	// 2. global image: annotation -> env -> default
+	// 1. global image: annotation -> env -> default
+	// 2. add label to storage/transport secret so that the manager can watch them
+	// 3. global configMap: open-cluster-management-global-hub-system/multicluster-global-hub-config
 	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
 		return err
 	}
@@ -283,6 +284,20 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
 				constants.GHOperatorOwnerLabelVal
+		},
+	}
+
+	secretPred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Object.GetName() == operatorconstants.GHStorageSecretName ||
+				e.Object.GetName() == operatorconstants.GHTransportSecretName
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectNew.GetName() == operatorconstants.GHStorageSecretName ||
+				e.ObjectNew.GetName() == operatorconstants.GHTransportSecretName
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
 		},
 	}
 
@@ -369,5 +384,12 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 					{NamespacedName: config.GetHoHMGHNamespacedName()},
 				}
 			}), builder.WithPredicates(resPred)).
+		Watches(&source.Kind{Type: &corev1.Secret{}},
+			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetHoHMGHNamespacedName()},
+				}
+			}), builder.WithPredicates(secretPred)).
 		Complete(r)
 }
