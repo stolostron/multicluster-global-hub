@@ -14,7 +14,7 @@ Set environment variables.
 ```bash
 export KUBECONFIG=</path/to/global_hub_cluster/kubeconfig>
 export SECRET_NAMESPACE=<transport-secret-namespace> # default SECRET_NAMESPACE=open-cluster-management
-export SECRET_NAME=<transport-secret-name> # default SECRET_NAME=transport-secret
+export SECRET_NAME=<transport-secret-name> # default SECRET_NAME=multicluster-global-hub-transport
 ```
 
 ## Producer and Consumer from different clients

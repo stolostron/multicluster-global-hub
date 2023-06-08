@@ -203,7 +203,7 @@ In most cases the customers don't need to pay attention to the first three image
 
 This is achieved by adding annotation to the MGH CR and specifying the image pull secret and image pull policy. e.g:
 ```yaml
-apiVersion: operator.open-cluster-management.io/v1alpha2
+apiVersion: operator.open-cluster-management.io/v1alpha3
 kind: MulticlusterGlobalHub
 metadata:
   annotations:
@@ -215,12 +215,6 @@ spec:
   imagePullSecret: ecr-image-pull-secret
   dataLayer:
     type: largeScale
-    largeScale:
-      kafka:
-        name: transport-secret 
-        transportFormat: cloudEvents # or message
-      postgres:
-        name: storage-secret
 ```
 The advantage of this way is that it's easy to configure. But because the **Agent image** runs in the regional hub cluster. And different clusters might have different registries, then the above method cannot reach this situation. Here is another way to achieve this.
 

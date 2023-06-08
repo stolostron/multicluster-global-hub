@@ -30,27 +30,27 @@ Grafana runs on the global hub cluster, as the main service for Global Hub Obser
 
 1. Connect to a Kubernetes cluster with `kubectl`
 2. ACM or OCM is installed on the Kubernetes cluster
-3. PostgreSQL is installed and a database is created for the multicluster global hub. A secret `storage-secret` contains the credential is created in `open-cluster-management` namespace. The secret `database_uri` format like `postgres://<user>:<password>@<host>:<port>/<database>?sslmode=<mode>` and you can provide the optional `ca.crt` based on the [sslmode](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING):
+3. PostgreSQL is installed and a database is created for the multicluster global hub. A secret `multicluster-global-hub-storage` contains the credential is created in `open-cluster-management` namespace. The secret `database_uri` format like `postgres://<user>:<password>@<host>:<port>/<database>?sslmode=<mode>` and you can provide the optional `ca.crt` based on the [sslmode](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING):
 
 ```bash
-kubectl create secret generic storage-secret -n "open-cluster-management" \
+kubectl create secret generic multicluster-global-hub-storage -n "open-cluster-management" \
     --from-literal=database_uri=<postgresql-uri> \
     --from-file=ca.crt=<CA-for-postgres-server>
 ```
-> You can run this sample script `./operator/config/samples/storage/deploy_postgres.sh`(Note: the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script. By default, we are using `ClusterIP` for accessing the postgres database, because we assume run this sample script in global hub cluster. If you want to deploy postgres in another cluster, you can consider to use the service type with `nodePort` or `LoadBalancer`. For more information, please refer to [this document](./doc/README.md#access-to-the-provisioned-postgres-database).
+> You can run this sample script `./operator/config/samples/storage/deploy_postgres.sh`(Note: the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and create the secret `multicluster-global-hub-storage` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script. By default, we are using `ClusterIP` for accessing the postgres database, because we assume run this sample script in global hub cluster. If you want to deploy postgres in another cluster, you can consider to use the service type with `nodePort` or `LoadBalancer`. For more information, please refer to [this document](./doc/README.md#access-to-the-provisioned-postgres-database).
 
 
-4. Kafka is installed and three topics `spec` `status` and `event` are created, also a secret with name `transport-secret` that contains the kafka access information should be created in `open-cluster-management` namespace:
+4. Kafka is installed and three topics `spec` `status` and `event` are created, also a secret with name `multicluster-global-hub-transport` that contains the kafka access information should be created in `open-cluster-management` namespace:
 
 ```bash
-kubectl create secret generic transport-secret -n "open-cluster-management" \
+kubectl create secret generic multicluster-global-hub-transport -n "open-cluster-management" \
     --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \
     --from-file=ca.crt=<CA-cert-for-kafka-server> \
     --from-file=client.crt=<Client-cert-for-kafka-server> \
     --from-file=client.key=<Client-key-for-kafka-server> 
 
 ```
-> As above, You can run this sample script `./operator/config/samples/transport/deploy_kafka.sh` to install kafka in kafka namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script.
+> As above, You can run this sample script `./operator/config/samples/transport/deploy_kafka.sh` to install kafka in kafka namespace and create the secret `multicluster-global-hub-transport` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script.
 
 ### Run the operator in the cluster
 
