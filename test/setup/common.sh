@@ -408,7 +408,7 @@ function waitKafkaToBeReady() {
     clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found)
   done
   echo "Kafka cluster is ready"
-  waitSecretToBeReady ${TRANSPORT_SECRET_NAME:-"transport-secret"} "open-cluster-management"
+  waitSecretToBeReady ${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"} "open-cluster-management"
   echo "Kafka secret is ready"
 }
 
@@ -426,7 +426,7 @@ function waitPostgresToBeReady() {
     clusterIsReady=$(kubectl -n hoh-postgres get PostgresCluster/hoh -o jsonpath={.status.instances..readyReplicas} --ignore-not-found)
   done
   echo "Postgres cluster is ready"
-  waitSecretToBeReady ${STORAGE_SECRET_NAME:-"storage-secret"} "open-cluster-management"
+  waitSecretToBeReady ${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"} "open-cluster-management"
   echo "Postgres secret is ready"
 }
 

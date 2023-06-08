@@ -23,7 +23,7 @@ func GetStorageSecret() (*v1.Secret, error) {
 	}
 	name := os.Getenv("SECRET_NAME")
 	if name == "" {
-		name = "storage-secret"
+		name = "multicluster-global-hub-storage"
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)

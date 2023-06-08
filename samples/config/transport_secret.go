@@ -23,7 +23,7 @@ func GetTransportSecret() (*v1.Secret, error) {
 	}
 	name := os.Getenv("SECRET_NAME")
 	if name == "" {
-		name = "transport-secret"
+		name = "multicluster-global-hub-transport"
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
