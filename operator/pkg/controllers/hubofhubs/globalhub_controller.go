@@ -328,6 +328,13 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		},
 	}
 
+	globalHubEventHandler := handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+		return []reconcile.Request{
+			// trigger MGH instance reconcile
+			{NamespacedName: config.GetHoHMGHNamespacedName()},
+		}
+	})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha3.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
@@ -338,58 +345,23 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
 		Owns(&routev1.Route{}, builder.WithPredicates(ownPred)).
 		Watches(&source.Kind{Type: &admissionregistrationv1.MutatingWebhookConfiguration{}},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetHoHMGHNamespacedName()},
-				}
-			}), builder.WithPredicates(webhookPred)).
+			globalHubEventHandler, builder.WithPredicates(webhookPred)).
 		// secondary watch for configmap
 		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetHoHMGHNamespacedName()},
-				}
-			}), builder.WithPredicates(resPred)).
+			globalHubEventHandler, builder.WithPredicates(resPred)).
 		// secondary watch for namespace
 		Watches(&source.Kind{Type: &corev1.Namespace{}},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetHoHMGHNamespacedName()},
-				}
-			}), builder.WithPredicates(resPred)).
+			globalHubEventHandler, builder.WithPredicates(resPred)).
 		// secondary watch for clusterrole
 		Watches(&source.Kind{Type: &rbacv1.ClusterRole{}},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetHoHMGHNamespacedName()},
-				}
-			}), builder.WithPredicates(resPred)).
+			globalHubEventHandler, builder.WithPredicates(resPred)).
 		// secondary watch for clusterrolebinding
 		Watches(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetHoHMGHNamespacedName()},
-				}
-			}), builder.WithPredicates(resPred)).
+			globalHubEventHandler, builder.WithPredicates(resPred)).
 		// secondary watch for clustermanagementaddon
 		Watches(&source.Kind{Type: &addonv1alpha1.ClusterManagementAddOn{}},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetHoHMGHNamespacedName()},
-				}
-			}), builder.WithPredicates(resPred)).
+			globalHubEventHandler, builder.WithPredicates(resPred)).
 		Watches(&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetHoHMGHNamespacedName()},
-				}
-			}), builder.WithPredicates(secretPred)).
+			globalHubEventHandler, builder.WithPredicates(secretPred)).
 		Complete(r)
 }
