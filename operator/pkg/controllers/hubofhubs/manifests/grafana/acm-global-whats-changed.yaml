@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686203349679,
+      "iteration": 1686273527677,
       "links": [
         {
           "asDropdown": false,
@@ -113,7 +113,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  WITH all_managed_clusters as(\n  SELECT * FROM status.managed_clusters\n  UNION \n  SELECT * FROM history.managed_clusters\n  )\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name AS \"metric\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  INNER JOIN\n    all_managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.cluster_name IN ($cluster)\n  AND\n    policy_name IN ($policy)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  metric,\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data",
+              "rawSql": "WITH data as (\n  WITH all_managed_clusters as(\n  SELECT cluster_name,cluster_id FROM status.managed_clusters\n  UNION \n  SELECT cluster_name,cluster_id FROM history.managed_clusters\n  )\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name AS \"metric\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  INNER JOIN\n    all_managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.cluster_name IN ($cluster)\n  AND\n    policy_name IN ($policy)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  metric,\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data",
               "refId": "A",
               "select": [
                 [
@@ -315,7 +315,7 @@ data:
           {
             "allValue": null,
             "current": {
-              "selected": false,
+              "selected": true,
               "text": [
                 "All"
               ],
@@ -324,7 +324,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  history.local_compliance ch ON mc.cluster_id = ch.cluster_id",
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
             "description": null,
             "error": null,
             "hide": 0,
@@ -333,8 +333,8 @@ data:
             "multi": true,
             "name": "cluster",
             "options": [],
-            "query": "SELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  history.local_compliance ch ON mc.cluster_id = ch.cluster_id",
-            "refresh": 1,
+            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
+            "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
             "sort": 5,
@@ -352,7 +352,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "SELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  history.local_compliance ch ON p.policy_id = ch.policy_id\nINNER JOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id,policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nINNER JOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
             "description": null,
             "error": null,
             "hide": 0,
@@ -361,8 +361,8 @@ data:
             "multi": true,
             "name": "policy",
             "options": [],
-            "query": "SELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  history.local_compliance ch ON p.policy_id = ch.policy_id\nINNER JOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
-            "refresh": 1,
+            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id,policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nINNER JOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\nWHERE\n  cluster_name IN ($cluster)",
+            "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
             "sort": 5,
