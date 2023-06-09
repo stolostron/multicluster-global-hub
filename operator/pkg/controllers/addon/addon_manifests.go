@@ -155,11 +155,6 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	messageCompressionType := string(mgh.Spec.MessageCompressionType)
-	if messageCompressionType == "" {
-		messageCompressionType = string(operatorv1alpha3.GzipCompressType)
-	}
-
 	image, err := a.getOverrideImage(mgh, cluster)
 	if err != nil {
 		return nil, err
@@ -178,7 +173,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaCACert:            kafkaCACert,
 		KafkaClientCert:        kafkaClientCert,
 		KafkaClientKey:         kafkaClientKey,
-		MessageCompressionType: messageCompressionType,
+		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 		LeaseDuration:          strconv.Itoa(a.leaderElectionConfig.LeaseDuration),

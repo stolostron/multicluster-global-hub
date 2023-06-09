@@ -12,6 +12,7 @@ import (
 
 	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -49,7 +50,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	}
 
 	// hoh configmap
-	hohConfigMap := &corev1.ConfigMap{
+	expectedHoHConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: constants.GHSystemNamespace,
 			Name:      constants.GHConfigCMName,
@@ -59,8 +60,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 			},
 		},
 		Data: map[string]string{
-			"aggregationLevel":    string(mgh.Spec.AggregationLevel),
-			"enableLocalPolicies": strconv.FormatBool(mgh.Spec.EnableLocalPolicies),
+			"aggregationLevel":    string(operatorconstants.FullAggregation),
+			"enableLocalPolicies": strconv.FormatBool(true),
 		},
 	}
 
@@ -73,7 +74,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 		if errors.IsNotFound(err) {
 			log.Info("creating global hub configmap", "namespace", constants.GHSystemNamespace,
 				"name", constants.GHConfigCMName)
-			if err := r.Client.Create(ctx, hohConfigMap); err != nil {
+			if err := r.Client.Create(ctx, expectedHoHConfigMap); err != nil {
 				return err
 			}
 			return nil
@@ -82,12 +83,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 		}
 	}
 
-	if !equality.Semantic.DeepDerivative(hohConfigMap.Data, existingHoHConfigMap.Data) ||
-		!equality.Semantic.DeepDerivative(hohConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
-		hohConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
+	if !equality.Semantic.DeepDerivative(expectedHoHConfigMap.Data, existingHoHConfigMap.Data) ||
+		!equality.Semantic.DeepDerivative(expectedHoHConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
+		expectedHoHConfigMap.ObjectMeta.ResourceVersion =
+			existingHoHConfigMap.ObjectMeta.ResourceVersion
 		log.Info("updating global hub configmap", "namespace", constants.GHSystemNamespace,
 			"name", constants.GHConfigCMName)
-		if err := utils.UpdateObject(ctx, r.Client, hohConfigMap); err != nil {
+		if err := utils.UpdateObject(ctx, r.Client, expectedHoHConfigMap); err != nil {
 			return err
 		}
 		return nil

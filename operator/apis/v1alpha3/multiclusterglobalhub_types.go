@@ -21,28 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// AggregationLevel specifies the level of aggregation leaf hubs should do before sending the information
-// +kubebuilder:validation:Enum=full;minimal
-type AggregationLevel string
-
-const (
-	// Full is an AggregationLevel
-	Full AggregationLevel = "full"
-	// Minimal is an AggregationLevel
-	Minimal AggregationLevel = "minimal"
-)
-
-// MessageCompressionType specifies the compression type of transport message between global hub and regional hubs
-// +kubebuilder:validation:Enum=gzip;no-op
-type MessageCompressionType string
-
-const (
-	// GzipCompressType is an MessageCompressionType
-	GzipCompressType MessageCompressionType = "gzip"
-	// NoopCompressType is an MessageCompressionType
-	NoopCompressType MessageCompressionType = "no-op"
-)
-
 // DataLayerType specifies the type of data layer that global hub stores and transports the data.
 // +kubebuilder:validation:Enum:="native";"largeScale"
 type DataLayerType string
@@ -77,12 +55,6 @@ type MulticlusterGlobalHub struct {
 
 // MulticlusterGlobalHubSpec defines the desired state of MulticlusterGlobalHub
 type MulticlusterGlobalHubSpec struct {
-	// +kubebuilder:default:=full
-	AggregationLevel AggregationLevel `json:"aggregationLevel,omitempty"` // full or minimal
-	// +kubebuilder:default:=gzip
-	MessageCompressionType MessageCompressionType `json:"messageCompressionType,omitempty"` // gzip or no-op
-	// +kubebuilder:default:=true
-	EnableLocalPolicies bool `json:"enableLocalPolicies,omitempty"`
 	// Pull policy of the multicluster global hub images
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`

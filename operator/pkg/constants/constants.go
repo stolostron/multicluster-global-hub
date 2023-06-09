@@ -95,3 +95,25 @@ const (
 	// GHAgentInstallACMHubLabelKey is to indicate whether to install ACM hub on the agent
 	GHAgentACMHubInstallLabelKey = "global-hub.open-cluster-management.io/hub-cluster-install"
 )
+
+// AggregationLevel specifies the level of aggregation leaf hubs should do before sending the information
+// Enum=full;minimal
+type AggregationLevel string
+
+const (
+	// FullAggregation is an AggregationLevel
+	FullAggregation AggregationLevel = "full"
+	// MinimalAggregation is an AggregationLevel
+	MinimalAggregation AggregationLevel = "minimal"
+)
+
+// MessageCompressionType specifies the compression type of transport message between global hub and regional hubs
+// Enum=gzip;no-op
+type MessageCompressionType string
+
+const (
+	// GzipCompressType is an MessageCompressionType
+	GzipCompressType MessageCompressionType = "gzip"
+	// NoopCompressType is an MessageCompressionType
+	NoopCompressType MessageCompressionType = "no-op"
+)

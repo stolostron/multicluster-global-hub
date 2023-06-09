@@ -107,10 +107,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
-			// make sure the default values are filled
-			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
-			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
-
 			// check finalizer is not added to MGH instance
 			By("By checking finalizer is not added to MGH instance")
 			Expect(createdMGH.GetFinalizers()).Should(BeNil())
@@ -150,8 +146,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// make sure the default values are filled
-			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
-			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
+			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
+			// Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
 			// check finalizer is not added to MGH instance
 			By("By checking finalizer is not added to MGH instance")
@@ -195,8 +191,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// make sure the default values are filled
-			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
-			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
+			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
+			// Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
 			// check finalizer should not be added to MGH instance
 			Eventually(func() error {
@@ -312,8 +308,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).Should(Succeed())
 
 			// make sure the default values are filled
-			Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
-			Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
+			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
+			// Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
 			Eventually(func() error {
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
@@ -351,11 +347,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			hohRenderer := renderer.NewHoHRenderer(testFS)
 
 			By("By checking the multicluster-global-hub-manager resources are created as expected")
-			messageCompressionType := string(mgh.Spec.MessageCompressionType)
-			if messageCompressionType == "" {
-				messageCompressionType = string(operatorv1alpha3.GzipCompressType)
-			}
-
 			imagePullPolicy := corev1.PullAlways
 			if mgh.Spec.ImagePullPolicy != "" {
 				imagePullPolicy = mgh.Spec.ImagePullPolicy
@@ -397,7 +388,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaClientCert:        base64.RawStdEncoding.EncodeToString([]byte(kafkaClientCert)),
 					KafkaClientKey:         base64.RawStdEncoding.EncodeToString([]byte(KafkaClientKey)),
 					KafkaBootstrapServer:   kafkaBootstrapServer,
-					MessageCompressionType: messageCompressionType,
+					MessageCompressionType: string(operatorconstants.GzipCompressType),
 					TransportType:          string(transport.Kafka),
 					TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 					Namespace:              config.GetDefaultNamespace(),

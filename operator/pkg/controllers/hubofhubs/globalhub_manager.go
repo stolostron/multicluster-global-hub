@@ -48,11 +48,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		return fmt.Errorf("failed to get random session secret for oauth-proxy: %v", err)
 	}
 
-	messageCompressionType := string(mgh.Spec.MessageCompressionType)
-	if messageCompressionType == "" {
-		messageCompressionType = string(operatorv1alpha3.GzipCompressType)
-	}
-
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
 
@@ -103,7 +98,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			KafkaClientCert:        kafkaClientCert,
 			KafkaClientKey:         kafkaClientKey,
 			KafkaBootstrapServer:   kafkaBootstrapServer,
-			MessageCompressionType: messageCompressionType,
+			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
 			TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
 			Namespace:              config.GetDefaultNamespace(),
