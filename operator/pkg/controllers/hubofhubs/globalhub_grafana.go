@@ -147,6 +147,9 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		return dsSecret.GetName(), err
 	}
 
+	if grafanaDSFound.Data == nil {
+		grafanaDSFound.Data = make(map[string][]byte)
+	}
 	grafanaDSFound.Data[datasourceKey] = datasourceVal
 	if err = r.Client.Update(ctx, grafanaDSFound); err != nil {
 		return dsSecret.GetName(), err
