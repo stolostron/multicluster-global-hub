@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686272805186,
+      "iteration": 1686596642857,
       "links": [
         {
           "asDropdown": false,
@@ -384,6 +384,7 @@ data:
         },
         {
           "datasource": null,
+          "description": "List of offending managed clusters by label: $label.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -514,6 +515,7 @@ data:
           "panels": [
             {
               "datasource": null,
+              "description": "List of unknown managed clusters by label: $label.",
               "fieldConfig": {
                 "defaults": {
                   "color": {
@@ -627,7 +629,7 @@ data:
                   ]
                 }
               ],
-              "title": "Offending Clusters (By $label)",
+              "title": "Unknown Clusters (By $label)",
               "transformations": [
                 {
                   "id": "organize",
