@@ -79,43 +79,43 @@ const (
 )
 
 var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
-	Context("When create MGH Instance without native data layer type", func() {
-		It("Should not add finalizer to MGH instance and not deploy anything", func() {
-			ctx := context.Background()
-			By("By creating a new MGH instance with native data layer type")
-			mgh := &operatorv1alpha3.MulticlusterGlobalHub{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      MGHName,
-					Namespace: config.GetDefaultNamespace(),
-				},
-				Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
-					DataLayer: &operatorv1alpha3.DataLayerConfig{
-						Type:   operatorv1alpha3.Native,
-						Native: &operatorv1alpha3.NativeConfig{},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
+	// Context("When create MGH Instance without native data layer type", func() {
+	// 	It("Should not add finalizer to MGH instance and not deploy anything", func() {
+	// 		ctx := context.Background()
+	// 		By("By creating a new MGH instance with native data layer type")
+	// 		mgh := &operatorv1alpha3.MulticlusterGlobalHub{
+	// 			ObjectMeta: metav1.ObjectMeta{
+	// 				Name:      MGHName,
+	// 				Namespace: config.GetDefaultNamespace(),
+	// 			},
+	// 			Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
+	// 				DataLayer: &operatorv1alpha3.DataLayerConfig{
+	// 					Type:   operatorv1alpha3.Native,
+	// 					Native: &operatorv1alpha3.NativeConfig{},
+	// 				},
+	// 			},
+	// 		}
+	// 		Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
-			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
-			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
-			createdMGH := &operatorv1alpha3.MulticlusterGlobalHub{}
+	// 		// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
+	// 		mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
+	// 		createdMGH := &operatorv1alpha3.MulticlusterGlobalHub{}
 
-			// get this newly created MGH instance, given that creation may not immediately happen.
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+	// 		// get this newly created MGH instance, given that creation may not immediately happen.
+	// 		Eventually(func() bool {
+	// 			err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+	// 			return err == nil
+	// 		}, timeout, interval).Should(BeTrue())
 
-			// check finalizer is not added to MGH instance
-			By("By checking finalizer is not added to MGH instance")
-			Expect(createdMGH.GetFinalizers()).Should(BeNil())
+	// 		// check finalizer is not added to MGH instance
+	// 		By("By checking finalizer is not added to MGH instance")
+	// 		Expect(createdMGH.GetFinalizers()).Should(BeNil())
 
-			// delete the testing MGH instance with native data layer type
-			By("By deleting the testing MGH instance with native data layer type")
-			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
-		})
-	})
+	// 		// delete the testing MGH instance with native data layer type
+	// 		By("By deleting the testing MGH instance with native data layer type")
+	// 		Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
+	// 	})
+	// })
 
 	Context("When create MGH instance with invalid large scale data layer type", func() {
 		It("Should not add finalizer to MGH instance and not deploy anything", func() {

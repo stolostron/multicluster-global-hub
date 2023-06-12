@@ -145,10 +145,10 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	switch mgh.Spec.DataLayer.Type {
-	case operatorv1alpha3.Native:
-		if err := r.reconcileNativeGlobalHub(ctx, mgh); err != nil {
-			return ctrl.Result{}, err
-		}
+	// case operatorv1alpha3.Native:
+	// 	if err := r.reconcileNativeGlobalHub(ctx, mgh); err != nil {
+	// 		return ctrl.Result{}, err
+	// 	}
 	case operatorv1alpha3.LargeScale:
 		if err := r.reconcileLargeScaleGlobalHub(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
