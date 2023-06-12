@@ -785,8 +785,8 @@ data:
         ]
       },
       "time": {
-        "from": "2023-06-11T00:00:00.000Z",
-        "to": "2023-06-11T00:00:00.000Z"
+        "from": "now-7d",
+        "to": "now"
       },
       "timepicker": {},
       "timezone": "utc",
