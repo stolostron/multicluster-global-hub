@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686273527677,
+      "iteration": 1686648169054,
       "links": [
         {
           "asDropdown": false,
@@ -113,7 +113,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  WITH all_managed_clusters as(\n  SELECT cluster_name,cluster_id FROM status.managed_clusters\n  UNION \n  SELECT cluster_name,cluster_id FROM history.managed_clusters\n  )\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name AS \"metric\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  INNER JOIN\n    all_managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.cluster_name IN ($cluster)\n  AND\n    policy_name IN ($policy)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (time)\n)\nSELECT\n  time,\n  metric,\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data",
+              "rawSql": "WITH data as (\n  WITH all_managed_clusters as(\n  SELECT cluster_name,cluster_id FROM status.managed_clusters\n  UNION \n  SELECT cluster_name,cluster_id FROM history.managed_clusters\n  )\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  INNER JOIN\n    all_managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.cluster_name IN ($cluster)\n  AND\n    policy_name IN ($policy)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (time)\n),\norderclusters as (\n  SELECT\n    cluster_name,\n    ROW_NUMBER () OVER (ORDER BY(SUM(non_compliant)/NULLIF((SUM(non_compliant) + SUM(compliant) + SUM(unknown)), 0)) DESC) as row_number\n  FROM\n    data\n  GROUP BY(cluster_name)\n)\nSELECT\n  time,\n  dc.cluster_name as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.cluster_name = tc.cluster_name\nWHERE\n  tc.row_number >= $topmin AND tc.row_number <= $topmax\n",
               "refId": "A",
               "select": [
                 [
@@ -233,7 +233,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH all_managed_clusters as(\nSELECT * FROM status.managed_clusters\nUNION \nSELECT * FROM history.managed_clusters\n)\nSELECT\n  $__timeGroupAlias(lp.created_at, $__interval),\n  p.policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  all_managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  policy_name IN ($policy)\nAND\n  cluster_name IN ($cluster)\nORDER BY (lp.created_at) DESC",
+              "rawSql": "WITH all_managed_clusters as(\nSELECT cluster_name,cluster_id FROM status.managed_clusters\nUNION \nSELECT cluster_name,cluster_id FROM history.managed_clusters\n)\nSELECT\n  $__timeGroupAlias(lp.created_at, $__interval),\n  p.policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  all_managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  policy_name IN ($policy)\nAND\n  cluster_name IN ($cluster)\nORDER BY (lp.created_at) DESC",
               "refId": "A",
               "select": [
                 [
@@ -366,6 +366,80 @@ data:
             "regex": "",
             "skipUrlSync": false,
             "sort": 5,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": true,
+              "text": "1:10",
+              "value": "1:10"
+            },
+            "description": "Top N Non Compliance Clusters",
+            "error": null,
+            "hide": 1,
+            "includeAll": false,
+            "label": "Top",
+            "multi": false,
+            "name": "top",
+            "options": [
+              {
+                "selected": true,
+                "text": "1:10",
+                "value": "1:10"
+              }
+            ],
+            "query": "1:10",
+            "queryValue": "",
+            "skipUrlSync": false,
+            "type": "custom"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "1",
+              "value": "1"
+            },
+            "datasource": null,
+            "definition": "SELECT SPLIT_PART('$top', ':', 1);",
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "topmin",
+            "options": [],
+            "query": "SELECT SPLIT_PART('$top', ':', 1);",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "10",
+              "value": "10"
+            },
+            "datasource": null,
+            "definition": "SELECT SPLIT_PART('$top', ':', 2);",
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "topmax",
+            "options": [],
+            "query": "SELECT SPLIT_PART('$top', ':', 2);",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
             "type": "query"
           }
         ]
