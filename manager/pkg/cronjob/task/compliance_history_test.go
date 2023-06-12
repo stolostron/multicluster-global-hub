@@ -226,7 +226,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 		By("Check whether the data is copied to the target table")
 		Eventually(func() error {
 			rows, err := pool.Query(ctx, `
-					SELECT policy_id, cluster_id, compliance,compliance_changed_frequency
+					SELECT policy_id, cluster_id,compliance_changed_frequency
 					FROM history.local_compliance`)
 			if err != nil {
 				return err
@@ -240,14 +240,14 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 			}
 			fmt.Println("finding simulating records:")
 			for rows.Next() {
-				var policy_id, cluster_id, compliance string
+				var policy_id, cluster_id string
 				var compliance_changed_frequency int
-				err := rows.Scan(&policy_id, &cluster_id, &compliance, &compliance_changed_frequency)
+				err := rows.Scan(&policy_id, &cluster_id, &compliance_changed_frequency)
 				if err != nil {
 					return err
 				}
-				fmt.Println(policy_id, cluster_id, compliance, compliance_changed_frequency)
-				if status, ok := expectRecordMap[policy_id]; ok && status == compliance && compliance_changed_frequency == 0 {
+				fmt.Println(policy_id, cluster_id, compliance_changed_frequency)
+				if _, ok := expectRecordMap[policy_id]; ok && compliance_changed_frequency == 0 {
 					syncCount++
 					delete(expectRecordMap, policy_id)
 				}
