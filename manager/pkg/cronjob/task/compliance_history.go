@@ -127,17 +127,26 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 	}()
 	err = wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
 		selectInsertSQLTemplate := `
-			INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date) 
-				(
-					SELECT policy_id,cluster_id,leaf_hub_name,compliance,(CURRENT_DATE - INTERVAL '%d day') 
-					FROM %s 
-					ORDER BY policy_id, cluster_id 
-					LIMIT $1 OFFSET $2
-				)
-			ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING
+			do
+			$$
+			declare
+				all_compliances local_status.compliance_type[] := '{"compliant","non_compliant"}';
+				compliance_random_index int;
+			begin
+				SELECT floor(random() * 2 + 1)::int into compliance_random_index;
+				INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date) 
+					(
+						SELECT policy_id,cluster_id,leaf_hub_name,all_compliances[compliance_random_index],(CURRENT_DATE - INTERVAL '%d day') 
+						FROM %s 
+						ORDER BY policy_id, cluster_id 
+						LIMIT %d OFFSET %d
+					)
+				ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING;
+			end;
+			$$;
 		`
-		selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, interval, tableName)
-		result, err := pool.Exec(ctx, selectInsertSQL, batchSize, offset)
+		selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, interval, tableName, batchSize, offset)
+		result, err := pool.Exec(ctx, selectInsertSQL)
 		if err != nil {
 			log.Info("exec failed, retrying", "error", err)
 			return false, nil
