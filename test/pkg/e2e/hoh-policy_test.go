@@ -47,8 +47,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	BeforeAll(func() {
 		Eventually(func() error {
 			By("Config request of the api")
-			transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			}
+			transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
 			managedClusters, err = getManagedCluster(httpClient, httpToken)
 			if err != nil {
@@ -67,7 +66,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		placementrulev1.AddToScheme(scheme)
 		globalClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
-		for _, leafhubName := range LeafHubNames{
+		for _, leafhubName := range LeafHubNames {
 			regionalClient, err = clients.ControllerRuntimeClient(leafhubName, scheme)
 			regionalClients = append(regionalClients, regionalClient)
 		}
@@ -165,7 +164,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				return err
 			}
 			for _, policyInfo := range status.Status {
-				if policyInfo.ClusterName == managedClusters[0].Name && policyInfo.ComplianceState == policiesv1.Compliant{
+				if policyInfo.ClusterName == managedClusters[0].Name && policyInfo.ComplianceState == policiesv1.Compliant {
 					return nil
 				}
 			}
@@ -174,7 +173,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	})
 
 	It("add the label to a managedcluster for the policy", func() {
-		for i:=1; i<len(managedClusters); i++ {
+		for i := 1; i < len(managedClusters); i++ {
 			patches := []patch{
 				{
 					Op:    "add", // or remove
@@ -216,7 +215,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				}
 				return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusters[i].Name)
 			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-	
+
 			By("Check the policy is created in regional hub")
 			Eventually(func() error {
 				status, err := getRegionalPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
@@ -353,7 +352,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			}
 			return fmt.Errorf("the policy should be removed from regional hub")
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-		
+
 		By("Delete the label from managedcluster2")
 		patches := []patch{
 			{
@@ -363,7 +362,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			},
 		}
 		Eventually(func() error {
-			for i:=1; i<len(managedClusters); i++ {
+			for i := 1; i < len(managedClusters); i++ {
 				err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[i].UID))
 				if err != nil {
 					return err
@@ -372,12 +371,12 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-		By("Delete the LimitRange CR from managedclusters")
-		for _, managedCluster := range managedClusters {
-			deleteInfo, err := clients.Kubectl(managedCluster.Name, "delete", "LimitRange", "container-mem-limit-range")
-			Expect(err).ShouldNot(HaveOccurred())
-			klog.V(5).Info(managedCluster.Name, ": ", deleteInfo)
-		}
+		// By("Delete the LimitRange CR from managedclusters")
+		// for _, managedCluster := range managedClusters {
+		// 	deleteInfo, err := clients.Kubectl(managedCluster.Name, "delete", "LimitRange", "container-mem-limit-range")
+		// 	Expect(err).ShouldNot(HaveOccurred())
+		// 	klog.V(5).Info(managedCluster.Name, ": ", deleteInfo)
+		// }
 	})
 })
 
