@@ -60,12 +60,6 @@ spec:
                             type: string
                         type: object
                     type: object
-                  native:
-                    description: Native may use a syncer to sync data from the regional
-                      hub cluster to the global hub cluster. The data is stored in
-                      the global hub kubernetes api server backed by etcd. This is
-                      not for a large scale environment.
-                    type: object
                   type:
                     description: DataLayerType specifies the type of data layer that
                       global hub stores and transports the data.

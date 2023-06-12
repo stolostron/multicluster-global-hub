@@ -26,8 +26,8 @@ import (
 type DataLayerType string
 
 const (
-	// Native is a DataLayerType using kubernetes native storage and event subscription
-	Native DataLayerType = "native"
+	// // Native is a DataLayerType using kubernetes native storage and event subscription
+	// Native DataLayerType = "native"
 	// LargeScale is a DataLayerType using external high performance data storage and transport layer
 	LargeScale DataLayerType = "largeScale"
 )
@@ -81,19 +81,20 @@ type DataLayerConfig struct {
 	// +kubebuilder:validation:Required
 	Type DataLayerType `json:"type"`
 
-	// Native may use a syncer to sync data from the regional hub cluster to the global hub cluster.
-	// The data is stored in the global hub kubernetes api server backed by etcd.
-	// This is not for a large scale environment.
-	// +optional
-	Native *NativeConfig `json:"native,omitempty"`
+	// // Native may use a syncer to sync data from the regional hub cluster to the global hub cluster.
+	// // The data is stored in the global hub kubernetes api server backed by etcd.
+	// // This is not for a large scale environment.
+	// // +optional
+	// Native *NativeConfig `json:"native,omitempty"`
+
 	// LargeScale is to use kafka as transport layer and use postgres as data layer
 	// This is for a large scale environment.
 	// +optional
 	LargeScale *LargeScaleConfig `json:"largeScale,omitempty"`
 }
 
-// NativeConfig is the config of the native data layer
-type NativeConfig struct{}
+// // NativeConfig is the config of the native data layer
+// type NativeConfig struct{}
 
 // LargeScaleConfig is the config of large scale data layer
 type LargeScaleConfig struct {
