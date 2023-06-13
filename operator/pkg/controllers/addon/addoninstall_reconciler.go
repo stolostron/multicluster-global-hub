@@ -3,9 +3,11 @@ package addon
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
+	imageregistryv1alpha1 "github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,8 +34,6 @@ type HoHAddonInstallReconciler struct {
 }
 
 func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log
-
 	mghList := &operatorv1alpha3.MulticlusterGlobalHubList{}
 	if err := r.List(ctx, mghList); err != nil {
 		return ctrl.Result{}, err
@@ -46,13 +46,13 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if config.IsPaused(&mghList.Items[0]) {
-		log.Info("multiclusterglobalhub addon reconciliation is paused, nothing more to do")
+		r.Log.Info("multiclusterglobalhub addon reconciliation is paused, nothing more to do")
 		return ctrl.Result{}, nil
 	}
 
 	if config.GetHoHMGHNamespacedName().Namespace == "" ||
 		config.GetHoHMGHNamespacedName().Name == "" {
-		log.V(2).Info("waiting multiclusterglobalhub instance", "namespacedname", req.NamespacedName)
+		r.Log.Info("waiting multiclusterglobalhub instance", "namespacedname", req.NamespacedName)
 		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	}
 
@@ -62,7 +62,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}, clusterManagementAddOn)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.V(2).Info("waiting util clustermanagementaddon is created", "namespacedname", req.NamespacedName)
+			r.Log.Info("waiting util clustermanagementaddon is created", "namespacedname", req.NamespacedName)
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		} else {
 			return ctrl.Result{}, err
@@ -79,18 +79,18 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		log.Error(err, "Failed to get managedcluster")
+		r.Log.Error(err, "Failed to get managedcluster")
 		return ctrl.Result{}, err
 	}
 
 	if !cluster.DeletionTimestamp.IsZero() {
-		log.V(4).Info("Cluster is deleting, skip addon deploy", clusterName)
+		r.Log.Info("Cluster is deleting, skip addon deploy", clusterName)
 		config.DeleteManagedCluster(clusterName)
 		return ctrl.Result{}, nil
 	}
 	config.AppendManagedCluster(clusterName)
 
-	addon := &v1alpha1.ManagedClusterAddOn{
+	expectedAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
 			Namespace: clusterName,
@@ -102,20 +102,25 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			InstallNamespace: constants.GHSystemNamespace,
 		},
 	}
+	expectedAddonAnnotations := map[string]string{}
 
 	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
 	if deployMode == operatorconstants.GHAgentDeployModeHosted {
 		annotations := cluster.GetAnnotations()
 		if hostingCluster := annotations[operatorconstants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
-			addon.SetAnnotations(map[string]string{
-				operatorconstants.AnnotationAddonHostingClusterName: hostingCluster,
-			})
-			addon.Spec.InstallNamespace = fmt.Sprintf(
-				"klusterlet-%s", clusterName)
+			expectedAddonAnnotations[operatorconstants.AnnotationAddonHostingClusterName] = hostingCluster
+			expectedAddon.Spec.InstallNamespace = fmt.Sprintf("klusterlet-%s", clusterName)
 		} else {
 			return ctrl.Result{}, fmt.Errorf("failed to get hosting cluster name "+
 				"when addon in %s is installed in hosted mode", clusterName)
 		}
+	}
+
+	if val, ok := cluster.Annotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation]; ok {
+		expectedAddonAnnotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation] = val
+	}
+	if len(expectedAddonAnnotations) > 0 {
+		expectedAddon.SetAnnotations(expectedAddonAnnotations)
 	}
 
 	existingAddon := &v1alpha1.ManagedClusterAddOn{}
@@ -130,20 +135,19 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if deployMode == operatorconstants.GHAgentDeployModeNone {
 			return ctrl.Result{}, nil
 		}
-		r.Log.Info("creating addon for cluster", "cluster", clusterName, "addon", addon.Name)
-		return ctrl.Result{}, r.Create(ctx, addon)
+		r.Log.Info("creating addon for cluster", "cluster", clusterName, "addon", expectedAddon.Name)
+		return ctrl.Result{}, r.Create(ctx, expectedAddon)
 	}
 
 	if deployMode == operatorconstants.GHAgentDeployModeNone {
-		return ctrl.Result{}, r.Delete(ctx, addon)
+		return ctrl.Result{}, r.Delete(ctx, expectedAddon)
 	}
 
-	if existingAddon.GetAnnotations()[operatorconstants.AnnotationAddonHostingClusterName] !=
-		addon.GetAnnotations()[operatorconstants.AnnotationAddonHostingClusterName] ||
-		existingAddon.Spec.InstallNamespace != addon.Spec.InstallNamespace {
-		existingAddon.SetAnnotations(addon.Annotations)
-		existingAddon.Spec.InstallNamespace = addon.Spec.InstallNamespace
-		r.Log.Info("updating addon for cluster", "cluster", clusterName, "addon", addon.Name)
+	if !reflect.DeepEqual(expectedAddon.Annotations, existingAddon.Annotations) ||
+		existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
+		existingAddon.SetAnnotations(expectedAddon.Annotations)
+		existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
+		r.Log.Info("updating addon for cluster", "cluster", clusterName, "addon", expectedAddon.Name)
 		return ctrl.Result{}, r.Update(ctx, existingAddon)
 	}
 
@@ -163,7 +167,6 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 			if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
 				return false
 			}
-
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
