@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686215172874,
+      "iteration": 1686595096776,
       "links": [
         {
           "asDropdown": false,
@@ -531,7 +531,7 @@ data:
           "panels": [
             {
               "datasource": "${datasource}",
-              "description": "List of offending managed cluster policies by standard, category, and control.",
+              "description": "List of unknown managed cluster policies by standard, category, and control.",
               "fieldConfig": {
                 "defaults": {
                   "color": {
@@ -644,7 +644,7 @@ data:
                   ]
                 }
               ],
-              "title": "Offending Policies",
+              "title": "Unknown Policies",
               "transformations": [
                 {
                   "id": "organize",
