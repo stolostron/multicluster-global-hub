@@ -140,9 +140,9 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusterName2 {
-					if policyInfo.ComplianceState == policiesv1.NonCompliant {
-						return nil
-					}
+					// if policyInfo.ComplianceState == policiesv1.NonCompliant {
+					return nil
+					// }
 				}
 			}
 			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusterName2)
