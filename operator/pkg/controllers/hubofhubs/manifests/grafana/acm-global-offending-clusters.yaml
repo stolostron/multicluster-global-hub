@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686596642857,
+      "iteration": 1686553641899,
       "links": [
         {
           "asDropdown": false,
@@ -490,6 +490,7 @@ data:
                 "excludeByName": {},
                 "indexByName": {},
                 "renameByName": {
+                  "cloud": "Cloud",
                   "cluster": "Cluster",
                   "hub": "Hub",
                   "name": "Name",

@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686273176443,
+      "iteration": 1686645884103,
       "links": [
         {
           "asDropdown": false,
@@ -126,7 +126,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  WITH all_managed_clusters as(\n  SELECT cluster_id,payload FROM status.managed_clusters\n  UNION \n  SELECT cluster_id,payload FROM history.managed_clusters\n  )\n  SELECT\n    ch.compliance_date as \"time\",\n    payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    all_managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (ch.compliance_date)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data\nORDER BY (time)",
+              "rawSql": "WITH data as (\n  WITH all_managed_clusters as(\n  SELECT cluster_id,payload FROM status.managed_clusters\n  UNION \n  SELECT cluster_id,payload FROM history.managed_clusters\n  )\n  SELECT\n    ch.compliance_date as \"time\",\n    payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    all_managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (ch.compliance_date)\n),\nordermetric as (\n  SELECT\n    $label,\n    ROW_NUMBER () OVER (ORDER BY (SUM(non_compliant)/NULLIF((SUM(non_compliant) + SUM(compliant) + SUM(unknown)), 0)) DESC) as row_number\n  FROM\n    data\n  GROUP BY($label)\n)\nSELECT\n  time,\n  dc.$label as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  ordermetric tc\nJOIN\n  data dc on dc.$label = tc.$label\nWHERE\n  tc.row_number >= $topmin AND tc.row_number <= $topmax",
               "refId": "A",
               "select": [
                 [
@@ -229,6 +229,80 @@ data:
             "regex": "",
             "skipUrlSync": false,
             "sort": 5,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": true,
+              "text": "1:10",
+              "value": "1:10"
+            },
+            "description": "Top N Non Compliance Values",
+            "error": null,
+            "hide": 1,
+            "includeAll": false,
+            "label": "Top",
+            "multi": false,
+            "name": "top",
+            "options": [
+              {
+                "selected": true,
+                "text": "1:10",
+                "value": "1:10"
+              }
+            ],
+            "query": "1:10",
+            "queryValue": "",
+            "skipUrlSync": false,
+            "type": "custom"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "1",
+              "value": "1"
+            },
+            "datasource": null,
+            "definition": "SELECT SPLIT_PART('$top', ':', 1);",
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": "",
+            "multi": false,
+            "name": "topmin",
+            "options": [],
+            "query": "SELECT SPLIT_PART('$top', ':', 1);",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "10",
+              "value": "10"
+            },
+            "datasource": null,
+            "definition": "SELECT SPLIT_PART('$top', ':', 2);",
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": "",
+            "multi": false,
+            "name": "topmax",
+            "options": [],
+            "query": "SELECT SPLIT_PART('$top', ':', 2);",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
             "type": "query"
           }
         ]

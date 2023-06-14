@@ -274,7 +274,7 @@ data:
             "error": null,
             "hide": 0,
             "includeAll": false,
-            "label": "XAxis Group",
+            "label": "x-axis Group",
             "multi": false,
             "name": "group",
             "options": [
