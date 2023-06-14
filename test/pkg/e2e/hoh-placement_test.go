@@ -230,7 +230,8 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 			By("Verify the local policy(placement) is deleted from the spec table")
 			Eventually(func() error {
-				rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.policies")
+				rows, err := postgresConn.Query(context.TODO(), `select payload from local_spec.policies where 
+				deleted_at is null`)
 				if err != nil {
 					return err
 				}
