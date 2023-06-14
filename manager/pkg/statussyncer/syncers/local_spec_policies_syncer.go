@@ -124,7 +124,8 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 			if specificObj.GetResourceVersion() == resourceVersionFromDB {
 				continue
 			}
-			tx.Model(&models.LocalSpecPolicy{}).Where("policy_id = ?", specificObj.GetUID()).Updates(models.LocalSpecPolicy{
+			tx.Model(&models.LocalSpecPolicy{}).Where("policy_id = ?",
+				specificObj.GetUID()).Updates(models.LocalSpecPolicy{
 				Payload:     payload,
 				LeafHubName: leafHubName,
 			})

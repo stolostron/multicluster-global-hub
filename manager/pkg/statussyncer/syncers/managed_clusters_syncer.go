@@ -120,7 +120,8 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 				continue // update cluster in db only if what we got is a different (newer) version of the resource
 			}
 
-			tx.Model(&models.ManagedCluster{}).Where("cluster_name = ?", cluster.GetName()).Updates(models.ManagedCluster{
+			tx.Model(&models.ManagedCluster{}).Where("cluster_name = ?",
+				cluster.GetName()).Updates(models.ManagedCluster{
 				ClusterID:   clusterId,
 				LeafHubName: leafHubName,
 				Payload:     payload,

@@ -85,11 +85,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
 	Expect(err).NotTo(HaveOccurred())
-	database.InitGormInstance(&database.DatabaseConfig{
+	err = database.InitGormInstance(&database.DatabaseConfig{
 		URL:      testPostgres.URI,
 		Dialect:  database.PostgresDialect,
 		PoolSize: 1,
 	})
+	Expect(err).NotTo(HaveOccurred())
 
 	By("Start cloudevents producer")
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)

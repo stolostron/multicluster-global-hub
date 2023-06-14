@@ -331,10 +331,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION set_policies_timestamps()
 RETURNS TRIGGER AS $$
-DECLARE
-    table_name text;
 BEGIN
-    table_name := TG_TABLE_NAME;
     IF TG_OP = 'INSERT' THEN
         NEW.created_at := NOW();
         NEW.updated_at := NOW();
@@ -358,10 +355,7 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION set_managed_cluster_timestamps()
 RETURNS TRIGGER AS $$
-DECLARE
-    table_name text;
 BEGIN
-    table_name := TG_TABLE_NAME;
     IF TG_OP = 'INSERT' THEN
         NEW.created_at := NOW();
         NEW.updated_at := NOW();
