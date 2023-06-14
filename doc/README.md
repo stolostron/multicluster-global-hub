@@ -5,7 +5,7 @@ This document focuses on the features of the multicluster global hub.
 3. [Quick Start Guide](#quick-start)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [Import a regional hub cluster](#import-a-reginal-hub-cluster)
+- [Import a regional hub cluster](#import-a-reginal-hub-cluster-in-default-mode-tech-preview)
 - [Access the grafana](#access-the-grafana)
 - [Grafana dashboards](#grafana-dashboards)
 4. [Troubleshooting](troubleshooting.md)
@@ -41,18 +41,24 @@ Grafana runs on the global hub cluster as the main service for Global Hub Observ
 
 ### Prerequisites
 
+#### Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed.
+
 #### Storage secret
 
 Both the global hub manager and grafana services need a postgres database to collect and display data. The data can be accessed by creating a storage secret, which contains the following two fields:
 - `database_uri`: Required, the URI user should have the permission to create the global hub database in the postgres.
 - `ca.crt`: Optional, if your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
 
+> Note: There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically.
+
 #### Transport secret
 Right now, we support Kafka transport only. You need to create a secret for the Kafka transport. The secret contains the following fields:
 - `bootstrap.servers`: Required, the Kafka bootstrap servers.
-- `ca.crt`: Optional, if your Kafka service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
-- `client.crt`: Optional, if your Kafka service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-full`, then the `client.crt` certificate must be provided.
-- `client.key`: Optional, if your Kafka service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-full`, then the `client.key` certificate must be provided.
+- `ca.crt`: Optional, if you use the `KafkaUser` custom resource to configure authentication credentials, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `ca.crt` certificate from the secret.
+- `client.crt`: Optional, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `user.crt` certificate from the secret.
+- `client.key`: Optional, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `user.key` from the secret.
+
+> Note: There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/transport) to install kafka in `kafka` namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically.
 
 ### Installation
 
@@ -63,11 +69,7 @@ Right now, we support Kafka transport only. You need to create a secret for the 
 1. Log in to the OpenShift console as a user with cluster-admin role.
 2. Click the Operators -> OperatorHub icon in the left navigation panel.
 3. Search for the `multicluster global hub operator`.
-4. Click the `multicluster global hub operator` to start the installation. You will see the prerequisites for the installation:
-    - Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed.
-    - PostgreSQL needs to be installed and you must create database for the multicluster global hub
-    - Kafka needs to be installed, and you must create three topics: `spec` `status` and `event`.
-> Note: There are sample scripts provided to allow you to install PostgreSQL and Kafka easily.
+4. Click the `multicluster global hub operator` to start the installation.
 5. Click the `Install` button to start the installation when you are ready.
 6. Wait for the installation to complete. You can check the status in the `Installed Operators` page.
 7. Click the `multicluster global hub operator` to go to the operator page.
@@ -77,42 +79,12 @@ Right now, we support Kafka transport only. You need to create a secret for the 
 
 > Note: the multicluster global hub is available for x86 platform only right now.
 
-### Import a reginal hub cluster
-#### Import a regional hub cluster in default mode (tech preview)
-It requires to disable the cluster self management in the existing ACM hub cluster. Set `disableHubSelfManagement=true` in the `multiclusterhub` CR to disable automatic import of the hub cluster as a managed cluster.
+> Note: The policy and application are disabled in RHACM once the multicluster global hub is installed.
 
-After that, follow the [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.6/html/multicluster_engine/multicluster_engine_overview#importing-a-cluster) document to import the regional hub cluster.
+### Import a regional hub cluster in default mode (tech preview)
+It requires to disable the cluster self management in the existing ACM hub cluster. Set `disableHubSelfManagement=true` in the `multiclusterhub` CR to disable importing of the hub cluster as a managed cluster automaticially.
 
-#### Import a regional hub cluster in hosted mode (tech preview)
-
-It does not require any changes before importing it. The ACM agent is running in a hosting cluster.
-1. Import the cluster from the ACM console, add these annotations to the managedCluster, use the kubeconfig import mode, and disable all add-ons.
-```
-import.open-cluster-management.io/klusterlet-deploy-mode: Hosted
-import.open-cluster-management.io/hosting-cluster-name: local-cluster
-addon.open-cluster-management.io/disable-automatic-installation: "true"
-```
-![import hosted cluster](import_hosted_cluster.png)
-Click `Next` Button to complete the import process.
-
-2. Enable work-manager addon after the imported cluster is available.
-```
-oc apply -f - <<EOF
-apiVersion: addon.open-cluster-management.io/v1alpha1
-kind: ManagedClusterAddOn
-metadata:
-  name: work-manager
-  namespace: hub1
-  annotations:
-    addon.open-cluster-management.io/hosting-cluster-name: local-cluster
-spec:
-  installNamespace: open-cluster-management-hub1-addon-workmanager
-EOF
-```
-You have to create a kubeconfig secret for the work-manager add-on via the following command:
-```
-oc create secret generic work-manager-managed-kubeconfig --from-file=kubeconfig=<your regional hub kubeconfig> -n open-cluster-management-hub1-addon-workmanager
-```
+After that, follow the [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html-single/clusters/index#importing-a-target-managed-cluster-to-the-hub-cluster) document to import the regional hub cluster.
 
 ### Access the grafana
 The grafana is exposed through Route, you can use the following command to get the login URL. The authentication method of this URL is same as the openshift console, so you don't have to worry about using another authentication.
