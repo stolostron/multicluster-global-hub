@@ -88,7 +88,7 @@ CREATE TRIGGER update_compliance_table AFTER INSERT OR UPDATE ON status.complian
 DROP TRIGGER IF EXISTS set_timestamps_trigger ON status.managed_clusters;
 CREATE TRIGGER set_timestamps_trigger
 BEFORE INSERT OR UPDATE OR DELETE ON status.managed_clusters
-FOR EACH ROW EXECUTE FUNCTION set_managed_cluster_timestamps;
+FOR EACH ROW EXECUTE FUNCTION set_managed_cluster_timestamps();
 
 DROP TRIGGER IF EXISTS set_timestamps_trigger ON local_spec.policies;
 CREATE TRIGGER set_timestamps_trigger

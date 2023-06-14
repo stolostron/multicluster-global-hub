@@ -94,7 +94,7 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 	}
 
 	// https://gorm.io/docs/transactions.html
-	db.Transaction(func(tx *gorm.DB) error {
+	err = db.Transaction(func(tx *gorm.DB) error {
 		for _, object := range bundle.GetObjects() {
 			specificObj, ok := object.(metav1.Object)
 			if !ok {
@@ -138,6 +138,9 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 		// return nil will commit the whole transaction
 		return nil
 	})
+	if err != nil {
+		return fmt.Errorf("failed handling leaf hub '%s.%s' bundle - %w", schema, tableName, err)
+	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
 	return nil

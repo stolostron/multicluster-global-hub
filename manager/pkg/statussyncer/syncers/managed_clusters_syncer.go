@@ -80,7 +80,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	}
 
 	// https://gorm.io/docs/transactions.html
-	db.Transaction(func(tx *gorm.DB) error {
+	err = db.Transaction(func(tx *gorm.DB) error {
 		for _, object := range bundle.GetObjects() {
 			cluster, ok := object.(*clusterv1.ManagedCluster)
 			if !ok {
@@ -135,6 +135,10 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 		// return nil will commit the whole transaction
 		return nil
 	})
+	if err != nil {
+		return fmt.Errorf("failed handling managed clusters bundle - %w", err)
+	}
+
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
 	return nil
 }
