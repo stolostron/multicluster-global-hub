@@ -141,7 +141,10 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 		// delete -> soft delete (set deleted_at field)
 		for uid := range policyIdToVersionMapFromDB {
 			tx.Model(&models.LocalSpecPolicy{}).
-				Where("leaf_hub_name = ? AND policy_id = ?", leafHubName, uid).
+				Where(&models.LocalSpecPolicy{
+					LeafHubName: leafHubName,
+					PolicyID:    uid,
+				}).
 				Updates(models.LocalSpecPolicy{
 					DeletedAt: time.Now(),
 				})
