@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
@@ -124,16 +125,26 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 			if specificObj.GetResourceVersion() == resourceVersionFromDB {
 				continue
 			}
-			tx.Model(&models.LocalSpecPolicy{}).Where("policy_id = ?",
-				specificObj.GetUID()).Updates(models.LocalSpecPolicy{
-				Payload:     payload,
-				LeafHubName: leafHubName,
-			})
+			tx.Model(&models.LocalSpecPolicy{}).
+				Where(&models.LocalSpecPolicy{
+					LeafHubName: leafHubName,
+					PolicyID:    uid,
+				}).
+				Updates(models.LocalSpecPolicy{
+					Payload:     payload,
+					LeafHubName: leafHubName,
+					UpdatedAt:   time.Now(),
+				})
 		}
 
 		// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
+		// delete -> soft delete (set deleted_at field)
 		for uid := range policyIdToVersionMapFromDB {
-			tx.Delete(&models.LocalSpecPolicy{}, "policy_id = ?", uid)
+			tx.Model(&models.LocalSpecPolicy{}).
+				Where("leaf_hub_name = ? AND policy_id = ?", leafHubName, uid).
+				Updates(models.LocalSpecPolicy{
+					DeletedAt: time.Now(),
+				})
 		}
 
 		// return nil will commit the whole transaction

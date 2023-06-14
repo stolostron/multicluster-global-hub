@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
@@ -120,17 +121,29 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 				continue // update cluster in db only if what we got is a different (newer) version of the resource
 			}
 
-			tx.Model(&models.ManagedCluster{}).Where("cluster_name = ?",
-				cluster.GetName()).Updates(models.ManagedCluster{
-				ClusterID:   clusterId,
-				LeafHubName: leafHubName,
-				Payload:     payload,
-			})
+			tx.Model(&models.ManagedCluster{}).
+				Where(&models.ManagedCluster{
+					LeafHubName: leafHubName,
+					ClusterName: cluster.GetName(),
+				}).
+				Updates(models.ManagedCluster{
+					ClusterID: clusterId,
+					Payload:   payload,
+					UpdatedAt: time.Now(),
+				})
 		}
 
 		// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
+		// delete -> add deleted_at for the object in the db
 		for clusterName := range clusterNameToVersionMapFromDB {
-			tx.Delete(&models.LocalSpecPolicy{}, "cluster_name = ?", clusterName)
+			tx.Model(&models.ManagedCluster{}).
+				Where(&models.ManagedCluster{
+					LeafHubName: leafHubName,
+					ClusterName: clusterName,
+				}).
+				Updates(models.ManagedCluster{
+					DeletedAt: time.Now(),
+				})
 		}
 
 		// return nil will commit the whole transaction

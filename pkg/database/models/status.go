@@ -11,10 +11,10 @@ type ManagedCluster struct {
 	ClusterID   string         `gorm:"column:cluster_id;not null"`
 	Payload     datatypes.JSON `gorm:"column:payload;type:jsonb"`
 	Error       string         `gorm:"column:error;not null"`
-	ClusterName string         `gorm:"-"`
-	CreatedAt   time.Time      `gorm:"-"`
-	UpdatedAt   time.Time      `gorm:"-"`
-	DeletedAt   *time.Time     `gorm:"-"`
+	ClusterName string         `gorm:"column:cluster_name;default:(-)"`
+	CreatedAt   time.Time      `gorm:"column:created_at;default:(-)"`
+	UpdatedAt   time.Time      `gorm:"column:updated_at;default:(-)"`
+	DeletedAt   time.Time      `gorm:"column:deleted_at;default:(-)"`
 }
 
 func (ManagedCluster) TableName() string {

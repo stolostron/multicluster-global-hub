@@ -108,8 +108,8 @@ CREATE TABLE IF NOT EXISTS local_spec.placementrules (
 CREATE TABLE IF NOT EXISTS local_spec.policies (
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
     deleted_at timestamp without time zone,
     policy_id uuid PRIMARY KEY generated always as (uuid(payload->'metadata'->>'uid')) stored,
     policy_name character varying(255) generated always as (payload -> 'metadata' ->> 'name') stored,
@@ -252,8 +252,8 @@ CREATE TABLE IF NOT EXISTS status.managed_clusters (
     cluster_id uuid NOT NULL,
     payload jsonb NOT NULL,
     error status.error_type NOT NULL,
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
     deleted_at timestamp without time zone
 );
 
