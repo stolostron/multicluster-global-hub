@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
@@ -129,21 +128,16 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 				Updates(models.ManagedCluster{
 					ClusterID: clusterId,
 					Payload:   payload,
-					UpdatedAt: time.Now(),
 				})
 		}
 
 		// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
-		// delete -> add deleted_at for the object in the db
 		for clusterName := range clusterNameToVersionMapFromDB {
-			tx.Model(&models.ManagedCluster{}).
-				Where(&models.ManagedCluster{
-					LeafHubName: leafHubName,
-					ClusterName: clusterName,
-				}).
-				Updates(models.ManagedCluster{
-					DeletedAt: time.Now(),
-				})
+			// https://gorm.io/docs/delete.html#Soft-Delete
+			tx.Where(&models.ManagedCluster{
+				LeafHubName: leafHubName,
+				ClusterName: clusterName,
+			}).Delete(models.ManagedCluster{})
 		}
 
 		// return nil will commit the whole transaction
@@ -161,7 +155,9 @@ func getClusterNameToVersionMap(db *gorm.DB, schema, tableName, leafHubName stri
 	var resourceVersions []models.ResourceVersion
 	err := db.Table(fmt.Sprintf("%s.%s", schema, tableName)).
 		Select("payload->'metadata'->>'name' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
-		Where("leaf_hub_name = ? AND deleted_at IS NULL", leafHubName).
+		Where(&models.ManagedCluster{ // Find soft deleted records: db.Unscoped().Where(...)
+			LeafHubName: leafHubName,
+		}).
 		Scan(&resourceVersions).Error
 	if err != nil {
 		return nil, err

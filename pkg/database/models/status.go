@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type ManagedCluster struct {
@@ -12,9 +13,9 @@ type ManagedCluster struct {
 	Payload     datatypes.JSON `gorm:"column:payload;type:jsonb"`
 	Error       string         `gorm:"column:error;not null"`
 	ClusterName string         `gorm:"column:cluster_name;default:(-)"`
-	CreatedAt   time.Time      `gorm:"column:created_at;default:(-)"`
+	CreatedAt   time.Time      `gorm:"column:created_at;default:(-)"` // https://gorm.io/docs/conventions.html#CreatedAt
 	UpdatedAt   time.Time      `gorm:"column:updated_at;default:(-)"`
-	DeletedAt   time.Time      `gorm:"column:deleted_at;default:(-)"`
+	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at;default:(-)"`
 }
 
 func (ManagedCluster) TableName() string {

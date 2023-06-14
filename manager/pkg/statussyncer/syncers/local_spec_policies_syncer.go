@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
@@ -133,21 +132,16 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 				Updates(models.LocalSpecPolicy{
 					Payload:     payload,
 					LeafHubName: leafHubName,
-					UpdatedAt:   time.Now(),
 				})
 		}
 
 		// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
-		// delete -> soft delete (set deleted_at field)
 		for uid := range policyIdToVersionMapFromDB {
-			tx.Model(&models.LocalSpecPolicy{}).
-				Where(&models.LocalSpecPolicy{
-					LeafHubName: leafHubName,
-					PolicyID:    uid,
-				}).
-				Updates(models.LocalSpecPolicy{
-					DeletedAt: time.Now(),
-				})
+			// https://gorm.io/docs/delete.html#Soft-Delete
+			tx.Where(&models.LocalSpecPolicy{
+				LeafHubName: leafHubName,
+				PolicyID:    uid,
+			}).Delete(&models.LocalSpecPolicy{})
 		}
 
 		// return nil will commit the whole transaction
@@ -166,7 +160,9 @@ func getPolicyIdToVersionMap(db *gorm.DB, schema, tableName, leafHubName string)
 
 	err := db.Table(fmt.Sprintf("%s.%s", schema, tableName)).
 		Select("payload->'metadata'->>'uid' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
-		Where("leaf_hub_name = ? AND deleted_at IS NULL", leafHubName).
+		Where(&models.LocalSpecPolicy{ // Find soft deleted records: db.Unscoped().Where(...)
+			LeafHubName: leafHubName,
+		}).
 		Scan(&resourceVersions).Error
 	if err != nil {
 		return nil, err

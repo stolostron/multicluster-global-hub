@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type LocalSpecPolicy struct {
@@ -16,7 +17,7 @@ type LocalSpecPolicy struct {
 	PolicyControl  string         `gorm:"column:policy_control;default:(-)"`
 	CreatedAt      time.Time      `gorm:"column:created_at;default:(-)"`
 	UpdatedAt      time.Time      `gorm:"column:updated_at;default:(-)"`
-	DeletedAt      time.Time      `gorm:"column:deleted_at;default:(-)"`
+	DeletedAt      gorm.DeletedAt `gorm:"column:deleted_at;default:(-)"`
 }
 
 func (LocalSpecPolicy) TableName() string {
