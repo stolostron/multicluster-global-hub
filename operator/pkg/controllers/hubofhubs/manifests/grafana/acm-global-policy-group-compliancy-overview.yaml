@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686214749136,
+      "iteration": 1686720846561,
       "links": [
         {
           "asDropdown": false,
@@ -126,7 +126,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as(\n  WITH renamedata as (\n    WITH all_policies as(\n      SELECT policy_name,policy_id,leaf_hub_name,policy_standard,policy_category,policy_control FROM local_spec.policies\n      UNION \n      SELECT policy_name,policy_id,leaf_hub_name,policy_standard,policy_category,policy_control FROM history.local_policies\n      )\n      SELECT\n        ch.compliance_date AS \"time\",\n        p.policy_standard AS \"standard\",\n        p.policy_category AS \"category\",\n        p.policy_control AS \"control\",\n        ch.compliance\n      FROM\n        all_policies p\n      INNER JOIN\n        history.local_compliance ch ON p.policy_id = ch.policy_id\n      WHERE\n        $__timeFilter(ch.compliance_date)\n      AND\n        p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  )\n  SELECT \n    time,\n    $group,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    renamedata\n  GROUP BY (time, $group)\n)\nSELECT\n  time,\n  $group as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data\nORDER BY\n  time",
+              "rawSql": "WITH data as(\n  WITH renamedata as (\n      SELECT\n        ch.compliance_date AS \"time\",\n        p.policy_standard AS \"standard\",\n        p.policy_category AS \"category\",\n        p.policy_control AS \"control\",\n        ch.compliance\n      FROM\n        local_spec.policies p\n      INNER JOIN\n        history.local_compliance ch ON p.policy_id = ch.policy_id\n      WHERE\n        $__timeFilter(ch.compliance_date)\n      AND\n        p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  )\n  SELECT \n    time,\n    $group,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    renamedata\n  GROUP BY (time, $group)\n)\nSELECT\n  time,\n  $group as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data\nORDER BY\n  time",
               "refId": "A",
               "select": [
                 [
