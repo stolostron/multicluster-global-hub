@@ -25,6 +25,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -84,6 +85,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
 	Expect(err).NotTo(HaveOccurred())
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:      testPostgres.URI,
+		Dialect:  database.PostgresDialect,
+		PoolSize: 1,
+	})
+	Expect(err).NotTo(HaveOccurred())
 
 	By("Start cloudevents producer")
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
@@ -134,6 +141,7 @@ var _ = AfterSuite(func() {
 	cancel()
 	transportPostgreSQL.Stop()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
+	database.CloseGorm()
 
 	By("Tearing down the test environment")
 	err := testenv.Stop()

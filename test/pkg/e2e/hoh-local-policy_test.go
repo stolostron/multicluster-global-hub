@@ -352,7 +352,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			It("check the local policy resource is deleted from database", func() {
 				By("Verify the local policy is deleted from the spec table")
 				Eventually(func() error {
-					rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.policies")
+					rows, err := postgresConn.Query(context.TODO(), `select payload from local_spec.policies where 
+					deleted_at is null`)
 					if err != nil {
 						return err
 					}

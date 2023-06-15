@@ -23,8 +23,6 @@ DROP TRIGGER IF EXISTS set_timestamp ON history.subscriptions;
 CREATE TRIGGER set_timestamp BEFORE UPDATE ON history.subscriptions FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
 DROP TRIGGER IF EXISTS set_timestamp ON local_spec.placementrules;
 CREATE TRIGGER set_timestamp BEFORE UPDATE ON local_spec.placementrules FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
-DROP TRIGGER IF EXISTS set_timestamp ON local_spec.policies;
-CREATE TRIGGER set_timestamp BEFORE UPDATE ON local_spec.policies FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
 
 DROP TRIGGER IF EXISTS move_to_history ON spec.applications;
 CREATE TRIGGER move_to_history BEFORE INSERT ON spec.applications FOR EACH ROW EXECUTE FUNCTION public.move_applications_to_history();
@@ -72,16 +70,3 @@ DROP TRIGGER IF EXISTS update_compliance_table ON local_status.compliance;
 CREATE TRIGGER update_compliance_table AFTER INSERT OR UPDATE ON local_status.compliance FOR EACH ROW WHEN (pg_trigger_depth() < 1) EXECUTE FUNCTION public.set_cluster_id_to_local_compliance();
 DROP TRIGGER IF EXISTS update_compliance_table ON status.compliance;
 CREATE TRIGGER update_compliance_table AFTER INSERT OR UPDATE ON status.compliance FOR EACH ROW WHEN (pg_trigger_depth() < 1) EXECUTE FUNCTION public.set_cluster_id_to_compliance();
-
---- history tiger
-DROP TRIGGER IF EXISTS trigger_backup_deleted_managed_cluster ON status.managed_clusters;
-CREATE TRIGGER trigger_backup_deleted_managed_cluster
-AFTER DELETE ON status.managed_clusters
-FOR EACH ROW
-EXECUTE FUNCTION history.move_managed_cluster_to_history();
-
-DROP TRIGGER IF EXISTS trigger_backup_deleted_local_policy ON local_spec.policies;
-CREATE TRIGGER trigger_backup_deleted_local_policy
-AFTER DELETE ON local_spec.policies
-FOR EACH ROW
-EXECUTE FUNCTION history.move_local_policy_to_history();

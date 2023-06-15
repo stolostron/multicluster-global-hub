@@ -309,24 +309,3 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
--- Create history trigger function
-CREATE OR REPLACE FUNCTION history.move_managed_cluster_to_history()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Insert the deleted row into history.managed_clusters
-    INSERT INTO history.managed_clusters (leaf_hub_name, cluster_id, payload, error)
-    VALUES (OLD.leaf_hub_name, OLD.cluster_id, OLD.payload, OLD.error);
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION history.move_local_policy_to_history()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Insert the deleted row into history.local_policies
-    INSERT INTO history.local_policies (leaf_hub_name, payload, created_at, updated_at)
-    VALUES (OLD.leaf_hub_name, OLD.payload, OLD.created_at, OLD.updated_at);
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;

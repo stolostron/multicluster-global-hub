@@ -19,12 +19,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
-// NewLocalSpecDBSyncer creates a new instance of LocalSpecDBSyncer.
-func NewLocalSpecDBSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
+// NewLocalSpecPlacementruleSyncer creates a new instance of LocalSpecDBSyncer.
+func NewLocalSpecPlacementruleSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
 	dbSyncer := &LocalSpecDBSyncer{
-		log:                                     log,
-		config:                                  config,
-		createLocalPolicySpecBundleFunc:         statusbundle.NewLocalPolicySpecBundle,
+		log:    log,
+		config: config,
+		// createLocalPolicySpecBundleFunc:         statusbundle.NewLocalPolicySpecBundle,
 		createLocalPlacementRulesSpecBundleFunc: statusbundle.NewLocalPlacementRulesBundle,
 	}
 
@@ -35,9 +35,9 @@ func NewLocalSpecDBSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
 
 // LocalSpecDBSyncer implements local objects spec db sync business logic.
 type LocalSpecDBSyncer struct {
-	log                                     logr.Logger
-	config                                  *corev1.ConfigMap
-	createLocalPolicySpecBundleFunc         status.CreateBundleFunction
+	log    logr.Logger
+	config *corev1.ConfigMap
+	// createLocalPolicySpecBundleFunc         status.CreateBundleFunction
 	createLocalPlacementRulesSpecBundleFunc status.CreateBundleFunction
 }
 
@@ -47,11 +47,11 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportDispatch
 		return syncer.config.Data["enableLocalPolicies"] == "true"
 	}
 
-	transportDispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.LocalPolicySpecMsgKey,
-		CreateBundleFunc: syncer.createLocalPolicySpecBundleFunc,
-		Predicate:        predicate,
-	})
+	// transportDispatcher.BundleRegister(&registration.BundleRegistration{
+	// 	MsgID:            constants.LocalPolicySpecMsgKey,
+	// 	CreateBundleFunc: syncer.createLocalPolicySpecBundleFunc,
+	// 	Predicate:        predicate,
+	// })
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.LocalPlacementRulesMsgKey,
@@ -68,11 +68,11 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportDispatch
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
-	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.LocalPolicySpecPriority,
-		bundle.CompleteStateMode,
-		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
-		syncer.handleLocalObjectsBundleWrapper(database.LocalPolicySpecTableName)))
+	// conflationManager.Register(conflator.NewConflationRegistration(
+	// 	conflator.LocalPolicySpecPriority,
+	// 	bundle.CompleteStateMode,
+	// 	helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
+	// 	syncer.handleLocalObjectsBundleWrapper(database.LocalPolicySpecTableName)))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRulesSpecPriority,

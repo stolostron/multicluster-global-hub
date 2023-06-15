@@ -2,9 +2,11 @@ package dbsyncer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"gorm.io/gorm"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
@@ -16,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
@@ -69,55 +72,99 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	clustersFromDB, err := dbClient.GetManagedClustersByLeafHub(ctx, database.StatusSchema,
+	db := database.GetGorm()
+	clusterNameToVersionMapFromDB, err := getClusterNameToVersionMap(db, database.StatusSchema,
 		database.ManagedClustersTableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub managed clusters from db - %w", err)
 	}
-	// batch is per leaf hub, therefore no need to specify leafHubName in Insert/Update/Delete
-	batchBuilder := dbClient.NewManagedClustersBatchBuilder(database.StatusSchema,
-		database.ManagedClustersTableName, leafHubName)
 
-	for _, object := range bundle.GetObjects() {
-		cluster, ok := object.(*clusterv1.ManagedCluster)
-		if !ok {
-			continue // do not handle objects other than ManagedCluster
-		}
-
-		// Initially, we used cluster.uid as the clusterID to avoid null in case the clusterclaim is not generated
-		// and then get clusterID from clusterclaim
-		clusterID := string(cluster.GetUID())
-		for _, claim := range cluster.Status.ClusterClaims {
-			if claim.Name == "id.k8s.io" {
-				clusterID = claim.Value
-				break
+	// https://gorm.io/docs/transactions.html
+	err = db.Transaction(func(tx *gorm.DB) error {
+		for _, object := range bundle.GetObjects() {
+			cluster, ok := object.(*clusterv1.ManagedCluster)
+			if !ok {
+				continue
 			}
+
+			// Initially, we used cluster.uid as the clusterID to avoid null in case the clusterclaim is not generated
+			// and then get clusterID from clusterclaim
+			clusterId := string(cluster.GetUID())
+			for _, claim := range cluster.Status.ClusterClaims {
+				if claim.Name == "id.k8s.io" {
+					clusterId = claim.Value
+					break
+				}
+			}
+
+			payload, err := json.Marshal(cluster)
+			if err != nil {
+				return err
+			}
+
+			clusterVersionFromDB, exist := clusterNameToVersionMapFromDB[cluster.GetName()]
+			if !exist { // cluster not found in the db table
+				tx.Create(&models.ManagedCluster{
+					ClusterID:   clusterId,
+					LeafHubName: leafHubName,
+					Payload:     payload,
+					Error:       database.ErrorNone,
+				})
+				continue
+			}
+
+			// remove the handled object from the map
+			delete(clusterNameToVersionMapFromDB, cluster.GetName())
+
+			if cluster.GetResourceVersion() == clusterVersionFromDB {
+				continue // update cluster in db only if what we got is a different (newer) version of the resource
+			}
+
+			tx.Model(&models.ManagedCluster{}).
+				Where(&models.ManagedCluster{
+					LeafHubName: leafHubName,
+					ClusterName: cluster.GetName(),
+				}).
+				Updates(models.ManagedCluster{
+					ClusterID: clusterId,
+					Payload:   payload,
+				})
 		}
 
-		resourceVersionFromDB, clusterExistsInDB := clustersFromDB[cluster.GetName()]
-		if !clusterExistsInDB { // cluster not found in the db table
-			batchBuilder.Insert(clusterID, cluster, database.ErrorNone)
-			continue
+		// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
+		for clusterName := range clusterNameToVersionMapFromDB {
+			// https://gorm.io/docs/delete.html#Soft-Delete
+			tx.Where(&models.ManagedCluster{
+				LeafHubName: leafHubName,
+				ClusterName: clusterName,
+			}).Delete(models.ManagedCluster{})
 		}
 
-		delete(clustersFromDB, cluster.GetName()) // if we got here, cluster exists both in db and in received bundle.
-
-		if cluster.GetResourceVersion() == resourceVersionFromDB {
-			continue // update cluster in db only if what we got is a different (newer) version of the resource
-		}
-
-		batchBuilder.Update(clusterID, cluster.GetName(), cluster)
-	}
-	// delete clusters that in the db but were not sent in the bundle (leaf hub sends only living resources).
-	for clusterName := range clustersFromDB {
-		batchBuilder.Delete(clusterName)
-	}
-	// batch contains at most number of statements as the number of managed cluster per LH
-	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
-		return fmt.Errorf("failed to perform batch - %w", err)
+		// return nil will commit the whole transaction
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed handling managed clusters bundle - %w", err)
 	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
-
 	return nil
+}
+
+func getClusterNameToVersionMap(db *gorm.DB, schema, tableName, leafHubName string) (map[string]string, error) {
+	var resourceVersions []models.ResourceVersion
+	err := db.Table(fmt.Sprintf("%s.%s", schema, tableName)).
+		Select("payload->'metadata'->>'name' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
+		Where(&models.ManagedCluster{ // Find soft deleted records: db.Unscoped().Where(...)
+			LeafHubName: leafHubName,
+		}).
+		Scan(&resourceVersions).Error
+	if err != nil {
+		return nil, err
+	}
+	nameToVersionMap := make(map[string]string)
+	for _, resource := range resourceVersions {
+		nameToVersionMap[resource.Key] = resource.ResourceVersion
+	}
+	return nameToVersionMap, nil
 }
