@@ -78,7 +78,7 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpoo
 	// Then the a race condition will arise: the previous and next jobs will using the same view, which will cause the
 	// next job to fail. To avoid this, we create a materialized view with a unique name for each job.
 	if enableSimulation {
-		viewTable = fmt.Sprintf("%s_%d", rand.Intn(10001))
+		viewTable = fmt.Sprintf("%s_%d", viewTable, rand.Intn(10001))
 	}
 	viewName := fmt.Sprintf("%s.%s", viewSchema, viewTable)
 	createViewTemplate := `
