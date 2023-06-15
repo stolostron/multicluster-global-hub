@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -72,8 +73,13 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpoo
 	enableSimulation bool) (totalCount int64, insertedCount int64, err error,
 ) {
 	viewSchema := "history"
-	viewTable := fmt.Sprintf("local_compliance_view_%s",
-		startTime.AddDate(0, 0, -interval).Format("2006_01_02"))
+	viewTable := fmt.Sprintf("local_compliance_view_%s", startTime.AddDate(0, 0, -interval).Format("2006_01_02"))
+	// When the interval is so small that the previous job has not finished running, the next job has already started.
+	// Then the a race condition will arise: the previous and next jobs will using the same view, which will cause the
+	// next job to fail. To avoid this, we create a materialized view with a unique name for each job.
+	if enableSimulation {
+		viewTable = fmt.Sprintf("%s_%d", rand.Intn(10001))
+	}
 	viewName := fmt.Sprintf("%s.%s", viewSchema, viewTable)
 	createViewTemplate := `
 		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS
