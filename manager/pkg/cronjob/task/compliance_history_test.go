@@ -113,7 +113,7 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 	It("sync the data from the event.local_policies to the history.local_compliance", func() {
 		By("Create the sync job")
 		s := gocron.NewScheduler(time.UTC)
-		complianceJob, err := s.Every(1).Second().Tag("LocalCompliance").DoWithJobDetails(
+		complianceJob, err := s.Every(1).Day().Tag("LocalCompliance").DoWithJobDetails(
 			task.SyncLocalCompliance, ctx, pool, false)
 		Expect(err).ToNot(HaveOccurred())
 		fmt.Println("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())

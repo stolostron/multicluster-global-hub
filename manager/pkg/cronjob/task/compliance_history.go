@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -21,6 +22,7 @@ var (
 	dateFormat              = "2006-01-02"
 	dateInterval            = 1
 	simulationCounter       = 1
+	counterLock             sync.Mutex
 	batchSize               = int64(1000)
 	// batchSize = 1000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
@@ -36,7 +38,14 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 
 	interval := dateInterval
 	if enableSimulation {
+		// When the interval is so small that the previous job has not finished running, the next job has already started.
+		// Then the a race condition will arise: the previous and next jobs will using the same view, which will cause the
+		// next job to fail. To avoid this, lock the counter so only one goroutine can access the it and each goroutine
+		// will get a different simulatorCounter value.
+		counterLock.Lock()
 		interval = simulationCounter
+		simulationCounter++
+		counterLock.Unlock()
 	}
 
 	historyDate := startTime.AddDate(0, 0, -interval)
@@ -53,7 +62,6 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 	log.Info("with local_status.compliance", "totalCount", statusTotal, "insertedCount", statusInsert)
 
 	if enableSimulation {
-		simulationCounter++
 		return
 	}
 
