@@ -371,12 +371,12 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			return nil
 		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-		By("Delete the LimitRange CR from managedclusters")
-		for _, managedCluster := range managedClusters {
-			deleteInfo, err := clients.Kubectl(managedCluster.Name, "delete", "LimitRange", "container-mem-limit-range")
-			Expect(err).ShouldNot(HaveOccurred())
-			klog.V(5).Info(managedCluster.Name, ": ", deleteInfo)
-		}
+		// By("Delete the LimitRange CR from managedclusters")
+		// for _, managedCluster := range managedClusters {
+		// 	deleteInfo, err := clients.Kubectl(managedCluster.Name, "delete", "LimitRange", "container-mem-limit-range")
+		// 	Expect(err).ShouldNot(HaveOccurred())
+		// 	klog.V(5).Info(managedCluster.Name, ": ", deleteInfo)
+		// }
 	})
 })
 

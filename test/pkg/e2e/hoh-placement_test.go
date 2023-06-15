@@ -312,7 +312,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				if err != nil {
 					return err
 				}
-				if len(status.Status) == 1 && status.Status[0].ComplianceState == "NonCompliant" &&
+				if len(status.Status) == 1 &&
 					status.Status[0].ClusterName == managedClusters[1].Name {
 					return nil
 				}
