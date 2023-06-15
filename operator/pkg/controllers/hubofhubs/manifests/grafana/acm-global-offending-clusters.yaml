@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686854426931,
+      "iteration": 1686863651420,
       "links": [
         {
           "asDropdown": false,
@@ -690,7 +690,7 @@ data:
               "value": "vendor"
             },
             "datasource": "${datasource}",
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc\nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id",
+            "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc",
             "description": "Managed cluster labels",
             "error": null,
             "hide": 0,
@@ -699,7 +699,7 @@ data:
             "multi": false,
             "name": "label",
             "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc\nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id",
+            "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc",
             "refresh": 2,
             "regex": "\\b(?!name\\b)(\\b[a-z]+)",
             "skipUrlSync": false,
@@ -718,7 +718,7 @@ data:
               ]
             },
             "datasource": "${datasource}",
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters mc \nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters mc \nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "description": "Managed cluster label values",
             "error": null,
             "hide": 0,
@@ -727,7 +727,7 @@ data:
             "multi": true,
             "name": "value",
             "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters mc \nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters mc \nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
