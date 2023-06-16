@@ -137,7 +137,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			tx.Where(&models.ManagedCluster{
 				LeafHubName: leafHubName,
 				ClusterName: clusterName,
-			}).Delete(models.ManagedCluster{})
+			}).Delete(&models.ManagedCluster{})
 		}
 
 		// return nil will commit the whole transaction
