@@ -159,9 +159,10 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 func getClusterNameToVersionMap(db *gorm.DB, schema, tableName, leafHubName string) (map[string]string, error) {
 	var resourceVersions []models.ResourceVersion
 
-	err := db.Table(fmt.Sprintf("%s.%s", schema, tableName)).
-		Select("payload->'metadata'->>'name' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
-		Where("leaf_hub_name = ? AND deleted_at IS NULL", leafHubName).Scan(&resourceVersions).Error
+	err := db.Select("payload->'metadata'->>'name' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
+		Where(&models.ManagedCluster{
+			LeafHubName: leafHubName,
+		}).Find(&models.ManagedCluster{}).Scan(&resourceVersions).Error
 	if err != nil {
 		return nil, err
 	}
