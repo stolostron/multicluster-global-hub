@@ -22,7 +22,7 @@ import (
 )
 
 // DataLayerType specifies the type of data layer that global hub stores and transports the data.
-// +kubebuilder:validation:Enum:="native";"largeScale"
+// +kubebuilder:validation:Enum:="largeScale"
 type DataLayerType string
 
 const (
@@ -67,8 +67,7 @@ type MulticlusterGlobalHubSpec struct {
 	// Tolerations causes all components to tolerate any taints.
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// DataLayer can be configured to use a different data layer.
-	// native: use the native data layer (default).
+	// DataLayer can be configured to use a different data layer, only support largeScale now.
 	// largeScale: large scale data layer served by kafka and postgres.
 	// +kubebuilder:validation:Required
 	DataLayer *DataLayerConfig `json:"dataLayer"`
