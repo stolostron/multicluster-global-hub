@@ -84,7 +84,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if !cluster.DeletionTimestamp.IsZero() {
-		r.Log.Info("Cluster is deleting, skip addon deploy", clusterName)
+		r.Log.Info("Cluster is deleting, skip addon deploy", "cluster", clusterName)
 		config.DeleteManagedCluster(clusterName)
 		return ctrl.Result{}, nil
 	}
