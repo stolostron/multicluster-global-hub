@@ -40,16 +40,12 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 		p.log.Error(err, "failed to add policy compliance", "namespace", policyNamespace, "name", policyName)
 		return
 	}
-	p.log.Info("added policy compliance", "namespace", policyNamespace, "name", policyName,
-		"compliance", event.InvolvedObject.Labels[constants.PolicyEventComplianceLabelKey])
 
 	// cluster policy event, then add root policy id and cluster id
 	rootPolicyNamespacedName, ok := event.InvolvedObject.Labels[constants.PolicyEventRootPolicyNameLabelKey]
 	if !ok {
 		return
 	}
-	p.log.Info("get root policy name", "namespace", policyNamespace, "name", policyName,
-		"rootPolicyName", rootPolicyNamespacedName)
 
 	// add root policy id
 	policyNameSlice := strings.Split(rootPolicyNamespacedName, ".")
@@ -69,9 +65,6 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 	}
 	event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey] = string(rootPolicy.GetUID())
 
-	p.log.Info("add root policy id", "namespace", policyNamespace, "name", policyName,
-		"rootPolicyId", event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey])
-
 	// add cluster id
 	clusterName, ok := event.InvolvedObject.Labels[constants.PolicyEventClusterNameLabelKey]
 	if !ok {
@@ -90,7 +83,6 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 		}
 	}
 	event.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey] = clusterId
-	p.log.Info("add cluster id", "namespace", policyNamespace, "name", policyName, "clusterId", clusterId)
 }
 
 func (p *PolicyEventEnhancer) addPolicyCompliance(ctx context.Context, event *kube.EnhancedEvent) error {
