@@ -24,13 +24,13 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686722308370,
+      "iteration": 1686808590424,
       "links": [
         {
           "asDropdown": false,
           "icon": "dashboard",
-          "includeVars": false,
-          "keepTime": false,
+          "includeVars": true,
+          "keepTime": true,
           "tags": [],
           "targetBlank": true,
           "title": "Offending Clusters",
@@ -126,7 +126,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date as \"time\",\n    payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (ch.compliance_date)\n),\nordermetric as (\n  SELECT\n    $label,\n    ROW_NUMBER () OVER (ORDER BY (SUM(non_compliant)/NULLIF((SUM(non_compliant) + SUM(compliant) + SUM(unknown)), 0)) DESC) as row_number\n  FROM\n    data\n  GROUP BY($label)\n)\nSELECT\n  time,\n  dc.$label as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  ordermetric tc\nJOIN\n  data dc on dc.$label = tc.$label\nWHERE\n  tc.row_number >= $topmin AND tc.row_number <= $topmax\nORDER BY (time)",
+              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date as \"time\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (ch.compliance_date)\n),\nordermetric as (\n  SELECT\n    $label,\n    ROW_NUMBER () OVER (ORDER BY (SUM(non_compliant)/NULLIF((SUM(non_compliant) + SUM(compliant) + SUM(unknown)), 0)) DESC) as row_number\n  FROM\n    data\n  GROUP BY($label)\n)\nSELECT\n  time,\n  dc.$label as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  ordermetric tc\nJOIN\n  data dc on dc.$label = tc.$label\nWHERE\n  tc.row_number >= $topmin AND tc.row_number <= $topmax\nORDER BY (time)",
               "refId": "A",
               "select": [
                 [
@@ -304,6 +304,90 @@ data:
             "skipUrlSync": false,
             "sort": 0,
             "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": null,
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_standard\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\npolicy_standard IS NOT NULL;",
+            "description": "Managed cluster policy standards",
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Standard",
+            "multi": true,
+            "name": "standard",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_standard\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\npolicy_standard IS NOT NULL;",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": null,
+            "definition": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard) \nAND\n  policy_category IS NOT NULL",
+            "description": "Managed cluster policy categories",
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Category",
+            "multi": true,
+            "name": "category",
+            "options": [],
+            "query": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard) \nAND\n  policy_category IS NOT NULL",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": null,
+            "definition": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IS NOT NULL",
+            "description": "Managed cluster labels policy controls",
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Control",
+            "multi": true,
+            "name": "control",
+            "options": [],
+            "query": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IS NOT NULL",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
           }
         ]
       },
@@ -315,7 +399,7 @@ data:
       "timezone": "utc",
       "title": "Global Hub - Cluster Group Compliancy Overview",
       "uid": "868845a4d1334958bd62303c5ccb4c19",
-      "version": 1
+      "version": 2
     }
 kind: ConfigMap
 metadata:
