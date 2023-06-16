@@ -10,6 +10,7 @@ This document focuses on the features of the multicluster global hub.
 - [Grafana dashboards](#grafana-dashboards)
 4. [Troubleshooting](troubleshooting.md)
 5. [Development preview features](dev-preview.md)
+6. [Known issues](#known-issues)
 ## Overview
 
 The multicluster global hub is to resolve the problem of a single hub cluster in high scale environment. Due to the limitation of the kubernetes, the single hub cluster can not handle the large number of managed clusters. The multicluster global hub is designed to solve this problem by splitting the managed clusters into multiple regional hub clusters. The regional hub clusters are managed by the global hub cluster.
@@ -86,6 +87,11 @@ It requires to disable the cluster self management in the existing ACM hub clust
 
 After that, follow the [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html-single/clusters/index#importing-a-target-managed-cluster-to-the-hub-cluster) document to import the regional hub cluster.
 
+Once the regional hub cluster is imported, you can check the global hub agent status to ensure that the agent is running in the regional hub cluster.
+```bash
+oc get managedclusteraddon multicluster-global-hub-controller -n ${REGIONAL_HUB_CLUSTER_NAME}
+```
+
 ### Access the grafana
 The grafana is exposed through Route, you can use the following command to get the login URL. The authentication method of this URL is same as the openshift console, so you don't have to worry about using another authentication.
 ```bash
@@ -93,3 +99,8 @@ oc get route multicluster-global-hub-grafana -n <the-namespace-of-multicluster-g
 ```
 
 ### Grafana dashboards
+
+### Known issues
+1. If the database is empty, the grafana dashboards will show the error `db query syntax error for {dashboard_name} dashboard`. When you have some data in the database, the error will disappear.
+
+2. We provide ability to drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard. But the drill down feature is not working for the first datapoint. You can click the second datapoint or after to see the drill down feature is working. The issue is applied to the `Cluster Group Compliancy Overview` dashboard as well.
