@@ -160,10 +160,7 @@ func getPolicyIdToVersionMap(db *gorm.DB, schema, tableName, leafHubName string)
 
 	err := db.Table(fmt.Sprintf("%s.%s", schema, tableName)).
 		Select("payload->'metadata'->>'uid' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
-		Where(&models.LocalSpecPolicy{ // Find soft deleted records: db.Unscoped().Where(...)
-			LeafHubName: leafHubName,
-		}).
-		Scan(&resourceVersions).Error
+		Where("leaf_hub_name = ? AND deleted_at IS NULL", leafHubName).Scan(&resourceVersions).Error
 	if err != nil {
 		return nil, err
 	}

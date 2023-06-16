@@ -29,7 +29,6 @@ func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
 	}
 
 	log.Info("initialized managed clusters db syncer")
-
 	return dbSyncer
 }
 
@@ -104,6 +103,11 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 
 			clusterVersionFromDB, exist := clusterNameToVersionMapFromDB[cluster.GetName()]
 			if !exist { // cluster not found in the db table
+				syncer.log.Info("cluster created", "leafHubName", leafHubName, "clusterName", cluster.GetName())
+				tx.Unscoped().Where(&models.ManagedCluster{
+					LeafHubName: leafHubName,
+					ClusterName: cluster.GetName(),
+				}).Delete(&models.ManagedCluster{})
 				tx.Create(&models.ManagedCluster{
 					ClusterID:   clusterId,
 					LeafHubName: leafHubName,
@@ -120,6 +124,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 				continue // update cluster in db only if what we got is a different (newer) version of the resource
 			}
 
+			syncer.log.Info("cluster updated", "leafHubName", leafHubName, "clusterName", cluster.GetName())
 			tx.Model(&models.ManagedCluster{}).
 				Where(&models.ManagedCluster{
 					LeafHubName: leafHubName,
@@ -153,12 +158,10 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 
 func getClusterNameToVersionMap(db *gorm.DB, schema, tableName, leafHubName string) (map[string]string, error) {
 	var resourceVersions []models.ResourceVersion
+
 	err := db.Table(fmt.Sprintf("%s.%s", schema, tableName)).
 		Select("payload->'metadata'->>'name' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
-		Where(&models.ManagedCluster{ // Find soft deleted records: db.Unscoped().Where(...)
-			LeafHubName: leafHubName,
-		}).
-		Scan(&resourceVersions).Error
+		Where("leaf_hub_name = ? AND deleted_at IS NULL", leafHubName).Scan(&resourceVersions).Error
 	if err != nil {
 		return nil, err
 	}
