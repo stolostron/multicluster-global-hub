@@ -29,8 +29,8 @@ data:
         {
           "asDropdown": false,
           "icon": "dashboard",
-          "includeVars": false,
-          "keepTime": false,
+          "includeVars": true,
+          "keepTime": true,
           "tags": [],
           "targetBlank": true,
           "title": "Offending Clusters",
@@ -41,8 +41,8 @@ data:
         {
           "asDropdown": false,
           "icon": "dashboard",
-          "includeVars": false,
-          "keepTime": false,
+          "includeVars": true,
+          "keepTime": true,
           "tags": [],
           "targetBlank": true,
           "title": "Offending Policies",
