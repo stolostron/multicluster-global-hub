@@ -147,7 +147,7 @@ func SetImageOverrides(mgh *operatorv1alpha3.MulticlusterGlobalHub) error {
 	imageRepoOverride := getAnnotation(mgh, operatorconstants.AnnotationImageRepo)
 	if imageRepoOverride != "" {
 		for imageKey, imageRef := range imageOverrides {
-			imageIndex := strings.LastIndex(imageRef, "/")
+			imageIndex := strings.Index(imageRef, "/")
 			imageOverrides[imageKey] = fmt.Sprintf("%s%s", imageRepoOverride, imageRef[imageIndex:])
 		}
 	}
