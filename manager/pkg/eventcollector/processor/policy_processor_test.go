@@ -34,6 +34,7 @@ var _ = Describe("configmaps to database controller", func() {
 				WHEN duplicate_object THEN null;
 			END $$;
 			CREATE TABLE IF NOT EXISTS event.local_policies (
+				event_name text,
 				policy_id uuid NOT NULL,
 				cluster_id uuid NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
@@ -43,7 +44,7 @@ var _ = Describe("configmaps to database controller", func() {
 				source jsonb,
 				created_at timestamp without time zone DEFAULT now() NOT NULL,
 				compliance local_status.compliance_type NOT NULL,
-				CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, count)
+				CONSTRAINT local_policies_unique_constraint UNIQUE (event_name, count)
 			);
 		`)
 		Expect(err).ToNot(HaveOccurred())
