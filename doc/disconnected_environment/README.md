@@ -151,7 +151,7 @@ oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
     name: multicluster-global-hub-operator
     namespace: default
   spec:
-    channel: prerelease-2.8
+    channel: alpha
     installPlanApproval: Automatic
     name: multicluster-global-hub-operator
     source: global-hub-operator-catalog
