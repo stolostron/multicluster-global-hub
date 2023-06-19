@@ -158,12 +158,10 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 func getPolicyIdToVersionMap(db *gorm.DB, schema, tableName, leafHubName string) (map[string]string, error) {
 	var resourceVersions []models.ResourceVersion
 
-	err := db.Table(fmt.Sprintf("%s.%s", schema, tableName)).
-		Select("payload->'metadata'->>'uid' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
-		Where(&models.LocalSpecPolicy{ // Find soft deleted records: db.Unscoped().Where(...)
+	err := db.Select("payload->'metadata'->>'uid' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
+		Where(&models.LocalSpecPolicy{ // Find soft deleted records: db.Unscoped().Where(...).Find(...)
 			LeafHubName: leafHubName,
-		}).
-		Scan(&resourceVersions).Error
+		}).Find(&models.LocalSpecPolicy{}).Scan(&resourceVersions).Error
 	if err != nil {
 		return nil, err
 	}
