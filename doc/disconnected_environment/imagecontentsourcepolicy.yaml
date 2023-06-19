@@ -5,5 +5,5 @@ metadata:
 spec:
   repositoryDigestMirrors:
   - mirrors:
-    - ${REGISTRY}/multicluster-global-hub-operator
-    source: quayy.io/stolostron/multicluster-global-hub-operator
+    - ${REGISTRY}/multicluster-globalhub
+    source: registry.redhat.io/multicluster-globalhub
