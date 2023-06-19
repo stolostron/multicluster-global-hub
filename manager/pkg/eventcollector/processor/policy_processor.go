@@ -54,6 +54,7 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 		return
 	}
 	baseLocalPolicyEvent := &models.BaseLocalPolicyEvent{
+		EventName:   event.Name,
 		Message:     event.Message,
 		Reason:      event.Reason,
 		LeafHubName: event.ClusterName,
@@ -64,20 +65,18 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 	}
 
 	var insertEvent interface{}
-	conflictColumns := []clause.Column{{Name: "policy_id"}, {Name: "count"}}
+	conflictColumns := []clause.Column{{Name: "event_name"}, {Name: "count"}}
 	if hasClusterId || hasRootPolicyId {
 		baseLocalPolicyEvent.PolicyID = rootPolicyId
 		insertEvent = &models.LocalClusterPolicyEvent{
 			BaseLocalPolicyEvent: *baseLocalPolicyEvent,
 			ClusterID:            clusterId,
 		}
-		conflictColumns = append(conflictColumns, clause.Column{Name: "cluster_id"})
 	} else {
 		baseLocalPolicyEvent.PolicyID = string(event.InvolvedObject.UID)
 		insertEvent = &models.LocalRootPolicyEvent{
 			BaseLocalPolicyEvent: *baseLocalPolicyEvent,
 		}
-		conflictColumns = append(conflictColumns, clause.Column{Name: "leaf_hub_name"})
 	}
 
 	ctx, cancel := context.WithTimeout(p.ctx, 1*time.Minute)
