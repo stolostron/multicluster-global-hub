@@ -309,3 +309,29 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION public.update_local_compliance_cluster_id()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE local_status.compliance
+    SET cluster_id = NEW.cluster_id
+    WHERE leaf_hub_name = NEW.leaf_hub_name
+        AND cluster_name = (NEW.payload -> 'metadata' ->> 'name');    
+    RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.update_compliance_cluster_id()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE status.compliance
+    SET cluster_id = NEW.cluster_id
+    WHERE leaf_hub_name = NEW.leaf_hub_name
+        AND cluster_name = (NEW.payload -> 'metadata' ->> 'name');  
+    RETURN NEW;
+END;
+$$;
