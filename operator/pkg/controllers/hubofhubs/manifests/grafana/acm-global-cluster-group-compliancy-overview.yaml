@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686808590424,
+      "iteration": 1687363144671,
       "links": [
         {
           "asDropdown": false,
@@ -80,7 +80,7 @@ data:
                 {
                   "targetBlank": true,
                   "title": "View Offending Clusters by ${label}:${__field.name}",
-                  "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1&from=${__value.time}&to=${__value.time}&var-label=${label}&var-value=${__field.name}"
+                  "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1&from=${__value.time}&to=${__value.time}&var-label=${label}&var-value=${__field.name}&${standard:queryparam}&${category:queryparam}&${control:queryparam}"
                 }
               ],
               "mappings": [],
@@ -126,7 +126,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    ch.compliance_date as \"time\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (ch.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (ch.compliance_date)\n),\nordermetric as (\n  SELECT\n    $label,\n    ROW_NUMBER () OVER (ORDER BY (SUM(non_compliant)/NULLIF((SUM(non_compliant) + SUM(compliant) + SUM(unknown)), 0)) DESC) as row_number\n  FROM\n    data\n  GROUP BY($label)\n)\nSELECT\n  time,\n  dc.$label as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  ordermetric tc\nJOIN\n  data dc on dc.$label = tc.$label\nWHERE\n  tc.row_number >= $topmin AND tc.row_number <= $topmax\nORDER BY (time)",
+              "rawSql": "WITH data as (\n  SELECT\n    lc.compliance_date as \"time\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance lc ON mc.cluster_id = lc.cluster_id\n  JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(lc.compliance_date)\n  AND\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (lc.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (lc.compliance_date)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data",
               "refId": "A",
               "select": [
                 [
@@ -235,80 +235,6 @@ data:
             "allValue": null,
             "current": {
               "selected": true,
-              "text": "1:10",
-              "value": "1:10"
-            },
-            "description": "Top N Non Compliance Values",
-            "error": null,
-            "hide": 1,
-            "includeAll": false,
-            "label": "Top",
-            "multi": false,
-            "name": "top",
-            "options": [
-              {
-                "selected": true,
-                "text": "1:10",
-                "value": "1:10"
-              }
-            ],
-            "query": "1:10",
-            "queryValue": "",
-            "skipUrlSync": false,
-            "type": "custom"
-          },
-          {
-            "allValue": null,
-            "current": {
-              "selected": false,
-              "text": "1",
-              "value": "1"
-            },
-            "datasource": null,
-            "definition": "SELECT SPLIT_PART('$top', ':', 1);",
-            "description": null,
-            "error": null,
-            "hide": 2,
-            "includeAll": false,
-            "label": "",
-            "multi": false,
-            "name": "topmin",
-            "options": [],
-            "query": "SELECT SPLIT_PART('$top', ':', 1);",
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 0,
-            "type": "query"
-          },
-          {
-            "allValue": null,
-            "current": {
-              "selected": false,
-              "text": "10",
-              "value": "10"
-            },
-            "datasource": null,
-            "definition": "SELECT SPLIT_PART('$top', ':', 2);",
-            "description": null,
-            "error": null,
-            "hide": 2,
-            "includeAll": false,
-            "label": "",
-            "multi": false,
-            "name": "topmax",
-            "options": [],
-            "query": "SELECT SPLIT_PART('$top', ':', 2);",
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 0,
-            "type": "query"
-          },
-          {
-            "allValue": null,
-            "current": {
-              "selected": true,
               "text": [
                 "All"
               ],
@@ -399,7 +325,7 @@ data:
       "timezone": "utc",
       "title": "Global Hub - Cluster Group Compliancy Overview",
       "uid": "868845a4d1334958bd62303c5ccb4c19",
-      "version": 2
+      "version": 1
     }
 kind: ConfigMap
 metadata:
