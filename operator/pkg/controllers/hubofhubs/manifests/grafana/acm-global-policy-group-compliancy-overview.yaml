@@ -24,7 +24,8 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686809195525,
+      "id": 3,
+      "iteration": 1687368735376,
       "links": [
         {
           "asDropdown": false,
@@ -80,7 +81,7 @@ data:
                 {
                   "targetBlank": true,
                   "title": "View Offending Policies for $group group: ${__field.name}",
-                  "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1&from=${__value.time}&to=${__value.time}&var-${group}=${__field.name}"
+                  "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1&from=${__value.time}&to=${__value.time}&${standard:queryparam}&${category:queryparam}&${control:queryparam}"
                 }
               ],
               "mappings": [],
