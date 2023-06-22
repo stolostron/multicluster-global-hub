@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1687363144671,
+      "iteration": 1686808590424,
       "links": [
         {
           "asDropdown": false,
@@ -33,7 +33,7 @@ data:
           "keepTime": true,
           "tags": [],
           "targetBlank": true,
-          "title": "Offending Clusters",
+          "title": "Global Hub - Offending Clusters",
           "tooltip": "",
           "type": "link",
           "url": "d/0e0ddb7f16b946f99d96a483a4a3f95f/global-hub-offending-clusters?orgId=1"
