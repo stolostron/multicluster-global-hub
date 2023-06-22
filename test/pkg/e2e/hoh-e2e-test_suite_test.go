@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
@@ -28,9 +29,9 @@ var (
 	httpToken  string
 	httpClient *http.Client
 
-	GlobalHubName string
-	LeafHubNames []string
-	ExpectedLeafHubNum int
+	GlobalHubName             string
+	LeafHubNames              []string
+	ExpectedLeafHubNum        int
 	ExpectedManagedClusterNum int
 )
 
@@ -117,4 +118,13 @@ func initVars() {
 			ExpectedManagedClusterNum += 1
 		}
 	}
+}
+
+func GetClusterID(cluster clusterv1.ManagedCluster) string {
+	for _, claim := range cluster.Status.ClusterClaims {
+		if claim.Name == "id.k8s.io" {
+			return claim.Value
+		}
+	}
+	return ""
 }

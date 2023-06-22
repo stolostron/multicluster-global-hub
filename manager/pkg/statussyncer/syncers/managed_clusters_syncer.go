@@ -129,7 +129,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			tx.Model(&models.ManagedCluster{}).
 				Where(&models.ManagedCluster{
 					LeafHubName: leafHubName,
-					ClusterName: clusterId,
+					ClusterID:   clusterId,
 				}).
 				Updates(models.ManagedCluster{
 					Payload: payload,

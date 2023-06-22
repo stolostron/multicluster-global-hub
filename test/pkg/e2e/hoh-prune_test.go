@@ -69,8 +69,8 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			}
 			managedClusterName1 = managedClusters[0].Name
 			managedClusterName2 = managedClusters[1].Name
-			managedClusterUID1 = string(managedClusters[0].GetUID())
-			managedClusterUID2 = string(managedClusters[1].GetUID())
+			managedClusterUID1 = GetClusterID(managedClusters[0])
+			managedClusterUID2 = GetClusterID(managedClusters[1])
 			return nil
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})

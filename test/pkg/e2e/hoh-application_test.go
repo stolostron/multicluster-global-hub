@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"crypto/tls"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +38,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		Eventually(func() error {
 			By("Config request of the api")
 			transport := &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			}
 			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
 			var err error
@@ -73,7 +73,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		By("Check the label is added")
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].GetUID()))
+			err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[0]))
 			if err != nil {
 				return err
 			}
@@ -103,7 +103,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
 
-		for i:=1; i<len(managedClusters); i++ {
+		for i := 1; i < len(managedClusters); i++ {
 			It(fmt.Sprintf("Add the app label[ %s: %s ]", APP_LABEL_KEY, APP_LABEL_VALUE), func() {
 				By("Add the lablel to managedcluster")
 				patches := []patch{
@@ -116,7 +116,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 				By("Check the label is added to managedcluster")
 				Eventually(func() error {
-					err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[i].GetUID()))
+					err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID((managedClusters[i])))
 					if err != nil {
 						return err
 					}
@@ -161,7 +161,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		}
 		Eventually(func() error {
 			for _, managedCluster := range managedClusters {
-				err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.GetUID()))
+				err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedCluster))
 				if err != nil {
 					return err
 				}
