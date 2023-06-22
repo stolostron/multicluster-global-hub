@@ -3,6 +3,7 @@ package addon_test
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +20,7 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -72,6 +74,24 @@ var _ = Describe("addon integration", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, clusterManagementAddon)).Should(Succeed())
+
+		By("Create global hub configmap instance")
+		expectedHoHConfigMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: constants.GHSystemNamespace,
+				Name:      constants.GHConfigCMName,
+				Labels: map[string]string{
+					constants.GlobalHubOwnerLabelKey:       constants.GHOperatorOwnerLabelVal,
+					constants.GlobalHubGlobalResourceLabel: "",
+				},
+			},
+			Data: map[string]string{
+				"aggregationLevel":    string(operatorconstants.FullAggregation),
+				"enableLocalPolicies": strconv.FormatBool(true),
+			},
+		}
+		expectedHoHConfigMap.SetUID("test-uid")
+		config.SetGlobalHubConfig(expectedHoHConfigMap)
 	})
 
 	Context("When configure the image registry and pull secret", func() {
@@ -226,7 +246,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(10))
 		})
 
 		It("Should create HoH agent and ACM when an OCP is imported", func() {
@@ -270,7 +290,7 @@ var _ = Describe("addon integration", Ordered, func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			// contains both the ACM and the Global Hub manifests
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(18))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(19))
 		})
 
 		It("Should create HoH addon when an OCP with deploy mode = default is imported in hosted mode", func() {
@@ -315,7 +335,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(10))
 		})
 
 		It("Should create HoH addon when an OCP with deploy mode = Hosted is imported in hosted mode", func() {
@@ -366,7 +386,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(2))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(3))
 			hostingWork := &workv1.ManifestWork{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{
@@ -432,7 +452,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(11))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(12))
 			hostingWork := &workv1.ManifestWork{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{

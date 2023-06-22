@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+data:
+  aggregationLevel: {{ .AggregationLevel }}
+  enableLocalPolicies: "{{ .EnableLocalPolicies }}"
+metadata:
+  annotations:
+    global-hub.open-cluster-management.io/origin-ownerreference-uid: {{ .OriginOwnerReferenceUID }}
+  name: multicluster-global-hub-config
+  namespace: open-cluster-management-global-hub-system
