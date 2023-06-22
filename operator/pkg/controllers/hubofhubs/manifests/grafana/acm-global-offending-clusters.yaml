@@ -701,7 +701,7 @@ data:
             "options": [],
             "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc\nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id",
             "refresh": 2,
-            "regex": "/^[a-z]+$/",
+            "regex": "\\b(?!name\\b)(\\b[a-z]+)",
             "skipUrlSync": false,
             "sort": 5,
             "type": "query"
