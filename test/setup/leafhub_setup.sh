@@ -65,3 +65,20 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
     hover $! "  Policy hub${i}-cluster${j}" 
   done
 done
+
+# create cluster claim on managedcluster
+for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
+  for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
+    cat <<EOF | kubectl --context kind-hub${i}-cluster${j} apply -f -
+apiVersion: cluster.open-cluster-management.io/v1alpha1
+kind: ClusterClaim
+metadata:
+  labels:
+    open-cluster-management.io/hub-managed: ""
+    velero.io/exclude-from-backup: "true"
+  name: id.k8s.io
+spec:
+  value: $(uuidgen)
+EOF
+  done
+done
