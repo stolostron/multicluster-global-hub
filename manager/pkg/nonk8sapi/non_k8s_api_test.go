@@ -86,6 +86,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			END $$;
 
 			CREATE TABLE IF NOT EXISTS status.managed_clusters (
+				cluster_id uuid NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
 				payload jsonb NOT NULL,
 				error status.error_type NOT NULL
@@ -157,6 +158,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	})
 
 	It("Should be able to list managed clusters", func() {
+		mc1Id := "2aa5547c-c172-47ed-b70b-db468c84d327"
+		mc2Id := "18c9e13c-4488-4dcd-a5ac-1196093abbc0"
 		hub1, mc1, mc2 := "hub1", `
 {
 	"kind": "ManagedCluster",
@@ -228,12 +231,14 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 
 		By("Insert testing managed clusters")
 		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.managed_clusters (leaf_hub_name,payload,error) VALUES ($1, $2, 'none');`,
+			`INSERT INTO status.managed_clusters (cluster_id,leaf_hub_name,payload,error) VALUES ($1, $2, $3, 'none');`,
+			mc1Id,
 			hub1,
 			mc1)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.managed_clusters (leaf_hub_name,payload,error) VALUES ($1, $2, 'none');`,
+			`INSERT INTO status.managed_clusters (cluster_id,leaf_hub_name,payload,error) VALUES ($1, $2, $3, 'none');`,
+			mc2Id,
 			hub1,
 			mc2)
 		Expect(err).ToNot(HaveOccurred())
