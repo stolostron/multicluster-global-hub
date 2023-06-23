@@ -1,0 +1,608 @@
+apiVersion: v1
+data:
+  acm-global-whats-changed-policies.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "target": {
+              "limit": 100,
+              "matchAny": false,
+              "tags": [],
+              "type": "dashboard"
+            },
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "iteration": 1687543370621,
+      "links": [
+        {
+          "asDropdown": false,
+          "icon": "dashboard",
+          "includeVars": true,
+          "keepTime": true,
+          "tags": [],
+          "targetBlank": true,
+          "title": "Global Hub - Offending Policies",
+          "tooltip": "",
+          "type": "link",
+          "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1"
+        }
+      ],
+      "panels": [
+        {
+          "datasource": "${datasource}",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "fillOpacity": 70,
+                "lineWidth": 0
+              },
+              "mappings": [],
+              "noValue": "-",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "dark-yellow",
+                    "value": 0.5
+                  },
+                  {
+                    "color": "green",
+                    "value": 0.9
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 11,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 12,
+          "options": {
+            "alignValue": "left",
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "mergeValues": true,
+            "rowHeight": 0.9,
+            "showValue": "auto",
+            "tooltip": {
+              "mode": "single"
+            }
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "time_series",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  INNER JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    policy_name = '$policy'\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (time)\n),\norderclusters as (\n  SELECT\n    cluster_name,\n    ROW_NUMBER () OVER (ORDER BY(SUM(non_compliant)/NULLIF((SUM(non_compliant) + SUM(compliant) + SUM(unknown)), 0)) DESC) as row_number\n  FROM\n    data\n  GROUP BY(cluster_name)\n)\nSELECT\n  time,\n  dc.cluster_name as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.cluster_name = tc.cluster_name\nWHERE\n  tc.row_number >= $topmin AND tc.row_number <= $topmax\nORDER BY (time)",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "timeFrom": null,
+          "title": "Cluster State Timeline",
+          "type": "state-timeline"
+        },
+        {
+          "datasource": null,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 11
+          },
+          "id": 6,
+          "title": "Policy Events",
+          "type": "row"
+        },
+        {
+          "datasource": "${datasource}",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto",
+                "filterable": true
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "compliant": {
+                      "color": "green",
+                      "index": 0,
+                      "text": "true"
+                    },
+                    "non_compliant": {
+                      "color": "red",
+                      "index": 1,
+                      "text": "false"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "dark-yellow",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "compliance"
+                },
+                "properties": [
+                  {
+                    "id": "custom.displayMode",
+                    "value": "color-background"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hub"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View policy \"${__data.fields.Policy}\" on hub cluster \"${__data.fields.Hub}\"",
+                        "url": "https://console-openshift-console.apps.${__data.fields.BaseDomain}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 12
+          },
+          "id": 4,
+          "interval": null,
+          "options": {
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' -> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message,\n  rp.reason,\n  rp.compliance\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id\nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  p.leaf_hub_name = '$hub'\nAND\n  policy_name = '$policy'\nORDER BY (rp.created_at) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "timeFrom": null,
+          "title": "Policy Propagation Events",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "compliance": 6,
+                  "hub": 2,
+                  "message": 4,
+                  "namespace": 3,
+                  "policy_name": 1,
+                  "reason": 5,
+                  "time": 0
+                },
+                "renameByName": {
+                  "cluster_id": "ClusterID",
+                  "cluster_name": "Cluster",
+                  "compliance": "Compliance",
+                  "hub": "Hub",
+                  "message": "Message",
+                  "namespace": "Namespace",
+                  "policy_name": "Policy",
+                  "reason": "Reason",
+                  "source": "Source",
+                  "time": "Time"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": "${datasource}",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto",
+                "filterable": true
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "compliant": {
+                      "color": "green",
+                      "index": 0,
+                      "text": "true"
+                    },
+                    "non_compliant": {
+                      "color": "red",
+                      "index": 1,
+                      "text": "false"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "dark-yellow",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "compliance"
+                },
+                "properties": [
+                  {
+                    "id": "custom.displayMode",
+                    "value": "color-background"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hub"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View policy \"${__data.fields.Policy}\" on hub cluster \"${__data.fields.Hub}\"",
+                        "url": "https://console-openshift-console.apps.${__data.fields.BaseDomain}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 21
+          },
+          "id": 13,
+          "interval": null,
+          "options": {
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "date_id"
+              }
+            ]
+          },
+          "pluginVersion": "8.5.20",
+          "targets": [
+            {
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.policy_name,\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' -> 'namespace' as \"namespace\",\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  policy_name = '$policy'\nORDER BY (lp.created_at) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "timeFrom": null,
+          "title": "Policy Compliance Events",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "cluster_name": 4,
+                  "compliance": 7,
+                  "hub": 2,
+                  "message": 5,
+                  "namespace": 3,
+                  "policy_name": 1,
+                  "reason": 6,
+                  "time": 0
+                },
+                "renameByName": {
+                  "cluster_id": "ClusterID",
+                  "cluster_name": "Cluster",
+                  "compliance": "Compliance",
+                  "hub": "Hub",
+                  "message": "Message",
+                  "namespace": "Namespace",
+                  "policy_name": "Policy",
+                  "reason": "Reason",
+                  "source": "Source",
+                  "time": "Time"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "refresh": false,
+      "schemaVersion": 30,
+      "style": "dark",
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "selected": false,
+              "text": "Global-Hub-DataSource",
+              "value": "Global-Hub-DataSource"
+            },
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": "Datasource",
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "postgres",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": true,
+              "text": "",
+              "value": ""
+            },
+            "datasource": "${datasource}",
+            "definition": "WITH compcluster as(\n    SELECT DISTINCT policy_id\n  FROM\n    history.local_compliance lc\n  WHERE\n    $__timeFilter(lc.compliance_date)\n)\nSELECT\n  leaf_hub_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id",
+            "description": "Regional hub cluster name",
+            "error": null,
+            "hide": 0,
+            "includeAll": false,
+            "label": "Hub",
+            "multi": false,
+            "name": "hub",
+            "options": [],
+            "query": "WITH compcluster as(\n    SELECT DISTINCT policy_id\n  FROM\n    history.local_compliance lc\n  WHERE\n    $__timeFilter(lc.compliance_date)\n)\nSELECT\n  leaf_hub_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "",
+              "value": ""
+            },
+            "datasource": "${datasource}",
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.leaf_hub_name = '$hub'",
+            "description": null,
+            "error": null,
+            "hide": 0,
+            "includeAll": false,
+            "label": "Policy",
+            "multi": false,
+            "name": "policy",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.leaf_hub_name = '$hub'",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": "1:10",
+              "value": "1:10"
+            },
+            "description": "Top N Non Compliance Clusters",
+            "error": null,
+            "hide": 0,
+            "label": "Top",
+            "name": "top",
+            "options": [
+              {
+                "selected": true,
+                "text": "1:10",
+                "value": "1:10"
+              }
+            ],
+            "query": "1:10",
+            "skipUrlSync": false,
+            "type": "textbox"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "1",
+              "value": "1"
+            },
+            "datasource": null,
+            "definition": "SELECT SPLIT_PART('$top', ':', 1);",
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "topmin",
+            "options": [],
+            "query": "SELECT SPLIT_PART('$top', ':', 1);",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "10",
+              "value": "10"
+            },
+            "datasource": null,
+            "definition": "SELECT SPLIT_PART('$top', ':', 2);",
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "topmax",
+            "options": [],
+            "query": "SELECT SPLIT_PART('$top', ':', 2);",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-7d",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "utc",
+      "title": "Global Hub - What's Changed / Policies",
+      "uid": "5a3a577af7894943aa6e7ca8408502fa",
+      "version": 1
+    }
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-acm-global-whats-changed
+  namespace: {{.Namespace}}

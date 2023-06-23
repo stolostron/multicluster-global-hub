@@ -24,7 +24,8 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686809195525,
+      "id": 2,
+      "iteration": 1687542417113,
       "links": [
         {
           "asDropdown": false,
@@ -84,6 +85,7 @@ data:
                 }
               ],
               "mappings": [],
+              "max": 1,
               "noValue": "N/A",
               "thresholds": {
                 "mode": "absolute",
