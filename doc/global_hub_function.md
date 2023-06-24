@@ -1,2 +1,0 @@
-# Goal of Global Hub
-
