@@ -604,5 +604,5 @@ data:
     }
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-acm-global-whats-changed
+  name: grafana-dashboard-acm-global-whats-changed-policies
   namespace: {{.Namespace}}
