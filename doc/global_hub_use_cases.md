@@ -5,6 +5,7 @@ As enterprises evolve to have many ACM hubs to manage their fleet, there is a ne
 
 ### Use Case 1
 
+|||
 |---|---|
 |Precondition|ACM policies have been set up with correctly defined standards, categories and controls ; ACM policies have been distributed to clusters that are being managed by different ACM hubs using gitops; The compliance results from groups of ACM policies are aggregated for daily review|
 |Trigger |Need to provide a report for the last 30 days on corporate controls in place for Production clusters. |
@@ -14,6 +15,7 @@ As enterprises evolve to have many ACM hubs to manage their fleet, there is a ne
 
 ### Use Case 2
 
+|||
 |---|---|
 |Precondition|ACM policies have been set up with correctly defined standards, categories and controls ; ACM policies have been rolled out to clusters that are being managed by different ACM hubs using gitops; The cluster groups  are summed up to a daily level.|
 |Trigger |Need a report for the last 30 days of compliance for Production clusters against all policies |
