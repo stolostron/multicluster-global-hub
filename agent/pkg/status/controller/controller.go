@@ -11,8 +11,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
-	configCtrl "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	globalhubagentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/controlinfo"
 	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/localplacement"
@@ -28,8 +27,8 @@ import (
 // AddControllers adds all the controllers to the Manager.
 func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnation uint64) error {
 	config := &corev1.ConfigMap{}
-	syncIntervals := config.NewSyncIntervals()
-	if err := configCtrl.AddConfigController(mgr, config, syncIntervals); err != nil {
+	syncIntervals := globalhubagentconfig.NewSyncIntervals()
+	if err := globalhubagentconfig.AddConfigController(mgr, config, syncIntervals); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
 	}
 
@@ -54,7 +53,7 @@ func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnati
 	}
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Producer, string, uint64,
-		*corev1.ConfigMap, *syncintervals.SyncIntervals) error{
+		*corev1.ConfigMap, *globalhubagentconfig.SyncIntervals) error{
 		managedclusters.AddClustersStatusController,
 		placement.AddPlacementRulesController,
 		placement.AddPlacementsController,
