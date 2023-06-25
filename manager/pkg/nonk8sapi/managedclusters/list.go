@@ -63,9 +63,9 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		labelSelector := ginCtx.Query("labelSelector")
 
 		selectorInSql := ""
+		var err error
 
 		if labelSelector != "" {
-			var err error
 			selectorInSql, err = util.ParseLabelSelector(labelSelector)
 			if err != nil {
 				fmt.Fprintf(gin.DefaultWriter, "failed to parse label selector: %s\n", err.Error())
@@ -83,9 +83,6 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 
 		continueToken := ginCtx.Query("continue")
 		if continueToken != "" {
-			fmt.Fprintf(gin.DefaultWriter, "continue: %v\n", continueToken)
-
-			var err error
 			var lastManagedClusterUIDStr string
 			lastManagedClusterName, lastManagedClusterUIDStr, err = util.DecodeContinue(continueToken)
 			if err != nil {

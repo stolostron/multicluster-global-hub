@@ -18,6 +18,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 )
 
@@ -260,6 +261,18 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		]
 }`
 		Expect(w1.Body.String()).Should(MatchJSON(
+			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
+
+		By("Check the managedclusters can be list with continue")
+		w21 := httptest.NewRecorder()
+		continueToken, err := util.EncodeContinue("", "00000000-0000-0000-0000-000000000000")
+		Expect(err).ToNot(HaveOccurred())
+		req21, err := http.NewRequest("GET", fmt.Sprintf("/global-hub-api/v1/managedclusters?continue=%s",
+			continueToken), nil)
+		Expect(err).ToNot(HaveOccurred())
+		router.ServeHTTP(w21, req21)
+		Expect(w21.Code).To(Equal(200))
+		Expect(w21.Body.String()).Should(MatchJSON(
 			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
 
 		By("Check the managedclusters can be listed with limit and labelSelector")
