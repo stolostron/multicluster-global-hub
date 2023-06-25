@@ -4,17 +4,16 @@
 As enterprises evolve to have many ACM hubs to manage their fleet, there is a need to be able to look at some subset of data across the fleet from a single pane of glass. This is where the Global Hub View comes in. We start with Global View of Policies as first step of building Global Views.
 
 ### Use Case 1
-|||
+
 |---|---|
 |Precondition|ACM policies have been set up with correctly defined standards, categories and controls ; ACM policies have been distributed to clusters that are being managed by different ACM hubs using gitops; The compliance results from groups of ACM policies are aggregated for daily review|
 |Trigger |Need to provide a report for the last 30 days on corporate controls in place for Production clusters. |
 |Success Flow (nothing goes wrong)|Shows the count of compliance states for the last 30 days.  In a successful scenario these compliance states are all trending up across time. (this is one line that represents a group of policies). New clusters that are imported might indicate high levels of initial compliance drift which should indicate the decreasing trend over time. An entire new hub region could be brought ‘online’ and again we would expect the compliance drift decreasing as policy controls are enforced.|
 |Alternative Flows (something has gone wrong) |A security auditor needs additional details around a specific noncompliance event. The ad-hoc query requires drill down into a local-hub which is outside of the global hub itself.|
-|||
 
 
 ### Use Case 2
-|||
+
 |---|---|
 |Precondition|ACM policies have been set up with correctly defined standards, categories and controls ; ACM policies have been rolled out to clusters that are being managed by different ACM hubs using gitops; The cluster groups  are summed up to a daily level.|
 |Trigger |Need a report for the last 30 days of compliance for Production clusters against all policies |
