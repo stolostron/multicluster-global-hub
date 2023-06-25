@@ -55,11 +55,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 			Namespace: constants.GHSystemNamespace,
 			Name:      constants.GHAgentConfigCMName,
 			Labels: map[string]string{
-				constants.GlobalHubOwnerLabelKey:       constants.GHOperatorOwnerLabelVal,
-				constants.GlobalHubGlobalResourceLabel: "",
-				"managedClusters":                      "5s",
-				"policies":                             "5s",
-				"controlInfo":                          "60m",
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
 		Data: map[string]string{

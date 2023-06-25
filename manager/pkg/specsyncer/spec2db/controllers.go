@@ -18,7 +18,7 @@ func AddSpec2DBControllers(mgr ctrl.Manager, specDB db.SpecDB) error {
 		controller.AddPolicyController,
 		controller.AddPlacementRuleController,
 		controller.AddPlacementBindingController,
-		// controller.AddHubOfHubsConfigController,
+		controller.AddHubOfHubsConfigController,
 		controller.AddApplicationController,
 		controller.AddSubscriptionController,
 		controller.AddChannelController,
