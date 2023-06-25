@@ -104,8 +104,9 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: localPolicyLabelVal,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].UID))).Should(Succeed())
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken,
+				GetClusterID(managedClusters[0]))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[1]))).Should(Succeed())
 
 			By("Deploy the placement policy to the leafhub")
 			for _, leafhubName := range LeafHubNames {
@@ -273,8 +274,8 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: localPolicyLabelVal,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].UID))).Should(Succeed())
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[0]))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[1]))).Should(Succeed())
 		})
 	})
 
@@ -287,7 +288,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: policyClusterset,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[1]))).Should(Succeed())
 			Eventually(func() error {
 				managedCluster, err := getManagedClusterByName(httpClient, httpToken, managedClusters[1].Name)
 				if err != nil {
@@ -328,7 +329,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: policyClusterset,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[1]))).Should(Succeed())
 
 			By("Check the inform policy in global hub")
 			Eventually(func() error {
@@ -374,8 +375,8 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: APP_LABEL_VALUE,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].UID))).Should(Succeed())
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[0]))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[1]))).Should(Succeed())
 
 			By("Apply the appsub to labeled clusters")
 			Eventually(func() error {
@@ -402,7 +403,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: policyClusterset,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[1]))).Should(Succeed())
 
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
@@ -424,7 +425,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: policyClusterset,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[1]))).Should(Succeed())
 
 			By("Remove app label")
 			patches = []patch{
@@ -434,8 +435,8 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					Value: APP_LABEL_VALUE,
 				},
 			}
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].UID))).Should(Succeed())
-			Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[1].UID))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[0]))).Should(Succeed())
+			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[1]))).Should(Succeed())
 
 			By("manually remove the appsubreport in the regional hub") // TODO: remove this step after the issue is fixed
 			appsubreport := &appsv1alpha1.SubscriptionReport{

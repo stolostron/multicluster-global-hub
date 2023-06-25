@@ -72,8 +72,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	leafHubName := bundle.GetLeafHubName()
 
 	db := database.GetGorm()
-	clusterNameToVersionMapFromDB, err := getClusterNameToVersionMap(db, database.StatusSchema,
-		database.ManagedClustersTableName, leafHubName)
+	clusterIdToVersionMapFromDB, err := getClusterIdToVersionMap(db, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub managed clusters from db - %w", err)
 	}
@@ -86,14 +85,16 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 				continue
 			}
 
-			// Initially, we used cluster.uid as the clusterID to avoid null in case the clusterclaim is not generated
-			// and then get clusterID from clusterclaim
-			clusterId := string(cluster.GetUID())
+			// Initially, if the clusterID is not exist we will skip it until we get it from ClusterClaim
+			clusterId := ""
 			for _, claim := range cluster.Status.ClusterClaims {
 				if claim.Name == "id.k8s.io" {
 					clusterId = claim.Value
 					break
 				}
+			}
+			if clusterId == "" {
+				continue
 			}
 
 			payload, err := json.Marshal(cluster)
@@ -101,12 +102,12 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 				return err
 			}
 
-			clusterVersionFromDB, exist := clusterNameToVersionMapFromDB[cluster.GetName()]
+			clusterVersionFromDB, exist := clusterIdToVersionMapFromDB[clusterId]
 			if !exist { // cluster not found in the db table
-				syncer.log.Info("cluster created", "leafHubName", leafHubName, "clusterName", cluster.GetName())
+				syncer.log.Info("cluster created", "leafHubName", leafHubName, "clusterId", clusterId)
 				tx.Unscoped().Where(&models.ManagedCluster{
 					LeafHubName: leafHubName,
-					ClusterName: cluster.GetName(),
+					ClusterID:   clusterId,
 				}).Delete(&models.ManagedCluster{})
 				tx.Create(&models.ManagedCluster{
 					ClusterID:   clusterId,
@@ -118,30 +119,29 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			}
 
 			// remove the handled object from the map
-			delete(clusterNameToVersionMapFromDB, cluster.GetName())
+			delete(clusterIdToVersionMapFromDB, clusterId)
 
 			if cluster.GetResourceVersion() == clusterVersionFromDB {
 				continue // update cluster in db only if what we got is a different (newer) version of the resource
 			}
 
-			syncer.log.Info("cluster updated", "leafHubName", leafHubName, "clusterName", cluster.GetName())
+			syncer.log.Info("cluster updated", "leafHubName", leafHubName, "clusterId", clusterId)
 			tx.Model(&models.ManagedCluster{}).
 				Where(&models.ManagedCluster{
 					LeafHubName: leafHubName,
-					ClusterName: cluster.GetName(),
+					ClusterID:   clusterId,
 				}).
 				Updates(models.ManagedCluster{
-					ClusterID: clusterId,
-					Payload:   payload,
+					Payload: payload,
 				})
 		}
 
 		// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
-		for clusterName := range clusterNameToVersionMapFromDB {
+		for clusterId := range clusterIdToVersionMapFromDB {
 			// https://gorm.io/docs/delete.html#Soft-Delete
 			tx.Where(&models.ManagedCluster{
 				LeafHubName: leafHubName,
-				ClusterName: clusterName,
+				ClusterID:   clusterId,
 			}).Delete(&models.ManagedCluster{})
 		}
 
@@ -156,10 +156,10 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	return nil
 }
 
-func getClusterNameToVersionMap(db *gorm.DB, schema, tableName, leafHubName string) (map[string]string, error) {
+func getClusterIdToVersionMap(db *gorm.DB, leafHubName string) (map[string]string, error) {
 	var resourceVersions []models.ResourceVersion
 
-	err := db.Select("payload->'metadata'->>'name' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
+	err := db.Select("cluster_id AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
 		Where(&models.ManagedCluster{
 			LeafHubName: leafHubName,
 		}).Find(&models.ManagedCluster{}).Scan(&resourceVersions).Error

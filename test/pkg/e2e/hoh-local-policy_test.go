@@ -100,7 +100,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				},
 			}
 			for _, managedCluster := range managedClusters {
-				Expect(updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.UID))).Should(Succeed())
+				Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedCluster))).Should(Succeed())
 			}
 			Eventually(func() error {
 				for _, managedCluster := range managedClusters {

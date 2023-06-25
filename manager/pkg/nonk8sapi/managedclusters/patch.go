@@ -50,8 +50,8 @@ func PatchManagedCluster(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 
 		var leafHubName, managedClusterName string
 		if err := dbConnectionPool.QueryRow(context.TODO(), `SELECT leaf_hub_name, payload->'metadata'->>'name'
-			FROM status.managed_clusters WHERE payload->'metadata'->>'uid'=$1`,
-			clusterID).Scan(&leafHubName, &managedClusterName); err != nil {
+			FROM status.managed_clusters WHERE cluster_id=$1`, clusterID).
+			Scan(&leafHubName, &managedClusterName); err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "failed to get leaf hub and manged cluster name: %s\n", err.Error())
 			return
 		}

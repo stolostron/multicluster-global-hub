@@ -13,6 +13,7 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	corev1 "k8s.io/api/core/v1"
@@ -62,9 +63,9 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		labelSelector := ginCtx.Query("labelSelector")
 
 		selectorInSql := ""
+		var err error
 
 		if labelSelector != "" {
-			var err error
 			selectorInSql, err = util.ParseLabelSelector(labelSelector)
 			if err != nil {
 				fmt.Fprintf(gin.DefaultWriter, "failed to parse label selector: %s\n", err.Error())
@@ -77,16 +78,20 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		limit := ginCtx.Query("limit")
 		fmt.Fprintf(gin.DefaultWriter, "limit: %v\n", limit)
 
-		lastManagedClusterName, lastManagedClusterUID := "", ""
+		lastManagedClusterName := ""
+		lastManagedClusterUID := uuid.MustParse("00000000-0000-0000-0000-000000000000")
 
 		continueToken := ginCtx.Query("continue")
 		if continueToken != "" {
-			fmt.Fprintf(gin.DefaultWriter, "continue: %v\n", continueToken)
-
-			var err error
-			lastManagedClusterName, lastManagedClusterUID, err = util.DecodeContinue(continueToken)
+			var lastManagedClusterUIDStr string
+			lastManagedClusterName, lastManagedClusterUIDStr, err = util.DecodeContinue(continueToken)
 			if err != nil {
 				fmt.Fprintf(gin.DefaultWriter, "failed to decode continue token: %s\n", err.Error())
+				return
+			}
+			lastManagedClusterUID, err = uuid.Parse(lastManagedClusterUIDStr)
+			if err != nil {
+				fmt.Println("Error parsing UUID:", err)
 				return
 			}
 		}
@@ -98,7 +103,7 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 
 		// build query condition for paging
 		LastResourceCompareCondition := fmt.Sprintf(
-			"(payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') > ('%s', '%s') ",
+			"(payload -> 'metadata' ->> 'name', cluster_id) > ('%s', '%s') ",
 			lastManagedClusterName,
 			lastManagedClusterUID)
 
@@ -106,7 +111,7 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		managedClusterListQuery := "SELECT payload FROM status.managed_clusters WHERE " +
 			LastResourceCompareCondition +
 			selectorInSql +
-			" ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid')"
+			" ORDER BY (payload -> 'metadata' ->> 'name', cluster_id)"
 
 		// add limit
 		if limit != "" {
@@ -122,7 +127,7 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 
 		// last managed cluster query order by name and uid
 		lastManagedClusterQuery := "SELECT payload FROM status.managed_clusters " +
-			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
+			"ORDER BY (payload -> 'metadata' ->> 'name', cluster_id) DESC LIMIT 1"
 
 		handleRows(ginCtx, managedClusterListQuery, lastManagedClusterQuery, dbConnectionPool,
 			customResourceColumnDefinitions)

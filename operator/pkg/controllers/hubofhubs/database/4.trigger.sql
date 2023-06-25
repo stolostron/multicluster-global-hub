@@ -66,7 +66,22 @@ CREATE TRIGGER set_timestamp BEFORE UPDATE ON spec.policies FOR EACH ROW EXECUTE
 DROP TRIGGER IF EXISTS set_timestamp ON spec.subscriptions;
 CREATE TRIGGER set_timestamp BEFORE UPDATE ON spec.subscriptions FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
 
+-- set the cluster_id to compliance table
 DROP TRIGGER IF EXISTS update_compliance_table ON local_status.compliance;
 CREATE TRIGGER update_compliance_table AFTER INSERT OR UPDATE ON local_status.compliance FOR EACH ROW WHEN (pg_trigger_depth() < 1) EXECUTE FUNCTION public.set_cluster_id_to_local_compliance();
+
 DROP TRIGGER IF EXISTS update_compliance_table ON status.compliance;
 CREATE TRIGGER update_compliance_table AFTER INSERT OR UPDATE ON status.compliance FOR EACH ROW WHEN (pg_trigger_depth() < 1) EXECUTE FUNCTION public.set_cluster_id_to_compliance();
+
+-- update the compliance cluster_id when insert record to managed clusters
+DROP TRIGGER IF EXISTS update_local_compliance_cluster_id_trigger ON status.managed_clusters;
+CREATE TRIGGER update_local_compliance_cluster_id_trigger
+AFTER INSERT ON status.managed_clusters
+FOR EACH ROW
+EXECUTE FUNCTION public.update_local_compliance_cluster_id();
+
+DROP TRIGGER IF EXISTS update_compliance_cluster_id_trigger ON status.managed_clusters;
+CREATE TRIGGER update_compliance_cluster_id_trigger
+AFTER INSERT ON status.managed_clusters
+FOR EACH ROW
+EXECUTE FUNCTION public.update_compliance_cluster_id();

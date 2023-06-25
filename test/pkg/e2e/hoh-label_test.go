@@ -53,7 +53,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 		By("Check the label is added")
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[0].GetUID()))
+			err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[0]))
 			if err != nil {
 				return err
 			}
@@ -82,7 +82,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 			By("Check the label is added")
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, httpToken, string(managedClusters[i].GetUID()))
+				err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[i]))
 				if err != nil {
 					return err
 				}
@@ -112,7 +112,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 			By("Check the label is deleted")
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, httpToken, string(managedCluster.GetUID()))
+				err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedCluster))
 				if err != nil {
 					return err
 				}
