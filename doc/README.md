@@ -1,16 +1,18 @@
 This document focuses on the features of the multicluster global hub.
 
 1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Quick Start Guide](#quick-start)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Import a regional hub cluster](#import-a-reginal-hub-cluster-in-default-mode-tech-preview)
-- [Access the grafana](#access-the-grafana)
-- [Grafana dashboards](#grafana-dashboards)
-4. [Troubleshooting](troubleshooting.md)
-5. [Development preview features](dev-preview.md)
-6. [Known issues](#known-issues)
+1. [Use Cases](./global_hub_use_cases.md)
+1. [Architecture](#architecture)
+1. [Workings of Global Hub](how_global_hub_works.md)
+1. [Quick Start Guide](#quick-start)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+    - [Import a regional hub cluster](#import-a-reginal-hub-cluster-in-default-mode-tech-preview)
+    - [Access the grafana](#access-the-grafana)
+    - [Grafana dashboards](#grafana-dashboards)
+1. [Troubleshooting](troubleshooting.md)
+1. [Development preview features](dev-preview.md)
+1. [Known issues](#known-issues)
 ## Overview
 
 The multicluster global hub is to resolve the problem of a single hub cluster in high scale environment. Due to the limitation of the kubernetes, the single hub cluster can not handle the large number of managed clusters. The multicluster global hub is designed to solve this problem by splitting the managed clusters into multiple regional hub clusters. The regional hub clusters are managed by the global hub cluster.
@@ -20,6 +22,8 @@ The multicluster global hub is a set of components that enable the management of
 - List the managed clusters in all the regional hub clusters
 - Manage the policies and applications in all the regional hub clusters
 
+## Use Cases
+For understanding the Use Cases solved by Global Hub proceed to [Use Cases](./global_hub_use_cases.md)
 ## Architecture
 
 ![ArchitectureDiagram](architecture/multicluster-global-hub-arch.png)
@@ -38,6 +42,8 @@ The agent is running in the regional hub clusters. It is responsible to sync-up 
 ### Multicluster Global Hub Observability
 Grafana runs on the global hub cluster as the main service for Global Hub Observability. The Postgres data collected by the Global Hub Manager services as its default DataSource. By exposing the service via route(`multicluster-global-hub-grafana`), you can access the global hub grafana dashboards just like accessing the openshift console.
 
+## Workings of Global Hub
+To understand how Global Hub functions, proceed [here](how_global_hub_works.md).
 ## Quick Start
 
 ### Prerequisites
@@ -100,7 +106,9 @@ oc get route multicluster-global-hub-grafana -n <the-namespace-of-multicluster-g
 
 ### Grafana dashboards
 
-### Known issues
-1. If the database is empty, the grafana dashboards will show the error `db query syntax error for {dashboard_name} dashboard`. When you have some data in the database, the error will disappear.
+## Troubleshooting
+For common Troubleshooting issues, proceed [here](troubleshooting.md)
+## Known issues
+1. If the database is empty, the grafana dashboards will show the error `db query syntax error for {dashboard_name} dashboard`. When you have some data in the database, the error will disappear. Remember the Top level dashboards gets populated only the day after the data starts flowing as explained in [Workings of Global Hub](how_global_hub_works.md)   
 
 2. We provide ability to drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard. But the drill down feature is not working for the first datapoint. You can click the second datapoint or after to see the drill down feature is working. The issue is applied to the `Cluster Group Compliancy Overview` dashboard as well.
