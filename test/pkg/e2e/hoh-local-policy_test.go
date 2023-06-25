@@ -129,7 +129,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				By("Verify the local policy is directly synchronized to the global hub spec table")
 				policies := make(map[string]*policiesv1.Policy)
 				Eventually(func() error {
-					rows, err := postgresConn.Query(context.TODO(), "select leaf_hub_name,payload from local_spec.policies")
+					rows, err := postgresConn.Query(context.TODO(), `select leaf_hub_name,payload from 
+					local_spec.policies where deleted_at is null`)
 					if err != nil {
 						return err
 					}

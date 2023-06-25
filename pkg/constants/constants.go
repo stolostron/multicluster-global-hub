@@ -8,7 +8,7 @@ const (
 	GHSystemNamespace = "open-cluster-management-global-hub-system"
 	// GHAgentConfigCMName is the name of configmap that stores important global hub settings
 	// eg. aggregationLevel and enableLocalPolicy.
-	GHAgentConfigCMName = "multicluster-global-hub-config"
+	GHAgentConfigCMName = "multicluster-global-hub-agent-config"
 	// GHAgentIncarnationCMName is the name of incarnation configmap for global hub agent
 	GHAgentIncarnationCMName = "incarnation-config"
 	// GHAgentIncarnationCMName is the key of incarnation configmap data for global hub agent
