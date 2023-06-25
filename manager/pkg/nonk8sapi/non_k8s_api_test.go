@@ -90,7 +90,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				cluster_id uuid NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
 				payload jsonb NOT NULL,
-				error status.error_type NOT NULL
+				error status.error_type NOT NULL,
+				deleted_at timestamp without time zone
 			);
 			CREATE TABLE IF NOT EXISTS spec.managed_clusters_labels (
 				id uuid NOT NULL,
