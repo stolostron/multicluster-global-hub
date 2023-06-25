@@ -65,7 +65,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		By("Create configmap that contains the global-hub configurations")
 		Expect(kubeClient.Create(ctx, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.GHConfigCMName,
+				Name:      constants.GHAgentConfigCMName,
 				Namespace: constants.GHSystemNamespace,
 				Annotations: map[string]string{
 					constants.OriginOwnerReferenceAnnotation: "testing",
@@ -200,8 +200,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if err == nil {
 				fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 				ok := false
-				policyCompleteComplianceStatusBundle, ok =
-					statusBundle.(*statusbundle.CompleteComplianceStatusBundle)
+				policyCompleteComplianceStatusBundle, ok = statusBundle.(*statusbundle.CompleteComplianceStatusBundle)
 				if !ok {
 					fmt.Printf("unexpected received bundle type, want ClustersPerPolicyBundle")
 				}
@@ -500,8 +499,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
-			subscriptionReportsStatusBundle, ok :=
-				statusBundle.(*statusbundle.SubscriptionReportsBundle)
+			subscriptionReportsStatusBundle, ok := statusBundle.(*statusbundle.SubscriptionReportsBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type, want PlacementDecisionsBundle")
 			}

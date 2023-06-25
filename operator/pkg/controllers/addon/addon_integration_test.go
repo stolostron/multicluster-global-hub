@@ -79,7 +79,7 @@ var _ = Describe("addon integration", Ordered, func() {
 		expectedHoHConfigMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: constants.GHSystemNamespace,
-				Name:      constants.GHConfigCMName,
+				Name:      constants.GHAgentConfigCMName,
 				Labels: map[string]string{
 					constants.GlobalHubOwnerLabelKey:       constants.GHOperatorOwnerLabelVal,
 					constants.GlobalHubGlobalResourceLabel: "",
@@ -91,7 +91,7 @@ var _ = Describe("addon integration", Ordered, func() {
 			},
 		}
 		expectedHoHConfigMap.SetUID("test-uid")
-		config.SetGlobalHubConfig(expectedHoHConfigMap)
+		config.SetGlobalHubAgentConfig(expectedHoHConfigMap)
 	})
 
 	Context("When configure the image registry and pull secret", func() {
@@ -246,7 +246,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(10))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
 		})
 
 		It("Should create HoH agent and ACM when an OCP is imported", func() {
@@ -290,7 +290,7 @@ var _ = Describe("addon integration", Ordered, func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			// contains both the ACM and the Global Hub manifests
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(19))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(18))
 		})
 
 		It("Should create HoH addon when an OCP with deploy mode = default is imported in hosted mode", func() {
@@ -335,7 +335,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(10))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
 		})
 
 		It("Should create HoH addon when an OCP with deploy mode = Hosted is imported in hosted mode", func() {
@@ -386,7 +386,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(3))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(2))
 			hostingWork := &workv1.ManifestWork{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{
@@ -452,7 +452,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(12))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(11))
 			hostingWork := &workv1.ManifestWork{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{

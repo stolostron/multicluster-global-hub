@@ -61,7 +61,7 @@ var (
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
 		GrafanaImageKey:          "quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34",
 	}
-	globalHubConfig *corev1.ConfigMap
+	globalHubAgentConfig *corev1.ConfigMap
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -184,10 +184,10 @@ func GetManagedClusters() []string {
 	return managedClusters
 }
 
-func SetGlobalHubConfig(config *corev1.ConfigMap) {
-	globalHubConfig = config
+func SetGlobalHubAgentConfig(config *corev1.ConfigMap) {
+	globalHubAgentConfig = config
 }
 
-func GetGlobalHubConfig() *corev1.ConfigMap {
-	return globalHubConfig
+func GetGlobalHubAgentConfig() *corev1.ConfigMap {
+	return globalHubAgentConfig
 }

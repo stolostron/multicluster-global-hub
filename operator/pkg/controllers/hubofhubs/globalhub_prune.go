@@ -121,7 +121,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 	err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Namespace: constants.GHSystemNamespace,
-			Name:      constants.GHConfigCMName,
+			Name:      constants.GHAgentConfigCMName,
 		}, existingMghConfigMap)
 	if err != nil && !errors.IsNotFound(err) {
 		return err

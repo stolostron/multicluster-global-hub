@@ -75,7 +75,7 @@ var _ = Describe("configmaps to database controller", func() {
 		Eventually(func() error {
 			err := kubeClient.Get(ctx, types.NamespacedName{
 				Namespace: constants.GHSystemNamespace,
-				Name:      constants.GHConfigCMName,
+				Name:      constants.GHAgentConfigCMName,
 			}, &corev1.ConfigMap{})
 			if err != nil && !errors.IsNotFound(err) {
 				return err
@@ -84,7 +84,7 @@ var _ = Describe("configmaps to database controller", func() {
 				if err = kubeClient.Create(ctx, &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: constants.GHSystemNamespace,
-						Name:      constants.GHConfigCMName,
+						Name:      constants.GHAgentConfigCMName,
 						Labels: map[string]string{
 							constants.GlobalHubOwnerLabelKey:       constants.GHOperatorOwnerLabelVal,
 							constants.GlobalHubGlobalResourceLabel: "",
@@ -114,7 +114,7 @@ var _ = Describe("configmaps to database controller", func() {
 				if err := rows.Scan(configMap); err != nil {
 					return err
 				}
-				if constants.GHConfigCMName == configMap.Name &&
+				if constants.GHAgentConfigCMName == configMap.Name &&
 					constants.GHSystemNamespace == configMap.Namespace {
 					return nil
 				}

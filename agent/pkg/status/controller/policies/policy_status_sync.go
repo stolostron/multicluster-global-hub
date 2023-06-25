@@ -13,8 +13,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -27,10 +27,9 @@ const (
 
 // AddPoliciesStatusController adds policies status controller to the manager.
 func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
+	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
 ) (*generic.HybridSyncManager, error) {
-	bundleCollection, hybridSyncManager, err :=
-		createBundleCollection(producer, leafHubName, incarnation, hubOfHubsConfig)
+	bundleCollection, hybridSyncManager, err := createBundleCollection(producer, leafHubName, incarnation, hubOfHubsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}

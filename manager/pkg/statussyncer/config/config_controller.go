@@ -23,7 +23,7 @@ const (
 func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *corev1.ConfigMap) error {
 	if err := mgr.GetAPIReader().Get(context.Background(), client.ObjectKey{
 		Namespace: constants.GHSystemNamespace,
-		Name:      constants.GHConfigCMName,
+		Name:      constants.GHAgentConfigCMName,
 	}, config); err != nil {
 		return fmt.Errorf("failed to read config - %w", err)
 	}
@@ -36,7 +36,7 @@ func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *corev1.Confi
 
 	configPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return object.GetNamespace() == constants.GHSystemNamespace &&
-			object.GetName() == constants.GHConfigCMName
+			object.GetName() == constants.GHAgentConfigCMName
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).

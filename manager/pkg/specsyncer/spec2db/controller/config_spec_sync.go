@@ -22,7 +22,7 @@ func AddHubOfHubsConfigController(mgr ctrl.Manager, specDB db.SpecDB) error {
 		WithEventFilter(GlobalResourcePredicate()).
 		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
 			return object.GetNamespace() == constants.GHSystemNamespace &&
-				object.GetName() == constants.GHConfigCMName
+				object.GetName() == constants.GHAgentConfigCMName
 		})).
 		Complete(&genericSpecToDBReconciler{
 			client:         mgr.GetClient(),

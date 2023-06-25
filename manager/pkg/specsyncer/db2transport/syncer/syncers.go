@@ -23,7 +23,7 @@ func AddDB2TransportSyncers(mgr ctrl.Manager, specDB db.SpecDB, managerConfig *c
 	specSyncInterval := managerConfig.SyncerConfig.SpecSyncInterval
 
 	addDBSyncerFunctions := []func(ctrl.Manager, db.SpecDB, transport.Producer, time.Duration) error{
-		dbsyncer.AddHoHConfigDBToTransportSyncer,
+		// dbsyncer.AddHoHConfigDBToTransportSyncer,
 		dbsyncer.AddPoliciesDBToTransportSyncer,
 		dbsyncer.AddPlacementRulesDBToTransportSyncer,
 		dbsyncer.AddPlacementBindingsDBToTransportSyncer,

@@ -125,7 +125,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				By("Check the global hub config")
 				globalConfig := &v1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      constants.GHConfigCMName,
+						Name:      constants.GHAgentConfigCMName,
 						Namespace: constants.GHSystemNamespace,
 					},
 				}
@@ -145,7 +145,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					for i, leafhubClient := range leafhubClients {
 						leafhubConfigs[i] = &v1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      constants.GHConfigCMName,
+								Name:      constants.GHAgentConfigCMName,
 								Namespace: constants.GHSystemNamespace,
 							},
 						}

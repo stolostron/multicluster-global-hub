@@ -8,8 +8,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -20,7 +20,7 @@ const (
 
 // AddPlacementDecisionsController adds placement-decision controller to the manager.
 func AddPlacementDecisionsController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	incarnation uint64, _ *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
+	incarnation uint64, _ *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
 ) error {
 	createObjFunction := func() bundle.Object { return &clustersv1beta1.PlacementDecision{} }
 

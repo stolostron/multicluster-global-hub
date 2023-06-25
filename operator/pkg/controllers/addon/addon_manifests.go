@@ -34,34 +34,33 @@ import (
 var FS embed.FS
 
 type ManifestsConfig struct {
-	HoHAgentImage           string
-	ImagePullSecretName     string
-	ImagePullSecretData     string
-	ImagePullPolicy         string
-	LeafHubID               string
-	KafkaBootstrapServer    string
-	TransportType           string
-	TransportFormat         string
-	KafkaCACert             string
-	KafkaClientCert         string
-	KafkaClientKey          string
-	MessageCompressionType  string
-	InstallACMHub           bool
-	Channel                 string
-	CurrentCSV              string
-	Source                  string
-	SourceNamespace         string
-	InstallHostedMode       bool
-	LeaseDuration           string
-	RenewDeadline           string
-	RetryPeriod             string
-	KlusterletNamespace     string
-	KlusterletWorkSA        string
-	NodeSelector            map[string]string
-	Tolerations             []corev1.Toleration
-	AggregationLevel        string
-	EnableLocalPolicies     string
-	OriginOwnerReferenceUID string
+	HoHAgentImage          string
+	ImagePullSecretName    string
+	ImagePullSecretData    string
+	ImagePullPolicy        string
+	LeafHubID              string
+	KafkaBootstrapServer   string
+	TransportType          string
+	TransportFormat        string
+	KafkaCACert            string
+	KafkaClientCert        string
+	KafkaClientKey         string
+	MessageCompressionType string
+	InstallACMHub          bool
+	Channel                string
+	CurrentCSV             string
+	Source                 string
+	SourceNamespace        string
+	InstallHostedMode      bool
+	LeaseDuration          string
+	RenewDeadline          string
+	RetryPeriod            string
+	KlusterletNamespace    string
+	KlusterletWorkSA       string
+	NodeSelector           map[string]string
+	Tolerations            []corev1.Toleration
+	AggregationLevel       string
+	EnableLocalPolicies    string
 }
 
 type HohAgentAddon struct {
@@ -192,11 +191,10 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	log.Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName,
 		"image", manifestsConfig.HoHAgentImage)
 
-	globalHubConfig := config.GetGlobalHubConfig()
+	globalHubConfig := config.GetGlobalHubAgentConfig()
 	if globalHubConfig != nil {
 		manifestsConfig.AggregationLevel = globalHubConfig.Data["aggregationLevel"]
 		manifestsConfig.EnableLocalPolicies = globalHubConfig.Data["enableLocalPolicies"]
-		manifestsConfig.OriginOwnerReferenceUID = string(globalHubConfig.UID)
 	}
 
 	if a.installACMHub(cluster) {
