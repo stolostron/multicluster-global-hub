@@ -24,7 +24,8 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686809195525,
+      "id": 2,
+      "iteration": 1687542417113,
       "links": [
         {
           "asDropdown": false,
@@ -33,7 +34,7 @@ data:
           "keepTime": true,
           "tags": [],
           "targetBlank": true,
-          "title": "Offending Policies",
+          "title": "Global Hub - Offending Policies",
           "tooltip": "",
           "type": "link",
           "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1"
@@ -80,10 +81,11 @@ data:
                 {
                   "targetBlank": true,
                   "title": "View Offending Policies for $group group: ${__field.name}",
-                  "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1&from=${__value.time}&to=${__value.time}&var-${group}=${__field.name}"
+                  "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1&from=${__value.time}&to=${__value.time}&${standard:queryparam}&${category:queryparam}&${control:queryparam}"
                 }
               ],
               "mappings": [],
+              "max": 1,
               "noValue": "N/A",
               "thresholds": {
                 "mode": "absolute",

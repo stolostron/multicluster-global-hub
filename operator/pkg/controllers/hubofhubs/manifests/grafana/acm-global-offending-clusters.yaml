@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686809061250,
+      "iteration": 1687540075765,
       "links": [
         {
           "asDropdown": false,
@@ -33,7 +33,7 @@ data:
           "keepTime": true,
           "tags": [],
           "targetBlank": true,
-          "title": "Cluster Group Compliancy Overview",
+          "title": "Global Hub - Cluster Group Compliancy Overview",
           "tooltip": "",
           "type": "link",
           "url": "d/868845a4d1334958bd62303c5ccb4c19/global-hub-cluster-group-compliancy-overview?orgId=1"
@@ -45,10 +45,10 @@ data:
           "keepTime": true,
           "tags": [],
           "targetBlank": true,
-          "title": "What's Changed",
+          "title": "Global Hub - What's Changed / Clusters",
           "tooltip": "",
           "type": "link",
-          "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1"
+          "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-clusters?orgId=1"
         }
       ],
       "panels": [
@@ -422,7 +422,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View What's Changed dashboard for cluster \"${__value.text}\"",
-                        "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1&var-cluster=${__value.text}&var-policy=All&from=${__value.time}"
+                        "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-clusters?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-cluster=${__value.text}"
                       }
                     ]
                   }
@@ -554,7 +554,7 @@ data:
                           {
                             "targetBlank": true,
                             "title": "View What's Changed dashboard for cluster \"${__value.text}\"",
-                            "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1&var-cluster=${__value.text}&var-policy=All&from=${__value.time}"
+                            "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-clusters?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-cluster=${__value.text}"
                           }
                         ]
                       }
@@ -701,7 +701,7 @@ data:
             "options": [],
             "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc\nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id",
             "refresh": 2,
-            "regex": "/^[a-z]+$/",
+            "regex": "\\b(?!name\\b)(\\b[a-z]+)",
             "skipUrlSync": false,
             "sort": 5,
             "type": "query"
@@ -828,7 +828,7 @@ data:
       "timezone": "utc",
       "title": "Global Hub - Offending Clusters",
       "uid": "0e0ddb7f16b946f99d96a483a4a3f95f",
-      "version": 2
+      "version": 1
     }
 kind: ConfigMap
 metadata:

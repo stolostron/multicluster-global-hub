@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1686809323467,
+      "iteration": 1687539714830,
       "links": [
         {
           "asDropdown": false,
@@ -45,10 +45,10 @@ data:
           "keepTime": true,
           "tags": [],
           "targetBlank": true,
-          "title": "What's Changed",
+          "title": "Global Hub - What's Changed / Policies",
           "tooltip": "",
           "type": "link",
-          "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1"
+          "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed-policies?orgId=1"
         }
       ],
       "panels": [
@@ -424,7 +424,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View What's Changed dashboard for policy \"${__value.text}\"",
-                        "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1&var-policy=${__value.text}&var-cluster=All&from=${__value.time}"
+                        "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed-policies?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-policy=${__value.text}"
                       }
                     ]
                   }
@@ -569,7 +569,7 @@ data:
                           {
                             "targetBlank": true,
                             "title": "View What's Changed dashboard for policy \"${__value.text}\"",
-                            "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed?orgId=1&var-policy=${__value.text}&var-cluster=All&from=${__value.time}"
+                            "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed-policies?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-policy=${__value.text}"
                           }
                         ]
                       }
