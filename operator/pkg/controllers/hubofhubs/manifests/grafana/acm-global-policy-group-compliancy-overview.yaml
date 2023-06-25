@@ -43,7 +43,7 @@ data:
       "panels": [
         {
           "datasource": "${datasource}",
-          "description": "Aggregated policy group trend by standard, category, and control.",
+          "description": "Aggregated policy group trend by standard, category, and control (Data updated once a day).",
           "fieldConfig": {
             "defaults": {
               "color": {

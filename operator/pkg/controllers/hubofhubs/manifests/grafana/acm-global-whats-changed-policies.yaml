@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1687543370621,
+      "iteration": 1687742182416,
       "links": [
         {
           "asDropdown": false,
@@ -82,7 +82,7 @@ data:
           },
           "id": 12,
           "options": {
-            "alignValue": "left",
+            "alignValue": "center",
             "legend": {
               "displayMode": "list",
               "placement": "bottom"
@@ -151,50 +151,18 @@ data:
                 "displayMode": "auto",
                 "filterable": true
               },
-              "mappings": [
-                {
-                  "options": {
-                    "compliant": {
-                      "color": "green",
-                      "index": 0,
-                      "text": "true"
-                    },
-                    "non_compliant": {
-                      "color": "red",
-                      "index": 1,
-                      "text": "false"
-                    }
-                  },
-                  "type": "value"
-                }
-              ],
+              "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
                     "color": "dark-yellow",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               }
             },
             "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "compliance"
-                },
-                "properties": [
-                  {
-                    "id": "custom.displayMode",
-                    "value": "color-background"
-                  }
-                ]
-              },
               {
                 "matcher": {
                   "id": "byName",
@@ -210,6 +178,46 @@ data:
                         "url": "https://console-openshift-console.apps.${__data.fields.BaseDomain}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}"
                       }
                     ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Policy"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Namespace"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
                   }
                 ]
               }
@@ -234,7 +242,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' -> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message,\n  rp.reason,\n  rp.compliance\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id\nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  p.leaf_hub_name = '$hub'\nAND\n  policy_name = '$policy'\nORDER BY (rp.created_at) DESC",
+              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id\nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  p.leaf_hub_name = '$hub'\nAND\n  policy_name = '$policy'\nORDER BY (rp.created_at) DESC",
               "refId": "A",
               "select": [
                 [
@@ -360,6 +368,70 @@ data:
                         "url": "https://console-openshift-console.apps.${__data.fields.BaseDomain}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}"
                       }
                     ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Policy"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Reason"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Compliance"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 100
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cluster"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
                   }
                 ]
               }
@@ -389,7 +461,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.policy_name,\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' -> 'namespace' as \"namespace\",\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  policy_name = '$policy'\nORDER BY (lp.created_at) DESC",
+              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  concat(p.payload -> 'metadata' ->> 'namespace','.',p.policy_name) as policy_name,\n  p.leaf_hub_name as \"hub\",\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  policy_name = '$policy'\nORDER BY (lp.created_at) DESC",
               "refId": "A",
               "select": [
                 [

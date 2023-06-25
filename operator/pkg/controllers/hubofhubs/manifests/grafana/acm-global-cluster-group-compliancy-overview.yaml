@@ -42,7 +42,7 @@ data:
       "panels": [
         {
           "datasource": "${datasource}",
-          "description": "Aggregated cluster group trend by cluster label: \"$label\"",
+          "description": "Aggregated cluster group trend by cluster label: \"$label\" (Data updated once a day)",
           "fieldConfig": {
             "defaults": {
               "color": {
