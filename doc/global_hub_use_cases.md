@@ -7,11 +7,8 @@ As enterprises evolve to have many ACM hubs to manage their fleet, there is a ne
 |||
 |---|---|
 |Precondition|ACM policies have been set up with correctly defined standards, categories and controls ; ACM policies have been distributed to clusters that are being managed by different ACM hubs using gitops; The compliance results from groups of ACM policies are aggregated for daily review|
-|||
 |Trigger |Need to provide a report for the last 30 days on corporate controls in place for Production clusters. |
-|||
 |Success Flow (nothing goes wrong)|Shows the count of compliance states for the last 30 days.  In a successful scenario these compliance states are all trending up across time. (this is one line that represents a group of policies). New clusters that are imported might indicate high levels of initial compliance drift which should indicate the decreasing trend over time. An entire new hub region could be brought ‘online’ and again we would expect the compliance drift decreasing as policy controls are enforced.|
-|||
 |Alternative Flows (something has gone wrong) |A security auditor needs additional details around a specific noncompliance event. The ad-hoc query requires drill down into a local-hub which is outside of the global hub itself.|
 |||
 
@@ -20,11 +17,8 @@ As enterprises evolve to have many ACM hubs to manage their fleet, there is a ne
 |||
 |---|---|
 |Precondition|ACM policies have been set up with correctly defined standards, categories and controls ; ACM policies have been rolled out to clusters that are being managed by different ACM hubs using gitops; The cluster groups  are summed up to a daily level.|
-|||
 |Trigger |Need a report for the last 30 days of compliance for Production clusters against all policies |
-|||
 |Success Flow (nothing goes wrong)|Shows the count of clusters -which are in production group -  with any vulnerabilities for the last 30 days.  We can filter this data by different vulnerabilities if needed. In a happy scenario they are all trending down across time.  (this is one line that represents a group of clusters).|
-|||
 
 ### Using Global Hub
 1. There are more than one ACM Hub (ACM 2.7 or higher) in the problem domain.
