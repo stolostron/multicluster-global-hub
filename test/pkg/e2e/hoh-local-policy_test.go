@@ -66,8 +66,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			v1.AddToScheme(scheme)
 			policiesv1.AddToScheme(scheme)
 			placementrulev1.AddToScheme(scheme)
-			runtimeClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
-			Expect(err).Should(Succeed())
 
 			// get multiple leafhubs
 			for _, leafhubName := range LeafHubNames {

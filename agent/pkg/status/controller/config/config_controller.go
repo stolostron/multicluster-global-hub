@@ -38,13 +38,13 @@ func AddConfigController(mgr ctrl.Manager, configObject *corev1.ConfigMap, syncI
 		syncIntervalsData: syncIntervals,
 	}
 
-	hohNamespacePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+	configMapPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return object.GetNamespace() == constants.GHSystemNamespace &&
 			object.GetName() == constants.GHAgentConfigCMName
 	})
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.ConfigMap{}).
-		WithEventFilter(predicate.And(hohNamespacePredicate)).
+		WithEventFilter(configMapPredicate).
 		Complete(hubOfHubsConfigCtrl); err != nil {
 		return fmt.Errorf("failed to add hub of hubs config controller to the manager - %w", err)
 	}
