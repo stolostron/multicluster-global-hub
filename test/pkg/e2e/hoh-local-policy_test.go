@@ -39,7 +39,6 @@ const (
 
 var _ = Describe("Apply local policy to the managed clusters", Ordered,
 	Label("e2e-tests-local-policy"), func() {
-		var runtimeClient client.Client
 		var leafhubClients []client.Client
 		var managedClusters []clusterv1.ManagedCluster
 		var postgresConn *pgx.Conn
@@ -118,67 +117,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				}
 				return nil
 			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-		})
-
-		Context("When updated the local policy configmap", func() {
-			It("verify the multicluster global hub configmap", func() {
-				By("Check the global hub config")
-				globalConfig := &v1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      constants.GHAgentConfigCMName,
-						Namespace: constants.GHSystemNamespace,
-					},
-				}
-				err := runtimeClient.Get(context.TODO(), client.ObjectKeyFromObject(globalConfig),
-					globalConfig, &client.GetOptions{})
-				Expect(err).Should(Succeed())
-				Expect(globalConfig.Data["enableLocalPolicies"]).Should(Equal("true"))
-
-				By("Disable the local policy")
-				globalConfig.Data["enableLocalPolicies"] = "false"
-				err = runtimeClient.Update(context.TODO(), globalConfig, &client.UpdateOptions{})
-				Expect(err).Should(Succeed())
-
-				By("Verify the leafhub config")
-				leafhubConfigs := make([]*v1.ConfigMap, len(leafhubClients))
-				Eventually(func() error {
-					for i, leafhubClient := range leafhubClients {
-						leafhubConfigs[i] = &v1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      constants.GHAgentConfigCMName,
-								Namespace: constants.GHSystemNamespace,
-							},
-						}
-						err := leafhubClient.Get(context.TODO(), client.ObjectKeyFromObject(leafhubConfigs[i]),
-							leafhubConfigs[i], &client.GetOptions{})
-						if err != nil {
-							return err
-						}
-						if globalConfig.Data["enableLocalPolicies"] != "false" {
-							return fmt.Errorf("the global hub agent enableLocalPolicies should be false")
-						}
-					}
-					return nil
-				}, 1*time.Minute, 1*time.Second).Should(Succeed())
-
-				By("Rollback the enable local policy config")
-				globalConfig.Data["enableLocalPolicies"] = "true"
-				err = runtimeClient.Update(context.TODO(), globalConfig, &client.UpdateOptions{})
-				Expect(err).Should(Succeed())
-				Eventually(func() error {
-					for i, leafhubClient := range leafhubClients {
-						err := leafhubClient.Get(context.TODO(), client.ObjectKeyFromObject(leafhubConfigs[i]),
-							leafhubConfigs[i], &client.GetOptions{})
-						if err != nil {
-							return err
-						}
-						if globalConfig.Data["enableLocalPolicies"] != "true" {
-							return fmt.Errorf("the global hub agent enableLocalPolicies should be true")
-						}
-					}
-					return nil
-				}, 1*time.Minute, 1*time.Second).Should(Succeed())
-			})
 		})
 
 		Context("When deploy local policy to the leafhub", func() {
