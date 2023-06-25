@@ -20,4 +20,5 @@ const (
 	LocalClustersPerPolicyPriority        ConflationPriority = iota
 	LocalCompleteComplianceStatusPriority ConflationPriority = iota
 	LocalPlacementRulesSpecPriority       ConflationPriority = iota
+	HubClusterInfoStatusPriority          ConflationPriority = iota
 )

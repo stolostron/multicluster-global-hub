@@ -12,6 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/dispatcher"
 	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -72,6 +73,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 		dbsyncer.NewPlacementRulesDBSyncer(ctrl.Log.WithName("placement-rules-db-syncer")),
 		dbsyncer.NewPlacementsDBSyncer(ctrl.Log.WithName("placements-db-syncer")),
 		dbsyncer.NewPlacementDecisionsDBSyncer(ctrl.Log.WithName("placement-decisions-db-syncer")),
+		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-cluster-info-db-syncer")),
 		dbsyncer.NewSubscriptionStatusesDBSyncer(ctrl.Log.WithName("subscription-statuses-db-syncer")),
 		dbsyncer.NewSubscriptionReportsDBSyncer(ctrl.Log.WithName("subscription-reports-db-syncer")),
 		dbsyncer.NewLocalSpecPlacementruleSyncer(ctrl.Log.WithName(
@@ -167,6 +169,7 @@ func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 			helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
 			helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
 			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
+			helpers.GetBundleType(&status.BaseLeafHubClusterInfoStatusBundle{}),
 		})
 	if err := mgr.Add(stats); err != nil {
 		return nil, fmt.Errorf("failed to add statistics to manager - %w", err)

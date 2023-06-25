@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
 	globalhubagentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/controlinfo"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/hubcluster"
 	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/localplacement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/managedclusters"
@@ -41,6 +42,11 @@ func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnati
 		incarnation, config, syncIntervals)
 	if err != nil {
 		return fmt.Errorf("failed to add PoliciesStatusController controller: %w", err)
+	}
+
+	err = hubcluster.AddHubClusterController(mgr, producer, agentConfig.LeafHubName)
+	if err != nil {
+		return fmt.Errorf("failed to add HubClusterController controller: %w", err)
 	}
 
 	// support delta bundle sync mode
