@@ -188,7 +188,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View policy \"${__data.fields.Policy}\" on hub cluster \"${__data.fields.Hub}\"",
-                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}"
+                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Cluster}/${__data.fields.Policy}"
                       }
                     ]
                   },
@@ -378,7 +378,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View policy \"${__data.fields.Policy}\" on hub cluster \"${__data.fields.Hub}\"",
-                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}"
+                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Cluster}/${__data.fields.Policy}"
                       }
                     ]
                   },
@@ -681,8 +681,8 @@ data:
             "allValue": null,
             "current": {
               "selected": false,
-              "text": "233",
-              "value": "233"
+              "text": "",
+              "value": ""
             },
             "datasource": null,
             "definition": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name = '$hub'\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT lc.cluster_id\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi\n ON\n   pi.policy_id = lc.policy_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
