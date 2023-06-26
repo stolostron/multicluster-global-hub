@@ -33,7 +33,7 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 			CREATE TABLE IF NOT EXISTS status.leaf_hubs (
 				leaf_hub_name character varying(63) NOT NULL,
 				payload jsonb NOT NULL,
-				console_url text generated always as (payload -> 'consoleURL') stored,
+				console_url text generated always as (payload ->> 'consoleURL') stored,
 				created_at timestamp without time zone DEFAULT now() NOT NULL,
 				updated_at timestamp without time zone DEFAULT now() NOT NULL,
 				deleted_at timestamp without time zone

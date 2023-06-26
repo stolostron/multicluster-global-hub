@@ -6,6 +6,7 @@ package scheme
 import (
 	"fmt"
 
+	routev1 "github.com/openshift/api/route/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -32,6 +33,7 @@ func AddToScheme(runtimeScheme *runtime.Scheme) error {
 		clusterv1beta2.AddToScheme,
 		operatorv1.AddToScheme,
 		apiregistrationv1.AddToScheme,
+		routev1.AddToScheme,
 	}
 
 	schemeBuilders := []*scheme.Builder{
