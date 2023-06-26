@@ -91,22 +91,8 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 	config.AppendManagedCluster(clusterName)
 
-	// disable application and policy in KlusterletAddonConfig for managedcluster
-	klusterletAddonConfig := &agentv1.KlusterletAddonConfig{}
-	err = r.Get(ctx, types.NamespacedName{
-		Namespace: clusterName,
-		Name:      clusterName,
-	}, klusterletAddonConfig)
-	if err != nil {
-		r.Log.Error(err, "Failed to get klusterletaddonconfig")
-		return ctrl.Result{}, err
-	}
-
-	klusterletAddonConfig.Spec.ApplicationManagerConfig.Enabled = false
-	klusterletAddonConfig.Spec.PolicyController.Enabled = false
-	klusterletAddonConfig.Spec.CertPolicyControllerConfig.Enabled = false
-	klusterletAddonConfig.Spec.IAMPolicyControllerConfig.Enabled = false
-	if err := r.Update(ctx, klusterletAddonConfig); err != nil {
+	if err := r.patchKlusterletAddonConfig(ctx, clusterName); err != nil {
+		r.Log.Error(err, "Failed to patch klusterletAddonConfig", "managedcluster", clusterName)
 		return ctrl.Result{}, err
 	}
 
@@ -172,6 +158,31 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *HoHAddonInstallReconciler) patchKlusterletAddonConfig(ctx context.Context, clusterName string) error {
+	// disable application and policy in KlusterletAddonConfig for managedcluster
+	klusterletAddonConfig := &agentv1.KlusterletAddonConfig{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: clusterName,
+		Name:      clusterName,
+	}, klusterletAddonConfig); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		r.Log.Error(err, "Failed to get klusterletaddonconfig")
+		return err
+	}
+
+	klusterletAddonConfig.Spec.ApplicationManagerConfig.Enabled = false
+	klusterletAddonConfig.Spec.PolicyController.Enabled = false
+	klusterletAddonConfig.Spec.CertPolicyControllerConfig.Enabled = false
+	klusterletAddonConfig.Spec.IAMPolicyControllerConfig.Enabled = false
+	if err := r.Update(ctx, klusterletAddonConfig); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
+	agentv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -119,6 +120,8 @@ var _ = BeforeSuite(func() {
 	err = operatorv1alpha3.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = appsv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = agentv1.SchemeBuilder.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
