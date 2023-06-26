@@ -90,7 +90,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 				cluster_id uuid NOT NULL,
 				leaf_hub_name character varying(63) NOT NULL,
 				payload jsonb NOT NULL,
-				error status.error_type NOT NULL
+				error status.error_type NOT NULL,
+				deleted_at timestamp without time zone
 			);
 			CREATE TABLE IF NOT EXISTS spec.managed_clusters_labels (
 				id uuid NOT NULL,
@@ -267,7 +268,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		w21 := httptest.NewRecorder()
 		continueToken, err := util.EncodeContinue("", "00000000-0000-0000-0000-000000000000")
 		Expect(err).ToNot(HaveOccurred())
-		req21, err := http.NewRequest("GET", fmt.Sprintf("/global-hub-api/v1/managedclusters?continue=%s",
+		req21, err := http.NewRequest("GET", fmt.Sprintf(
+			"/global-hub-api/v1/managedclusters?continue=%s",
 			continueToken), nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w21, req21)

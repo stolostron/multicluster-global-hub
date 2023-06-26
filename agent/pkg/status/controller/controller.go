@@ -11,14 +11,13 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
-	configCtrl "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	globalhubagentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/controlinfo"
 	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/localplacement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/managedclusters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -28,13 +27,9 @@ import (
 // AddControllers adds all the controllers to the Manager.
 func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnation uint64) error {
 	config := &corev1.ConfigMap{}
-	if err := configCtrl.AddConfigController(mgr, config); err != nil {
+	syncIntervals := globalhubagentconfig.NewSyncIntervals()
+	if err := globalhubagentconfig.AddConfigController(mgr, config, syncIntervals); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
-	}
-
-	syncIntervals := syncintervals.NewSyncIntervals()
-	if err := syncintervals.AddSyncIntervalsController(mgr, syncIntervals); err != nil {
-		return fmt.Errorf("failed to add SyncIntervals controller: %w", err)
 	}
 
 	producer, isAsync, err := getProducer(mgr, agentConfig)
@@ -58,7 +53,7 @@ func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnati
 	}
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Producer, string, uint64,
-		*corev1.ConfigMap, *syncintervals.SyncIntervals) error{
+		*corev1.ConfigMap, *globalhubagentconfig.SyncIntervals) error{
 		managedclusters.AddClustersStatusController,
 		placement.AddPlacementRulesController,
 		placement.AddPlacementsController,

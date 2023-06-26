@@ -65,7 +65,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		By("Create configmap that contains the global-hub configurations")
 		Expect(kubeClient.Create(ctx, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.GHConfigCMName,
+				Name:      constants.GHAgentConfigCMName,
 				Namespace: constants.GHSystemNamespace,
 				Annotations: map[string]string{
 					constants.OriginOwnerReferenceAnnotation: "testing",

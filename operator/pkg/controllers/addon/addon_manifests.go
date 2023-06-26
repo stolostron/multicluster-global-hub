@@ -59,6 +59,8 @@ type ManifestsConfig struct {
 	KlusterletWorkSA       string
 	NodeSelector           map[string]string
 	Tolerations            []corev1.Toleration
+	AggregationLevel       string
+	EnableLocalPolicies    string
 }
 
 type HohAgentAddon struct {
@@ -188,6 +190,12 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 	log.Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName,
 		"image", manifestsConfig.HoHAgentImage)
+
+	globalHubConfig := config.GetGlobalHubAgentConfig()
+	if globalHubConfig != nil {
+		manifestsConfig.AggregationLevel = globalHubConfig.Data["aggregationLevel"]
+		manifestsConfig.EnableLocalPolicies = globalHubConfig.Data["enableLocalPolicies"]
+	}
 
 	if a.installACMHub(cluster) {
 		manifestsConfig.InstallACMHub = true

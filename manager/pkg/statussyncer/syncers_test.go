@@ -113,7 +113,7 @@ func TestConsumer(t *testing.T) {
 	}
 	mghSystemConfigMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.GHConfigCMName,
+			Name:      constants.GHAgentConfigCMName,
 			Namespace: constants.GHSystemNamespace,
 			Labels:    map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 		},

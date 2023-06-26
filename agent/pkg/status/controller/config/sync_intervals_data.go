@@ -1,4 +1,4 @@
-package syncintervals
+package config
 
 import (
 	"time"

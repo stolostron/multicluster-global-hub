@@ -12,7 +12,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/controlinfo"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -27,12 +27,12 @@ type LeafHubControlInfoController struct {
 	bundle                  bundle.Bundle
 	transportBundleKey      string
 	transport               transport.Producer
-	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc
+	resolveSyncIntervalFunc config.ResolveSyncIntervalFunc
 }
 
 // AddControlInfoController creates a new instance of control info controller and adds it to the manager.
 func AddControlInfoController(mgr ctrl.Manager, producer transport.Producer, leafHubName string, incarnation uint64,
-	_ *corev1.ConfigMap, syncIntervalsData *syncintervals.SyncIntervals,
+	_ *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
 ) error {
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, constants.ControlInfoMsgKey)
 

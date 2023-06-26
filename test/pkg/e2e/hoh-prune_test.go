@@ -264,7 +264,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			existingMghConfigMap := &corev1.ConfigMap{}
 			err := runtimeClient.Get(ctx, types.NamespacedName{
 				Namespace: constants.GHSystemNamespace,
-				Name:      constants.GHConfigCMName,
+				Name:      constants.GHAgentConfigCMName,
 			}, existingMghConfigMap)
 			if errors.IsNotFound(err) {
 				return nil
@@ -273,7 +273,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 				return err
 			}
 			return fmt.Errorf("configmap should be deleted: %s - %s",
-				constants.GHSystemNamespace, constants.GHConfigCMName)
+				constants.GHSystemNamespace, constants.GHAgentConfigCMName)
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 
 		By("Delete the mgh configmap namespace")

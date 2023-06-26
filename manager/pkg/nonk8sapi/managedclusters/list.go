@@ -108,7 +108,7 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 			lastManagedClusterUID)
 
 		// managed cluster list query order by name and uid with limit if set
-		managedClusterListQuery := "SELECT payload FROM status.managed_clusters WHERE " +
+		managedClusterListQuery := "SELECT payload FROM status.managed_clusters WHERE deleted_at is NULL AND " +
 			LastResourceCompareCondition +
 			selectorInSql +
 			" ORDER BY (payload -> 'metadata' ->> 'name', cluster_id)"
@@ -125,8 +125,8 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// last managed cluster query order by name and uid
-		lastManagedClusterQuery := "SELECT payload FROM status.managed_clusters " +
+		// last managed cluster query order by name and cluster id
+		lastManagedClusterQuery := "SELECT payload FROM status.managed_clusters WHERE deleted_at is NULL " +
 			"ORDER BY (payload -> 'metadata' ->> 'name', cluster_id) DESC LIMIT 1"
 
 		handleRows(ginCtx, managedClusterListQuery, lastManagedClusterQuery, dbConnectionPool,

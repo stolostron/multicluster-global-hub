@@ -111,14 +111,15 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			By("Deploy the placement policy to the leafhub")
 			for _, leafhubName := range LeafHubNames {
 				output, err := clients.Kubectl(leafhubName, "apply", "-f", PLACEMENT_LOCAL_POLICY_YAML)
-				klog.V(5).Info(fmt.Sprintf("deploy inform local policy: %s", output))
+				fmt.Printf("deploy inform local policy:\n %s \n", output)
 				Expect(err).Should(Succeed())
 			}
 
 			By("Verify the local policy is directly synchronized to the global hub spec table")
 			policies := make(map[string]*policiesv1.Policy)
 			Eventually(func() error {
-				rows, err := postgresConn.Query(context.TODO(), "select leaf_hub_name,payload from local_spec.policies")
+				rows, err := postgresConn.Query(context.TODO(), `select leaf_hub_name,payload from local_spec.policies 
+				where deleted_at is null`)
 				if err != nil {
 					return err
 				}
@@ -129,8 +130,8 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
+					fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
 					for _, leafhubName := range LeafHubNames {
-						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
 						if leafhub == leafhubName && policy.Name == localPolicyName && policy.Namespace == localPolicyNamespace {
 							policies[leafhub] = policy
 							fmt.Println(len(policies))
@@ -141,7 +142,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					return fmt.Errorf("expect policy has not synchronized")
 				}
 				return nil
-			}, 3*time.Minute, 5*time.Second).Should(Succeed())
+			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 			By("Verify the local policy is synchronized to the global hub status table")
 			Eventually(func() error {

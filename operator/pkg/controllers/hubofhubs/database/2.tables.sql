@@ -328,7 +328,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS compliance_leaf_hub_policy_cluster_idx ON stat
 
 CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats (leaf_hub_name);
 
-CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_uid_idx ON status.managed_clusters (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
+CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_uid_idx ON status.managed_clusters (leaf_hub_name, cluster_id);
 
 CREATE INDEX IF NOT EXISTS managed_clusters_metadata_name_idx ON status.managed_clusters ((((payload -> 'metadata'::text) ->> 'name'::text)));
 

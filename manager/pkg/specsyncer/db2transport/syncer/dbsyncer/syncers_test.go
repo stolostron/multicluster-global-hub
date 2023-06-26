@@ -171,17 +171,17 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("Test config can be synced through transport", func() {
-		By("create a config")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.configs (id,payload) VALUES($1, $2)",
-			configUID, &configJSONBytes)
-		Expect(err).ToNot(HaveOccurred())
+	// It("Test config can be synced through transport", func() {
+	// 	By("create a config")
+	// 	_, err := transportPostgreSQL.GetConn().Exec(ctx,
+	// 		"INSERT INTO spec.configs (id,payload) VALUES($1, $2)",
+	// 		configUID, &configJSONBytes)
+	// 	Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		Expect(message.ID).Should(Equal("Config"))
-		Expect(message.Payload).Should(ContainSubstring(configUID))
-	})
+	// 	message := waitForChannel(genericConsumer.MessageChan())
+	// 	Expect(message.ID).Should(Equal("Config"))
+	// 	Expect(message.Payload).Should(ContainSubstring(configUID))
+	// })
 
 	It("Test managedcluster labels can be synced through transport", func() {
 		By("insert managed cluster labels to database")

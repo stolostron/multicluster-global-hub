@@ -10,30 +10,6 @@ import (
 )
 
 var (
-	configUID       = uuid.New().String()
-	configJSONBytes = []byte(fmt.Sprintf(`{
-"apiVersion": "v1",
-"data": {
-"aggregationLevel": "full",
-"enableLocalPolicies": "true"
-},
-"kind": "ConfigMap",
-"metadata": {
-"creationTimestamp": null,
-"labels": {
-"global-hub.open-cluster-management.io/managed-by": "global-hub-operator",
-"global-hub.open-cluster-management.io/global-resource": ""
-},
-"annotations": {
-"global-hub.open-cluster-management.io/origin-ownerreference-uid": "%s"
-},
-"name": "multicluster-global-hub-config",
-"namespace": "open-cluster-management-global-hub-system"
-}
-}`, configUID))
-)
-
-var (
 	managedclusterUID  = uuid.New().String()
 	leafhubName        = "hub1"
 	managedclusterName = "mc1"

@@ -18,7 +18,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -35,7 +35,7 @@ type genericStatusSyncController struct {
 	orderedBundleCollection []*BundleCollectionEntry
 	finalizerName           string
 	createBundleObjFunc     func() bundle.Object
-	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc
+	resolveSyncIntervalFunc config.ResolveSyncIntervalFunc
 	startOnce               sync.Once
 	lock                    sync.Mutex
 }
@@ -43,7 +43,7 @@ type genericStatusSyncController struct {
 // NewGenericStatusSyncController creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewGenericStatusSyncController(mgr ctrl.Manager, logName string, producer transport.Producer,
 	orderedBundleCollection []*BundleCollectionEntry, createObjFunc CreateObjectFunction, predicate predicate.Predicate,
-	resolveSyncIntervalFunc syncintervals.ResolveSyncIntervalFunc,
+	resolveSyncIntervalFunc config.ResolveSyncIntervalFunc,
 ) error {
 	statusSyncCtrl := &genericStatusSyncController{
 		client:                  mgr.GetClient(),

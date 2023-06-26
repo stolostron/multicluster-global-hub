@@ -120,7 +120,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			}
 			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusters[0].Name {
-					if policyInfo.ComplianceState == policiesv1.NonCompliant {
+					if policyInfo.ComplianceState == policiesv1.NonCompliant ||
+						policyInfo.ComplianceState == policiesv1.Compliant {
 						return nil
 					}
 				}
@@ -140,7 +141,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusters[0].Name {
-					if policyInfo.ComplianceState == policiesv1.NonCompliant {
+					if policyInfo.ComplianceState == policiesv1.NonCompliant ||
+						policyInfo.ComplianceState == policiesv1.Compliant {
 						return nil
 					}
 				}

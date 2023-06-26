@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
@@ -60,6 +61,7 @@ var (
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
 		GrafanaImageKey:          "quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34",
 	}
+	globalHubAgentConfig *corev1.ConfigMap
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -180,4 +182,12 @@ func DeleteManagedCluster(name string) {
 
 func GetManagedClusters() []string {
 	return managedClusters
+}
+
+func SetGlobalHubAgentConfig(config *corev1.ConfigMap) {
+	globalHubAgentConfig = config
+}
+
+func GetGlobalHubAgentConfig() *corev1.ConfigMap {
+	return globalHubAgentConfig
 }

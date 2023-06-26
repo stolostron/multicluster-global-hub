@@ -154,7 +154,7 @@ func TestManager(t *testing.T) {
 		if _, err := kubeClient.CoreV1().ConfigMaps(constants.GHSystemNamespace).Create(ctx,
 			&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.GHConfigCMName,
+					Name:      constants.GHAgentConfigCMName,
 					Namespace: constants.GHSystemNamespace,
 					Annotations: map[string]string{
 						constants.OriginOwnerReferenceAnnotation: "testing",

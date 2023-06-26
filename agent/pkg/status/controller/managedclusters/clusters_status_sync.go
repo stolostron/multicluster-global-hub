@@ -9,8 +9,8 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/syncintervals"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -22,7 +22,7 @@ const (
 // mgr, pro, env.LeafHubID, incarnation, config, syncIntervals
 // AddClustersStatusController adds managed clusters status controller to the manager.
 func AddClustersStatusController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervals *syncintervals.SyncIntervals,
+	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervals *config.SyncIntervals,
 ) error {
 	createObjFunction := func() bundle.Object { return &clusterV1.ManagedCluster{} }
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, constants.ManagedClustersMsgKey)

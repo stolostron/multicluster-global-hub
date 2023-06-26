@@ -53,10 +53,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	expectedHoHConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: constants.GHSystemNamespace,
-			Name:      constants.GHConfigCMName,
+			Name:      constants.GHAgentConfigCMName,
 			Labels: map[string]string{
-				constants.GlobalHubOwnerLabelKey:       constants.GHOperatorOwnerLabelVal,
-				constants.GlobalHubGlobalResourceLabel: "",
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
 		Data: map[string]string{
@@ -69,15 +68,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Namespace: constants.GHSystemNamespace,
-			Name:      constants.GHConfigCMName,
+			Name:      constants.GHAgentConfigCMName,
 		}, existingHoHConfigMap); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("creating global hub configmap", "namespace", constants.GHSystemNamespace,
-				"name", constants.GHConfigCMName)
+				"name", constants.GHAgentConfigCMName)
 			if err := r.Client.Create(ctx, expectedHoHConfigMap); err != nil {
 				return err
 			}
-			return nil
 		} else {
 			return err
 		}
@@ -88,11 +86,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 		expectedHoHConfigMap.ObjectMeta.ResourceVersion =
 			existingHoHConfigMap.ObjectMeta.ResourceVersion
 		log.Info("updating global hub configmap", "namespace", constants.GHSystemNamespace,
-			"name", constants.GHConfigCMName)
+			"name", constants.GHAgentConfigCMName)
 		if err := utils.UpdateObject(ctx, r.Client, expectedHoHConfigMap); err != nil {
 			return err
 		}
-		return nil
 	}
+	config.SetGlobalHubAgentConfig(expectedHoHConfigMap)
 	return nil
 }

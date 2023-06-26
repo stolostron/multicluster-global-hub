@@ -21,6 +21,7 @@ const (
 )
 
 // AddHoHConfigDBToTransportSyncer adds hub-of-hubs config db to transport syncer to the manager.
+// the config is synced by addon manifests
 func AddHoHConfigDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer transport.Producer,
 	specSyncInterval time.Duration,
 ) error {
