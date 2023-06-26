@@ -1560,6 +1560,8 @@ github.com/stolostron/cluster-lifecycle-api v0.0.0-20230222063645-5b18b26381ff h
 github.com/stolostron/cluster-lifecycle-api v0.0.0-20230222063645-5b18b26381ff/go.mod h1:pNeVzujoHsTHDloNHVfp1QPYlQy8MkXMuuZme96/x8M=
 github.com/stolostron/hypershift-deployment-controller v0.0.0-20220728190014-4f85d5954f19 h1:ugFnlHhbnFtkh/qE5LYQbAYvQfFD0+4SqUq783MEkMo=
 github.com/stolostron/hypershift-deployment-controller v0.0.0-20220728190014-4f85d5954f19/go.mod h1:lRt5bv12QpdnJRtGQH5ELPZz4/+hPqX8dWeuQ0zWLos=
+github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4 h1:uK6AKdfrhCKkrEllKDF8W1QtDoWN7HI8qoxVnn6kpIM=
+github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4/go.mod h1:WyEG4DcVm+zrFgoOFejnMB1Ua8qsX3YwKF2/i8U+HIw=
 github.com/stolostron/multiclusterhub-operator v0.0.0-20220902185016-e81ccfbecf55 h1:sNpuRgbyAEvOjayzShyPNt+Eg34jmJPNIUY9cFvUlwU=
 github.com/stolostron/multiclusterhub-operator v0.0.0-20220902185016-e81ccfbecf55/go.mod h1:YCJavcWI4f3PV/LbgMNWsYl/oCbH/Fbn4p+Epd9gro0=
 github.com/stolostron/search-v2-operator v0.0.0-20220721051905-143d28ab4f10 h1:USGd9WwtGqAflJ0sY7k41hCO5L5BuYaPElmAsZm/q4M=

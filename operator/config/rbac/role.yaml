@@ -138,6 +138,16 @@ rules:
   - update
   - watch
 - apiGroups:
+  - agent.open-cluster-management.io
+  resources:
+  - klusterletaddonconfigs
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - app.k8s.io
   resources:
   - applications
