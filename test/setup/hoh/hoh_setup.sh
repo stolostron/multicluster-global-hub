@@ -26,6 +26,7 @@ rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
 # create leader election configuration
 kubectl apply -f ${currentDir}/components/leader-election-configmap.yaml -n "$namespace"
 # install crds
+kubectl apply -f ${rootDir}/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml
 kubectl --context kind-hub1 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 kubectl --context kind-hub2 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 
