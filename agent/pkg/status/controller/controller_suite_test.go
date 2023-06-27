@@ -93,16 +93,6 @@ var _ = BeforeSuite(func() {
 	mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
 	Expect(kubeClient.Create(ctx, mghSystemNamespace)).Should(Succeed())
 
-	By("Create configmap that contains the agent sync-intervals configurations")
-	syncerIntervalsConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sync-intervals",
-			Namespace: constants.GHSystemNamespace,
-		},
-		Data: map[string]string{"control_info": "5s", "managed_clusters": "5s", "policies": "5s"},
-	}
-	Expect(kubeClient.Create(ctx, syncerIntervalsConfigMap)).Should(Succeed())
-
 	By("Get agent incarnation from manager")
 	incarnation, err := incarnation.GetIncarnation(mgr)
 	Expect(err).NotTo(HaveOccurred())

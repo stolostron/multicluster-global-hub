@@ -21,8 +21,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
-	transportprocuer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	transportproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 // AddControllers adds all the controllers to the Manager.
@@ -51,7 +50,7 @@ func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnati
 
 	// support delta bundle sync mode
 	if isAsync {
-		kafkaProducer, ok := producer.(*transportprocuer.KafkaProducer)
+		kafkaProducer, ok := producer.(*transportproducer.KafkaProducer)
 		if !ok {
 			return fmt.Errorf("failed to set the kafka message producer callback() which is to switch the sync mode")
 		}
@@ -90,7 +89,7 @@ func getProducer(mgr ctrl.Manager, agentConfig *config.AgentConfig) (transport.P
 		if err != nil {
 			return nil, isAsync, fmt.Errorf("failed to create kafka message-compressor: %w", err)
 		}
-		kafkaProducer, err := producer.NewKafkaProducer(messageCompressor,
+		kafkaProducer, err := transportproducer.NewKafkaProducer(messageCompressor,
 			agentConfig.TransportConfig.KafkaConfig,
 			ctrl.Log.WithName("kafka-message-producer"))
 		if err != nil {
@@ -102,7 +101,7 @@ func getProducer(mgr ctrl.Manager, agentConfig *config.AgentConfig) (transport.P
 		return kafkaProducer, isAsync, nil
 	} else {
 		isAsync := false
-		genericProducer, err := producer.NewGenericProducer(agentConfig.TransportConfig)
+		genericProducer, err := transportproducer.NewGenericProducer(agentConfig.TransportConfig)
 		if err != nil {
 			return nil, isAsync, fmt.Errorf("failed to init status transport producer: %w", err)
 		}

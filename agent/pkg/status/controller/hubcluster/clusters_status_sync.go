@@ -68,28 +68,23 @@ func (c *hubClusterController) Reconcile(ctx context.Context, request ctrl.Reque
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
-	c.syncBundle(consoleRoute)
+	c.syncBundle(ctx, consoleRoute)
 
 	reqLogger.Info("Reconciliation complete.")
 
 	return ctrl.Result{}, nil
 }
 
-func (c *hubClusterController) syncBundle(route *routev1.Route) {
+func (c *hubClusterController) syncBundle(ctx context.Context, route *routev1.Route) {
 	c.bundle.UpdateObject(route)
 
 	payloadBytes, err := json.Marshal(c.bundle)
 	if err != nil {
-		c.log.Error(err, "marshal controlInfo bundle error", "transportBundleKey", c.transportBundleKey)
+		c.log.Error(err, "marshal hub cluster info bundle error", "transportBundleKey", c.transportBundleKey)
 	}
 
-	transportMessageKey := c.transportBundleKey
-	if deltaStateBundle, ok := c.bundle.(bundle.DeltaStateBundle); ok {
-		transportMessageKey = fmt.Sprintf("%s@%d", c.transportBundleKey, deltaStateBundle.GetTransportationID())
-	}
-
-	if err := c.transport.Send(context.TODO(), &transport.Message{
-		Key:     transportMessageKey,
+	if err := c.transport.Send(ctx, &transport.Message{
+		Key:     c.transportBundleKey,
 		ID:      c.transportBundleKey,
 		MsgType: constants.StatusBundle,
 		Version: c.bundle.GetBundleVersion().String(),

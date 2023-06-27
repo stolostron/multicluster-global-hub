@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +39,9 @@ var msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
 	constants.PlacementRuleMsgKey:            statusbundle.NewPlacementRulesBundle,
 	constants.PlacementMsgKey:                statusbundle.NewPlacementsBundle,
 	constants.PlacementDecisionMsgKey:        statusbundle.NewPlacementDecisionsBundle,
+	constants.HubClusterInfoMsgKey: func() status.Bundle {
+		return &status.BaseLeafHubClusterInfoStatusBundle{}
+	},
 }
 
 var _ = Describe("Agent Status Controller", Ordered, func() {
@@ -71,7 +75,13 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 					constants.OriginOwnerReferenceAnnotation: "testing",
 				},
 			},
-			Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
+			Data: map[string]string{
+				"aggregationLevel":    "full",
+				"enableLocalPolicies": "true",
+				"controlInfo":         "60m",
+				"managedClusters":     "5s",
+				"policies":            "5s",
+			},
 		})).Should(Succeed())
 
 		By("Check the control-info bundle can be read from cloudevents consumer")
@@ -83,12 +93,39 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+	})
 
-			_, ok := statusBundle.(*statusbundle.ControlInfoBundle)
-			if !ok {
-				return errors.New("unexpected received bundle type, want ControlInfoBundle")
+	It("should be able to sync hub cluster info", func() {
+		By("Create openshift route for hub cluster")
+		Expect(kubeClient.Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: constants.OpenShiftConsoleNamespace},
+		})).Should(Succeed())
+
+		Expect(kubeClient.Create(ctx, &routev1.Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.OpenShiftConsoleRouteName,
+				Namespace: constants.OpenShiftConsoleNamespace,
+			},
+			Spec: routev1.RouteSpec{
+				Host: "console-openshift-console.apps.test-cluster",
+				To: routev1.RouteTargetReference{
+					Kind: "Service",
+					Name: constants.OpenShiftConsoleRouteName,
+				},
+			},
+		})).Should(Succeed())
+
+		By("Check the hub cluster info bundle can be read from cloudevents consumer")
+		Eventually(func() error {
+			message := <-consumer.MessageChan()
+
+			statusBundle, err := getStatusBundle(message, constants.HubClusterInfoMsgKey)
+			if err != nil {
+				return err
 			}
-			// Expect(message.Payload).Should(ContainSubstring(globalHubConfigMapUID))
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})

@@ -724,6 +724,30 @@ data:
             "skipUrlSync": false,
             "sort": 0,
             "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "",
+              "value": ""
+            },
+            "datasource": null,
+            "definition": "SELECT\n  console_url\nFROM\n  status.leaf_hubs\nwhere\n  leaf_hub_name = '$hub'",
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "hubConsoleURL",
+            "options": [],
+            "query": "SELECT\n  console_url\nFROM\n  status.leaf_hubs\nwhere\n  leaf_hub_name = '$hub'",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
           }
         ]
       },
