@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -25,7 +26,7 @@ import (
 )
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnation uint64) error {
+func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnation uint64) error {
 	config := &corev1.ConfigMap{}
 	syncIntervals := globalhubagentconfig.NewSyncIntervals()
 	if err := globalhubagentconfig.AddConfigController(mgr, config, syncIntervals); err != nil {
@@ -76,7 +77,9 @@ func AddControllers(mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnati
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
 	}
-
+	// controller for local cluster policies history event bundle
+	localpolicies.AddLocalClusterPoliciesController(ctx, mgr, producer, agentConfig.LeafHubName, incarnation,
+		config, syncIntervals)
 	return nil
 }
 

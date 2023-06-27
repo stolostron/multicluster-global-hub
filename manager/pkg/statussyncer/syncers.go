@@ -80,6 +80,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 			"local-spec-placementrule-syncer"), config),
 		dbsyncer.NewLocalSpecPoliciesSyncer(ctrl.Log.WithName("local-spec-policy-syncer"), config),
 		dbsyncer.NewControlInfoDBSyncer(ctrl.Log.WithName("control-info-db-syncer")),
+		dbsyncer.NewLocalPoliciesStatusEventSyncer(ctrl.Log.WithName("local-policies-status-event-syncer"), config),
 	}
 
 	for _, dbsyncerObj := range dbSyncers {

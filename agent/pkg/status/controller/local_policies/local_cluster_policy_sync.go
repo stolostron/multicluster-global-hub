@@ -1,6 +1,7 @@
 package localpolicies
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
@@ -18,14 +19,15 @@ import (
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
-func AddLocalClusterPoliciesController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
+func AddLocalClusterPoliciesController(ctx context.Context, mgr ctrl.Manager, producer transport.Producer,
+	leafHubName string, incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
 ) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
 
 	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.LocalClusterPolicyHistoryEventsMsgKey)
-	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(leafHubName, incarnation, mgr.GetClient())
+	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(ctx, leafHubName, incarnation,
+		mgr.GetClient())
 
 	localClusterPolicyBundleEntryCollection := []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(localClusterPolicyHistoryEventTransportKey, clusterPolicyHistoryEventBundle,
@@ -45,13 +47,14 @@ func AddLocalClusterPoliciesController(mgr ctrl.Manager, producer transport.Prod
 	return nil
 }
 
-func createClusterPolicyBundleCollection(leafHubName string, incarnation uint64,
+func createClusterPolicyBundleCollection(ctx context.Context, leafHubName string, incarnation uint64,
 	hubOfHubsConfig *corev1.ConfigMap, runtimeClient client.Client,
 ) []*generic.BundleCollectionEntry {
 	// clusters per policy (base bundle)
 	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.LocalClusterPolicyHistoryEventsMsgKey)
-	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(leafHubName, incarnation, runtimeClient)
+	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(ctx, leafHubName,
+		incarnation, runtimeClient)
 	// multiple bundles for local policies
 	return []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(localClusterPolicyHistoryEventTransportKey, clusterPolicyHistoryEventBundle,
