@@ -101,8 +101,8 @@ const (
 	LocalPolicyCompleteComplianceMsgKey = "LocalPolicyCompleteCompliance"
 	// LocalPlacementRulesMsgKey - local placement rules message key.
 	LocalPlacementRulesMsgKey = "LocalPlacementRules"
-	// LocalClusterPolicyHistoryEventsMsgKey - local cluster policy history events message key.
-	LocalClusterPolicyHistoryEventsMsgKey = "LocalClusterPolicyHistoryEvents"
+	// LocalClusterPolicyStatusEventMsgKey - local cluster policy history events message key.
+	LocalClusterPolicyStatusEventMsgKey = "LocalClusterPolicyStatusEvents"
 
 	// SubscriptionStatusMsgKey - subscription-status message key.
 	SubscriptionStatusMsgKey = "SubscriptionStatus"

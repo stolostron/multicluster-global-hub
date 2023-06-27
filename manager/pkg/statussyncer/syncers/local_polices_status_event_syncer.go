@@ -14,7 +14,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
-	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -24,18 +23,18 @@ import (
 
 func NewLocalPoliciesStatusEventSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
 	dbSyncer := &localPoliciesStatusEventSyncer{
-		log:                             log,
-		config:                          config,
-		createLocalPolicySpecBundleFunc: statusbundle.NewClusterPolicyStatusEventBundle,
+		log:                                    log,
+		config:                                 config,
+		createLocalPolicyStatusEventBundleFunc: status.NewClusterPolicyStatusEventBundle,
 	}
 	log.Info("initialized local policies status event syncer")
 	return dbSyncer
 }
 
 type localPoliciesStatusEventSyncer struct {
-	log                             logr.Logger
-	config                          *corev1.ConfigMap
-	createLocalPolicySpecBundleFunc status.CreateBundleFunction
+	log                                    logr.Logger
+	config                                 *corev1.ConfigMap
+	createLocalPolicyStatusEventBundleFunc status.CreateBundleFunction
 }
 
 // TODO
@@ -46,8 +45,8 @@ func (syncer *localPoliciesStatusEventSyncer) RegisterCreateBundleFunctions(tran
 	}
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.LocalPolicySpecMsgKey,
-		CreateBundleFunc: syncer.createLocalPolicySpecBundleFunc,
+		MsgID:            constants.LocalClusterPolicyStatusEventMsgKey,
+		CreateBundleFunc: syncer.createLocalPolicyStatusEventBundleFunc,
 		Predicate:        predicate,
 	})
 }
@@ -61,14 +60,14 @@ func (syncer *localPoliciesStatusEventSyncer) RegisterCreateBundleFunctions(tran
 // and if the object was changed, update the db with the current object.
 func (syncer *localPoliciesStatusEventSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.LocalPolicySpecPriority,
+		conflator.LocalPolicyStatusEventPriority,
 		bundle.CompleteStateMode,
-		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
+		helpers.GetBundleType(syncer.createLocalPolicyStatusEventBundleFunc()),
 		syncer.handleLocalObjectsBundleWrapper(database.LocalPolicySpecTableName)))
 }
 
-func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,
-	bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
+func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundleWrapper(tableName string) func(
+	ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
 	return func(ctx context.Context, bundle status.Bundle,
 		dbClient postgres.StatusTransportBridgeDB,
 	) error {

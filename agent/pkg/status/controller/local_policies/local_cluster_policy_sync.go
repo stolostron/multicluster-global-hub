@@ -25,7 +25,7 @@ func AddLocalClusterPoliciesController(ctx context.Context, mgr ctrl.Manager, pr
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
 
 	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		constants.LocalClusterPolicyHistoryEventsMsgKey)
+		constants.LocalClusterPolicyStatusEventMsgKey)
 	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(ctx, leafHubName, incarnation,
 		mgr.GetClient())
 
@@ -52,7 +52,7 @@ func createClusterPolicyBundleCollection(ctx context.Context, leafHubName string
 ) []*generic.BundleCollectionEntry {
 	// clusters per policy (base bundle)
 	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		constants.LocalClusterPolicyHistoryEventsMsgKey)
+		constants.LocalClusterPolicyStatusEventMsgKey)
 	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(ctx, leafHubName,
 		incarnation, runtimeClient)
 	// multiple bundles for local policies

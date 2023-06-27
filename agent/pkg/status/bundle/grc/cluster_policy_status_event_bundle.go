@@ -92,6 +92,9 @@ func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object bundlepkg.Obj
 		if detail.History != nil {
 			for _, event := range detail.History {
 				compliance := bundle.ParseCompliance(event.Message)
+				if compliance == "" {
+					compliance = string(detail.ComplianceState)
+				}
 				bundleEvent, ok := eventMap[event.EventName]
 				if ok {
 					if bundleEvent.LastTimestamp != event.LastTimestamp {
