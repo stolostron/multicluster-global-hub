@@ -24,7 +24,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1687741933903,
+      "iteration": 1687853267725,
       "links": [
         {
           "asDropdown": false,
@@ -51,26 +51,39 @@ data:
                 "fillOpacity": 70,
                 "lineWidth": 0
               },
-              "mappings": [],
+              "mappings": [
+                {
+                  "options": {
+                    "0": {
+                      "color": "green",
+                      "index": 2,
+                      "text": "Compliant"
+                    },
+                    "1": {
+                      "color": "yellow",
+                      "index": 1,
+                      "text": "Unknown"
+                    },
+                    "2": {
+                      "color": "red",
+                      "index": 0,
+                      "text": "NonCompliant"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
               "noValue": "-",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
+                    "color": "transparent",
                     "value": null
-                  },
-                  {
-                    "color": "dark-yellow",
-                    "value": 0.5
-                  },
-                  {
-                    "color": "green",
-                    "value": 0.9
                   }
                 ]
               },
-              "unit": "percentunit"
+              "unit": "none"
             },
             "overrides": []
           },
@@ -84,12 +97,12 @@ data:
           "options": {
             "alignValue": "center",
             "legend": {
-              "displayMode": "list",
+              "displayMode": "hidden",
               "placement": "bottom"
             },
             "mergeValues": true,
             "rowHeight": 0.9,
-            "showValue": "auto",
+            "showValue": "never",
             "tooltip": {
               "mode": "single"
             }
@@ -101,7 +114,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(lc.compliance_date, $__interval),\n    p.policy_name,\n    COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance lc\n  INNER JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n  INNER JOIN\n    status.managed_clusters mc ON lc.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(lc.compliance_date)\n  AND\n    mc.cluster_name = '$cluster'\n  GROUP BY (lc.compliance_date, p.policy_name)\n  ORDER BY (time)\n),\norderclusters as (\n  SELECT\n    policy_name,\n    ROW_NUMBER () OVER (ORDER BY(SUM(non_compliant)/NULLIF((SUM(non_compliant) + SUM(compliant) + SUM(unknown)), 0)) DESC) as row_number\n  FROM\n    data\n  GROUP BY(policy_name)\n)\nSELECT\n  time,\n  dc.policy_name as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.policy_name = tc.policy_name\nWHERE\n  tc.row_number >= $topmin AND tc.row_number <= $topmax\nORDER BY (time)",
+              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(lc.compliance_date, $__interval),\n    p.policy_name,\n    CASE WHEN lc.compliance = 'non_compliant' THEN 2\n         WHEN lc.compliance = 'unknown' THEN 1\n         WHEN lc.compliance = 'compliant' THEN 0\n    END AS \"compliance\"\n  FROM\n    history.local_compliance lc\n  INNER JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n  INNER JOIN\n    status.managed_clusters mc ON lc.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(lc.compliance_date)\n  AND\n    mc.cluster_name = '$cluster'\n  AND \n    lc.leaf_hub_name = '$hub'\n),\norderclusters as (\n  SELECT\n    policy_name,\n    ROW_NUMBER () OVER (ORDER BY SUM(compliance) DESC) as row_number\n  FROM\n    data\n  GROUP BY(policy_name)\n)\nSELECT\n  time,\n  dc.policy_name as \"metric\",\n  compliance as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.policy_name = tc.policy_name\nWHERE\n  tc.row_number >= $topleft AND tc.row_number <= $topright\nORDER BY (time)",
               "refId": "A",
               "select": [
                 [
@@ -433,7 +446,7 @@ data:
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 100
+                    "value": 120
                   }
                 ]
               }
@@ -463,7 +476,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  concat(p.payload -> 'metadata' ->> 'namespace','.',p.policy_name) as policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  mc.cluster_name = '$cluster'\nORDER BY (lp.created_at) DESC",
+              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  concat(p.payload -> 'metadata' ->> 'namespace','.',p.policy_name) as policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  mc.cluster_name = '$cluster'\nORDER BY (lp.created_at,lp.compliance) DESC",
               "refId": "A",
               "select": [
                 [
@@ -554,7 +567,7 @@ data:
               "value": ""
             },
             "datasource": "${datasource}",
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  leaf_hub_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
+            "definition": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
             "description": "Regional hub cluster name",
             "error": null,
             "hide": 0,
@@ -563,7 +576,7 @@ data:
             "multi": false,
             "name": "hub",
             "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  leaf_hub_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
+            "query": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
@@ -578,7 +591,7 @@ data:
               "value": ""
             },
             "datasource": "${datasource}",
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id\nWHERE\n  mc.leaf_hub_name = '$hub'",
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance\n  WHERE\n  $__timeFilter(compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
             "description": null,
             "error": null,
             "hide": 0,
@@ -587,7 +600,7 @@ data:
             "multi": false,
             "name": "cluster",
             "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id\nWHERE\n  mc.leaf_hub_name = '$hub'",
+            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance\n  WHERE\n  $__timeFilter(compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
@@ -595,26 +608,28 @@ data:
             "type": "query"
           },
           {
+            "allValue": null,
             "current": {
               "selected": true,
               "text": "1:5",
               "value": "1:5"
             },
-            "description": "Top N Non Compliance Clusters",
+            "datasource": null,
+            "definition": "SELECT\n '1:5',\nCASE WHEN $maxtop > 5 THEN '$leftmaxtop:$maxtop'\nEND ",
+            "description": "Top N Non Compliance Policies",
             "error": null,
-            "hide": 0,
+            "hide": 1,
+            "includeAll": false,
             "label": "Top",
+            "multi": false,
             "name": "top",
-            "options": [
-              {
-                "selected": true,
-                "text": "1:5",
-                "value": "1:5"
-              }
-            ],
-            "query": "1:5",
+            "options": [],
+            "query": "SELECT\n '1:5',\nCASE WHEN $maxtop > 5 THEN '$leftmaxtop:$maxtop'\nEND ",
+            "refresh": 2,
+            "regex": "",
             "skipUrlSync": false,
-            "type": "textbox"
+            "sort": 0,
+            "type": "query"
           },
           {
             "allValue": null,
@@ -631,10 +646,10 @@ data:
             "includeAll": false,
             "label": null,
             "multi": false,
-            "name": "topmin",
+            "name": "topleft",
             "options": [],
             "query": "SELECT SPLIT_PART('$top', ':', 1);",
-            "refresh": 1,
+            "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
             "sort": 0,
@@ -655,10 +670,58 @@ data:
             "includeAll": false,
             "label": null,
             "multi": false,
-            "name": "topmax",
+            "name": "topright",
             "options": [],
             "query": "SELECT SPLIT_PART('$top', ':', 2);",
-            "refresh": 1,
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "",
+              "value": ""
+            },
+            "datasource": null,
+            "definition": "WITH clusterid as(\nSELECT\n  DISTINCT cluster_id\nFROM\n  status.managed_clusters\nWHERE\n leaf_hub_name = '$hub'\nAND\n cluster_name = '$cluster'\n),\ncompcluster as(\n  SELECT DISTINCT lc.policy_id\n  FROM\n    history.local_compliance lc\n JOIN\n    clusterid ci\n ON\n   ci.cluster_id = lc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*) \nFROM \n  compcluster\n\n",
+            "description": "max value for top",
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "maxtop",
+            "options": [],
+            "query": "WITH clusterid as(\nSELECT\n  DISTINCT cluster_id\nFROM\n  status.managed_clusters\nWHERE\n leaf_hub_name = '$hub'\nAND\n cluster_name = '$cluster'\n),\ncompcluster as(\n  SELECT DISTINCT lc.policy_id\n  FROM\n    history.local_compliance lc\n JOIN\n    clusterid ci\n ON\n   ci.cluster_id = lc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*) \nFROM \n  compcluster\n\n",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "",
+              "value": ""
+            },
+            "datasource": null,
+            "definition": "select $maxtop-4",
+            "description": null,
+            "error": null,
+            "hide": 2,
+            "includeAll": false,
+            "label": null,
+            "multi": false,
+            "name": "leftmaxtop",
+            "options": [],
+            "query": "select $maxtop-4",
+            "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
             "sort": 0,
