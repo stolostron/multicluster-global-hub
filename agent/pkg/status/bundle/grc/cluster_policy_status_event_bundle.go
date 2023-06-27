@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
@@ -12,26 +13,27 @@ import (
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
 func NewClusterPolicyHistoryEventBundle(leafHubName string, incarnation uint64,
-	extractObjIDFunc bundlepkg.ExtractObjIDFunc,
+	runtimeClient client.Client,
 ) bundlepkg.Bundle {
-	return &ClustersPerPolicyBundle{
-		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
-			Objects:       make([]*statusbundle.PolicyGenericComplianceStatus, 0),
-			LeafHubName:   leafHubName,
-			BundleVersion: statusbundle.NewBundleVersion(incarnation, 0),
+	return &ClusterPolicyHistoryEventBundle{
+		BaseClusterPolicyHistoryEventBundle: statusbundle.BaseClusterPolicyHistoryEventBundle{
+			PolicyStatusEvents: make(map[string]*statusbundle.BaseClusterPolicyHistoryEventBundle),
+			LeafHubName:        leafHubName,
+			BundleVersion:      statusbundle.NewBundleVersion(incarnation, 0),
 		},
-		extractObjIDFunc: extractObjIDFunc,
-		lock:             sync.Mutex{},
+		lock:          sync.Mutex{},
+		runtimeClient: runtimeClient,
 	}
 }
 
 type ClusterPolicyHistoryEventBundle struct {
-	statusbundle.ClusterPolicyHistoryEventBundle
-	lock sync.Mutex
+	statusbundle.BaseClusterPolicyHistoryEventBundle
+	lock          sync.Mutex
+	runtimeClient client.Client
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *ClustersPerPolicyBundle) UpdateObject(object bundlepkg.Object) {
+func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -65,7 +67,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object bundlepkg.Object) {
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *ClustersPerPolicyBundle) DeleteObject(object bundlepkg.Object) {
+func (bundle *ClusterPolicyHistoryEventBundle) DeleteObject(object bundlepkg.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -84,14 +86,14 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object bundlepkg.Object) {
 }
 
 // GetBundleVersion function to get bundle version.
-func (bundle *ClustersPerPolicyBundle) GetBundleVersion() *statusbundle.BundleVersion {
+func (bundle *ClusterPolicyHistoryEventBundle) GetBundleVersion() *statusbundle.BundleVersion {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
 	return bundle.BundleVersion
 }
 
-func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, error) {
+func (bundle *ClusterPolicyHistoryEventBundle) getObjectIndexByUID(uid string) (int, error) {
 	for i, object := range bundle.Objects {
 		if object.PolicyID == uid {
 			return i, nil
@@ -103,7 +105,7 @@ func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, err
 
 // getClusterStatuses returns (list of compliant clusters, list of nonCompliant clusters, list of unknown clusters,
 // list of all clusters).
-func (bundle *ClustersPerPolicyBundle) getClusterStatuses(policy *policiesv1.Policy) ([]string, []string, []string,
+func (bundle *ClusterPolicyHistoryEventBundle) getClusterStatuses(policy *policiesv1.Policy) ([]string, []string, []string,
 	[]string,
 ) {
 	compliantClusters := make([]string, 0)
@@ -133,7 +135,7 @@ func (bundle *ClustersPerPolicyBundle) getClusterStatuses(policy *policiesv1.Pol
 	return compliantClusters, nonCompliantClusters, unknownComplianceClusters, allClusters
 }
 
-func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyID string,
+func (bundle *ClusterPolicyHistoryEventBundle) getClustersPerPolicy(originPolicyID string,
 	policy *policiesv1.Policy,
 ) *statusbundle.PolicyGenericComplianceStatus {
 	compliantClusters, nonCompliantClusters, unknownComplianceClusters, _ := bundle.getClusterStatuses(policy)
@@ -148,7 +150,7 @@ func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyID strin
 }
 
 // returns true if cluster list has changed, otherwise returns false (even if cluster statuses changed).
-func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, policy *policiesv1.Policy) bool {
+func (bundle *ClusterPolicyHistoryEventBundle) updateObjectIfChanged(objectIndex int, policy *policiesv1.Policy) bool {
 	newCompliantClusters, newNonCompliantClusters, newUnknownClusters, newClusters := bundle.getClusterStatuses(policy)
 	oldPolicyStatus := bundle.Objects[objectIndex]
 	clusterListChanged := false
@@ -170,7 +172,7 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, po
 	return clusterListChanged
 }
 
-func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
+func (bundle *ClusterPolicyHistoryEventBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
 	for _, clusterName := range subsetClusters {
 		if !bundlepkg.ContainsString(allClusters, clusterName) {
 			return false
@@ -180,7 +182,7 @@ func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []stri
 	return true
 }
 
-func (bundle *ClustersPerPolicyBundle) getObjectIndexByObj(obj bundlepkg.Object) (int, error) {
+func (bundle *ClusterPolicyHistoryEventBundle) getObjectIndexByObj(obj bundlepkg.Object) (int, error) {
 	uid, _ := bundle.extractObjIDFunc(obj)
 	if len(uid) > 0 {
 		for i, object := range bundle.Objects {

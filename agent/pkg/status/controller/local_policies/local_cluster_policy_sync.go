@@ -22,54 +22,39 @@ func AddLocalClusterPoliciesController(mgr ctrl.Manager, producer transport.Prod
 	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
 ) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
-	bundleCollection := createClusterPolicyBundleCollection(leafHubName, incarnation, hubOfHubsConfig)
 
-	localPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		constants.LocalClusterPolicyHistoryEventsMsgKey)
+	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(leafHubName, incarnation, mgr.GetClient())
+
+	localClusterPolicyBundleEntryCollection := []*generic.BundleCollectionEntry{
+		generic.NewBundleCollectionEntry(localClusterPolicyHistoryEventTransportKey, clusterPolicyHistoryEventBundle,
+			func() bool { return hubOfHubsConfig.Data["enableLocalPolicies"] == "true" }),
+	}
+
+	localClusterPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return !helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) &&
-			!helper.HasLabel(object, rootPolicyLabel)
+			helper.HasLabel(object, rootPolicyLabel)
 	})
-
-	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, producer, bundleCollection,
-		createObjFunc, localPolicyPredicate, syncIntervalsData.GetPolicies); err != nil {
-		return fmt.Errorf("failed to add local policies controller to the manager - %w", err)
+	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, producer,
+		localClusterPolicyBundleEntryCollection, createObjFunc, localClusterPolicyPredicate,
+		syncIntervalsData.GetPolicies); err != nil {
+		return fmt.Errorf("failed to add local cluster policies controller to the manager - %w", err)
 	}
 
 	return nil
 }
 
 func createClusterPolicyBundleCollection(leafHubName string, incarnation uint64,
-	hubOfHubsConfig *corev1.ConfigMap,
+	hubOfHubsConfig *corev1.ConfigMap, runtimeClient client.Client,
 ) []*generic.BundleCollectionEntry {
-	// extractLocalPolicyIDFunc := func(obj bundle.Object) (string, bool) { return string(obj.GetUID()), true }
-
 	// clusters per policy (base bundle)
 	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.LocalClusterPolicyHistoryEventsMsgKey)
-
-	localClustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, incarnation,
-		extractLocalPolicyIDFunc)
-
-	// compliance status bundle
-	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		constants.LocalPolicyCompleteComplianceMsgKey)
-	localCompleteComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName,
-		localClustersPerPolicyBundle, incarnation, extractLocalPolicyIDFunc)
-
-	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPolicySpecMsgKey)
-	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPolicy)
-
-	// check for full information
-	localPolicyStatusPredicate := func() bool {
-		return hubOfHubsConfig.Data["aggregationLevel"] == "full" &&
-			hubOfHubsConfig.Data["enableLocalPolicies"] == "true"
-	}
+	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(leafHubName, incarnation, runtimeClient)
 	// multiple bundles for local policies
 	return []*generic.BundleCollectionEntry{
-		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
-			localClustersPerPolicyBundle, localPolicyStatusPredicate),
-		generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
-			localCompleteComplianceStatusBundle, localPolicyStatusPredicate),
-		generic.NewBundleCollectionEntry(localPolicySpecTransportKey, localPolicySpecBundle,
+		generic.NewBundleCollectionEntry(localClusterPolicyHistoryEventTransportKey, clusterPolicyHistoryEventBundle,
 			func() bool { return hubOfHubsConfig.Data["enableLocalPolicies"] == "true" }),
 	}
 }

@@ -1,11 +1,10 @@
 package status
 
 // ClusterPolicyHistoryEventBundle the base struct for cluster policy history event bundle.
-type ClusterPolicyHistoryEventBundle struct {
-	PolicyID      string               `json:"policyId"`
-	LeafHubName   string               `json:"leafHubName"`
-	Objects       []*PolicyStatusEvent `json:"objects"`
-	BundleVersion *BundleVersion       `json:"bundleVersion"`
+type BaseClusterPolicyHistoryEventBundle struct {
+	LeafHubName        string                        `json:"leafHubName"`
+	PolicyStatusEvents map[string]*PolicyStatusEvent `json:"policyStatusEvents"`
+	BundleVersion      *BundleVersion                `json:"bundleVersion"`
 }
 
 type PolicyStatusEvent struct {
