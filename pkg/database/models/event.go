@@ -8,7 +8,7 @@ import (
 
 type BaseLocalPolicyEvent struct {
 	EventName   string         `gorm:"column:event_name;type:varchar(63);not null"`
-	PolicyID    string         `gorm:"column:policy_id;type:uuid;primaryKey"`
+	PolicyID    string         `gorm:"column:policy_id;type:uuid;not null"`
 	Message     string         `gorm:"column:message;type:text"`
 	LeafHubName string         `gorm:"size:63;not null"`
 	Reason      string         `gorm:"column:reason;type:text"`
