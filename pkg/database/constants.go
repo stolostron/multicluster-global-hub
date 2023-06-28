@@ -36,6 +36,9 @@ const (
 
 	// LeafHubHeartbeatsTableName table name for LH heartbeats.
 	LeafHubHeartbeatsTableName = "leaf_hub_heartbeats"
+
+	// HubClusterInfo table name of leaf_hubs.
+	HubClusterInfoTableName = "leaf_hubs"
 )
 
 // default values.

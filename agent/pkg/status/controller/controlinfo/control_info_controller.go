@@ -66,6 +66,7 @@ func (c *LeafHubControlInfoController) Start(ctx context.Context) error {
 func (c *LeafHubControlInfoController) periodicSync(ctx context.Context) {
 	currentSyncInterval := c.resolveSyncIntervalFunc()
 	ticker := time.NewTicker(currentSyncInterval)
+	c.syncBundle()
 
 	for {
 		select {

@@ -15,6 +15,10 @@ const (
 	GHAgentIncarnationCMKey = "incarnation"
 	// GlobalHubSchedulerName - placementrule scheduler name.
 	GlobalHubSchedulerName = "global-hub"
+	// OpenShift console namespace
+	OpenShiftConsoleNamespace = "openshift-console"
+	// OpenShift console route name
+	OpenShiftConsoleRouteName = "console"
 )
 
 const (
@@ -71,6 +75,9 @@ const (
 
 	// ControlInfoMsgKey - control info message key.
 	ControlInfoMsgKey = "ControlInfo"
+
+	// HubClusterInfoMsgKey - hub cluster info message key.
+	HubClusterInfoMsgKey = "HubClusterInfo"
 
 	// ManagedClustersMsgKey - managed clusters message key.
 	ManagedClustersMsgKey = "ManagedClusters"

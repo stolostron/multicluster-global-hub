@@ -47,12 +47,6 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportDispatch
 		return syncer.config.Data["enableLocalPolicies"] == "true"
 	}
 
-	// transportDispatcher.BundleRegister(&registration.BundleRegistration{
-	// 	MsgID:            constants.LocalPolicySpecMsgKey,
-	// 	CreateBundleFunc: syncer.createLocalPolicySpecBundleFunc,
-	// 	Predicate:        predicate,
-	// })
-
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.LocalPlacementRulesMsgKey,
 		CreateBundleFunc: syncer.createLocalPlacementRulesSpecBundleFunc,
@@ -68,11 +62,6 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportDispatch
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
-	// conflationManager.Register(conflator.NewConflationRegistration(
-	// 	conflator.LocalPolicySpecPriority,
-	// 	bundle.CompleteStateMode,
-	// 	helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
-	// 	syncer.handleLocalObjectsBundleWrapper(database.LocalPolicySpecTableName)))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRulesSpecPriority,

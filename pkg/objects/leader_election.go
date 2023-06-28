@@ -1,4 +1,4 @@
-package obejcts
+package objects
 
 type LeaderElectionConfig struct {
 	LeaseDuration int
