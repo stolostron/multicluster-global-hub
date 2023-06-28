@@ -187,8 +187,8 @@ data:
                     "value": [
                       {
                         "targetBlank": true,
-                        "title": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Cluster}/${__data.fields.Policy}",
-                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Cluster}/${__data.fields.Policy}"
+                        "title": "View policy \"${__data.fields.Policy}\" on hub cluster \"${__data.fields.Hub}\"",
+                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}"
                       }
                     ]
                   },
