@@ -27,20 +27,6 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create leaf_hubs table in database")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS status;
-			CREATE TABLE IF NOT EXISTS status.leaf_hubs (
-				leaf_hub_name character varying(63) NOT NULL,
-				payload jsonb NOT NULL,
-				console_url text generated always as (payload ->> 'consoleURL') stored,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted_at timestamp without time zone
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the tables are created")
 		Eventually(func() error {
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")

@@ -23,17 +23,6 @@ var _ = Describe("leaf hubs heartbeats", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create leaf_hub_heartbeats table in database")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS status;
-			CREATE TABLE IF NOT EXISTS  status.leaf_hub_heartbeats (
-				leaf_hub_name character varying(63) NOT NULL,
-				last_timestamp timestamp without time zone DEFAULT now() NOT NULL
-			);
-			CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats USING btree (leaf_hub_name);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the tables are created")
 		Eventually(func() error {
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")

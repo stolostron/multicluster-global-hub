@@ -31,32 +31,6 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create local spec table in database")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS local_spec;
-			CREATE TABLE IF NOT EXISTS  local_spec.placementrules (
-				leaf_hub_name text,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL
-			);
-			CREATE TABLE IF NOT EXISTS local_spec.policies (
-				leaf_hub_name character varying(63) NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone,
-				updated_at timestamp without time zone,
-				deleted_at timestamp without time zone,
-				policy_id uuid,
-				policy_name character varying(255) generated always as (payload -> 'metadata' ->> 'name') stored,
-				policy_standard character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards') stored,
-				policy_category character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
-				policy_control character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls') stored
-			);
-			CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_id_idx ON local_spec.placementrules USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
-			CREATE UNIQUE INDEX IF NOT EXISTS policies_leaf_hub_name_id_idx ON local_spec.policies USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the tables are created")
 		Eventually(func() error {
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
