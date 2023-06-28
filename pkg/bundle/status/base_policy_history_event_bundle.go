@@ -32,11 +32,9 @@ func (bundle *BaseClusterPolicyStatusEventBundle) GetLeafHubName() string {
 
 func (bundle *BaseClusterPolicyStatusEventBundle) GetObjects() []interface{} {
 	objects := make([]interface{}, 0)
-	i := 0
 	for _, events := range bundle.PolicyStatusEvents {
 		for _, event := range events {
-			objects[i] = event
-			i++
+			objects = append(objects, event)
 		}
 	}
 	return objects
