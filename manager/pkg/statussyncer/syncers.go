@@ -172,6 +172,7 @@ func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 			helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
 			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
 			helpers.GetBundleType(&status.BaseLeafHubClusterInfoStatusBundle{}),
+			helpers.GetBundleType(&status.BaseClusterPolicyStatusEventBundle{}),
 		})
 	if err := mgr.Add(stats); err != nil {
 		return nil, fmt.Errorf("failed to add statistics to manager - %w", err)

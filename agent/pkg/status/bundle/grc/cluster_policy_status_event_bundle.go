@@ -31,7 +31,7 @@ func NewClusterPolicyHistoryEventBundle(ctx context.Context, leafHubName string,
 		runtimeClient: runtimeClient,
 		ctx:           context.Background(),
 		regex:         regexp.MustCompile(`(\w+);`),
-		log:           ctrl.Log.WithName("cluster-policy-history-event-bundle"),
+		log:           ctrl.Log.WithName("cluster-policy-status-event-bundle"),
 	}
 }
 
@@ -91,13 +91,14 @@ func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object bundlepkg.Obj
 	for _, detail := range policy.Status.Details {
 		if detail.History != nil {
 			for _, event := range detail.History {
-				bundle.loadEventToBundle(event, detail, eventMap, string(rootPolicy.GetUID()), clusterId,
-					bundlePolicyStatusEvents, &modified)
+				bundlePolicyStatusEvents = bundle.loadEventToBundle(event, detail, eventMap,
+					string(rootPolicy.GetUID()), clusterId, bundlePolicyStatusEvents, &modified)
 			}
 		}
 	}
 
 	if modified {
+		bundle.PolicyStatusEvents[string(policy.GetUID())] = bundlePolicyStatusEvents
 		bundle.BundleVersion.Generation++
 	}
 }

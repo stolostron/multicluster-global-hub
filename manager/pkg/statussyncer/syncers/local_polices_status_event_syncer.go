@@ -88,8 +88,10 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 	db := database.GetGorm()
 	// https://gorm.io/docs/transactions.html
 	err := db.Transaction(func(tx *gorm.DB) error {
+		if len(bundle.GetObjects()) == 0 {
+			return nil
+		}
 		for _, object := range bundle.GetObjects() {
-
 			policyStatusEvent, ok := object.(*status.PolicyStatusEvent)
 			if !ok {
 				continue
