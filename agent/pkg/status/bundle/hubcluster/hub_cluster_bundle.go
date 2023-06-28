@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	routev1 "github.com/openshift/api/route/v1"
+
 	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
@@ -39,7 +40,6 @@ func (bundle *LeafHubClusterInfoStatusBundle) UpdateObject(object bundlepkg.Obje
 			ConsoleURL:  "https://" + route.Spec.Host,
 		})
 	bundle.BundleVersion.Generation++
-
 }
 
 // DeleteObject function to delete a single object inside a bundle.

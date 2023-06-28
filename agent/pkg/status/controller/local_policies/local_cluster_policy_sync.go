@@ -4,6 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
@@ -11,11 +17,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	corev1 "k8s.io/api/core/v1"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
@@ -45,19 +46,4 @@ func AddLocalClusterPoliciesController(ctx context.Context, mgr ctrl.Manager, pr
 	}
 
 	return nil
-}
-
-func createClusterPolicyBundleCollection(ctx context.Context, leafHubName string, incarnation uint64,
-	hubOfHubsConfig *corev1.ConfigMap, runtimeClient client.Client,
-) []*generic.BundleCollectionEntry {
-	// clusters per policy (base bundle)
-	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		constants.LocalClusterPolicyStatusEventMsgKey)
-	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(ctx, leafHubName,
-		incarnation, runtimeClient)
-	// multiple bundles for local policies
-	return []*generic.BundleCollectionEntry{
-		generic.NewBundleCollectionEntry(localClusterPolicyHistoryEventTransportKey, clusterPolicyHistoryEventBundle,
-			func() bool { return hubOfHubsConfig.Data["enableLocalPolicies"] == "true" }),
-	}
 }

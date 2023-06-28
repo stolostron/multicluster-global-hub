@@ -6,15 +6,15 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-logr/logr"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/go-logr/logr"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
@@ -91,33 +91,8 @@ func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object bundlepkg.Obj
 	for _, detail := range policy.Status.Details {
 		if detail.History != nil {
 			for _, event := range detail.History {
-				compliance := bundle.ParseCompliance(event.Message)
-				if compliance == "" {
-					compliance = string(detail.ComplianceState)
-				}
-				bundleEvent, ok := eventMap[event.EventName]
-				if ok {
-					if bundleEvent.LastTimestamp != event.LastTimestamp {
-						bundleEvent.Message = event.Message
-						bundleEvent.Count = bundleEvent.Count + 1
-						bundleEvent.LastTimestamp = event.LastTimestamp
-						bundleEvent.Compliance = compliance
-						modified = true
-					}
-					continue
-				} else {
-					modified = true
-					bundlePolicyStatusEvents = append(bundlePolicyStatusEvents,
-						&statusbundle.PolicyStatusEvent{
-							EventName:     event.EventName,
-							PolicyID:      string(rootPolicy.GetUID()),
-							ClusterID:     clusterId,
-							Compliance:    compliance,
-							LastTimestamp: event.LastTimestamp,
-							Message:       event.Message,
-							Count:         1,
-						})
-				}
+				bundle.loadEventToBundle(event, detail, eventMap, string(rootPolicy.GetUID()), clusterId,
+					bundlePolicyStatusEvents, &modified)
 			}
 		}
 	}
@@ -156,4 +131,38 @@ func (bundle *ClusterPolicyHistoryEventBundle) ParseCompliance(message string) s
 		return firstWord
 	}
 	return ""
+}
+
+func (bundle *ClusterPolicyHistoryEventBundle) loadEventToBundle(event policiesv1.ComplianceHistory,
+	detail *policiesv1.DetailsPerTemplate, eventMap map[string]*statusbundle.PolicyStatusEvent,
+	rootPolicyId, clusterId string, bundlePolicyStatusEvents []*statusbundle.PolicyStatusEvent,
+	modified *bool,
+) []*statusbundle.PolicyStatusEvent {
+	compliance := bundle.ParseCompliance(event.Message)
+	if compliance == "" {
+		compliance = string(detail.ComplianceState)
+	}
+	bundleEvent, ok := eventMap[event.EventName]
+	if ok {
+		if bundleEvent.LastTimestamp != event.LastTimestamp {
+			bundleEvent.Message = event.Message
+			bundleEvent.Count = bundleEvent.Count + 1
+			bundleEvent.LastTimestamp = event.LastTimestamp
+			bundleEvent.Compliance = compliance
+			*modified = true
+		}
+	} else {
+		*modified = true
+		bundlePolicyStatusEvents = append(bundlePolicyStatusEvents,
+			&statusbundle.PolicyStatusEvent{
+				EventName:     event.EventName,
+				PolicyID:      rootPolicyId,
+				ClusterID:     clusterId,
+				Compliance:    compliance,
+				LastTimestamp: event.LastTimestamp,
+				Message:       event.Message,
+				Count:         1,
+			})
+	}
+	return bundlePolicyStatusEvents
 }

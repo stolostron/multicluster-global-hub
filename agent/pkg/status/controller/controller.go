@@ -78,8 +78,11 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		}
 	}
 	// controller for local cluster policies history event bundle
-	localpolicies.AddLocalClusterPoliciesController(ctx, mgr, producer, agentConfig.LeafHubName, incarnation,
+	err = localpolicies.AddLocalClusterPoliciesController(ctx, mgr, producer, agentConfig.LeafHubName, incarnation,
 		config, syncIntervals)
+	if err != nil {
+		return fmt.Errorf("failed to add local cluster policies controller: %w", err)
+	}
 	return nil
 }
 

@@ -62,7 +62,6 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportDispatch
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
-
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRulesSpecPriority,
 		bundle.CompleteStateMode,

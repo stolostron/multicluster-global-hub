@@ -17,6 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
@@ -36,7 +37,6 @@ type localPoliciesStatusEventSyncer struct {
 	createLocalPolicyStatusEventBundleFunc status.CreateBundleFunction
 }
 
-// TODO
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *localPoliciesStatusEventSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	predicate := func() bool {
@@ -57,7 +57,9 @@ func (syncer *localPoliciesStatusEventSyncer) RegisterCreateBundleFunctions(tran
 // therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the database.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
-func (syncer *localPoliciesStatusEventSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
+func (syncer *localPoliciesStatusEventSyncer) RegisterBundleHandlerFunctions(
+	conflationManager *conflator.ConflationManager,
+) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicyStatusEventPriority,
 		bundle.CompleteStateMode,
@@ -104,7 +106,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 					LeafHubName: leafHubName,
 					Source:      nil,
 					Count:       policyStatusEvent.Count,
-					Compliance:  string(database.GetDatabaseCompliance(policyStatusEvent.Compliance)),
+					Compliance:  string(common.GetDatabaseCompliance(policyStatusEvent.Compliance)),
 				},
 				ClusterID: policyStatusEvent.ClusterID,
 			})
