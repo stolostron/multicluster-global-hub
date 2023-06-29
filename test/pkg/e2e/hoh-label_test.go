@@ -2,13 +2,12 @@ package tests
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
-	"crypto/tls"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,7 +27,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 		Eventually(func() error {
 			By("Config request of the api")
 			transport := &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			}
 			httpClient = &http.Client{Timeout: time.Second * 60, Transport: transport}
 			var err error
@@ -72,7 +71,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 	})
 
 	It("add the label to the managed cluster", func() {
-		for i:=1; i<len(managedClusters); i++ {
+		for i := 1; i < len(managedClusters); i++ {
 			patches := []patch{
 				{
 					Op:    "add", // or remove
@@ -139,16 +138,6 @@ type patch struct {
 	Value string `json:"value"`
 }
 
-func getLeafHubName(managedClusterName string) string {
-	result := ""
-	for _, cluster := range testOptions.ManagedClusters {
-		if strings.Compare(cluster.Name, managedClusterName) == 0 {
-			result = cluster.LeafHubName
-		}
-	}
-	return result
-}
-
 func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCluster, error) {
 	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
@@ -161,6 +150,7 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

@@ -45,11 +45,10 @@ func deployGlobalHub() error {
 		Eventually(func() error {
 			for _, managedCluster := range testOptions.ManagedClusters {
 				if managedCluster.Name != managedCluster.LeafHubName {
-					
 					cmd := exec.Command("kubectl", "--context", managedCluster.Name, "apply", "-f", testOptions.HubCluster.CrdsDir, "--validate=false")
 					cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
 					output, err := cmd.CombinedOutput()
-					fmt.Println(string(output))
+					fmt.Println(output)
 					if err != nil {
 						return err
 					}

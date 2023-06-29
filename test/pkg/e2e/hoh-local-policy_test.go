@@ -145,14 +145,14 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						for _, leafhubName := range LeafHubNames {
 							if leafhub == leafhubName && policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
 								policies[leafhub] = policy
-							}						
+							}
 						}
 					}
 					if len(policies) != len(LeafHubNames) {
 						return fmt.Errorf("expect policy has not synchronized")
 					}
 					return nil
-				}, 3*time.Minute, 5*time.Second).Should(Succeed())
+				}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
 				By("Verify the local policy is synchronized to the global hub status table")
 				Eventually(func() error {

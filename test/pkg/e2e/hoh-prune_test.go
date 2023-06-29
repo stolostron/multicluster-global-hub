@@ -2,6 +2,8 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
+	"net/http"
 	"fmt"
 	"time"
 
@@ -63,6 +65,10 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Get managed cluster name")
 		Eventually(func() error {
+			transport := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			httpClient = &http.Client{Timeout: time.Second * 60, Transport: transport}
 			managedClusters, err := getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
