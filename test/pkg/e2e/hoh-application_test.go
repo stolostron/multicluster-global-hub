@@ -46,6 +46,8 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			if err != nil {
 				return err
 			}
+			fmt.Printf("\n managedClusters[0].name: \n %v \n", managedClusters[0].Name)
+			fmt.Printf("\n managedClusters[1].name: \n %v \n", managedClusters[1].Name)
 			if len(managedClusters) != ExpectedManagedClusterNum {
 				return fmt.Errorf("managed cluster is not exist")
 			}
@@ -57,6 +59,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		appsv1.SchemeBuilder.AddToScheme(scheme)
 		appsv1alpha1.AddToScheme(scheme)
 		var err error
+		fmt.Printf("\n GlobalHubName: \n %v \n", GlobalHubName)
 		appClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
@@ -83,6 +86,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 			}
 			if val, ok := managedClusterInfo.Labels[APP_LABEL_KEY]; ok {
 				if val == APP_LABEL_VALUE && managedClusterInfo.Name == managedClusters[0].Name {
+					fmt.Printf("\n managedClusterInfo.Name: \n %v \n", managedClusterInfo.Name)
 					return nil
 				}
 			}
@@ -192,7 +196,7 @@ func getAppsubReport(appClient client.Client, httpClient *http.Client, name, nam
 
 	appsubUID := string(appsub.GetUID())
 	getSubscriptionReportURL := fmt.Sprintf("%s/global-hub-api/v1/subscriptionreport/%s",
-		testOptions.HubCluster.Nonk8sApiServer, appsubUID)
+		localOptions.LocalHubCluster.Nonk8sApiServer, appsubUID)
 	req, err := http.NewRequest("GET", getSubscriptionReportURL, nil)
 	if err != nil {
 		return nil, err

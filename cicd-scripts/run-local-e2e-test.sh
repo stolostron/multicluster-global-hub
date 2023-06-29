@@ -38,26 +38,27 @@ hub_nonk8s_api_server="https://${container_node_ip}:30080"
 
 printf "options:" > $OPTIONS_FILE
 printf "\n  hub:" >> $OPTIONS_FILE
-printf "\n    name: $HUB_OF_HUB_NAME" >> $OPTIONS_FILE
-printf "\n    namespace: ${hub_namespace}" >> $OPTIONS_FILE
-printf "\n    apiServer: ${hub_api_server}" >> $OPTIONS_FILE
-printf "\n    nonk8sApiServer: ${hub_nonk8s_api_server}" >> $OPTIONS_FILE
-if [ ! -f "IS_CANARY_ENV" ];then
-  printf "\n    kubeconfig: ${ROOT_DIR}/test/setup/config/kubeconfig" >> $OPTIONS_FILE
-  printf "\n    crdsDir: ${ROOT_DIR}/pkg/testdata/crds" >> $OPTIONS_FILE
-  printf "\n    storagePath: ${ROOT_DIR}/test/setup/hoh/postgres_setup.sh" >> $OPTIONS_FILE
-  printf "\n    transportPath: ${ROOT_DIR}/test/setup/hoh/kafka_setup.sh" >> $OPTIONS_FILE
-else
-  printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
-  printf "\n    storagePath: ${ROOT_DIR}/operator/config/samples/storage/deploy_postgres.sh" >> $OPTIONS_FILE
-  printf "\n    transportPath: ${ROOT_DIR}/operator/config/samples/transport/deploy_kafka.sh" >> $OPTIONS_FILE
-fi
-  printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
-  printf "\n    databaseExternalHost: ${container_node_ip}" >> $OPTIONS_FILE
-  printf "\n    databaseExternalPort: 32432" >> $OPTIONS_FILE
-  printf "\n    ManagerImageREF: quay.io/stolostron/multicluster-global-hub-manager:latest" >> $OPTIONS_FILE
-  printf "\n    AgentImageREF: quay.io/stolostron/multicluster-global-hub-agent:latest" >> $OPTIONS_FILE
-  printf "\n    OperatorImageREF: quay.io/stolostron//multicluster-global-hub-operator:latest" >> $OPTIONS_FILE
+# printf "\n    name: $HUB_OF_HUB_NAME" >> $OPTIONS_FILE
+# printf "\n    namespace: ${hub_namespace}" >> $OPTIONS_FILE
+# printf "\n    apiServer: ${hub_api_server}" >> $OPTIONS_FILE
+# printf "\n    nonk8sApiServer: ${hub_nonk8s_api_server}" >> $OPTIONS_FILE
+printf "\n    kubeconfig: ${ROOT_DIR}/test/setup/config/kubeconfig" >> $OPTIONS_FILE
+# if [ ! -f "IS_CANARY_ENV" ];then
+#   printf "\n    kubeconfig: ${ROOT_DIR}/test/setup/config/kubeconfig" >> $OPTIONS_FILE
+#   printf "\n    crdsDir: ${ROOT_DIR}/pkg/testdata/crds" >> $OPTIONS_FILE
+#   printf "\n    storagePath: ${ROOT_DIR}/test/setup/hoh/postgres_setup.sh" >> $OPTIONS_FILE
+#   printf "\n    transportPath: ${ROOT_DIR}/test/setup/hoh/kafka_setup.sh" >> $OPTIONS_FILE
+# else
+#   printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
+#   printf "\n    storagePath: ${ROOT_DIR}/operator/config/samples/storage/deploy_postgres.sh" >> $OPTIONS_FILE
+#   printf "\n    transportPath: ${ROOT_DIR}/operator/config/samples/transport/deploy_kafka.sh" >> $OPTIONS_FILE
+# fi
+#   printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
+#   printf "\n    databaseExternalHost: ${container_node_ip}" >> $OPTIONS_FILE
+#   printf "\n    databaseExternalPort: 32432" >> $OPTIONS_FILE
+# printf "\n    ManagerImageREF: quay.io/stolostron/multicluster-global-hub-manager:latest" >> $OPTIONS_FILE
+# printf "\n    AgentImageREF: quay.io/stolostron/multicluster-global-hub-agent:latest" >> $OPTIONS_FILE
+# printf "\n    OperatorImageREF: quay.io/stolostron//multicluster-global-hub-operator:latest" >> $OPTIONS_FILE
 printf "\n  clusters:" >> $OPTIONS_FILE
 
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
@@ -66,22 +67,22 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$LEAF_HUB_NAME$i" > ${leafhub_kubeconfig}
   leafhub_kubecontext=$(kubectl config current-context --kubeconfig ${leafhub_kubeconfig})
 
-  printf "\n    - name: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE                # if the clusterName = leafhubName, then it is a leafhub
-  printf "\n      kubeconfig: ${leafhub_kubeconfig}" >> $OPTIONS_FILE
-  printf "\n      leafhubname: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE
-  printf "\n      kubecontext: ${leafhub_kubecontext}" >> $OPTIONS_FILE
+  # printf "\n    - name: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE                # if the clusterName = leafhubName, then it is a leafhub
+  printf "\n   - kubeconfig: ${leafhub_kubeconfig}" >> $OPTIONS_FILE
+  # printf "\n      leafhubname: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE
+  # printf "\n      kubecontext: ${leafhub_kubecontext}" >> $OPTIONS_FILE
 
-  for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
-    # imported managedcluster
-    managed_kubeconfig="${CONFIG_DIR}/kubeconfig-${LEAF_HUB_NAME}$i-cluster$j"
-    kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-${LEAF_HUB_NAME}$i-cluster$j" > ${managed_kubeconfig}
-    managed_kubecontext=$(kubectl config current-context --kubeconfig ${managed_kubeconfig})
+  # for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
+  #   # imported managedcluster
+  #   managed_kubeconfig="${CONFIG_DIR}/kubeconfig-${LEAF_HUB_NAME}$i-cluster$j"
+  #   kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-${LEAF_HUB_NAME}$i-cluster$j" > ${managed_kubeconfig}
+  #   managed_kubecontext=$(kubectl config current-context --kubeconfig ${managed_kubeconfig})
 
-    printf "\n    - name: kind-${LEAF_HUB_NAME}$i-cluster$j" >> $OPTIONS_FILE
-    printf "\n      leafhubname: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE
-    printf "\n      kubeconfig: ${managed_kubeconfig}" >> $OPTIONS_FILE
-    printf "\n      kubecontext: ${managed_kubecontext}" >> $OPTIONS_FILE
-  done
+  #   printf "\n    - name: kind-${LEAF_HUB_NAME}$i-cluster$j" >> $OPTIONS_FILE
+  #   printf "\n      leafhubname: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE
+  #   printf "\n      kubeconfig: ${managed_kubeconfig}" >> $OPTIONS_FILE
+  #   printf "\n      kubecontext: ${managed_kubecontext}" >> $OPTIONS_FILE
+  # done
 done
 
 while getopts ":f:v:" opt; do

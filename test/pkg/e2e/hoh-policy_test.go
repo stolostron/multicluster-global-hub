@@ -68,6 +68,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		globalClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 		for _, leafhubName := range LeafHubNames {
+			fmt.Printf("\n leafhubName: \n %v\n", leafhubName)
 			regionalClient, err = clients.ControllerRuntimeClient(leafhubName, scheme)
 			regionalClients = append(regionalClients, regionalClient)
 		}
@@ -115,6 +116,40 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the inform policy in global hub")
 		Eventually(func() error {
+			// {
+			// 	"apiVersion": "policy.open-cluster-management.io/v1",
+			// 	"kind": "Policy",
+			// 	"metadata": {
+			// 		"annotations": {
+			// 			"policy.open-cluster-management.io/categories": "PR.IP Information Protection Processes and Procedures",
+			// 			"policy.open-cluster-management.io/controls": "PR.IP-1 Baseline Configuration",
+			// 			"policy.open-cluster-management.io/standards": "NIST-CSF"
+			// 		},
+			// 		"creationTimestamp": "2023-06-28T16:29:02Z",
+			// 		"labels": {
+			// 			"global-hub.open-cluster-management.io/global-resource": ""
+			// 		},
+			// 		"name": "policy-limitrange",
+			// 		"namespace": "default",
+			// 		"selfLink": "/apis/policy.open-cluster-management.io/v1/namespaces/default/policies/policy-limitrange",
+			// 		"uid": "23f49238-e537-400d-8500-9653c01efd2e"
+			// 	},
+			// 	"status": {
+			// 		"compliant": "Compliant",
+			// 		"placement": [{
+			// 			"placementBinding": "binding-policy-limitrange",
+			// 			"placementRule": "placementrule-policy-limitrange"
+			// 		}],
+			// 		"status": [{
+			// 			"clustername": "kind-hub1-cluster1",
+			// 			"clusternamespace": "kind-hub1-cluster1",
+			// 			"compliant": "Compliant"
+			// 		}],
+			// 		"summary": {
+			// 			"complianceClusterNumber": 1
+			// 		}
+			// 	}
+			// }
 			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
 			if err != nil {
 				return err
@@ -139,6 +174,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 			policyStatusStr, _ := json.MarshalIndent(status, "", "  ")
 			klog.V(5).Info(fmt.Sprintf("get policy status: %s", policyStatusStr))
+
+			fmt.Printf("\n status.Status: \n %v\n", status.Status)
 
 			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusters[0].Name {
@@ -196,6 +233,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					return err
 				}
 				if val, ok := managedClusterInfo.Labels[POLICY_LABEL_KEY]; ok {
+					fmt.Printf("\n managedClusterInfo.Name, managedClusters[i].Name: \n %v: %v\n", managedClusterInfo.Name, managedClusters[i].Name)
 					if val == POLICY_LABEL_VALUE && managedClusterInfo.Name == managedClusters[i].Name {
 						return nil
 					}
@@ -221,11 +259,17 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 			By("Check the policy is created in regional hub")
 			Eventually(func() error {
-				status, err := getRegionalPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
+				status, err := getRegionalPolicyStatus(regionalClients[i], POLICY_NAME, POLICY_NAMESPACE)
 				if err != nil {
 					return err
 				}
+				// hub1-cluster1
+				for i, policyInfo := range status.Status {
+					fmt.Printf("\n regionalClients%v%v%vstatus: \n %v: %v\n", i, i, i, policyInfo.ClusterName, policyInfo.ComplianceState)
+				}
+				
 				for _, policyInfo := range status.Status {
+					fmt.Printf("\n policyInfo.ClusterName, managedClusters[i].Name: \n %v: %v\n", policyInfo.ClusterName, managedClusters[i].Name)
 					if policyInfo.ClusterName == managedClusters[i].Name {
 						if policyInfo.ComplianceState == policiesv1.Compliant {
 							return nil
@@ -394,7 +438,7 @@ func getPolicyStatus(client client.Client, httpClient *http.Client, name, namesp
 
 	policyUID := string(policy.UID)
 	getPolicyStatusURL := fmt.Sprintf("%s/global-hub-api/v1/policy/%s/status",
-		testOptions.HubCluster.Nonk8sApiServer, policyUID)
+		localOptions.LocalHubCluster.Nonk8sApiServer, policyUID)
 	req, err := http.NewRequest("GET", getPolicyStatusURL, nil)
 	if err != nil {
 		return nil, err

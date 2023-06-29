@@ -345,7 +345,7 @@ function enableOLM() {
   kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
   kubectl wait --for=condition=Established -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
   kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
-
+  
   retries=60
   csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
   while [[ $retries -gt 0 && "$csvPhase" != "Succeeded" ]]; do

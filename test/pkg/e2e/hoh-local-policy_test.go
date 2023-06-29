@@ -82,7 +82,9 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			}
 
 			By("Get postgres master pod name")
-			databaseURI := strings.Split(testOptions.HubCluster.DatabaseURI, "?")[0]
+			fmt.Printf("\n localOptions.LocalHubCluster.DatabaseURI: \n %v\n", localOptions.LocalHubCluster.DatabaseURI)
+			databaseURI := strings.Split(localOptions.LocalHubCluster.DatabaseURI, "?")[0]
+			fmt.Printf("\n databaseURI: \n %v\n", databaseURI)
 			postgresConn, err = database.PostgresConnection(context.TODO(), databaseURI, nil)
 			Expect(err).Should(Succeed())
 		})
@@ -121,7 +123,10 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			It("deploy policy to the cluster to the leafhub", func() {
 				By("Deploy the policy to the leafhub")
 				for _, leafhubName := range LeafHubNames {
+					fmt.Printf("\n leafhubName: \n %v\n", leafhubName)
 					output, err := clients.Kubectl(leafhubName, "apply", "-f", LOCAL_INFORM_POLICY_YAML)
+					fmt.Printf("\n Deploy the policy to the leafhub err: \n %v\n", err)
+					fmt.Printf("\n Deploy the policy to the leafhub output: \n %v\n", output)
 					klog.V(10).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 					Expect(err).Should(Succeed())
 				}

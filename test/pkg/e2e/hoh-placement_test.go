@@ -94,7 +94,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		}
 
 		By("Create Postgres connection")
-		databaseURI := strings.Split(testOptions.HubCluster.DatabaseURI, "?")[0]
+		databaseURI := strings.Split(localOptions.LocalHubCluster.DatabaseURI, "?")[0]
 		postgresConn, err = database.PostgresConnection(context.TODO(), databaseURI, nil)
 		Expect(err).Should(Succeed())
 	})

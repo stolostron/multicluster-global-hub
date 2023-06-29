@@ -29,7 +29,9 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 			transport := &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			}
+			fmt.Printf("\n transport: \n %v \n", transport)
 			httpClient = &http.Client{Timeout: time.Second * 60, Transport: transport}
+			fmt.Printf("\n httpClient: \n %v \n", httpClient)
 			var err error
 			managedClusters, err = getManagedCluster(httpClient, httpToken)
 			if err != nil {
@@ -139,13 +141,19 @@ type patch struct {
 }
 
 func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCluster, error) {
-	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
+	// fmt.Printf("\n localOptions: \n %v \n", localOptions)
+	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", localOptions.LocalHubCluster.Nonk8sApiServer)
+	// fmt.Printf("\n managedClusterUrl: \n %v \n", managedClusterUrl)
+	// fmt.Printf("\n token: \n %v \n", token)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
+	// fmt.Printf("\n err1: \n %v \n", err)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	resp, err := client.Do(req)
+	// fmt.Printf("\n err2: \n %v \n", err)
+
 	if err != nil {
 		return nil, err
 	}
@@ -161,6 +169,7 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 	if err != nil {
 		return nil, err
 	}
+	// fmt.Printf("\n managedClusterList.Items: \n %v \n", managedClusterList.Items)
 	if len(managedClusterList.Items) != 2 {
 		return nil, fmt.Errorf("cannot get two managed clusters")
 	}
@@ -172,7 +181,7 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 	*clusterv1.ManagedCluster, error,
 ) {
 	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters",
-		testOptions.HubCluster.Nonk8sApiServer)
+		localOptions.LocalHubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
@@ -196,7 +205,9 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 	}
 
 	for _, managedCluster := range managedClusterList.Items {
+		fmt.Printf("\n managedCluster, managedClusterName: \n %v, %v\n", managedCluster.Name, managedClusterName)
 		if managedCluster.Name == managedClusterName {
+			fmt.Printf("\n getManagedClusterByName returned: \n %v \n", managedCluster.Name)
 			return &managedCluster, nil
 		}
 	}
@@ -206,7 +217,8 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 
 func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterID string) error {
 	updateLabelUrl := fmt.Sprintf("%s/global-hub-api/v1/managedcluster/%s",
-		testOptions.HubCluster.Nonk8sApiServer, managedClusterID)
+		localOptions.LocalHubCluster.Nonk8sApiServer, managedClusterID)
+	fmt.Printf("\n updateLabelUrl: \n %v \n", updateLabelUrl)
 	// set method and body
 	jsonBody, err := json.Marshal(patches)
 	if err != nil {

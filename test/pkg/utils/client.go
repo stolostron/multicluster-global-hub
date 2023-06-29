@@ -22,20 +22,16 @@ type Client interface {
 	ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error)
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
-	// HubClusterName() string
-	// LeafHubClusterName() string
-	// GetLeafHubClusterNames() []string
-	// LeafHubClusterNumber() int
-	// ManagedClusterNumber() int
 }
 
 type client struct {
-	options Options
+	localOptions LocalOptions
 }
 
-func NewTestClient(opt Options) *client {
+func NewTestClient(opt LocalOptions) *client {
+	// fmt.Printf("\n options: \n %v \n", opt)
 	return &client{
-		options: opt,
+		localOptions: opt,
 	}
 }
 
@@ -52,8 +48,8 @@ func (c *client) ControllerRuntimeClient(clusterName string, scheme *runtime.Sch
 }
 
 func (c *client) KubeClient() kubernetes.Interface {
-	opt := c.options
-	config, err := LoadConfig(opt.HubCluster.KubeConfig, opt.HubCluster.KubeConfig, opt.HubCluster.KubeContext)
+	opt := c.localOptions
+	config, err := LoadConfig(opt.LocalHubCluster.KubeConfig, opt.LocalHubCluster.KubeConfig, opt.LocalHubCluster.KubeContext)
 	if err != nil {
 		panic(err)
 	}
@@ -65,10 +61,10 @@ func (c *client) KubeClient() kubernetes.Interface {
 }
 
 func (c *client) KubeDynamicClient() dynamic.Interface {
-	opt := c.options
+	opt := c.localOptions
 	url := ""
-	kubeConfig := opt.HubCluster.KubeConfig
-	kubeContext := opt.HubCluster.KubeContext
+	kubeConfig := opt.LocalHubCluster.KubeConfig
+	kubeContext := opt.LocalHubCluster.KubeContext
 	config, err := LoadConfig(url, kubeConfig, kubeContext)
 	if err != nil {
 		panic(err)
@@ -81,19 +77,24 @@ func (c *client) KubeDynamicClient() dynamic.Interface {
 }
 
 func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
-	if c.options.HubCluster.Name == clusterName {
+	fmt.Printf("\n clusterName: \n %v \n", clusterName)
+	if c.localOptions.LocalHubCluster.Name == clusterName {
 		// insert to the first
-		args = append([]string{"--context", c.options.HubCluster.KubeContext}, args...)
-		args = append([]string{"--kubeconfig", c.options.HubCluster.KubeConfig}, args...)
+		args = append([]string{"--context", c.localOptions.LocalHubCluster.KubeContext}, args...)
+		args = append([]string{"--kubeconfig", c.localOptions.LocalHubCluster.KubeConfig}, args...)
 		output, err := exec.Command("kubectl", args...).CombinedOutput()
+		fmt.Printf("\n args: \n %v \n", args)
 		return string(output), err
 	}
-	for _, cluster := range c.options.ManagedClusters {
+	// 对所有的leafhub进行操作，仅返回错误信息
+	for _, cluster := range c.localOptions.LocalManagedClusters {
 		if cluster.Name == clusterName {
 			args = append([]string{"--context", cluster.KubeContext}, args...)
 			args = append([]string{"--kubeconfig", cluster.KubeConfig}, args...)
-			fmt.Println(args)
+			fmt.Printf("\n args: \n %v \n", args)
 			output, err := exec.Command("kubectl", args...).CombinedOutput()
+			fmt.Printf("\n Deploy the policy to the leafhub output: \n %v\n", string(output))
+			fmt.Printf("\n Deploy the policy to the leafhub err: \n %v\n", err)
 			return string(output), err
 		}
 	}
@@ -101,10 +102,10 @@ func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
 }
 
 func (c *client) RestConfig(clusterName string) (*rest.Config, error) {
-	if c.options.HubCluster.Name == clusterName {
-		return LoadConfig(c.options.HubCluster.ApiServer, c.options.HubCluster.KubeConfig, c.options.HubCluster.KubeContext)
+	if c.localOptions.LocalHubCluster.Name == clusterName {
+		return LoadConfig(c.localOptions.LocalHubCluster.ApiServer, c.localOptions.LocalHubCluster.KubeConfig, c.localOptions.LocalHubCluster.KubeContext)
 	}
-	for _, cluster := range c.options.ManagedClusters {
+	for _, cluster := range c.localOptions.LocalManagedClusters {
 		if cluster.Name == clusterName {
 			return LoadConfig("", cluster.KubeConfig, cluster.KubeContext)
 		}
@@ -145,46 +146,3 @@ func LoadConfig(url, kubeconfig, context string) (*rest.Config, error) {
 
 	return nil, fmt.Errorf("could not create a valid kubeconfig")
 }
-
-// func (c *client) HubClusterName() string {
-// 	return c.options.HubCluster.Name
-// }
-
-// func (c *client) GetLeafHubClusterNames() []string {
-// 	var clusters []string
-// 	for _, cluster := range c.options.ManagedClusters {
-// 		if cluster.Name == cluster.LeafHubName {
-// 			clusters = append(clusters, cluster.Name)
-// 		}
-// 	}
-// 	return clusters
-// }
-
-// func (c *client) LeafHubClusterName() string {
-// 	for _, cluster := range c.options.ManagedClusters {
-// 		if cluster.Name == cluster.LeafHubName {
-// 			return cluster.Name
-// 		}
-// 	}
-// 	return ""
-// }
-
-// func (c *client) LeafHubClusterNumber() int {
-// 	leafhubNum := 0
-// 	for _, cluster := range c.options.ManagedClusters {
-// 		if cluster.Name == cluster.LeafHubName {
-// 			leafhubNum += 1
-// 		}
-// 	}
-// 	return leafhubNum
-// }
-
-// func (c *client) ManagedClusterNumber() int {
-// 	managedClusterNum := 0
-// 	for _, cluster := range c.options.ManagedClusters {
-// 		if cluster.Name != cluster.LeafHubName {
-// 			managedClusterNum += 1
-// 		}
-// 	}
-// 	return managedClusterNum
-// }

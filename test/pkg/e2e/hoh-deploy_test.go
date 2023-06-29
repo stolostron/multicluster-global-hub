@@ -6,8 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"time"
-	"strings"
-	"regexp"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,10 +25,10 @@ func deployGlobalHub() error {
 	Expect(err).NotTo(HaveOccurred())
 	rootDir := fmt.Sprintf("%s/../../..", currentDir)
 
-	fmt.Println(testOptions.HubCluster.KubeConfig)
+	fmt.Println(localOptions.LocalHubCluster.KubeConfig)
 
 	// Create the dynamic client
-	config, err := clientcmd.BuildConfigFromFlags("", testOptions.HubCluster.KubeConfig)
+	config, err := clientcmd.BuildConfigFromFlags("", localOptions.LocalHubCluster.KubeConfig)
 	if err != nil {
 		Expect(err).ShouldNot(HaveOccurred())
 	}
@@ -43,15 +41,33 @@ func deployGlobalHub() error {
 	if os.Getenv("IS_CANARY_ENV") != "true" {
 		By("deploy globalbub for e2e ENV")
 		Eventually(func() error {
-			for _, managedCluster := range testOptions.ManagedClusters {
-				if managedCluster.Name != managedCluster.LeafHubName {
-					cmd := exec.Command("kubectl", "--context", managedCluster.Name, "apply", "-f", testOptions.HubCluster.CrdsDir, "--validate=false")
-					cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
-					output, err := cmd.CombinedOutput()
-					fmt.Println(output)
-					if err != nil {
-						return err
-					}
+			// for _, managedCluster := range localOptions.LocalManagedClusters {
+			// 	if managedCluster.Name != managedCluster.LeafHubName {
+			// 		cmd := exec.Command("kubectl", "--context", managedCluster.Name, "apply", "-f", localOptions.LocalHubCluster.CrdsDir, "--validate=false")
+			// 		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
+			// 		output, err := cmd.CombinedOutput()
+			// 		fmt.Println(output)
+			// 		if err != nil {
+			// 			return err
+			// 		}
+			// 	}
+			// }
+			// kubectl apply -f ${rootDir}/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml
+			cmd := exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml", rootDir))
+			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
+			output, err := cmd.CombinedOutput()
+			fmt.Println(string(output))
+			if err != nil {
+				return err
+			}
+
+			for _, managedCluster := range localOptions.LocalManagedClusters {
+				cmd = exec.Command("kubectl", "--context", managedCluster.Name, "apply", "-f", localOptions.LocalHubCluster.CrdsDir, "--validate=false")
+				cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
+				output, err = cmd.CombinedOutput()
+				fmt.Println(string(output))
+				if err != nil {
+					return err
 				}
 			}
 			return nil 
@@ -59,8 +75,8 @@ func deployGlobalHub() error {
 	}
 
 	By("checking postgresql is ready")
-	cmd := exec.Command("/bin/bash", testOptions.HubCluster.StoragePath)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+	cmd := exec.Command("/bin/bash", localOptions.LocalHubCluster.StoragePath)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 	output, err := cmd.CombinedOutput()
 	fmt.Println(string(output))
 	Expect(err).ShouldNot(HaveOccurred())
@@ -106,34 +122,10 @@ func deployGlobalHub() error {
 		return fmt.Errorf("postgres is not ready")
 	}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
-	Eventually(func() error {
-		// Execute kubectl command to get secret value
-		cmd = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret multicluster-global-hub-storage -n open-cluster-management --kubeconfig %s/test/resources/kubeconfig/kubeconfig-hub-of-hubs -ojsonpath='{.data.database_uri}' | base64 -d", rootDir))
-		output, err = cmd.CombinedOutput()
-		fmt.Println(string(output))
-		if err != nil {
-			return err
-		}
-
-		databaseUri := strings.TrimSpace(string(output))
-		// Replace container node IP and port in database URI
-		containerPgURI := strings.Replace(databaseUri, "@.*hoh", fmt.Sprintf("@%s:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort), -1)
-		
-		pattern := `@.*hoh`
-		replacement := fmt.Sprintf("@%s:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort)
-		re := regexp.MustCompile(pattern)
-		modifiedURI := re.ReplaceAllString(containerPgURI, replacement)
-		fmt.Println(modifiedURI)
-		// add DatabaseURI in options
-		testOptions.HubCluster.DatabaseURI = modifiedURI
-
-		return nil
-	}, 3*time.Minute, 5*time.Second).Should(Succeed())
-
 	By("checking kafka is ready")
 	Eventually(func() error {
-		cmd := exec.Command("/bin/bash", testOptions.HubCluster.TransportPath)
-		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+		cmd := exec.Command("/bin/bash", localOptions.LocalHubCluster.TransportPath)
+		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 		output, err := cmd.CombinedOutput()
 		fmt.Println(string(output))
 		if err != nil {
@@ -176,8 +168,8 @@ func deployGlobalHub() error {
 	// wait deployment is ready
 	// check global hub operator / pod is running
 	By("deploying operator")
-	if testOptions.HubCluster.ManagerImageREF != "" {
-		cmd := exec.Command("sed", "-i", fmt.Sprintf("s|quay.io/stolostron/multicluster-global-hub-manager:latest|%s|g", testOptions.HubCluster.ManagerImageREF), rootDir+"/operator/config/manager/manager.yaml")
+	if localOptions.LocalHubCluster.ManagerImageREF != "" {
+		cmd := exec.Command("sed", "-i", fmt.Sprintf("s|quay.io/stolostron/multicluster-global-hub-manager:latest|%s|g", localOptions.LocalHubCluster.ManagerImageREF), rootDir+"/operator/config/manager/manager.yaml")
 		output, err := cmd.CombinedOutput()
 		fmt.Println(string(output))
 		if err != nil {
@@ -185,8 +177,8 @@ func deployGlobalHub() error {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}
-	if testOptions.HubCluster.AgentImageREF != "" {
-		cmd := exec.Command("sed", "-i", fmt.Sprintf("s|quay.io/stolostron/multicluster-global-hub-agent:latest|%s|g", testOptions.HubCluster.AgentImageREF), rootDir+"/operator/config/manager/manager.yaml")
+	if localOptions.LocalHubCluster.AgentImageREF != "" {
+		cmd := exec.Command("sed", "-i", fmt.Sprintf("s|quay.io/stolostron/multicluster-global-hub-agent:latest|%s|g", localOptions.LocalHubCluster.AgentImageREF), rootDir+"/operator/config/manager/manager.yaml")
 		output, err := cmd.CombinedOutput()
 		fmt.Println(string(output))
 		if err != nil {
@@ -196,7 +188,7 @@ func deployGlobalHub() error {
 	}
 
 	cmd = exec.Command("make", "-C", "../../../operator", "deploy")
-	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 	output, err = cmd.CombinedOutput()
 	fmt.Println(string(output))
 	if err != nil {
@@ -293,7 +285,7 @@ func deployGlobalHub() error {
 
 		By("updating deployment && cluster-manager")
 		cmd := exec.Command("kubectl", "patch", "deployment", "governance-policy-propagator", "-n", "open-cluster-management", "-p", "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-propagator\",\"image\":\"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0\"}]}}}}")
-		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 		err := cmd.Run()
 		if err != nil {
 			Expect(err).Should(Succeed())
@@ -301,14 +293,14 @@ func deployGlobalHub() error {
 		
 
 		cmd = exec.Command("kubectl", "patch", "clustermanager", "cluster-manager", "--type", "merge", "-p", "{\"spec\":{\"placementImagePullSpec\":\"quay.io/open-cluster-management/placement:latest\"}}")
-		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 		err = cmd.Run()
 		if err != nil {
 			Expect(err).Should(Succeed())
 		}
 
 		cmd = exec.Command("kubectl", "apply", "-f" ,fmt.Sprintf("%s/test/setup/hoh/components/manager-service-local.yaml", rootDir), "-n", namespace)
-		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 		err = cmd.Run()
 		if err != nil {
 			Expect(err).Should(Succeed())
@@ -342,7 +334,7 @@ func deployGlobalHub() error {
 
 		Eventually(func() error {
 			cmd = exec.Command("kubectl", "annotate", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "service.beta.openshift.io/inject-cabundle-")
-			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 			output, err := cmd.CombinedOutput()
 			if err == nil {
 				fmt.Println(string(output))
@@ -352,12 +344,12 @@ func deployGlobalHub() error {
 			}
 
 			cmd = exec.Command("kubectl", "get", "secret", "multicluster-global-hub-webhook-certs", "-n", namespace, "-o", "jsonpath={.data.tls\\.crt}")
-			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 			ca, _ := cmd.Output()
 			fmt.Println(string(ca))
 
 			cmd = exec.Command("kubectl", "patch", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "-n", namespace, "-p", fmt.Sprintf("{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"%s\"}}]}", ca))
-			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 			output, err = cmd.CombinedOutput()
 			fmt.Println(string(output))
 			if err != nil {

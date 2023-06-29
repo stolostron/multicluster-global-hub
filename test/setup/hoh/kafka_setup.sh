@@ -47,4 +47,3 @@ kubectl create secret generic $transportSecret -n $targetNamespace \
     # --from-file=client.key=$setupDir/config/kafka-client-key.pem 
 echo "transport secret is ready!"
 
-
