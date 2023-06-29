@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stretchr/testify/assert"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 func TestClusterPerPolicyStatusBundle(t *testing.T) {
@@ -229,34 +229,34 @@ func TestClusterPolicyStatusEventBundle(t *testing.T) {
 		as specified, therefore this Object template is compliant`,
 	}
 
-	bundlePolicyStatusEvents := make([]*statusbundle.PolicyStatusEvent, 0)
-	eventMap := make(map[string]*statusbundle.PolicyStatusEvent)
+	bundlePolicyStatusEvents := make([]*models.LocalClusterPolicyEvent, 0)
+	bundleEventMap := make(map[string]*models.LocalClusterPolicyEvent)
 	for _, e := range bundlePolicyStatusEvents {
-		eventMap[e.EventName] = e
+		bundleEventMap[e.EventName] = e
 	}
 
 	modified := false
-	bundlePolicyStatusEvents = eventBundle.loadEventToBundle(event, nil, eventMap,
+	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
 		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
 	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
 	assert.Equal(t, true, modified)
 
 	for _, e := range bundlePolicyStatusEvents {
-		eventMap[e.EventName] = e
+		bundleEventMap[e.EventName] = e
 	}
-	bundlePolicyStatusEvents = eventBundle.loadEventToBundle(event, nil, eventMap,
+	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
 		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
 	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
 	assert.Equal(t, 1, bundlePolicyStatusEvents[0].Count)
 
 	event.LastTimestamp = metav1.NewTime(time.Now())
-	bundlePolicyStatusEvents = eventBundle.loadEventToBundle(event, nil, eventMap,
+	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
 		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
 	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
 	assert.Equal(t, 2, bundlePolicyStatusEvents[0].Count)
 
 	event.EventName = "openshift-acm-policies.backplane-mobb-sp.176a8f3dfsfds"
-	bundlePolicyStatusEvents = eventBundle.loadEventToBundle(event, nil, eventMap,
+	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
 		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
 	assert.Equal(t, 2, len(bundlePolicyStatusEvents))
 }

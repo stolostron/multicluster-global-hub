@@ -92,7 +92,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 			return nil
 		}
 		for _, object := range bundle.GetObjects() {
-			policyStatusEvent, ok := object.(*status.PolicyStatusEvent)
+			policyStatusEvent, ok := object.(*models.LocalClusterPolicyEvent)
 			if !ok {
 				continue
 			}
@@ -104,7 +104,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 					EventName:   policyStatusEvent.EventName,
 					PolicyID:    policyStatusEvent.PolicyID,
 					Message:     policyStatusEvent.Message,
-					Reason:      "",
+					Reason:      policyStatusEvent.Reason,
 					LeafHubName: leafHubName,
 					Source:      nil,
 					Count:       policyStatusEvent.Count,

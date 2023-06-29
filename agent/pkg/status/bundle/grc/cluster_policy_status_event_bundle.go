@@ -15,6 +15,7 @@ import (
 	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
@@ -23,7 +24,7 @@ func NewClusterPolicyHistoryEventBundle(ctx context.Context, leafHubName string,
 ) bundlepkg.Bundle {
 	return &ClusterPolicyHistoryEventBundle{
 		BaseClusterPolicyStatusEventBundle: statusbundle.BaseClusterPolicyStatusEventBundle{
-			PolicyStatusEvents: make(map[string][]*statusbundle.PolicyStatusEvent),
+			PolicyStatusEvents: make(map[string][]*models.LocalClusterPolicyEvent),
 			LeafHubName:        leafHubName,
 			BundleVersion:      statusbundle.NewBundleVersion(incarnation, 0),
 		},
@@ -53,18 +54,8 @@ func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object bundlepkg.Obj
 	if !ok {
 		return // do not handle objects other than policy
 	}
-	bundlePolicyStatusEvents, ok := bundle.PolicyStatusEvents[string(policy.GetUID())]
-	if !ok {
-		bundlePolicyStatusEvents = make([]*statusbundle.PolicyStatusEvent, 0)
-	}
-
 	if policy.Status.Details == nil {
 		return // no status to update
-	}
-
-	eventMap := make(map[string]*statusbundle.PolicyStatusEvent)
-	for _, e := range bundlePolicyStatusEvents {
-		eventMap[e.EventName] = e
 	}
 
 	// root policy id
@@ -87,18 +78,38 @@ func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object bundlepkg.Obj
 		return
 	}
 
+	// update the object to bundle
+	bundlePolicyStatusEvents, ok := bundle.PolicyStatusEvents[string(policy.GetUID())]
+	if !ok {
+		bundlePolicyStatusEvents = make([]*models.LocalClusterPolicyEvent, 0)
+	}
+
+	bundleEventMap := make(map[string]*models.LocalClusterPolicyEvent)
+	for _, e := range bundlePolicyStatusEvents {
+		bundleEventMap[e.EventName] = e
+	}
+
 	modified := false
 	for _, detail := range policy.Status.Details {
 		if detail.History != nil {
 			for _, event := range detail.History {
-				bundlePolicyStatusEvents = bundle.loadEventToBundle(event, detail, eventMap,
+				bundlePolicyStatusEvents = bundle.updatePolicyEvents(event,
+					string(detail.ComplianceState), bundleEventMap,
 					string(rootPolicy.GetUID()), clusterId, bundlePolicyStatusEvents, &modified)
+				delete(bundleEventMap, event.EventName)
 			}
 		}
 	}
 
+	shrunkPolicyEvents := make([]*models.LocalClusterPolicyEvent, 0)
+	for _, event := range bundlePolicyStatusEvents {
+		if _, ok := bundleEventMap[event.EventName]; !ok {
+			shrunkPolicyEvents = append(shrunkPolicyEvents, event)
+		}
+	}
+
 	if modified {
-		bundle.PolicyStatusEvents[string(policy.GetUID())] = bundlePolicyStatusEvents
+		bundle.PolicyStatusEvents[string(policy.GetUID())] = shrunkPolicyEvents
 		bundle.BundleVersion.Generation++
 	}
 }
@@ -134,35 +145,40 @@ func (bundle *ClusterPolicyHistoryEventBundle) ParseCompliance(message string) s
 	return ""
 }
 
-func (bundle *ClusterPolicyHistoryEventBundle) loadEventToBundle(event policiesv1.ComplianceHistory,
-	detail *policiesv1.DetailsPerTemplate, eventMap map[string]*statusbundle.PolicyStatusEvent,
-	rootPolicyId, clusterId string, bundlePolicyStatusEvents []*statusbundle.PolicyStatusEvent,
+func (bundle *ClusterPolicyHistoryEventBundle) updatePolicyEvents(event policiesv1.ComplianceHistory,
+	parentCompliance string, bundleEventMap map[string]*models.LocalClusterPolicyEvent,
+	rootPolicyId, clusterId string, bundlePolicyStatusEvents []*models.LocalClusterPolicyEvent,
 	modified *bool,
-) []*statusbundle.PolicyStatusEvent {
+) []*models.LocalClusterPolicyEvent {
 	compliance := bundle.ParseCompliance(event.Message)
 	if compliance == "" {
-		compliance = string(detail.ComplianceState)
+		compliance = parentCompliance
 	}
-	bundleEvent, ok := eventMap[event.EventName]
+	eventTime := event.LastTimestamp.Time
+	bundleEvent, ok := bundleEventMap[event.EventName]
 	if ok {
-		if bundleEvent.LastTimestamp != event.LastTimestamp {
+		if !bundleEvent.CreatedAt.Equal(eventTime) {
 			bundleEvent.Message = event.Message
 			bundleEvent.Count = bundleEvent.Count + 1
-			bundleEvent.LastTimestamp = event.LastTimestamp
+			bundleEvent.CreatedAt = eventTime
 			bundleEvent.Compliance = compliance
 			*modified = true
 		}
 	} else {
 		*modified = true
 		bundlePolicyStatusEvents = append(bundlePolicyStatusEvents,
-			&statusbundle.PolicyStatusEvent{
-				EventName:     event.EventName,
-				PolicyID:      rootPolicyId,
-				ClusterID:     clusterId,
-				Compliance:    compliance,
-				LastTimestamp: event.LastTimestamp,
-				Message:       event.Message,
-				Count:         1,
+			&models.LocalClusterPolicyEvent{
+				BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
+					EventName:  event.EventName,
+					PolicyID:   rootPolicyId,
+					Message:    event.Message,
+					Reason:     "PolicyStatusSync", // using this value as a placeholder
+					Source:     nil,
+					Count:      1,
+					Compliance: compliance,
+					CreatedAt:  eventTime,
+				},
+				ClusterID: clusterId,
 			})
 	}
 	return bundlePolicyStatusEvents
