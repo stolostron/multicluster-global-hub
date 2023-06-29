@@ -4,13 +4,13 @@ This document focuses on the features of the multicluster global hub.
 
 - [Multicluster Global Hub](#multicluster-global-hub)
   - [Overview](#overview)
-  - [Use Cases](./global_hub_use_cases.md)
+  - [Use Cases](#use-cases)
   - [Architecture](#architecture)
     - [Multicluster Global Hub Operator](#multicluster-global-hub-operator)
     - [Multicluster Global Hub Manager](#multicluster-global-hub-manager)
     - [Multicluster Global Hub Agent](#multicluster-global-hub-agent)
     - [Multicluster Global Hub Observability](#multicluster-global-hub-observability)
-  - [Workings of Global Hub](./how_global_hub_works.md)
+  - [Workings of Global Hub](#workings-of-global-hub)
   - [Quick Start](#quick-start)
     - [Prerequisites](#prerequisites)
       - [Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed](#red-hat-advanced-cluster-management-for-kubernetes-rhacm-27-or-later-needs-to-be-installed)
@@ -22,8 +22,7 @@ This document focuses on the features of the multicluster global hub.
     - [Import a regional hub cluster in default mode (tech preview)](#import-a-regional-hub-cluster-in-default-mode-tech-preview)
     - [Access the grafana](#access-the-grafana)
     - [Grafana dashboards](#grafana-dashboards)
-  - [Troubleshooting](./troubleshooting.md)
-  - [Development preview features](./dev-preview.md)
+  - [Troubleshooting](#troubleshooting)
   - [Known issues](#known-issues)
 
 ## Overview
@@ -153,3 +152,7 @@ For common Troubleshooting issues, proceed [here](troubleshooting.md)
 1. If the database is empty, the grafana dashboards will show the error `db query syntax error for {dashboard_name} dashboard`. When you have some data in the database, the error will disappear. Remember the Top level dashboards gets populated only the day after the data starts flowing as explained in [Workings of Global Hub](how_global_hub_works.md)
 
 2. We provide ability to drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard. But the drill down feature is not working for the first datapoint. You can click the second datapoint or after to see the drill down feature is working. The issue is applied to the `Cluster Group Compliancy Overview` dashboard as well.
+
+3. If you detach the regional hub and then rejoin the regional hub, The data (policies/managed clusters) might't be updated in time for the rejoined regional hub. You can fix this problem by doing any of the following:
+   1. Restart the `multicluster-global-hub-manager` pod on global hub.
+   2. Edit the ConfigMap `open-cluster-management-global-hub-system/incarnation-config` to modify `incarnation` with a A larger value. If it is the first time update, `1000` might be a good choice. If it is not the first update, make sure it is larger than the last change. And then restart the `multicluster-global-hub-agent` pod on the regional hub.
