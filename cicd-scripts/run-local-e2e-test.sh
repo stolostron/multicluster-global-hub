@@ -36,20 +36,28 @@ container_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPA
 # container nonk8s api server
 hub_nonk8s_api_server="https://${container_node_ip}:30080"
 
-# container postgres uri
-container_pg_port="32432"
-database_uri=$(kubectl get secret multicluster-global-hub-storage -n $hub_namespace --kubeconfig ${hub_kubeconfig} -ojsonpath='{.data.database_uri}' | base64 -d)
-container_pg_uri=$(echo $database_uri | sed "s|@.*hoh|@${container_node_ip}:${container_pg_port}/hoh|g")
-
 printf "options:" > $OPTIONS_FILE
 printf "\n  hub:" >> $OPTIONS_FILE
 printf "\n    name: $HUB_OF_HUB_NAME" >> $OPTIONS_FILE
 printf "\n    namespace: ${hub_namespace}" >> $OPTIONS_FILE
 printf "\n    apiServer: ${hub_api_server}" >> $OPTIONS_FILE
 printf "\n    nonk8sApiServer: ${hub_nonk8s_api_server}" >> $OPTIONS_FILE
-printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
-printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
-printf '\n    databaseURI: %s' ${container_pg_uri} >> $OPTIONS_FILE # contain $ need to use %s
+if [ ! -f "IS_CANARY_ENV" ];then
+  printf "\n    kubeconfig: ${ROOT_DIR}/test/setup/config/kubeconfig" >> $OPTIONS_FILE
+  printf "\n    crdsDir: ${ROOT_DIR}/pkg/testdata/crds" >> $OPTIONS_FILE
+  printf "\n    storagePath: ${ROOT_DIR}/test/setup/hoh/postgres_setup.sh" >> $OPTIONS_FILE
+  printf "\n    transportPath: ${ROOT_DIR}/test/setup/hoh/kafka_setup.sh" >> $OPTIONS_FILE
+else
+  printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
+  printf "\n    storagePath: ${ROOT_DIR}/operator/config/samples/storage/deploy_postgres.sh" >> $OPTIONS_FILE
+  printf "\n    transportPath: ${ROOT_DIR}/operator/config/samples/transport/deploy_kafka.sh" >> $OPTIONS_FILE
+fi
+  printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
+  printf "\n    databaseExternalHost: ${container_node_ip}" >> $OPTIONS_FILE
+  printf "\n    databaseExternalPort: 32432" >> $OPTIONS_FILE
+  printf "\n    ManagerImageREF: quay.io/stolostron/multicluster-global-hub-manager:latest" >> $OPTIONS_FILE
+  printf "\n    AgentImageREF: quay.io/stolostron/multicluster-global-hub-agent:latest" >> $OPTIONS_FILE
+  printf "\n    OperatorImageREF: quay.io/stolostron//multicluster-global-hub-operator:latest" >> $OPTIONS_FILE
 printf "\n  clusters:" >> $OPTIONS_FILE
 
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do

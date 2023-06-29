@@ -47,8 +47,9 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	BeforeAll(func() {
 		Eventually(func() error {
 			By("Config request of the api")
-			transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
+			transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			httpClient = &http.Client{Timeout: time.Second * 60, Transport: transport}
 			managedClusters, err = getManagedCluster(httpClient, httpToken)
 			if err != nil {
 				return err
@@ -57,7 +58,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				return fmt.Errorf("managed cluster is not exist")
 			}
 			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 		By("Get the appsubreport client")
 		scheme := runtime.NewScheme()
