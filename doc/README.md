@@ -153,3 +153,5 @@ For common Troubleshooting issues, proceed [here](troubleshooting.md)
 1. If the database is empty, the grafana dashboards will show the error `db query syntax error for {dashboard_name} dashboard`. When you have some data in the database, the error will disappear. Remember the Top level dashboards gets populated only the day after the data starts flowing as explained in [Workings of Global Hub](how_global_hub_works.md)
 
 2. We provide ability to drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard. But the drill down feature is not working for the first datapoint. You can click the second datapoint or after to see the drill down feature is working. The issue is applied to the `Cluster Group Compliancy Overview` dashboard as well.
+
+3. If you detach the regional hub and then rejoin the regional hub, The data (policies/managed clusters) might not be updated in time from the rejoined regional hub. You can fix this problem by restarting the `multicluster-global-hub-manager` pod on global hub.
