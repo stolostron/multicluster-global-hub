@@ -11,11 +11,11 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/util/wait"
-	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
@@ -43,7 +43,7 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 	if !ok {
 		return
 	}
-	compliance := p.getPolicyCompliance(clusterCompliance)
+	compliance := common.GetDatabaseCompliance(clusterCompliance)
 
 	clusterId, hasClusterId := event.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey]
 	rootPolicyId, hasRootPolicyId := event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey]
@@ -97,18 +97,4 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 		return
 	}
 	p.offsetManager.MarkOffset(eventOffset.Topic, eventOffset.Partition, eventOffset.Offset)
-}
-
-func (p *policyProcessor) getPolicyCompliance(compliance string) database.ComplianceStatus {
-	// algin with the database enum values
-	status := database.Unknown
-	switch compliance {
-	case string(policyv1.Compliant):
-		status = database.Compliant
-	case string(policyv1.NonCompliant):
-		status = database.NonCompliant
-	default:
-		p.log.Info("unknown compliance status", "compliance", compliance)
-	}
-	return status
 }

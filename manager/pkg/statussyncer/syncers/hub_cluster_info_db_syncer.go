@@ -41,7 +41,6 @@ type hubClusterInfoDBSyncer struct {
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *hubClusterInfoDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
-
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.HubClusterInfoMsgKey,
 		CreateBundleFunc: syncer.createHubClusterInfoFunc,

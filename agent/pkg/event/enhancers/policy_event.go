@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"regexp"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -48,18 +47,8 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 	}
 
 	// add root policy id
-	policyNameSlice := strings.Split(rootPolicyNamespacedName, ".")
-	if len(policyNameSlice) < 2 {
-		p.log.Error(errors.New("invalid root policy namespaced name"), "failed to get root policy",
-			"namespacedName", rootPolicyNamespacedName)
-		return
-	}
-
-	rootPolicy := policyv1.Policy{}
-	if err := p.runtimeClient.Get(ctx, client.ObjectKey{
-		Namespace: policyNameSlice[0],
-		Name:      policyNameSlice[1],
-	}, &rootPolicy); err != nil {
+	rootPolicy, err := helper.GetRootPolicy(ctx, p.runtimeClient, rootPolicyNamespacedName)
+	if err != nil {
 		p.log.Error(err, "failed to get root policy", "namespacedName", rootPolicyNamespacedName)
 		return
 	}
@@ -71,16 +60,10 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 		p.log.Error(errors.New("cluster name not found in cluster policy event"), "failed to get cluster name")
 		return
 	}
-	cluster := clusterv1.ManagedCluster{}
-	if err := p.runtimeClient.Get(ctx, client.ObjectKey{Name: clusterName}, &cluster); err != nil {
-		p.log.Error(err, "failed to get cluster", "cluster", clusterName)
-	}
-	clusterId := string(cluster.GetUID())
-	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name == "id.k8s.io" {
-			clusterId = claim.Value
-			break
-		}
+	clusterId, err := helper.GetClusterId(ctx, p.runtimeClient, clusterName)
+	if err != nil {
+		p.log.Error(err, "failed to get cluster id", "clusterName", clusterName)
+		return
 	}
 	event.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey] = clusterId
 }

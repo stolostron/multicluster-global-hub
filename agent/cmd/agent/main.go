@@ -259,7 +259,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 		}
 		setupLog.Info("add spec controllers to manager")
 
-		if err := statusController.AddControllers(mgr, agentConfig, incarnation); err != nil {
+		if err := statusController.AddControllers(ctx, mgr, agentConfig, incarnation); err != nil {
 			return nil, fmt.Errorf("failed to add status syncer: %w", err)
 		}
 

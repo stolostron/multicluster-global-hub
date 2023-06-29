@@ -156,8 +156,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 		validateFunc          func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error)
 	}{
 		{
-			name:                  "mgh not ready",
-			cluster:               fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
+			name: "mgh not ready",
+			cluster: fakeCluster("cluster1", "",
+				operatorconstants.GHAgentDeployModeDefault),
 			managementAddon:       nil,
 			mgh:                   nil,
 			req:                   reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
@@ -172,8 +173,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:                  "clustermanagementaddon not ready",
-			cluster:               fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
+			name: "clustermanagementaddon not ready",
+			cluster: fakeCluster("cluster1", "",
+				operatorconstants.GHAgentDeployModeDefault),
 			managementAddon:       nil,
 			mgh:                   fakeMGH("test", "test"),
 			req:                   reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
@@ -188,8 +190,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:                  "req not found",
-			cluster:               fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
+			name: "req not found",
+			cluster: fakeCluster("cluster1", "",
+				operatorconstants.GHAgentDeployModeDefault),
 			managementAddon:       fakeHoHManagementAddon(),
 			mgh:                   fakeMGH("test", "test"),
 			req:                   reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster2"}},
@@ -204,8 +207,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:                  "do not create addon",
-			cluster:               fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeNone),
+			name: "do not create addon",
+			cluster: fakeCluster("cluster1", "",
+				operatorconstants.GHAgentDeployModeNone),
 			managementAddon:       fakeHoHManagementAddon(),
 			mgh:                   fakeMGH("test", "test"),
 			req:                   reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
@@ -220,8 +224,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:                  "create addon in default mode",
-			cluster:               fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
+			name: "create addon in default mode",
+			cluster: fakeCluster("cluster1", "",
+				operatorconstants.GHAgentDeployModeDefault),
 			managementAddon:       fakeHoHManagementAddon(),
 			mgh:                   fakeMGH("test", "test"),
 			req:                   reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
