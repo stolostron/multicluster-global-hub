@@ -150,7 +150,7 @@ multicluster-global-hub-operator   Community Operators   28m
     name: multicluster-global-hub-operator
     namespace: open-cluster-management
   spec:
-    channel: alpha
+    channel: release-0.7
     installPlanApproval: Automatic
     name: multicluster-global-hub-operator
     source: global-hub-operator-catalog
