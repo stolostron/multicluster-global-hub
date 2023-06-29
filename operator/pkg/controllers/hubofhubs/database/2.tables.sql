@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS history.subscriptions (
 
 CREATE TABLE IF NOT EXISTS history.local_compliance (
     policy_id uuid NOT NULL,
-    cluster_id uuid NOT NULL,
+    cluster_id uuid,
     leaf_hub_name character varying(63) NOT NULL,
     compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL, 
     compliance local_status.compliance_type NOT NULL,
