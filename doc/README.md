@@ -13,9 +13,8 @@ This document focuses on the features of the multicluster global hub.
   - [Workings of Global Hub](./how_global_hub_works.md)
   - [Quick Start](#quick-start)
     - [Prerequisites](#prerequisites)
-      - [Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed](#red-hat-advanced-cluster-management-for-kubernetes-rhacm-27-or-later-needs-to-be-installed)
-      - [Storage secret](#storage-secret)
-      - [Transport secret](#transport-secret)
+      - [Dependencies](#dependencies)
+      - [Network configuration](#network-configuration)
     - [Installation](#installation)
       - [1. Install the multicluster global hub operator on a disconnected environment](#1-install-the-multicluster-global-hub-operator-on-a-disconnected-environment)
       - [2. Install the multicluster global hub operator from OpenShift console](#2-install-the-multicluster-global-hub-operator-from-openshift-console)
@@ -69,28 +68,74 @@ To understand how Global Hub functions, proceed [here](how_global_hub_works.md).
 ## Quick Start
 
 ### Prerequisites
+#### Dependencies
+1. **Red Hat Advanced Cluster Management for Kubernetes (RHACM)** 2.7 or later needs to be installed
 
-#### Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed
+    [Learn more details about RHACM](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7)
 
-#### Storage secret
+2. **Crunchy Postgres for Kubernetes** 5.0 or later needs to be provided
 
-Both the global hub manager and grafana services need a postgres database to collect and display data. The data can be accessed by creating a storage secret, which contains the following two fields:
+    **Crunchy Postgres for Kubernetes** provide a declarative Postgres solution that automatically manages PostgreSQL clusters.
+    
+    [Learn more details about Crunchy Postgres for Kubernetes](https://access.crunchydata.com/documentation/postgres-operator/v5/)
 
-- `database_uri`: Required, the URI user should have the permission to create the global hub database in the postgres.
-- `ca.crt`: Optional, if your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
+    Global hub manager and grafana services need Postgres database to collect and display data. The data can be accessed by creating a storage secret `multicluster-global-hub-storage` in namespace `open-cluster-management`, this secret should contains the following two fields:
 
-> Note: There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically.
+    - `database_uri`: Required, the URI user should have the permission to create the global hub database in the postgres.
+    - `ca.crt`: Optional, if your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
 
-#### Transport secret
+    > Note: There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and create the secret `multicluster-global-hub-storage` in namespace `open-cluster-management` automatically.
 
-Right now, we support Kafka transport only. You need to create a secret for the Kafka transport. The secret contains the following fields:
+3. **Strimzi** 0.33 or later needs to be provided
 
-- `bootstrap.servers`: Required, the Kafka bootstrap servers.
-- `ca.crt`: Optional, if you use the `KafkaUser` custom resource to configure authentication credentials, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `ca.crt` certificate from the secret.
-- `client.crt`: Optional, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `user.crt` certificate from the secret.
-- `client.key`: Optional, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `user.key` from the secret.
+    **Strimzi** provides a way to run Kafka cluster on Kubernetes in various deployment configurations. 
+    
+    [Learn more details about Strimzi](https://strimzi.io/documentation/)
 
-> Note: There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/transport) to install kafka in `kafka` namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically.
+    Global hub agent need to sync cluster info and policy info to Kafka transport. And global hub manager persist the Kafka transport data to Postgre database.
+
+    So, you need to create a secret `multicluster-global-hub-transport` in global hub cluster namespace `open-cluster-management` for the Kafka transport. The secret contains the following fields:
+
+    - `bootstrap.servers`: Required, the Kafka bootstrap servers.
+    - `ca.crt`: Optional, if you use the `KafkaUser` custom resource to configure authentication credentials, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `ca.crt` certificate from the secret.
+    - `client.crt`: Optional, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `user.crt` certificate from the secret.
+    - `client.key`: Optional, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `user.key` from the secret.
+
+    > Note: There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/transport) to install kafka in `kafka` namespace and create the secret `multicluster-global-hub-transport` in namespace `open-cluster-management` automatically.
+
+#### Sizing
+1. [Sizing your RHACM cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html/install/installing#sizing-your-cluster)
+
+2. **Minimum requirements for Crunchy Postgres**
+
+    | vCPU | Memory | Storage size | Namespace |
+    | ---- | ------ | ------ | ------ |
+    | 100m | 2G | 20Gi*3 | hoh-postgres
+    | 10m | 500M | N/A | postgres-operator
+    
+3. **Minimum requirements for Strimzi**
+
+    | vCPU | Memory | Storage size | Namespace |
+    | ---- | ------ | ------ | ------ |
+    | 100m | 8G | 20Gi*3 | kafka
+
+
+#### Network configuration
+As regional hub is also managedcluster of global hub in RHACM. So the network configuration in RHACM is necessary. Details see [RHACM Networking](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html/networking/networking)
+
+1. Global hub networking requirements
+
+| Direction | Protocol | Connection | Port (if specified) | Source address |	Destination address |
+| ------ | ------ | ------ | ------ |------ | ------ |
+|Inbound from user's browsers | HTTPS | User need to access the grafana dashboard | 443 | User's browsers | IP address of grafana route |
+| Outbound to Kafka Cluster | HTTPS | Global hub manager need to get data from Kafka cluster | 443 | multicluster-global-hub-manager-xxx pod | Kafka route host |
+| Outbound to Postgres database | HTTPS | Global hub manager need to persist data to Postgres database | 443 | multicluster-global-hub-manager-xxx pod | IP address of Postgres database |
+
+2. Regional hub networking requirements
+
+| Direction | Protocol | Connection | Port (if specified) | Source address |	Destination address |
+| ------ | ------ | ------ | ------ | ------ | ------ |
+| Outbound to Kafka Cluster | HTTPS | Global hub agent need to sync cluster info and policy info to Kafka cluster | 443 | multicluster-global-hub-agent pod | Kafka route host |
 
 ### Installation
 
