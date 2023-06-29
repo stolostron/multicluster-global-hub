@@ -4,13 +4,13 @@ This document focuses on the features of the multicluster global hub.
 
 - [Multicluster Global Hub](#multicluster-global-hub)
   - [Overview](#overview)
-  - [Use Cases](#use-cases)
+  - [Use Cases](./global_hub_use_cases.md)
   - [Architecture](#architecture)
     - [Multicluster Global Hub Operator](#multicluster-global-hub-operator)
     - [Multicluster Global Hub Manager](#multicluster-global-hub-manager)
     - [Multicluster Global Hub Agent](#multicluster-global-hub-agent)
     - [Multicluster Global Hub Observability](#multicluster-global-hub-observability)
-  - [Workings of Global Hub](#workings-of-global-hub)
+  - [Workings of Global Hub](./how_global_hub_works.md)
   - [Quick Start](#quick-start)
     - [Prerequisites](#prerequisites)
       - [Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed](#red-hat-advanced-cluster-management-for-kubernetes-rhacm-27-or-later-needs-to-be-installed)
@@ -22,7 +22,8 @@ This document focuses on the features of the multicluster global hub.
     - [Import a regional hub cluster in default mode (tech preview)](#import-a-regional-hub-cluster-in-default-mode-tech-preview)
     - [Access the grafana](#access-the-grafana)
     - [Grafana dashboards](#grafana-dashboards)
-  - [Troubleshooting](#troubleshooting)
+  - [Troubleshooting](./troubleshooting.md)
+  - [Development preview features](./dev-preview.md)
   - [Known issues](#known-issues)
 
 ## Overview
@@ -153,6 +154,4 @@ For common Troubleshooting issues, proceed [here](troubleshooting.md)
 
 2. We provide ability to drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard. But the drill down feature is not working for the first datapoint. You can click the second datapoint or after to see the drill down feature is working. The issue is applied to the `Cluster Group Compliancy Overview` dashboard as well.
 
-3. If you detach the regional hub and then rejoin the regional hub, The data (policies/managed clusters) might't be updated in time for the rejoined regional hub. You can fix this problem by doing any of the following:
-   1. Restart the `multicluster-global-hub-manager` pod on global hub.
-   2. Edit the ConfigMap `open-cluster-management-global-hub-system/incarnation-config` to modify `incarnation` with a A larger value. If it is the first time update, `1000` might be a good choice. If it is not the first update, make sure it is larger than the last change. And then restart the `multicluster-global-hub-agent` pod on the regional hub.
+3. If you detach the regional hub and then rejoin the regional hub, The data (policies/managed clusters) might not be updated in time from the rejoined regional hub. You can fix this problem by restarting the `multicluster-global-hub-manager` pod on global hub.
