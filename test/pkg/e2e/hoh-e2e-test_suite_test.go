@@ -12,12 +12,14 @@ import (
 	"strings"
 	"net/url"
 	"regexp"
+	"os/exec"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
@@ -102,6 +104,8 @@ var _ = AfterSuite(func() {
 
 func initVars() {
 	testTimeout = time.Second * 50
+	HUB_CLUSTER_NUM := 2
+	MANAGED_CLUSTER_NUM := 2
 
 	klog.V(6).Infof("Options Path: %s", optionsFile)
 	data, err := os.ReadFile(optionsFile)

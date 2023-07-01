@@ -93,8 +93,6 @@ func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
 			args = append([]string{"--kubeconfig", cluster.KubeConfig}, args...)
 			fmt.Printf("\n args: \n %v \n", args)
 			output, err := exec.Command("kubectl", args...).CombinedOutput()
-			fmt.Printf("\n Deploy the policy to the leafhub output: \n %v\n", string(output))
-			fmt.Printf("\n Deploy the policy to the leafhub err: \n %v\n", err)
 			return string(output), err
 		}
 	}
