@@ -105,7 +105,7 @@ var _ = AfterSuite(func() {
 func initVars() {
 	testTimeout = time.Second * 50
 	HUB_CLUSTER_NUM := 2
-	MANAGED_CLUSTER_NUM := 2
+	MANAGED_CLUSTER_NUM := 1
 
 	klog.V(6).Infof("Options Path: %s", optionsFile)
 	data, err := os.ReadFile(optionsFile)

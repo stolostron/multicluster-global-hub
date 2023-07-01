@@ -143,16 +143,16 @@ type patch struct {
 func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCluster, error) {
 	// fmt.Printf("\n localOptions: \n %v \n", localOptions)
 	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", localOptions.LocalHubCluster.Nonk8sApiServer)
-	// fmt.Printf("\n managedClusterUrl: \n %v \n", managedClusterUrl)
-	// fmt.Printf("\n token: \n %v \n", token)
+	fmt.Printf("\n managedClusterUrl: \n %v \n", managedClusterUrl)
+	fmt.Printf("\n token: \n %v \n", token)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
-	// fmt.Printf("\n err1: \n %v \n", err)
+	fmt.Printf("\n err1: \n %v \n", err)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	resp, err := client.Do(req)
-	// fmt.Printf("\n err2: \n %v \n", err)
+	fmt.Printf("\n err2: \n %v \n", err)
 
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 	if err != nil {
 		return nil, err
 	}
-	// fmt.Printf("\n managedClusterList.Items: \n %v \n", managedClusterList.Items)
+	fmt.Printf("\n managedClusterList.Items: \n %v \n", managedClusterList.Items)
 	if len(managedClusterList.Items) != 2 {
 		return nil, fmt.Errorf("cannot get two managed clusters")
 	}
