@@ -8,6 +8,8 @@ const (
 	LocalStatusSchema = "local_status"
 	// LocalSpecSchema schema for local spec updates.
 	LocalSpecSchema = "local_spec"
+	// EventSchema schema for policy events
+	EventSchema = "event"
 )
 
 // table names.
@@ -39,6 +41,10 @@ const (
 
 	// HubClusterInfo table name of leaf_hubs.
 	HubClusterInfoTableName = "leaf_hubs"
+
+	// PolicyEvent table name of leaf_hubs.
+	LocalPolicyEventTableName     = "local_policies"
+	LocalRootPolicyEventTableName = "local_root_policies"
 )
 
 // default values.

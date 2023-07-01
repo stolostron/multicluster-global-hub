@@ -98,7 +98,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add controllers to manager")
-	err = statusController.AddControllers(mgr, agentConfig, incarnation)
+	err = statusController.AddControllers(ctx, mgr, agentConfig, incarnation)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Mock the consumer receive message from global hub manager")
