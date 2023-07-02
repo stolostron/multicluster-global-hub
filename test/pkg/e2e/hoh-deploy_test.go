@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"time"
+	"strings"
+	"regexp"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -359,5 +361,31 @@ func deployGlobalHub() error {
 			return nil
 		}, 3*time.Minute, 5*time.Second).Should(Succeed())
 	}
+
+	By("deploying operator")
+	Eventually(func() error {
+		// Execute kubectl command to get secret value
+		cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret multicluster-global-hub-storage -n open-cluster-management --kubeconfig %s/test/resources/kubeconfig/kubeconfig-hub-of-hubs -ojsonpath='{.data.database_uri}' | base64 -d", rootDir))
+		output, err := cmd.CombinedOutput()
+		fmt.Println(string(output))
+		if err != nil {
+			fmt.Printf("\n err: \n %v\n", err)
+			return err
+		}
+	
+		databaseUri := strings.TrimSpace(string(output))
+		// Replace container node IP and port in database URI
+		containerPgURI := strings.Replace(databaseUri, "@.*hoh", fmt.Sprintf("@%v:%d/hoh", localOptions.LocalHubCluster.DatabaseExternalHost, localOptions.LocalHubCluster.DatabaseExternalPort), -1)
+		
+		pattern := `@.*hoh`
+		replacement := fmt.Sprintf("@%s:%d/hoh", localOptions.LocalHubCluster.DatabaseExternalHost, localOptions.LocalHubCluster.DatabaseExternalPort)
+		re := regexp.MustCompile(pattern)
+		modifiedURI := re.ReplaceAllString(containerPgURI, replacement)
+		fmt.Printf("\n modifiedURI: \n %v\n", modifiedURI)
+		// add DatabaseURI in options
+		localOptions.LocalHubCluster.DatabaseURI = modifiedURI
+		
+		return nil
+	}, 3*time.Minute, 5*time.Second).Should(Succeed())
 	return nil
 }	

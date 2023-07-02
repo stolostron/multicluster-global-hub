@@ -11,7 +11,6 @@ import (
 	"time"
 	"strings"
 	"net/url"
-	"regexp"
 	"os/exec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -214,26 +213,6 @@ func completeOptions() {
 	localOptions.LocalHubCluster.DatabaseExternalHost = strings.Trim(string(container_node_ip), "'\n")
 	localOptions.LocalHubCluster.DatabaseExternalPort = 32432
 	fmt.Printf("\n localOptions.LocalHubCluster.DatabaseExternalHost: \n %v\n", localOptions.LocalHubCluster.DatabaseExternalHost)
-
-	// Execute kubectl command to get secret value
-	cmd = exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret multicluster-global-hub-storage -n open-cluster-management --kubeconfig %s/test/resources/kubeconfig/kubeconfig-hub-of-hubs -ojsonpath='{.data.database_uri}' | base64 -d", rootDir))
-	output, err := cmd.CombinedOutput()
-	fmt.Println(string(output))
-	if err != nil {
-		fmt.Printf("\n err: \n %v\n", err)
-	}
-
-	databaseUri := strings.TrimSpace(string(output))
-	// Replace container node IP and port in database URI
-	containerPgURI := strings.Replace(databaseUri, "@.*hoh", fmt.Sprintf("@%v:%d/hoh", localOptions.LocalHubCluster.DatabaseExternalHost, localOptions.LocalHubCluster.DatabaseExternalPort), -1)
-	
-	pattern := `@.*hoh`
-	replacement := fmt.Sprintf("@%s:%d/hoh", localOptions.LocalHubCluster.DatabaseExternalHost, localOptions.LocalHubCluster.DatabaseExternalPort)
-	re := regexp.MustCompile(pattern)
-	modifiedURI := re.ReplaceAllString(containerPgURI, replacement)
-	fmt.Printf("\n modifiedURI: \n %v\n", modifiedURI)
-	// add DatabaseURI in options
-	localOptions.LocalHubCluster.DatabaseURI = modifiedURI
 }
 
 func GetClusterID(cluster clusterv1.ManagedCluster) string {
