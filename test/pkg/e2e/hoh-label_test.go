@@ -169,7 +169,7 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("\n managedClusterList.Items: \n %v \n", managedClusterList.Items)
+	// fmt.Printf("\n managedClusterList.Items: \n %v \n", managedClusterList.Items)
 	if len(managedClusterList.Items) != 2 {
 		return nil, fmt.Errorf("cannot get two managed clusters")
 	}
