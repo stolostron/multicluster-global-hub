@@ -50,4 +50,6 @@ VOLUME /results
 
 
 # execute compiled ginkgo tests
-CMD ["/bin/bash", "-c", "ginkgo --v --focus=${GINKGO_FOCUS} --skip=${GINKGO_SKIP} -nodes=${GINKGO_NODES} --reportFile=${REPORT_FILE} -x -debug -trace hoh-e2e-test.test -- -v=3 && ./format-results.sh ${REPORT_FILE}"]
+# CMD ["/bin/bash", "-c", "ginkgo --v --focus=${GINKGO_FOCUS} --skip=${GINKGO_SKIP} -nodes=${GINKGO_NODES} --reportFile=${REPORT_FILE} -x -debug -trace hoh-e2e-test.test -- -v=3 && ./format-results.sh ${REPORT_FILE}"]
+CMD ["/bin/bash", "-c", "ginkfo --reportFile=${REPORT_FILE} -x -debug -trace hoh-e2e-test.test -- -options=$OPTIONS_FILE -v=3 && ./format-results.sh ${REPORT_FILE}"]
+# docker run --volume ~/.kube/config:/opt/.kube/config --volume /home/cloud-user/multicluster-global-hub/test/resources/options-local.yaml:/resources/options.yaml -it canary /bin/bash
