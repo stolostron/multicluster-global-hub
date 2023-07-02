@@ -56,7 +56,7 @@ func init() {
 var _ = BeforeSuite(func() {
 	initVars()
 	completeOptions()
-	// deployGlobalHub()
+	deployGlobalHub()
 
 	// fmt.Println(localOptionsContainer.LocalOptions)
 	// fmt.Println("#")
