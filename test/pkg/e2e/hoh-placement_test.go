@@ -95,7 +95,6 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 		By("Create Postgres connection")
 		databaseURI := strings.Split(localOptions.LocalHubCluster.DatabaseURI, "?")[0]
-		fmt.Printf("\n databaseURI: \n %v\n", databaseURI)
 		postgresConn, err = database.PostgresConnection(context.TODO(), databaseURI, nil)
 		Expect(err).Should(Succeed())
 	})
@@ -116,8 +115,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 
 			By("Deploy the placement policy to the leafhub")
 			for _, leafhubName := range LeafHubNames {
-				output, err := clients.Kubectl(leafhubName, "apply", "-f", PLACEMENT_LOCAL_POLICY_YAML)
-				fmt.Printf("deploy inform local policy:\n %s \n", output)
+				_, err := clients.Kubectl(leafhubName, "apply", "-f", PLACEMENT_LOCAL_POLICY_YAML)
 				Expect(err).Should(Succeed())
 			}
 
@@ -136,11 +134,10 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&leafhub, policy); err != nil {
 						return err
 					}
-					fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
+
 					for _, leafhubName := range LeafHubNames {
 						if leafhub == leafhubName && policy.Name == localPolicyName && policy.Namespace == localPolicyNamespace {
 							policies[leafhub] = policy
-							fmt.Println(len(policies))
 						}
 					}
 				}
@@ -344,7 +341,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				if err != nil {
 					return err
 				}
-				fmt.Println(status.Status)
+
 				if len(status.Status) == 0 {
 					return nil
 				}
@@ -479,7 +476,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					if err := rows.Scan(&leafhub, appsubreport); err != nil {
 						return err
 					}
-					fmt.Printf("status.subscription_reports: %s/%s \n", appsubreport.Namespace, appsubreport.Name)
+
 					if appsubreport.Name == APP_SUB_NAME && appsubreport.Namespace == APP_SUB_NAMESPACE {
 						return fmt.Errorf("the appsub is not deleted from regional hub")
 					}

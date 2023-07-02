@@ -48,7 +48,6 @@ COPY --from=builder /workspace/test/format-results.sh .
 
 VOLUME /results
 
-
 # execute compiled ginkgo tests
 # CMD ["/bin/bash", "-c", "ginkgo --v --focus=${GINKGO_FOCUS} --skip=${GINKGO_SKIP} -nodes=${GINKGO_NODES} --reportFile=${REPORT_FILE} -x -debug -trace hoh-e2e-test.test -- -v=3 && ./format-results.sh ${REPORT_FILE}"]
 CMD ["/bin/bash", "-c", "ginkfo --reportFile=${REPORT_FILE} -x -debug -trace hoh-e2e-test.test -- -options=$OPTIONS_FILE -v=3 && ./format-results.sh ${REPORT_FILE}"]

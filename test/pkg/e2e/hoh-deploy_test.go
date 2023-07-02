@@ -43,18 +43,6 @@ func deployGlobalHub() error {
 	if os.Getenv("IS_CANARY_ENV") != "true" {
 		By("deploy globalbub for e2e ENV")
 		Eventually(func() error {
-			// for _, managedCluster := range localOptions.LocalManagedClusters {
-			// 	if managedCluster.Name != managedCluster.LeafHubName {
-			// 		cmd := exec.Command("kubectl", "--context", managedCluster.Name, "apply", "-f", localOptions.LocalHubCluster.CrdsDir, "--validate=false")
-			// 		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
-			// 		output, err := cmd.CombinedOutput()
-			// 		fmt.Println(output)
-			// 		if err != nil {
-			// 			return err
-			// 		}
-			// 	}
-			// }
-			// kubectl apply -f ${rootDir}/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml
 			cmd := exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml", rootDir))
 			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 			output, err := cmd.CombinedOutput()
@@ -114,7 +102,6 @@ func deployGlobalHub() error {
 		for _, instance := range instances {
 			instanceMap := instance.(map[string]interface{})
 			if instanceMap["readyReplicas"] != nil && instanceMap["readyReplicas"].(int64) > 0 {
-				fmt.Println(instanceReadyReplicas)
 				instanceReadyReplicas++
 			}
 		}
@@ -206,9 +193,7 @@ func deployGlobalHub() error {
 		}
 
 		for _, deployment := range deploymentList.Items {
-			fmt.Println(deployment.Labels["name"])
 			if deployment.Labels["name"] == "multicluster-global-hub-operator" {
-				fmt.Println(deployment.Status.ReadyReplicas)
 				if deployment.Status.ReadyReplicas > 0 {
 					return nil
 				}
@@ -265,7 +250,6 @@ func deployGlobalHub() error {
 		
 		expectResCount := 2
 		for _, deployment := range deploymentList.Items {
-			fmt.Println(deployment.Labels["name"])
 			if deployment.Labels["name"] == grafanaPodName || deployment.Labels["name"] == managerPodName {
 				if deployment.Status.UnavailableReplicas != 0 {
 					return fmt.Errorf("multicluster global hub is not running")
@@ -338,10 +322,7 @@ func deployGlobalHub() error {
 			cmd = exec.Command("kubectl", "annotate", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "service.beta.openshift.io/inject-cabundle-")
 			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", localOptions.LocalHubCluster.KubeConfig))
 			output, err := cmd.CombinedOutput()
-			if err == nil {
-				fmt.Println(string(output))
-			} else {
-				fmt.Println(string(output))
+			if err != nil {
 				return err
 			}
 
@@ -367,7 +348,6 @@ func deployGlobalHub() error {
 		// Execute kubectl command to get secret value
 		cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret multicluster-global-hub-storage -n open-cluster-management --kubeconfig %s/test/resources/kubeconfig/kubeconfig-hub-of-hubs -ojsonpath='{.data.database_uri}' | base64 -d", rootDir))
 		output, err := cmd.CombinedOutput()
-		fmt.Println(string(output))
 		if err != nil {
 			fmt.Printf("\n err: \n %v\n", err)
 			return err

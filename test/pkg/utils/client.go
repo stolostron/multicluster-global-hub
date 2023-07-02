@@ -29,7 +29,6 @@ type client struct {
 }
 
 func NewTestClient(opt LocalOptions) *client {
-	// fmt.Printf("\n options: \n %v \n", opt)
 	return &client{
 		localOptions: opt,
 	}
@@ -77,7 +76,6 @@ func (c *client) KubeDynamicClient() dynamic.Interface {
 }
 
 func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
-	fmt.Printf("\n clusterName: \n %v \n", clusterName)
 	if c.localOptions.LocalHubCluster.Name == clusterName {
 		// insert to the first
 		args = append([]string{"--context", c.localOptions.LocalHubCluster.KubeContext}, args...)

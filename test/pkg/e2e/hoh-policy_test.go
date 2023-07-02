@@ -175,8 +175,6 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			policyStatusStr, _ := json.MarshalIndent(status, "", "  ")
 			klog.V(5).Info(fmt.Sprintf("get policy status: %s", policyStatusStr))
 
-			fmt.Printf("\n status.Status: \n %v\n", status.Status)
-
 			for _, policyInfo := range status.Status {
 				if policyInfo.ClusterName == managedClusters[0].Name {
 					if policyInfo.ComplianceState == policiesv1.NonCompliant ||
@@ -233,7 +231,6 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					return err
 				}
 				if val, ok := managedClusterInfo.Labels[POLICY_LABEL_KEY]; ok {
-					fmt.Printf("\n managedClusterInfo.Name, managedClusters[i].Name: \n %v: %v\n", managedClusterInfo.Name, managedClusters[i].Name)
 					if val == POLICY_LABEL_VALUE && managedClusterInfo.Name == managedClusters[i].Name {
 						return nil
 					}
@@ -263,13 +260,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				if err != nil {
 					return err
 				}
-				// hub1-cluster1
-				for i, policyInfo := range status.Status {
-					fmt.Printf("\n regionalClients%v%v%vstatus: \n %v: %v\n", i, i, i, policyInfo.ClusterName, policyInfo.ComplianceState)
-				}
 				
 				for _, policyInfo := range status.Status {
-					fmt.Printf("\n policyInfo.ClusterName, managedClusters[i].Name: \n %v: %v\n", policyInfo.ClusterName, managedClusters[i].Name)
 					if policyInfo.ClusterName == managedClusters[i].Name {
 						if policyInfo.ComplianceState == policiesv1.Compliant {
 							return nil

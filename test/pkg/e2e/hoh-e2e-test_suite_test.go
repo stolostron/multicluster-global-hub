@@ -57,25 +57,16 @@ var _ = BeforeSuite(func() {
 	completeOptions()
 	deployGlobalHub()
 
-	// fmt.Println(localOptionsContainer.LocalOptions)
-	// fmt.Println("#")
-	fmt.Println(localOptions)
-	// fmt.Println("##")
 	localOptionsContainer.LocalOptions = localOptions
-	// fmt.Println(localOptionsContainer.LocalOptions.LocalHubCluster)
-	// fmt.Println(localOptionsContainer.LocalOptions.LocalManagedClusters)
-	// fmt.Println("###")
 
 	By("Init the kubernetes client")
 	clients = utils.NewTestClient(localOptionsContainer.LocalOptions)
-	// fmt.Printf("\n clients: \n %v \n", clients)
 	err := utils.CreateTestingRBAC(localOptionsContainer.LocalOptions)
 	Expect(err).ShouldNot(HaveOccurred())
 
 	By("Init the bearer token")
 	Eventually(func() error {
 		httpToken, err = utils.FetchBearerToken(localOptions)
-		// fmt.Printf("\n Httptoken: \n %v \n", httpToken)
 		if err != nil {
 			return err
 		}
@@ -92,9 +83,7 @@ var _ = BeforeSuite(func() {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	// fmt.Printf("\n transport: \n %v \n", transport)
 	httpClient = &http.Client{Timeout: time.Second * 50, Transport: transport}
-	// fmt.Printf("\n httpClient: \n %v \n", httpClient)
 })
 
 var _ = AfterSuite(func() {
@@ -212,7 +201,6 @@ func completeOptions() {
 
 	localOptions.LocalHubCluster.DatabaseExternalHost = strings.Trim(string(container_node_ip), "'\n")
 	localOptions.LocalHubCluster.DatabaseExternalPort = 32432
-	fmt.Printf("\n localOptions.LocalHubCluster.DatabaseExternalHost: \n %v\n", localOptions.LocalHubCluster.DatabaseExternalHost)
 }
 
 func GetClusterID(cluster clusterv1.ManagedCluster) string {
