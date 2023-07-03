@@ -15,8 +15,15 @@ RUN go install github.com/onsi/ginkgo/ginkgo@v1.14.2 && go mod vendor && ginkgo 
 # create new docker image to hold built artifacts
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
-# run as root
-USER root
+# create a non-root group and user
+RUN \
+    mkdir /home/myuser && \
+    echo 'myuser:x:1000:1000:myuser,,,:/home/myuser:/bin/bash' >> /etc/passwd && \
+    echo 'myuser:x:1000:' >> /etc/group && \
+    chown -R myuser:myuser /home/myuser
+
+# switch to the non-root user
+USER myuser
 
 # expose env vars for runtime
 ENV LOG "/dev/stdout"
