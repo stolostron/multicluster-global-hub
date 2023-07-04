@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,6 +30,7 @@ var (
 	httpToken  string
 	httpClient *http.Client
 
+	rootDir                   string
 	GlobalHubName             string
 	LeafHubNames              []string
 	ExpectedLeafHubNum        int
@@ -84,6 +86,14 @@ var _ = AfterSuite(func() {
 func initVars() {
 	testTimeout = time.Second * 30
 
+	// get project rootdir path
+	exePath, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exeDir := filepath.Dir(exePath)
+	rootDir, err = findRootDir(exeDir)
+
 	klog.V(6).Infof("Options Path: %s", optionsFile)
 	data, err := os.ReadFile(optionsFile)
 	Expect(err).NotTo(HaveOccurred())
@@ -128,4 +138,19 @@ func GetClusterID(cluster clusterv1.ManagedCluster) string {
 		}
 	}
 	return ""
+}
+
+// Traverse directories upwards until a directory containing go.mod is found.
+func findRootDir(dir string) (string, error) {
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+
+		if dir == filepath.Dir(dir) {
+			return "", fmt.Errorf("rootDir cannot find")
+		}
+
+		dir = filepath.Dir(dir)
+	}
 }
