@@ -449,6 +449,30 @@ data:
                     "value": 120
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "namespace"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "root_policy_name"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
               }
             ]
           },
@@ -476,7 +500,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace',\n  p.policy_name as root_policy_name,\n  concat(p.payload -> 'metadata' ->> 'namespace','.',p.policy_name) as policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  mc.cluster_name = '$cluster'\nORDER BY (lp.created_at,lp.compliance) DESC",
+              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.policy_name as root_policy_name,\n  concat(p.payload -> 'metadata' ->> 'namespace','.',p.policy_name) as policy_name,\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  mc.cluster_name = '$cluster'\nORDER BY (lp.created_at,lp.compliance) DESC",
               "refId": "A",
               "select": [
                 [
@@ -504,10 +528,7 @@ data:
             {
               "id": "organize",
               "options": {
-                "excludeByName": {
-                  "namespace": true,
-                  "root_policy_name": true
-                },
+                "excludeByName": {},
                 "indexByName": {
                   "time": 0,
                   "policy_name": 1,
