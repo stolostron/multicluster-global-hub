@@ -155,3 +155,5 @@ For common Troubleshooting issues, proceed [here](troubleshooting.md)
 2. We provide ability to drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard. But the drill down feature is not working for the first datapoint. You can click the second datapoint or after to see the drill down feature is working. The issue is applied to the `Cluster Group Compliancy Overview` dashboard as well.
 
 3. If you detach the regional hub and then rejoin the regional hub, The data (policies/managed clusters) might not be updated in time from the rejoined regional hub. You can fix this problem by restarting the `multicluster-global-hub-manager` pod on global hub.
+
+4. For cluster that are never created successfully(clusterclaim id.k8s.io does not exist in the managed cluster), then we will not count this managed cluster in global hub policy compliance database, but it shows in RHACM policy console.
