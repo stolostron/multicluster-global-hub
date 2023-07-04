@@ -48,7 +48,7 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	initVars()
-	deployGlobalHub()
+	createGlobalHubCR()
 
 	By("Init the kubernetes client")
 	clients = utils.NewTestClient(testOptionsContainer.Options)

@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"	
 )
 
-func deployGlobalHub() error {
+func createGlobalHubCR() error {
 	currentDir, err := os.Getwd()
 	Expect(err).NotTo(HaveOccurred())
 	rootDir := fmt.Sprintf("%s/../../..", currentDir)
