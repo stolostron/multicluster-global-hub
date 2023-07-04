@@ -292,15 +292,10 @@ data:
                   "time": 0
                 },
                 "renameByName": {
-                  "cluster_id": "ClusterID",
-                  "cluster_name": "Cluster",
-                  "compliance": "Compliance",
                   "hub": "Hub",
                   "message": "Message",
                   "namespace": "Namespace",
                   "policy_name": "Policy",
-                  "reason": "Reason",
-                  "source": "Source",
                   "time": "Time"
                 }
               }
@@ -376,7 +371,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View policy \"${__data.fields.Policy}\" on hub cluster \"${__data.fields.Hub}\"",
-                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Cluster}/${__data.fields.Policy}"
+                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}/results?search=${__data.fields.Cluster}"
                       }
                     ]
                   },
@@ -401,12 +396,24 @@ data:
               {
                 "matcher": {
                   "id": "byName",
+                  "options": "Namespace"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 190
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
                   "options": "Policy"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 310
+                    "value": 190
                   }
                 ]
               },
@@ -472,7 +479,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  concat(p.payload -> 'metadata' ->> 'namespace','.',p.policy_name) as policy_name,\n  p.leaf_hub_name as \"hub\",\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  p.policy_name = '$policy'\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nORDER BY (lp.created_at,lp.compliance) DESC",
+              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.policy_name,\n  p.leaf_hub_name as \"hub\",\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  p.policy_name = '$policy'\nAND\n p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nORDER BY (lp.created_at,lp.compliance) DESC",
               "refId": "A",
               "select": [
                 [
@@ -502,26 +509,24 @@ data:
               "options": {
                 "excludeByName": {},
                 "indexByName": {
-                  "cluster_name": 4,
-                  "compliance": 7,
-                  "hub": 2,
-                  "message": 5,
-                  "namespace": 3,
+                  "time": 0,
                   "policy_name": 1,
+                  "namespace": 2,
+                  "hub": 3,
+                  "cluster_name": 4,
+                  "message": 5,
                   "reason": 6,
-                  "time": 0
+                  "compliance": 7
                 },
                 "renameByName": {
-                  "cluster_id": "ClusterID",
-                  "cluster_name": "Cluster",
-                  "compliance": "Compliance",
-                  "hub": "Hub",
-                  "message": "Message",
-                  "namespace": "Namespace",
+                  "time": "Time",
                   "policy_name": "Policy",
+                  "namespace": "Namespace",
+                  "hub": "Hub",
+                  "cluster_name": "Cluster",
+                  "message": "Message",
                   "reason": "Reason",
-                  "source": "Source",
-                  "time": "Time"
+                  "compliance": "Compliance"
                 }
               }
             }
