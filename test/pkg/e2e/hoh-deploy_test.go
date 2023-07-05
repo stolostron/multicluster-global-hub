@@ -6,14 +6,16 @@ import (
 	"os"
 	"os/exec"
 	"time"
-	
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"	
 )
@@ -31,6 +33,120 @@ func createGlobalHubCR() error {
 
 	clientset, err := kubernetes.NewForConfig(config)
 	Expect(err).ShouldNot(HaveOccurred())
+
+	if os.Getenv("IS_CANARY_ENV") != "true" {
+		By("deploy globalbub for e2e ENV")
+		Eventually(func() error {
+			cmd := exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml", rootDir))
+			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+			output, err := cmd.CombinedOutput()
+			fmt.Println(string(output))
+			if err != nil {
+				return err
+			}
+
+			for _, managedCluster := range testOptions.ManagedClusters {
+				cmd = exec.Command("kubectl", "--context", managedCluster.Name, "apply", "-f", testOptions.HubCluster.CrdsDir, "--validate=false")
+				cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+				output, err = cmd.CombinedOutput()
+				fmt.Println(string(output))
+				if err != nil {
+					return err
+				}
+			}
+			return nil 
+		}, 3*time.Minute, 5*time.Second).Should(Succeed())
+	}
+
+	By("checking postgresql is ready")
+	cmd := exec.Command("/bin/bash", testOptions.HubCluster.StoragePath)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+	output, err := cmd.CombinedOutput()
+	fmt.Println(string(output))
+	Expect(err).ShouldNot(HaveOccurred())
+	
+	Eventually(func() error {
+		// check postgres is ready by checking proxyReadyReplicas && proxyReadyReplicas
+		name := "hoh"
+		namespace := "hoh-postgres"
+
+		postgresCluster, err := dynClient.Resource(
+			schema.GroupVersionResource{
+				Group:    "postgres-operator.crunchydata.com",
+				Version:  "v1beta1",
+				Resource: "postgresclusters",
+			},
+		).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return fmt.Errorf("Postgres cluster %s/%s not found\n", namespace, name)
+			}
+			return err
+		}
+
+		// transferring Unstructured into Map
+		postgresClusterMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(postgresCluster)
+		if err != nil {
+			return err
+		}
+		// get and check status.proxy.readyReplicas and status.instances.readyReplicas larget than zero
+		proxyReadyReplicas, proxyOk := postgresClusterMap["status"].(map[string]interface{})["proxy"].(map[string]interface{})["pgBouncer"].(map[string]interface{})["readyReplicas"].(int64)
+		instances := postgresClusterMap["status"].(map[string]interface{})["instances"].([]interface{})
+		instanceReadyReplicas := int64(0)
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["readyReplicas"] != nil && instanceMap["readyReplicas"].(int64) > 0 {
+				instanceReadyReplicas++
+			}
+		}
+		if proxyOk && proxyReadyReplicas > 0 && instanceReadyReplicas > 0{
+			return nil
+		}
+		return fmt.Errorf("postgres is not ready")
+	}, 5*time.Minute, 5*time.Second).Should(Succeed())
+
+	By("checking kafka is ready")
+	Eventually(func() error {
+		cmd := exec.Command("/bin/bash", testOptions.HubCluster.TransportPath)
+		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+		output, err := cmd.CombinedOutput()
+		fmt.Println(string(output))
+		if err != nil {
+			Expect(err).ShouldNot(HaveOccurred())
+		}
+
+		// check kafka is ready by checking condition status
+		namespace := "kafka"
+		name := "kafka-brokers-cluster"
+
+		kafka, err := dynClient.Resource(
+			schema.GroupVersionResource{
+				Group:    "kafka.strimzi.io",
+				Version:  "v1beta2",
+				Resource: "kafkas",
+			},
+		).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return fmt.Errorf("Kafka cluster %s/%s not found\n", namespace, name)
+			} else {
+				return err
+			}
+		}
+
+		conditions, ok := kafka.Object["status"].(map[string]interface{})["conditions"].([]interface{})
+		if !ok && len(conditions) == 0{
+			return fmt.Errorf("Failed to extract conditions from Kafka object")
+		}
+		// check the status conditions for the Kafka cluster.
+		for _, c := range conditions {
+			condition := c.(map[string]interface{})
+			if condition["type"].(string) == "Ready" && condition["status"].(string) == "True" {
+				return nil
+			}
+		}
+		return fmt.Errorf("The condition from kafka object is not ready")
+	}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
 	// wait deployment is ready
 	// check global hub operator / pod is running
@@ -54,9 +170,9 @@ func createGlobalHubCR() error {
 		}
 	}
 
-	cmd := exec.Command("make", "-C", "../../../operator", "deploy")
+	cmd = exec.Command("make", "-C", "../../../operator", "deploy")
 	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
-	output, err := cmd.CombinedOutput()
+	output, err = cmd.CombinedOutput()
 	fmt.Println(string(output))
 	if err != nil {
 		fmt.Println(err)

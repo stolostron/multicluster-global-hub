@@ -23,6 +23,16 @@ if [ ! -f "$KUBECONFIG" ];then
   echo "using default KUBECONFIG = $KUBECONFIG"
 fi
 
+export TAG=${TAG:-"latest"}
+export OPENSHIFT_CI=${OPENSHIFT_CI:-"false"}
+export REGISTRY=${REGISTRY:-"quay.io/stolostron"}
+
+if [[ $OPENSHIFT_CI == "false" ]]; then
+  export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF:-"${REGISTRY}/multicluster-global-hub-manager:${TAG}"}
+  export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF:-"${REGISTRY}/multicluster-global-hub-agent:$TAG"}
+  export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF=${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF:-"${REGISTRY}/multicluster-global-hub-operator:$TAG"}
+fi
+
 # hub cluster
 hub_kubeconfig="${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}"
 kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "$HUB_OF_HUB_CTX" > ${hub_kubeconfig}
@@ -47,9 +57,18 @@ printf "\n    name: $HUB_OF_HUB_NAME" >> $OPTIONS_FILE
 printf "\n    namespace: ${hub_namespace}" >> $OPTIONS_FILE
 printf "\n    apiServer: ${hub_api_server}" >> $OPTIONS_FILE
 printf "\n    nonk8sApiServer: ${hub_nonk8s_api_server}" >> $OPTIONS_FILE
-printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
 printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
 printf '\n    databaseURI: %s' ${container_pg_uri} >> $OPTIONS_FILE # contain $ need to use %s
+if [ ! -f "IS_CANARY_ENV" ];then
+  printf "\n    kubeconfig: ${ROOT_DIR}/test/setup/config/kubeconfig" >> $OPTIONS_FILE
+  printf "\n    crdsDir: ${ROOT_DIR}/pkg/testdata/crds" >> $OPTIONS_FILE
+  printf "\n    storagePath: ${ROOT_DIR}/test/setup/hoh/postgres_setup.sh" >> $OPTIONS_FILE
+  printf "\n    transportPath: ${ROOT_DIR}/test/setup/hoh/kafka_setup.sh" >> $OPTIONS_FILE
+else
+  printf "\n    kubeconfig: ${hub_kubeconfig}" >> $OPTIONS_FILE
+  printf "\n    storagePath: ${ROOT_DIR}/operator/config/samples/storage/deploy_postgres.sh" >> $OPTIONS_FILE
+  printf "\n    transportPath: ${ROOT_DIR}/operator/config/samples/transport/deploy_kafka.sh" >> $OPTIONS_FILE
+fi
 printf "\n    ManagerImageREF: ${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}" >> $OPTIONS_FILE
 printf "\n    AgentImageREF: ${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF}" >> $OPTIONS_FILE
 printf "\n    OperatorImageREF: ${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF}" >> $OPTIONS_FILE

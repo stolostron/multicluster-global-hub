@@ -18,17 +18,17 @@ echo "MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_MANAGER
 echo "MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
 echo "MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF"
 
-namespace=open-cluster-management
-agenAddonNamespace=open-cluster-management-global-hub-system
-currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
+# namespace=open-cluster-management
+# agenAddonNamespace=open-cluster-management-global-hub-system
+# currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# rootDir="$(cd "$(dirname "$0")/../.." ; pwd -P)"
 
 # create leader election configuration
-kubectl apply -f ${currentDir}/components/leader-election-configmap.yaml -n "$namespace"
+# kubectl apply -f ${currentDir}/components/leader-election-configmap.yaml -n "$namespace"
 # install crds
-kubectl apply -f ${rootDir}/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml
-kubectl --context kind-hub1 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
-kubectl --context kind-hub2 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+# kubectl apply -f ${rootDir}/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml
+# kubectl --context kind-hub1 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+# kubectl --context kind-hub2 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 
 # # replace images
 # sed -i "s|quay.io/stolostron/multicluster-global-hub-manager:latest|${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}|g" ${rootDir}/operator/config/manager/manager.yaml
