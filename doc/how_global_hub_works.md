@@ -48,3 +48,66 @@ Note:
 - multicluster global hub operator controls the life cycle of the multicluster global hub manager and global hub agent
 - kafka and database can run on the Global cluster or outside it
 - ACM hub also runs on the multicluster global hub cluster, but does not participate in the daily functioning of the global hub.
+
+### Run the Summarization Process manually
+Usually, we don't need to run summary process manually. However, unexpected errors may occur when running the compliance job, so it is necessary for us to manually log in to the database to perform the whole summary process to recover the data that is not generated.
+
+Before starting, the first thing you need to know is that the process of this summary consists of two subtasks:
+- The first is to insert the compliance data from  [Materialized View](https://www.postgresql.org/docs/current/rules-materializedviews.html)  `local_compliance_view_<yyyy_MM_dd>` to `history.local_compliance`.
+- The second is to update the `history.local_compliance` compliance and frequency of a certain day based on `event.local_policies`.
+
+#### Execution steps
+
+1. Determine the date that needs to be executed
+
+    If you find on the dashboard that there is no any compliance information on a certain day, and also find the job failure information of the day after this day in `history.local_compliance_job_log`, then the summary processes for that day need to be run manually to produce the compliances.
+
+2. Check whether the Materialized View(`history.local_compliance_view_<yyyy_MM_dd>`) exists
+    ```sql
+    select * from history.local_compliance_view_<yyyy_MM_dd>
+    ```
+    The View local_compliance_view_<yyyy_MM_dd> is necessary to run the following steps.
+
+3. Load the view records to `history.local_compliance`
+    ```sql
+    INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date) 
+				(
+					SELECT policy_id,cluster_id,leaf_hub_name,compliance,<yyyy_MM_dd> 
+					FROM history.local_compliance_view_<yyyy_MM_dd>
+					ORDER BY policy_id, cluster_id 
+				)
+			ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING
+    ```
+
+3. Add the compliance and frequency information of that day to `history.local_compliance`
+    ```sql
+		  INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance_date, compliance,
+					compliance_changed_frequency)
+			WITH compliance_aggregate AS (
+					SELECT cluster_id, policy_id, leaf_hub_name,
+							CASE
+									WHEN bool_and(compliance = 'compliant') THEN 'compliant'
+									ELSE 'non_compliant'
+							END::local_status.compliance_type AS aggregated_compliance
+					FROM event.local_policies
+					WHERE created_at BETWEEN '<yyyy_MM_dd>' AND '<yyyy_MM_dd+1>'
+					GROUP BY cluster_id, policy_id, leaf_hub_name
+			)
+			SELECT policy_id, cluster_id, leaf_hub_name, '<yyyy_MM_dd>', aggregated_compliance,
+					(SELECT COUNT(*) FROM (
+							SELECT created_at, compliance, 
+									LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC)
+									AS prev_compliance
+							FROM event.local_policies lp
+							WHERE (lp.created_at BETWEEN '<yyyy_MM_dd>' AND '<yyyy_MM_dd+1>') 
+									AND lp.cluster_id = ca.cluster_id AND lp.policy_id = ca.policy_id
+							ORDER BY created_at ASC
+					) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
+			FROM compliance_aggregate ca
+			ORDER BY cluster_id, policy_id
+			ON CONFLICT (policy_id, cluster_id, compliance_date)
+			DO UPDATE SET
+				compliance = EXCLUDED.compliance,
+				compliance_changed_frequency = EXCLUDED.compliance_changed_frequency;
+    ```
+    Replace `'<yyyy_MM_dd>'` with the date from step 1, and `'<yyyy_MM_dd+1>'` with the day after the date. For example, `'<yyyy_MM_dd>'` = `'2023-07-01'`, then `'<yyyy_MM_dd+1>'` = `'2023-07-02'`.
