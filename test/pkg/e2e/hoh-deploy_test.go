@@ -6,27 +6,19 @@ import (
 	"os"
 	"os/exec"
 	"time"
-	"strings"
-	"regexp"
-
+	
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"	
 )
 
-func deployGlobalHub() error {
-	currentDir, err := os.Getwd()
-	Expect(err).NotTo(HaveOccurred())
-	rootDir := fmt.Sprintf("%s/../../..", currentDir)
-
+func createGlobalHubCR() error {
 	fmt.Println(testOptions.HubCluster.KubeConfig)
 
 	// Create the dynamic client
@@ -114,7 +106,6 @@ func deployGlobalHub() error {
 		if err != nil {
 			Expect(err).Should(Succeed())
 		}
-		
 
 		cmd = exec.Command("kubectl", "patch", "clustermanager", "cluster-manager", "--type", "merge", "-p", "{\"spec\":{\"placementImagePullSpec\":\"quay.io/open-cluster-management/placement:latest\"}}")
 		cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
@@ -130,32 +121,6 @@ func deployGlobalHub() error {
 			Expect(err).Should(Succeed())
 		}
 
-		By("waiting for core components to be ready")
-		Eventually(func() error {
-			deployment, err := dynClient.Resource(
-				schema.GroupVersionResource{
-					Group: "apps",
-					Version: "v1",
-					Resource: "deployments",
-				},
-			).Namespace("open-cluster-management-global-hub-system").Get(context.Background(),  "multicluster-global-hub-agent", metav1.GetOptions{})
-			if err != nil {
-				return fmt.Errorf("GlobalHub Agent is not running: %v\n", err)
-			}
-
-			conditions, ok := deployment.Object["status"].(map[string]interface{})["conditions"].([]interface{})
-			if !ok && len(conditions) == 0{
-				return fmt.Errorf("Failed to extract conditions from Kafka object")
-			}
-			for _, c := range conditions {
-				condition := c.(map[string]interface{})
-				if condition["status"].(string) != "True" {
-					return fmt.Errorf("agent is not running")
-				}
-			}
-			return nil
-		})
-
 		Eventually(func() error {
 			cmd = exec.Command("kubectl", "annotate", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "service.beta.openshift.io/inject-cabundle-")
 			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
@@ -167,7 +132,7 @@ func deployGlobalHub() error {
 			cmd = exec.Command("kubectl", "get", "secret", "multicluster-global-hub-webhook-certs", "-n", namespace, "-o", "jsonpath={.data.tls\\.crt}")
 			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
 			ca, _ := cmd.Output()
-			fmt.Println(string(ca))
+			// fmt.Println(string(ca))
 
 			cmd = exec.Command("kubectl", "patch", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "-n", namespace, "-p", fmt.Sprintf("{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"%s\"}}]}", ca))
 			cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
