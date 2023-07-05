@@ -32,9 +32,56 @@ func createGlobalHubCR() error {
 	clientset, err := kubernetes.NewForConfig(config)
 	Expect(err).ShouldNot(HaveOccurred())
 
+	// wait deployment is ready
+	// check global hub operator / pod is running
+	By("deploying operator")
+	if testOptions.HubCluster.ManagerImageREF != "" {
+		cmd := exec.Command("sed", "-i", fmt.Sprintf("s|quay.io/stolostron/multicluster-global-hub-manager:latest|%s|g", testOptions.HubCluster.ManagerImageREF), rootDir+"/operator/config/manager/manager.yaml")
+		output, err := cmd.CombinedOutput()
+		fmt.Println(string(output))
+		if err != nil {
+			fmt.Println(err)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+	if testOptions.HubCluster.AgentImageREF != "" {
+		cmd := exec.Command("sed", "-i", fmt.Sprintf("s|quay.io/stolostron/multicluster-global-hub-agent:latest|%s|g", testOptions.HubCluster.AgentImageREF), rootDir+"/operator/config/manager/manager.yaml")
+		output, err := cmd.CombinedOutput()
+		fmt.Println(string(output))
+		if err != nil {
+			fmt.Println(err)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+
+	cmd := exec.Command("make", "-C", "../../../operator", "deploy")
+	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+	output, err := cmd.CombinedOutput()
+	fmt.Println(string(output))
+	if err != nil {
+		fmt.Println(err)
+		Expect(fmt.Errorf("failed to execute make deploy-operator: %v\n", err)).NotTo(HaveOccurred())
+	}
+
+	Eventually(func() error {
+		deploymentList, err := clientset.AppsV1().Deployments("open-cluster-management").List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+
+		for _, deployment := range deploymentList.Items {
+			if deployment.Labels["name"] == "multicluster-global-hub-operator" {
+				if deployment.Status.ReadyReplicas > 0 {
+					return nil
+				}
+			}
+		}
+		return fmt.Errorf("postgres is not ready")
+	}, 5*time.Minute, 5*time.Second).Should(Succeed())
+
 	// deploy CR by unstructured.Unstructured
 	By("deploying CR")
-
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "operator.open-cluster-management.io/v1alpha3",

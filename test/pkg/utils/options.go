@@ -19,6 +19,9 @@ type HOHCluster struct {
 	KubeContext     string `yaml:"kubecontext,omitempty"`
 	Nonk8sApiServer string `yaml:"nonk8sApiServer,omitempty"`
 	DatabaseURI     string `yaml:"databaseURI,omitempty"`
+	ManagerImageREF   string `yaml:"ManagerImageREF,omitempty"`
+	AgentImageREF     string `yaml:"AgentImageREF,omitempty"`
+	OperatorImageREF     string `yaml:"OperatorImageREF,omitempty"`
 }
 
 type ManagedCluster struct {
