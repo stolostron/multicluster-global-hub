@@ -58,7 +58,7 @@ printf "\n    namespace: ${hub_namespace}" >> $OPTIONS_FILE
 printf "\n    apiServer: ${hub_api_server}" >> $OPTIONS_FILE
 printf "\n    nonk8sApiServer: ${hub_nonk8s_api_server}" >> $OPTIONS_FILE
 printf "\n    kubecontext: ${hub_kubecontext}" >> $OPTIONS_FILE
-printf '\n    databaseURI: %s' ${container_pg_uri} >> $OPTIONS_FILE # contain $ need to use %s
+# printf '\n    databaseURI: %s' ${container_pg_uri} >> $OPTIONS_FILE # contain $ need to use %s
 if [ ! -f "IS_CANARY_ENV" ];then
   printf "\n    kubeconfig: ${ROOT_DIR}/test/setup/config/kubeconfig" >> $OPTIONS_FILE
   printf "\n    crdsDir: ${ROOT_DIR}/pkg/testdata/crds" >> $OPTIONS_FILE
@@ -69,6 +69,8 @@ else
   printf "\n    storagePath: ${ROOT_DIR}/operator/config/samples/storage/deploy_postgres.sh" >> $OPTIONS_FILE
   printf "\n    transportPath: ${ROOT_DIR}/operator/config/samples/transport/deploy_kafka.sh" >> $OPTIONS_FILE
 fi
+printf "\n    databaseExternalHost: ${container_node_ip}" >> $OPTIONS_FILE
+printf "\n    databaseExternalPort: 32432" >> $OPTIONS_FILE
 printf "\n    ManagerImageREF: ${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}" >> $OPTIONS_FILE
 printf "\n    AgentImageREF: ${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF}" >> $OPTIONS_FILE
 printf "\n    OperatorImageREF: ${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF}" >> $OPTIONS_FILE

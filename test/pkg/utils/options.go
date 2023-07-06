@@ -22,6 +22,8 @@ type HOHCluster struct {
 	StoragePath     string `yaml:"storagePath,omitempty"`
 	TransportPath   string `yaml:"transportPath,omitempty"`
 	CrdsDir         string `yaml:"crdsDir,omitempty"`
+	DatabaseExternalHost string `yaml:"databaseExternalHost,omitempty"`
+	DatabaseExternalPort int    `yaml:"databaseExternalPort,omitempty"`
 	ManagerImageREF   string `yaml:"ManagerImageREF,omitempty"`
 	AgentImageREF     string `yaml:"AgentImageREF,omitempty"`
 	OperatorImageREF     string `yaml:"OperatorImageREF,omitempty"`
