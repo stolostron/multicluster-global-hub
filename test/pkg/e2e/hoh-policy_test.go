@@ -220,7 +220,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 			By("Check the policy is created in regional hub")
 			Eventually(func() error {
-				status, err := getRegionalPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
+				status, err := getRegionalPolicyStatus(regionalClients[i], POLICY_NAME, POLICY_NAMESPACE)
 				if err != nil {
 					return err
 				}
@@ -393,7 +393,7 @@ func getPolicyStatus(client client.Client, httpClient *http.Client, name, namesp
 
 	policyUID := string(policy.UID)
 	getPolicyStatusURL := fmt.Sprintf("%s/global-hub-api/v1/policy/%s/status",
-		testOptions.HubCluster.Nonk8sApiServer, policyUID)
+		localOptions.LocalHubCluster.Nonk8sApiServer, policyUID)
 	req, err := http.NewRequest("GET", getPolicyStatusURL, nil)
 	if err != nil {
 		return nil, err

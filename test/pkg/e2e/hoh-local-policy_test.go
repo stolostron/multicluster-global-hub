@@ -82,7 +82,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			}
 
 			By("Get postgres master pod name")
-			databaseURI := strings.Split(testOptions.HubCluster.DatabaseURI, "?")[0]
+			databaseURI := strings.Split(localOptions.LocalHubCluster.DatabaseURI, "?")[0]
 			postgresConn, err = database.PostgresConnection(context.TODO(), databaseURI, nil)
 			Expect(err).Should(Succeed())
 		})

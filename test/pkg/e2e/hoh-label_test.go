@@ -139,7 +139,7 @@ type patch struct {
 }
 
 func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCluster, error) {
-	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
+	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", localOptions.LocalHubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
@@ -173,7 +173,7 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 	*clusterv1.ManagedCluster, error,
 ) {
 	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters",
-		testOptions.HubCluster.Nonk8sApiServer)
+		localOptions.LocalHubCluster.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
@@ -207,7 +207,7 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 
 func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterID string) error {
 	updateLabelUrl := fmt.Sprintf("%s/global-hub-api/v1/managedcluster/%s",
-		testOptions.HubCluster.Nonk8sApiServer, managedClusterID)
+		localOptions.LocalHubCluster.Nonk8sApiServer, managedClusterID)
 	// set method and body
 	jsonBody, err := json.Marshal(patches)
 	if err != nil {

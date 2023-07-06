@@ -192,7 +192,7 @@ func getAppsubReport(appClient client.Client, httpClient *http.Client, name, nam
 
 	appsubUID := string(appsub.GetUID())
 	getSubscriptionReportURL := fmt.Sprintf("%s/global-hub-api/v1/subscriptionreport/%s",
-		testOptions.HubCluster.Nonk8sApiServer, appsubUID)
+	localOptions.LocalHubCluster.Nonk8sApiServer, appsubUID)
 	req, err := http.NewRequest("GET", getSubscriptionReportURL, nil)
 	if err != nil {
 		return nil, err
