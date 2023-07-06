@@ -47,9 +47,9 @@ container_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPA
 hub_nonk8s_api_server="https://${container_node_ip}:30080"
 
 # container postgres uri
-container_pg_port="32432"
-database_uri=$(kubectl get secret multicluster-global-hub-storage -n $hub_namespace --kubeconfig ${hub_kubeconfig} -ojsonpath='{.data.database_uri}' | base64 -d)
-container_pg_uri=$(echo $database_uri | sed "s|@.*hoh|@${container_node_ip}:${container_pg_port}/hoh|g")
+# container_pg_port="32432"
+# database_uri=$(kubectl get secret multicluster-global-hub-storage -n $hub_namespace --kubeconfig ${hub_kubeconfig} -ojsonpath='{.data.database_uri}' | base64 -d)
+# container_pg_uri=$(echo $database_uri | sed "s|@.*hoh|@${container_node_ip}:${container_pg_port}/hoh|g")
 
 printf "options:" > $OPTIONS_FILE
 printf "\n  hub:" >> $OPTIONS_FILE

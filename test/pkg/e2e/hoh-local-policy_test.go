@@ -121,6 +121,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			It("deploy policy to the cluster to the leafhub", func() {
 				By("Deploy the policy to the leafhub")
 				for _, leafhubName := range LeafHubNames {
+					fmt.Printf("\n leafhubName: \n %v\n", leafhubName)
 					output, err := clients.Kubectl(leafhubName, "apply", "-f", LOCAL_INFORM_POLICY_YAML)
 					klog.V(10).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 					Expect(err).Should(Succeed())
@@ -162,7 +163,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						return err
 					}
 					defer rows.Close()
-
+					fmt.Println("searching DB")
 					// policies, if leahfubname check remove the kv
 					for rows.Next() {
 						columnValues, _ := rows.Values()
@@ -173,6 +174,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 							return err
 						}
+						fmt.Printf("\n &policyId, &cluster, &leafhub, policies[leafhub].UID: \n %v, %v, %v, %v", policyId, cluster, leafhub, policies[leafhub].UID)
 						if string(policies[leafhub].UID) == policyId {
 							delete(policies, leafhub)
 						}

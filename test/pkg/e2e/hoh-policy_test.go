@@ -220,7 +220,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 			By("Check the policy is created in regional hub")
 			Eventually(func() error {
-				status, err := getRegionalPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
+				status, err := getRegionalPolicyStatus(regionalClients[i], POLICY_NAME, POLICY_NAMESPACE)
 				if err != nil {
 					return err
 				}
