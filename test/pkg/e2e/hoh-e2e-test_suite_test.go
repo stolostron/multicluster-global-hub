@@ -12,6 +12,7 @@ import (
 	"strings"
 	"net/url"
 	"os/exec"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,6 +60,7 @@ var _ = BeforeSuite(func() {
 	deployGlobalHub()
 
 	localOptionsContainer.LocalOptions = localOptions
+	fmt.Printf("\nlocalOptions: \n%v\n", localOptions)
 
 	By("Init the kubernetes client")
 	clients = utils.NewTestClient(localOptionsContainer.LocalOptions)
@@ -204,4 +206,19 @@ func GetClusterID(cluster clusterv1.ManagedCluster) string {
 		}
 	}
 	return ""
+}
+
+// Traverse directories upwards until a directory containing go.mod is found.
+func findRootDir(dir string) (string, error) {
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+
+		if dir == filepath.Dir(dir) {
+			return "", fmt.Errorf("rootDir cannot find")
+		}
+
+		dir = filepath.Dir(dir)
+	}
 }
