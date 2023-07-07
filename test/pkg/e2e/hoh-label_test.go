@@ -161,6 +161,7 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 	if err != nil {
 		return nil, err
 	}
+
 	if len(managedClusterList.Items) != 2 {
 		return nil, fmt.Errorf("cannot get two managed clusters")
 	}

@@ -12,13 +12,16 @@ type Options struct {
 
 // Define the shape of clusters that may be added under management
 type HOHCluster struct {
-	Name            string `yaml:"name,omitempty"`
-	Namespace       string `yaml:"namespace,omitempty"`
-	ApiServer       string `yaml:"apiServer,omitempty"`
-	KubeConfig      string `yaml:"kubeconfig,omitempty"`
-	KubeContext     string `yaml:"kubecontext,omitempty"`
-	Nonk8sApiServer string `yaml:"nonk8sApiServer,omitempty"`
-	DatabaseURI     string `yaml:"databaseURI,omitempty"`
+	Name              string `yaml:"name,omitempty"`
+	Namespace         string `yaml:"namespace,omitempty"`
+	ApiServer         string `yaml:"apiServer,omitempty"`
+	KubeConfig        string `yaml:"kubeconfig,omitempty"`
+	KubeContext       string `yaml:"kubecontext,omitempty"`
+	Nonk8sApiServer   string `yaml:"nonk8sApiServer,omitempty"`
+	DatabaseURI       string `yaml:"databaseURI,omitempty"`
+	ManagerImageREF   string `yaml:"ManagerImageREF,omitempty"`
+	AgentImageREF     string `yaml:"AgentImageREF,omitempty"`
+	OperatorImageREF  string `yaml:"OperatorImageREF,omitempty"`
 }
 
 type ManagedCluster struct {

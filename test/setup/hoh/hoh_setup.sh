@@ -30,16 +30,16 @@ kubectl apply -f ${rootDir}/pkg/testdata/crds/0000_00_agent.open-cluster-managem
 kubectl --context kind-hub1 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 kubectl --context kind-hub2 apply -f ${rootDir}/pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 
-# replace images
-sed -i "s|quay.io/stolostron/multicluster-global-hub-manager:latest|${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}|g" ${rootDir}/operator/config/manager/manager.yaml
-sed -i "s|quay.io/stolostron/multicluster-global-hub-agent:latest|${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF}|g" ${rootDir}/operator/config/manager/manager.yaml
+# # replace images
+# sed -i "s|quay.io/stolostron/multicluster-global-hub-manager:latest|${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}|g" ${rootDir}/operator/config/manager/manager.yaml
+# sed -i "s|quay.io/stolostron/multicluster-global-hub-agent:latest|${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF}|g" ${rootDir}/operator/config/manager/manager.yaml
 
-export IMG=$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF
-make deploy-operator 
+# export IMG=$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF
+# make deploy-operator 
 
-kubectl wait deployment -n "$namespace" multicluster-global-hub-operator --for condition=Available=True --timeout=600s
-echo "HoH operator is ready!"
-kubectl get deploy multicluster-global-hub-operator -oyaml  -n $namespace
+# kubectl wait deployment -n "$namespace" multicluster-global-hub-operator --for condition=Available=True --timeout=600s
+# echo "HoH operator is ready!"
+# kubectl get deploy multicluster-global-hub-operator -oyaml  -n $namespace
 
 # envsubst < ${rootDir}/operator/config/samples/operator_v1alpha3_multiclusterglobalhub.yaml | kubectl apply -f - -n "$namespace"
 # echo "HoH CR is ready!"
