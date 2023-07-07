@@ -53,61 +53,94 @@ Note:
 Usually, we don't need to run summary process manually. However, unexpected errors may occur when running the compliance job, so it is necessary for us to manually log in to the database to perform the whole summary process to recover the data that is not generated.
 
 Before starting, the first thing you need to know is that the process of this summary consists of two subtasks:
-- The first is to insert the compliance data from  [Materialized View](https://www.postgresql.org/docs/current/rules-materializedviews.html)  `local_compliance_view_<yyyy_MM_dd>` to `history.local_compliance`.
-- The second is to update the `history.local_compliance` compliance and frequency of a certain day based on `event.local_policies`.
+- Insert the cluster policy data of that day from  [Materialized View](https://www.postgresql.org/docs/current/rules-materializedviews.html)  `local_compliance_view_<yyyy_MM_dd>` to `history.local_compliance`.
+- Add the `compliance` and policy flip `frequency` of that day to `history.local_compliance` based on `event.local_policies`.
 
 #### Execution steps
 
-1. Determine the date that needs to be executed `<yyyy_MM_dd>`
+1. Connect to the database
+   
+   You can use clients such as pgAdmin, tablePlush, etc. to connect to the Global Hub database to execute the SQL statements involved in the next few steps. If your postgres database is installed through [this script](../operator/config/samples/storage/deploy_postgres.sh), you can directly connect to the database on the cluster through the following command.
+   ```bash
+   kubectl exec -it $(kubectl get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -n hoh-postgres -c database -- psql -d hoh
+   ```
+       
+2. Determine the date that needs to be executed, take `2023-07-06` as an example
 
-    If you find on the dashboard that there is no any compliance information on a certain day, and also find the job failure information of the day after this day in `history.local_compliance_job_log`, then the summary processes for that day need to be run manually to produce the compliances.
+    If you find on the dashboard that there is no any compliance information on `2023-07-06`, then find the the job failure information of the day after this day, that is `2023-07-07`, in `history.local_compliance_job_log`. In this way, it can be determined that `2023-07-06` is the date we need to manually execute the summary processes.
 
-2. Check whether the Materialized View(`history.local_compliance_view_<yyyy_MM_dd>`) exists
+
+3. Check whether the Materialized View `history.local_compliance_view_2023_07_06` exists
     ```sql
-    select * from history.local_compliance_view_<yyyy_MM_dd>
+    select * from history.local_compliance_view_2023_07_06
     ```
-    The View `local_compliance_view_<yyyy_MM_dd>` is necessary to run the following steps.
+    The View `history.local_compliance_view_2023_07_06` is necessary to run the following steps.
 
-3. Load the view records to `history.local_compliance`
+4. Load the view records to `history.local_compliance`
     ```sql
-    INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date) 
-				(
-					SELECT policy_id,cluster_id,leaf_hub_name,compliance,'<yyyy_MM_dd>' 
-					FROM history.local_compliance_view_<yyyy_MM_dd>
-					ORDER BY policy_id, cluster_id 
-				)
-			ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING
-    ```
-
-3. Add the compliance and frequency information of that day to `history.local_compliance`
-    ```sql
-    INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance_date, compliance,
-        compliance_changed_frequency)
-    WITH compliance_aggregate AS (
-        SELECT cluster_id, policy_id, leaf_hub_name,
-            CASE
-                WHEN bool_and(compliance = 'compliant') THEN 'compliant'
-                ELSE 'non_compliant'
-            END::local_status.compliance_type AS aggregated_compliance
-        FROM event.local_policies
-        WHERE created_at BETWEEN '<yyyy_MM_dd>' AND '<yyyy_MM_dd+1>'
-        GROUP BY cluster_id, policy_id, leaf_hub_name
+    -- create the insert func
+    CREATE OR REPLACE FUNCTION history.job_insert_local_compliance(
+        view_date text
     )
-    SELECT policy_id, cluster_id, leaf_hub_name, '<yyyy_MM_dd>', aggregated_compliance,
-        (SELECT COUNT(*) FROM (
-            SELECT created_at, compliance, 
-                LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC)
-                AS prev_compliance
-            FROM event.local_policies lp
-            WHERE (lp.created_at BETWEEN '<yyyy_MM_dd>' AND '<yyyy_MM_dd+1>') 
-                AND lp.cluster_id = ca.cluster_id AND lp.policy_id = ca.policy_id
-            ORDER BY created_at ASC
-        ) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
-    FROM compliance_aggregate ca
-    ORDER BY cluster_id, policy_id
-    ON CONFLICT (policy_id, cluster_id, compliance_date)
-    DO UPDATE SET
-      compliance = EXCLUDED.compliance,
-      compliance_changed_frequency = EXCLUDED.compliance_changed_frequency;
+    RETURNS void AS $$
+    BEGIN
+        EXECUTE format('
+            INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date)
+            (
+                SELECT policy_id, cluster_id, leaf_hub_name, compliance, %2$L 
+                FROM history.local_compliance_view_%1$s
+                ORDER BY policy_id, cluster_id
+            )
+            ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING',
+            view_date, view_date);
+    END;
+    $$ LANGUAGE plpgsql;
+
+    -- exec the insert func for that day '2023_07_06'
+    SELECT history.job_insert_local_compliance('2023_07_06');
     ```
-    Replace `'<yyyy_MM_dd>'` with the date from step 1, and `'<yyyy_MM_dd+1>'` with the day after the date. For example, if `'<yyyy_MM_dd>'` equals `'2023-07-01'`, then `'<yyyy_MM_dd+1>'` equals `'2023-07-02'`.
+
+5. Add the `compliance` and `frequency` information of that day to `history.local_compliance`
+    ```sql
+    -- create the update func
+    CREATE OR REPLACE FUNCTION history.job_update_local_compliance(start_date_param text, end_date_param text)
+    RETURNS void AS $$
+    BEGIN
+        EXECUTE format('
+            INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance_date, compliance, compliance_changed_frequency)
+            WITH compliance_aggregate AS (
+                SELECT cluster_id, policy_id, leaf_hub_name,
+                    CASE
+                        WHEN bool_and(compliance = ''compliant'') THEN ''compliant''
+                        ELSE ''non_compliant''
+                    END::local_status.compliance_type AS aggregated_compliance
+                FROM event.local_policies
+                WHERE created_at BETWEEN %1$L::date AND %2$L::date
+                GROUP BY cluster_id, policy_id, leaf_hub_name
+            )
+            SELECT policy_id, cluster_id, leaf_hub_name, %1$L, aggregated_compliance,
+                (SELECT COUNT(*) FROM (
+                    SELECT created_at, compliance, 
+                        LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC) AS prev_compliance
+                    FROM event.local_policies lp
+                    WHERE (lp.created_at BETWEEN %1$L::date AND %2$L::date) 
+                        AND lp.cluster_id = ca.cluster_id AND lp.policy_id = ca.policy_id
+                    ORDER BY created_at ASC
+                ) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
+            FROM compliance_aggregate ca
+            ORDER BY cluster_id, policy_id
+            ON CONFLICT (policy_id, cluster_id, compliance_date)
+            DO UPDATE SET
+                compliance = EXCLUDED.compliance,
+                compliance_changed_frequency = EXCLUDED.compliance_changed_frequency',
+            start_date_param, end_date_param);
+    END;
+    $$ LANGUAGE plpgsql;
+
+    -- exec the update func with condition between '2023-07-06' and '2023-07-07'
+    SELECT history.job_update_local_compliance('2023_07_06', '2023_07_07');
+    ```
+6. Once the above steps are successfully executed, you can delete the Materialized View `history.local_compliance_view_2023_07_06` safely.
+    ```sql
+    DROP MATERIALIZED VIEW IF EXISTS history.local_compliance_view_2023_07_06
+    ```
