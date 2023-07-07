@@ -67,79 +67,84 @@ The following sections provide the steps to start using the Multicluster Global 
 
 ### Prerequisites
 
-#### Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed
+- Red Hat Advanced Cluster Management for Kubernetes verison 2.7 or later must be installed and configured.
 
-#### Storage secret
+- Storage secret
 
-Both the global hub manager and grafana services need a postgres database to collect and display data. The data can be accessed by creating a storage secret, which contains the following two fields:
+    Both the global hub manager and grafana services need a postgres database to collect and display data. The data can be accessed by creating a storage secret, 
+    which contains the following two fields:
 
-- `database_uri`: Required, the URI user should have the permission to create the global hub database in the postgres.
-- `ca.crt`: Optional, if your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
+    - `database_uri`: Required, the URI user should have the permission to create the global hub database in the postgres.
+    - `ca.crt`: Optional, if your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If 
+    the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
 
-> Note: There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster-management` automatically.
+    **Note:** There is a [sample script](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage) available to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster- 
+    management` automatically. The client version of kubectl must be verison 1.21, or later. 
 
-#### Transport secret
+- Transport secret
 
-Right now, we support Kafka transport only. You need to create a secret for the Kafka transport. The secret contains the following fields:
+    Right now, we support Kafka transport only. You need to create a secret for the Kafka transport. The secret contains the following fields:
 
-- `bootstrap.servers`: Required, the Kafka bootstrap servers.
-- `ca.crt`: Optional, if you use the `KafkaUser` custom resource to configure authentication credentials, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `ca.crt` certificate from the secret.
-- `client.crt`: Optional, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `user.crt` certificate from the secret.
-- `client.key`: Optional, you can follow this [document](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) to get the `user.key` from the secret.
+    - `bootstrap.servers`: Required, the Kafka bootstrap servers.
+    - `ca.crt`: Optional, if you use the `KafkaUser` custom resource to configure authentication credentials, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the STRIMZI documentation for the steps to extract the `ca.crt` certificate from the secret.
+    - `client.crt`: Optional, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the STRIMZI documentation for the steps to extract the `user.crt` certificate from the secret.
+    - `client.key`: Optional, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the STRIMZI documentation for the steps to extract the `user.key` from the secret.
 
-> Note: There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/transport) to install kafka in `kafka` namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically.
+    **Note:** There is a [sample script](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/transport) available to install kafka in the `kafka` namespace and create the secret `transport-secret` in namespace `open-cluster-management` automatically.
 
 ### Installation
 
-#### 1. [Install the multicluster global hub operator on a disconnected environment](./disconnected_environment/README.md)
+1. [Install the multicluster global hub operator on a disconnected environment](./disconnected_environment/README.md)
 
-#### 2. Install the multicluster global hub operator from OpenShift console
+2. Install the multicluster global hub operator from OpenShift console
 
-1. Log in to the OpenShift console as a user with cluster-admin role.
-2. Click the Operators -> OperatorHub icon in the left navigation panel.
-3. Search for the `multicluster global hub operator`.
-4. Click the `multicluster global hub operator` to start the installation.
-5. Click the `Install` button to start the installation when you are ready.
-6. Wait for the installation to complete. You can check the status in the `Installed Operators` page.
-7. Click the `multicluster global hub operator` to go to the operator page.
-8. Click the `multicluster global hub` tab to see the `multicluster global hub` instance.
-9. Click the `Create multicluster global hub` button to create the `multicluster global hub` instance.
-10. Fill in the required information and click the `Create` button to create the `multicluster global hub` instance.
+    1. Log in to the Red Hat OpenShift Container Platform console as a user with the `cluster-admin` role.
+    2. Click **Operators** > OperatorHub icon in the navigation.
+    3. Search for the `multicluster global hub operator`.
+    4. Click the `multicluster global hub operator`.
+    5. Click `Install` to start the installation.
+    6. After the installation completes, check the status on the *Installed Operators* page.
+    7. Click **multicluster global hub operator** to go to the *Operator* page.
+    8. Click the *multicluster global hub* tab to see the `multicluster global hub` instance.
+    9. Click **Create multicluster global hub** to create the `multicluster global hub` instance.
+    10. Enter the required information and click **Create** to create the `multicluster global hub` instance.
 
-> Note: the multicluster global hub is available for x86 platform only right now.
-> Note: The policy and application are disabled in RHACM once the multicluster global hub is installed.
+    **Note:** The multicluster global hub is only available for the x86 platform.
+    **Note:** The policy and application are disabled in Red Hat Advanced Cluster Management after the multicluster global hub is installed.
 
-### Import a regional hub cluster in default mode (tech preview)
+### Import a regional hub cluster in default mode (Technology Preview)
 
-It requires to disable the cluster self management in the existing ACM hub cluster. Set `disableHubSelfManagement=true` in the `multiclusterhub` CR to disable importing of the hub cluster as a managed cluster automaticially.
+You must disable the cluster self management in the existing Red Hat Advanced Cluster Management hub cluster. Set `disableHubSelfManagement=true` in the `multiclusterhub` custom resource to disable the automatic importing of the hub cluster as a managed cluster.
 
-After that, follow the [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html-single/clusters/index#importing-a-target-managed-cluster-to-the-hub-cluster) document to import the regional hub cluster.
+Import the regional hub cluster by completing the steps in [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html-single/clusters/index#importing-a-target-managed-cluster-to-the-hub-cluster).
 
-Once the regional hub cluster is imported, you can check the global hub agent status to ensure that the agent is running in the regional hub cluster.
+After the regional hub cluster is imported, check the global hub agent status to ensure that the agent is running in the regional hub cluster.
 
-```bash
+```
 oc get managedclusteraddon multicluster-global-hub-controller -n ${REGIONAL_HUB_CLUSTER_NAME}
 ```
 
-### Access the grafana
+### Access the Grafana data
 
-The grafana is exposed through Route, you can use the following command to get the login URL. The authentication method of this URL is same as the openshift console, so you don't have to worry about using another authentication.
+The Grafana data is exposed through the route. Use the following command to display the login URL:
 
-```bash
+```
 oc get route multicluster-global-hub-grafana -n <the-namespace-of-multicluster-global-hub-instance>
 ```
 
+The authentication method of this URL is same as the Red Hat OpenShift Container Platform console.
+
 ### Grafana dashboards
 
-Upon accessing the global hub Grafana, users can begin monitoring the policies that have been configured through the hub cluster environments being managed. From the global hub dashboard, users can identify the compliance status of their system's policies over a selected time range. The policy compliance status is updated daily, so users can expect the dashboard to display the status of the current day on the following day.
+After accessing the global hub Grafana data, you can begin monitoring the policies that have been configured through the hub cluster environments being managed. From the global hub dashboard, you can identify the compliance status of the policies of the system over a selected time range. The policy compliance status is updated daily, so the dashboard does not display the status of the current day until the following day.
 
 ![Global Hub Policy Group Compliancy Overview](./images/global-hub-policy-group-compliancy-overview.gif)
 
-To navigate the global hub dashboards, users can choose to observe and filter the policy data by grouping them either by `policy` or `cluster`. If the user prefers to examine the policy data by `policy` grouping, they should start from the default dashboard called `Global Hub - Policy Group Compliancy Overview`. This dashboard allows users to filter the policy data based on `standard`, `category`, and `control`. Upon selecting a specific point in time on the graph, users will be directed to the `Global Hub - Offending Policies` dashboard, which lists the non-compliant or unknown policies at that particular time. After selecting a target policy, users can view related events and see what has changed by accessing the `Global Hub - What's Changed / Policies` dashboard.
+To navigate the global hub dashboards, you can choose to observe and filter the policy data by grouping them either by `policy` or `cluster`. If you prefer to examine the policy data by using the `policy` grouping, you should start from the default dashboard called `Global Hub - Policy Group Compliancy Overview`. This dashboard allows you to filter the policy data based on `standard`, `category`, and `control`. After selecting a specific point in time on the graph, you are directed to the `Global Hub - Offending Policies` dashboard, which lists the non-compliant or unknown policies at that time. After selecting a target policy, you can view related events and see what has changed by accessing the `Global Hub - What's Changed / Policies` dashboard.
 
 ![Global Hub Cluster Group Compliancy Overview](./images/global-hub-cluster-group-compliancy-overview.gif)
 
-Similarly, if users prefer to examine the policy data by `cluster` grouping, they should begin from the `Global Hub - Cluster Group Compliancy Overview` dashboard. The navigation flow is identical to the `policy` grouping flow, but users will select filters related to the cluster, such as managed cluster `labels` and `values`. Instead of viewing policy events for all clusters, upon reaching the `Global Hub - What's Changed / Clusters` dashboard, users will be able to view policy events specifically related to an individual cluster.
+Similarly, if you want to examine the policy data by `cluster` grouping, begin by using the `Global Hub - Cluster Group Compliancy Overview` dashboard. The navigation flow is identical to the `policy` grouping flow, but you select filters that are related to the cluster, such as managed cluster `labels` and `values`. Instead of viewing policy events for all clusters, after reaching the `Global Hub - What's Changed / Clusters` dashboard, you can view policy events related to an individual cluster.
 
 ## Troubleshooting
 
