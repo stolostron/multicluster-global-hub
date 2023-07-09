@@ -6,9 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"time"
-	"strings"
-	"regexp"
+	// "regexp"
 
+	// "encoding/base64"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"	
+	// "github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 func createGlobalHubCR() error {
@@ -316,27 +317,40 @@ func createGlobalHubCR() error {
 	By("deploying operator")
 	Eventually(func() error {
 		// Execute kubectl command to get secret value
-		cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret multicluster-global-hub-storage -n open-cluster-management --kubeconfig %s/test/resources/kubeconfig/kubeconfig-hub-of-hubs -ojsonpath='{.data.database_uri}' | base64 -d", rootDir))
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("\n err: \n %v\n", err)
-			return err
-		}
+		// cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret multicluster-global-hub-storage -n open-cluster-management --kubeconfig %s/test/resources/kubeconfig/kubeconfig-hub-of-hubs -ojsonpath='{.data.database_uri}' | base64 -d", rootDir))
+		// output, err := cmd.CombinedOutput()
+		// if err != nil {
+		// 	fmt.Printf("\n err: \n %v\n", err)
+		// 	return err
+		// }
 	
-		databaseUri := strings.TrimSpace(string(output))
-		// Replace container node IP and port in database URI
-		containerPgURI := strings.Replace(databaseUri, "@.*hoh", fmt.Sprintf("@%v:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort), -1)
+		// databaseUri := strings.TrimSpace(string(output))
+		// // Replace container node IP and port in database URI
+		// containerPgURI := strings.Replace(databaseUri, "@.*hoh", fmt.Sprintf("@%v:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort), -1)
+	
+		// pattern := `@.*hoh`
+		// replacement := fmt.Sprintf("@%s:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort)
+		// re := regexp.MustCompile(pattern)
+		// modifiedURI := re.ReplaceAllString(containerPgURI, replacement)
+		// fmt.Printf("\n modifiedURI: \n %v\n", modifiedURI)
+		// // add DatabaseURI in options
+		// testOptions.HubCluster.DatabaseURI = modifiedURI
+		// fmt.Printf("\n testOptions: \n %v\n", testOptions)
 		
-		pattern := `@.*hoh`
-		replacement := fmt.Sprintf("@%s:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort)
-		re := regexp.MustCompile(pattern)
-		modifiedURI := re.ReplaceAllString(containerPgURI, replacement)
-		fmt.Printf("\n modifiedURI: \n %v\n", modifiedURI)
-		// add DatabaseURI in options
-		testOptions.HubCluster.DatabaseURI = modifiedURI
+		// return nil
+
+		postgresSecret, err := clientset.CoreV1().Secrets("open-cluster-management").Get(context.Background(), "multicluster-global-hub-storage", metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get postgre secret failed: %v", err)
+		}
 		
+		databaseURI := postgresSecret.Data["database_uri"]
+
+		fmt.Println("Decoded database_uri:", string(databaseURI))
+		testOptions.HubCluster.DatabaseURI = string(databaseURI)
+
 		return nil
-	}, 3*time.Minute, 5*time.Second).Should(Succeed())
+	}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 	return nil
 }	

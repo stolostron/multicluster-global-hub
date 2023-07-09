@@ -26,7 +26,7 @@ type HOHCluster struct {
 	DatabaseExternalPort int    `yaml:"databaseExternalPort,omitempty"`
 	ManagerImageREF   string `yaml:"ManagerImageREF,omitempty"`
 	AgentImageREF     string `yaml:"AgentImageREF,omitempty"`
-	OperatorImageREF     string `yaml:"OperatorImageREF,omitempty"`
+	OperatorImageREF  string `yaml:"OperatorImageREF,omitempty"`
 }
 
 type ManagedCluster struct {
