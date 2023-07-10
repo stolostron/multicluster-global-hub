@@ -313,17 +313,16 @@ func deployGlobalHub() error {
 
 	By("deploying operator")
 	Eventually(func() error {
-		// Execute kubectl command to get secret value
-		cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret multicluster-global-hub-storage -n open-cluster-management --kubeconfig %s/test/resources/kubeconfig/kubeconfig-hub-of-hubs -ojsonpath='{.data.database_uri}' | base64 -d", rootDir))
-		output, err := cmd.CombinedOutput()
+		postgresSecret, err := clientset.CoreV1().Secrets("open-cluster-management").Get(context.Background(), "multicluster-global-hub-storage", metav1.GetOptions{})
 		if err != nil {
-			fmt.Printf("\n err: \n %v\n", err)
-			return err
+			return fmt.Errorf("get postgre secret failed: %v", err)
 		}
-	
-		databaseUri := strings.TrimSpace(string(output))
-		// Replace container node IP and port in database URI
-		containerPgURI := strings.Replace(databaseUri, "@.*hoh", fmt.Sprintf("@%v:%d/hoh", localOptions.LocalHubCluster.DatabaseExternalHost, localOptions.LocalHubCluster.DatabaseExternalPort), -1)
+		
+		databaseURI := postgresSecret.Data["database_uri"]
+
+		fmt.Println("Decoded database_uri:", string(databaseURI))
+
+		containerPgURI := strings.Replace(string(databaseURI), "@.*hoh", fmt.Sprintf("@%v:%d/hoh", localOptions.LocalHubCluster.DatabaseExternalHost, localOptions.LocalHubCluster.DatabaseExternalPort), -1)
 		
 		pattern := `@.*hoh`
 		replacement := fmt.Sprintf("@%s:%d/hoh", localOptions.LocalHubCluster.DatabaseExternalHost, localOptions.LocalHubCluster.DatabaseExternalPort)
@@ -332,8 +331,8 @@ func deployGlobalHub() error {
 		fmt.Printf("\n modifiedURI: \n %v\n", modifiedURI)
 		// add DatabaseURI in options
 		localOptions.LocalHubCluster.DatabaseURI = modifiedURI
-		
+
 		return nil
-	}, 3*time.Minute, 5*time.Second).Should(Succeed())
+	}, 1*time.Minute, 1*time.Second).Should(Succeed())
 	return nil
 }
