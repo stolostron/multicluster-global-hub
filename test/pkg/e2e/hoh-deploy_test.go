@@ -6,7 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"time"
-	// "regexp"
+	"strings"
+	"regexp"
 
 	// "encoding/base64"
 	. "github.com/onsi/ginkgo/v2"
@@ -316,29 +317,6 @@ func createGlobalHubCR() error {
 
 	By("deploying operator")
 	Eventually(func() error {
-		// Execute kubectl command to get secret value
-		// cmd := exec.Command("bash", "-c", fmt.Sprintf("kubectl get secret multicluster-global-hub-storage -n open-cluster-management --kubeconfig %s/test/resources/kubeconfig/kubeconfig-hub-of-hubs -ojsonpath='{.data.database_uri}' | base64 -d", rootDir))
-		// output, err := cmd.CombinedOutput()
-		// if err != nil {
-		// 	fmt.Printf("\n err: \n %v\n", err)
-		// 	return err
-		// }
-	
-		// databaseUri := strings.TrimSpace(string(output))
-		// // Replace container node IP and port in database URI
-		// containerPgURI := strings.Replace(databaseUri, "@.*hoh", fmt.Sprintf("@%v:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort), -1)
-	
-		// pattern := `@.*hoh`
-		// replacement := fmt.Sprintf("@%s:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort)
-		// re := regexp.MustCompile(pattern)
-		// modifiedURI := re.ReplaceAllString(containerPgURI, replacement)
-		// fmt.Printf("\n modifiedURI: \n %v\n", modifiedURI)
-		// // add DatabaseURI in options
-		// testOptions.HubCluster.DatabaseURI = modifiedURI
-		// fmt.Printf("\n testOptions: \n %v\n", testOptions)
-		
-		// return nil
-
 		postgresSecret, err := clientset.CoreV1().Secrets("open-cluster-management").Get(context.Background(), "multicluster-global-hub-storage", metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("get postgre secret failed: %v", err)
@@ -347,7 +325,16 @@ func createGlobalHubCR() error {
 		databaseURI := postgresSecret.Data["database_uri"]
 
 		fmt.Println("Decoded database_uri:", string(databaseURI))
-		testOptions.HubCluster.DatabaseURI = string(databaseURI)
+
+		containerPgURI := strings.Replace(string(databaseURI), "@.*hoh", fmt.Sprintf("@%v:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort), -1)
+		
+		pattern := `@.*hoh`
+		replacement := fmt.Sprintf("@%s:%d/hoh", testOptions.HubCluster.DatabaseExternalHost, testOptions.HubCluster.DatabaseExternalPort)
+		re := regexp.MustCompile(pattern)
+		modifiedURI := re.ReplaceAllString(containerPgURI, replacement)
+		fmt.Printf("\n modifiedURI: \n %v\n", modifiedURI)
+		// add DatabaseURI in options
+		testOptions.HubCluster.DatabaseURI = modifiedURI
 
 		return nil
 	}, 1*time.Minute, 1*time.Second).Should(Succeed())
