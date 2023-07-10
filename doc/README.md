@@ -4,7 +4,6 @@ The multicluster global hub is a set of components that enable the management of
 
 - Deploy regional hub clusters
 - List the managed clusters that are managed by all of the regional hub clusters
-- Manage the policies and applications in all of the regional hub clusters
 
 The multicluster global hub is useful when a single hub cluster cannot manage the large number of clusters in a high-scale environment. The multicluster global hub designates multiple managed clusters as multiple regional hub clusters. The global hub cluster manages the regional hub clusters.
 
@@ -116,9 +115,9 @@ The following sections provide the steps to start using the Multicluster Global 
 
 You must disable the cluster self management in the existing Red Hat Advanced Cluster Management hub cluster. Set `disableHubSelfManagement=true` in the `multiclusterhub` custom resource to disable the automatic importing of the hub cluster as a managed cluster.
 
-Import the regional hub cluster by completing the steps in [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html-single/clusters/index#importing-a-target-managed-cluster-to-the-hub-cluster).
+Import the regional hub cluster by completing the steps in [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.8/html-single/clusters/index#importing-a-target-managed-cluster-to-the-hub-cluster).
 
-After the regional hub cluster is imported, check the global hub agent status to ensure that the agent is running in the regional hub cluster.
+After the regional hub cluster is imported, check the global hub agent status to ensure that the agent is running in the regional hub cluster by running the following command:
 
 ```
 oc get managedclusteraddon multicluster-global-hub-controller -n ${REGIONAL_HUB_CLUSTER_NAME}
@@ -126,7 +125,7 @@ oc get managedclusteraddon multicluster-global-hub-controller -n ${REGIONAL_HUB_
 
 ### Access the Grafana data
 
-The Grafana data is exposed through the route. Use the following command to display the login URL:
+The Grafana data is exposed through the route. Run the following command to display the login URL:
 
 ```
 oc get route multicluster-global-hub-grafana -n <the-namespace-of-multicluster-global-hub-instance>
@@ -148,14 +147,14 @@ Similarly, if you want to examine the policy data by `cluster` grouping, begin b
 
 ## Troubleshooting
 
-For common Troubleshooting issues, proceed [here](troubleshooting.md)
+For common Troubleshooting issues, see [Troubleshooting](troubleshooting.md).
 
 ## Known issues
 
-1. If the database is empty, the grafana dashboards will show the error `db query syntax error for {dashboard_name} dashboard`. When you have some data in the database, the error will disappear. Remember the Top level dashboards gets populated only the day after the data starts flowing as explained in [Workings of Global Hub](how_global_hub_works.md)
+1. If the database is empty, the Grafana dashboards show the error `db query syntax error for {dashboard_name} dashboard`. The error is resolved when there is data in the database. The top-level dashboards are populated only the day after the data starts flowing, as explained in [Workings of Global Hub](how_global_hub_works.md)
 
-2. We provide ability to drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard. But the drill down feature is not working for the first datapoint. You can click the second datapoint or after to see the drill down feature is working. The issue is applied to the `Cluster Group Compliancy Overview` dashboard as well.
+2. You can drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard. This feature is not working for the first datapoint in the list, but works for the others. This issue also applies to the `Cluster Group Compliancy Overview` dashboard.
 
-3. If you detach the regional hub and then rejoin the regional hub, The data (policies/managed clusters) might not be updated in time from the rejoined regional hub. You can fix this problem by restarting the `multicluster-global-hub-manager` pod on global hub.
+3. If you detach the regional hub and rejoin it, The data (policies/managed clusters) might not be updated in time from the rejoined regional hub. You can fix this problem by restarting the `multicluster-global-hub-manager` pod on the global hub.
 
-4. For cluster that are never created successfully(clusterclaim id.k8s.io does not exist in the managed cluster), then we will not count this managed cluster in global hub policy compliance database, but it shows in RHACM policy console.
+4. For a cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster), then this managed cluster is not counted in global hub policy compliance database, but it shows in Red Hat Advanced Cluster Management policy console.
