@@ -177,7 +177,7 @@ func createGlobalHubCR() error {
 	}
 
 	cmd = exec.Command("make", "-C", "../../../operator", "deploy")
-	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
+	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig), fmt.Sprintf("IMG=%s", testOptions.HubCluster.OperatorImageREF))
 	output, err = cmd.CombinedOutput()
 	fmt.Println(string(output))
 	if err != nil {
