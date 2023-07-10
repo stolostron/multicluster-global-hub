@@ -42,7 +42,7 @@ You can read about the use cases for multicluster global hub in [Use Cases](./gl
 
 The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager` in the global hub cluster and `multicluster-global-hub-agent` in the regional hub clusters.
 
-The Operator also leverages the `manifestwork` custom reseource to deploy the Red Hat Advanced Cluster Management for Kubernetes Operator on the managed cluster. After the Red Hat Advanced Cluster Management Operator is deployed on the managed cluster, the managed cluster becomes a standard Red Hat Advanced Cluster Management Hub cluster. This hub cluster is now a regional hub cluster.
+The Operator also leverages the `manifestwork` custom resource to deploy the Red Hat Advanced Cluster Management for Kubernetes Operator on the managed cluster. After the Red Hat Advanced Cluster Management Operator is deployed on the managed cluster, the managed cluster becomes a standard Red Hat Advanced Cluster Management Hub cluster. This hub cluster is now a regional hub cluster.
 
 ### Multicluster Global Hub Manager
 
@@ -54,7 +54,7 @@ The Multicluster Global Hub Agent runs on the regional hub clusters. It synchron
 
 ### Multicluster Global Hub Observability
 
-Grafana runs on the global hub cluster as the main service for Global Hub Observability. The Postgres data collected by the Global Hub Manager is its default DataSource. By exposing the service using the route called `multicluster-global-hub-grafana`, you can access the global hub grafana dashboards the same way you would by accessing the Red Hat OpenShift Container Platform console.
+Grafana runs on the global hub cluster as the main service for Global Hub Observability. The Postgres data collected by the Global Hub Manager is its default DataSource. By exposing the service using the route called `multicluster-global-hub-grafana`, you can access the global hub Grafana dashboards by accessing the Red Hat OpenShift Container Platform console.
 
 ## Workings of Global Hub
 
@@ -70,10 +70,10 @@ The following sections provide the steps to start using the Multicluster Global 
 
 - Storage secret
 
-    Both the global hub manager and grafana services need a postgres database to collect and display data. The data can be accessed by creating a storage secret, 
+    Both the global hub manager and Grafana services need a postgres database to collect and display data. The data can be accessed by creating a storage secret, 
     which contains the following two fields:
 
-    - `database_uri`: Required, the URI user should have the permission to create the global hub database in the postgres.
+    - `database_uri`: Required, the URI user must have the permission to create the global hub database in the postgres.
     - `ca.crt`: Optional, if your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If 
     the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
 
@@ -82,7 +82,7 @@ The following sections provide the steps to start using the Multicluster Global 
 
 - Transport secret
 
-    Right now, we support Kafka transport only. You need to create a secret for the Kafka transport. The secret contains the following fields:
+    Right now, only Kafka transport is supported. You need to create a secret for the Kafka transport. The secret contains the following fields:
 
     - `bootstrap.servers`: Required, the Kafka bootstrap servers.
     - `ca.crt`: Optional, if you use the `KafkaUser` custom resource to configure authentication credentials, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the STRIMZI documentation for the steps to extract the `ca.crt` certificate from the secret.
@@ -95,25 +95,25 @@ The following sections provide the steps to start using the Multicluster Global 
 
 1. [Install the multicluster global hub operator on a disconnected environment](./disconnected_environment/README.md)
 
-2. Install the multicluster global hub operator from OpenShift console
+2. Install the multicluster global hub operator from the Red Hat OpenShift Container Platform console:
 
     1. Log in to the Red Hat OpenShift Container Platform console as a user with the `cluster-admin` role.
     2. Click **Operators** > OperatorHub icon in the navigation.
-    3. Search for the `multicluster global hub operator`.
-    4. Click the `multicluster global hub operator`.
-    5. Click `Install` to start the installation.
-    6. After the installation completes, check the status on the *Installed Operators* page.
-    7. Click **multicluster global hub operator** to go to the *Operator* page.
-    8. Click the *multicluster global hub* tab to see the `multicluster global hub` instance.
-    9. Click **Create multicluster global hub** to create the `multicluster global hub` instance.
-    10. Enter the required information and click **Create** to create the `multicluster global hub` instance.
+    3. Search for and select the `multicluster global hub operator`.
+    4. Click `Install` to start the installation.
+    5. After the installation completes, check the status on the *Installed Operators* page.
+    6. Click **multicluster global hub operator** to go to the *Operator* page.
+    7. Click the *multicluster global hub* tab to see the `multicluster global hub` instance.
+    8. Click **Create multicluster global hub** to create the `multicluster global hub` instance.
+    9. Enter the required information and click **Create** to create the `multicluster global hub` instance.
 
-    **Note:** The multicluster global hub is only available for the x86 platform.
-    **Note:** The policy and application are disabled in Red Hat Advanced Cluster Management after the multicluster global hub is installed.
+    **Notes:**
+    * The multicluster global hub is only available for the x86 platform.
+    * The policy and application are disabled in Red Hat Advanced Cluster Management after the multicluster global hub is installed.
 
 ### Import a regional hub cluster in default mode (Technology Preview)
 
-You must disable the cluster self management in the existing Red Hat Advanced Cluster Management hub cluster. Set `disableHubSelfManagement=true` in the `multiclusterhub` custom resource to disable the automatic importing of the hub cluster as a managed cluster.
+You must disable the cluster self-management in the existing Red Hat Advanced Cluster Management hub cluster. Set `disableHubSelfManagement=true` in the `multiclusterhub` custom resource to disable the automatic importing of the hub cluster as a managed cluster.
 
 Import the regional hub cluster by completing the steps in [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.8/html-single/clusters/index#importing-a-target-managed-cluster-to-the-hub-cluster).
 
@@ -131,11 +131,11 @@ The Grafana data is exposed through the route. Run the following command to disp
 oc get route multicluster-global-hub-grafana -n <the-namespace-of-multicluster-global-hub-instance>
 ```
 
-The authentication method of this URL is same as the Red Hat OpenShift Container Platform console.
+The authentication method of this URL is same as authenticating to the Red Hat OpenShift Container Platform console.
 
 ### Grafana dashboards
 
-After accessing the global hub Grafana data, you can begin monitoring the policies that have been configured through the hub cluster environments being managed. From the global hub dashboard, you can identify the compliance status of the policies of the system over a selected time range. The policy compliance status is updated daily, so the dashboard does not display the status of the current day until the following day.
+After accessing the global hub Grafana data, you can begin monitoring the policies that were configured through the hub cluster environments that are managed. From the global hub dashboard, you can identify the compliance status of the policies of the system over a selected time range. The policy compliance status is updated daily, so the dashboard does not display the status of the current day until the following day.
 
 ![Global Hub Policy Group Compliancy Overview](./images/global-hub-policy-group-compliancy-overview.gif)
 
@@ -151,10 +151,10 @@ For common Troubleshooting issues, see [Troubleshooting](troubleshooting.md).
 
 ## Known issues
 
-1. If the database is empty, the Grafana dashboards show the error `db query syntax error for {dashboard_name} dashboard`. The error is resolved when there is data in the database. The top-level dashboards are populated only the day after the data starts flowing, as explained in [Workings of Global Hub](how_global_hub_works.md)
+1. If the database is empty, the Grafana dashboards show the error `db query syntax error for {dashboard_name} dashboard`. The error is resolved when there is data in the database. The top-level dashboards are populated only the day after data collection is started, as explained in [Workings of Global Hub](how_global_hub_works.md)
 
-2. You can drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard. This feature is not working for the first datapoint in the list, but works for the others. This issue also applies to the `Cluster Group Compliancy Overview` dashboard.
+2. You cannot drill down by selecting the first datapoint from the `Policy Group Compliancy Overview` dashboard. You can drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard, but it is not working for the first datapoint in the list. This issue also applies to the `Cluster Group Compliancy Overview` dashboard.
 
 3. If you detach the regional hub and rejoin it, The data (policies/managed clusters) might not be updated in time from the rejoined regional hub. You can fix this problem by restarting the `multicluster-global-hub-manager` pod on the global hub.
 
-4. For a cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster), then this managed cluster is not counted in global hub policy compliance database, but it shows in Red Hat Advanced Cluster Management policy console.
+4. A managed cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster) is not counted in global hub policy compliance database, but shows in the Red Hat Advanced Cluster Management policy console.
