@@ -7,29 +7,39 @@ Refer to the original [Create cluster](https://access.redhat.com/documentation/e
 A regional hub cluster does not require any changes before importing it. The Red Hat Advanced Cluster Management agent is running in a hosting cluster.
 
 1. Import the cluster from the Red Hat Advanced Cluster Management console, add these annotations to the `managedCluster` custom resource. Use the kubeconfig import mode, and disable all add-ons.
-```
-import.open-cluster-management.io/klusterlet-deploy-mode: Hosted
-import.open-cluster-management.io/hosting-cluster-name: local-cluster
-addon.open-cluster-management.io/disable-automatic-installation: "true"
-```
-![import hosted cluster](import_hosted_cluster.png)
-Click `Next` to complete the import process.
 
-2. Enable the work-manager addon after the imported cluster is available.
-```
-oc apply -f - <<EOF
-apiVersion: addon.open-cluster-management.io/v1alpha1
-kind: ManagedClusterAddOn
-metadata:
-  name: work-manager
-  namespace: hub1
-  annotations:
-    addon.open-cluster-management.io/hosting-cluster-name: local-cluster
-spec:
-  installNamespace: open-cluster-management-hub1-addon-workmanager
-EOF
-```
-You have to create a kubeconfig secret for the work-manager add-on via the following command:
-```
-oc create secret generic work-manager-managed-kubeconfig --from-file=kubeconfig=<your regional hub kubeconfig> -n open-cluster-management-hub1-addon-workmanager
-```
+    ```
+    import.open-cluster-management.io/klusterlet-deploy-mode: Hosted
+    import.open-cluster-management.io/hosting-cluster-name: local-cluster
+    addon.open-cluster-management.io/disable-automatic-installation: "true"
+    ```
+
+    ![import hosted cluster](import_hosted_cluster.png)
+
+2. Click `Next` to complete the import process.
+
+3. Enable the work-manager addon after the imported cluster is available by creating a file named `work-manager-file` that contains content that is similar to the following example:.
+
+    ```
+    apiVersion: addon.open-cluster-management.io/v1alpha1
+    kind: ManagedClusterAddOn
+    metadata:
+      name: work-manager
+      namespace: hub1
+      annotations:
+        addon.open-cluster-management.io/hosting-cluster-name: local-cluster
+    spec:
+      installNamespace: open-cluster-management-hub1-addon-workmanager
+    ```
+
+4. Apply the file by running the following command:
+
+    ```
+    oc apply -f <work-manager-file>
+    ```
+
+5. Create a kubeconfig secret for the work-manager add-on by running the following command:
+
+   ```
+   oc create secret generic work-manager-managed-kubeconfig --from-file=kubeconfig=<your regional hub kubeconfig> -n open-cluster-management-hub1-addon-workmanager
+   ```
