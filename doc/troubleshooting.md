@@ -1,38 +1,65 @@
-## Access to the [provisioned postgres database](../operator/config/samples/storage/deploy_postgres.sh)
+# Troubleshooting
 
-In combination with the type of service, three ways are provided here to access this database.
+You can run troubleshooting steps to determine issues on your Multicluster Global Hub.
 
-1. `ClusterIP`
-```bash
-# postgres connection uri
-kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "uri" | base64decode}}'
-# sample
-kubectl exec -it $(kubectl get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n hoh-postgres -- psql -U postgres -d hoh -c "SELECT 1"
-```
+## Access to the provisioned postgres database
 
-2. `NodePort`
-```bash
-# modify the service to NodePort, then the host will be the node IP and set the port to 32432
-kubectl patch postgrescluster hoh -n hoh-postgres -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
-# user/ password/ database
-kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
-kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
-kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
-```
+Depending on the type of service, there are three ways to access the [provisioned postgres database](../operator/config/samples/storage/deploy_postgres.sh) database.
 
-3. `LoadBalancer`
-```bash
-# modify the service to LoadBalancer, default port is 5432
-kubectl patch postgrescluster hoh -n hoh-postgres -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
-# host/ user/ password/ database
-kubectl get svc -n hoh-postgres hoh-ha -ojsonpath='{.status.loadBalancer.ingress[0].hostname}'
-kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
-kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
-kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
-```
+* `ClusterIP` service
+    1. Run the following command to determine your postgres connection URI:
+        ```
+        kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "uri" | base64decode}}'
+        ```
+    2. Run the following command to access the database:
+        ```
+        kubectl exec -it $(kubectl get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n hoh-postgres -- psql -U postgres -d hoh -c "SELECT 1"
+        ```
+
+* `NodePort` service
+    1. Run the following command to modify the service to NodePort, set the host to be the node IP, and set the port to 32432: 
+        ```
+        kubectl patch postgrescluster hoh -n hoh-postgres -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
+        ```
+    2. Run the following command to add your username: 
+        ```
+        kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
+        ```
+    3. Run the following command to add your password: 
+        ```
+        kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
+        ```
+    4. Run the following command to add your database name: 
+        ```
+        kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
+        ```
+
+* `LoadBalancer`
+    1. Set the service type to `LoadBalancer` by running the following command:
+        ```
+        kubectl patch postgrescluster hoh -n hoh-postgres -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
+        ```
+        The default port is 5432
+    2. Run the following command to set your hostname:
+        ```
+        kubectl get svc -n hoh-postgres hoh-ha -ojsonpath='{.status.loadBalancer.ingress[0].hostname}'
+        ```
+    4. Run the following command to add your username: 
+        ```
+        kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
+        ```
+    3. Run the following command to add your password: 
+        ```
+        kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
+        ```
+    4. Run the following command to add your database name: 
+        ```
+        kubectl get secrets -n hoh-postgres hoh-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
+        ```
+
 ## Running the must-gather command for troubleshooting
 
-Run `must-gather` to gather details, logs, and take steps in debugging issues, these debugging information is also useful when opening a support case. The `oc adm must-gather CLI` command collects the information from your cluster that is most likely needed for debugging issues, including:
+Run the `must-gather` to gather details, logs, and take steps in debugging issues. This debugging information is also useful when you open a support request. The `oc adm must-gather CLI` command collects the information from your cluster that is often needed for debugging issues, including:
 
 1. Resource definitions
 2. Service logs
@@ -40,27 +67,29 @@ Run `must-gather` to gather details, logs, and take steps in debugging issues, t
 ### Prerequisites
 
 1. Access to the global hub and regional hub clusters as a user with the cluster-admin role.
-2. The OpenShift Container Platform CLI (oc) installed.
+2. The Red Hat OpenShift Container Platform CLI (oc) installed.
 
 ### Must-gather procedure
 
-See the following procedure to start using the must-gather command:
+Complete the following procedure to start using the must-gather command:
 
-1. Learn about the must-gather command and install the prerequisites that you need at [Gathering data about your cluster](https://docs.openshift.com/container-platform/4.8/support/gathering-cluster-data.html?extIdCarryOver=true&sc_cid=701f2000001Css5AAC) in the RedHat OpenShift Container Platform documentation.
+1. Learn about the must-gather command and install the prerequisites that you need at [Gathering data about your cluster](https://docs.openshift.com/container-platform/4.8/support/gathering-cluster-data.html?extIdCarryOver=true&sc_cid=701f2000001Css5AAC) in the Red Hat OpenShift Container Platform documentation.
 
-2. Log in to your global hub cluster. For the usual use-case, you should run the must-gather while you are logged into your global hub cluster.
+2. Log in to your global hub cluster. For the usual use-case, you run the must-gather while you are logged into your global hub cluster.
 
-```bash
-oc adm must-gather --image=quay.io/stolostron/must-gather:SNAPSHOTNAME
-```
+    ```
+    oc adm must-gather --image=quay.io/stolostron/must-gather:SNAPSHOTNAME
+    ```
 
-Note: If you want to check your regional hub clusters, run the `must-gather` command on those clusters.
+    If you want to check your regional hub clusters, run the `must-gather` command on those clusters.
 
-Note: If you need the results to be saved in a named directory, then following the must-gather instructions, this can be run. Also added are commands to create a gzipped tarball:
+3. Optional: If you need the results to be saved in a named directory, run the following command instead of the one in step 2:
+    ```
+    oc adm must-gather --image=quay.io/stolostron/must-gather:SNAPSHOTNAME --dest-dir=SOMENAME ; tar -cvzf SOMENAME.tgz SOMENAME
+    ```
+    The command includes the required additions to create a gzipped tarball file.
 
-```bash
-oc adm must-gather --image=quay.io/stolostron/must-gather:SNAPSHOTNAME --dest-dir=SOMENAME ; tar -cvzf SOMENAME.tgz SOMENAME
-```
+
 
 ### Information Captured
 
@@ -84,32 +113,32 @@ oc adm must-gather --image=quay.io/stolostron/must-gather:SNAPSHOTNAME --dest-di
 
 ## Database Dump and Restore
 
-In a production environment, no matter how large or small our PostgreSQL database may be, regular back is an essential aspect of database management, it is also used for debugging.
+In a production environment, regular backup of your PostgreSQL database is an essential aspect of database management. It is also used for debugging.
 
 ### Dump Database for Debugging
 
-Sometimes we need to dump the tables in global hub database for debugging purpose, postgreSQL provides `pg_dump` command line tool to dump the database. To dump data from localhost database server:
+Sometimes you need to dump the output in global hub database for debugging purpose. PostgreSQL provides the `pg_dump` command line tool to dump the contents of the database. To dump data from localhost database server:
 
-```shell
+```
 pg_dump hoh > hoh.sql
 ```
 
-If we want to dump global hub database located on some remote server with compressed format, we should use command-line options which allows us to control connection details:
+To dump global hub database located on some remote server with compressed format, use the command-line options to control the connection details:
 
-```shell
+```
 pg_dump -h my.host.com -p 5432 -U postgres -F t hoh -f hoh-$(date +%d-%m-%y_%H-%M).tar
 ```
 
 ### Restore Database from Dump
 
-To restore a PostgreSQL database, you can use the `psql` or `pg_restore` command line tools. `psql` is used to restore plain text files created by `pg_dump`:
+To restore a PostgreSQL database, you can use the `psql` or `pg_restore` command line tools. The `psql` tool is used to restore plain text files created by `pg_dump`:
 
-```shell
+```
 psql -h another.host.com -p 5432 -U postgres -d hoh < hoh.sql
 ```
 
-Whereas `pg_restore` is used to restore a PostgreSQL database from an archive created by `pg_dump` in one of the non-plain-text formats (custom, tar, or directory):
+The `pg_restore` tool is used to restore a PostgreSQL database from an archive created by `pg_dump` in one of the non-plain-text formats (custom, tar, or directory):
 
-```shell
+```
 pg_restore -h another.host.com -p 5432 -U postgres -d hoh hoh-$(date +%d-%m-%y_%H-%M).tar
 ```
