@@ -87,18 +87,19 @@ If the Operator or Operand images that are referenced by a subscribed Operator r
 
 ### Option 2. Configure image pull secret to an individual namespace
 
-```bash
-# create the secret in the tenant namespace
-$ oc create secret generic <secret_name> \
-    -n <tenant_namespace> \
+1. Create the secret in the tenant namespace by running the following command:
+    ```
+    oc create secret generic <secret_name> -n <tenant_namespace> \
     --from-file=.dockerconfigjson=<path/to/registry/credentials> \
     --type=kubernetes.io/dockerconfigjson
+    ```
 
-# link the secret to the service account for your operator/operand
-$ oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
-```
+2. Link the secret to the service account for your operator/operand:
+    ```
+    oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
+    ```
 
-## Add GlobalHub operator catalog
+## Add the GlobalHub operator catalog
 
 ### Build the GlobalHub catalog from upstream [Optional]
 
