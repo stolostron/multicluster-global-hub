@@ -35,7 +35,6 @@ const (
 )
 
 var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
-	var httpClient *http.Client
 	var globalClient client.Client
 	var regionalClient client.Client
 	var regionalClients []client.Client
