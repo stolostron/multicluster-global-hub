@@ -336,28 +336,6 @@ BEGIN
 END;
 $$;
 
--- create materialized view for local compliance:  SELECT local_status.create_compliance_view('2023_07_07')
-CREATE OR REPLACE FUNCTION local_status.create_local_compliance_view(date_param TEXT)
-RETURNS VOID AS $$
-BEGIN
-    EXECUTE FORMAT('
-        CREATE MATERIALIZED VIEW IF NOT EXISTS history.local_compliance_view_%1$s AS
-        SELECT
-            policy_id,
-            cluster_id,
-            leaf_hub_name,
-            compliance,
-            %2$L AS compliance_date,
-            0 AS compliance_changed_frequency
-        FROM
-            local_status.compliance
-        WITH DATA;
-        
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_local_compliance_view_%1$s ON history.local_compliance_view_%1$s (policy_id, cluster_id);
-    ', date_param, date_param, date_param, date_param);
-END;
-$$ LANGUAGE plpgsql;
-
 -- manually exec local compliance cronjob func
 -- insert compliance view records to history.local_compliance: SELECT history.insert_local_compliance_job('2023_07_06');
 CREATE OR REPLACE FUNCTION history.insert_local_compliance_job(
@@ -378,7 +356,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- inherit the history compliance records of the day before that day to history.local_compliance
--- call the func to generate the data of '2023_07_06' by inheritance '2023_07_05': CALL history.inherit_local_compliance_job('2023_07_05', '2023_07_06');
+-- call the func to generate the data of '2023_07_06' by inheriting '2023_07_05': CALL history.inherit_local_compliance_job('2023_07_05', '2023_07_06');
 CREATE OR REPLACE PROCEDURE history.inherit_local_compliance_job(
     prev_date TEXT,
     curr_date TEXT
