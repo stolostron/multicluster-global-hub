@@ -39,9 +39,9 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER
-          value: quay.io/stolostron/multicluster-global-hub-manager:latest
+          value: quay.io/myan/multicluster-global-hub-manager:latest
         - name: RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT
-          value: quay.io/stolostron/multicluster-global-hub-agent:latest
+          value: quay.io/myan/multicluster-global-hub-agent:latest
         - name: RELATED_IMAGE_GRAFANA
           value: quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34
         - name: RELATED_IMAGE_OAUTH_PROXY
