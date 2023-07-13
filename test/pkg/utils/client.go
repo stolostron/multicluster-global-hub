@@ -1,11 +1,14 @@
 package utils
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -16,30 +19,32 @@ import (
 	runClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Client interface {
+type TestClient interface {
 	KubeClient() kubernetes.Interface
 	KubeDynamicClient() dynamic.Interface
 	ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error)
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
-	// HubClusterName() string
-	// LeafHubClusterName() string
-	// GetLeafHubClusterNames() []string
-	// LeafHubClusterNumber() int
-	// ManagedClusterNumber() int
+	HttpClient() *http.Client
 }
 
-type client struct {
+type testClient struct {
 	options Options
 }
 
-func NewTestClient(opt Options) *client {
-	return &client{
+func NewTestClient(opt Options) *testClient {
+	return &testClient{
 		options: opt,
 	}
 }
 
-func (c *client) ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error) {
+func (c *testClient) HttpClient() *http.Client {
+	return &http.Client{Timeout: time.Second * 20, Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}}
+}
+
+func (c *testClient) ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error) {
 	cfg, err := c.RestConfig(clusterName)
 	if err != nil {
 		return nil, err
@@ -51,7 +56,7 @@ func (c *client) ControllerRuntimeClient(clusterName string, scheme *runtime.Sch
 	return controllerClient, nil
 }
 
-func (c *client) KubeClient() kubernetes.Interface {
+func (c *testClient) KubeClient() kubernetes.Interface {
 	opt := c.options
 	config, err := LoadConfig(opt.HubCluster.KubeConfig, opt.HubCluster.KubeConfig, opt.HubCluster.KubeContext)
 	if err != nil {
@@ -64,7 +69,7 @@ func (c *client) KubeClient() kubernetes.Interface {
 	return clientset
 }
 
-func (c *client) KubeDynamicClient() dynamic.Interface {
+func (c *testClient) KubeDynamicClient() dynamic.Interface {
 	opt := c.options
 	url := ""
 	kubeConfig := opt.HubCluster.KubeConfig
@@ -80,7 +85,7 @@ func (c *client) KubeDynamicClient() dynamic.Interface {
 	return client
 }
 
-func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
+func (c *testClient) Kubectl(clusterName string, args ...string) (string, error) {
 	if c.options.HubCluster.Name == clusterName {
 		// insert to the first
 		args = append([]string{"--context", c.options.HubCluster.KubeContext}, args...)
@@ -100,7 +105,7 @@ func (c *client) Kubectl(clusterName string, args ...string) (string, error) {
 	return "", fmt.Errorf("cluster %s is not found in options", clusterName)
 }
 
-func (c *client) RestConfig(clusterName string) (*rest.Config, error) {
+func (c *testClient) RestConfig(clusterName string) (*rest.Config, error) {
 	if c.options.HubCluster.Name == clusterName {
 		return LoadConfig(c.options.HubCluster.ApiServer, c.options.HubCluster.KubeConfig, c.options.HubCluster.KubeContext)
 	}
@@ -145,46 +150,3 @@ func LoadConfig(url, kubeconfig, context string) (*rest.Config, error) {
 
 	return nil, fmt.Errorf("could not create a valid kubeconfig")
 }
-
-// func (c *client) HubClusterName() string {
-// 	return c.options.HubCluster.Name
-// }
-
-// func (c *client) GetLeafHubClusterNames() []string {
-// 	var clusters []string
-// 	for _, cluster := range c.options.ManagedClusters {
-// 		if cluster.Name == cluster.LeafHubName {
-// 			clusters = append(clusters, cluster.Name)
-// 		}
-// 	}
-// 	return clusters
-// }
-
-// func (c *client) LeafHubClusterName() string {
-// 	for _, cluster := range c.options.ManagedClusters {
-// 		if cluster.Name == cluster.LeafHubName {
-// 			return cluster.Name
-// 		}
-// 	}
-// 	return ""
-// }
-
-// func (c *client) LeafHubClusterNumber() int {
-// 	leafhubNum := 0
-// 	for _, cluster := range c.options.ManagedClusters {
-// 		if cluster.Name == cluster.LeafHubName {
-// 			leafhubNum += 1
-// 		}
-// 	}
-// 	return leafhubNum
-// }
-
-// func (c *client) ManagedClusterNumber() int {
-// 	managedClusterNum := 0
-// 	for _, cluster := range c.options.ManagedClusters {
-// 		if cluster.Name != cluster.LeafHubName {
-// 			managedClusterNum += 1
-// 		}
-// 	}
-// 	return managedClusterNum
-// }

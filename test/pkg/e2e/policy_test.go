@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,37 +35,21 @@ const (
 )
 
 var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
-	var httpClient *http.Client
-	var managedClusters []clusterv1.ManagedCluster
 	var globalClient client.Client
 	var regionalClient client.Client
 	var regionalClients []client.Client
 	var err error
 
 	BeforeAll(func() {
-		Eventually(func() error {
-			By("Config request of the api")
-			transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
-			managedClusters, err = getManagedCluster(httpClient, httpToken)
-			if err != nil {
-				return err
-			}
-			if len(managedClusters) != ExpectedManagedClusterNum {
-				return fmt.Errorf("managed cluster is not exist")
-			}
-			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-
 		By("Get the appsubreport client")
 		scheme := runtime.NewScheme()
 		policiesv1.AddToScheme(scheme)
 		corev1.AddToScheme(scheme)
 		placementrulev1.AddToScheme(scheme)
-		globalClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
+		globalClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
-		for _, leafhubName := range LeafHubNames {
-			regionalClient, err = clients.ControllerRuntimeClient(leafhubName, scheme)
+		for _, leafhubName := range leafHubNames {
+			regionalClient, err = testClients.ControllerRuntimeClient(leafhubName, scheme)
 			regionalClients = append(regionalClients, regionalClient)
 		}
 		Expect(err).ShouldNot(HaveOccurred())
@@ -104,7 +86,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	It("create a inform policy for the labeled cluster", func() {
 		By("Create the inform policy in global hub")
 		Eventually(func() error {
-			message, err := clients.Kubectl(GlobalHubName, "apply", "-f", INFORM_POLICY_YAML)
+			message, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", INFORM_POLICY_YAML)
 			if err != nil {
 				klog.V(5).Info(fmt.Sprintf("apply inform policy error: %s", message))
 				return err
@@ -153,7 +135,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 	It("enforce the inform policy", func() {
 		Eventually(func() error {
-			_, err := clients.Kubectl(GlobalHubName, "apply", "-f", ENFORCE_POLICY_YAML)
+			_, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", ENFORCE_POLICY_YAML)
 			if err != nil {
 				return err
 			}
@@ -340,7 +322,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 	AfterAll(func() {
 		By("Delete the enforce policy from global hub")
-		_, err := clients.Kubectl(GlobalHubName, "delete", "-f", ENFORCE_POLICY_YAML)
+		_, err := testClients.Kubectl(testOptions.HubCluster.Name, "delete", "-f", ENFORCE_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Check the enforce policy is deleted from regional hub")
