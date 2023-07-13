@@ -61,18 +61,10 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		runtimeClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		By("Get managed cluster name")
-		Eventually(func() error {
-			managedClusters, err := getManagedCluster(httpClient, httpToken)
-			if err != nil {
-				return err
-			}
-			managedClusterName1 = managedClusters[0].Name
-			managedClusterName2 = managedClusters[1].Name
-			managedClusterUID1 = GetClusterID(managedClusters[0])
-			managedClusterUID2 = GetClusterID(managedClusters[1])
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+		managedClusterName1 = managedClusters[0].Name
+		managedClusterName2 = managedClusters[1].Name
+		managedClusterUID1 = GetClusterID(managedClusters[0])
+		managedClusterUID2 = GetClusterID(managedClusters[1])
 	})
 
 	It("create application", func() {

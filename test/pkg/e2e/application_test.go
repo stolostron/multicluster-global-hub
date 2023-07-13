@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,26 +30,7 @@ const (
 
 var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tests-app"), Ordered, func() {
 	var appClient client.Client
-	var managedClusters []clusterv1.ManagedCluster
-
 	BeforeAll(func() {
-		Eventually(func() error {
-			By("Config request of the api")
-			transport := &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			}
-			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
-			var err error
-			managedClusters, err = getManagedCluster(httpClient, httpToken)
-			if err != nil {
-				return err
-			}
-			if len(managedClusters) != ExpectedManagedClusterNum {
-				return fmt.Errorf("managed cluster is not exist")
-			}
-			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-
 		By("Get the appsubreport client")
 		scheme := runtime.NewScheme()
 		appsv1.SchemeBuilder.AddToScheme(scheme)

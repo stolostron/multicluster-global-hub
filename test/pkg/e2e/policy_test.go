@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,27 +36,12 @@ const (
 
 var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
 	var httpClient *http.Client
-	var managedClusters []clusterv1.ManagedCluster
 	var globalClient client.Client
 	var regionalClient client.Client
 	var regionalClients []client.Client
 	var err error
 
 	BeforeAll(func() {
-		Eventually(func() error {
-			By("Config request of the api")
-			transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-			httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
-			managedClusters, err = getManagedCluster(httpClient, httpToken)
-			if err != nil {
-				return err
-			}
-			if len(managedClusters) != ExpectedManagedClusterNum {
-				return fmt.Errorf("managed cluster is not exist")
-			}
-			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-
 		By("Get the appsubreport client")
 		scheme := runtime.NewScheme()
 		policiesv1.AddToScheme(scheme)
@@ -66,7 +49,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		placementrulev1.AddToScheme(scheme)
 		globalClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
-		for _, leafhubName := range LeafHubNames {
+		for _, leafhubName := range leafHubNames {
 			regionalClient, err = testClients.ControllerRuntimeClient(leafhubName, scheme)
 			regionalClients = append(regionalClients, regionalClient)
 		}

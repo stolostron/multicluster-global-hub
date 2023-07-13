@@ -2,9 +2,7 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -16,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,27 +37,10 @@ const (
 var _ = Describe("Apply local policy to the managed clusters", Ordered,
 	Label("e2e-tests-local-policy"), func() {
 		var leafhubClients []client.Client
-		var managedClusters []clusterv1.ManagedCluster
 		var postgresConn *pgx.Conn
 		var err error
 
 		BeforeAll(func() {
-			Eventually(func() error {
-				By("Config request of the api")
-				transport := &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-				}
-				httpClient = &http.Client{Timeout: time.Second * 20, Transport: transport}
-				managedClusters, err = getManagedCluster(httpClient, httpToken)
-				if err != nil {
-					return err
-				}
-				if len(managedClusters) != ExpectedManagedClusterNum {
-					return fmt.Errorf("managed cluster number error")
-				}
-				return nil
-			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
 			By("Create runtime client")
 			scheme := runtime.NewScheme()
 			v1.AddToScheme(scheme)
@@ -68,7 +48,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			placementrulev1.AddToScheme(scheme)
 
 			// get multiple leafhubs
-			for _, leafhubName := range LeafHubNames {
+			for _, leafhubName := range leafHubNames {
 				leafhubClient, err := testClients.ControllerRuntimeClient(leafhubName, scheme)
 				Expect(err).Should(Succeed())
 				// create local namespace on each leafhub
@@ -120,7 +100,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		Context("When deploy local policy to the leafhub", func() {
 			It("deploy policy to the cluster to the leafhub", func() {
 				By("Deploy the policy to the leafhub")
-				for _, leafhubName := range LeafHubNames {
+				for _, leafhubName := range leafHubNames {
 					output, err := testClients.Kubectl(leafhubName, "apply", "-f", LOCAL_INFORM_POLICY_YAML)
 					klog.V(10).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 					Expect(err).Should(Succeed())
@@ -142,13 +122,13 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 							return err
 						}
 						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
-						for _, leafhubName := range LeafHubNames {
+						for _, leafhubName := range leafHubNames {
 							if leafhub == leafhubName && policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
 								policies[leafhub] = policy
 							}
 						}
 					}
-					if len(policies) != len(LeafHubNames) {
+					if len(policies) != len(leafHubNames) {
 						return fmt.Errorf("expect policy has not synchronized")
 					}
 					return nil
@@ -255,7 +235,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 		Context("When delete the local policy from the leafhub", func() {
 			It("delete the local policy from the leafhub", func() {
 				By("Delete the policy from leafhub")
-				for _, leafhubName := range LeafHubNames {
+				for _, leafhubName := range leafHubNames {
 					output, err := testClients.Kubectl(leafhubName, "delete", "-f", LOCAL_INFORM_POLICY_YAML)
 					fmt.Println(output)
 					Expect(err).Should(Succeed())
@@ -344,7 +324,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
 							return err
 						}
-						for i, leafhubName := range LeafHubNames {
+						for i, leafhubName := range leafHubNames {
 							if cluster == managedClusters[i].Name && leafhub == leafhubName {
 								return fmt.Errorf("the policy(%s) is not deleted from local_status.compliance", policyId)
 							}

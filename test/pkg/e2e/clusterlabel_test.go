@@ -19,22 +19,6 @@ const (
 )
 
 var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-label"), Ordered, func() {
-	var managedClusters []clusterv1.ManagedCluster
-	BeforeAll(func() {
-		Eventually(func() error {
-			By("Config request of the api")
-			var err error
-			managedClusters, err = getManagedCluster(httpClient, httpToken)
-			if err != nil {
-				return err
-			}
-			if len(managedClusters) == 0 {
-				return fmt.Errorf("managed cluster is not exist")
-			}
-			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-	})
-
 	It("add the label to the managed cluster", func() {
 		patches := []patch{
 			{
@@ -155,7 +139,7 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 		return nil, err
 	}
 
-	if len(managedClusterList.Items) != 2 {
+	if len(managedClusterList.Items) != ExpectedManagedClusterNum {
 		return nil, fmt.Errorf("cannot get two managed clusters")
 	}
 

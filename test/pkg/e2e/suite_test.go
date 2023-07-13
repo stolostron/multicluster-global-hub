@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
@@ -36,13 +37,14 @@ var (
 	httpToken   string
 	httpClient  *http.Client
 
-	LeafHubNames              []string
-	ExpectedLeafHubNum        int
-	ExpectedManagedClusterNum int
+	leafHubNames    []string
+	managedClusters []clusterv1.ManagedCluster
 )
 
 const (
-	Namespace = "open-cluster-management"
+	ExpectedLeafHubNum        = 2
+	ExpectedManagedClusterNum = 2
+	Namespace                 = "open-cluster-management"
 )
 
 func TestClient(t *testing.T) {
@@ -76,6 +78,13 @@ var _ = BeforeSuite(func() {
 	klog.V(6).Info(fmt.Sprintf("Http BearerToken: %s", httpToken))
 	Expect(len(httpToken)).ShouldNot(BeZero())
 	httpClient = testClients.HttpClient()
+
+	By("Get the managed clusters")
+	Eventually(func() (err error) {
+		managedClusters, err = getManagedCluster(httpClient, httpToken)
+		return err
+	}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+	Expect(len(managedClusters)).Should(Equal(ExpectedManagedClusterNum))
 })
 
 var _ = AfterSuite(func() {
@@ -101,6 +110,7 @@ func completeOptions() utils.Options {
 	err = yaml.UnmarshalStrict([]byte(data), testOptionsContainer)
 	Expect(err).NotTo(HaveOccurred())
 
+	testOptions = testOptionsContainer.Options
 	if testOptions.HubCluster.KubeConfig == "" {
 		testOptions.HubCluster.KubeConfig = os.Getenv("KUBECONFIG")
 	}
@@ -109,22 +119,12 @@ func completeOptions() utils.Options {
 	klog.V(6).Infof("OptionsContainer %s", s)
 	for _, cluster := range testOptions.ManagedClusters {
 		if cluster.Name == cluster.LeafHubName {
-			LeafHubNames = append(LeafHubNames, cluster.Name)
+			leafHubNames = append(leafHubNames, cluster.Name)
 		}
 	}
 
-	for _, cluster := range testOptions.ManagedClusters {
-		if cluster.Name == cluster.LeafHubName {
-			ExpectedLeafHubNum += 1
-		}
-	}
-
-	for _, cluster := range testOptions.ManagedClusters {
-		if cluster.Name != cluster.LeafHubName {
-			ExpectedManagedClusterNum += 1
-		}
-	}
-	return testOptionsContainer.Options
+	Expect(len(leafHubNames)).Should(Equal(ExpectedLeafHubNum))
+	return testOptions
 }
 
 func GetClusterID(cluster clusterv1.ManagedCluster) string {
@@ -197,7 +197,9 @@ func deployGlobalHub() {
 	}
 
 	err = runtimeClient.Create(context.TODO(), mcgh)
-	Expect(err).ShouldNot(HaveOccurred())
+	if !errors.IsAlreadyExists(err) {
+		Expect(err).ShouldNot(HaveOccurred())
+	}
 
 	By("Verifying the multicluster-global-hub-grafana/manager")
 	Eventually(func() error {
