@@ -69,7 +69,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 
 			// get multiple leafhubs
 			for _, leafhubName := range LeafHubNames {
-				leafhubClient, err := clients.ControllerRuntimeClient(leafhubName, scheme)
+				leafhubClient, err := testClients.ControllerRuntimeClient(leafhubName, scheme)
 				Expect(err).Should(Succeed())
 				// create local namespace on each leafhub
 				err = leafhubClient.Create(context.TODO(), &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
@@ -121,7 +121,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			It("deploy policy to the cluster to the leafhub", func() {
 				By("Deploy the policy to the leafhub")
 				for _, leafhubName := range LeafHubNames {
-					output, err := clients.Kubectl(leafhubName, "apply", "-f", LOCAL_INFORM_POLICY_YAML)
+					output, err := testClients.Kubectl(leafhubName, "apply", "-f", LOCAL_INFORM_POLICY_YAML)
 					klog.V(10).Info(fmt.Sprintf("deploy inform local policy: %s", output))
 					Expect(err).Should(Succeed())
 				}
@@ -256,7 +256,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			It("delete the local policy from the leafhub", func() {
 				By("Delete the policy from leafhub")
 				for _, leafhubName := range LeafHubNames {
-					output, err := clients.Kubectl(leafhubName, "delete", "-f", LOCAL_INFORM_POLICY_YAML)
+					output, err := testClients.Kubectl(leafhubName, "delete", "-f", LOCAL_INFORM_POLICY_YAML)
 					fmt.Println(output)
 					Expect(err).Should(Succeed())
 				}

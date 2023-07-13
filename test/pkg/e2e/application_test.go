@@ -57,7 +57,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		appsv1.SchemeBuilder.AddToScheme(scheme)
 		appsv1alpha1.AddToScheme(scheme)
 		var err error
-		appClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
+		appClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
@@ -94,7 +94,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		It("deploy the application/subscription", func() {
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
-				_, err := clients.Kubectl(GlobalHubName, "apply", "-f", APP_SUB_YAML)
+				_, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", APP_SUB_YAML)
 				if err != nil {
 					return err
 				}
@@ -171,7 +171,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		By("Remove the appsub resource")
 		Eventually(func() error {
-			_, err := clients.Kubectl(GlobalHubName, "delete", "-f", APP_SUB_YAML)
+			_, err := testClients.Kubectl(testOptions.HubCluster.Name, "delete", "-f", APP_SUB_YAML)
 			if err != nil {
 				return err
 			}

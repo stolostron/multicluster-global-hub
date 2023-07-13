@@ -19,7 +19,7 @@ import (
 var _ = Describe("Check all the connection of clients and necessary parameter validation", Label("e2e-tests-validation"), func() {
 	Context("Check all the clients could connect to the HoH servers", func() {
 		It("connect to the apiserver with kubernetes interface", func() {
-			hubClient := clients.KubeClient()
+			hubClient := testClients.KubeClient()
 			deployClient := hubClient.AppsV1().Deployments(testOptions.HubCluster.Namespace)
 			deployList, err := deployClient.List(context.TODO(), metav1.ListOptions{Limit: 2})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -27,7 +27,7 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 		})
 
 		It("connect to the apiserver with dynamic interface", func() {
-			dynamicClient := clients.KubeDynamicClient()
+			dynamicClient := testClients.KubeDynamicClient()
 			hohConfigMapGVR := utils.NewHoHConfigMapGVR()
 			configMapList, err := dynamicClient.Resource(hohConfigMapGVR).Namespace(
 				"open-cluster-management-global-hub-system").List(context.TODO(), metav1.ListOptions{})
@@ -36,7 +36,7 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 		})
 
 		It("check whether the cluster is running properly", func() {
-			hubClient := clients.KubeClient()
+			hubClient := testClients.KubeClient()
 			healthy, err := hubClient.Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(context.TODO())
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(string(healthy)).To(Equal("ok"))
@@ -65,8 +65,8 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 		})
 	})
 
-	Context("Check all the parameters for e2e-tests", func() {	
-		var ManagedClusterNum = 1
+	Context("Check all the parameters for e2e-tests", func() {
+		ManagedClusterNum := 1
 		It("Check the num of hub clusters and managed clusters on options-local.yaml", func() {
 			opt := testOptions.ManagedClusters
 			var leafhubClusters []string

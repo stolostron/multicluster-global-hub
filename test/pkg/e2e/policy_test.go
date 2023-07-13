@@ -64,10 +64,10 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		policiesv1.AddToScheme(scheme)
 		corev1.AddToScheme(scheme)
 		placementrulev1.AddToScheme(scheme)
-		globalClient, err = clients.ControllerRuntimeClient(GlobalHubName, scheme)
+		globalClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 		for _, leafhubName := range LeafHubNames {
-			regionalClient, err = clients.ControllerRuntimeClient(leafhubName, scheme)
+			regionalClient, err = testClients.ControllerRuntimeClient(leafhubName, scheme)
 			regionalClients = append(regionalClients, regionalClient)
 		}
 		Expect(err).ShouldNot(HaveOccurred())
@@ -104,7 +104,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	It("create a inform policy for the labeled cluster", func() {
 		By("Create the inform policy in global hub")
 		Eventually(func() error {
-			message, err := clients.Kubectl(GlobalHubName, "apply", "-f", INFORM_POLICY_YAML)
+			message, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", INFORM_POLICY_YAML)
 			if err != nil {
 				klog.V(5).Info(fmt.Sprintf("apply inform policy error: %s", message))
 				return err
@@ -153,7 +153,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 	It("enforce the inform policy", func() {
 		Eventually(func() error {
-			_, err := clients.Kubectl(GlobalHubName, "apply", "-f", ENFORCE_POLICY_YAML)
+			_, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", ENFORCE_POLICY_YAML)
 			if err != nil {
 				return err
 			}
@@ -340,7 +340,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 	AfterAll(func() {
 		By("Delete the enforce policy from global hub")
-		_, err := clients.Kubectl(GlobalHubName, "delete", "-f", ENFORCE_POLICY_YAML)
+		_, err := testClients.Kubectl(testOptions.HubCluster.Name, "delete", "-f", ENFORCE_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Check the enforce policy is deleted from regional hub")
