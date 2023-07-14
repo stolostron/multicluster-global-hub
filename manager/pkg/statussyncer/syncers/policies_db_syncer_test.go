@@ -27,42 +27,6 @@ var _ = Describe("Policies", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create status compliance table in database")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS status;
-			DO $$ BEGIN
-				CREATE TYPE status.compliance_type AS ENUM (
-					'compliant',
-					'non_compliant',
-					'unknown'
-				);
-			EXCEPTION
-				WHEN duplicate_object THEN null;
-			END $$;
-			DO $$ BEGIN
-				CREATE TYPE status.error_type AS ENUM (
-					'disconnected',
-					'none'
-				);
-			EXCEPTION
-				WHEN duplicate_object THEN null;
-			END $$;
-			CREATE TABLE IF NOT EXISTS status.compliance (
-				policy_id uuid NOT NULL,
-				cluster_name character varying(63) NOT NULL,
-				leaf_hub_name character varying(63) NOT NULL,
-				error status.error_type NOT NULL,
-				compliance status.compliance_type NOT NULL
-			);
-			CREATE TABLE IF NOT EXISTS status.aggregated_compliance (
-				policy_id uuid NOT NULL,
-				leaf_hub_name character varying(63) NOT NULL,
-				applied_clusters integer NOT NULL,
-				non_compliant_clusters integer NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the tables are created")
 		Eventually(func() error {
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
@@ -200,8 +164,7 @@ var _ = Describe("Policies", Ordered, func() {
 			UnknownComplianceClusters: []string{"cluster3"},
 		})
 		// transport bundle
-		policyCompleteComplianceTransportKey :=
-			fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
+		policyCompleteComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
 		completePayloadBytes, err := json.Marshal(transportCompletePayload)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -437,8 +400,7 @@ var _ = Describe("Policies", Ordered, func() {
 			AppliedClusters:      3,
 		})
 		// transport bundle
-		minimalPolicyComplianceTransportKey :=
-			fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
+		minimalPolicyComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
 		payloadBytes, err := json.Marshal(transportPayload)
 		Expect(err).ToNot(HaveOccurred())
 

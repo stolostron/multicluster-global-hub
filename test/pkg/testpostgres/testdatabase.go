@@ -48,7 +48,7 @@ func InitDatabase(uri string) error {
 		if result.Error != nil {
 			return result.Error
 		}
-		fmt.Printf("Script %s executed successfully.\n", file.Name())
+		fmt.Printf("script %s executed successfully.\n", file.Name())
 	}
 	return nil
 }

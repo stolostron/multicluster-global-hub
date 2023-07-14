@@ -26,17 +26,6 @@ var _ = Describe("SubscriptionStatusDbSyncer", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create subscription status table in database")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS status;
-			CREATE TABLE IF NOT EXISTS  status.subscription_statuses (
-				id uuid NOT NULL,
-				leaf_hub_name character varying(63) NOT NULL,
-				payload jsonb NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the tables are created")
 		Eventually(func() error {
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")

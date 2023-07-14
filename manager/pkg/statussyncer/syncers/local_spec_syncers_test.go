@@ -6,10 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 
@@ -61,6 +63,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testLocalPolicy",
 				Namespace: "default",
+				UID:       types.UID(uuid.New().String()),
 			},
 			Spec: policiesv1.PolicySpec{},
 		}

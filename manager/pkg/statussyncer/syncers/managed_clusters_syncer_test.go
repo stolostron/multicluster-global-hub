@@ -27,32 +27,6 @@ var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create managed_clusters table in database")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS status;
-			DO $$ BEGIN
-				CREATE TYPE status.error_type AS ENUM (
-					'disconnected',
-					'none'
-				);
-			EXCEPTION
-				WHEN duplicate_object THEN null;
-			END $$;
-			CREATE TABLE IF NOT EXISTS status.managed_clusters (
-				leaf_hub_name character varying(63) NOT NULL,
-				cluster_name character varying(63) generated always as (payload -> 'metadata' ->> 'name') stored,
-				cluster_id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				error status.error_type NOT NULL,
-				created_at timestamp without time zone,
-				updated_at timestamp without time zone,
-				deleted_at timestamp without time zone
-			);
-			CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_uid_idx ON status.managed_clusters USING btree (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
-			CREATE INDEX IF NOT EXISTS managed_clusters_metadata_name_idx ON status.managed_clusters USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)));
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the tables are created")
 		Eventually(func() error {
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
