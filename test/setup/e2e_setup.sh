@@ -27,7 +27,7 @@ hover $! "KUBECONFIG=${KUBECONFIG}"
 # create hub-of-hubs cluster 
 source ${CURRENT_DIR}/microshift/microshift_setup.sh "$HUB_OF_HUB_NAME" 2>&1 >> $LOG &
 # create leafhub clusters
-source ${CURRENT_DIR}/leafhub_setup.sh "$HUB_CLUSTER_NUM" "$MANAGED_CLUSTER_NUM" 2>&1 >> $LOG &
+bash ${CURRENT_DIR}/leafhub_setup.sh "$HUB_CLUSTER_NUM" "$MANAGED_CLUSTER_NUM" 2>&1 >> $LOG &
 
 wait
 
