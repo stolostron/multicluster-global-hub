@@ -24,9 +24,8 @@ echo "export KUBECONFIG=$KUBECONFIG" > $LOG
 sleep 1 &
 hover $! "KUBECONFIG=${KUBECONFIG}"
 
-# create hub-of-hubs cluster 
+# prepare the clusters
 source ${CURRENT_DIR}/microshift/microshift_setup.sh "$HUB_OF_HUB_NAME" 2>&1 >> $LOG &
-# create leafhub clusters
 bash ${CURRENT_DIR}/leafhub_setup.sh "$HUB_CLUSTER_NUM" "$MANAGED_CLUSTER_NUM" 2>&1 >> $LOG &
 
 wait
@@ -35,18 +34,16 @@ wait
 HOH_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HOH_KUBECONFIG"
 kubectl config view --context=${CTX_HUB} --minify --flatten > ${HOH_KUBECONFIG}
 
-# enable olm
+# install ocm hub and olm on the mircoshift cluster
 enableOLM $CTX_HUB 2>&1 >> $LOG &
-hover $! "  Enable OLM for $CTX_HUB"
+initHub $CTX_HUB 2>&1 >> $LOG &
+
+wait
 
 # install some component in microshift in detached mode
 bash ${CURRENT_DIR}/hoh/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
 bash ${CURRENT_DIR}/hoh/kafka_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
-initHub $CTX_HUB 2>&1 >> $LOG &
 
-# joining lh to hoh
-initHub $CTX_HUB 2>&1 >> $LOG &
-hover $! "3 Init HoH OCM $HUB_OF_HUB_NAME" 
 
 # check connection
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
