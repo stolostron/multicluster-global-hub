@@ -24,9 +24,12 @@ echo "export KUBECONFIG=$KUBECONFIG" > $LOG
 sleep 1 &
 hover $! "KUBECONFIG=${KUBECONFIG}"
 
-# init hoh 
+# create hub-of-hubs cluster 
 source ${CURRENT_DIR}/microshift/microshift_setup.sh "$HUB_OF_HUB_NAME" 2>&1 >> $LOG &
-hover $! "1 Prepare top hub cluster $HUB_OF_HUB_NAME"
+# create leafhub clusters
+source ${CURRENT_DIR}/leafhub_setup.sh "$HUB_CLUSTER_NUM" "$MANAGED_CLUSTER_NUM" 2>&1 >> $LOG &
+
+wait
 
 # isolate the hub kubeconfig
 HOH_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-${CTX_HUB} # kind get kubeconfig --name "$HUB_OF_HUB_NAME" --internal > "$HOH_KUBECONFIG"
@@ -40,11 +43,6 @@ hover $! "  Enable OLM for $CTX_HUB"
 bash ${CURRENT_DIR}/hoh/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
 bash ${CURRENT_DIR}/hoh/kafka_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
 initHub $CTX_HUB 2>&1 >> $LOG &
-
-# init leafhub 
-sleep 1 &
-hover $! "2 Prepare leaf hub cluster $LEAF_HUB_NAME"
-source ${CURRENT_DIR}/leafhub_setup.sh "$HUB_CLUSTER_NUM" "$MANAGED_CLUSTER_NUM"
 
 # joining lh to hoh
 initHub $CTX_HUB 2>&1 >> $LOG &

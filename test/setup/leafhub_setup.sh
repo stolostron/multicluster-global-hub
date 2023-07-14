@@ -25,14 +25,20 @@ KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}
 sleep 1 &
 hover $! "  Leaf Hub: export KUBECONFIG=${KUBECONFIG}" 
 
-# initCluster
+# create clusteradm
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   initKinDCluster "hub${i}" >> "$LEAF_HUB_LOG" 2>&1 & 
-  hover $! "  Create KinD Cluster hub${i}" 
-  enableRouter "kind-hub${i}" 2>&1 >> "$LEAF_HUB_LOG"
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     initKinDCluster "hub${i}-cluster${j}" >> "$LEAF_HUB_LOG" 2>&1 & 
-    hover $! "  Create KinD Cluster hub${i}-cluster${j}" 
+  done
+done 
+
+wait
+
+# enable router
+for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
+  enableRouter "kind-hub${i}" 2>&1 >> "$LEAF_HUB_LOG"
+  for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     enableRouter "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG"
   done
 done
