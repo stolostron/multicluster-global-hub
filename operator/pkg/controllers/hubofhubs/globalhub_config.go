@@ -2,7 +2,6 @@ package hubofhubs
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,17 +23,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 ) error {
 	log := r.Log.WithName("config")
 	// set image overrides
-	log.Info("set operand images; add label to storage/transport secret; reconcile global hub configmap")
+	log.Info("set operand images; reconcile global hub configmap")
 	if err := config.SetImageOverrides(mgh); err != nil {
-		return err
-	}
-
-	if err := r.addOperatorLabel(ctx, config.GetDefaultNamespace(),
-		operatorconstants.GHStorageSecretName); err != nil {
-		return err
-	}
-	if err := r.addOperatorLabel(ctx, config.GetDefaultNamespace(),
-		operatorconstants.GHTransportSecretName); err != nil {
 		return err
 	}
 
@@ -93,8 +83,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 
 	if !equality.Semantic.DeepDerivative(expectedHoHConfigMap.Data, existingHoHConfigMap.Data) ||
 		!equality.Semantic.DeepDerivative(expectedHoHConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
-		expectedHoHConfigMap.ObjectMeta.ResourceVersion =
-			existingHoHConfigMap.ObjectMeta.ResourceVersion
+		expectedHoHConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
 		log.Info("updating global hub configmap", "namespace", constants.GHSystemNamespace,
 			"name", constants.GHAgentConfigCMName)
 		if err := utils.UpdateObject(ctx, r.Client, expectedHoHConfigMap); err != nil {
@@ -103,22 +92,4 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	}
 	config.SetGlobalHubAgentConfig(expectedHoHConfigMap)
 	return nil
-}
-
-func (r *MulticlusterGlobalHubReconciler) addOperatorLabel(ctx context.Context, namespace, name string) error {
-	// the controller runtime client will not get the labels of the secret, since it is be filtered by the label
-	secret, err := r.KubeClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get secret %s/%s: %w", namespace, name, err)
-	}
-	if secret.Labels == nil {
-		secret.Labels = map[string]string{}
-	}
-	if val, found := secret.Labels[constants.GlobalHubOwnerLabelKey]; found &&
-		val == constants.GHOperatorOwnerLabelVal {
-		return nil
-	}
-	secret.Labels[constants.GlobalHubOwnerLabelKey] = constants.GHOperatorOwnerLabelVal
-	_, err = r.KubeClient.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
-	return err
 }
