@@ -1,7 +1,7 @@
 package config
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -58,7 +58,7 @@ func TestGetSaramaConfig(t *testing.T) {
 	}
 
 	kafkaConfig.EnableTLS = true
-	if er := ioutil.WriteFile(kafkaConfig.CaCertPath, []byte("test"), 0o644); er != nil { // #nosec G304
+	if er := os.WriteFile(kafkaConfig.CaCertPath, []byte("test"), 0o644); er != nil { // #nosec G304
 		t.Errorf("failed to write cert file - %v", er)
 	}
 	_, err = GetSaramaConfig(kafkaConfig)

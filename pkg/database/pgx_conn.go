@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/jackc/pgx/v4"
@@ -52,7 +52,7 @@ func PostgresConnPool(ctx context.Context, databaseURI string, certPath string, 
 		return nil, fmt.Errorf("unable to get postgres pool config: %w", err)
 	}
 
-	cert, err := ioutil.ReadFile(certPath) // #nosec G304
+	cert, err := os.ReadFile(certPath) // #nosec G304
 	if err != nil && !strings.Contains(err.Error(), errMessageFileNotFound) {
 		return nil, fmt.Errorf("unable to read database cert file: %w", err)
 	}
