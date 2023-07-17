@@ -6,7 +6,8 @@ import (
 	"fmt"
 	iofs "io/fs"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
@@ -38,14 +39,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		}
 	}
 
-	storageNamespace := mgh.Namespace
-	storageName := operatorconstants.GHStorageSecretName
-
-	log.Info("database initializing with storage secret", "namespace", storageNamespace, "name", storageName)
-	postgresSecret, err := r.KubeClient.CoreV1().Secrets(mgh.Namespace).Get(ctx, storageName,
-		metav1.GetOptions{})
-	if err != nil {
-		log.Error(err, "failed to get storage secret", "namespace", storageNamespace, "name", storageName)
+	// since cache the namespace secret, so we can retrieve it from controller runtime client
+	log.Info("database initializing with storage secret", "namespace", mgh.Namespace, "name",
+		operatorconstants.GHStorageSecretName)
+	postgresSecret := &corev1.Secret{}
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Namespace: mgh.Namespace,
+		Name:      operatorconstants.GHStorageSecretName,
+	}, postgresSecret); err != nil {
 		return err
 	}
 

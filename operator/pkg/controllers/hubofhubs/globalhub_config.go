@@ -23,10 +23,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 ) error {
 	log := r.Log.WithName("config")
 	// set image overrides
+	log.Info("set operand images; reconcile global hub configmap")
 	if err := config.SetImageOverrides(mgh); err != nil {
 		return err
 	}
-	log.Info("global hub image overrides set")
 
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
@@ -83,8 +83,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 
 	if !equality.Semantic.DeepDerivative(expectedHoHConfigMap.Data, existingHoHConfigMap.Data) ||
 		!equality.Semantic.DeepDerivative(expectedHoHConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
-		expectedHoHConfigMap.ObjectMeta.ResourceVersion =
-			existingHoHConfigMap.ObjectMeta.ResourceVersion
+		expectedHoHConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
 		log.Info("updating global hub configmap", "namespace", constants.GHSystemNamespace,
 			"name", constants.GHAgentConfigCMName)
 		if err := utils.UpdateObject(ctx, r.Client, expectedHoHConfigMap); err != nil {
