@@ -69,6 +69,9 @@ var _ = BeforeSuite(func() {
 
 	By("Prepare postgres database")
 	testPostgres, err = testpostgres.NewTestPostgres()
+	Expect(err).NotTo(HaveOccurred())
+	err = testpostgres.InitDatabase(testPostgres.URI)
+	Expect(err).NotTo(HaveOccurred())
 
 	By("Create test postgres")
 	managerConfig := &config.ManagerConfig{

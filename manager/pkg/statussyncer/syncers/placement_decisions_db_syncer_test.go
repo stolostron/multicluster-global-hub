@@ -26,19 +26,6 @@ var _ = Describe("PlacementDecisionsDbSyncer", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create placementdecisions table in database")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS status;
-			CREATE TABLE IF NOT EXISTS  status.placementdecisions (
-				id uuid NOT NULL,
-				leaf_hub_name character varying(63) NOT NULL,
-				payload jsonb NOT NULL
-			);
-			CREATE UNIQUE INDEX IF NOT EXISTS placementdecisions_leaf_hub_name_and_payload_id_namespace_idx ON status.placementdecisions USING btree (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
-			CREATE INDEX IF NOT EXISTS placementdecisions_payload_name_and_namespace_idx ON status.placementdecisions USING btree ((((payload -> 'metadata'::text) ->> 'name'::text)), (((payload -> 'metadata'::text) ->> 'namespace'::text)));
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the tables are created")
 		Eventually(func() error {
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")

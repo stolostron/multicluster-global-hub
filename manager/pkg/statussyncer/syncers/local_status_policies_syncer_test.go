@@ -24,35 +24,6 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		By("Create local spec table in database")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS event;
-			CREATE SCHEMA IF NOT EXISTS local_status;
-			DO $$ BEGIN
-				CREATE TYPE local_status.compliance_type AS ENUM (
-					'compliant',
-					'non_compliant',
-					'unknown'
-				);
-			EXCEPTION
-				WHEN duplicate_object THEN null;
-			END $$;
-			CREATE TABLE IF NOT EXISTS event.local_policies (
-				event_name character varying(63) NOT NULL,
-				policy_id uuid NOT NULL,
-				cluster_id uuid NOT NULL,
-				leaf_hub_name character varying(63) NOT NULL,
-				message text,
-				reason text,
-				count integer NOT NULL DEFAULT 0,
-				source jsonb,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				compliance local_status.compliance_type NOT NULL,
-				CONSTRAINT local_policies_unique_constraint UNIQUE (event_name, count)
-		);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the tables are created")
 		Eventually(func() error {
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
