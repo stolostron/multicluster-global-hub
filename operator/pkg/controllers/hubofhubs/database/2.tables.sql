@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS local_spec.placementrules (
     updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
+<<<<<<< HEAD
 CREATE TABLE IF NOT EXISTS local_spec.policies (
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
@@ -119,6 +120,8 @@ CREATE TABLE IF NOT EXISTS local_spec.policies (
 );
 CREATE INDEX IF NOT EXISTS local_policies_deleted_at_idx ON local_spec.policies (deleted_at);
 
+=======
+>>>>>>> c02ae99 (add partitions to 'timetables' for data retation/deletion)
 CREATE TABLE IF NOT EXISTS local_status.compliance (
     policy_id uuid NOT NULL,
     cluster_name character varying(63) NOT NULL,
@@ -299,36 +302,7 @@ CREATE TABLE IF NOT EXISTS status.subscription_statuses (
     payload jsonb NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS event.local_policies (
-    event_name character varying(63) NOT NULL,
-    policy_id uuid NOT NULL,
-    cluster_id uuid NOT NULL,
-    leaf_hub_name character varying(63) NOT NULL,
-    message text,
-    reason text,
-    count integer NOT NULL DEFAULT 0,
-    source jsonb,
-    created_at timestamp without time zone DEFAULT now() NOT NULL,
-    compliance local_status.compliance_type NOT NULL,
-    CONSTRAINT local_policies_unique_constraint UNIQUE (event_name, count)
-);
-
-CREATE TABLE IF NOT EXISTS event.local_root_policies (
-    event_name character varying(63) NOT NULL,
-    policy_id uuid NOT NULL,
-    leaf_hub_name character varying(63) NOT NULL,
-    message text,
-    reason text,
-    count integer NOT NULL DEFAULT 0,
-    source jsonb,
-    created_at timestamp without time zone DEFAULT now() NOT NULL,
-    compliance local_status.compliance_type NOT NULL,
-    CONSTRAINT local_root_policies_unique_constraint UNIQUE (event_name, count)
-);
-
 CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_id_idx ON local_spec.placementrules (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
-
-CREATE UNIQUE INDEX IF NOT EXISTS policies_leaf_hub_name_id_idx ON local_spec.policies (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
 
 CREATE UNIQUE INDEX IF NOT EXISTS managed_cluster_sets_tracking_cluster_set_name_and_leaf_hub_name_idx ON spec.managed_cluster_sets_tracking (cluster_set_name, leaf_hub_name);
 
@@ -339,10 +313,6 @@ CREATE INDEX IF NOT EXISTS compliance_leaf_hub_non_compliant_idx ON status.compl
 CREATE UNIQUE INDEX IF NOT EXISTS compliance_leaf_hub_policy_cluster_idx ON status.compliance (leaf_hub_name, policy_id, cluster_name);
 
 CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats (leaf_hub_name);
-
-CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_uid_idx ON status.managed_clusters (leaf_hub_name, cluster_id);
-
-CREATE INDEX IF NOT EXISTS managed_clusters_metadata_name_idx ON status.managed_clusters ((((payload -> 'metadata'::text) ->> 'name'::text)));
 
 CREATE UNIQUE INDEX IF NOT EXISTS placementdecisions_leaf_hub_name_and_payload_id_namespace_idx ON status.placementdecisions (leaf_hub_name, id, (((payload -> 'metadata'::text) ->> 'namespace'::text)));
 
