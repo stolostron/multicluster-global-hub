@@ -1,70 +1,105 @@
-# Deploy Global Hub Operator on a Disconnected Environment 
+# Deploying Global Hub Operator in a disconnected environment 
+
+In situations where a network connection is not available, you can deploy the Global Hub Operator in a disconnected environment.
 
 ## Prerequisites
 
-- Make sure you have an image registry, and a bastion host that has access to both the Internet and your mirror registry
-- Have OLM([Operator Lifecycle Manager](https://docs.openshift.com/container-platform/4.11/operators/understanding/olm/olm-understanding-olm.html)) installed on your cluster
-- The Advanced Cluster Management for Kubernetes has been installed on your cluster
-- Make sure your user is authorized with cluster-admin permissions
+- An image registry and a bastion host that have access to both the Internet and to your mirror registry
+- Operator Lifecycle Manager ([OLM](https://docs.openshift.com/container-platform/4.11/operators/understanding/olm/olm-understanding-olm.html)) installed on your cluster
+- Red Hat Advanced Cluster Management for Kubernetes version 2.7, or later, installed on your cluster
+- A user account with `cluster-admin` permissions
 
 ## Mirror Registry
 
-Installing global hub in a disconnected environment involves the use of a mirror image registry. Which ensures your clusters only use container images that satisfy your organizational controls on external content. You can following the following two step to provision the mirror registry for global hub.
-- [Creating a mirror registry](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-creating-registry.html#installing-mirroring-creating-registry)
-- [Mirroring images for a disconnected installation](https://docs.openshift.com/container-platform/4.11/installing/disconnected_install/installing-mirroring-installation-images.html)
+You must use a mirror image registry when installing Multicluster Global Hub in a disconnected environment. The image registry ensures that your clusters only use container images that satisfy your organizational controls on external content. You can complete the following two-step procedure to provision the mirror registry for global hub.
+- [Creating a mirror registry](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/installing/disconnected-installation-mirroring#creating-mirror-registry)
+- [Mirroring images for a disconnected installation](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html/installing/disconnected-installation-mirroring#installing-mirroring-installation-images)
 
-## Create ImageContentSourcePolicy
+## Create an ImageContentSourcePolicy
 
-In order to have your cluster obtain container images for the global hub operator from your mirror registry, rather than from the internet-hosted registries, you can configure an `ImageContentSourcePolicy` on your disconnected cluster to redirect image references to your mirror registry.
+You can configure an `ImageContentSourcePolicy` on your disconnected cluster to redirect image references to your mirror registry. This enables you to have your cluster obtain container images for the global hub operator on your mirror registry, rather than from the Internet-hosted registries. 
 
 **Note**: The ImageContentSourcePolicy can only support the image mirror with image digest.
 
-```bash
-$ cat ./doc/disconnected_environment/imagecontentsourcepolicy.yaml
-apiVersion: operator.openshift.io/v1alpha1
-kind: ImageContentSourcePolicy
-metadata:
-  name: global-hub-operator-icsp
-spec:
-  repositoryDigestMirrors:
-  - mirrors:
-    - ${REGISTRY}//multicluster-globalhub
-    source: registry.redhat.io/multicluster-globalhub
+1. Create a file called `imagecontentsourcepolicy.yaml`:
 
-$ envsubst < ./doc/disconnected-operator/imagecontentsourcepolicy.yaml | kubectl apply -f -
-```
+    ```
+    $ cat ./doc/disconnected_environment/imagecontentsourcepolicy.yaml
+    ```
+
+2. Add content that resembles the following content to the new file:
+
+    ```
+    apiVersion: operator.openshift.io/v1alpha1
+    kind: ImageContentSourcePolicy
+    metadata:
+      name: global-hub-operator-icsp
+    spec:
+      repositoryDigestMirrors:
+      - mirrors:
+        - ${REGISTRY}//multicluster-globalhub
+        source: registry.redhat.io/multicluster-globalhub
+    ```
+    
+3. Apply `imagecontentsourcepolicy.yaml` by running the following command:
+
+    ```
+    envsubst < ./doc/disconnected-operator/imagecontentsourcepolicy.yaml | kubectl apply -f -
+    ```
 
 ## Configure the image pull secret
 
-If the Operator or Operand images that are referenced by a subscribed Operator require access to a private registry, you can either [provide access to all namespaces in the cluster, or individual target tenant namespaces](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.11/html-single/operators/index#olm-creating-catalog-from-index_olm-managing-custom-catalogs). 
+If the Operator or Operand images that are referenced by a subscribed Operator require access to a private registry, you can either [provide access to all namespaces in the cluster, or to individual target tenant namespaces](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.13/html-single/operators/index#olm-creating-catalog-from-index_olm-managing-custom-catalogs). 
 
-### Option 1. Configure the globalhub imagepullsecret in an Openshift Cluster
+### Option 1. Configure the global hub image pull secret in an OpenShift cluster
 
-**Note**: if you apply this on a pre-existing cluster, it will cause a rolling restart of all nodes.
+**Note**: Applying the image pull secret on a pre-existing cluster causes a rolling restart of all of the nodes.
 
-```bash
-$ export USER=<the-registry-user>
-$ export PASSWORD=<the-registry-password>
-$ oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > pull_secret.yaml
-$ oc registry login --registry=${REGISTRY} --auth-basic="$USER:$PASSWORD" --to=pull_secret.yaml
-$ oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=pull_secret.yaml
-$ rm pull_secret.yaml
-```
+1. Export the user name from the pull secret:
+    ```
+    export USER=<the-registry-user>
+    ```
+
+2. Export the password from the pull secret:
+    ```
+    export PASSWORD=<the-registry-password>
+    ```
+
+3. Copy the pull secret:
+    ```
+    oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > pull_secret.yaml
+    ```
+
+4. Log in using the pull secret:
+    ```
+    oc registry login --registry=${REGISTRY} --auth-basic="$USER:$PASSWORD" --to=pull_secret.yaml
+    ```
+
+5. Specify the global hub image pull secret:
+    ```
+    oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=pull_secret.yaml
+    ```
+
+6. Remove the old pull secret:
+    ```
+    rm pull_secret.yaml
+    ```
 
 ### Option 2. Configure image pull secret to an individual namespace
 
-```bash
-# create the secret in the tenant namespace
-$ oc create secret generic <secret_name> \
-    -n <tenant_namespace> \
+1. Create the secret in the tenant namespace by running the following command:
+    ```
+    oc create secret generic <secret_name> -n <tenant_namespace> \
     --from-file=.dockerconfigjson=<path/to/registry/credentials> \
     --type=kubernetes.io/dockerconfigjson
+    ```
 
-# link the secret to the service account for your operator/operand
-$ oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
-```
+2. Link the secret to the service account for your operator/operand:
+    ```
+    oc secrets link <operator_sa> -n <tenant_namespace> <secret_name> --for=pull
+    ```
 
-## Add GlobalHub operator catalog
+## Add the GlobalHub operator catalog
 
 ### Build the GlobalHub catalog from upstream [Optional]
 
