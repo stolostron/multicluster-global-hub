@@ -49,12 +49,18 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 		scheduler = scheduler.Every(1).Day()
 	}
 
-	complianceJob, err := scheduler.Tag("LocalComplianceHistory").DoWithJobDetails(
-		task.SyncLocalCompliance, ctx, pool, enableSimulation)
+	complianceJob, err := scheduler.DoWithJobDetails(task.SyncLocalCompliance, ctx, pool, enableSimulation)
 	if err != nil {
 		return err
 	}
-	log.Info("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())
+	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceJob.ScheduledAtTime())
+
+	// in fact, this task only needs to be run once a month, here we set it to run once a week to improve its robustness
+	dataRetentionJob, err := scheduler.Every(1).Week().DoWithJobDetails(task.DataRetention, ctx, pool)
+	if err != nil {
+		return err
+	}
+	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
 
 	return mgr.Add(&GlobalHubJobScheduler{
 		log:       log,
