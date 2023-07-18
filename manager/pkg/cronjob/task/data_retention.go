@@ -54,15 +54,15 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
 
 	// create the next month's partition table
 	for _, tableName := range partitionTables {
-		if err = createPartitionTable(ctx, tableName, startDate, endDate); err != nil {
+		if err = createPartitionTable(tableName, startDate, endDate); err != nil {
 			log.Error(err, "failed to create partition table")
 			return
 		}
 	}
 
 	// delete the retainedMonths ago's partition table
-	for _, tableName := range retentionTables {
-		if err = deletePartitionTable(ctx, tableName, currentTime.AddDate(0, -retentionMonth, 0)); err != nil {
+	for _, tableName := range partitionTables {
+		if err = deletePartitionTable(tableName, currentTime.AddDate(0, -retentionMonth, 0)); err != nil {
 			log.Error(err, "failed to delete partition table")
 			return
 		}
@@ -80,7 +80,7 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
 	log.Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
 }
 
-func createPartitionTable(ctx context.Context, tableName string, startTime, endTime time.Time) error {
+func createPartitionTable(tableName string, startTime, endTime time.Time) error {
 	partitionTableName := fmt.Sprintf("%s_%s", tableName, startTime.Format(partitionDateFormat))
 	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')",
 		partitionTableName, tableName, startTime.Format(dateFormat), endTime.Format(dateFormat))
@@ -91,7 +91,7 @@ func createPartitionTable(ctx context.Context, tableName string, startTime, endT
 	return nil
 }
 
-func deletePartitionTable(ctx context.Context, tableName string, dateTime time.Time) error {
+func deletePartitionTable(tableName string, dateTime time.Time) error {
 	partitionTable := fmt.Sprintf("%s_%s", tableName, dateTime.Format(partitionDateFormat))
 	sql := fmt.Sprintf("DROP TABLE IF EXISTS %s", partitionTable)
 	db := database.GetGorm()
@@ -117,6 +117,7 @@ func traceDataRetentionJob(name string, start time.Time, err error) error {
 		errMessage = err.Error()
 	}
 	db := database.GetGorm()
-	result := db.Exec(`INSERT INTO event.data_retention_job_log (name, start_at, end_at, error) VALUES (?, ?, ?, ?);`, name, start, end, errMessage)
+	result := db.Exec(`INSERT INTO event.data_retention_job_log (name, start_at, end_at, error) 
+	VALUES (?, ?, ?, ?);`, name, start, end, errMessage)
 	return result.Error
 }
