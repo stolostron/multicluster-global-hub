@@ -1,12 +1,12 @@
 # Provision HyperShift Hosted Cluster on AWS
 
-This document is used to provision HyperShift hosted cluster on AWS platform with hypershift-addon in ACM 2.5+.
+This document is used to provision HyperShift hosted cluster on AWS platform with hypershift-addon in Red Hat Advanced Cluster Management for Kubernetes version 2.5 or later.
 
 ## Prerequisites
 
-1. Set the following environment variables that will be used later:
+1. Set the following environment variables:
 
-```bash
+```
 export AWS_ACCESS_KEY_ID=<aws-access-key-id>
 export AWS_SECRET_ACCESS_KEY=<aws-secret-access-key>
 export BASE_DOMAIN=<aws-domain>
@@ -17,9 +17,9 @@ export CLOUD_PROVIDER_SECRET_NAME=<cloud-provider-secret-name>
 export CLOUD_PROVIDER_SECRET_NAMESPACE=<namespace-for-cloud-provider-secret>
 ```
 
-2. Create AWS cloud provider `Credential` in a project from ACM UI(https://console-openshift-console.apps.<openshift-domain>/multicloud/credentials) or by the following command:
+2. Create AWS cloud provider `Credential` in a project from the Red Hat Advanced Cluster Management console (https://console-openshift-console.apps.<openshift-domain>/multicloud/credentials) or by running the following commands:
 
-```bash
+```
 oc create ns ${CLOUD_PROVIDER_SECRET_NAMESPACE}
 oc create secret generic ${CLOUD_PROVIDER_SECRET_NAME} \
   -n ${CLOUD_PROVIDER_SECRET_NAMESPACE} \
@@ -37,9 +37,9 @@ oc create secret generic ${CLOUD_PROVIDER_SECRET_NAME} \
 
 ## Create HyperShift Hosted Cluster on AWS
 
-1. Set the following environment variables for `HypershiftDeployment` resource:
+1. Set the following environment variables for the `HypershiftDeployment` resource:
 
-```bash
+```
 export HYPERSHIFT_MGMT_CLUSTER=hypermgt
 export HYPERSHIFT_HOSTING_NAMESPACE=clusters
 export OPENSHIFT_RELEASE_IMAGE=quay.io/openshift-release-dev/ocp-release:4.10.15-x86_64
@@ -47,9 +47,9 @@ export INFRA_REGION=<cloud-provider-region>
 export HYPERSHIFT_DEPLOYMENT_NAME=<hypershiftdeployment-name>
 ```
 
-2. Create `HypershiftDeployment` resource to provision AWS hosted cluster:
+2. Create a `HypershiftDeployment` resource to provision the AWS hosted cluster:
 
-```bash
+```
 oc apply -f - <<EOF
 apiVersion: cluster.open-cluster-management.io/v1alpha1
 kind: HypershiftDeployment
@@ -80,15 +80,15 @@ spec:
 EOF
 ```
 
-3. Get managed cluster name of the hypershift hosted cluster created in last step and wait until managed cluster is available:
+3. Get the managed cluster name of the HyperShift hosted cluster that you created in the previous step and wait until managed cluster is available by running the following commands:
 
-```bash
+```
 export HYPERSHIFT_MANAGED_CLUSTER_NAME=$(oc get managedcluster | grep ${HYPERSHIFT_DEPLOYMENT_NAME} | awk '{print $1}')
 oc wait --for=condition=ManagedClusterConditionAvailable managedcluster/${HYPERSHIFT_MANAGED_CLUSTER_NAME} --timeout=600s
 ```
 
 4. Retrieve kubeconfig for the HyperShift hosted cluster:
 
-```bash
+```
 oc -n ${HYPERSHIFT_MGMT_CLUSTER} get secret ${HYPERSHIFT_MANAGED_CLUSTER_NAME}-admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d
 ```
