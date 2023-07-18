@@ -3,6 +3,7 @@ package dbsyncer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
@@ -97,7 +98,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 				continue
 			}
 			tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}},
+				Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 				DoNothing: true,
 			}).Create(&models.LocalClusterPolicyEvent{
 				BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
@@ -109,6 +110,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 					Source:      nil,
 					Count:       policyStatusEvent.Count,
 					Compliance:  string(common.GetDatabaseCompliance(policyStatusEvent.Compliance)),
+					CreatedAt:   time.Now(),
 				},
 				ClusterID: policyStatusEvent.ClusterID,
 			})

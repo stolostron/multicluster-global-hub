@@ -65,7 +65,7 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 	}
 
 	var insertEvent interface{}
-	conflictColumns := []clause.Column{{Name: "event_name"}, {Name: "count"}}
+	conflictColumns := []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}}
 	if hasClusterId || hasRootPolicyId {
 		baseLocalPolicyEvent.PolicyID = rootPolicyId
 		insertEvent = &models.LocalClusterPolicyEvent{
