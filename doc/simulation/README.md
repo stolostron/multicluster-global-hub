@@ -2,7 +2,7 @@
 
 ## Environment
 
-This simulation requires **two Red Hat OpenShift Container Platform clusters**. One cluster serves as global hub, and the other serves as a regional hub with agent. In the regional hub, the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) simulates a specific number of managed clusters. The [GRC simulator](https://github.com/stolostron/grc-simulator) continuously flips the compliant or noncompliant status of the policies. 
+This simulation requires **two Red Hat OpenShift Container Platform clusters**. One cluster serves as the global hub, and the other serves as a regional hub with agent. In the regional hub, the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) simulates a specific number of managed clusters. The [GRC simulator](https://github.com/stolostron/grc-simulator) continuously flips the compliant or noncompliant status of the policies. 
 
 ![Scale Test Environment](doc/architecture/scale-tests-environment-arch.png)
 
