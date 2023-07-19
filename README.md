@@ -1,4 +1,4 @@
-# Multicluster Global Hub Overview
+# Multicluster Global Hub Overview 
 
 [![Build](https://img.shields.io/badge/build-Prow-informational)](https://prow.ci.openshift.org/?repo=stolostron%2F${multicluster-global-hub})
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_hub-of-hubs&metric=coverage)](https://sonarcloud.io/dashboard?id=open-cluster-management_hub-of-hubs)
