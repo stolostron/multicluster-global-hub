@@ -3,7 +3,7 @@ package config
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/Shopify/sarama"
@@ -44,7 +44,7 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 	}
 
 	// Load CA cert
-	caCert, err := ioutil.ReadFile(filepath.Clean(caCertFile))
+	caCert, err := os.ReadFile(filepath.Clean(caCertFile))
 	if err != nil {
 		return &tlsConfig, err
 	}

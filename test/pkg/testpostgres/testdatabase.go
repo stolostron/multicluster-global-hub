@@ -2,7 +2,6 @@ package testpostgres
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -39,7 +38,7 @@ func InitDatabase(uri string) error {
 
 	for _, file := range files {
 		filePath := filepath.Join(sqlDir, file.Name())
-		fileContent, err := ioutil.ReadFile(filePath)
+		fileContent, err := os.ReadFile(filePath)
 		if err != nil {
 			return err
 		}

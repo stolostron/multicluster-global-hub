@@ -3,7 +3,7 @@ package config
 import (
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
@@ -12,7 +12,7 @@ func LoadCACertToConfigMap(kafkaCAPath string, kafkaConfigMap *kafka.ConfigMap) 
 	// If kafka CA certificate path is not empty, set ssl for kafka client configuration
 	if kafkaCAPath != "" {
 		// Read in the cert file
-		kafkaCACert, err := ioutil.ReadFile(kafkaCAPath) // #nosec G304
+		kafkaCACert, err := os.ReadFile(kafkaCAPath) // #nosec G304
 		if err != nil {
 			return fmt.Errorf("failed to read ca certificate from %s - %w", kafkaCAPath, err)
 		}

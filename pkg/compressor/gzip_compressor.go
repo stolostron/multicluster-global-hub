@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"io/ioutil"
+	"io"
 )
 
 const (
@@ -49,7 +49,7 @@ func (compressor *CompressorGZip) Decompress(compressedData []byte) ([]byte, err
 		return nil, fmt.Errorf(gzipCompressorErrorFormat, gzipCompressorErrorString, err)
 	}
 
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf(gzipCompressorErrorFormat, gzipCompressorErrorString, err)
 	}

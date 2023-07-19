@@ -2,8 +2,8 @@ package utils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -33,7 +33,7 @@ func Validate(filePath string) bool {
 	if len(filePath) == 0 {
 		return false
 	}
-	content, err := ioutil.ReadFile(filePath) // #nosec G304
+	content, err := os.ReadFile(filePath) // #nosec G304
 	if err != nil {
 		log.Printf("failed to read file %s - %v", filePath, err)
 		return false
