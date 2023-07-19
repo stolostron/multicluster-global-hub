@@ -2,15 +2,15 @@
 
 1. Set the following environment variables to access Hypershift hosted cluster and managed cluster:
 
-```bash
+```
 export HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-hosted-cluster>
 export MANAGED_CLUSTER_NAME=<managed-cluster-name>
 export MANAGED_CLUSTER_KUBECONFIG=<kubeconfig-path-to-hypershift-hosted-cluster>
 ```
 
-2. Set the managed cluster name and create managedcluster CR in Hypershift hosted cluster:
+2. Set the managed cluster name and create `managedcluster` custom resource in Hypershift hosted cluster:
 
-```bash
+```
 oc --kubeconfig=${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG} apply -f - <<EOF
 apiVersion: cluster.open-cluster-management.io/v1
 kind: ManagedCluster
@@ -21,9 +21,9 @@ spec:
 EOF
 ```
 
-3. Retrieve the manifests used to import managed cluster from Hypershift hosted cluster:
+3. Retrieve the manifests that are used to import managed cluster from Hypershift hosted cluster:
 
-```bash
+```
 oc --kubeconfig=${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG} get secret \
   -n ${MANAGED_CLUSTER_NAME} ${MANAGED_CLUSTER_NAME}-import \
   -o jsonpath={.data.crds\\\.yaml} | base64 -d  > /tmp/import-crds.yaml
@@ -32,29 +32,29 @@ oc --kubeconfig=${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG} get secret \
   -o jsonpath={.data.import\\\.yaml} | base64 -d > /tmp/import.yaml
 ```
 
-4. Apply the manifests retrieved in the last step to managed cluster:
+4. Apply the manifests that you retrieved in the previous step to the managed cluster:
 
-```bash
+```
 oc --kubeconfig=${MANAGED_CLUSTER_KUBECONFIG} apply -f /tmp/import-crds.yaml
 oc --kubeconfig=${MANAGED_CLUSTER_KUBECONFIG} apply -f /tmp/import.yaml
 ```
 
-5. Wait for klusterlet is up and running in managed cluster:
+5. Wait for klusterlet to start in the managed cluster:
 
-```bash
+```
 oc --kubeconfig=${MANAGED_CLUSTER_KUBECONFIG} -n open-cluster-management-agent get pod
 ```
 
-6. Check managed cluster status from Hypershift hosted cluster:
+6. Check the managed cluster status from the Hypershift hosted cluster:
 
-```bash
+```
 oc --kubeconfig=${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG} wait --for=condition=ManagedClusterConditionAvailable \
   managedcluster/${MANAGED_CLUSTER_NAME} --timeout=600s
 ```
 
-7. Apply application and policy addons for managedcluster from Hypershift hosted cluster:
+7. Apply application and policy addons for the managed cluster from HyperShift hosted cluster:
 
-```bash
+```
 oc --kubeconfig=${HYPERSHIFT_HOSTED_CLUSTER_KUBECONFIG} apply -f - <<EOF
 apiVersion: addon.open-cluster-management.io/v1alpha1
 kind: ManagedClusterAddOn
@@ -82,7 +82,7 @@ spec:
 EOF
 ```
 
-8. Check addon status from managed cluster:
+8. Check the addon status of the managed cluster:
 
 ```bash
 # oc --kubeconfig=${MANAGED_CLUSTER_KUBECONFIG} -n open-cluster-management-agent-addon get pod
