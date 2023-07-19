@@ -90,7 +90,9 @@ func completePostgres(postgresUri string, caCertPath string) (*url.URL, error) {
 	query := urlObj.Query()
 	if query.Get("sslmode") == "verify-ca" && utils.Validate(caCertPath) {
 		query.Set("sslrootcert", caCertPath)
-		urlObj.RawQuery = query.Encode()
+	} else {
+		query.Add("sslmode", "disable")
 	}
+	urlObj.RawQuery = query.Encode()
 	return urlObj, nil
 }
