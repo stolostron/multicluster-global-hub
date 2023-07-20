@@ -112,6 +112,31 @@ The following sections provide the steps to start using the Multicluster Global 
 
     Global hub agent need to synchronize cluster information and policy information to Kafka transport. The global hub manager persists the Kafka transport data to Postgres database.
 
+4. **Bring Your Own** Postgres and Kafka
+
+    When you are using **your own** Postgres and Kafka, please keep the following points in mind.
+
+    - Postgres
+      - Make sure the `database_uri` contains the database `hoh`, which is created and required by the global hub
+      - The `user` in `database_uri` should be granted the permission to create, modify and delete tables in the `hoh` database
+      - According to the connection requirements of your Postgres server, please set the corresponding `sslmode` parameter in `database_uri`, and then decide whether to provide `ca.crt`
+      - Example
+        ```
+        kubectl create secret generic multicluster-global-hub-storage -n open-cluster-management --from-literal=database_uri="postgresql://[user]:[password]@[host]:[port]/hoh
+        ```
+    - Kafka
+      - Make sure the `spec`, `status` and `event` topics are created on your own Kafka cluster
+      - Both the global hub and regional hub can access the `bootstrap.servers`
+      - According the Kafka connection requirements, to decide whether to provide `ca.crt`, `client.crt` and `client.key`
+      - Example
+        ```
+        kubectl create secret generic multicluster-global-hub-transport -n open-cluster-management \
+          --from-literal=bootstrap_server=<your bootstrap server> \
+          --from-file=ca.crt=<kafka ca cert path> \
+          --from-file=client.crt=<the kafka client cert path> \
+          --from-file=client.key=<the kafka client key path>
+        ```
+
 #### Sizing
 1. [Sizing your Red Hat Advanced Cluster Management cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html/install/installing#sizing-your-cluster)
 
