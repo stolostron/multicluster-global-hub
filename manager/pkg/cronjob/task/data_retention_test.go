@@ -16,13 +16,15 @@ var _ = Describe("data retention job", Ordered, func() {
 	BeforeAll(func() {
 		By("Creating test table in the database")
 		for _, tableName := range partitionTables {
-			table := fmt.Sprintf("%s_%s", tableName, currentTime.AddDate(0, -retentionMonth, 0).Format(partitionDateFormat))
+			table := fmt.Sprintf("%s_%s", tableName,
+				currentTime.AddDate(0, -retentionMonth, 0).Format(partitionDateFormat))
 			expiredPartitionTables[table] = false
 		}
 
 		By("Create the expired partition table need to be deleted")
 		for _, tableName := range partitionTables {
-			if err := createPartitionTable(tableName, currentTime.AddDate(0, -retentionMonth, 0),
+			if err := createPartitionTable(tableName,
+				currentTime.AddDate(0, -retentionMonth, 0),
 				currentTime.AddDate(0, -retentionMonth+1, 0)); err != nil {
 				log.Error(err, "failed to create partition table")
 				return

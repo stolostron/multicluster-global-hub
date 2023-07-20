@@ -7,8 +7,9 @@ import (
 
 	"github.com/go-co-op/gocron"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 var (
@@ -48,15 +49,18 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
 		}
 	}()
 
-	nextMonth := currentTime.AddDate(0, 1, 0)
-	startDate := time.Date(nextMonth.Year(), nextMonth.Month(), 1, 0, 0, 0, 0, nextMonth.Location())
-	endDate := startDate.AddDate(0, 1, 0)
-
-	// create the next month's partition table
+	// currentTime: make sure the current partition tables is created when the manager starts
+	// nextTime: create the next month's partition table
+	nextTime := currentTime.AddDate(0, 1, 0)
+	months := []time.Time{currentTime, nextTime}
 	for _, tableName := range partitionTables {
-		if err = createPartitionTable(tableName, startDate, endDate); err != nil {
-			log.Error(err, "failed to create partition table")
-			return
+		for _, month := range months {
+			startDate := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, month.Location())
+			endDate := startDate.AddDate(0, 1, 0)
+			if err = createPartitionTable(tableName, startDate, endDate); err != nil {
+				log.Error(err, "failed to create partition table")
+				return
+			}
 		}
 	}
 
@@ -105,7 +109,8 @@ func deleteRetentionRecords(tableName string, retentionDateStr string) error {
 	sql := fmt.Sprintf("DELETE FROM %s WHERE deleted_at < '%s'", tableName, retentionDateStr)
 	db := database.GetGorm()
 	if result := db.Exec(sql); result.Error != nil {
-		return fmt.Errorf("failed to delete records before %s from %s: %w", retentionDateStr, tableName, result.Error)
+		return fmt.Errorf("failed to delete records before %s from %s: %w",
+			retentionDateStr, tableName, result.Error)
 	}
 	return nil
 }
