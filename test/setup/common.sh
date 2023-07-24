@@ -218,7 +218,7 @@ function initPolicy() {
     policyPropagator=$(kubectl get pods -n "${HUB_NAMESPACE}" --context "${hub}" --ignore-not-found | grep "governance-policy-propagator" || true)
     if [[ ${policyPropagator} == "" ]]; then 
       kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-      GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/main/deploy"
+      GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.11.0/deploy"
       ## Apply the CRDs
       kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml 
       kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml 
@@ -226,6 +226,7 @@ function initPolicy() {
       kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
       ## Deploy the policy-propagator
       kubectl apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
+      kubectl patch deployment governance-policy-propagator -n ${HUB_NAMESPACE} -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management/governance-policy-propagator:v0.11.0"}]}}}}'
     elif [[ $(echo "${policyPropagator}" | awk '{print $3}')  == "Running" ]]; then 
       (( componentCount = componentCount + 1 ))
       echo "Policy: step${componentCount} ${hub} ${policyPropagator} is Running" 
