@@ -218,7 +218,7 @@ function initPolicy() {
     policyPropagator=$(kubectl get pods -n "${HUB_NAMESPACE}" --context "${hub}" --ignore-not-found | grep "governance-policy-propagator" || true)
     if [[ ${policyPropagator} == "" ]]; then 
       kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-      GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.10.0/deploy"
+      GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.11.0/deploy"
       ## Apply the CRDs
       kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml 
       kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml 
