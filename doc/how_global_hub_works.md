@@ -71,93 +71,20 @@ The manual summarization process consists of two subtasks:
     ```
     select * from history.local_compliance_view_2023_07_06;
     ```
-    - If the view exists, load the view records to `history.local_compliance`:
-      ```
-      CREATE OR REPLACE FUNCTION history.insert_local_compliance_job(
-          view_date text
-      )
-      RETURNS void AS $$
-      BEGIN
-          EXECUTE format('
-              INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date)
-              (
-                  SELECT policy_id, cluster_id, leaf_hub_name, compliance, %2$L 
-                  FROM history.local_compliance_view_%1$s
-                  ORDER BY policy_id, cluster_id
-              )
-              ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING',
-              view_date, view_date);
-      END;
-      $$ LANGUAGE plpgsql;
+    - If the view exists, load the view records to `history.local_compliance`
+      ```sql
       -- exec the insert func for that day '2023_07_06'
       SELECT history.insert_local_compliance_job('2023_07_06');
       ```
 
-    - If the view not exists, inherit the history compliance records of the day before that day. In this example, it is `2023_07_05`.
-      ```
-      CREATE OR REPLACE PROCEDURE history.inherit_local_compliance_job(
-          prev_date TEXT,
-          curr_date TEXT
-      )
-      LANGUAGE plpgsql
-      AS $$
-      BEGIN
-          EXECUTE format('
-              INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance_date, compliance, compliance_changed_frequency)
-              SELECT
-                  policy_id,
-                  cluster_id,
-                  leaf_hub_name,
-                  %1$L,
-                  compliance,
-                  compliance_changed_frequency
-              FROM
-                  history.local_compliance
-              WHERE
-                  compliance_date = %2$L
-              ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING
-          ', curr_date, prev_date);
-      END;
-      $$;
-      -- call the func to generate the  herit the data of '2023_07_05' and generate the data of '2023_07_06'
+    - If the view not exists, inherit the history compliance records of the day before that day, that is `2023_07_05`
+      ```sql
+      -- call the func to generate the data of '2023_07_06' by inheriting '2023_07_05'
       CALL history.inherit_local_compliance_job('2023_07_05', '2023_07_06');
       ```
 
-4. Update the `compliance` and `frequency` information of that day to `history.local_compliance`:
-    ```
-    CREATE OR REPLACE FUNCTION history.update_local_compliance_job(start_date_param text, end_date_param text)
-    RETURNS void AS $$
-    BEGIN
-        EXECUTE format('
-            INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance_date, compliance, compliance_changed_frequency)
-            WITH compliance_aggregate AS (
-                SELECT cluster_id, policy_id, leaf_hub_name,
-                    CASE
-                        WHEN bool_and(compliance = ''compliant'') THEN ''compliant''
-                        ELSE ''non_compliant''
-                    END::local_status.compliance_type AS aggregated_compliance
-                FROM event.local_policies
-                WHERE created_at BETWEEN %1$L::date AND %2$L::date
-                GROUP BY cluster_id, policy_id, leaf_hub_name
-            )
-            SELECT policy_id, cluster_id, leaf_hub_name, %1$L, aggregated_compliance,
-                (SELECT COUNT(*) FROM (
-                    SELECT created_at, compliance, 
-                        LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC) AS prev_compliance
-                    FROM event.local_policies lp
-                    WHERE (lp.created_at BETWEEN %1$L::date AND %2$L::date) 
-                        AND lp.cluster_id = ca.cluster_id AND lp.policy_id = ca.policy_id
-                    ORDER BY created_at ASC
-                ) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
-            FROM compliance_aggregate ca
-            ORDER BY cluster_id, policy_id
-            ON CONFLICT (policy_id, cluster_id, compliance_date)
-            DO UPDATE SET
-                compliance = EXCLUDED.compliance,
-                compliance_changed_frequency = EXCLUDED.compliance_changed_frequency',
-            start_date_param, end_date_param);
-    END;
-    $$ LANGUAGE plpgsql;
+4. Update the `compliance` and `frequency` information of that day to `history.local_compliance`
+    ```sql
     -- call the func to update records start with '2023-07-06', end with '2023-07-07'
     SELECT history.update_local_compliance_job('2023_07_06', '2023_07_07');
     ```
