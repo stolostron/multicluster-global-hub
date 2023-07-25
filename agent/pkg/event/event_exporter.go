@@ -22,7 +22,8 @@ import (
 
 type EventEnhancer interface {
 	// Enhance is used to modify the event before it is omitted by the exporter
-	Enhance(ctx context.Context, event *kube.EnhancedEvent)
+	// return true if the event should be exported
+	Enhance(ctx context.Context, event *kube.EnhancedEvent) bool
 }
 
 type EventExporter interface {
@@ -94,11 +95,14 @@ func (e *eventExporter) Start(ctx context.Context) error {
 	onEvent := func(event *kube.EnhancedEvent) {
 		// note that per code this value is not set anywhere on the kubernetes side
 		enhancer := e.enhancers[event.InvolvedObject.Kind]
+		exported := false
 		if enhancer != nil {
-			enhancer.Enhance(ctx, event)
+			exported = enhancer.Enhance(ctx, event)
 		}
 		event.ClusterName = e.leafHubName
-		engine.OnEvent(event)
+		if exported {
+			engine.OnEvent(event)
+		}
 	}
 	watcher := NewEventWatcher(e.kubeConfig, cfg.Namespace,
 		cfg.MaxEventAgeSeconds, metricsStore, onEvent)

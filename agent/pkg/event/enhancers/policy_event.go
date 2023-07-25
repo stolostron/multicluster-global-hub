@@ -2,7 +2,6 @@ package enhancers
 
 import (
 	"context"
-	"errors"
 	"regexp"
 
 	"github.com/go-logr/logr"
@@ -11,7 +10,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -29,7 +27,7 @@ func NewPolicyEventEnhancer(runtimeClient client.Client) *PolicyEventEnhancer {
 	}
 }
 
-func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedEvent) {
+func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedEvent) bool {
 	// add policy id and policy compliance state
 	policyNamespace := event.InvolvedObject.Namespace
 	policyName := event.InvolvedObject.Name
@@ -37,35 +35,36 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 	// add compliance to event
 	if err := p.addPolicyCompliance(ctx, event); err != nil {
 		p.log.Error(err, "failed to add policy compliance", "namespace", policyNamespace, "name", policyName)
-		return
+		return false
 	}
 
 	// cluster policy event, then add root policy id and cluster id
-	rootPolicyNamespacedName, ok := event.InvolvedObject.Labels[constants.PolicyEventRootPolicyNameLabelKey]
-	if !ok {
-		return
+	_, ok := event.InvolvedObject.Labels[constants.PolicyEventRootPolicyNameLabelKey]
+	if ok {
+		return false
 	}
+	return true
 
-	// add root policy id
-	rootPolicy, err := helper.GetRootPolicy(ctx, p.runtimeClient, rootPolicyNamespacedName)
-	if err != nil {
-		p.log.Error(err, "failed to get root policy", "namespacedName", rootPolicyNamespacedName)
-		return
-	}
-	event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey] = string(rootPolicy.GetUID())
+	// // add root policy id
+	// rootPolicy, err := helper.GetRootPolicy(ctx, p.runtimeClient, rootPolicyNamespacedName)
+	// if err != nil {
+	// 	p.log.Error(err, "failed to get root policy", "namespacedName", rootPolicyNamespacedName)
+	// 	return
+	// }
+	// event.InvolvedObject.Labels[constants.PolicyEventRootPolicyIdLabelKey] = string(rootPolicy.GetUID())
 
-	// add cluster id
-	clusterName, ok := event.InvolvedObject.Labels[constants.PolicyEventClusterNameLabelKey]
-	if !ok {
-		p.log.Error(errors.New("cluster name not found in cluster policy event"), "failed to get cluster name")
-		return
-	}
-	clusterId, err := helper.GetClusterId(ctx, p.runtimeClient, clusterName)
-	if err != nil {
-		p.log.Error(err, "failed to get cluster id", "clusterName", clusterName)
-		return
-	}
-	event.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey] = clusterId
+	// // add cluster id
+	// clusterName, ok := event.InvolvedObject.Labels[constants.PolicyEventClusterNameLabelKey]
+	// if !ok {
+	// 	p.log.Error(errors.New("cluster name not found in cluster policy event"), "failed to get cluster name")
+	// 	return
+	// }
+	// clusterId, err := helper.GetClusterId(ctx, p.runtimeClient, clusterName)
+	// if err != nil {
+	// 	p.log.Error(err, "failed to get cluster id", "clusterName", clusterName)
+	// 	return
+	// }
+	// event.InvolvedObject.Labels[constants.PolicyEventClusterIdLabelKey] = clusterId
 }
 
 func (p *PolicyEventEnhancer) addPolicyCompliance(ctx context.Context, event *kube.EnhancedEvent) error {
