@@ -1,4 +1,4 @@
-## Import Managed Cluster to the Hypershift Hosted Regional Hub
+## Import Managed Cluster to the Hypershift Hosted Managed Hub
 
 1. Set the following environment variables to access Hypershift hosted cluster and managed cluster:
 

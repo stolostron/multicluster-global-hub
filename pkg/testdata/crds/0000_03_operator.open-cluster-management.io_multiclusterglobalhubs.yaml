@@ -69,7 +69,7 @@ spec:
                         type: object
                     type: object
                   native:
-                    description: Native may use a syncer to sync data from the regional
+                    description: Native may use a syncer to sync data from the managed
                       hub cluster to the global hub cluster. The data is stored in
                       the global hub kubernetes api server backed by etcd. This is
                       not for a large scale environment.
@@ -96,7 +96,7 @@ spec:
               messageCompressionType:
                 default: gzip
                 description: MessageCompressionType specifies the compression type
-                  of transport message between global hub and regional hubs
+                  of transport message between global hub and managed hubs
                 enum:
                 - gzip
                 - no-op

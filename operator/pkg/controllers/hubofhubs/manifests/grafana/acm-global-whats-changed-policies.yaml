@@ -569,7 +569,7 @@ data:
             },
             "datasource": "${datasource}",
             "definition": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
-            "description": "Regional hub cluster name",
+            "description": "Managed hub cluster name",
             "error": null,
             "hide": 0,
             "includeAll": false,

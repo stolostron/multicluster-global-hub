@@ -29,13 +29,13 @@ const (
 	GHOperatorOwnerLabelVal = "global-hub-operator"
 	// Deprecated identify the resource is a local-resource
 	// GlobalHubLocalResource = "global-hub.open-cluster-management.io/local-resource"
-	// if the resource with this label, it will be synced to database and then propagated to regional hub
+	// if the resource with this label, it will be synced to database and then propagated to managed hub
 	GlobalHubGlobalResourceLabel = "global-hub.open-cluster-management.io/global-resource"
 )
 
 // store all the annotations
 const (
-	// identify the managed cluster is managed by the specified regional hub cluster
+	// identify the managed cluster is managed by the specified managed hub cluster
 	ManagedClusterManagedByAnnotation = "global-hub.open-cluster-management.io/managed-by"
 	// identify the resource is from the global hub cluster
 	OriginOwnerReferenceAnnotation = "global-hub.open-cluster-management.io/origin-ownerreference-uid"

@@ -107,7 +107,7 @@ const (
 	MinimalAggregation AggregationLevel = "minimal"
 )
 
-// MessageCompressionType specifies the compression type of transport message between global hub and regional hubs
+// MessageCompressionType specifies the compression type of transport message between global hub and managed hubs
 // Enum=gzip;no-op
 type MessageCompressionType string
 

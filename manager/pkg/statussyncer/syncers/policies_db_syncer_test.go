@@ -84,7 +84,7 @@ var _ = Describe("Policies", Ordered, func() {
 			return fmt.Errorf("failed to load content of table %s.%s", testSchema, complianceTable)
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 
-		By("Build a new policy bundle in the regional hub")
+		By("Build a new policy bundle in the managed hub")
 		// policy bundle
 		transportPayload := status.BaseClustersPerPolicyBundle{
 			Objects:       make([]*status.PolicyGenericComplianceStatus, 0),

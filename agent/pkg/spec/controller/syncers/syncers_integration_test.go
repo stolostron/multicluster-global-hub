@@ -25,7 +25,7 @@ var _ = Describe("Syncers Integration", func() {
 	It("sync managedclusterlabel bundle", func() {
 		managedClusterName := "mc1"
 
-		By("Create ManagedCluster on the regional hub")
+		By("Create ManagedCluster on the managed hub")
 		managedCluster := clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: managedClusterName,

@@ -2,13 +2,13 @@
 
 ## Environment
 
-This simulation requires **two Red Hat OpenShift Container Platform clusters**. One cluster serves as the global hub, and the other serves as a regional hub with agent. In the regional hub, the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) simulates a specific number of managed clusters. The [GRC simulator](https://github.com/stolostron/grc-simulator) continuously flips the compliant or noncompliant status of the policies. 
+This simulation requires **two Red Hat OpenShift Container Platform clusters**. One cluster serves as the global hub, and the other serves as a managed hub with agent. In the managed hub, the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) simulates a specific number of managed clusters. The [GRC simulator](https://github.com/stolostron/grc-simulator) continuously flips the compliant or noncompliant status of the policies. 
 
 ![Scale Test Environment](doc/architecture/scale-tests-environment-arch.png)
 
 You can use the scale test environment to simulate a large-scale cluster. Since the transport status path is very sensitive to the performance and represents a scale larger than the spec path, we simulate this path. The following two ways are combined to achieve a large-scale global hub environment.
 
-- Use the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) to generate batches of managed clusters on the regional hub, for example, 1000.
+- Use the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) to generate batches of managed clusters on the managed hub, for example, 1000.
 - Simulate the global hub agent by changing the `leafHubName` when it sends messages to the global hub manager, or status path. Use [the snippet](https://github.com/stolostron/leaf-hub-status-sync/blob/51cffef679da0a38a2bb888bd3828b9782dfbb4c/pkg/controller/generic/generic_status_sync_controller.go#L255-L272) of the agent sending bundle to manger code for reference.
 
 There are two main metrics to express the scalability of global hubs:
@@ -26,13 +26,13 @@ You can provide a [count script](cluster-stopwatch.sh) for the cluster, if you w
 
 ## Policy Status Rotation
 
-Suppose that 1M policies on 100K managed clusters with 100 regional hubs are simulated to get the Policy status Rotation. You can simulate this by completing the following steps:
+Suppose that 1M policies on 100K managed clusters with 100 managed hubs are simulated to get the Policy status Rotation. You can simulate this by completing the following steps:
 
-1. Build a regional hub, and then generate 1000 managed clusters by using the CLC simulator.
+1. Build a managed hub, and then generate 1000 managed clusters by using the CLC simulator.
 2. Create 10 policies on Global, and wait for them to be scheduled to the 1000 managed clusters, up until here we get 10K policies.
-3. Update the code to simulate 100 Regional Hub by changing the `leafHubName` to 100 different values when sending the bundle.
+3. Update the code to simulate 100 managed hub by changing the `leafHubName` to 100 different values when sending the bundle.
 4. Wait until both 100K managed clusters and 1M Policies are sent to the database. 
-5. Start running the GRC simulator on Regional Hub (as the `startTime`) and change the 10K policies status from `non-compliant` to `compliant`. the `endTime` should be 1M `compliant` policies found in the database of global hub.
+5. Start running the GRC simulator on managed hub (as the `startTime`) and change the 10K policies status from `non-compliant` to `compliant`. the `endTime` should be 1M `compliant` policies found in the database of global hub.
 6. The time of Policies status rotation = `endTime` - `starTime`.
 
 ## Related Material

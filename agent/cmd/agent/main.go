@@ -73,7 +73,7 @@ func doTermination(ctx context.Context, restConfig *rest.Config) int {
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
 func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) int {
 	if err := completeConfig(agentConfig); err != nil {
-		setupLog.Error(err, "failed to get regional hub configuration from command line flags")
+		setupLog.Error(err, "failed to get managed hub configuration from command line flags")
 		return 1
 	}
 
@@ -165,7 +165,7 @@ func parseFlags() *config.AgentConfig {
 
 func completeConfig(agentConfig *config.AgentConfig) error {
 	if agentConfig.LeafHubName == "" {
-		return fmt.Errorf("flag regional-hub-name can't be empty")
+		return fmt.Errorf("flag managed-hub-name can't be empty")
 	}
 	if agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID == "" {
 		agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID = agentConfig.LeafHubName

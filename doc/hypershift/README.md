@@ -1,8 +1,8 @@
 # Multicluster Global Hub Manages Lifecycle of Red Hat Advanced Cluster Management Hub Clusters Using HyperShift Control Plane
 
-Multicluster global hub supports Red Hat Advanced Cluster Management for Kubernetes hub clusters from instantiation to ensuring the health after it is running. This document explains how multicluster global hub manages the lifecycle of Red Hat Advanced Cluster Management hub clusters that are using HyperShift control-plane. With HyperShift and multicluster global hub, multiple hosted clusters can be provisioned by one HyperShift instance and enabled as the regional hubs by multicluster global hub controller.
+Multicluster global hub supports Red Hat Advanced Cluster Management for Kubernetes hub clusters from instantiation to ensuring the health after it is running. This document explains how multicluster global hub manages the lifecycle of Red Hat Advanced Cluster Management hub clusters that are using HyperShift control-plane. With HyperShift and multicluster global hub, multiple hosted clusters can be provisioned by one HyperShift instance and enabled as the managed hubs by multicluster global hub controller.
 
-**Note:** This guide is used to enable the regional hub from HyperShift hosted cluster with zero work nodes. If you want to provision one of more worker nodes with HyperShift hosted cluster, see the [HyperShift official document](https://hypershift-docs.netlify.app/).
+**Note:** This guide is used to enable the managed hub from HyperShift hosted cluster with zero work nodes. If you want to provision one of more worker nodes with HyperShift hosted cluster, see the [HyperShift official document](https://hypershift-docs.netlify.app/).
 
 ## Prerequisites
 
@@ -42,7 +42,7 @@ Multicluster global hub supports Red Hat Advanced Cluster Management for Kuberne
 ## Get Started
 
 1. Follow the [guide](https://github.com/stolostron/multicluster-global-hub/tree/release-2.5/deploy) to install HoH(`> v0.4.0` or `latest`) to Red Hat Advanced Cluster Management hub cluster.
-2. In the Multicluster Global Hub console, import the second OpenShift Container Platform cluster as a regional hub (with name `hypermgt` for simplicity) in which hypershift operator will be running.
+2. In the Multicluster Global Hub console, import the second OpenShift Container Platform cluster as a managed hub (with name `hypermgt` for simplicity) in which hypershift operator will be running.
 3. Set the following environment variable to use throughout the guide:
 
 ```
@@ -101,9 +101,9 @@ export HYPERSHIFT_MGMT_CLUSTER=hypermgt
     oc wait --for=condition=Available managedclusteraddon/hypershift-addon -n ${HYPERSHIFT_MGMT_CLUSTER} --timeout=600s
     ```
 
-5. Create the HyperShift hosted cluster and enable it as a regional hub.
+5. Create the HyperShift hosted cluster and enable it as a managed hub.
 
     - Refer to the [guide](./hypershift-aws.md) for HyperShift management cluster and hosted cluster provisioned on AWS.
     - Refer to the [guide](./hypershift-bm.md) for HyperShift management cluster and hosted cluster provisioned on bare metal.
 
-6. Import a managed cluster to the HyperShift regional hub by following the [guide](./hypershift-regionalhub-import-cluster.md).
+6. Import a managed cluster to the HyperShift managed hub by following the [guide](./hypershift-managedhub-import-cluster.md).

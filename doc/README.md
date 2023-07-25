@@ -2,10 +2,10 @@
 
 The multicluster global hub is a set of components that enable the management of multiple hub clusters from a single hub cluster. You can complete the following tasks by using the multicluster global hub:
 
-- Deploy regional hub clusters
-- List the managed clusters that are managed by all of the regional hub clusters
+- Deploy managed hub clusters
+- List the managed clusters that are managed by all of the managed hub clusters
 
-The multicluster global hub is useful when a single hub cluster cannot manage the large number of clusters in a high-scale environment. The multicluster global hub designates multiple managed clusters as multiple regional hub clusters. The global hub cluster manages the regional hub clusters.
+The multicluster global hub is useful when a single hub cluster cannot manage the large number of clusters in a high-scale environment. The multicluster global hub designates multiple managed clusters as multiple managed hub clusters. The global hub cluster manages the managed hub clusters.
 
 - [Multicluster Global Hub](#multicluster-global-hub)
   - [Use Cases](./global_hub_use_cases.md)
@@ -22,7 +22,7 @@ The multicluster global hub is useful when a single hub cluster cannot manage th
     - [Installation](#installation)
       - [1. Install the multicluster global hub operator on a disconnected environment](#1-install-the-multicluster-global-hub-operator-on-a-disconnected-environment)
       - [2. Install the multicluster global hub operator from OpenShift console](#2-install-the-multicluster-global-hub-operator-from-openshift-console)
-    - [Import a regional hub cluster in default mode (tech preview)](#import-a-regional-hub-cluster-in-default-mode-tech-preview)
+    - [Import a managed hub cluster in default mode (tech preview)](#import-a-managed-hub-cluster-in-default-mode-tech-preview)
     - [Access the grafana](#access-the-grafana)
     - [Grafana dashboards](#grafana-dashboards)
   - [Troubleshooting](./troubleshooting.md)
@@ -39,17 +39,17 @@ You can read about the use cases for multicluster global hub in [Use Cases](./gl
 
 ### Multicluster Global Hub Operator
 
-The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager` in the global hub cluster and `multicluster-global-hub-agent` in the regional hub clusters.
+The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager` in the global hub cluster and `multicluster-global-hub-agent` in the managed hub clusters.
 
-The Operator also leverages the `manifestwork` custom resource to deploy the Red Hat Advanced Cluster Management for Kubernetes Operator on the managed cluster. After the Red Hat Advanced Cluster Management Operator is deployed on the managed cluster, the managed cluster becomes a standard Red Hat Advanced Cluster Management Hub cluster. This hub cluster is now a regional hub cluster.
+The Operator also leverages the `manifestwork` custom resource to deploy the Red Hat Advanced Cluster Management for Kubernetes Operator on the managed cluster. After the Red Hat Advanced Cluster Management Operator is deployed on the managed cluster, the managed cluster becomes a standard Red Hat Advanced Cluster Management Hub cluster. This hub cluster is now a managed hub cluster.
 
 ### Multicluster Global Hub Manager
 
-The Multicluster Global Hub Manager is used to persist the data into the `postgreSQL` database. The data is from Kafka transport. The manager also posts the data to the Kafka transport, so it can be synchronized with the data on the regional hub clusters.
+The Multicluster Global Hub Manager is used to persist the data into the `postgreSQL` database. The data is from Kafka transport. The manager also posts the data to the Kafka transport, so it can be synchronized with the data on the managed hub clusters.
 
 ### Multicluster Global Hub Agent
 
-The Multicluster Global Hub Agent runs on the regional hub clusters. It synchronizes the data between the global hub cluster and the regional hub clusters. For example, the agent synchronizes the information of the managed clusters from the regional hub clusters with the global hub cluster and synchronizes the policy or application from the global hub cluster and the regional hub clusters.
+The Multicluster Global Hub Agent runs on the managed hub clusters. It synchronizes the data between the global hub cluster and the managed hub clusters. For example, the agent synchronizes the information of the managed clusters from the managed hub clusters with the global hub cluster and synchronizes the policy or application from the global hub cluster and the managed hub clusters.
 
 ### Multicluster Global Hub Observability
 
@@ -131,7 +131,7 @@ The following sections provide the steps to start using the Multicluster Global 
 
 #### Network configuration
 
-The regional hub is also a managed cluster of global hub in Red Hat Advanced Cluster Management. The network configuration in Red Hat Advanced Cluster Management is necessary. See [Networking](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html/networking/networking) for Red Hat Advanced Cluster Management networking details.
+The managed hub is also a managed cluster of global hub in Red Hat Advanced Cluster Management. The network configuration in Red Hat Advanced Cluster Management is necessary. See [Networking](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html/networking/networking) for Red Hat Advanced Cluster Management networking details.
 
 1. Global hub networking requirements
 
@@ -141,7 +141,7 @@ The regional hub is also a managed cluster of global hub in Red Hat Advanced Clu
 | Outbound to Kafka Cluster | HTTPS | Global hub manager need to get data from Kafka cluster | 443 | multicluster-global-hub-manager-xxx pod | Kafka route host |
 | Outbound to Postgres database | HTTPS | Global hub manager need to persist data to Postgres database | 443 | multicluster-global-hub-manager-xxx pod | IP address of Postgres database |
 
-2. Regional hub networking requirements
+2. Managed hub networking requirements
 
 | Direction | Protocol | Connection | Port (if specified) | Source address |	Destination address |
 | ------ | ------ | ------ | ------ | ------ | ------ |
@@ -167,16 +167,16 @@ The regional hub is also a managed cluster of global hub in Red Hat Advanced Clu
     * The multicluster global hub is only available for the x86 platform.
     * The policy and application are disabled in Red Hat Advanced Cluster Management after the multicluster global hub is installed.
 
-### Import a regional hub cluster in default mode (Technology Preview)
+### Import a managed hub cluster in default mode (Technology Preview)
 
 You must disable the cluster self-management in the existing Red Hat Advanced Cluster Management hub cluster. Set `disableHubSelfManagement=true` in the `multiclusterhub` custom resource to disable the automatic importing of the hub cluster as a managed cluster.
 
-Import the regional hub cluster by completing the steps in [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.8/html-single/clusters/index#importing-a-target-managed-cluster-to-the-hub-cluster).
+Import the managed hub cluster by completing the steps in [Import cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.8/html-single/clusters/index#importing-a-target-managed-cluster-to-the-hub-cluster).
 
-After the regional hub cluster is imported, check the global hub agent status to ensure that the agent is running in the regional hub cluster by running the following command:
+After the managed hub cluster is imported, check the global hub agent status to ensure that the agent is running in the managed hub cluster by running the following command:
 
 ```
-oc get managedclusteraddon multicluster-global-hub-controller -n ${REGIONAL_HUB_CLUSTER_NAME}
+oc get managedclusteraddon multicluster-global-hub-controller -n ${MANAGED_HUB_CLUSTER_NAME}
 ```
 
 ### Access the Grafana data
@@ -211,6 +211,6 @@ For common Troubleshooting issues, see [Troubleshooting](troubleshooting.md).
 
 2. You cannot drill down by selecting the first datapoint from the `Policy Group Compliancy Overview` dashboard. You can drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard, but it is not working for the first datapoint in the list. This issue also applies to the `Cluster Group Compliancy Overview` dashboard.
 
-3. If you detach the regional hub and rejoin it, The data (policies/managed clusters) might not be updated in time from the rejoined regional hub. You can fix this problem by restarting the `multicluster-global-hub-manager` pod on the global hub.
+3. If you detach the managed hub and rejoin it, The data (policies/managed clusters) might not be updated in time from the rejoined managed hub. You can fix this problem by restarting the `multicluster-global-hub-manager` pod on the global hub.
 
 4. A managed cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster) is not counted in global hub policy compliance database, but shows in the Red Hat Advanced Cluster Management policy console.
