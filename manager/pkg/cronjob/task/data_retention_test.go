@@ -7,6 +7,9 @@ import (
 	"github.com/go-co-op/gocron"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 var _ = Describe("data retention job", Ordered, func() {
@@ -91,4 +94,35 @@ var _ = Describe("data retention job", Ordered, func() {
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	})
+
+	It("get records from the partition table", func() {
+		db := database.GetGorm()
+		logs := []models.DataRetentionJobLog{}
+
+		Eventually(func() error {
+			result := db.Find(&logs)
+			if result.Error != nil {
+				return result.Error
+			}
+			if len(logs) < 2 {
+				return fmt.Errorf("the logs are not enough")
+			}
+			return nil
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		for _, log := range logs {
+			fmt.Println("table_name: ", log.Name, "start_at: ", log.StartAt.Format(dateFormat), "min_partition: ",
+				log.MinPartition, "max_partition: ", log.MaxPartition, "min_deletion: ", log.MinDeletion.Format(dateFormat))
+		}
+	})
 })
+
+func createPartitionTable(tableName string, startTime, endTime time.Time) error {
+	partitionTableName := fmt.Sprintf("%s_%s", tableName, startTime.Format(partitionDateFormat))
+	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')",
+		partitionTableName, tableName, startTime.Format(dateFormat), endTime.Format(dateFormat))
+	db := database.GetGorm()
+	if result := db.Exec(sql); result.Error != nil {
+		return fmt.Errorf("failed to create partition table %s: %w", tableName, result.Error)
+	}
+	return nil
+}

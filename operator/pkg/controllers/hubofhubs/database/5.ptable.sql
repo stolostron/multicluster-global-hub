@@ -45,9 +45,12 @@ SELECT event.create_partitioned_table('event.local_root_policies', to_char(curre
 SELECT event.create_partitioned_table('event.local_policies', to_char(current_date, 'YYYY-MM-DD'));
 
 CREATE TABLE IF NOT EXISTS event.data_retention_job_log (
-    name varchar(63) NOT NULL,
+    table_name varchar(63) NOT NULL,
     start_at timestamp NOT NULL DEFAULT now(),
     end_at timestamp NOT NULL DEFAULT now(),
+    min_partition varchar(63), -- minimum partition after the job
+    max_partition varchar(63), -- maximum partition after the job
+    min_deletion  timestamp, -- the oldest deleted record in the table after the job
     error TEXT
 );
 
