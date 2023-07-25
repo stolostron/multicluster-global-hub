@@ -36,8 +36,8 @@ const (
 
 var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
 	var globalClient client.Client
-	var regionalClient client.Client
-	var regionalClients []client.Client
+	var managedClient client.Client
+	var managedClients []client.Client
 	var err error
 
 	BeforeAll(func() {
@@ -49,8 +49,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		globalClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 		for _, leafhubName := range leafHubNames {
-			regionalClient, err = testClients.ControllerRuntimeClient(leafhubName, scheme)
-			regionalClients = append(regionalClients, regionalClient)
+			managedClient, err = testClients.ControllerRuntimeClient(leafhubName, scheme)
+			managedClients = append(managedClients, managedClient)
 		}
 		Expect(err).ShouldNot(HaveOccurred())
 	})
@@ -111,9 +111,9 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusters[0].Name)
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
-		By("Check the inform policy in regional hub")
+		By("Check the inform policy in managed hub")
 		Eventually(func() error {
-			status, err := getRegionalPolicyStatus(regionalClients[0], POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getManagedPolicyStatus(managedClients[0], POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
@@ -200,9 +200,9 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusters[i].Name)
 			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
-			By("Check the policy is created in regional hub")
+			By("Check the policy is created in managed hub")
 			Eventually(func() error {
-				status, err := getRegionalPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
+				status, err := getManagedPolicyStatus(managedClient, POLICY_NAME, POLICY_NAMESPACE)
 				if err != nil {
 					return err
 				}
@@ -325,16 +325,16 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		_, err := testClients.Kubectl(testOptions.HubCluster.Name, "delete", "-f", ENFORCE_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		By("Check the enforce policy is deleted from regional hub")
+		By("Check the enforce policy is deleted from managed hub")
 		Eventually(func() error {
-			_, err := getRegionalPolicyStatus(regionalClient, POLICY_NAME, POLICY_NAMESPACE)
+			_, err := getManagedPolicyStatus(managedClient, POLICY_NAME, POLICY_NAMESPACE)
 			if errors.IsNotFound(err) {
 				return nil
 			}
 			if err != nil {
 				return err
 			}
-			return fmt.Errorf("the policy should be removed from regional hub")
+			return fmt.Errorf("the policy should be removed from managed hub")
 		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 		By("Delete the label from managedcluster2")
@@ -402,7 +402,7 @@ func getPolicyStatus(client client.Client, httpClient *http.Client, name, namesp
 	return &policy.Status, nil
 }
 
-func getRegionalPolicyStatus(client client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
+func getManagedPolicyStatus(client client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
 	policy := &policiesv1.Policy{}
 	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, policy)
 	if err != nil {

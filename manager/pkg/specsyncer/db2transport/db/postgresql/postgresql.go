@@ -149,7 +149,7 @@ func (p *PostgreSQL) GetObjectsBundle(ctx context.Context, tableName string, cre
 		if deleted {
 			intoBundle.AddDeletedObject(object)
 		} else {
-			object.SetUID("") // cleanup UID to avoid apply conflict in regional hub
+			object.SetUID("") // cleanup UID to avoid apply conflict in managed hub
 			intoBundle.AddObject(object, objID)
 		}
 	}

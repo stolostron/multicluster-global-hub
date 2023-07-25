@@ -25,7 +25,7 @@ var (
 )
 
 func init() {
-	pflag.StringVar(&hubVersion, "hub-version", "", "ACM hub version for the current regional hub.")
+	pflag.StringVar(&hubVersion, "hub-version", "", "ACM hub version for the current managed hub.")
 	pflag.StringVar(&kubeconfig, "kubeconfig", "", "kubeconfig for the connected cluster.")
 	pflag.Parse()
 }

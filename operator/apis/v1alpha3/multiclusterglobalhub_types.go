@@ -80,7 +80,7 @@ type DataLayerConfig struct {
 	// +kubebuilder:validation:Required
 	Type DataLayerType `json:"type"`
 
-	// // Native may use a syncer to sync data from the regional hub cluster to the global hub cluster.
+	// // Native may use a syncer to sync data from the managed hub cluster to the global hub cluster.
 	// // The data is stored in the global hub kubernetes api server backed by etcd.
 	// // This is not for a large scale environment.
 	// // +optional

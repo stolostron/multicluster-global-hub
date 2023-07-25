@@ -83,8 +83,8 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		Expect(err).Should(Succeed())
 	})
 
-	Context("When apply local policy with placement on the regional hub", func() {
-		It("deploy local policy on the regional hub", func() {
+	Context("When apply local policy with placement on the managed hub", func() {
+		It("deploy local policy on the managed hub", func() {
 			By("Add local policy test label")
 			patches := []patch{
 				{
@@ -428,7 +428,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[0]))).Should(Succeed())
 			Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[1]))).Should(Succeed())
 
-			By("manually remove the appsubreport in the regional hub") // TODO: remove this step after the issue is fixed
+			By("manually remove the appsubreport on the managed hub") // TODO: remove this step after the issue is fixed
 			appsubreport := &appsv1alpha1.SubscriptionReport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      managedClusters[0].Name,
@@ -464,7 +464,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					}
 					fmt.Printf("status.subscription_reports: %s/%s \n", appsubreport.Namespace, appsubreport.Name)
 					if appsubreport.Name == APP_SUB_NAME && appsubreport.Namespace == APP_SUB_NAMESPACE {
-						return fmt.Errorf("the appsub is not deleted from regional hub")
+						return fmt.Errorf("the appsub is not deleted from managed hub")
 					}
 				}
 				return nil

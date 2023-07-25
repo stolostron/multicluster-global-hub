@@ -199,7 +199,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 
 	if a.installACMHub(cluster) {
 		manifestsConfig.InstallACMHub = true
-		log.Info("installing ACM on regional hub")
+		log.Info("installing ACM on managed hub")
 		if err := a.setACMPackageConfigs(&manifestsConfig); err != nil {
 			return nil, err
 		}

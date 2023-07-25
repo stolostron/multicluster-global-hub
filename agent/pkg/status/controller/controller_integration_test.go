@@ -131,7 +131,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	})
 
 	It("should be able to sync managed clusters", func() {
-		By("Create managed clusters in testing regional hub")
+		By("Create managed clusters in testing managed hub")
 		testMangedCluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-mc-1",
@@ -183,10 +183,10 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	})
 
 	It("should be able to sync global policies", func() {
-		By("Create global policy in testing regional hub")
+		By("Create global policy in testing managed hub")
 		Expect(kubeClient.Create(ctx, testGlobalPolicy)).ToNot(HaveOccurred())
 
-		By("Update global policy status in testing regional hub")
+		By("Update global policy status in testing managed hub")
 		testGlobalPolicyCopy := testGlobalPolicy.DeepCopy()
 		testGlobalPolicy.Status = policyv1.PolicyStatus{
 			ComplianceState: policyv1.NonCompliant,
@@ -281,7 +281,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	// TODO: consider to support delta bundle with cloudevents
 	// It("Should be able to sync global policy compliance via policy complete compliance bundle when policy
 	// compliance status is updated", func() {
-	// 	By("Update global policy compliance status in testing regional hub")
+	// 	By("Update global policy compliance status in testing managed hub")
 	// 	testGlobalPolicyCopy := testGlobalPolicy.DeepCopy()
 	// 	testGlobalPolicy.Status = policyv1.PolicyStatus{
 	// 		ComplianceState: policyv1.NonCompliant,
@@ -366,7 +366,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	// })
 
 	It("should be able to sync global placementrules", func() {
-		By("Create global placementrule in testing regional hub")
+		By("Create global placementrule in testing managed hub")
 		testGlobalPlacementRuleOriginUID := "test-globalplacementrule-uid"
 		testGlobalPlacementRule := &placementrulev1.PlacementRule{
 			ObjectMeta: metav1.ObjectMeta{
@@ -411,7 +411,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	})
 
 	It("Should be able to sync global placements", func() {
-		By("Create global placement in testing regional hub")
+		By("Create global placement in testing managed hub")
 		testGlobalPlacementOriginUID := "test-globalplacement-uid"
 		testGlobalPlacement := &clusterv1beta1.Placement{
 			ObjectMeta: metav1.ObjectMeta{
@@ -458,7 +458,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	})
 
 	It("should be able to sync placementdecisions", func() {
-		By("Create placementdecision in testing regional hub")
+		By("Create placementdecision in testing managed hub")
 		testPlacementDecision := &clusterv1beta1.PlacementDecision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-placementdecision-1",
@@ -497,7 +497,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	})
 
 	It("should be able to sync subscriptionreports", func() {
-		By("Create subscriptionreport in testing regional hub")
+		By("Create subscriptionreport in testing managed hub")
 		testSubscriptionReport := &appsv1alpha1.SubscriptionReport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-subscriptionreport-1",

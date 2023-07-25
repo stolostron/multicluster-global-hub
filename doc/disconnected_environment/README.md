@@ -220,7 +220,7 @@ multicluster-global-hub-operator   Community Operators   28m
 ### Install the Operator from OperatorHub using the web console
 You can install and subscribe an Operator from OperatorHub using the OpenShift Container Platform web console. For more details, please refer [here](https://docs.openshift.com/container-platform/4.11/operators/admin/olm-adding-operators-to-cluster.html)
 
-## Import the regional hub using customized image registry
+## Import the managed hub using customized image registry
 
 ### Configure the image registry annotations in MulticlusterGlobalHub CR
 
@@ -239,15 +239,15 @@ spec:
   dataLayer:
     type: largeScale
 ```
-This was the global configuration and all of your regional hubs will use the same image registry and image pull secret.
+This was the global configuration and all of your managed hubs will use the same image registry and image pull secret.
 
-To support different image registries for different regional hubs, we can use `ManagedClusterImageRegistry` API to import the regional hub.
+To support different image registries for different managed hubs, we can use `ManagedClusterImageRegistry` API to import the managed hub.
 
 ### Config the ManagedClusterImageRegistry
 
 refer [Importing a cluster that has a ManagedClusterImageRegistry](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html-single/clusters/index#import-cluster-managedclusterimageregistry) to import the clusters using the `ManagedClusterImageRegistry` API.
 
-- Create the placement/clusterset to select the target regional hub cluster, for example:
+- Create the placement/clusterset to select the target managed hub cluster, for example:
   ```yaml
   apiVersion: cluster.open-cluster-management.io/v1
   kind: ManagedCluster
@@ -256,7 +256,7 @@ refer [Importing a cluster that has a ManagedClusterImageRegistry](https://acces
       cluster.open-cluster-management.io/clusterset: <cluster-set>
       vendor: auto-detect
       cloud: auto-detect
-    name: <regional-hub>
+    name: <managed-hub>
   spec:
     hubAcceptsClient: true
     leaseDurationSeconds: 60

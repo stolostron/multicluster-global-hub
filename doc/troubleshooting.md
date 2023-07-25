@@ -66,7 +66,7 @@ Run the `must-gather` to gather details, logs, and take steps in debugging issue
 
 ### Prerequisites
 
-1. Access to the global hub and regional hub clusters as a user with the cluster-admin role.
+1. Access to the global hub and managed hub clusters as a user with the cluster-admin role.
 2. The Red Hat OpenShift Container Platform CLI (oc) installed.
 
 ### Must-gather procedure
@@ -81,7 +81,7 @@ Complete the following procedure to start using the must-gather command:
     oc adm must-gather --image=quay.io/stolostron/must-gather:SNAPSHOTNAME
     ```
 
-    If you want to check your regional hub clusters, run the `must-gather` command on those clusters.
+    If you want to check your managed hub clusters, run the `must-gather` command on those clusters.
 
 3. Optional: If you need the results to be saved in a named directory, run the following command instead of the one in step 2:
     ```
@@ -106,9 +106,9 @@ Complete the following procedure to start using the must-gather command:
 
 ![must-gather-global-hub-pods](must-gather/must-gather-global-hub-pods.png)
 
-6. For the regional hub cluster, you can check the multicluster global hub agent pods and logs in `pods` of `namespaces` resources.
+6. For the managed hub cluster, you can check the multicluster global hub agent pods and logs in `pods` of `namespaces` resources.
 
-![must-gather-regional-hub-pods](must-gather/must-gather-regional-hub-pods.png)
+![must-gather-managed-hub-pods](must-gather/must-gather-managed-hub-pods.png)
 
 
 ## Database Dump and Restore

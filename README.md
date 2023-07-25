@@ -13,17 +13,17 @@ This document attempts to explain how the different components in multicluster g
 
 ### Multicluster Global Hub Operator
 
-Operator is for multicluster global hub. It is used to deploy all required components for multicluster management. The components include multicluster-global-hub-manager in the global hub cluster and multicluster-global-hub-agent in the regional hub clusters.
+Operator is for multicluster global hub. It is used to deploy all required components for multicluster management. The components include multicluster-global-hub-manager in the global hub cluster and multicluster-global-hub-agent in the managed hub clusters.
 
-The Operator also leverages the manifestwork to deploy the Advanced Cluster Management for Kubernetes in the managed cluster. So the managed cluster is switched to a standard ACM Hub cluster (regional hub cluster).
+The Operator also leverages the manifestwork to deploy the Advanced Cluster Management for Kubernetes in the managed cluster. So the managed cluster is switched to a standard ACM Hub cluster (managed hub cluster).
 
 ### Multicluster Global Hub Manager
 
-The manager is used to persist the data into the postgreSQL. The data is from Kafka transport. The manager is also used to post the data to Kafka transport so that it can be synced to the regional hub clusters.
+The manager is used to persist the data into the postgreSQL. The data is from Kafka transport. The manager is also used to post the data to Kafka transport so that it can be synced to the managed hub clusters.
 
 ### Multicluster Global Hub Agent
 
-The agent is running in the regional hub clusters. It is responsible to sync-up the data between the global cluster hub and the regional hub clusters. For instance, sync-up the managed clusters' info from the regional hub clusters to the global hub cluster and sync-up the policy or application from the global hub cluster to the regional hub clusters.
+The agent is running in the managed hub clusters. It is responsible to sync-up the data between the global cluster hub and the managed hub clusters. For instance, sync-up the managed clusters' info from the managed hub clusters to the global hub cluster and sync-up the policy or application from the global hub cluster to the managed hub clusters.
 
 ### Multicluster Global Hub Observability
 
