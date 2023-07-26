@@ -60,7 +60,7 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
 
 	// delete the soft deleted records from database
 	for _, tableName := range retentionTables {
-		err := deleteExpiredRecords(tableName, deletionTime)
+		err := deleteExpiredRecords(tableName, deletionTime.AddDate(0, 1, 0))
 		if e := traceDataRetentionLog(tableName, currentTime, err, false); e != nil {
 			log.Error(e, "failed to trace data retention log")
 		}
