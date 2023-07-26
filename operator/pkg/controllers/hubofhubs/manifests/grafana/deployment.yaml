@@ -64,6 +64,8 @@ spec:
           name: grafana-dashboard-acm-global-cluster-group-compliancy-overview
         - mountPath: /grafana-dashboards/0/acm-global-policy-group-compliancy-overview
           name: grafana-dashboard-acm-global-policy-group-compliancy-overview
+        - mountPath: /grafana-dashboards/0/acm-global-adhoc-investigation
+          name: grafana-dashboard-acm-global-adhoc-investigation
         - mountPath: /grafana-dashboards/0/acm-global-offending-clusters
           name: grafana-dashboard-acm-global-offending-clusters
         - mountPath: /grafana-dashboards/0/acm-global-offending-policies
@@ -154,6 +156,10 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-global-offending-clusters
         name: grafana-dashboard-acm-global-offending-clusters
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-global-adhoc-investigation
+        name: grafana-dashboard-acm-global-adhoc-investigation
       - configMap:
           defaultMode: 420
           name: grafana-dashboard-acm-global-offending-policies
