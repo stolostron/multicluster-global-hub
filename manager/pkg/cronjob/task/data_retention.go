@@ -47,7 +47,9 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
 	deletionTime := currentTime.AddDate(0, -retentionMonth, 0)
 	for _, tableName := range partitionTables {
 		err := updatePartitionTables(tableName, creationTime, deletionTime)
-		traceDataRetentionLog(tableName, currentTime, err, true)
+		if e := traceDataRetentionLog(tableName, currentTime, err, true); e != nil {
+			log.Error(e, "failed to trace data retention log")
+		}
 		if err != nil {
 			log.Error(err, "failed to update partition tables")
 			return
@@ -57,7 +59,9 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
 	// delete the soft deleted records from database
 	for _, tableName := range retentionTables {
 		err := deleteExpiredRecords(tableName, deletionTime)
-		traceDataRetentionLog(tableName, currentTime, err, false)
+		if e := traceDataRetentionLog(tableName, currentTime, err, false); e != nil {
+			log.Error(e, "failed to trace data retention log")
+		}
 		if err != nil {
 			log.Error(err, "failed to delete soft deleted records")
 			return
