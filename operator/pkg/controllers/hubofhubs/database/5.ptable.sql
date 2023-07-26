@@ -25,10 +25,19 @@ CREATE TABLE IF NOT EXISTS event.local_root_policies (
     CONSTRAINT local_root_policies_unique_constraint UNIQUE (event_name, count, created_at)
 ) PARTITION BY RANGE (created_at);
 
---- create the monthly partitioned tables function by created_at column
---- sample 1: SELECT event.create_partitioned_table('event.local_root_policies', to_char(current_date, 'YYYY-MM-DD'));
---- sample 2: SELECT event.create_partitioned_table('event.local_root_policies', '2023-08-01');
-CREATE OR REPLACE FUNCTION event.create_partitioned_table(full_table_name text, input_time text)
+CREATE TABLE IF NOT EXISTS history.local_compliance (
+    policy_id uuid NOT NULL,
+    cluster_id uuid,
+    leaf_hub_name character varying(63) NOT NULL,
+    compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL, 
+    compliance local_status.compliance_type NOT NULL,
+    compliance_changed_frequency integer NOT NULL DEFAULT 0,
+    CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, compliance_date)
+) PARTITION BY RANGE (compliance_date);
+
+--- create the monthly partitioned tables function by created_at/compliance_date column
+--- sample: SELECT create_monthly_range_partitioned_table('event.local_root_policies', '2023-08-01');
+CREATE OR REPLACE FUNCTION create_monthly_range_partitioned_table(full_table_name text, input_time text)
 RETURNS VOID AS
 $$ 
 BEGIN 
@@ -41,8 +50,14 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 --- create the current month partitioned tables for local_policies and local_root_policies
-SELECT event.create_partitioned_table('event.local_root_policies', to_char(current_date, 'YYYY-MM-DD'));
-SELECT event.create_partitioned_table('event.local_policies', to_char(current_date, 'YYYY-MM-DD'));
+SELECT create_monthly_range_partitioned_table('event.local_root_policies', to_char(current_date, 'YYYY-MM-DD'));
+SELECT create_monthly_range_partitioned_table('event.local_policies', to_char(current_date, 'YYYY-MM-DD'));
+SELECT create_monthly_range_partitioned_table('history.local_compliance', to_char(current_date, 'YYYY-MM-DD'));
+
+--- create the previous month partitioned tables for receiving the data from the previous month
+SELECT create_monthly_range_partitioned_table('event.local_root_policies', to_char(current_date - interval '1 month', 'YYYY-MM-DD'));
+SELECT create_monthly_range_partitioned_table('event.local_policies', to_char(current_date - interval '1 month', 'YYYY-MM-DD'));
+SELECT create_monthly_range_partitioned_table('history.local_compliance', to_char(current_date - interval '1 month', 'YYYY-MM-DD'));
 
 CREATE TABLE IF NOT EXISTS event.data_retention_job_log (
     table_name varchar(63) NOT NULL,
@@ -54,4 +69,12 @@ CREATE TABLE IF NOT EXISTS event.data_retention_job_log (
     error TEXT
 );
 
-
+CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
+    name varchar(63) NOT NULL,
+    start_at timestamp NOT NULL DEFAULT now(),
+    end_at timestamp NOT NULL DEFAULT now(),
+    total int8,
+    inserted int8,
+    offsets int8, 
+    error TEXT
+);

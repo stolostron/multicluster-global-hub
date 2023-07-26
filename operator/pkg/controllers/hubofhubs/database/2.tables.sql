@@ -78,26 +78,6 @@ CREATE TABLE IF NOT EXISTS history.subscriptions (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS history.local_compliance (
-    policy_id uuid NOT NULL,
-    cluster_id uuid,
-    leaf_hub_name character varying(63) NOT NULL,
-    compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL, 
-    compliance local_status.compliance_type NOT NULL,
-    compliance_changed_frequency integer NOT NULL DEFAULT 0,
-    CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, compliance_date)
-);
-
-CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
-    name varchar(63) NOT NULL,
-    start_at timestamp NOT NULL DEFAULT now(),
-    end_at timestamp NOT NULL DEFAULT now(),
-    total int8,
-    inserted int8,
-    offsets int8, 
-    error TEXT
-);
-
 CREATE TABLE IF NOT EXISTS local_spec.placementrules (
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,

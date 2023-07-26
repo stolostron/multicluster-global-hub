@@ -15,53 +15,50 @@ import (
 var _ = Describe("data retention job", Ordered, func() {
 	expiredPartitionTables := map[string]bool{}
 	currentTime := time.Now()
+	minTime := currentTime.AddDate(0, -(retentionMonth - 1), 0)
+	maxTime := currentTime.AddDate(0, 1, 0)
 
 	BeforeAll(func() {
-		By("Creating test table in the database")
+		By("Creating expired partition table in the database")
 		for _, tableName := range partitionTables {
-			table := fmt.Sprintf("%s_%s", tableName,
-				currentTime.AddDate(0, -retentionMonth, 0).Format(partitionDateFormat))
-			expiredPartitionTables[table] = false
+			err := createPartitionTable(tableName, currentTime.AddDate(0, -retentionMonth, 0))
+			Expect(err).ToNot(HaveOccurred())
+
+			expiredPartitionTables[fmt.Sprintf("%s_%s", tableName,
+				currentTime.AddDate(0, -retentionMonth, 0).Format(partitionDateFormat))] = false
 		}
 
-		By("Create the expired partition table need to be deleted")
+		By("Create the min partition table need to be deleted")
 		for _, tableName := range partitionTables {
-			if err := createPartitionTable(tableName,
-				currentTime.AddDate(0, -retentionMonth, 0),
-				currentTime.AddDate(0, -retentionMonth+1, 0)); err != nil {
-				log.Error(err, "failed to create partition table")
-				return
-			}
+			err := createPartitionTable(tableName, minTime)
+			Expect(err).ToNot(HaveOccurred())
 		}
 
-		By("Check whether the tables are created")
+		By("Check whether the expired tables are created")
 		Eventually(func() error {
-			rows, err := db.Raw("SELECT schemaname, tablename FROM pg_tables").Rows()
-			if err != nil {
-				return err
+			var tables []models.Table
+			result := db.Raw("SELECT schemaname as schema_name, tablename as table_name FROM pg_tables").Find(&tables)
+			if result.Error != nil {
+				return result.Error
 			}
-			defer rows.Close()
-			for rows.Next() {
-				var schema, table string
-				if err := rows.Scan(&schema, &table); err != nil {
-					return err
-				}
-				gotTable := fmt.Sprintf("%s.%s", schema, table)
+			for _, table := range tables {
+				gotTable := fmt.Sprintf("%s.%s", table.Schema, table.Table)
 				if _, ok := expiredPartitionTables[gotTable]; ok {
-					fmt.Println("get expected partition table: ", gotTable)
+					fmt.Println("the expected partition table is created: ", gotTable)
 					expiredPartitionTables[gotTable] = true
 				}
 			}
-			for table, exist := range expiredPartitionTables {
-				if !exist {
-					return fmt.Errorf("table %s is not created", table)
+
+			for key, val := range expiredPartitionTables {
+				if !val {
+					return fmt.Errorf("table %s is not created", key)
 				}
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("create the partition table", func() {
+	It("the data retention job should work", func() {
 		By("Create the data retention job")
 		s := gocron.NewScheduler(time.UTC)
 		_, err := s.Every(1).Week().DoWithJobDetails(DataRetention, ctx, pool)
@@ -69,33 +66,30 @@ var _ = Describe("data retention job", Ordered, func() {
 		s.StartAsync()
 		defer s.Clear()
 
-		By("Check whether the tables are deleted")
+		By("Check whether the expired tables are deleted")
 		Eventually(func() error {
-			rows, err := db.Raw("SELECT schemaname, tablename FROM pg_tables").Rows()
-			if err != nil {
-				return err
+			var tables []models.Table
+			result := db.Raw("SELECT schemaname as schema_name, tablename as table_name FROM pg_tables").Find(&tables)
+			if result.Error != nil {
+				return result.Error
 			}
-			defer rows.Close()
+
 			count := 0
-			for rows.Next() {
-				var schema, table string
-				if err := rows.Scan(&schema, &table); err != nil {
-					return err
-				}
-				gotTable := fmt.Sprintf("%s.%s", schema, table)
+			for _, table := range tables {
+				gotTable := fmt.Sprintf("%s.%s", table.Schema, table.Table)
 				if _, ok := expiredPartitionTables[gotTable]; ok {
-					fmt.Println("deleting partition table: ", gotTable)
+					fmt.Println("deleting the expired partition table: ", gotTable)
 					count++
 				}
 			}
 			if count > 0 {
-				return fmt.Errorf("the partition table hasn't been deleted")
+				return fmt.Errorf("the expired tables hasn't been deleted")
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("get records from the partition table", func() {
+	It("the data retention should log the job execution", func() {
 		db := database.GetGorm()
 		logs := []models.DataRetentionJobLog{}
 
@@ -104,24 +98,28 @@ var _ = Describe("data retention job", Ordered, func() {
 			if result.Error != nil {
 				return result.Error
 			}
-			if len(logs) < 2 {
+			if len(logs) < 6 {
 				return fmt.Errorf("the logs are not enough")
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		for _, log := range logs {
-			fmt.Println("table_name: ", log.Name, "start_at: ", log.StartAt.Format(dateFormat), "min_partition: ",
-				log.MinPartition, "max_partition: ", log.MaxPartition, "min_deletion: ", log.MinDeletion.Format(dateFormat))
+			fmt.Printf("table_name(%s) | min(%s) | max(%s) | min_deletion(%s) \n", log.Name, log.MinPartition,
+				log.MaxPartition, log.MinDeletion.Format(dateFormat))
+			for _, tableName := range partitionTables {
+				if log.Name == tableName {
+					Expect(log.MinPartition).To(ContainSubstring(minTime.Format(partitionDateFormat)))
+					Expect(log.MaxPartition).To(ContainSubstring(maxTime.Format(partitionDateFormat)))
+				}
+			}
 		}
 	})
 })
 
-func createPartitionTable(tableName string, startTime, endTime time.Time) error {
-	partitionTableName := fmt.Sprintf("%s_%s", tableName, startTime.Format(partitionDateFormat))
-	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')",
-		partitionTableName, tableName, startTime.Format(dateFormat), endTime.Format(dateFormat))
+func createPartitionTable(tableName string, date time.Time) error {
 	db := database.GetGorm()
-	if result := db.Exec(sql); result.Error != nil {
+	result := db.Exec(`SELECT create_monthly_range_partitioned_table(?, ?)`, tableName, date.Format(dateFormat))
+	if result.Error != nil {
 		return fmt.Errorf("failed to create partition table %s: %w", tableName, result.Error)
 	}
 	return nil

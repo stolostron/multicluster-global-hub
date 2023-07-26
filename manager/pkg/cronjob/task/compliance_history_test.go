@@ -20,18 +20,6 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		defer conn.Release()
 
-		By("Creating the partition table for test")
-		currentTime := time.Now()
-		for _, tableName := range partitionTables {
-			for i := 0; i <= 1; i++ {
-				month := currentTime.AddDate(0, i, 0)
-				startDate := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, month.Location())
-				endDate := startDate.AddDate(0, 1, 0)
-				err := createPartitionTable(tableName, startDate, endDate)
-				Expect(err).NotTo(HaveOccurred())
-			}
-		}
-
 		By("Check whether the tables are created")
 		Eventually(func() error {
 			rows, err := conn.Query(ctx, "SELECT schemaname, tablename FROM pg_tables")

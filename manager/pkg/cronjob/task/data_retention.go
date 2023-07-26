@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -36,6 +37,7 @@ var (
 	partitionTables = []string{
 		"event.local_policies",
 		"event.local_root_policies",
+		"history.local_compliance",
 	}
 )
 
@@ -117,18 +119,14 @@ func traceDataRetentionLog(tableName string, currentTime time.Time, err error, p
 	}
 
 	if partition {
-		minPartition, err := getBoundaryPartitionTable(tableName, Asc)
+		minPartition, maxPartition, err := getMinMaxPartitions(tableName)
 		if err != nil {
-			return fmt.Errorf("failed to get min partition table: %w", err)
-		}
-		maxPartition, err := getBoundaryPartitionTable(tableName, Desc)
-		if err != nil {
-			return fmt.Errorf("failed to get max partition table: %w", err)
+			return err
 		}
 		dataRetentionLog.MinPartition = minPartition
 		dataRetentionLog.MaxPartition = maxPartition
 	} else {
-		if minDeletionTime, err := getMinDeletionTime(tableName); err != nil && minDeletionTime.IsZero() {
+		if minDeletionTime, err := getMinDeletionTime(tableName); err != nil && !minDeletionTime.IsZero() {
 			dataRetentionLog.MinDeletion = minDeletionTime
 		}
 	}
@@ -136,44 +134,47 @@ func traceDataRetentionLog(tableName string, currentTime time.Time, err error, p
 	return result.Error
 }
 
-type Order string
-
-const (
-	Asc  Order = "ASC"
-	Desc Order = "DESC"
-)
-
-func getBoundaryPartitionTable(tableName string, order Order) (string, error) {
+func getMinMaxPartitions(tableName string) (string, string, error) {
 	db := database.GetGorm()
+	schemaTable := strings.Split(tableName, ".")
+	if len(schemaTable) != 2 {
+		return "", "", fmt.Errorf("invalid table name: %s", tableName)
+	}
 	sql := fmt.Sprintf(`
 		SELECT
-			table_schema || '.' || table_name AS "table_schema.table_name"
+			nmsp_child.nspname AS schema_name,
+			child.relname AS table_name
 		FROM
-			information_schema.tables
+			pg_inherits
+			JOIN pg_class parent ON pg_inherits.inhparent = parent.oid
+			JOIN pg_class child ON pg_inherits.inhrelid = child.oid
+			JOIN pg_namespace nmsp_parent ON nmsp_parent.oid = parent.relnamespace
+			JOIN pg_namespace nmsp_child ON nmsp_child.oid = child.relnamespace
 		WHERE
-			table_schema || '.' || table_name LIKE '%s\%%'
+			nmsp_parent.nspname='%s'
+			AND parent.relname='%s'
 		ORDER BY
-			table_name %s
-		LIMIT 1;`,
-		tableName, order)
-	var boundaryPartitionTable string
-	result := db.Raw(sql).Find(&boundaryPartitionTable)
-	if result.Error != nil {
-		return "", fmt.Errorf("failed to get boundary partition table: %w", result.Error)
-	}
-	return boundaryPartitionTable, nil
-}
+			child.relname ASC;`,
+		schemaTable[0], schemaTable[1])
 
-type minDeletion struct {
-	DeletedAt time.Time `gorm:"column:deleted_at;default:(-)"`
+	var tables []models.Table
+	result := db.Raw(sql).Find(&tables)
+	if result.Error != nil {
+		return "", "", fmt.Errorf("failed to get min/max partition table: %w", result.Error)
+	}
+	if len(tables) < 1 {
+		log.Info("no partition table found", "table", tableName)
+		return "", "", nil
+	}
+	return tables[0].Table, tables[len(tables)-1].Table, nil
 }
 
 func getMinDeletionTime(tableName string) (time.Time, error) {
 	db := database.GetGorm()
-	minDeletion := &minDeletion{}
-	result := db.Raw(fmt.Sprintf("SELECT MIN(deleted_at) as deleted_at FROM %s", tableName)).Find(minDeletion)
+	minDeletion := &models.Time{}
+	result := db.Raw(fmt.Sprintf("SELECT MIN(deleted_at) as time FROM %s", tableName)).Find(minDeletion)
 	if result.Error != nil {
-		return minDeletion.DeletedAt, fmt.Errorf("failed to get min deletion time: %w", result.Error)
+		return minDeletion.Time, fmt.Errorf("failed to get min deletion time: %w", result.Error)
 	}
-	return minDeletion.DeletedAt, nil
+	return minDeletion.Time, nil
 }

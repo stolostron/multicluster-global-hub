@@ -55,8 +55,7 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	}
 	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 
-	// in fact, this task only needs to be run once a month, here we set it to run once a week to improve its robustness
-	dataRetentionJob, err := scheduler.Every(1).Week().DoWithJobDetails(task.DataRetention, ctx, pool)
+	dataRetentionJob, err := scheduler.Every(1).Month(1).DoWithJobDetails(task.DataRetention, ctx, pool)
 	if err != nil {
 		return err
 	}
