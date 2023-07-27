@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const InvalidDurationMessage = "time: invalid duration "
+
 var unitMap = map[string]uint64{
 	"h": uint64(time.Hour),
 	"d": uint64(time.Hour * 24),
@@ -35,7 +37,7 @@ func ParseDuration(s string) (time.Duration, error) {
 		return 0, nil
 	}
 	if s == "" {
-		return 0, errors.New("time: invalid duration " + quote(orig))
+		return 0, errors.New(InvalidDurationMessage + quote(orig))
 	}
 	for s != "" {
 		var (
@@ -47,13 +49,13 @@ func ParseDuration(s string) (time.Duration, error) {
 
 		// The next character must be [0-9.]
 		if !(s[0] == '.' || '0' <= s[0] && s[0] <= '9') {
-			return 0, errors.New("time: invalid duration " + quote(orig))
+			return 0, errors.New(InvalidDurationMessage + quote(orig))
 		}
 		// Consume [0-9]*
 		pl := len(s)
 		v, s, err = leadingInt(s)
 		if err != nil {
-			return 0, errors.New("time: invalid duration " + quote(orig))
+			return 0, errors.New(InvalidDurationMessage + quote(orig))
 		}
 		pre := pl != len(s) // whether we consumed anything before a period
 
@@ -67,7 +69,7 @@ func ParseDuration(s string) (time.Duration, error) {
 		}
 		if !pre && !post {
 			// no digits (e.g. ".s" or "-.s")
-			return 0, errors.New("time: invalid duration " + quote(orig))
+			return 0, errors.New(InvalidDurationMessage + quote(orig))
 		}
 
 		// Consume unit.
@@ -89,7 +91,7 @@ func ParseDuration(s string) (time.Duration, error) {
 		}
 		if v > 1<<63/unit {
 			// overflow
-			return 0, errors.New("time: invalid duration " + quote(orig))
+			return 0, errors.New(InvalidDurationMessage + quote(orig))
 		}
 		v *= unit
 		if f > 0 {
@@ -98,19 +100,19 @@ func ParseDuration(s string) (time.Duration, error) {
 			v += uint64(float64(f) * (float64(unit) / scale))
 			if v > 1<<63 {
 				// overflow
-				return 0, errors.New("time: invalid duration " + quote(orig))
+				return 0, errors.New(InvalidDurationMessage + quote(orig))
 			}
 		}
 		d += v
 		if d > 1<<63 {
-			return 0, errors.New("time: invalid duration " + quote(orig))
+			return 0, errors.New(InvalidDurationMessage + quote(orig))
 		}
 	}
 	if neg {
 		return -time.Duration(d), nil
 	}
 	if d > 1<<63-1 {
-		return 0, errors.New("time: invalid duration " + quote(orig))
+		return 0, errors.New(InvalidDurationMessage + quote(orig))
 	}
 	return time.Duration(d), nil
 }
