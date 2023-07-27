@@ -136,21 +136,6 @@ func GetClusterID(cluster clusterv1.ManagedCluster) string {
 	return ""
 }
 
-// Traverse directories upwards until a directory containing go.mod is found.
-func findRootDir(dir string) (string, error) {
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-
-		if dir == filepath.Dir(dir) {
-			return "", fmt.Errorf("rootDir cannot find")
-		}
-
-		dir = filepath.Dir(dir)
-	}
-}
-
 func deployGlobalHub() {
 	By("Creating client for the hub cluster")
 	scheme := runtime.NewScheme()
@@ -159,6 +144,14 @@ func deployGlobalHub() {
 
 	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 	Expect(err).ShouldNot(HaveOccurred())
+
+	By("Deploy postgres and kafka")
+	postgresScript := fmt.Sprintf("%s/test/setup/hoh/postgres.sh", rootDir)
+	kafkaScript := fmt.Sprintf("%s/test/setup/hoh/kafka.sh", rootDir)
+	postgresCmd := exec.Command("bash", postgresScript, rootDir, testOptions.HubCluster.KubeConfig)
+	Expect(postgresCmd.Start()).Should(Succeed())
+	kafkaCmd := exec.Command("bash", kafkaScript, rootDir, testOptions.HubCluster.KubeConfig)
+	Expect(kafkaCmd.Start()).Should(Succeed())
 
 	By("Deploying operator with built image")
 	operatorYaml := fmt.Sprintf("%s/operator/config/manager/manager.yaml", rootDir)
@@ -195,15 +188,23 @@ func deployGlobalHub() {
 			},
 		},
 	}
-
 	err = runtimeClient.Create(context.TODO(), mcgh)
 	if !errors.IsAlreadyExists(err) {
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
-	By("Verifying the multicluster-global-hub-grafana/manager")
+	By("Verifying the multicluster-global-hub postgres/kafka/operator/grafana/manager")
 	Eventually(func() error {
-		err := checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-operator")
+		err := postgresCmd.Wait()
+		if err != nil {
+			return err
+		}
+		err = kafkaCmd.Wait()
+		if err != nil {
+			return err
+		}
+
+		err = checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-operator")
 		if err != nil {
 			return err
 		}
@@ -215,43 +216,43 @@ func deployGlobalHub() {
 	}, 3*time.Minute, 2*time.Second).Should(Succeed())
 
 	// globalhub setup for e2e
-	if os.Getenv("IS_CANARY_ENV") != "true" {
-		By("updating deployment && cluster-manager")
-		cmd := exec.Command("kubectl", "patch", "deployment", "governance-policy-propagator", "-n", Namespace, "-p", "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-propagator\",\"image\":\"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0\"}]}}}}")
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
+	hack()
+}
 
-		cmd = exec.Command("kubectl", "patch", "clustermanager", "cluster-manager", "--type", "merge", "-p", "{\"spec\":{\"placementImagePullSpec\":\"quay.io/open-cluster-management/placement:latest\"}}")
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
+// e2e setting
+func hack() {
+	By("Hacking: Update governance-policy-propagator image")
+	cmd := exec.Command("kubectl", "patch", "deployment", "governance-policy-propagator", "-n", Namespace, "-p", "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-propagator\",\"image\":\"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0\"}]}}}}")
+	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+	Expect(cmd.Run()).Should(Succeed())
 
-		cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/manager-service-local.yaml", rootDir), "-n", Namespace)
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
+	By("Hacking: Change the placement image")
+	cmd = exec.Command("kubectl", "patch", "clustermanager", "cluster-manager", "--type", "merge", "-p", "{\"spec\":{\"placementImagePullSpec\":\"quay.io/open-cluster-management/placement:latest\"}}")
+	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+	Expect(cmd.Run()).Should(Succeed())
 
-		Eventually(func() error {
-			cmd = exec.Command("kubectl", "annotate", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "service.beta.openshift.io/inject-cabundle-")
-			setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-			output, err := cmd.CombinedOutput()
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(output))
+	By("Hacking: Expose the manager api by nodeport")
+	cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/manager-service-local.yaml", rootDir), "-n", Namespace)
+	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+	Expect(cmd.Run()).Should(Succeed())
 
-			cmd = exec.Command("kubectl", "get", "secret", "multicluster-global-hub-webhook-certs", "-n", Namespace, "-o", "jsonpath={.data.tls\\.crt}")
-			setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-			ca, err := cmd.Output()
-			if err != nil {
-				return err
-			}
+	By("Hacking: Mutatingwebhook setting")
+	cmd = exec.Command("kubectl", "annotate", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "service.beta.openshift.io/inject-cabundle-")
+	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+	output, err := cmd.CombinedOutput()
+	Expect(err).ShouldNot(HaveOccurred())
+	fmt.Println(string(output))
 
-			cmd = exec.Command("kubectl", "patch", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "-n", Namespace, "-p", fmt.Sprintf("{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"%s\"}}]}", ca))
-			setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-			output, err = cmd.CombinedOutput()
-			fmt.Println(string(output))
-			return err
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
-	}
+	cmd = exec.Command("kubectl", "get", "secret", "multicluster-global-hub-webhook-certs", "-n", Namespace, "-o", "jsonpath={.data.tls\\.crt}")
+	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+	ca, err := cmd.Output()
+	Expect(err).ShouldNot(HaveOccurred())
+
+	cmd = exec.Command("kubectl", "patch", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "-n", Namespace, "-p", fmt.Sprintf("{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"%s\"}}]}", ca))
+	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+	output, err = cmd.CombinedOutput()
+	Expect(err).ShouldNot(HaveOccurred())
+	fmt.Println(string(output))
 }
 
 func setCommandEnv(cmd *exec.Cmd, key, val string, baseEvn []string) {
@@ -284,4 +285,19 @@ func checkDeployAvailable(runtimeClient client.Client, namespace, name string) e
 		fmt.Printf("deployment image: %s/%s: %s\n", deployment.Name, container.Name, container.Image)
 	}
 	return fmt.Errorf("deployment: %s is not ready", deployment.Name)
+}
+
+// Traverse directories upwards until a directory containing go.mod is found.
+func findRootDir(dir string) (string, error) {
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+
+		if dir == filepath.Dir(dir) {
+			return "", fmt.Errorf("rootDir cannot find")
+		}
+
+		dir = filepath.Dir(dir)
+	}
 }
