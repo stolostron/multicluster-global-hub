@@ -99,6 +99,15 @@ type DataLayerConfig struct {
 type LargeScaleConfig struct {
 	// +optional
 	Kafka *KafkaConfig `json:"kafka,omitempty"`
+	// +optional
+	Postgres *PostgresConfig `json:"postgres,omitempty"`
+}
+
+// PostgresConfig defines the desired state of postgres
+type PostgresConfig struct {
+	// Expiration is the time duration before the data is deleted from the database. default value is 18 months
+	// +kubebuilder:default:=18
+	Expiration int `json:"expiration,omitempty"`
 }
 
 // KafkaConfig defines the desired state of kafka

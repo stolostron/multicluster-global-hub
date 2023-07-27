@@ -40,6 +40,7 @@ spec:
             {{- if .SchedulerInterval}}
             - --scheduler-interval={{.SchedulerInterval}}
             {{- end}}
+            - --data-expiration={{.DataExpiration}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

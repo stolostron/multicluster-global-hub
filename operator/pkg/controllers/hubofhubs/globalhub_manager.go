@@ -87,6 +87,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			SchedulerInterval      string
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
+			DataExpiration         string
 		}{
 			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -108,6 +109,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			SchedulerInterval:      config.GetSchedulerInterval(mgh),
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
+			DataExpiration:         strconv.Itoa(mgh.Spec.DataLayer.LargeScale.Postgres.Expiration),
 		}, nil
 	})
 	if err != nil {

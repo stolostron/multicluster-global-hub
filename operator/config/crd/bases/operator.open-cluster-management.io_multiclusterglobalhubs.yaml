@@ -60,6 +60,16 @@ spec:
                             - cloudEvents
                             type: string
                         type: object
+                      postgres:
+                        description: PostgresConfig defines the desired state of postgres
+                        properties:
+                          expiration:
+                            default: 18
+                            description: Expiration is the time duration before the
+                              data is deleted from the database. default value is
+                              18 months
+                            type: integer
+                        type: object
                     type: object
                   type:
                     description: DataLayerType specifies the type of data layer that
