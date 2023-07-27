@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/kylelemons/godebug/diff"
@@ -378,7 +377,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					SchedulerInterval      string
 					NodeSelector           map[string]string
 					Tolerations            []corev1.Toleration
-					DataExpiration         string
+					DataRetention          string
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -407,7 +406,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
-					DataExpiration: strconv.Itoa(mgh.Spec.DataLayer.LargeScale.Postgres.Expiration),
+					DataRetention: mgh.Spec.DataLayer.LargeScale.Postgres.Retention,
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())

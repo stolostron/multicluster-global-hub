@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +24,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
@@ -65,6 +67,16 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
+	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
+	dataRetention := "1m"
+	duration, err := commonutils.ParseDuration(mgh.Spec.DataLayer.LargeScale.Postgres.Retention)
+	if err != nil {
+		return fmt.Errorf("failed to parse data retention duration: %v", err)
+	}
+	if duration > time.Duration(30*24*time.Hour) {
+		dataRetention = mgh.Spec.DataLayer.LargeScale.Postgres.Retention
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                  string
@@ -87,7 +99,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			SchedulerInterval      string
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
-			DataExpiration         string
+			DataRetention          string
 		}{
 			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -109,7 +121,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			SchedulerInterval:      config.GetSchedulerInterval(mgh),
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
-			DataExpiration:         strconv.Itoa(mgh.Spec.DataLayer.LargeScale.Postgres.Expiration),
+			DataRetention:          dataRetention,
 		}, nil
 	})
 	if err != nil {

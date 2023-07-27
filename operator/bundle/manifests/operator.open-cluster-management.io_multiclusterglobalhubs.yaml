@@ -62,12 +62,15 @@ spec:
                       postgres:
                         description: PostgresConfig defines the desired state of postgres
                         properties:
-                          expiration:
-                            default: 18
-                            description: Expiration is the time duration before the
-                              data is deleted from the database. default value is
-                              18 months
-                            type: integer
+                          retention:
+                            default: 18m
+                            description: Retention is a a duration string. Which defines
+                              how long to keep the data in the database. min value
+                              is 1 month. A duration string is a possibly signed sequence
+                              of decimal numbers, each with optional fraction and
+                              a unit suffix, such as "2d4m". Valid time units are
+                              "h", "d", "m", "y".
+                            type: string
                         type: object
                     type: object
                   type:
