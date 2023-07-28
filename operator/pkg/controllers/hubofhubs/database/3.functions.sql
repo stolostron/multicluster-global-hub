@@ -417,3 +417,18 @@ BEGIN
         start_date_param, end_date_param);
 END;
 $$ LANGUAGE plpgsql;
+
+
+--- create the monthly partitioned tables function by created_at/compliance_date column
+--- sample: SELECT create_monthly_range_partitioned_table('event.local_root_policies', '2023-08-01');
+CREATE OR REPLACE FUNCTION create_monthly_range_partitioned_table(full_table_name text, input_time text)
+RETURNS VOID AS
+$$ 
+BEGIN 
+    EXECUTE format('CREATE TABLE IF NOT EXISTS %1$s_%2$s PARTITION OF %1$s FOR VALUES FROM (%3$L) TO (%4$L)',
+                   full_table_name, 
+                   to_char(input_time::date, 'YYYY_MM'),
+                   DATE_TRUNC('MONTH', input_time::date),
+                   DATE_TRUNC('MONTH', (input_time::date + INTERVAL '1 MONTH'))
+                  );
+END $$ LANGUAGE plpgsql;

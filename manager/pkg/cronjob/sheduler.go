@@ -55,7 +55,7 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	}
 	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 
-	dataRetentionJob, err := scheduler.Every(1).Month(1).DoWithJobDetails(task.DataRetention, ctx, pool)
+	dataRetentionJob, err := scheduler.Every(1).Week().DoWithJobDetails(task.DataRetention, ctx, pool)
 	if err != nil {
 		return err
 	}
