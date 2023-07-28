@@ -1,0 +1,17 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 6443
+    hostPort: 6443
+    listenAddress: "127.0.0.1"
+  - containerPort: 9095
+    hostPort: 30095
+    listenAddress: "0.0.0.0"
+  - containerPort: 32432
+    hostPort: 32432
+    listenAddress: "0.0.0.0"
+  - containerPort: 8080
+    hostPort: 30080
+    listenAddress: "127.0.0.1"
