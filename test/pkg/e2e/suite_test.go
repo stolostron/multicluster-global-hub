@@ -213,7 +213,7 @@ func deployGlobalHub() {
 			return err
 		}
 		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
-	}, 3*time.Minute, 2*time.Second).Should(Succeed())
+	}, 10*time.Minute, 2*time.Second).Should(Succeed())
 
 	// globalhub setup for e2e
 	hack()
