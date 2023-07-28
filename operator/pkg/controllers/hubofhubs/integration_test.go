@@ -355,10 +355,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				imagePullPolicy = mgh.Spec.ImagePullPolicy
 			}
 
-			dataRetention := operatorconstants.GHDefaultStorageRetention
-			if mgh.Spec.DataLayer.LargeScale.Postgres != nil {
-				dataRetention = mgh.Spec.DataLayer.LargeScale.Postgres.Retention
-			}
 			var err error
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
@@ -413,7 +409,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
-					DataRetention: dataRetention,
+					DataRetention: mgh.Spec.DataLayer.LargeScale.Postgres.Retention,
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())
