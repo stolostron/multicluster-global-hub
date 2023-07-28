@@ -76,7 +76,7 @@ var _ = BeforeSuite(func() {
 	Eventually(func() error {
 		httpToken, err = utils.FetchBearerToken(testOptions)
 		return err
-	}, 1*time.Minute, 1*time.Second*5).ShouldNot(HaveOccurred())
+	}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	klog.V(6).Info(fmt.Sprintf("Http BearerToken: %s", httpToken))
 	Expect(len(httpToken)).ShouldNot(BeZero())
 	httpClient = testClients.HttpClient()
@@ -171,6 +171,26 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Prepare the required resources")
+	if os.Getenv("IS_CANARY_ENV") != "true" {
+		//reset the leader election configmap to restart the operator quickly
+		cmd := exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/leader-election-configmap.yaml", rootDir), "-n", Namespace)
+		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+		Expect(cmd.Run()).Should(Succeed())
+
+		cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/manager-service-local.yaml", rootDir), "-n", Namespace)
+		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+		Expect(cmd.Run()).Should(Succeed())
+
+		cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml", rootDir), "-n", Namespace)
+		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+		Expect(cmd.Run()).Should(Succeed())
+
+		cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/pkg/testdata/crds/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml", rootDir), "-n", Namespace)
+		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+		Expect(cmd.Run()).Should(Succeed())
+	}
+
 	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 	Expect(err).ShouldNot(HaveOccurred())
 
@@ -229,46 +249,8 @@ func deployGlobalHub() {
 			return err
 		}
 		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
-	}, 3*time.Minute, 2*time.Second).Should(Succeed())
+	}, 3*time.Minute, 1*time.Second).Should(Succeed())
 
-	// globalhub setup for e2e
-	if os.Getenv("IS_CANARY_ENV") != "true" {
-		By("updating deployment && cluster-manager")
-		cmd := exec.Command("kubectl", "patch", "deployment", "governance-policy-propagator", "-n", Namespace, "-p", "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-propagator\",\"image\":\"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0\"}]}}}}")
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
-
-		cmd = exec.Command("kubectl", "patch", "clustermanager", "cluster-manager", "--type", "merge", "-p", "{\"spec\":{\"placementImagePullSpec\":\"quay.io/open-cluster-management/placement:latest\"}}")
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
-
-		cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/manager-service-local.yaml", rootDir), "-n", Namespace)
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
-
-		Eventually(func() error {
-			cmd = exec.Command("kubectl", "annotate", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "service.beta.openshift.io/inject-cabundle-")
-			setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-			output, err := cmd.CombinedOutput()
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(output))
-
-			cmd = exec.Command("kubectl", "get", "secret", "multicluster-global-hub-webhook-certs", "-n", Namespace, "-o", "jsonpath={.data.tls\\.crt}")
-			setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-			ca, err := cmd.Output()
-			if err != nil {
-				return err
-			}
-
-			cmd = exec.Command("kubectl", "patch", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "-n", Namespace, "-p", fmt.Sprintf("{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"%s\"}}]}", ca))
-			setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-			output, err = cmd.CombinedOutput()
-			fmt.Println(string(output))
-			return err
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
-	}
 }
 
 func setCommandEnv(cmd *exec.Cmd, key, val string, baseEvn []string) {

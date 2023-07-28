@@ -3,6 +3,6 @@ kind: ConfigMap
 metadata:
   name: controller-leader-election-configmap
 data:
-  leaseDuration: "15"
-  renewDeadline: "10"
+  leaseDuration: "1"
+  renewDeadline: "1"
   retryPeriod: "2"

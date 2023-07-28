@@ -73,30 +73,6 @@ function initKinDCluster() {
   fi
 }
 
-function initMicroShift() {
-  portMappings=$2
-  portMappingArray=(${portMappings//;/ })
-  portMappingFlag=""
-  for portMap in "${portMappingArray[@]}"; do
-    portMappingFlag="${portMappingFlag} -p ${portMap}"
-  done
-  docker run -d --rm --name $1 --privileged -v $1-data:/var/lib ${portMappingFlag} quay.io/microshift/microshift-aio:latest
-}
-
-function getMicroShiftKubeConfig() {
-  containerIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $1)
-
-  # wait until the kubeconfig is copied to target file successfully
-  until docker cp $1:/var/lib/microshift/resources/kubeadmin/kubeconfig $2 > /dev/null 2>&1
-  do
-    sleep 10
-  done
-
-  sed -i "s/microshift/${1}/" $2
-  sed -i "s/: user/: ${1}/" $2
-  sed -i "s/127.0.0.1/${containerIP}/" $2
-}
-
 function initHub() {
   echo "Initializing Hub $1 ..."
   clusteradm init --wait --context "$1" > /dev/null 2>&1
@@ -281,23 +257,6 @@ enableRouter() {
   # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
 }
 
-function enableDependencyResources() {
-  # crd
-  currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  kubectl --context "$1" apply -f ${currentDir}/crds
-
-  # # router: the microshift has the router resources - will be deprecated later
-  # kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
-  # GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
-  # kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
-  # kubectl apply -f $GIT_PATH/deploy/router.yaml
-  # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
-
-  # # service ca: the microshift has the service ca resources - will be deprecated later
-  # kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
-  # kubectl apply -f ${currentDir}/service-ca
-}
-
 # deploy olm
 function enableOLM() {
   NS=olm
@@ -327,19 +286,6 @@ function enableOLM() {
     exit 1
   fi
   echo "CSV \"packageserver\" install succeeded"
-}
-
-function connectMicroshift() {
-  leafhubName=$1
-  microshiftContainerName=$2
-  invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $leafhubName-control-plane)
-  microshiftContainerNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $microshiftContainerName)
-  if [[ "$invokeNetwork" =~ "$microshiftContainerNetwork" ]]; then
-    echo "Microshift network is already connected to ${invokeNetwork}"
-    exit 1
-  else 
-    docker network connect $microshiftContainerNetwork ${leafhubName}-control-plane
-  fi
 }
 
 function waitSecretToBeReady() {
