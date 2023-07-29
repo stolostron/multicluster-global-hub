@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS local_spec.policies (
     policy_category character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
     policy_control character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls') stored
 );
-CREATE INDEX local_policies_deleted_at_idx ON local_spec.policies (deleted_at);
+CREATE INDEX IF NOT EXISTS local_policies_deleted_at_idx ON local_spec.policies (deleted_at);
 
 CREATE TABLE IF NOT EXISTS local_status.compliance (
     policy_id uuid NOT NULL,
@@ -257,7 +257,7 @@ CREATE TABLE IF NOT EXISTS status.managed_clusters (
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     deleted_at timestamp without time zone
 );
-CREATE INDEX cluster_deleted_at_idx ON status.managed_clusters (deleted_at);
+CREATE INDEX IF NOT EXISTS cluster_deleted_at_idx ON status.managed_clusters (deleted_at);
 
 CREATE TABLE IF NOT EXISTS status.leaf_hubs (
     leaf_hub_name character varying(63) NOT NULL PRIMARY KEY,
@@ -267,7 +267,7 @@ CREATE TABLE IF NOT EXISTS status.leaf_hubs (
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     deleted_at timestamp without time zone
 );
-CREATE INDEX leafhub_deleted_at_idx ON status.leaf_hubs (deleted_at);
+CREATE INDEX IF NOT EXISTS leafhub_deleted_at_idx ON status.leaf_hubs (deleted_at);
 
 CREATE TABLE IF NOT EXISTS status.placementdecisions (
     id uuid NOT NULL,
