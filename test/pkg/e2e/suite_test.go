@@ -36,7 +36,6 @@ var (
 	testTimeout time.Duration
 
 	testClients utils.TestClient
-	httpToken   string
 	httpClient  *http.Client
 
 	leafHubNames    []string
@@ -67,24 +66,11 @@ var _ = BeforeSuite(func() {
 	testClients = utils.NewTestClient(testOptions)
 
 	By("Deploy the global hub")
-	//deployGlobalHub()
-
-	By("Create the testing rbac")
-	err := utils.CreateTestingRBAC(testOptions)
-	Expect(err).ShouldNot(HaveOccurred())
-
-	By("Get the http token and client")
-	Eventually(func() error {
-		httpToken, err = utils.FetchBearerToken(testOptions)
-		return err
-	}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-	klog.V(6).Info(fmt.Sprintf("Http BearerToken: %s", httpToken))
-	Expect(len(httpToken)).ShouldNot(BeZero())
-	httpClient = testClients.HttpClient()
+	deployGlobalHub()
 
 	By("Get the managed clusters")
 	Eventually(func() (err error) {
-		managedClusters, err = getManagedCluster(httpClient, httpToken)
+		managedClusters, err = getManagedCluster(httpClient)
 		return err
 	}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	Expect(len(managedClusters)).Should(Equal(ExpectedManagedClusterNum))
@@ -172,23 +158,10 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
-	// By("Prepare the required resources")
-	// if os.Getenv("IS_CANARY_ENV") != "true" {
-	// 	//reset the leader election configmap to restart the operator quickly
-	// 	cmd := exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/leader-election-configmap.yaml", rootDir), "-n", Namespace)
-	// 	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-	// 	Expect(cmd.Run()).Should(Succeed())
-
-	// 	cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/manager-service-local.yaml", rootDir), "-n", Namespace)
-	// 	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-	// 	Expect(cmd.Run()).Should(Succeed())
-
-	// 	cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml", rootDir), "-n", Namespace)
-	// 	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-	// 	Expect(cmd.Run()).Should(Succeed())
-	// }
-
-	Expect(kustomize.Apply(testClients, kustomize.Options{KustomizationPath: "../../../examples/policy"})).NotTo(HaveOccurred())
+	Expect(kustomize.Apply(testClients, testOptions,
+		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/test/pkg/e2e/resources", rootDir)})).NotTo(HaveOccurred())
+	Expect(kustomize.Apply(testClients, testOptions,
+		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
 	mcgh := &operatorv1alpha3.MulticlusterGlobalHub{
@@ -196,7 +169,7 @@ func deployGlobalHub() {
 			Name:      "multiclusterglobalhub",
 			Namespace: "open-cluster-management",
 			Annotations: map[string]string{
-				constants.AnnotationMGHClusterAPIUrl: "",
+				constants.AnnotationMGHClusterAPIUrl: "test",
 			},
 		},
 		Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{

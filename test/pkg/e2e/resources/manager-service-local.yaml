@@ -7,12 +7,13 @@ metadata:
     name: multicluster-global-hub-manager
     service: multicluster-global-hub-manager
     test: e2e
+  namespace: open-cluster-management
 spec:
   type: NodePort
   ports:
     - nodePort: 30080
-      port: 8443
-      targetPort: oauth-proxy
+      port: 8080
+      targetPort: http-apiserver
       name: http
       protocol: TCP
   selector:

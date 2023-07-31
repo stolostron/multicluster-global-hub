@@ -65,7 +65,7 @@ metadata:
     strimzi.io/cluster: kafka-brokers-cluster
 spec:
   partitions: 1
-  replicas: 2
+  replicas: 1
   config:
     cleanup.policy: compact
 ---
@@ -78,7 +78,7 @@ metadata:
     strimzi.io/cluster: kafka-brokers-cluster
 spec:
   partitions: 1
-  replicas: 2
+  replicas: 1
   config:
     cleanup.policy: compact
 ---
@@ -91,7 +91,7 @@ metadata:
     strimzi.io/cluster: kafka-brokers-cluster
 spec:
   partitions: 1
-  replicas: 2
+  replicas: 1
   config:
     cleanup.policy: compact
 # ---

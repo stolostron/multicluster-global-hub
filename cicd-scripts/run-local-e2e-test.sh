@@ -30,7 +30,7 @@ global_hub_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IP
 hub_namespace="open-cluster-management"
 
 # container nonk8s api server
-hub_nonk8s_api_server="https://${global_hub_node_ip}:30080"
+hub_nonk8s_api_server="http://${global_hub_node_ip}:30080"
 
 # container postgres uri
 container_pg_port="32432"

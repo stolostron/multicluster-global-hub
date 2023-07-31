@@ -77,11 +77,11 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				},
 			}
 			for _, managedCluster := range managedClusters {
-				Expect(updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedCluster))).Should(Succeed())
+				Expect(updateClusterLabel(httpClient, patches, GetClusterID(managedCluster))).Should(Succeed())
 			}
 			Eventually(func() error {
 				for _, managedCluster := range managedClusters {
-					managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedCluster.Name)
+					managedClusterInfo, err := getManagedClusterByName(httpClient, managedCluster.Name)
 					if err != nil {
 						return err
 					}

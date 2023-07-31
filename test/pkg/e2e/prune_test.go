@@ -77,7 +77,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			},
 		}
 		Eventually(func() error {
-			if err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID1); err != nil {
+			if err := updateClusterLabel(httpClient, patches, managedClusterUID1); err != nil {
 				return err
 			}
 			return nil
@@ -94,7 +94,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Check the appsub is applied to the cluster")
 		Eventually(func() error {
-			return checkAppsubreport(runtimeClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 1,
+			return checkAppsubreport(runtimeClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 1,
 				[]string{managedClusterName1})
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
@@ -109,7 +109,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, managedClusterUID2)
+			err := updateClusterLabel(httpClient, patches, managedClusterUID2)
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPolicyStatus(runtimeClient, httpClient, POLICY_NAME, POLICY_NAMESPACE, httpToken)
+			status, err := getPolicyStatus(runtimeClient, httpClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}

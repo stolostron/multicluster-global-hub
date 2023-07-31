@@ -52,11 +52,11 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		By("Check the label is added")
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[0]))
+			err := updateClusterLabel(httpClient, patches, GetClusterID(managedClusters[0]))
 			if err != nil {
 				return err
 			}
-			managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedClusters[0].Name)
+			managedClusterInfo, err := getManagedClusterByName(httpClient, managedClusters[0].Name)
 			if err != nil {
 				return err
 			}
@@ -77,7 +77,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				if err != nil {
 					return err
 				}
-				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 1,
+				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 1,
 					[]string{managedClusters[0].Name})
 			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 		})
@@ -95,11 +95,11 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 				By("Check the label is added to managedcluster")
 				Eventually(func() error {
-					err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID((managedClusters[i])))
+					err := updateClusterLabel(httpClient, patches, GetClusterID((managedClusters[i])))
 					if err != nil {
 						return err
 					}
-					managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedClusters[i].Name)
+					managedClusterInfo, err := getManagedClusterByName(httpClient, managedClusters[i].Name)
 					if err != nil {
 						return err
 					}
@@ -113,14 +113,14 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 				By("Check the appsub apply to the clusters")
 				Eventually(func() error {
-					return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken, 2, []string{managedClusters[0].Name, managedClusters[1].Name})
+					return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 2, []string{managedClusters[0].Name, managedClusters[1].Name})
 				}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 			})
 		}
 
 		AfterEach(func() {
 			if CurrentSpecReport().Failed() {
-				appsubreport, err := getAppsubReport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, httpToken)
+				appsubreport, err := getAppsubReport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE)
 				if err == nil {
 					appsubreportStr, _ := json.MarshalIndent(appsubreport, "", "  ")
 					klog.V(5).Info("Appsubreport: ", string(appsubreportStr))
@@ -140,7 +140,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		}
 		Eventually(func() error {
 			for _, managedCluster := range managedClusters {
-				err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedCluster))
+				err := updateClusterLabel(httpClient, patches, GetClusterID(managedCluster))
 				if err != nil {
 					return err
 				}
@@ -159,8 +159,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 	})
 })
 
-func getAppsubReport(appClient client.Client, httpClient *http.Client, name, namespace,
-	token string,
+func getAppsubReport(appClient client.Client, httpClient *http.Client, name, namespace string,
 ) (*appsv1alpha1.SubscriptionReport, error) {
 	appsubreport := &appsv1alpha1.SubscriptionReport{}
 	appsub := &appsv1.Subscription{}
@@ -176,7 +175,6 @@ func getAppsubReport(appClient client.Client, httpClient *http.Client, name, nam
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -198,10 +196,10 @@ func getAppsubReport(appClient client.Client, httpClient *http.Client, name, nam
 	return appsubreport, nil
 }
 
-func checkAppsubreport(appClient client.Client, httpClient *http.Client, name, namespace,
-	token string, expectDeployNum int, expectClusterNames []string,
+func checkAppsubreport(appClient client.Client, httpClient *http.Client, name, namespace string,
+	expectDeployNum int, expectClusterNames []string,
 ) error {
-	appsubreport, err := getAppsubReport(appClient, httpClient, name, namespace, token)
+	appsubreport, err := getAppsubReport(appClient, httpClient, name, namespace)
 	if err != nil {
 		return err
 	}

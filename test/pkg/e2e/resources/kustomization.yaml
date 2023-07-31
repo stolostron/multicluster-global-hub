@@ -1,0 +1,4 @@
+resources:
+- leader-election-configmap.yaml
+- manager-service-local.yaml
+- klusterletaddonconfigs_crd.yaml

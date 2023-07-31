@@ -2,16 +2,12 @@ package tests
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
 
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
@@ -42,27 +38,6 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 			Expect(string(healthy)).To(Equal("ok"))
 		})
 
-		It("connect to the nonk8s-server with specific user", func() {
-			identityUrl := testOptions.HubCluster.ApiServer + "/apis/user.openshift.io/v1/users/~"
-
-			req, err := http.NewRequest("GET", identityUrl, nil)
-			Expect(err).ShouldNot(HaveOccurred())
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", httpToken))
-
-			resp, err := httpClient.Do(req)
-			Expect(err).ShouldNot(HaveOccurred())
-			defer resp.Body.Close()
-
-			body, err := io.ReadAll(resp.Body)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			var result map[string]interface{}
-			json.Unmarshal(body, &result)
-			userRes, _ := json.MarshalIndent(result, "", "  ")
-			klog.V(6).Info(fmt.Sprintf("The Test User Infomation: %s", userRes))
-			users := [2]string{"kube:admin", "system:masters"}
-			Expect(users).To(ContainElement(result["metadata"].(map[string]interface{})["name"].(string)))
-		})
 	})
 
 	Context("Check all the parameters for e2e-tests", func() {

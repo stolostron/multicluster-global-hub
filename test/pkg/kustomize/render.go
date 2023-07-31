@@ -53,12 +53,13 @@ func GetLabels(yamlB []byte) (interface{}, error) {
 // kubeconfig which contains the ctx
 // ctx, the ctx to use
 // yamlB, a byte array containing the resources file
-func Apply(testClients utils.TestClient, o Options) error {
+func Apply(testClients utils.TestClient, testOptions utils.Options, o Options) error {
 	bytes, err := Render(o)
 	if err != nil {
 		return err
 	}
-	yamls := strings.Split(string(bytes), "---")
+	klog.V(6).Infof("obj:%v\n", string(bytes))
+	yamls := strings.Split(string(bytes), "---\n")
 	// yamlFiles is an []string
 	for _, f := range yamls {
 		if len(strings.TrimSpace(f)) == 0 {
@@ -66,9 +67,9 @@ func Apply(testClients utils.TestClient, o Options) error {
 		}
 
 		obj := &unstructured.Unstructured{}
-		klog.V(5).Infof("obj:%v\n", obj.Object)
 		err := yaml.Unmarshal([]byte(f), obj)
 		if err != nil {
+			klog.V(6).Infof("unmarshal %v is wrong", f)
 			return err
 		}
 
@@ -79,7 +80,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 			kind = v.(string)
 		}
 
-		klog.V(5).Infof("kind: %s\n", kind)
+		klog.V(6).Infof("kind: %s\n", kind)
 
 		var apiVersion string
 		if v, ok := obj.Object["apiVersion"]; !ok {
@@ -87,7 +88,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 		} else {
 			apiVersion = v.(string)
 		}
-		klog.V(5).Infof("apiVersion: %s\n", apiVersion)
+		klog.V(6).Infof("apiVersion: %s\n", apiVersion)
 
 		clientKube := testClients.KubeClient()
 		clientAPIExtension := testClients.KubeClientAPIExtension()
@@ -95,7 +96,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 		// and match each type-case
 		switch kind {
 		case "CustomResourceDefinition":
-			klog.V(5).Infof("Install CRD: %s\n", f)
+			klog.V(6).Infof("Install CRD: %s\n", f)
 			obj := &apiextensionsv1.CustomResourceDefinition{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -114,7 +115,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 				_, err = clientAPIExtension.ApiextensionsV1().CustomResourceDefinitions().Update(context.TODO(), existingObject, metav1.UpdateOptions{})
 			}
 		case "Namespace":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &corev1.Namespace{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -131,7 +132,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 				_, err = clientKube.CoreV1().Namespaces().Update(context.TODO(), existingObject, metav1.UpdateOptions{})
 			}
 		case "ServiceAccount":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &corev1.ServiceAccount{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -149,8 +150,25 @@ func Apply(testClients utils.TestClient, o Options) error {
 				klog.Warningf("%s %s/%s already exists, updating!", obj.Kind, obj.Namespace, obj.Name)
 				_, err = clientKube.CoreV1().ServiceAccounts(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
+		case "ClusterRole":
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
+			obj := &rbacv1.ClusterRole{}
+			err = yaml.Unmarshal([]byte(f), obj)
+			if err != nil {
+				return err
+			}
+			existingObject, errGet := clientKube.RbacV1().
+				ClusterRoles().
+				Get(context.TODO(), obj.Name, metav1.GetOptions{})
+			if errGet != nil {
+				_, err = clientKube.RbacV1().ClusterRoles().Create(context.TODO(), obj, metav1.CreateOptions{})
+			} else {
+				obj.ObjectMeta = existingObject.ObjectMeta
+				klog.Warningf("%s %s/%s already exists, updating!", obj.Kind, obj.Namespace, obj.Name)
+				_, err = clientKube.RbacV1().ClusterRoles().Update(context.TODO(), obj, metav1.UpdateOptions{})
+			}
 		case "ClusterRoleBinding":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &rbacv1.ClusterRoleBinding{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -166,8 +184,42 @@ func Apply(testClients utils.TestClient, o Options) error {
 				klog.Warningf("%s %s/%s already exists, updating!", obj.Kind, obj.Namespace, obj.Name)
 				_, err = clientKube.RbacV1().ClusterRoleBindings().Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
+		case "Role":
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
+			obj := &rbacv1.Role{}
+			err = yaml.Unmarshal([]byte(f), obj)
+			if err != nil {
+				return err
+			}
+			existingObject, errGet := clientKube.RbacV1().
+				Roles(obj.GetNamespace()).
+				Get(context.TODO(), obj.Name, metav1.GetOptions{})
+			if errGet != nil {
+				_, err = clientKube.RbacV1().Roles(obj.GetNamespace()).Create(context.TODO(), obj, metav1.CreateOptions{})
+			} else {
+				obj.ObjectMeta = existingObject.ObjectMeta
+				klog.Warningf("%s %s/%s already exists, updating!", obj.Kind, obj.Namespace, obj.Name)
+				_, err = clientKube.RbacV1().Roles(obj.GetNamespace()).Update(context.TODO(), obj, metav1.UpdateOptions{})
+			}
+		case "RoleBinding":
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
+			obj := &rbacv1.RoleBinding{}
+			err = yaml.Unmarshal([]byte(f), obj)
+			if err != nil {
+				return err
+			}
+			existingObject, errGet := clientKube.RbacV1().
+				RoleBindings(obj.GetNamespace()).
+				Get(context.TODO(), obj.Name, metav1.GetOptions{})
+			if errGet != nil {
+				_, err = clientKube.RbacV1().RoleBindings(obj.GetNamespace()).Create(context.TODO(), obj, metav1.CreateOptions{})
+			} else {
+				obj.ObjectMeta = existingObject.ObjectMeta
+				klog.Warningf("%s %s/%s already exists, updating!", obj.Kind, obj.Namespace, obj.Name)
+				_, err = clientKube.RbacV1().RoleBindings(obj.GetNamespace()).Update(context.TODO(), obj, metav1.UpdateOptions{})
+			}
 		case "Secret":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &corev1.Secret{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -184,7 +236,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 				_, err = clientKube.CoreV1().Secrets(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
 		case "ConfigMap":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &corev1.ConfigMap{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -203,7 +255,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 				_, err = clientKube.CoreV1().ConfigMaps(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
 		case "Service":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &corev1.Service{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -223,7 +275,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 				_, err = clientKube.CoreV1().Services(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
 		case "PersistentVolumeClaim":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &corev1.PersistentVolumeClaim{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -243,12 +295,23 @@ func Apply(testClients utils.TestClient, o Options) error {
 				_, err = clientKube.CoreV1().PersistentVolumeClaims(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
 		case "Deployment":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &appsv1.Deployment{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
 				return err
 			}
+			// replace images
+			obj.Spec.Template.Spec.Containers[0].Image = testOptions.HubCluster.OperatorImageREF
+			for _, env := range obj.Spec.Template.Spec.Containers[0].Env {
+				if env.Name == "RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT" {
+					env.Value = testOptions.HubCluster.AgentImageREF
+				}
+				if env.Name == "RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER" {
+					env.Value = testOptions.HubCluster.ManagerImageREF
+				}
+			}
+
 			existingObject, errGet := clientKube.AppsV1().
 				Deployments(obj.Namespace).
 				Get(context.TODO(), obj.Name, metav1.GetOptions{})
@@ -262,7 +325,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 				_, err = clientKube.AppsV1().Deployments(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
 		case "LimitRange":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &corev1.LimitRange{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -281,7 +344,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 				_, err = clientKube.CoreV1().LimitRanges(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
 		case "ResourceQuota":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &corev1.ResourceQuota{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
@@ -300,7 +363,7 @@ func Apply(testClients utils.TestClient, o Options) error {
 				_, err = clientKube.CoreV1().ResourceQuotas(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
 		case "StorageClass":
-			klog.V(5).Infof("Install %s: %s\n", kind, f)
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &storagev1.StorageClass{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
