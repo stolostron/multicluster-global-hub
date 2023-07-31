@@ -38,7 +38,7 @@ database_uri=$(kubectl get secret multicluster-global-hub-storage -n $hub_namesp
 container_pg_uri=$(echo $database_uri | sed "s|@.*hoh|@${global_hub_node_ip}:${container_pg_port}/hoh|g")
 
 printf "options:" > $OPTIONS_FILE
-printf "\n  hub:" >> $OPTIONS_FILE
+printf "\n  globalhub:" >> $OPTIONS_FILE
 printf "\n    name: $HUB_OF_HUB_NAME" >> $OPTIONS_FILE
 printf "\n    namespace: ${hub_namespace}" >> $OPTIONS_FILE
 printf "\n    apiServer: ${hub_api_server}" >> $OPTIONS_FILE
@@ -49,7 +49,7 @@ printf '\n    databaseURI: %s' ${container_pg_uri} >> $OPTIONS_FILE # contain $ 
 printf "\n    ManagerImageREF: ${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}" >> $OPTIONS_FILE
 printf "\n    AgentImageREF: ${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF}" >> $OPTIONS_FILE
 printf "\n    OperatorImageREF: ${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF}" >> $OPTIONS_FILE
-printf "\n  clusters:" >> $OPTIONS_FILE
+printf "\n  managedhubs:" >> $OPTIONS_FILE
 
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   # leafhub
@@ -57,10 +57,9 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$LEAF_HUB_NAME$i" > ${leafhub_kubeconfig}
   leafhub_kubecontext=$(kubectl config current-context --kubeconfig ${leafhub_kubeconfig})
 
-  printf "\n    - name: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE                # if the clusterName = leafhubName, then it is a leafhub
-  printf "\n      kubeconfig: ${leafhub_kubeconfig}" >> $OPTIONS_FILE
-  printf "\n      leafhubname: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE
-  printf "\n      kubecontext: ${leafhub_kubecontext}" >> $OPTIONS_FILE
+  printf "\n  - name: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE                # if the clusterName = leafhubName, then it is a leafhub
+  printf "\n    kubeconfig: ${leafhub_kubeconfig}" >> $OPTIONS_FILE
+  printf "\n    kubecontext: ${leafhub_kubecontext}" >> $OPTIONS_FILE
 
   for j in $(seq 1 "${MANAGED_CLUSTER_NUM}"); do
     # imported managedcluster
@@ -68,6 +67,7 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
     kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-${LEAF_HUB_NAME}$i-cluster$j" > ${managed_kubeconfig}
     managed_kubecontext=$(kubectl config current-context --kubeconfig ${managed_kubeconfig})
 
+    printf "\n    managedclusters:" >> $OPTIONS_FILE
     printf "\n    - name: kind-${LEAF_HUB_NAME}$i-cluster$j" >> $OPTIONS_FILE
     printf "\n      leafhubname: kind-${LEAF_HUB_NAME}$i" >> $OPTIONS_FILE
     printf "\n      kubeconfig: ${managed_kubeconfig}" >> $OPTIONS_FILE

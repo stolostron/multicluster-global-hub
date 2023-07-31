@@ -44,7 +44,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 				}
 			}
 			return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("add the label to the managed cluster", func() {
@@ -73,7 +73,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 					}
 				}
 				return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 	})
 
@@ -104,7 +104,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 					}
 				}
 				return nil
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 	})
 })
@@ -116,7 +116,7 @@ type patch struct {
 }
 
 func getManagedCluster(client *http.Client) ([]clusterv1.ManagedCluster, error) {
-	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
+	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", testOptions.GlobalHub.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func getManagedClusterByName(client *http.Client, managedClusterName string) (
 	*clusterv1.ManagedCluster, error,
 ) {
 	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters",
-		testOptions.HubCluster.Nonk8sApiServer)
+		testOptions.GlobalHub.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
@@ -182,7 +182,7 @@ func getManagedClusterByName(client *http.Client, managedClusterName string) (
 
 func updateClusterLabel(client *http.Client, patches []patch, managedClusterID string) error {
 	updateLabelUrl := fmt.Sprintf("%s/global-hub-api/v1/managedcluster/%s",
-		testOptions.HubCluster.Nonk8sApiServer, managedClusterID)
+		testOptions.GlobalHub.Nonk8sApiServer, managedClusterID)
 	// set method and body
 	jsonBody, err := json.Marshal(patches)
 	if err != nil {

@@ -64,6 +64,7 @@ var _ = BeforeSuite(func() {
 	By("Complete the options and init clients")
 	testOptions = completeOptions()
 	testClients = utils.NewTestClient(testOptions)
+	httpClient = testClients.HttpClient()
 
 	By("Deploy the global hub")
 	deployGlobalHub()
@@ -100,16 +101,14 @@ func completeOptions() utils.Options {
 	Expect(err).NotTo(HaveOccurred())
 
 	testOptions = testOptionsContainer.Options
-	if testOptions.HubCluster.KubeConfig == "" {
-		testOptions.HubCluster.KubeConfig = os.Getenv("KUBECONFIG")
+	if testOptions.GlobalHub.KubeConfig == "" {
+		testOptions.GlobalHub.KubeConfig = os.Getenv("KUBECONFIG")
 	}
 
 	s, _ := json.MarshalIndent(testOptionsContainer, "", "  ")
 	klog.V(6).Infof("OptionsContainer %s", s)
-	for _, cluster := range testOptions.ManagedClusters {
-		if cluster.Name == cluster.LeafHubName {
-			leafHubNames = append(leafHubNames, cluster.Name)
-		}
+	for _, cluster := range testOptions.ManagedHubs {
+		leafHubNames = append(leafHubNames, cluster.Name)
 	}
 
 	Expect(len(leafHubNames)).Should(Equal(ExpectedLeafHubNum))
@@ -187,7 +186,7 @@ func deployGlobalHub() {
 		},
 	}
 
-	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
+	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
 	Expect(err).ShouldNot(HaveOccurred())
 
 	err = runtimeClient.Create(context.TODO(), mcgh)

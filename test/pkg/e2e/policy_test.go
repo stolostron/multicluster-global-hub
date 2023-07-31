@@ -46,7 +46,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		policiesv1.AddToScheme(scheme)
 		corev1.AddToScheme(scheme)
 		placementrulev1.AddToScheme(scheme)
-		globalClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
+		globalClient, err = testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 		for _, leafhubName := range leafHubNames {
 			managedClient, err = testClients.ControllerRuntimeClient(leafhubName, scheme)
@@ -80,13 +80,13 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the label %s: %s is not exist", POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("create a inform policy for the labeled cluster", func() {
 		By("Create the inform policy in global hub")
 		Eventually(func() error {
-			message, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", INFORM_POLICY_YAML)
+			message, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", INFORM_POLICY_YAML)
 			if err != nil {
 				klog.V(5).Info(fmt.Sprintf("apply inform policy error: %s", message))
 				return err
@@ -109,7 +109,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusters[0].Name)
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Check the inform policy in managed hub")
 		Eventually(func() error {
@@ -130,12 +130,12 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusters[0].Name)
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("enforce the inform policy", func() {
 		Eventually(func() error {
-			_, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", ENFORCE_POLICY_YAML)
+			_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", ENFORCE_POLICY_YAML)
 			if err != nil {
 				return err
 			}
@@ -153,7 +153,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the policy has not been applied to the managed cluster %s or it is already compliant", managedClusters[0].Name)
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("add the label to a managedcluster for the policy", func() {
@@ -182,7 +182,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					}
 				}
 				return fmt.Errorf("the label %s: %s is not exist", POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 			By("Check the policy is created in global hub")
 			Eventually(func() error {
@@ -198,7 +198,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					}
 				}
 				return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusters[i].Name)
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 			By("Check the policy is created in managed hub")
 			Eventually(func() error {
@@ -214,7 +214,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					}
 				}
 				return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusters[i].Name)
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 	})
 
@@ -231,7 +231,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the policy should be in the managedcluster1")
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("remove the label from the managedcluster1")
 		patches := []patch{
@@ -261,7 +261,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				}
 			}
 			return nil
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("verify the policy resource has been added the global cleanup finalizer", func() {
@@ -322,7 +322,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 	AfterAll(func() {
 		By("Delete the enforce policy from global hub")
-		_, err := testClients.Kubectl(testOptions.HubCluster.Name, "delete", "-f", ENFORCE_POLICY_YAML)
+		_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "delete", "-f", ENFORCE_POLICY_YAML)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Check the enforce policy is deleted from managed hub")
@@ -335,7 +335,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 				return err
 			}
 			return fmt.Errorf("the policy should be removed from managed hub")
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Delete the label from managedcluster2")
 		patches := []patch{
@@ -374,7 +374,7 @@ func getPolicyStatus(client client.Client, httpClient *http.Client, name, namesp
 
 	policyUID := string(policy.UID)
 	getPolicyStatusURL := fmt.Sprintf("%s/global-hub-api/v1/policy/%s/status",
-		testOptions.HubCluster.Nonk8sApiServer, policyUID)
+		testOptions.GlobalHub.Nonk8sApiServer, policyUID)
 	req, err := http.NewRequest("GET", getPolicyStatusURL, nil)
 	if err != nil {
 		return nil, err

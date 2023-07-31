@@ -41,6 +41,8 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
     enableRouter "kind-hub${i}-cluster${j}" 2>&1 >> "$LEAF_HUB_LOG" &
   done
 
+  # apply multiclusterhubs.crd.yaml
+  kubectl --context kind-hub${i} apply -f ${CURRENT_DIR}/../pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
   # init ocm
   initHub "kind-hub${i}" "${CONFIG_DIR}/kind-hub${i}" 2>&1 >> "$LEAF_HUB_LOG" &
   hover $! "  OCM init hub kind-hub${i}"

@@ -16,7 +16,7 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 	Context("Check all the clients could connect to the HoH servers", func() {
 		It("connect to the apiserver with kubernetes interface", func() {
 			hubClient := testClients.KubeClient()
-			deployClient := hubClient.AppsV1().Deployments(testOptions.HubCluster.Namespace)
+			deployClient := hubClient.AppsV1().Deployments(testOptions.GlobalHub.Namespace)
 			deployList, err := deployClient.List(context.TODO(), metav1.ListOptions{Limit: 2})
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(len(deployList.Items) > 0).To(BeTrue())
@@ -43,15 +43,14 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 	Context("Check all the parameters for e2e-tests", func() {
 		ManagedClusterNum := 1
 		It("Check the num of hub clusters and managed clusters on options-local.yaml", func() {
-			opt := testOptions.ManagedClusters
+			opt := testOptions.ManagedHubs
 			var leafhubClusters []string
 			var managedClusters []string
 
 			for _, c := range opt {
-				if c.Name == c.LeafHubName {
-					leafhubClusters = append(leafhubClusters, c.Name)
-				} else {
-					managedClusters = append(managedClusters, c.Name)
+				leafhubClusters = append(leafhubClusters, c.Name)
+				for _, h := range c.ManagedClusters {
+					managedClusters = append(managedClusters, h.Name)
 				}
 			}
 			if len(leafhubClusters) != ExpectedLeafHubNum || len(managedClusters) != ManagedClusterNum*ExpectedLeafHubNum {

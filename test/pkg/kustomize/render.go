@@ -58,7 +58,6 @@ func Apply(testClients utils.TestClient, testOptions utils.Options, o Options) e
 	if err != nil {
 		return err
 	}
-	klog.V(6).Infof("obj:%v\n", string(bytes))
 	yamls := strings.Split(string(bytes), "---\n")
 	// yamlFiles is an []string
 	for _, f := range yamls {
@@ -302,13 +301,13 @@ func Apply(testClients utils.TestClient, testOptions utils.Options, o Options) e
 				return err
 			}
 			// replace images
-			obj.Spec.Template.Spec.Containers[0].Image = testOptions.HubCluster.OperatorImageREF
+			obj.Spec.Template.Spec.Containers[0].Image = testOptions.GlobalHub.OperatorImageREF
 			for _, env := range obj.Spec.Template.Spec.Containers[0].Env {
 				if env.Name == "RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT" {
-					env.Value = testOptions.HubCluster.AgentImageREF
+					env.Value = testOptions.GlobalHub.AgentImageREF
 				}
 				if env.Name == "RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER" {
-					env.Value = testOptions.HubCluster.ManagerImageREF
+					env.Value = testOptions.GlobalHub.ManagerImageREF
 				}
 			}
 

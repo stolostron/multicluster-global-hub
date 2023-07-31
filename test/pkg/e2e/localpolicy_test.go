@@ -62,7 +62,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 			}
 
 			By("Get postgres master pod name")
-			databaseURI := strings.Split(testOptions.HubCluster.DatabaseURI, "?")[0]
+			databaseURI := strings.Split(testOptions.GlobalHub.DatabaseURI, "?")[0]
 			postgresConn, err = database.PostgresConnection(context.TODO(), databaseURI, nil)
 			Expect(err).Should(Succeed())
 		})
@@ -94,7 +94,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 					}
 				}
 				return nil
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		Context("When deploy local policy to the leafhub", func() {
@@ -132,7 +132,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						return fmt.Errorf("expect policy has not synchronized")
 					}
 					return nil
-				}, 3*time.Minute, 5*time.Second).Should(Succeed())
+				}, 3*time.Minute, 1*time.Second).Should(Succeed())
 
 				By("Verify the local policy is synchronized to the global hub status table")
 				Eventually(func() error {

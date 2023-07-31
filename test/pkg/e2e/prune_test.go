@@ -30,7 +30,7 @@ import (
 
 const (
 	TIMEOUT          = 2 * time.Minute
-	INTERVAL         = 5 * time.Second
+	INTERVAL         = 1 * time.Second
 	REGINAL_HUB_NAME = "kind-hub1"
 )
 
@@ -58,7 +58,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		placementrulesv1.AddToScheme(scheme)
 		mghv1alpha3.AddToScheme(scheme)
 		var err error
-		runtimeClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
+		runtimeClient, err = testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		managedClusterName1 = managedClusters[0].Name
@@ -85,7 +85,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Apply the appsub to labeled cluster")
 		Eventually(func() error {
-			_, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", APP_SUB_YAML)
+			_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", APP_SUB_YAML)
 			if err != nil {
 				return err
 			}
@@ -118,7 +118,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Apply the policy to labeled cluster")
 		Eventually(func() error {
-			_, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", INFORM_POLICY_YAML)
+			_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", INFORM_POLICY_YAML)
 			if err != nil {
 				return err
 			}

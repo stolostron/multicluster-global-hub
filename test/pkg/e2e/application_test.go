@@ -36,7 +36,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 		appsv1.SchemeBuilder.AddToScheme(scheme)
 		appsv1alpha1.AddToScheme(scheme)
 		var err error
-		appClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
+		appClient, err = testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 
@@ -66,20 +66,20 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 				}
 			}
 			return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	Context("deploy the application", func() {
 		It("deploy the application/subscription", func() {
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
-				_, err := testClients.Kubectl(testOptions.HubCluster.Name, "apply", "-f", APP_SUB_YAML)
+				_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", APP_SUB_YAML)
 				if err != nil {
 					return err
 				}
 				return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 1,
 					[]string{managedClusters[0].Name})
-			}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 5*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		})
 
 		for i := 1; i < len(managedClusters); i++ {
@@ -109,12 +109,12 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 						}
 					}
 					return fmt.Errorf("the label %s: %s is not exist", APP_LABEL_KEY, APP_LABEL_VALUE)
-				}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+				}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 				By("Check the appsub apply to the clusters")
 				Eventually(func() error {
 					return checkAppsubreport(appClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 2, []string{managedClusters[0].Name, managedClusters[1].Name})
-				}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+				}, 5*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 			})
 		}
 
@@ -150,7 +150,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 		By("Remove the appsub resource")
 		Eventually(func() error {
-			_, err := testClients.Kubectl(testOptions.HubCluster.Name, "delete", "-f", APP_SUB_YAML)
+			_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "delete", "-f", APP_SUB_YAML)
 			if err != nil {
 				return err
 			}
@@ -170,7 +170,7 @@ func getAppsubReport(appClient client.Client, httpClient *http.Client, name, nam
 
 	appsubUID := string(appsub.GetUID())
 	getSubscriptionReportURL := fmt.Sprintf("%s/global-hub-api/v1/subscriptionreport/%s",
-		testOptions.HubCluster.Nonk8sApiServer, appsubUID)
+		testOptions.GlobalHub.Nonk8sApiServer, appsubUID)
 	req, err := http.NewRequest("GET", getSubscriptionReportURL, nil)
 	if err != nil {
 		return nil, err

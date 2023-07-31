@@ -60,7 +60,7 @@ func (c *testClient) ControllerRuntimeClient(clusterName string, scheme *runtime
 
 func (c *testClient) KubeClient() kubernetes.Interface {
 	opt := c.options
-	config, err := LoadConfig(opt.HubCluster.KubeConfig, opt.HubCluster.KubeConfig, opt.HubCluster.KubeContext)
+	config, err := LoadConfig(opt.GlobalHub.KubeConfig, opt.GlobalHub.KubeConfig, opt.GlobalHub.KubeContext)
 	if err != nil {
 		panic(err)
 	}
@@ -73,7 +73,7 @@ func (c *testClient) KubeClient() kubernetes.Interface {
 
 func (c *testClient) KubeClientAPIExtension() apiextensionsclientset.Interface {
 	opt := c.options
-	config, err := LoadConfig(opt.HubCluster.KubeConfig, opt.HubCluster.KubeConfig, opt.HubCluster.KubeContext)
+	config, err := LoadConfig(opt.GlobalHub.KubeConfig, opt.GlobalHub.KubeConfig, opt.GlobalHub.KubeContext)
 	if err != nil {
 		panic(err)
 	}
@@ -89,8 +89,8 @@ func (c *testClient) KubeClientAPIExtension() apiextensionsclientset.Interface {
 func (c *testClient) KubeDynamicClient() dynamic.Interface {
 	opt := c.options
 	url := ""
-	kubeConfig := opt.HubCluster.KubeConfig
-	kubeContext := opt.HubCluster.KubeContext
+	kubeConfig := opt.GlobalHub.KubeConfig
+	kubeContext := opt.GlobalHub.KubeContext
 	config, err := LoadConfig(url, kubeConfig, kubeContext)
 	if err != nil {
 		panic(err)
@@ -103,14 +103,14 @@ func (c *testClient) KubeDynamicClient() dynamic.Interface {
 }
 
 func (c *testClient) Kubectl(clusterName string, args ...string) (string, error) {
-	if c.options.HubCluster.Name == clusterName {
+	if c.options.GlobalHub.Name == clusterName {
 		// insert to the first
-		args = append([]string{"--context", c.options.HubCluster.KubeContext}, args...)
-		args = append([]string{"--kubeconfig", c.options.HubCluster.KubeConfig}, args...)
+		args = append([]string{"--context", c.options.GlobalHub.KubeContext}, args...)
+		args = append([]string{"--kubeconfig", c.options.GlobalHub.KubeConfig}, args...)
 		output, err := exec.Command("kubectl", args...).CombinedOutput()
 		return string(output), err
 	}
-	for _, cluster := range c.options.ManagedClusters {
+	for _, cluster := range c.options.ManagedHubs {
 		if cluster.Name == clusterName {
 			args = append([]string{"--context", cluster.KubeContext}, args...)
 			args = append([]string{"--kubeconfig", cluster.KubeConfig}, args...)
@@ -123,10 +123,10 @@ func (c *testClient) Kubectl(clusterName string, args ...string) (string, error)
 }
 
 func (c *testClient) RestConfig(clusterName string) (*rest.Config, error) {
-	if c.options.HubCluster.Name == clusterName {
-		return LoadConfig(c.options.HubCluster.ApiServer, c.options.HubCluster.KubeConfig, c.options.HubCluster.KubeContext)
+	if c.options.GlobalHub.Name == clusterName {
+		return LoadConfig(c.options.GlobalHub.ApiServer, c.options.GlobalHub.KubeConfig, c.options.GlobalHub.KubeContext)
 	}
-	for _, cluster := range c.options.ManagedClusters {
+	for _, cluster := range c.options.ManagedHubs {
 		if cluster.Name == clusterName {
 			return LoadConfig("", cluster.KubeConfig, cluster.KubeContext)
 		}

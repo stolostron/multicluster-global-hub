@@ -6,12 +6,12 @@ type OptionsContainer struct {
 
 // Define options available for Tests to consume
 type Options struct {
-	HubCluster      GlobalHubCluster `yaml:"hub"`
-	ManagedClusters []ManagedCluster `yaml:"clusters"`
+	GlobalHub   GlobalHub    `yaml:"globalhub"`
+	ManagedHubs []ManagedHub `yaml:"managedhubs"`
 }
 
 // Define the shape of clusters that may be added under management
-type GlobalHubCluster struct {
+type GlobalHub struct {
 	Name             string `yaml:"name,omitempty"`
 	Namespace        string `yaml:"namespace,omitempty"`
 	ApiServer        string `yaml:"apiServer,omitempty"`
@@ -22,6 +22,13 @@ type GlobalHubCluster struct {
 	ManagerImageREF  string `yaml:"ManagerImageREF,omitempty"`
 	AgentImageREF    string `yaml:"AgentImageREF,omitempty"`
 	OperatorImageREF string `yaml:"OperatorImageREF,omitempty"`
+}
+
+type ManagedHub struct {
+	Name            string           `yaml:"name,omitempty"`
+	KubeConfig      string           `yaml:"kubeconfig,omitempty"`
+	KubeContext     string           `yaml:"kubecontext,omitempty"`
+	ManagedClusters []ManagedCluster `yaml:"managedclusters,omitempty"`
 }
 
 type ManagedCluster struct {
