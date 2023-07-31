@@ -61,12 +61,11 @@ function checkKind() {
 function initKinDCluster() {
   clusterName="$1"
   kindConfig="$2"
-  image="kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae" # or kindest/node:v1.23.4 
   if [[ $(kind get clusters | grep "^${clusterName}$" || true) != "${clusterName}" ]]; then
     if [[ "x${kindConfig}" == "x" ]]; then
-      kind create cluster --name "$clusterName" --image "$image" --wait 1m
+      kind create cluster --name "$clusterName" --wait 1m
     else
-      kind create cluster --name "$clusterName" --image "$image" --wait 1m --config $kindConfig
+      kind create cluster --name "$clusterName" --wait 1m --config $kindConfig
     fi
     currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     kubectl config view --context="kind-${clusterName}" --minify --flatten > ${currentDir}/config/kubeconfig-${clusterName}

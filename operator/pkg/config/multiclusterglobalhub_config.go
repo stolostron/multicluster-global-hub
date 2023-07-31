@@ -131,6 +131,11 @@ func GetSchedulerInterval(mgh *operatorv1alpha3.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
 }
 
+// GetClusterAPIUrl returns the cluster api url for the manager
+func GetClusterAPIUrl(mgh *operatorv1alpha3.MulticlusterGlobalHub) string {
+	return getAnnotation(mgh, operatorconstants.AnnotationMGHClusterAPIUrl)
+}
+
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
 func GetImageOverridesConfigmap(mgh *operatorv1alpha3.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)

@@ -42,6 +42,9 @@ spec:
             {{- end}}
             - --data-retention={{.DataRetention}}
             - --statistics-log-interval={{.StatisticLogInterval}}
+            {{- if .ClusterAPIUrl}}
+            - --cluster-api-url={{.ClusterAPIUrl}}
+            {{- end}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

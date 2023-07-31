@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -22,6 +23,7 @@ import (
 type TestClient interface {
 	KubeClient() kubernetes.Interface
 	KubeDynamicClient() dynamic.Interface
+	KubeClientAPIExtension() apiextensionsclientset.Interface
 	ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error)
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
@@ -66,6 +68,21 @@ func (c *testClient) KubeClient() kubernetes.Interface {
 	if err != nil {
 		panic(err)
 	}
+	return clientset
+}
+
+func (c *testClient) KubeClientAPIExtension() apiextensionsclientset.Interface {
+	opt := c.options
+	config, err := LoadConfig(opt.HubCluster.KubeConfig, opt.HubCluster.KubeConfig, opt.HubCluster.KubeContext)
+	if err != nil {
+		panic(err)
+	}
+
+	clientset, err := apiextensionsclientset.NewForConfig(config)
+	if err != nil {
+		panic(err)
+	}
+
 	return clientset
 }
 

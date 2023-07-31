@@ -48,7 +48,9 @@ require (
 	open-cluster-management.io/multicloud-operators-subscription v0.8.0
 	sigs.k8s.io/application v0.8.3
 	sigs.k8s.io/controller-runtime v0.13.1
+	sigs.k8s.io/kustomize/api v0.11.4
 	sigs.k8s.io/yaml v1.3.0
+	sigs.k8s.io/kustomize/kyaml v0.13.6
 )
 
 require (
@@ -73,12 +75,14 @@ require (
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
+	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/pprof v0.0.0-20211008130755-947d60d73cc0 // indirect
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
@@ -104,6 +108,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/opensearch-project/opensearch-go v1.1.0 // indirect
 	github.com/opsgenie/opsgenie-go-sdk-v2 v1.2.14 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
@@ -118,7 +123,9 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
+	github.com/xlab/treeprint v1.1.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
+	go.starlark.net v0.0.0-20220203230714-bb14e151c28f // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/tools v0.7.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect

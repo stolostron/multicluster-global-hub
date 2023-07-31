@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -25,6 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
@@ -66,7 +67,7 @@ var _ = BeforeSuite(func() {
 	testClients = utils.NewTestClient(testOptions)
 
 	By("Deploy the global hub")
-	deployGlobalHub()
+	//deployGlobalHub()
 
 	By("Create the testing rbac")
 	err := utils.CreateTestingRBAC(testOptions)
@@ -90,7 +91,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	utils.DeleteTestingRBAC(testOptions)
+	//utils.DeleteTestingRBAC(testOptions)
 })
 
 func completeOptions() utils.Options {
@@ -171,52 +172,32 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Prepare the required resources")
-	if os.Getenv("IS_CANARY_ENV") != "true" {
-		//reset the leader election configmap to restart the operator quickly
-		cmd := exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/leader-election-configmap.yaml", rootDir), "-n", Namespace)
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
+	// By("Prepare the required resources")
+	// if os.Getenv("IS_CANARY_ENV") != "true" {
+	// 	//reset the leader election configmap to restart the operator quickly
+	// 	cmd := exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/leader-election-configmap.yaml", rootDir), "-n", Namespace)
+	// 	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+	// 	Expect(cmd.Run()).Should(Succeed())
 
-		cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/manager-service-local.yaml", rootDir), "-n", Namespace)
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
+	// 	cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/manager-service-local.yaml", rootDir), "-n", Namespace)
+	// 	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+	// 	Expect(cmd.Run()).Should(Succeed())
 
-		cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml", rootDir), "-n", Namespace)
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
+	// 	cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/pkg/testdata/crds/0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml", rootDir), "-n", Namespace)
+	// 	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
+	// 	Expect(cmd.Run()).Should(Succeed())
+	// }
 
-		cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/pkg/testdata/crds/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml", rootDir), "-n", Namespace)
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
-	}
-
-	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
-	Expect(err).ShouldNot(HaveOccurred())
-
-	By("Deploying operator with built image")
-	operatorYaml := fmt.Sprintf("%s/operator/config/manager/manager.yaml", rootDir)
-	err = replaceContent(operatorYaml, "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		testOptions.HubCluster.ManagerImageREF)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = replaceContent(operatorYaml, "quay.io/stolostron/multicluster-global-hub-agent:latest",
-		testOptions.HubCluster.AgentImageREF)
-	Expect(err).NotTo(HaveOccurred())
-
-	cmd := exec.Command("make", "-C", "../../../operator", "deploy")
-	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
-	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-	setCommandEnv(cmd, "IMG", testOptions.HubCluster.OperatorImageREF, nil)
-	output, err := cmd.CombinedOutput()
-	fmt.Println(string(output))
-	Expect(err).ShouldNot(HaveOccurred())
+	Expect(kustomize.Apply(testClients, kustomize.Options{KustomizationPath: "../../../examples/policy"})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
 	mcgh := &operatorv1alpha3.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "multiclusterglobalhub",
 			Namespace: "open-cluster-management",
+			Annotations: map[string]string{
+				constants.AnnotationMGHClusterAPIUrl: "",
+			},
 		},
 		Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
 			DataLayer: &operatorv1alpha3.DataLayerConfig{
@@ -232,6 +213,9 @@ func deployGlobalHub() {
 			},
 		},
 	}
+
+	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
+	Expect(err).ShouldNot(HaveOccurred())
 
 	err = runtimeClient.Create(context.TODO(), mcgh)
 	if !errors.IsAlreadyExists(err) {
@@ -251,20 +235,6 @@ func deployGlobalHub() {
 		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
 	}, 3*time.Minute, 1*time.Second).Should(Succeed())
 
-}
-
-func setCommandEnv(cmd *exec.Cmd, key, val string, baseEvn []string) {
-	if baseEvn != nil {
-		cmd.Env = baseEvn
-	}
-	cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, val))
-}
-
-func replaceContent(file string, old, new string) error {
-	cmd := exec.Command("sed", "-i", fmt.Sprintf("s|%s|%s|g", old, new), file)
-	output, err := cmd.CombinedOutput()
-	fmt.Println(string(output))
-	return err
 }
 
 func checkDeployAvailable(runtimeClient client.Client, namespace, name string) error {

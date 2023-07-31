@@ -14,7 +14,7 @@ checkDir ${CONFIG_DIR}
 checkKind
 
 LEAF_HUB_NAME="hub"
-HUB_OF_HUB_NAME="kind-global-hub"
+HUB_OF_HUB_NAME="global-hub"
 
 # kubeconfig
 KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}

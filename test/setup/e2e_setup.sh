@@ -32,15 +32,16 @@ global_hub_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IP
 hub_kubeconfig="${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}"
 kubectl --kubeconfig $hub_kubeconfig config set-cluster kind-${HUB_OF_HUB_NAME} --server=https://$global_hub_node_ip:6443
 HOH_KUBECONFIG=${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}
-# apply service-ca
-kubectl --kubeconfig $hub_kubeconfig apply -f ${CURRENT_DIR}/hoh/service-ca-crds
-kubectl --kubeconfig $hub_kubeconfig create ns openshift-config-managed
-kubectl --kubeconfig $hub_kubeconfig apply -f ${CURRENT_DIR}/hoh/service-ca/
 # enable  route
 enableRouter $CTX_HUB 2>&1 >> $LOG &
 # enable olm
 enableOLM $CTX_HUB 2>&1 >> $LOG &
 hover $! "  Enable OLM for $CTX_HUB"
+# apply service-ca
+kubectl --kubeconfig $hub_kubeconfig label node ${HUB_OF_HUB_NAME}-control-plane node-role.kubernetes.io/master=
+kubectl --kubeconfig $hub_kubeconfig apply -f ${CURRENT_DIR}/hoh/service-ca-crds
+kubectl --kubeconfig $hub_kubeconfig create ns openshift-config-managed
+kubectl --kubeconfig $hub_kubeconfig apply -f ${CURRENT_DIR}/hoh/service-ca/
 endTime_s=`date +%s`
 sumTime=$[ $endTime_s - $startTime_s ]
 echo "Prepare top hub :$sumTime seconds"
@@ -59,14 +60,6 @@ endTime_s=`date +%s`
 sumTime=$[ $endTime_s - $startTime_s ]
 echo "Prepare leaf hub cluster :$sumTime seconds"
 
-startTime_s=`date +%s`
-# joining lh to hoh
-initHub $CTX_HUB 2>&1 >> $LOG &
-hover $! "3 Init HoH OCM $HUB_OF_HUB_NAME"
-
-endTime_s=`date +%s`
-sumTime=$[ $endTime_s - $startTime_s ]
-echo "Init HoH OCM :$sumTime seconds"
 startTime_s=`date +%s`
 
 # import managed hubs
