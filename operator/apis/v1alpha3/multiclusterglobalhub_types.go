@@ -105,9 +105,10 @@ type LargeScaleConfig struct {
 
 // PostgresConfig defines the desired state of postgres
 type PostgresConfig struct {
-	// Retention is a a duration string. Which defines how long to keep the data in the database. min value is 1 month.
+	// Retention is a a duration string. Which defines how long to keep the data in the database.
+	// Recommended minimum value is 1 month, default value is 18 months.
 	// A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix,
-	// such as "2d4m". Valid time units are "h", "d", "m", "y".
+	// such as "2y4m". Valid time units are "h", "d", "m" and "y".
 	// +kubebuilder:default:="18m"
 	Retention string `json:"retention,omitempty"`
 }

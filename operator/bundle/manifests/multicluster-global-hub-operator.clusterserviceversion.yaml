@@ -15,6 +15,9 @@ metadata:
               "largeScale": {
                 "kafka": {
                   "transportFormat": "cloudEvents"
+                },
+                "postgres": {
+                  "retention": "18m"
                 }
               },
               "type": "largeScale"
@@ -26,7 +29,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2023-06-16T07:53:07Z"
+    createdAt: "2023-08-01T01:43:12Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     operatorframework.io/suggested-namespace: open-cluster-management
     operators.operatorframework.io/builder: operator-sdk-v1.28.0+git
@@ -800,4 +803,13 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
+  relatedImages:
+  - image: quay.io/stolostron/multicluster-global-hub-manager:latest
+    name: multicluster-global-hub-manager
+  - image: quay.io/stolostron/multicluster-global-hub-agent:latest
+    name: multicluster-global-hub-agent
+  - image: quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34
+    name: grafana
+  - image: quay.io/stolostron/origin-oauth-proxy:4.9
+    name: oauth-proxy
   version: 1.0.0-dev
