@@ -196,4 +196,6 @@ Handling database issues (unable to connect to DB, DB slow, DB data loss, ...)
 Performance optimizations (allow minimal batching time, grouping batches from multiple CUs, ...)
 Horizontal scalability
 
+## Reference
 
+- [Status Trnasport Bridge Design Document](https://docs.google.com/document/d/1BowtzMLsZ9AQKO1GgG_r5POcq3K1VlDm/edit)
