@@ -42,13 +42,12 @@ for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
   done
 
   # apply multiclusterhubs.crd.yaml
-  kubectl --context kind-hub${i} apply -f ${CURRENT_DIR}/../pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+  kubectl --context kind-hub${i} apply -f ${CURRENT_DIR}/../../pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
   # init ocm
   initHub "kind-hub${i}" "${CONFIG_DIR}/kind-hub${i}" 2>&1 >> "$LEAF_HUB_LOG" &
   hover $! "  OCM init hub kind-hub${i}"
-  initManaged "kind-hub${i}" "kind-hub${i}-cluster" ${MANAGED_CLUSTER_NUM} 2>&1 >> "$LEAF_HUB_LOG"
+  initManaged "kind-hub${i}" "kind-hub${i}-cluster" ${MANAGED_CLUSTER_NUM} 2>&1 >> "$LEAF_HUB_LOG" &
   hover $! "  OCM join managed kind-hub${i}-cluster"
-  wait
 
   HUB_KUBECONFIG=${CONFIG_DIR}/kubeconfig-hub-hub${i}
   kind get kubeconfig --name "hub${i}" --internal > "$HUB_KUBECONFIG"

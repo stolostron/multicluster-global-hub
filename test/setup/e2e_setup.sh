@@ -37,11 +37,9 @@ enableRouter $CTX_HUB 2>&1 >> $LOG &
 # enable olm
 enableOLM $CTX_HUB 2>&1 >> $LOG &
 hover $! "  Enable OLM for $CTX_HUB"
-# apply service-ca
-kubectl --kubeconfig $hub_kubeconfig label node ${HUB_OF_HUB_NAME}-control-plane node-role.kubernetes.io/master=
-kubectl --kubeconfig $hub_kubeconfig apply -f ${CURRENT_DIR}/hoh/service-ca-crds
-kubectl --kubeconfig $hub_kubeconfig create ns openshift-config-managed
-kubectl --kubeconfig $hub_kubeconfig apply -f ${CURRENT_DIR}/hoh/service-ca/
+# enable service CA
+enableServiceCA $CTX_HUB ${HUB_OF_HUB_NAME} ${CURRENT_DIR} 2>&1 >> $LOG &
+
 endTime_s=`date +%s`
 sumTime=$[ $endTime_s - $startTime_s ]
 echo "Prepare top hub :$sumTime seconds"

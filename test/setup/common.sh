@@ -107,6 +107,7 @@ function initManaged() {
 
 # init application-lifecycle
 function initApp() {
+  echo "init app for $1"
   hub="$1"
   managedPrefix="$2"
   managedClusterNum="$3"
@@ -126,7 +127,7 @@ function initApp() {
 }
 
 function initPolicy() {
-  echo "init policy"
+  echo "init policy for $1"
   hub="$1"
   managedPrefix="$2"
   managedClusterNum="$3"
@@ -254,6 +255,16 @@ enableRouter() {
   # pacman application depends on route crd, but we do not need to have route pod running in the cluster
   # kubectl apply -f $GIT_PATH/deploy/router.yaml
   # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
+}
+
+enableServiceCA() {
+  HUB_OF_HUB_NAME=$2
+  CURRENT_DIR=$3
+  # apply service-ca
+  kubectl --context $1 label node ${HUB_OF_HUB_NAME}-control-plane node-role.kubernetes.io/master=
+  kubectl --context $1 apply -f ${CURRENT_DIR}/hoh/service-ca-crds
+  kubectl --context $1 create ns openshift-config-managed
+  kubectl --context $1 apply -f ${CURRENT_DIR}/hoh/service-ca/
 }
 
 # deploy olm
