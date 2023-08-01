@@ -18,14 +18,14 @@ func TestParseDuration(t *testing.T) {
 		{
 			name:     "verify hour",
 			input:    "2h",
-			expected: 2 * time.Hour,
-			err:      nil,
+			expected: 0,
+			err:      errors.New("time: unknown unit " + quote("h") + " in duration " + quote("2h")),
 		},
 		{
 			name:     "verify day",
 			input:    "-3d",
-			expected: -3 * 24 * time.Hour,
-			err:      nil,
+			expected: 0,
+			err:      errors.New("time: unknown unit " + quote("d") + " in duration " + quote("-3d")),
 		},
 		{
 			name:     "verify month",
@@ -41,15 +41,15 @@ func TestParseDuration(t *testing.T) {
 		},
 		{
 			name:     "hybrid duration",
-			input:    "2h3d4m5y",
-			expected: 2*time.Hour + 3*24*time.Hour + 4*30*24*time.Hour + 5*365*24*time.Hour,
+			input:    "4m5y",
+			expected: 4*30*24*time.Hour + 5*365*24*time.Hour,
 			err:      nil,
 		},
 		{
 			name:     "invalid duration with non-numeric character",
-			input:    "-..2h3d4m5y",
+			input:    "-..4m5y",
 			expected: 0,
-			err:      errors.New(InvalidDurationMessage + quote("-..2h3d4m5y")),
+			err:      errors.New(InvalidDurationMessage + quote("-..4m5y")),
 		},
 		{
 			name:     "invalid duration with non-ASCII character",

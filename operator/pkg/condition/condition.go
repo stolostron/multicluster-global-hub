@@ -52,6 +52,12 @@ const (
 	CONDITION_MESSAGE_DATABASE_INIT = "Database has been initialized"
 )
 
+// NOTE: the status of Data Retention can be True or False
+const (
+	CONDITION_TYPE_RETENTION_INIT   = "DatabaseRetentionParsed"
+	CONDITION_REASON_RETENTION_INIT = "DatabaseRetentionParsed"
+)
+
 // NOTE: the status of TransportInitialized can be True or False
 const (
 	CONDITION_TYPE_TRANSPORT_INIT    = "TransportInitialized"
@@ -103,6 +109,13 @@ func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operato
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_DATABASE_INIT, status,
 		CONDITION_REASON_DATABASE_INIT, CONDITION_MESSAGE_DATABASE_INIT)
+}
+
+func SetConditionDataRetention(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
+	msg string,
+) error {
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RETENTION_INIT, CONDITION_STATUS_TRUE,
+		CONDITION_REASON_RETENTION_INIT, msg)
 }
 
 func SetConditionTransportInit(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
@@ -187,6 +200,18 @@ func ContainConditionStatusReason(mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	output := false
 	for _, condition := range mgh.Status.Conditions {
 		if condition.Type == typeName && condition.Reason == reason && condition.Status == status {
+			output = true
+		}
+	}
+	return output
+}
+
+func ContainConditionMessage(mgh *operatorv1alpha3.MulticlusterGlobalHub, typeName string,
+	message string,
+) bool {
+	output := false
+	for _, condition := range mgh.Status.Conditions {
+		if condition.Type == typeName && condition.Message == message {
 			output = true
 		}
 	}

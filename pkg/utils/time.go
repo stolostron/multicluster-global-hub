@@ -12,8 +12,8 @@ import (
 const InvalidDurationMessage = "time: invalid duration "
 
 var unitMap = map[string]uint64{
-	"h": uint64(time.Hour),
-	"d": uint64(time.Hour * 24),
+	// "h": uint64(time.Hour),
+	// "d": uint64(time.Hour * 24),
 	"m": uint64(time.Hour * 24 * 30),
 	"y": uint64(time.Hour * 24 * 365),
 }

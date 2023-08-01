@@ -68,13 +68,21 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 
 	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
-	dataRetention := "1m"
+	dataRetention := mgh.Spec.DataLayer.LargeScale.Postgres.Retention
 	duration, err := commonutils.ParseDuration(mgh.Spec.DataLayer.LargeScale.Postgres.Retention)
 	if err != nil {
 		return fmt.Errorf("failed to parse data retention duration: %v", err)
 	}
-	if duration > time.Duration(30*24*time.Hour) {
-		dataRetention = mgh.Spec.DataLayer.LargeScale.Postgres.Retention
+	if duration < time.Duration(30*24*time.Hour) {
+		dataRetention = "1m"
+		duration = time.Duration(30 * 24 * time.Hour)
+	}
+
+	msg := fmt.Sprintf("The data will be kept in the database for %d months.", int(duration.Hours()/24/30))
+	if !condition.ContainConditionMessage(mgh, condition.CONDITION_TYPE_RETENTION_INIT, msg) {
+		if err := condition.SetConditionDataRetention(ctx, r.Client, mgh, msg); err != nil {
+			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_INIT, err)
+		}
 	}
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
