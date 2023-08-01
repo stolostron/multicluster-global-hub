@@ -33,6 +33,10 @@ func (baseBundle *BaseLeafHubClusterInfoStatusBundle) GetVersion() *BundleVersio
 	return baseBundle.BundleVersion
 }
 
+func (baseBundle *BaseLeafHubClusterInfoStatusBundle) SetVersion(version *BundleVersion) {
+	baseBundle.BundleVersion = version
+}
+
 func (LeafHubClusterInfo) TableName() string {
 	return "status.leaf_hubs"
 }

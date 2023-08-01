@@ -91,6 +91,17 @@ func (cu *ConflationUnit) insert(bundle statusbundle.Bundle, metadata bundle.Bun
 	conflationElement := cu.priorityQueue[priority]
 	conflationElementBundle := conflationElement.bundleInfo.getBundle()
 
+	// when the agent is started without incarnation configmap, the first message version will be 0.1. then we need to
+	// 1. reset lastProcessedBundleVersion to 0.0
+	// 2. reset the bundleInfo version to 0.0 (add the resetBundleVersion() function to bundleInfo interface)
+	if bundle.GetVersion().Equals(statusbundle.NewBundleVersion(0, 1)) {
+		conflationElement.lastProcessedBundleVersion = noBundleVersion()
+		conflationElement.bundleInfo.resetBundleVersion()
+	}
+
+	cu.log.Info("inserting bundle", "managedHub", bundle.GetLeafHubName(), "bundleType", bundleType,
+		"bundleVersion", bundle.GetVersion())
+
 	if !bundle.GetVersion().NewerThan(conflationElement.lastProcessedBundleVersion) {
 		return // we got old bundle, a newer (or equal) bundle was already processed.
 	}

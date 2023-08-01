@@ -33,3 +33,7 @@ func (bundle *ClustersPerPolicyBundle) GetObjects() []interface{} {
 func (bundle *ClustersPerPolicyBundle) GetVersion() *status.BundleVersion {
 	return bundle.BundleVersion
 }
+
+func (bundle *ClustersPerPolicyBundle) SetVersion(version *status.BundleVersion) {
+	bundle.BundleVersion = version
+}

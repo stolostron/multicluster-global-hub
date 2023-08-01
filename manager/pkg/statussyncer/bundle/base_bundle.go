@@ -16,3 +16,7 @@ func (baseBundle *baseBundle) GetLeafHubName() string {
 func (baseBundle *baseBundle) GetVersion() *status.BundleVersion {
 	return baseBundle.BundleVersion
 }
+
+func (baseBundle *baseBundle) SetVersion(version *status.BundleVersion) {
+	baseBundle.BundleVersion = version
+}

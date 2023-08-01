@@ -35,3 +35,7 @@ func (bundle *BaseClusterPolicyStatusEventBundle) GetObjects() []interface{} {
 func (bundle *BaseClusterPolicyStatusEventBundle) GetVersion() *BundleVersion {
 	return bundle.BundleVersion
 }
+
+func (bundle *BaseClusterPolicyStatusEventBundle) SetVersion(version *BundleVersion) {
+	bundle.BundleVersion = version
+}

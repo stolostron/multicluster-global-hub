@@ -164,7 +164,8 @@ var _ = Describe("Policies", Ordered, func() {
 			UnknownComplianceClusters: []string{"cluster3"},
 		})
 		// transport bundle
-		policyCompleteComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
+		policyCompleteComplianceTransportKey :=
+			fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
 		completePayloadBytes, err := json.Marshal(transportCompletePayload)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -400,7 +401,8 @@ var _ = Describe("Policies", Ordered, func() {
 			AppliedClusters:      3,
 		})
 		// transport bundle
-		minimalPolicyComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
+		minimalPolicyComplianceTransportKey :=
+			fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
 		payloadBytes, err := json.Marshal(transportPayload)
 		Expect(err).ToNot(HaveOccurred())
 

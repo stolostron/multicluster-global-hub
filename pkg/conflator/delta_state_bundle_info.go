@@ -184,3 +184,19 @@ func (bi *deltaStateBundleInfo) markAsProcessed(metadata *BundleMetadata) {
 	bi.lastDispatchedDeltaBundleData.bundle = nil
 	bi.lastDispatchedDeltaBundleData.lowestPendingTransportMetadata = nil
 }
+
+// resetBundleVersion resets the bundle version.
+func (bi *deltaStateBundleInfo) resetBundleVersion() {
+	if bi.bundle == nil {
+		return
+	}
+	initVersion := &statusbundle.BundleVersion{
+		Incarnation: 0,
+		Generation:  0,
+	}
+	bi.bundle.SetVersion(initVersion)
+
+	if bi.metadata != nil {
+		bi.metadata.bundleVersion = initVersion
+	}
+}

@@ -38,3 +38,8 @@ func (bundle *CompleteComplianceStatusBundle) GetVersion() *status.BundleVersion
 func (bundle *CompleteComplianceStatusBundle) GetDependencyVersion() *status.BundleVersion {
 	return bundle.BaseBundleVersion
 }
+
+func (bundle *CompleteComplianceStatusBundle) SetVersion(version *status.BundleVersion) {
+	bundle.BundleVersion = version
+}
+
