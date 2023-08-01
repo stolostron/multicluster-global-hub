@@ -300,8 +300,8 @@ func Apply(testClients utils.TestClient, testOptions utils.Options, o Options) e
 				return err
 			}
 			// replace images
+			obj.Spec.Template.Spec.Containers[0].Image = testOptions.GlobalHub.OperatorImageREF
 			container := obj.Spec.Template.Spec.Containers[0]
-			container.Image = testOptions.GlobalHub.OperatorImageREF
 			for i, env := range container.Env {
 				if env.Name == "RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT" {
 					container.Env[i].Value = testOptions.GlobalHub.AgentImageREF
