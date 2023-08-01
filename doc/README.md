@@ -211,6 +211,4 @@ For common Troubleshooting issues, see [Troubleshooting](troubleshooting.md).
 
 2. You cannot drill down by selecting the first datapoint from the `Policy Group Compliancy Overview` dashboard. You can drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard, but it is not working for the first datapoint in the list. This issue also applies to the `Cluster Group Compliancy Overview` dashboard.
 
-3. If you detach the managed hub and rejoin it, The data (policies/managed clusters) might not be updated in time from the rejoined managed hub. You can fix this problem by restarting the `multicluster-global-hub-manager` pod on the global hub.
-
-4. A managed cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster) is not counted in global hub policy compliance database, but shows in the Red Hat Advanced Cluster Management policy console.
+3. A managed cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster) is not counted in global hub policy compliance database, but shows in the Red Hat Advanced Cluster Management policy console.
