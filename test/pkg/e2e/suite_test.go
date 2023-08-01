@@ -107,7 +107,7 @@ func completeOptions() utils.Options {
 
 	s, _ := json.MarshalIndent(testOptionsContainer, "", "  ")
 	klog.V(6).Infof("OptionsContainer %s", s)
-	for _, cluster := range testOptions.ManagedHubs {
+	for _, cluster := range testOptions.GlobalHub.ManagedHubs {
 		leafHubNames = append(leafHubNames, cluster.Name)
 	}
 

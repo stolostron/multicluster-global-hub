@@ -43,7 +43,7 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 	Context("Check all the parameters for e2e-tests", func() {
 		ManagedClusterNum := 1
 		It("Check the num of hub clusters and managed clusters on options-local.yaml", func() {
-			opt := testOptions.ManagedHubs
+			opt := testOptions.GlobalHub.ManagedHubs
 			var leafhubClusters []string
 			var managedClusters []string
 

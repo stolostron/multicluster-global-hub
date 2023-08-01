@@ -110,7 +110,7 @@ func (c *testClient) Kubectl(clusterName string, args ...string) (string, error)
 		output, err := exec.Command("kubectl", args...).CombinedOutput()
 		return string(output), err
 	}
-	for _, cluster := range c.options.ManagedHubs {
+	for _, cluster := range c.options.GlobalHub.ManagedHubs {
 		if cluster.Name == clusterName {
 			args = append([]string{"--context", cluster.KubeContext}, args...)
 			args = append([]string{"--kubeconfig", cluster.KubeConfig}, args...)
@@ -126,7 +126,7 @@ func (c *testClient) RestConfig(clusterName string) (*rest.Config, error) {
 	if c.options.GlobalHub.Name == clusterName {
 		return LoadConfig(c.options.GlobalHub.ApiServer, c.options.GlobalHub.KubeConfig, c.options.GlobalHub.KubeContext)
 	}
-	for _, cluster := range c.options.ManagedHubs {
+	for _, cluster := range c.options.GlobalHub.ManagedHubs {
 		if cluster.Name == clusterName {
 			return LoadConfig("", cluster.KubeConfig, cluster.KubeContext)
 		}
