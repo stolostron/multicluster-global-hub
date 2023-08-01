@@ -54,8 +54,8 @@ const (
 
 // NOTE: the status of Data Retention can be True or False
 const (
-	CONDITION_TYPE_RETENTION_INIT   = "DatabaseRetentionParsed"
-	CONDITION_REASON_RETENTION_INIT = "DatabaseRetentionParsed"
+	CONDITION_TYPE_RETENTION_PARSED   = "DataRetentionParsed"
+	CONDITION_REASON_RETENTION_PARSED = "DataRetentionParsed"
 )
 
 // NOTE: the status of TransportInitialized can be True or False
@@ -114,8 +114,8 @@ func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operato
 func SetConditionDataRetention(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
 	msg string,
 ) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RETENTION_INIT, CONDITION_STATUS_TRUE,
-		CONDITION_REASON_RETENTION_INIT, msg)
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RETENTION_PARSED, CONDITION_STATUS_TRUE,
+		CONDITION_REASON_RETENTION_PARSED, msg)
 }
 
 func SetConditionTransportInit(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,

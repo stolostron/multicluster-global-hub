@@ -79,9 +79,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 
 	msg := fmt.Sprintf("The data will be kept in the database for %d months.", int(duration.Hours()/24/30))
-	if !condition.ContainConditionMessage(mgh, condition.CONDITION_TYPE_RETENTION_INIT, msg) {
+	if !condition.ContainConditionMessage(mgh, condition.CONDITION_TYPE_RETENTION_PARSED, msg) {
 		if err := condition.SetConditionDataRetention(ctx, r.Client, mgh, msg); err != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_INIT, err)
+			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, err)
 		}
 	}
 
