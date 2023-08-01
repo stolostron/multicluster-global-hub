@@ -142,7 +142,9 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	transportPostgreSQL.Stop()
+	if transportPostgreSQL != nil {
+		transportPostgreSQL.Stop()
+	}
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 	database.CloseGorm()
 
