@@ -294,22 +294,23 @@ func Apply(testClients utils.TestClient, testOptions utils.Options, o Options) e
 				_, err = clientKube.CoreV1().PersistentVolumeClaims(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
 		case "Deployment":
-			klog.V(6).Infof("Install %s: %s\n", kind, f)
 			obj := &appsv1.Deployment{}
 			err = yaml.Unmarshal([]byte(f), obj)
 			if err != nil {
 				return err
 			}
 			// replace images
-			obj.Spec.Template.Spec.Containers[0].Image = testOptions.GlobalHub.OperatorImageREF
-			for _, env := range obj.Spec.Template.Spec.Containers[0].Env {
+			container := obj.Spec.Template.Spec.Containers[0]
+			container.Image = testOptions.GlobalHub.OperatorImageREF
+			for i, env := range container.Env {
 				if env.Name == "RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT" {
-					env.Value = testOptions.GlobalHub.AgentImageREF
+					container.Env[i].Value = testOptions.GlobalHub.AgentImageREF
 				}
 				if env.Name == "RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER" {
-					env.Value = testOptions.GlobalHub.ManagerImageREF
+					container.Env[i].Value = testOptions.GlobalHub.ManagerImageREF
 				}
 			}
+			klog.V(6).Infof("Install %s: %v\n", kind, obj)
 
 			existingObject, errGet := clientKube.AppsV1().
 				Deployments(obj.Namespace).

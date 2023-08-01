@@ -18,9 +18,9 @@ type GlobalHub struct {
 	KubeContext      string       `yaml:"kubecontext,omitempty"`
 	Nonk8sApiServer  string       `yaml:"nonk8sApiServer,omitempty"`
 	DatabaseURI      string       `yaml:"databaseURI,omitempty"`
-	ManagerImageREF  string       `yaml:"ManagerImageREF,omitempty"`
-	AgentImageREF    string       `yaml:"AgentImageREF,omitempty"`
-	OperatorImageREF string       `yaml:"OperatorImageREF,omitempty"`
+	ManagerImageREF  string       `yaml:"managerImageREF,omitempty"`
+	AgentImageREF    string       `yaml:"agentImageREF,omitempty"`
+	OperatorImageREF string       `yaml:"operatorImageREF,omitempty"`
 	ManagedHubs      []ManagedHub `yaml:"managedhubs"`
 }
 
