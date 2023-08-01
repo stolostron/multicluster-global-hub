@@ -11,6 +11,8 @@ type Bundle interface {
 	GetObjects() []interface{}
 	// GetVersion returns the bundle version.
 	GetVersion() *BundleVersion
+	// SetVersion sets the bundle version. ref to https://github.com/stolostron/multicluster-global-hub/pull/563
+	SetVersion(version *BundleVersion)
 }
 
 // DependantBundle is a bundle that depends on a different bundle.

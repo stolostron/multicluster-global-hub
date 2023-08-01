@@ -26,3 +26,4 @@ func (bundle *LocalPlacementRulesBundle) GetObjects() []interface{} {
 
 	return result
 }
+

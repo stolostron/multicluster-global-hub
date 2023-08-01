@@ -16,3 +16,7 @@ type ControlInfoBundle struct {
 func (bundle *ControlInfoBundle) GetObjects() []interface{} {
 	return nil
 }
+
+func (bundle *ControlInfoBundle) SetVersion(version *status.BundleVersion) {
+	bundle.BundleVersion = version
+}

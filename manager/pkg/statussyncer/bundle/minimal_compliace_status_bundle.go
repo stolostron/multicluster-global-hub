@@ -33,3 +33,7 @@ func (bundle *MinimalComplianceStatusBundle) GetObjects() []interface{} {
 func (bundle *MinimalComplianceStatusBundle) GetVersion() *status.BundleVersion {
 	return bundle.BundleVersion
 }
+
+func (bundle *MinimalComplianceStatusBundle) SetVersion(version *status.BundleVersion) {
+	bundle.BundleVersion = version
+}

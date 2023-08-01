@@ -79,11 +79,13 @@ func (bi *completeStateBundleInfo) resetBundleVersion() {
 	if bi.bundle == nil {
 		return
 	}
-	bundleVersion := bi.bundle.GetVersion()
-	bundleVersion.Generation = 0
-	bundleVersion.Incarnation = 0
+	initVersion := &statusbundle.BundleVersion{
+		Incarnation: 0,
+		Generation:  0,
+	}
+	bi.bundle.SetVersion(initVersion)
 
 	if bi.metadata != nil {
-		bi.metadata.bundleVersion = bundleVersion
+		bi.metadata.bundleVersion = initVersion
 	}
 }
