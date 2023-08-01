@@ -73,3 +73,17 @@ func (bi *completeStateBundleInfo) markAsProcessed(metadata *BundleMetadata) {
 	// the current (newer one) as pending.
 	bi.bundle = nil
 }
+
+// resetBundleVersion resets the bundle version.
+func (bi *completeStateBundleInfo) resetBundleVersion() {
+	if bi.bundle == nil {
+		return
+	}
+	bundleVersion := bi.bundle.GetVersion()
+	bundleVersion.Generation = 0
+	bundleVersion.Incarnation = 0
+
+	if bi.metadata != nil {
+		bi.metadata.bundleVersion = bundleVersion
+	}
+}

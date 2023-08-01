@@ -26,6 +26,8 @@ const (
 // The motivation behind this logic is allowing the message receivers/consumers to infer that messages transmitted
 // from this instance are more recent than all other existing ones, regardless of their instance-specific generations.
 func GetIncarnation(mgr ctrl.Manager) (uint64, error) {
+	// the initial incarnation is 0
+	lastIncarnation := uint64(0)
 	k8sClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
 		return 0, fmt.Errorf("failed to start k8s client - %w", err)
@@ -41,34 +43,34 @@ func GetIncarnation(mgr ctrl.Manager) (uint64, error) {
 	}
 	if err := k8sClient.Get(ctx, objKey, configMap); err != nil {
 		if !apiErrors.IsNotFound(err) {
-			return 0, fmt.Errorf("failed to get incarnation config-map - %w", err)
+			return lastIncarnation, fmt.Errorf("failed to get incarnation config-map - %w", err)
 		}
 
 		// incarnation ConfigMap does not exist, create it with incarnation = 0
-		configMap = CreateIncarnationConfigMap(0)
+		configMap = CreateIncarnationConfigMap(lastIncarnation)
 		if err := k8sClient.Create(ctx, configMap); err != nil {
-			return 0, fmt.Errorf("failed to create incarnation config-map obj - %w", err)
+			return lastIncarnation, fmt.Errorf("failed to create incarnation config-map obj - %w", err)
 		}
 
-		return 0, nil
+		return lastIncarnation, nil
 	}
 
 	// incarnation configMap exists, get incarnation, increment it and update object
 	incarnationString, exists := configMap.Data[constants.GHAgentIncarnationCMKey]
 	if !exists {
-		return 0, fmt.Errorf("configmap %s does not contain (%s)",
+		return lastIncarnation, fmt.Errorf("configmap %s does not contain (%s)",
 			constants.GHAgentIncarnationCMKey, constants.GHAgentIncarnationCMKey)
 	}
 
-	lastIncarnation, err := strconv.ParseUint(incarnationString, BASE10, UINT64_SIZE)
+	lastIncarnation, err = strconv.ParseUint(incarnationString, BASE10, UINT64_SIZE)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse value of key %s in configmap %s - %w", constants.GHAgentIncarnationCMKey,
-			constants.GHAgentIncarnationCMKey, err)
+		return lastIncarnation, fmt.Errorf("failed to parse value of key %s in configmap %s - %w",
+			constants.GHAgentIncarnationCMKey, constants.GHAgentIncarnationCMKey, err)
 	}
 
 	newConfigMap := CreateIncarnationConfigMap(lastIncarnation + 1)
 	if err := k8sClient.Patch(ctx, newConfigMap, client.MergeFrom(configMap)); err != nil {
-		return 0, fmt.Errorf("failed to update incarnation version - %w", err)
+		return lastIncarnation, fmt.Errorf("failed to update incarnation version - %w", err)
 	}
 
 	return lastIncarnation + 1, nil
