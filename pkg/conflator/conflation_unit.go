@@ -99,6 +99,9 @@ func (cu *ConflationUnit) insert(bundle statusbundle.Bundle, metadata bundle.Bun
 		conflationElement.bundleInfo.resetBundleVersion()
 	}
 
+	cu.log.Info("inserting bundle", "managedHub", bundle.GetLeafHubName(), "bundleType", bundleType,
+		"bundleVersion", bundle.GetVersion())
+
 	if !bundle.GetVersion().NewerThan(conflationElement.lastProcessedBundleVersion) {
 		return // we got old bundle, a newer (or equal) bundle was already processed.
 	}
