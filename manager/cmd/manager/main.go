@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -180,11 +179,6 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		RetryPeriod:             &retryPeriod,
 		Port:                    webhookPort,
 		CertDir:                 webhookCertDir,
-		TLSOpts: []func(*tls.Config){
-			func(config *tls.Config) {
-				config.MinVersion = tls.VersionTLS12
-			},
-		},
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
