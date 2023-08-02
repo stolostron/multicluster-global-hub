@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
