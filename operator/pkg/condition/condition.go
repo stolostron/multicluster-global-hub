@@ -112,9 +112,9 @@ func SetConditionDatabaseInit(ctx context.Context, c client.Client, mgh *operato
 }
 
 func SetConditionDataRetention(ctx context.Context, c client.Client, mgh *operatorv1alpha3.MulticlusterGlobalHub,
-	msg string,
+	status metav1.ConditionStatus, msg string,
 ) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RETENTION_PARSED, CONDITION_STATUS_TRUE,
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RETENTION_PARSED, status,
 		CONDITION_REASON_RETENTION_PARSED, msg)
 }
 
