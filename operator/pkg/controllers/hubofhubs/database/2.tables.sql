@@ -85,10 +85,6 @@ CREATE TABLE IF NOT EXISTS local_spec.placementrules (
     updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7ce5ccb (rollback the status tables)
 CREATE TABLE IF NOT EXISTS local_spec.policies (
     leaf_hub_name character varying(63) NOT NULL,
     payload jsonb NOT NULL,
@@ -101,14 +97,8 @@ CREATE TABLE IF NOT EXISTS local_spec.policies (
     policy_category character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
     policy_control character varying(255) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls') stored
 );
-<<<<<<< HEAD
 CREATE INDEX IF NOT EXISTS local_policies_deleted_at_idx ON local_spec.policies (deleted_at);
 
-=======
->>>>>>> c02ae99 (add partitions to 'timetables' for data retation/deletion)
-=======
-
->>>>>>> 7ce5ccb (rollback the status tables)
 CREATE TABLE IF NOT EXISTS local_status.compliance (
     policy_id uuid NOT NULL,
     cluster_name character varying(63) NOT NULL,
