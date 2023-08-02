@@ -44,6 +44,8 @@ var _ = BeforeSuite(func() {
 		PoolSize:   2,
 	})
 	Expect(err).NotTo(HaveOccurred())
+	err = testpostgres.InitDatabase(testPostgres.URI)
+	Expect(err).NotTo(HaveOccurred())
 	g2 = database.GetGorm()
 	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "test-ca-cert-path", 2)
 	Expect(err).NotTo(HaveOccurred())

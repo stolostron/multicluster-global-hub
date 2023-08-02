@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -41,13 +42,23 @@ func TestScheduler(t *testing.T) {
 		Scheme:             scheme.Scheme,
 	})
 	assert.Nil(t, err)
-
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, "month", false))
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, "week", false))
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, "day", false))
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, "hour", false))
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, "minute", false))
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, "second", false))
+	managerConfig := &config.ManagerConfig{
+		DatabaseConfig: &config.DatabaseConfig{
+			DataRetention: "18m",
+		},
+	}
+	managerConfig.SchedulerInterval = "month"
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	managerConfig.SchedulerInterval = "week"
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	managerConfig.SchedulerInterval = "day"
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	managerConfig.SchedulerInterval = "hour"
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	managerConfig.SchedulerInterval = "minute"
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	managerConfig.SchedulerInterval = "second"
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
 
 	cancel()
 	err = testenv.Stop()

@@ -34,3 +34,17 @@ type LocalRootPolicyEvent struct {
 func (LocalRootPolicyEvent) TableName() string {
 	return "event.local_root_policies"
 }
+
+type DataRetentionJobLog struct {
+	Name         string    `gorm:"column:table_name"`
+	StartAt      time.Time `gorm:"column:start_at"`
+	EndAt        time.Time `gorm:"column:end_at"`
+	MinPartition string    `gorm:"column:min_partition"`
+	MaxPartition string    `gorm:"column:max_partition"`
+	MinDeletion  time.Time `gorm:"column:min_deletion"`
+	Error        string    `gorm:"column:error"`
+}
+
+func (DataRetentionJobLog) TableName() string {
+	return "event.data_retention_job_log"
+}

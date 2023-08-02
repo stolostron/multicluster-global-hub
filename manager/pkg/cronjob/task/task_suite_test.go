@@ -1,4 +1,4 @@
-package task_test
+package task
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -27,6 +28,7 @@ var (
 	cancel       context.CancelFunc
 	testPostgres *testpostgres.TestPostgres
 	pool         *pgxpool.Pool
+	db           *gorm.DB
 )
 
 func TestTasks(t *testing.T) {
@@ -55,10 +57,19 @@ var _ = BeforeSuite(func() {
 	By("Create test postgres")
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
+	err = testpostgres.InitDatabase(testPostgres.URI)
+	Expect(err).NotTo(HaveOccurred())
 
 	By("Connect to the database")
 	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "ca-cert-path", 2)
 	Expect(err).NotTo(HaveOccurred())
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:      testPostgres.URI,
+		Dialect:  database.PostgresDialect,
+		PoolSize: 1,
+	})
+	Expect(err).NotTo(HaveOccurred())
+	db = database.GetGorm()
 })
 
 var _ = AfterSuite(func() {
@@ -73,6 +84,7 @@ var _ = AfterSuite(func() {
 	if pool != nil {
 		pool.Close()
 	}
+	database.CloseGorm()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 	cancel()
 })

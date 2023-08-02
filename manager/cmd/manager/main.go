@@ -220,7 +220,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	}
 
 	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn(),
-		managerConfig.SchedulerInterval, enableSimulation); err != nil {
+		managerConfig, enableSimulation); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
 
