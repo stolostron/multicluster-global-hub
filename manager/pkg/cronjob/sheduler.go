@@ -9,7 +9,9 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -26,15 +28,15 @@ type GlobalHubJobScheduler struct {
 	scheduler *gocron.Scheduler
 }
 
-func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool, interval string,
-	enableSimulation bool,
+func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool,
+	managerConfig *config.ManagerConfig, enableSimulation bool,
 ) error {
 	log := ctrl.Log.WithName("cronjob-scheduler")
 	// Scheduler timezone:
 	// The cluster may be in a different timezones, Here we choose to be consistent with the local GH timezone.
 	scheduler := gocron.NewScheduler(time.Local)
 
-	switch interval {
+	switch managerConfig.SchedulerInterval {
 	case EveryMonth:
 		scheduler = scheduler.Every(1).Month(1)
 	case EveryWeek:
@@ -48,14 +50,17 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	default:
 		scheduler = scheduler.Every(1).Day()
 	}
-
 	complianceJob, err := scheduler.DoWithJobDetails(task.SyncLocalCompliance, ctx, pool, enableSimulation)
 	if err != nil {
 		return err
 	}
 	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 
-	dataRetentionJob, err := scheduler.Every(1).Week().DoWithJobDetails(task.DataRetention, ctx, pool)
+	retentionDuration, err := utils.ParseDuration(managerConfig.DatabaseConfig.DataRetention)
+	if err != nil {
+		return err
+	}
+	dataRetentionJob, err := scheduler.Every(1).Week().DoWithJobDetails(task.DataRetention, ctx, pool, retentionDuration)
 	if err != nil {
 		return err
 	}

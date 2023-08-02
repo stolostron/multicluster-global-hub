@@ -23,7 +23,7 @@ var (
 
 	// after the record is marked as deleted, retentionMonth is used to indicate how long it will be retained
 	// before it is completely deleted from database
-	retentionMonth  = 18
+	// retentionMonth  = 18
 	retentionTables = []string{
 		"status.managed_clusters",
 		"status.leaf_hubs",
@@ -41,14 +41,14 @@ var (
 	}
 )
 
-func DataRetention(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
+func DataRetention(ctx context.Context, pool *pgxpool.Pool, retention time.Duration, job gocron.Job) {
 	currentTime := time.Now()
 	log = ctrl.Log.WithName(retentionTaskName)
 
-	creationTime := currentTime.AddDate(0, 1, 0)
-	deletionTime := currentTime.AddDate(0, -retentionMonth, 0)
+	creationPartitionTime := currentTime.AddDate(0, 1, 0)
+	deletionPartitionTime := currentTime.Add(-retention).AddDate(0, -1, 0)
 	for _, tableName := range partitionTables {
-		err := updatePartitionTables(tableName, creationTime, deletionTime)
+		err := updatePartitionTables(tableName, creationPartitionTime, deletionPartitionTime)
 		if e := traceDataRetentionLog(tableName, currentTime, err, true); e != nil {
 			log.Error(e, "failed to trace data retention log")
 		}
@@ -60,7 +60,7 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, job gocron.Job) {
 
 	// delete the soft deleted records from database
 	for _, tableName := range retentionTables {
-		err := deleteExpiredRecords(tableName, deletionTime.AddDate(0, 1, 0))
+		err := deleteExpiredRecords(tableName, deletionPartitionTime)
 		if e := traceDataRetentionLog(tableName, currentTime, err, false); e != nil {
 			log.Error(e, "failed to trace data retention log")
 		}
@@ -86,6 +86,8 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 	if result := db.Exec(creationSql); result.Error != nil {
 		return fmt.Errorf("failed to create partition table %s: %w", tableName, result.Error)
 	}
+	log.Info("create partition table", "table", createPartitionTableName, "start", startTime.Format(dateFormat),
+		"end", endTime.Format(dateFormat))
 
 	// delete the partition tables that are expired
 	deletePartitionTableName := fmt.Sprintf("%s_%s", tableName, deleteTime.Format(partitionDateFormat))
@@ -93,17 +95,20 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 	if result := db.Exec(deletionSql); result.Error != nil {
 		return fmt.Errorf("failed to delete partition table %s: %w", tableName, result.Error)
 	}
+	log.Info("delete partition table", "table", deletePartitionTableName)
 	return nil
 }
 
 func deleteExpiredRecords(tableName string, deleteTime time.Time) error {
-	minDateStr := deleteTime.Format(dateFormat)
-	sql := fmt.Sprintf("DELETE FROM %s WHERE deleted_at < '%s'", tableName, minDateStr)
+	minTime := deleteTime.AddDate(0, 1, 0)
+	minDate := time.Date(minTime.Year(), minTime.Month(), 1, 0, 0, 0, 0, minTime.Location())
+	sql := fmt.Sprintf("DELETE FROM %s WHERE deleted_at < '%s'", tableName, minDate.Format(dateFormat))
 	db := database.GetGorm()
 	if result := db.Exec(sql); result.Error != nil {
 		return fmt.Errorf("failed to delete records before %s from %s: %w",
-			minDateStr, tableName, result.Error)
+			minDate.Format(dateFormat), tableName, result.Error)
 	}
+	log.Info("delete records", "table", tableName, "before", minDate.Format(dateFormat))
 	return nil
 }
 

@@ -15,20 +15,21 @@ import (
 var _ = Describe("data retention job", Ordered, func() {
 	expiredPartitionTables := map[string]bool{}
 	currentTime := time.Now()
-	minTime := currentTime.AddDate(0, -(retentionMonth - 1), 0)
+	duration := time.Duration(18) * 30 * 24 * time.Hour
+
+	minTime := currentTime.Add(-duration)
+	expirationTime := currentTime.Add(-duration).AddDate(0, -1, 0)
 	maxTime := currentTime.AddDate(0, 1, 0)
 
 	BeforeAll(func() {
 		By("Creating expired partition table in the database")
 		for _, tableName := range partitionTables {
-			err := createPartitionTable(tableName, currentTime.AddDate(0, -retentionMonth, 0))
+			err := createPartitionTable(tableName, expirationTime)
 			Expect(err).ToNot(HaveOccurred())
-
-			expiredPartitionTables[fmt.Sprintf("%s_%s", tableName,
-				currentTime.AddDate(0, -retentionMonth, 0).Format(partitionDateFormat))] = false
+			expiredPartitionTables[fmt.Sprintf("%s_%s", tableName, expirationTime.Format(partitionDateFormat))] = false
 		}
 
-		By("Create the min partition table need to be deleted")
+		By("Create the min partition table in the database")
 		for _, tableName := range partitionTables {
 			err := createPartitionTable(tableName, minTime)
 			Expect(err).ToNot(HaveOccurred())
@@ -44,11 +45,10 @@ var _ = Describe("data retention job", Ordered, func() {
 			for _, table := range tables {
 				gotTable := fmt.Sprintf("%s.%s", table.Schema, table.Table)
 				if _, ok := expiredPartitionTables[gotTable]; ok {
-					fmt.Println("the expected partition table is created: ", gotTable)
+					fmt.Println("the expired partition table is created: ", gotTable)
 					expiredPartitionTables[gotTable] = true
 				}
 			}
-
 			for key, val := range expiredPartitionTables {
 				if !val {
 					return fmt.Errorf("table %s is not created", key)
@@ -61,7 +61,7 @@ var _ = Describe("data retention job", Ordered, func() {
 	It("the data retention job should work", func() {
 		By("Create the data retention job")
 		s := gocron.NewScheduler(time.UTC)
-		_, err := s.Every(1).Week().DoWithJobDetails(DataRetention, ctx, pool)
+		_, err := s.Every(1).Week().DoWithJobDetails(DataRetention, ctx, pool, duration)
 		Expect(err).ToNot(HaveOccurred())
 		s.StartAsync()
 		defer s.Clear()
