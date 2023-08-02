@@ -40,6 +40,7 @@ spec:
             {{- if .SchedulerInterval}}
             - --scheduler-interval={{.SchedulerInterval}}
             {{- end}}
+            - --data-retention={{.DataRetention}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

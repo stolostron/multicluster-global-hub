@@ -191,6 +191,9 @@ func deployGlobalHub() {
 					Kafka: &operatorv1alpha3.KafkaConfig{
 						TransportFormat: operatorv1alpha3.CloudEvents,
 					},
+					Postgres: &operatorv1alpha3.PostgresConfig{
+						Retention: "18m",
+					},
 				},
 			},
 		},

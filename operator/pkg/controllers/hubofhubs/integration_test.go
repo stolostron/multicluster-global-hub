@@ -229,6 +229,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 						Kafka: &operatorv1alpha3.KafkaConfig{
 							TransportFormat: operatorv1alpha3.CloudEvents,
 						},
+						Postgres: &operatorv1alpha3.PostgresConfig{
+							Retention: "1y",
+						},
 					},
 				},
 				NodeSelector: map[string]string{"foo": "bar"},
@@ -377,6 +380,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					SchedulerInterval      string
 					NodeSelector           map[string]string
 					Tolerations            []corev1.Toleration
+					DataRetention          string
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -405,6 +409,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
+					DataRetention: mgh.Spec.DataLayer.LargeScale.Postgres.Retention,
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())

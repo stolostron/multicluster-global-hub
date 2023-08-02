@@ -136,6 +136,8 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.IntVar(&managerConfig.ElectionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
 	pflag.IntVar(&managerConfig.ElectionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
 	pflag.IntVar(&managerConfig.ElectionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
+	pflag.StringVar(&managerConfig.DatabaseConfig.DataRetention, "data-retention", "18m",
+		"data retention duration indicates how long the data will be kept in the database")
 
 	pflag.Parse()
 	// set zap logger

@@ -99,6 +99,18 @@ type DataLayerConfig struct {
 type LargeScaleConfig struct {
 	// +optional
 	Kafka *KafkaConfig `json:"kafka,omitempty"`
+	// +optional
+	Postgres *PostgresConfig `json:"postgres,omitempty"`
+}
+
+// PostgresConfig defines the desired state of postgres
+type PostgresConfig struct {
+	// Retention is a a duration string. Which defines how long to keep the data in the database.
+	// Recommended minimum value is 1 month, default value is 18 months.
+	// A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix,
+	// such as "1y6m". Valid time units are "m" and "y".
+	// +kubebuilder:default:="18m"
+	Retention string `json:"retention,omitempty"`
 }
 
 // KafkaConfig defines the desired state of kafka
