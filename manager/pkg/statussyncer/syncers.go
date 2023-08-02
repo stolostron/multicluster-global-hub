@@ -154,7 +154,7 @@ func requireInitialDependencyChecks(transportType string) bool {
 
 func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (*statistics.Statistics, error) {
 	// create statistics
-	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), managerConfig.StatisticsConfig,
+	stats := statistics.NewStatistics(managerConfig.StatisticsConfig,
 		[]string{
 			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
 			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),

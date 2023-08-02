@@ -17,9 +17,9 @@ type StatisticsConfig struct {
 }
 
 // NewStatistics creates a new instance of Statistics.
-func NewStatistics(log logr.Logger, statisticsConfig *StatisticsConfig, bundleTypes []string) *Statistics {
+func NewStatistics(statisticsConfig *StatisticsConfig, bundleTypes []string) *Statistics {
 	statistics := &Statistics{
-		log:           log,
+		log:           ctrl.Log.WithName("statistics"),
 		bundleMetrics: make(map[string]*bundleMetrics),
 		logInterval:   statisticsConfig.LogInterval,
 	}

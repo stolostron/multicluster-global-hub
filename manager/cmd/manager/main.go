@@ -125,7 +125,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"kakfa-consumer-id", "multicluster-global-hub", "ID for the kafka consumer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic,
 		"kakfa-consumer-topic", "status", "Topic for the kafka consumer.")
-	pflag.DurationVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", 0*time.Second,
+	pflag.DurationVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", 1*time.Minute,
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
 		"https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")
