@@ -27,7 +27,7 @@ type GenericConsumer struct {
 }
 
 func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericConsumer, error) {
-	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", transportConfig.TransportType))
+	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", transportConfig.TransportFormat))
 	var receiver interface{}
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):

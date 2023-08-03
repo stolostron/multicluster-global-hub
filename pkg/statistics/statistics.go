@@ -128,7 +128,7 @@ func (s *Statistics) run(ctx context.Context) {
 			var metrics strings.Builder
 			totalReceived := int64(0)
 			for bundleType, bundleMetrics := range s.bundleMetrics {
-				metrics.WriteString(fmt.Sprintf("[%-36s(%d) | conflation(%s) | storage(%s)] \n",
+				metrics.WriteString(fmt.Sprintf("[%-36s(%d) | conflation(%-42s) | storage(%-42s)] \n",
 					bundleType, bundleMetrics.totalReceived,
 					bundleMetrics.conflationUnit.toString(),
 					bundleMetrics.database.toString()))
