@@ -26,7 +26,8 @@ var _ = Describe("data retention job", Ordered, func() {
 		for _, tableName := range partitionTables {
 			err := createPartitionTable(tableName, expirationTime)
 			Expect(err).ToNot(HaveOccurred())
-			expiredPartitionTables[fmt.Sprintf("%s_%s", tableName, expirationTime.Format(partitionDateFormat))] = false
+			expiredPartitionTables[fmt.Sprintf("%s_%s", tableName,
+				expirationTime.Format(partitionDateFormat))] = false
 		}
 
 		By("Create the min partition table in the database")

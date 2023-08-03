@@ -40,10 +40,8 @@ func (p *PolicyEventEnhancer) Enhance(ctx context.Context, event *kube.EnhancedE
 
 	// cluster policy event, then add root policy id and cluster id
 	_, ok := event.InvolvedObject.Labels[constants.PolicyEventRootPolicyNameLabelKey]
-	if ok {
-		return false
-	}
-	return true
+	// filter the cluster policy event
+	return !ok
 
 	// // add root policy id
 	// rootPolicy, err := helper.GetRootPolicy(ctx, p.runtimeClient, rootPolicyNamespacedName)

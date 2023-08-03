@@ -141,7 +141,7 @@ func (cu *ConflationUnit) GetNext() (statusbundle.Bundle, *BundleMetadata, Bundl
 	conflationElement.isInProcess = true
 
 	// stop conflation unit metric for specific bundle type - evaluated once bundle is fetched from the priority queue
-	cu.statistics.StopConflationUnitMetrics(conflationElement.bundleInfo.getBundle())
+	cu.statistics.StopConflationUnitMetrics(conflationElement.bundleInfo.getBundle(), nil)
 
 	bundleToProcess, bundleMetadata := conflationElement.getBundleForProcessing()
 

@@ -70,6 +70,7 @@ func (cm *ConflationManager) getConflationUnit(leafHubName string) *ConflationUn
 	conflationUnit := newConflationUnit(cm.log, cm.readyQueue, cm.registrations,
 		cm.requireInitialDependencyChecks, cm.statistics)
 	cm.conflationUnits[leafHubName] = conflationUnit
+	cm.statistics.IncrementNumberOfConflations()
 
 	return conflationUnit
 }

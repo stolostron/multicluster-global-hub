@@ -2,12 +2,13 @@ package statistics
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
 
-// timeMeasurement contains average and maximum times in milliseconds.
-type timeMeasurement struct {
+// genericMetrics contains average and maximum times in milliseconds.
+type genericMetrics struct {
 	failures      int64      // number of failures
 	successes     int64      // number of successes
 	totalDuration int64      // in milliseconds
@@ -15,7 +16,7 @@ type timeMeasurement struct {
 	mutex         sync.Mutex // for updating and getting data in consistent state
 }
 
-func (tm *timeMeasurement) add(duration time.Duration, err error) {
+func (tm *genericMetrics) add(duration time.Duration, err error) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 
@@ -24,7 +25,7 @@ func (tm *timeMeasurement) add(duration time.Duration, err error) {
 
 // addUnsafe is unsafe version of add() method which contains a common logic.
 // The method shouldn't be accessed directly, but using wrapper methods which lock shared mutex.
-func (tm *timeMeasurement) addUnsafe(duration time.Duration, err error) {
+func (tm *genericMetrics) addUnsafe(duration time.Duration, err error) {
 	if err != nil {
 		tm.failures++
 		return
@@ -41,7 +42,7 @@ func (tm *timeMeasurement) addUnsafe(duration time.Duration, err error) {
 }
 
 // toString is a safe version and must be called in every place where we want to print timeMeasurement's data.
-func (tm *timeMeasurement) toString() string {
+func (tm *genericMetrics) toString() string {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 
@@ -50,13 +51,17 @@ func (tm *timeMeasurement) toString() string {
 
 // toStringUnsafe is unsafe version of toString() method which contains a common logic.
 // The method shouldn't be accessed directly, but using wrapper methods which lock shared mutex.
-func (tm *timeMeasurement) toStringUnsafe() string {
+func (tm *genericMetrics) toStringUnsafe() string {
 	average := 0.0
 
 	if tm.successes != 0 {
 		average = float64(tm.totalDuration / tm.successes)
 	}
 
-	return fmt.Sprintf("failures=%d, successes=%d, average time=%.2f ms, max time=%d ms",
-		tm.failures, tm.successes, average, tm.maxDuration)
+	var metrics strings.Builder
+	if tm.failures != 0 {
+		metrics.WriteString(fmt.Sprintf("failures=%d, ", tm.failures))
+	}
+	metrics.WriteString(fmt.Sprintf("successes=%d, avg=%.0f ms, max=%d ms", tm.successes, average, tm.maxDuration))
+	return metrics.String()
 }
