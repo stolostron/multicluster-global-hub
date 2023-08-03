@@ -86,13 +86,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 	// If parsing succeeds, update the MGH status and message of the condition if they are not set or changed
 	msg := fmt.Sprintf("The data will be kept in the database for %d months.", int(duration.Hours()/24/30))
-	if !condition.ContainConditionMessage(mgh, condition.CONDITION_TYPE_RETENTION_PARSED, msg) ||
-		!condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_RETENTION_PARSED, condition.CONDITION_STATUS_TRUE) {
-		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE, msg)
-		if e != nil {
-			return condition.FailToSetConditionError(
-				condition.CONDITION_TYPE_RETENTION_PARSED, err)
-		}
+	if e := condition.SetConditionDataRetention(ctx, r.Client, mgh,
+		condition.CONDITION_STATUS_TRUE, msg); e != nil {
+		return condition.FailToSetConditionError(
+			condition.CONDITION_TYPE_RETENTION_PARSED, err)
 	}
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {

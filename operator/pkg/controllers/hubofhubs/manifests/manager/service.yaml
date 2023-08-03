@@ -13,6 +13,9 @@ spec:
   - port: 8443
     targetPort: oauth-proxy
     name: api-server
+  - port: 8384
+    name: metrics
+    targetPort: metrics
   selector:
     name: multicluster-global-hub-manager
 ---

@@ -281,6 +281,16 @@ rules:
   - update
   - watch
 - apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - operator.open-cluster-management.io
   resources:
   - multiclusterglobalhubs

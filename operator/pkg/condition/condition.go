@@ -159,8 +159,9 @@ func SetCondition(ctx context.Context, c client.Client, mgh *operatorv1alpha3.Mu
 		return AppendCondition(ctx, c, mgh, typeName,
 			status, reason, message)
 	} else {
-		currentStatus := GetConditionStatus(mgh, typeName)
-		if currentStatus != status {
+		containMessage := ContainConditionMessage(mgh, typeName, message)
+		containReason := ContainConditionStatusReason(mgh, typeName, reason, status)
+		if containMessage && containReason {
 			err := DeleteCondition(ctx, c, mgh, typeName, reason)
 			if err != nil {
 				return err

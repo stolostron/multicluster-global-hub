@@ -17,13 +17,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
+var monitorFlag = false
+
 // reconcileSystemConfig tries to create hoh resources if they don't exist
 func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Context,
 	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("config")
+	log.Info("set operand images; monitor the global hub namespace; set global hub agent config")
 	// set image overrides
-	log.Info("set operand images; reconcile global hub configmap")
 	if err := config.SetImageOverrides(mgh); err != nil {
 		return err
 	}
@@ -33,6 +35,26 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 		return err
 	}
 
+	// add label openshift.io/cluster-monitoring: "true" to the ns, so that the prometheus can detect the ServiceMonitor.
+	if !monitorFlag {
+		r.KubeClient.CoreV1().Namespaces()
+		ns, err := r.KubeClient.CoreV1().Namespaces().Get(ctx, config.GetDefaultNamespace(), metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		labels := ns.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[operatorconstants.ClusterMonitoringLabelKey] = operatorconstants.ClusterMonitoringLabelVal
+		ns.SetLabels(labels)
+		if _, err = r.KubeClient.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+		monitorFlag = true
+	}
+
+	// reconcile global hub global hub config
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.GHSystemNamespace,
@@ -88,8 +110,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 
 	if !equality.Semantic.DeepDerivative(expectedHoHConfigMap.Data, existingHoHConfigMap.Data) ||
 		!equality.Semantic.DeepDerivative(expectedHoHConfigMap.GetLabels(), existingHoHConfigMap.GetLabels()) {
-		expectedHoHConfigMap.ObjectMeta.ResourceVersion =
-			existingHoHConfigMap.ObjectMeta.ResourceVersion
+		expectedHoHConfigMap.ObjectMeta.ResourceVersion = existingHoHConfigMap.ObjectMeta.ResourceVersion
 		log.Info("updating global hub configmap", "namespace", constants.GHSystemNamespace,
 			"name", constants.GHAgentConfigCMName)
 		if err := utils.UpdateObject(ctx, r.Client, expectedHoHConfigMap); err != nil {
