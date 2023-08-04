@@ -219,7 +219,7 @@ When installing the global hub operand, the global hub manager starts running an
 
 The above cronjobs are executed every time the global hub manager starts. The compliance sync job is run once a day and can be run multiple times within the day without changing the result. The partitioning job is run once a week and also can be run many times per month, the results will not change. These two jobs' status are saved in the metrics named `multicluster_global_hub_jobs_status`, as shown in the figure below on the Openshift cluster console. Where `0` means the job runs successfully, otherwise `1` means failure.
 
-![Global Hub Jobs Status Metrics Panel](./images/global-hub-cluster-group-compliancy-overview.gif)
+![Global Hub Jobs Status Metrics Panel](./images/global-hub-jobs-status-metrics-panel.png)
 
 ## Troubleshooting
 
