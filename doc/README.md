@@ -201,6 +201,26 @@ To navigate the global hub dashboards, you can choose to observe and filter the 
 
 Similarly, if you want to examine the policy data by `cluster` grouping, begin by using the `Global Hub - Cluster Group Compliancy Overview` dashboard. The navigation flow is identical to the `policy` grouping flow, but you select filters that are related to the cluster, such as managed cluster `labels` and `values`. Instead of viewing policy events for all clusters, after reaching the `Global Hub - What's Changed / Clusters` dashboard, you can view policy events related to an individual cluster.
 
+### Cronjobs and Metrics panel
+
+When installing the global hub operand, the global hub manager starts running and pull ups a job scheduler to schedule two cronjobs:
+
+- Local compliance status sync job
+
+  At 0 o'clock every day, based on the policy status and events collected by the manager on the previous day. Running the job to summarize the compliance status and change frequency of the policy on the cluster, and store them to the `history.local_compliance` table as the data source of grafana dashboards. Please refer to [here](./how_global_hub_works.md) for more details.
+
+- Partition job
+
+  Some data tables in global hub will continue to grow over time. Generally, they fall into two categories: the policy event tables and the `history.local_compliance` growing every day, the tables containing soft deleted records. The former generates a large amount of data, we use range partitioning to break down the large tables into small partitions. Which helps in executing queries/deletions on these tables faster. The later has a small amount of data, and we add `deletedAt` indexes to these tables to obtain better hard delete performance.
+
+  At the practical level, we run a scheduled job to delete expired data, so as to avoid the table being too large, and there is an additional task for it which is to create a buffer partition table for the next month.
+
+  How long the job should keep the data can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/7d3684d81a72afda2cc33217170027b4603f6808/operator/apis/v1alpha3/multiclusterglobalhub_types.go#L113) on the global hub operand. it's recommended minimum value is 1 month, default value is 18 months. Therefore, the execution interval of this job should be less than one month.
+
+The above cronjobs are executed every time the global hub manager starts. The compliance sync job is run once a day and can be run multiple times within the day without changing the result. The partitioning job is run once a week and also can be run many times per month, the results will not change. These two jobs' status are saved in the metrics named `multicluster_global_hub_jobs_status`, as shown in the figure below on the Openshift cluster console. Where `0` means the job runs successfully, otherwise `1` means failure.
+
+![Global Hub Jobs Status Metrics Panel](./images/global-hub-cluster-group-compliancy-overview.gif)
+
 ## Troubleshooting
 
 For common Troubleshooting issues, see [Troubleshooting](troubleshooting.md).
