@@ -25,6 +25,7 @@ The multicluster global hub is useful when a single hub cluster cannot manage th
     - [Import a managed hub cluster in default mode (tech preview)](#import-a-managed-hub-cluster-in-default-mode-tech-preview)
     - [Access the grafana](#access-the-grafana)
     - [Grafana dashboards](#grafana-dashboards)
+    - [Cronjobs and Metrics](#cronjobs-and-metrics)
   - [Troubleshooting](./troubleshooting.md)
   - [Development preview features](./dev-preview.md)
   - [Known issues](#known-issues)
@@ -201,9 +202,9 @@ To navigate the global hub dashboards, you can choose to observe and filter the 
 
 Similarly, if you want to examine the policy data by `cluster` grouping, begin by using the `Global Hub - Cluster Group Compliancy Overview` dashboard. The navigation flow is identical to the `policy` grouping flow, but you select filters that are related to the cluster, such as managed cluster `labels` and `values`. Instead of viewing policy events for all clusters, after reaching the `Global Hub - What's Changed / Clusters` dashboard, you can view policy events related to an individual cluster.
 
-### Cronjobs and Metrics panel
+### Cronjobs and Metrics
 
-When installing the global hub operand, the global hub manager starts running and pull ups a job scheduler to schedule two cronjobs:
+After installing the global hub operand, the global hub manager starts running and pull ups a job scheduler to schedule two cronjobs:
 
 - Local compliance status sync job
 
@@ -217,7 +218,8 @@ When installing the global hub operand, the global hub manager starts running an
 
   How long the job should keep the data can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/7d3684d81a72afda2cc33217170027b4603f6808/operator/apis/v1alpha3/multiclusterglobalhub_types.go#L113) on the global hub operand. it's recommended minimum value is 1 month, default value is 18 months. Therefore, the execution interval of this job should be less than one month.
 
-The above cronjobs are executed every time the global hub manager starts. The compliance sync job is run once a day and can be run multiple times within the day without changing the result. The partitioning job is run once a week and also can be run many times per month, the results will not change. These two jobs' status are saved in the metrics named `multicluster_global_hub_jobs_status`, as shown in the figure below on the Openshift cluster console. Where `0` means the job runs successfully, otherwise `1` means failure.
+The above cronjobs are executed every time the global hub manager starts. The compliance sync job is run once a day and can be run multiple times within the day without changing the result. The partitioning job is run once a week and also can be run many times per month, the results will not change. 
+These two jobs' status are saved in the metrics named `multicluster_global_hub_jobs_status`, as shown in the figure below from the console of the Openshift cluster. Where `0` means the job runs successfully, otherwise `1` means failure.
 
 ![Global Hub Jobs Status Metrics Panel](./images/global-hub-jobs-status-metrics-panel.png)
 
