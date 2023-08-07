@@ -224,16 +224,16 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			},
 			Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
 				DataLayer: &operatorv1alpha3.DataLayerConfig{
-					Type:       operatorv1alpha3.LargeScale,
-					LargeScale: &operatorv1alpha3.LargeScaleConfig{
-						// using the default values
-						// Kafka: &operatorv1alpha3.KafkaConfig{
-						// 	TransportFormat: operatorv1alpha3.CloudEvents,
-						// },
-						// Postgres: &operatorv1alpha3.PostgresConfig{
-						// 	Retention: "1y",
-						// },
-					},
+					Type: operatorv1alpha3.LargeScale,
+					// 	// using the default values
+					// LargeScale: &operatorv1alpha3.LargeScaleConfig{
+					// 	// Kafka: &operatorv1alpha3.KafkaConfig{
+					// 	// 	TransportFormat: operatorv1alpha3.CloudEvents,
+					// 	// },
+					// 	// Postgres: &operatorv1alpha3.PostgresConfig{
+					// 	// 	Retention: "1y",
+					// 	// },
+					// },
 				},
 				NodeSelector: map[string]string{"foo": "bar"},
 				Tolerations: []corev1.Toleration{

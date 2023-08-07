@@ -198,6 +198,15 @@ func (r *MulticlusterGlobalHubReconciler) reconcileNativeGlobalHub(ctx context.C
 func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx context.Context,
 	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
+	if mgh.Spec.DataLayer.LargeScale == nil {
+		r.Log.Info("no large scale configuration found, add the default large scale configuration")
+		mgh.Spec.DataLayer.LargeScale = &operatorv1alpha3.LargeScaleConfig{}
+		err := r.Client.Update(ctx, mgh)
+		if err != nil {
+			return fmt.Errorf("failed to update mgh: %v", err)
+		}
+	}
+
 	// reconcile config: need to be done before reconciling manager and grafana
 	// 1. global image: annotation -> env -> default
 	// 2. add label to storage/transport secret so that the manager can watch them
