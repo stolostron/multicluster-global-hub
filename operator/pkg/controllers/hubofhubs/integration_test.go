@@ -224,14 +224,15 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			},
 			Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
 				DataLayer: &operatorv1alpha3.DataLayerConfig{
-					Type: operatorv1alpha3.LargeScale,
+					Type:       operatorv1alpha3.LargeScale,
 					LargeScale: &operatorv1alpha3.LargeScaleConfig{
-						Kafka: &operatorv1alpha3.KafkaConfig{
-							TransportFormat: operatorv1alpha3.CloudEvents,
-						},
-						Postgres: &operatorv1alpha3.PostgresConfig{
-							Retention: "1y",
-						},
+						// using the default values
+						// Kafka: &operatorv1alpha3.KafkaConfig{
+						// 	TransportFormat: operatorv1alpha3.CloudEvents,
+						// },
+						// Postgres: &operatorv1alpha3.PostgresConfig{
+						// 	Retention: "1y",
+						// },
 					},
 				},
 				NodeSelector: map[string]string{"foo": "bar"},
@@ -355,7 +356,11 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				imagePullPolicy = mgh.Spec.ImagePullPolicy
 			}
 
-			var err error
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      mgh.Name,
+			}, mgh)
+			Expect(err).NotTo(HaveOccurred())
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {

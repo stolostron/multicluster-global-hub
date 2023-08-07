@@ -68,28 +68,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 
 	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
-	dataRetention := mgh.Spec.DataLayer.LargeScale.Postgres.Retention
-	duration, err := commonutils.ParseDuration(mgh.Spec.DataLayer.LargeScale.Postgres.Retention)
-	// if parsing fails, then set the error message to the condition
+	dataRetention, err := r.reconcileDataRetention(ctx, mgh, log)
 	if err != nil {
-		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE, err.Error())
-		if e != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, e)
-		}
-		return fmt.Errorf("failed to parse data retention duration: %v", err)
+		return err
 	}
-	if duration < time.Duration(30*24*time.Hour) {
-		dataRetention = "1m"
-		duration = time.Duration(30 * 24 * time.Hour)
-	}
-	// If parsing succeeds, update the MGH status and message of the condition if they are not set or changed
-	msg := fmt.Sprintf("The data will be kept in the database for %d months.", int(duration.Hours()/24/30))
-	if !condition.ContainConditionMessage(mgh, condition.CONDITION_TYPE_RETENTION_PARSED, msg) ||
-		!condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_RETENTION_PARSED, condition.CONDITION_STATUS_TRUE) {
-		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE, msg)
-		if e != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, err)
-		}
+
+	if err := r.reconcileTransportFormat(ctx, mgh, log); err != nil {
+		return err
 	}
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
@@ -186,4 +171,61 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 	}
 
 	return nil
+}
+
+func (r *MulticlusterGlobalHubReconciler) reconcileDataRetention(ctx context.Context,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub, log logr.Logger,
+) (dataRetention string, err error) {
+	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
+	if mgh.Spec.DataLayer.LargeScale.Postgres == nil {
+		log.Info("no postgres configuration found, add the default postgres configuration")
+		mgh.Spec.DataLayer.LargeScale.Postgres = &operatorv1alpha3.PostgresConfig{
+			Retention: "18m",
+		}
+		err := r.Client.Update(ctx, mgh)
+		if err != nil {
+			return "", fmt.Errorf("failed to update mgh: %v", err)
+		}
+	}
+
+	dataRetention = mgh.Spec.DataLayer.LargeScale.Postgres.Retention
+	duration, err := commonutils.ParseDuration(mgh.Spec.DataLayer.LargeScale.Postgres.Retention)
+	// if parsing fails, then set the error message to the condition
+	if err != nil {
+		e := condition.SetConditionDataRetention(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_FALSE, err.Error())
+		if e != nil {
+			return "", condition.FailToSetConditionError(
+				condition.CONDITION_TYPE_RETENTION_PARSED, e)
+		}
+		return "", fmt.Errorf("failed to parse data retention duration: %v", err)
+	}
+	if duration < time.Duration(30*24*time.Hour) {
+		dataRetention = "1m"
+		duration = time.Duration(30 * 24 * time.Hour)
+	}
+	// If parsing succeeds, update the MGH status and message of the condition if they are not set or changed
+	msg := fmt.Sprintf("The data will be kept in the database for %d months.", int(duration.Hours()/24/30))
+	if !condition.ContainConditionMessage(mgh, condition.CONDITION_TYPE_RETENTION_PARSED, msg) ||
+		!condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_RETENTION_PARSED, condition.CONDITION_STATUS_TRUE) {
+		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE, msg)
+		if e != nil {
+			return "", condition.FailToSetConditionError(
+				condition.CONDITION_TYPE_RETENTION_PARSED, err)
+		}
+	}
+	return dataRetention, nil
+}
+
+func (r *MulticlusterGlobalHubReconciler) reconcileTransportFormat(ctx context.Context,
+	mgh *operatorv1alpha3.MulticlusterGlobalHub, log logr.Logger,
+) (err error) {
+	if mgh.Spec.DataLayer.LargeScale.Kafka == nil {
+		log.Info("no Kafka configuration found, add the default Kafka configuration")
+		mgh.Spec.DataLayer.LargeScale.Kafka = &operatorv1alpha3.KafkaConfig{
+			TransportFormat: operatorv1alpha3.CloudEvents,
+		}
+		err = r.Client.Update(ctx, mgh)
+	}
+	return err
 }
