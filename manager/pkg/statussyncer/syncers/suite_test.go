@@ -83,7 +83,9 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),
 		},
-		StatisticsConfig: &statistics.StatisticsConfig{},
+		StatisticsConfig: &statistics.StatisticsConfig{
+			LogInterval: "1m",
+		},
 	}
 	Expect(err).NotTo(HaveOccurred())
 	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
