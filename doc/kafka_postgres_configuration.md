@@ -78,6 +78,57 @@ Here are several recommendations for ZooKeeper configuration with Kafka:
 
 ## Configuring Postgres
 
+### Backups
+
+Backups in the database world are essential. They are the safety net protecting you from even the smallest bit of data loss.
+
+- `pg_dump/pg_restore`
+
+  Using the basic tool `pg_dump/pg_restore` to backup and restore data, you can visit [here](./troubleshooting.md#database-dump-and-restore) for more detail. 
+
+- Amazon Relational Database Service Backups
+  
+  If you choose to provision the postgres on AWS RDS, You can enable this feature by referring to the [relevant documentation](https://aws.amazon.com/rds/features/backup). 
+  
+- [PGO](https://github.com/CrunchyData/postgres-operator) Backups
+
+  An important part of a healthy Postgres cluster is maintaining backups. PGO optimizes its use of open source `pgBackRest` to be able to support terabyte size databases. Please refer to this [document](https://github.com/CrunchyData/postgres-operator/blob/master/docs/content/tutorial/backups.md) for details
+
+### Highly Available
+
+In the case of database high availability, your core data should exist in at least two separate environments, all of which are up to date, with at least one of them ready to switch to the primary node if your main database fails. The technical specifics and implementation of HA can often be complex. You can boil HA Postgres down into the following key topics:
+
+- Replication: a main database with one or more replicas
+
+  A tool for keeping external IPs the same so you don’t have to update your app code if you fail over to a new database server. This could be an elastic IP or a proxy, or other DNS configurations.
+
+- Monitoring: a monitor for each instance and dashboard and alert system for each instance
+
+- Backups
+
+Amazon Relational Database Service (Amazon RDS) supports using [Multi-AZ deployments](https://aws.amazon.com/rds/ha/) to ensure High Availability. [PGO](https://github.com/CrunchyData/postgres-operator) also expose the [Replicas and Affinity]((https://github.com/CrunchyData/postgres-operator/blob/master/docs/content/tutorial/high-availability.md)) to provide a HA Postgres cluster.
+
+### Logging
+
+Postgres logs are a valuable resource for troubleshooting problems, tracking performance, and auditing database activity. Here are some recommended best practices.
+
+- Auto log [slow queries](https://www.crunchydata.com/blog/logging-tips-for-postgres-featuring-your-slow-queries)
+
+- Auto the [explain plan](https://docs.crunchybridge.com/extensions-and-languages/auto_explain/?CrunchyAnonId=mimiduhdafawqsoqiolyrsfqbggntoiiiuaqlzacofvechs) of slow queries in log
+
+### Connection Pool
+
+Connection pooling can be helpful for scaling and maintaining overall availability between the global hub and the database. 
+
+- [Enable connection pooling on PGO](https://github.com/CrunchyData/postgres-operator/blob/master/docs/content/tutorial/connection-pooling.md)
+
+- [Guide to Connection Management in Postgres](https://www.crunchydata.com/blog/your-guide-to-connection-management-in-postgres)
+
+### Others
+
+- [Control Runaway Postgres Queries With Statement Timeout](https://www.crunchydata.com/blog/control-runaway-postgres-queries-with-statement-timeout)
+
+- [Optimize Postgres Server Performance Through Configuration](https://www.crunchydata.com/blog/optimize-postgresql-server-performance)
 
 ## Reference
 
@@ -85,5 +136,8 @@ Here are several recommendations for ZooKeeper configuration with Kafka:
 
 - [Running Kafka in Production](https://docs.confluent.io/platform/current/kafka/deployment.html)
 
+- [Introduction to Postgres Backups](https://www.crunchydata.com/blog/introduction-to-postgres-backups)
 
+- [Postgres High Availability and Disaster Recovery](https://www.crunchydata.com/blog/database-terminology-explained-postgres-high-availability-and-disaster-recovery)
 
+- [Why PostgreSQL High Availability Matters and How to Achieve It](https://www.yugabyte.com/postgresql/postgresql-high-availability/)
