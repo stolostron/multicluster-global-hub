@@ -15,7 +15,7 @@ import (
 )
 
 type StatisticsConfig struct {
-	LogInterval time.Duration
+	LogInterval string
 }
 
 // NewStatistics creates a new instance of Statistics.
@@ -40,7 +40,7 @@ type Statistics struct {
 	conflationReadyQueueSize int
 	numOfConflationUnits     int
 	bundleMetrics            map[string]*bundleMetrics
-	logInterval              time.Duration
+	logInterval              string
 	mutex                    sync.Mutex
 }
 
@@ -101,8 +101,12 @@ func (s *Statistics) AddDatabaseMetrics(bundle status.Bundle, duration time.Dura
 // Start starts the statistics.
 func (s *Statistics) Start(ctx context.Context) error {
 	s.log.Info("starting statistics")
+	duration, err := time.ParseDuration(s.logInterval)
+	if err != nil {
+		return err
+	}
 
-	go s.run(ctx)
+	go s.run(ctx, duration)
 
 	// blocking wait until getting cancel context event
 	<-ctx.Done()
@@ -111,12 +115,12 @@ func (s *Statistics) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *Statistics) run(ctx context.Context) {
-	if s.logInterval.Seconds() <= 0 {
+func (s *Statistics) run(ctx context.Context, duration time.Duration) {
+	if duration.Seconds() <= 0 {
 		return // if log interval is set to 0 or negative value, statistics log is disabled.
 	}
 
-	ticker := time.NewTicker(s.logInterval)
+	ticker := time.NewTicker(duration)
 
 	for {
 		select {
@@ -125,19 +129,31 @@ func (s *Statistics) run(ctx context.Context) {
 			return
 
 		case <-ticker.C: // dump statistics
-			var metrics strings.Builder
-			totalReceived := int64(0)
+			var stringBuilder strings.Builder
+			success := int64(0)
+			fail := int64(0)
+			storageAvg := float64(0)
+			conflationAvg := float64(0)
+
 			for bundleType, bundleMetrics := range s.bundleMetrics {
-				metrics.WriteString(fmt.Sprintf("[%-36s(%d) | conflation(%-42s) | storage(%-42s)] \n",
+				stringBuilder.WriteString(fmt.Sprintf("[%-42s(%d) | conflation(%-42s) | storage(%-42s)] \n",
 					bundleType, bundleMetrics.totalReceived,
 					bundleMetrics.conflationUnit.toString(),
 					bundleMetrics.database.toString()))
-				totalReceived += bundleMetrics.totalReceived
+				success += bundleMetrics.totalReceived
+				fail += (bundleMetrics.conflationUnit.failures + bundleMetrics.database.failures)
+				if bundleMetrics.conflationUnit.successes > 0 {
+					conflationAvg = float64(bundleMetrics.conflationUnit.totalDuration / bundleMetrics.conflationUnit.successes)
+				}
+				if bundleMetrics.database.successes > 0 {
+					storageAvg = float64(bundleMetrics.database.totalDuration / bundleMetrics.database.successes)
+				}
 			}
-			commonMetrics := fmt.Sprintf("{conflationUnits=%d, conflationQueue=%d, availableDBWorkers=%d, totalReceived=%d}",
-				s.numOfConflationUnits, s.conflationReadyQueueSize, s.numOfAvailableDBWorkers, totalReceived)
+			metrics := fmt.Sprintf("{CU=%d, CUQueue=%d, idleDBW=%d, success=%d, fail=%d, CU Avg=%.0f ms, DB Avg=%.0f ms}",
+				s.numOfConflationUnits, s.conflationReadyQueueSize, s.numOfAvailableDBWorkers, success, fail,
+				conflationAvg, storageAvg)
 
-			s.log.Info(fmt.Sprintf("%s\n%s", commonMetrics, metrics.String()))
+			s.log.Info(fmt.Sprintf("%s\n%s", metrics, stringBuilder.String()))
 		}
 	}
 }

@@ -41,6 +41,8 @@ const (
 	AnnotationMGHSchedulerInterval = "mgh-scheduler-interval"
 	// MGHOperandImagePrefix ...
 	MGHOperandImagePrefix = "RELATED_IMAGE_"
+	// AnnotationStatisticInterval to log the interval of statistic log
+	AnnotationStatisticInterval = "mgh-statistic-interval"
 )
 
 // hub installation constants

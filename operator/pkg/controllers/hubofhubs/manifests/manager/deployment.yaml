@@ -41,6 +41,7 @@ spec:
             - --scheduler-interval={{.SchedulerInterval}}
             {{- end}}
             - --data-retention={{.DataRetention}}
+            - --statistics-log-interval={{.StatisticLogInterval}}
           env:
             - name: POD_NAMESPACE
               valueFrom:
