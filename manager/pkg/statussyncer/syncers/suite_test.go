@@ -84,7 +84,7 @@ var _ = BeforeSuite(func() {
 			TransportType: string(transport.Chan),
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{
-			LogInterval: "1m",
+			LogInterval: "1s",
 		},
 	}
 	Expect(err).NotTo(HaveOccurred())
