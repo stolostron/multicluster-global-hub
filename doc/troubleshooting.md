@@ -175,7 +175,7 @@ Here we take the table with `event.local_policies` and the date with `2023-08` a
     BEGIN;
     -- Rename the legacy TABLE_NAME
     ALTER TABLE event.local_policies RENAME TO local_policies_old;
-    -- Partition tables
+    -- Partition tables: https://github.com/stolostron/multicluster-global-hub/blob/main/operator/pkg/controllers/hubofhubs/database/2.tables.sql#L283-L318
     CREATE TABLE IF NOT EXISTS event.local_policies (
         event_name character varying(63) NOT NULL,
         policy_id uuid NOT NULL,
@@ -187,6 +187,7 @@ Here we take the table with `event.local_policies` and the date with `2023-08` a
         source jsonb,
         created_at timestamp without time zone DEFAULT now() NOT NULL,
         compliance local_status.compliance_type NOT NULL,
+        -- Rename the constraint to avoid conflicts
         CONSTRAINT local_policies_unique_partition_constraint UNIQUE (event_name, count, created_at)
     ) PARTITION BY RANGE (created_at);
     -- Create partitions, load the old data to the previous partition table
