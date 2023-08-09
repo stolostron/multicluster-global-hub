@@ -250,11 +250,11 @@ func TestClusterPolicyStatusEventBundle(t *testing.T) {
 	event.LastTimestamp = metav1.NewTime(time.Now())
 	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
 		"rootPolicyId", "clusterId", bundlePolicyStatusEvents)
-	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
+	assert.Equal(t, 2, len(bundlePolicyStatusEvents))
 	assert.Equal(t, 2, bundlePolicyStatusEvents[0].Count)
 
 	event.EventName = "openshift-acm-policies.backplane-mobb-sp.176a8f3dfsfds"
 	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
 		"rootPolicyId", "clusterId", bundlePolicyStatusEvents)
-	assert.Equal(t, 2, len(bundlePolicyStatusEvents))
+	assert.Equal(t, 3, len(bundlePolicyStatusEvents))
 }
