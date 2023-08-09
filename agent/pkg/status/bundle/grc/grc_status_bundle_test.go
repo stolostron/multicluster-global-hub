@@ -235,28 +235,26 @@ func TestClusterPolicyStatusEventBundle(t *testing.T) {
 		bundleEventMap[e.EventName] = e
 	}
 
-	modified := false
 	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
-		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
+		"rootPolicyId", "clusterId", bundlePolicyStatusEvents)
 	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
-	assert.Equal(t, true, modified)
 
 	for _, e := range bundlePolicyStatusEvents {
 		bundleEventMap[e.EventName] = e
 	}
 	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
-		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
+		"rootPolicyId", "clusterId", bundlePolicyStatusEvents)
 	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
 	assert.Equal(t, 1, bundlePolicyStatusEvents[0].Count)
 
 	event.LastTimestamp = metav1.NewTime(time.Now())
 	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
-		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
+		"rootPolicyId", "clusterId", bundlePolicyStatusEvents)
 	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
 	assert.Equal(t, 2, bundlePolicyStatusEvents[0].Count)
 
 	event.EventName = "openshift-acm-policies.backplane-mobb-sp.176a8f3dfsfds"
 	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
-		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
+		"rootPolicyId", "clusterId", bundlePolicyStatusEvents)
 	assert.Equal(t, 2, len(bundlePolicyStatusEvents))
 }
