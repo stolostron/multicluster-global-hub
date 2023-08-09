@@ -3,7 +3,6 @@ package dbsyncer
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
@@ -110,7 +109,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 					Source:      nil,
 					Count:       policyStatusEvent.Count,
 					Compliance:  string(common.GetDatabaseCompliance(policyStatusEvent.Compliance)),
-					CreatedAt:   time.Now(),
+					CreatedAt:   policyStatusEvent.CreatedAt,
 				},
 				ClusterID: policyStatusEvent.ClusterID,
 			})
