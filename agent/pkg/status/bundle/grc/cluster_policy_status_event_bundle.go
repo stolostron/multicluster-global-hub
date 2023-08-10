@@ -160,7 +160,7 @@ func (bundle *ClusterPolicyHistoryEventBundle) updatePolicyEvents(event policies
 	if ok {
 		if !bundleEvent.CreatedAt.Equal(eventTime) {
 			bundleEvent.Message = event.Message
-			bundleEvent.Count = bundleEvent.Count + 1
+			bundleEvent.Count++
 			bundleEvent.CreatedAt = eventTime
 			bundleEvent.Compliance = compliance
 			bundlePolicyStatusEvents = append(bundlePolicyStatusEvents, bundleEvent)

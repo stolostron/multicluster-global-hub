@@ -133,9 +133,8 @@ function checkVolume() {
     mountName=$(lsblk | grep "$maxSize"G | awk '{print $1}')
     echo "mounting /dev/${mountName}: ${maxSize}"
     sudo mkfs -t xfs /dev/${mountName}        
-    sudo mkdir -p /data                    
-    sudo mount /dev/${mountName} /data  
-    sudo mv /var/lib/docker /data
+    sudo mkdir -p /data/docker                    
+    sudo mount /dev/${mountName} /data/docker  
 
     # sudo sed -i "s/ExecStart=\/usr\/bin\/dockerd\ -H/ExecStart=\/usr\/bin\/dockerd\ -g\ \/data\/docker\ -H/g" /lib/systemd/system/docker.service
     echo '{
@@ -143,10 +142,10 @@ function checkVolume() {
     }' | sudo tee /etc/docker/daemon.json
 
     sleep 2
-
+    
     sudo systemctl daemon-reload
-    sudo systemctl restart docker
-    sudo docker info
+    sudo systemctl start docker
+    sudo systemctl enable docker
   fi
   echo "docker root dir: $(docker info -f '{{ .DockerRootDir}}')"
 }
