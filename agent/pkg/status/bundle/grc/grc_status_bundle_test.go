@@ -212,7 +212,20 @@ func TestClusterPolicyStatusEventBundle(t *testing.T) {
 	oldVersion := eventBundle.GetBundleVersion()
 
 	policy := &policiesv1.Policy{
-		Status: policiesv1.PolicyStatus{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.PolicyEventRootPolicyNameLabelKey: "default/test",
+			},
+		},
+		Status: policiesv1.PolicyStatus{
+			Details: []*policiesv1.DetailsPerTemplate{
+				{
+					ComplianceState: policiesv1.NonCompliant,
+				},
+			},
+		},
 	}
 	policy.SetUID("1234")
 
