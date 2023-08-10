@@ -22,18 +22,9 @@ waitAppear "kubectl get pods -n postgres-operator --ignore-not-found=true | grep
 # step3: deploy postgres cluster
 kubectl apply -k ${currentDir}/postgres-cluster
 waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
+waitAppear "kubectl get secret hoh-pguser-guest -n hoh-postgres --ignore-not-found=true"
 
-# step4: Grant readonly permission to guest
-cat << EOF | kubectl exec -it $(kubectl get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n hoh-postgres -- psql -d hoh
-GRANT USAGE ON SCHEMA spec TO guest;
-GRANT USAGE ON SCHEMA status TO guest;
-GRANT USAGE ON SCHEMA event TO guest;
-GRANT SELECT ON ALL TABLES IN SCHEMA spec TO guest;
-GRANT SELECT ON ALL TABLES IN SCHEMA status TO guest;
-GRANT SELECT ON ALL TABLES IN SCHEMA event TO guest;
-EOF
-
-# step5: generate storage secret
+# step4: generate storage secret
 pgnamespace="hoh-postgres"
 superuserSecret="hoh-pguser-postgres"
 readonlyuserSecret="hoh-pguser-guest"
