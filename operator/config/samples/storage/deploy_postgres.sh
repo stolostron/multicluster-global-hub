@@ -30,7 +30,7 @@ superuserSecret="hoh-pguser-postgres"
 readonlyuserSecret="hoh-pguser-guest"
 certSecret="hoh-cluster-cert"
 
-superuserDatabaseURI=$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "uri" | base64decode}}')
+superuserDatabaseURI=$(kubectl get secrets -n "${pgnamespace}" "${superuserSecret}" -o go-template='{{index (.data) "uri" | base64decode}}')
 readonlyuserDatabaseURI=$(kubectl get secrets -n "${pgnamespace}" "${readonlyuserSecret}" -o go-template='{{index (.data) "uri" | base64decode}}')
 kubectl get secret $certSecret -n $pgnamespace -o jsonpath='{.data.ca\.crt}' |base64 -d > $currentDir/ca.crt
 
