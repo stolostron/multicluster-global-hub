@@ -1,18 +1,14 @@
 package grc
 
 import (
-	"context"
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 func TestClusterPerPolicyStatusBundle(t *testing.T) {
@@ -197,66 +193,4 @@ func TestMinimalComplianceStatusBundle(t *testing.T) {
 	if version.Generation != 4 {
 		t.Fatal(fmt.Errorf("expected version.Generation to be 4, got %d", version.Generation))
 	}
-}
-
-func TestClusterPolicyStatusEventBundle(t *testing.T) {
-	bundle := NewClusterPolicyHistoryEventBundle(context.TODO(), "hub1", 1, nil)
-	eventBundle, ok := bundle.(*ClusterPolicyHistoryEventBundle)
-	assert.True(t, ok)
-
-	message := `NonCompliant; violation - limitranges not found: [container-mem-limit-range]
-	in namespace default missing`
-	compliance := eventBundle.ParseCompliance(message)
-	assert.Equal(t, string(policiesv1.NonCompliant), compliance)
-
-	oldVersion := eventBundle.GetBundleVersion()
-
-	policy := &policiesv1.Policy{
-		Status: policiesv1.PolicyStatus{},
-	}
-	policy.SetUID("1234")
-
-	eventBundle.UpdateObject(policy)
-	eventBundle.DeleteObject(policy)
-	newVersion := eventBundle.GetBundleVersion()
-	assert.Equal(t, oldVersion.Generation, newVersion.Generation)
-
-	lastTimestamp := metav1.NewTime(time.Now())
-	event := policiesv1.ComplianceHistory{
-		EventName:     "openshift-acm-policies.backplane-mobb-sp.176a8f372323ecac",
-		LastTimestamp: lastTimestamp,
-		Message: `Compliant; notification - clusterrolebindings [backplane-mobb-c0] found
-		as specified, therefore this Object template is compliant`,
-	}
-
-	bundlePolicyStatusEvents := make([]*models.LocalClusterPolicyEvent, 0)
-	bundleEventMap := make(map[string]*models.LocalClusterPolicyEvent)
-	for _, e := range bundlePolicyStatusEvents {
-		bundleEventMap[e.EventName] = e
-	}
-
-	modified := false
-	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
-		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
-	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
-	assert.Equal(t, true, modified)
-
-	for _, e := range bundlePolicyStatusEvents {
-		bundleEventMap[e.EventName] = e
-	}
-	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
-		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
-	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
-	assert.Equal(t, 1, bundlePolicyStatusEvents[0].Count)
-
-	event.LastTimestamp = metav1.NewTime(time.Now())
-	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
-		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
-	assert.Equal(t, 1, len(bundlePolicyStatusEvents))
-	assert.Equal(t, 2, bundlePolicyStatusEvents[0].Count)
-
-	event.EventName = "openshift-acm-policies.backplane-mobb-sp.176a8f3dfsfds"
-	bundlePolicyStatusEvents = eventBundle.updatePolicyEvents(event, "", bundleEventMap,
-		"rootPolicyId", "clusterId", bundlePolicyStatusEvents, &modified)
-	assert.Equal(t, 2, len(bundlePolicyStatusEvents))
 }

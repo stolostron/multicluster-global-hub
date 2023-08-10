@@ -84,32 +84,33 @@ func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object bundlepkg.Obj
 		bundlePolicyStatusEvents = make([]*models.LocalClusterPolicyEvent, 0)
 	}
 
-	bundleEventMap := make(map[string]*models.LocalClusterPolicyEvent)
+	// deprecated events, cause it has been synced before
+	deprecatedBundleEvents := make(map[string]*models.LocalClusterPolicyEvent)
 	for _, e := range bundlePolicyStatusEvents {
-		bundleEventMap[e.EventName] = e
+		deprecatedBundleEvents[e.EventName] = e
 	}
 
-	modified := false
 	for _, detail := range policy.Status.Details {
 		if detail.History != nil {
 			for _, event := range detail.History {
 				bundlePolicyStatusEvents = bundle.updatePolicyEvents(event,
-					string(detail.ComplianceState), bundleEventMap,
-					string(rootPolicy.GetUID()), clusterId, bundlePolicyStatusEvents, &modified)
-				delete(bundleEventMap, event.EventName)
+					string(detail.ComplianceState), deprecatedBundleEvents,
+					string(rootPolicy.GetUID()), clusterId, bundlePolicyStatusEvents)
+				delete(deprecatedBundleEvents, event.EventName)
 			}
 		}
 	}
 
-	shrunkPolicyEvents := make([]*models.LocalClusterPolicyEvent, 0)
+	// only load the 'new' events to bundle
+	deltaPolicyEvents := make([]*models.LocalClusterPolicyEvent, 0)
 	for _, event := range bundlePolicyStatusEvents {
-		if _, ok := bundleEventMap[event.EventName]; !ok {
-			shrunkPolicyEvents = append(shrunkPolicyEvents, event)
+		if _, ok := deprecatedBundleEvents[event.EventName]; !ok {
+			deltaPolicyEvents = append(deltaPolicyEvents, event)
 		}
 	}
 
-	if modified {
-		bundle.PolicyStatusEvents[string(policy.GetUID())] = shrunkPolicyEvents
+	if len(deltaPolicyEvents) > 0 {
+		bundle.PolicyStatusEvents[string(policy.GetUID())] = deltaPolicyEvents
 		bundle.BundleVersion.Generation++
 	}
 }
@@ -145,27 +146,29 @@ func (bundle *ClusterPolicyHistoryEventBundle) ParseCompliance(message string) s
 	return ""
 }
 
+// add/update the current status events to bundle, remove the updated event from deprecatedBundleEvents
 func (bundle *ClusterPolicyHistoryEventBundle) updatePolicyEvents(event policiesv1.ComplianceHistory,
-	parentCompliance string, bundleEventMap map[string]*models.LocalClusterPolicyEvent,
+	parentCompliance string, deprecatedBundleEvents map[string]*models.LocalClusterPolicyEvent,
 	rootPolicyId, clusterId string, bundlePolicyStatusEvents []*models.LocalClusterPolicyEvent,
-	modified *bool,
 ) []*models.LocalClusterPolicyEvent {
 	compliance := bundle.ParseCompliance(event.Message)
 	if compliance == "" {
 		compliance = parentCompliance
 	}
 	eventTime := event.LastTimestamp.Time
-	bundleEvent, ok := bundleEventMap[event.EventName]
+	bundleEvent, ok := deprecatedBundleEvents[event.EventName]
 	if ok {
 		if !bundleEvent.CreatedAt.Equal(eventTime) {
 			bundleEvent.Message = event.Message
-			bundleEvent.Count = bundleEvent.Count + 1
+			bundleEvent.Count++
 			bundleEvent.CreatedAt = eventTime
 			bundleEvent.Compliance = compliance
-			*modified = true
+			bundlePolicyStatusEvents = append(bundlePolicyStatusEvents, bundleEvent)
+
+			// the event is updated, remove it from deprecatedBundleEvents
+			delete(deprecatedBundleEvents, event.EventName)
 		}
 	} else {
-		*modified = true
 		bundlePolicyStatusEvents = append(bundlePolicyStatusEvents,
 			&models.LocalClusterPolicyEvent{
 				BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
