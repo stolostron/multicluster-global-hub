@@ -146,7 +146,6 @@ function checkVolume() {
 
     sudo systemctl daemon-reload
     sudo systemctl restart docker
-
     sudo docker info
   fi
   echo "docker root dir: $(docker info -f '{{ .DockerRootDir}}')"
