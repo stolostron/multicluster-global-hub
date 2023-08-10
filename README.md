@@ -35,11 +35,15 @@ Grafana runs on the global hub cluster, as the main service for Global Hub Obser
 
 1. Connect to a Kubernetes cluster with `kubectl`
 2. ACM or OCM is installed on the Kubernetes cluster
-3. PostgreSQL is installed and a database is created for the multicluster global hub. A secret `multicluster-global-hub-storage` contains the credential is created in `open-cluster-management` namespace. The secret `database_uri` format like `postgres://<user>:<password>@<host>:<port>/<database>?sslmode=<mode>` and you can provide the optional `ca.crt` based on the [sslmode](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING):
+3. PostgreSQL is installed and a database is created for the multicluster global hub. A secret `multicluster-global-hub-storage` contains the credential is created in `open-cluster-management` namespace. 
+- The `database_uri` format like `postgres://<user>:<password>@<host>:<port>/<database>?sslmode=<mode>`. It is used to create the database and insert data.
+- The `database_uri_with_readonlyuser` format like `postgres://<user>:<password>@<host>:<port>/<database>?sslmode=<mode>`. it is used to query data by global hub grafana.
+- `ca.crt` based on the [sslmode](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING). It is an optional.
 
 ```bash
 kubectl create secret generic multicluster-global-hub-storage -n "open-cluster-management" \
     --from-literal=database_uri=<postgresql-uri> \
+    --from-literal=database_uri_with_readonlyuser=<postgresql-uri-with-readonlyuser> \
     --from-file=ca.crt=<CA-for-postgres-server>
 ```
 

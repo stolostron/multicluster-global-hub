@@ -45,6 +45,7 @@ spec:
     in `open-cluster-management` namespace. You can run the following command to create
     the secret: \n\n```\nkubectl create secret generic multicluster-global-hub-storage
     -n open-cluster-management \\\n  --from-literal=database_uri=<postgresql-uri>
+    \\\n --from-literal=database_uri_with_readonlyuser=<postgresql-uri-with-readonlyuser>
     \\\n --from-file=ca.crt=<CA-for-postgres-server> \n```\n>_Note:_ There is a sample
     script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:
     the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres`
