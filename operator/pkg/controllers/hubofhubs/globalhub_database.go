@@ -83,7 +83,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 			return fmt.Errorf("failed to read %s: %w", file, err)
 		}
 		if file == "database/5.privileges.sql" {
-			_, err = conn.Exec(ctx, strings.ReplaceAll(string(sqlBytes), "$1", username))
+			if username != "" {
+				_, err = conn.Exec(ctx, strings.ReplaceAll(string(sqlBytes), "$1", username))
+			}
 		} else {
 			_, err = conn.Exec(ctx, string(sqlBytes))
 		}

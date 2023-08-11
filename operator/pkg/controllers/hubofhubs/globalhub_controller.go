@@ -191,12 +191,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) reconcileNativeGlobalHub(ctx context.Context,
-	mgh *operatorv1alpha3.MulticlusterGlobalHub,
-) error {
-	return fmt.Errorf("native data layer is not supported yet")
-}
-
 func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx context.Context,
 	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
