@@ -38,6 +38,9 @@ func InitDatabase(uri string) error {
 
 	for _, file := range files {
 		filePath := filepath.Join(sqlDir, file.Name())
+		if file.Name() == "5.privileges.sql" {
+			continue
+		}
 		fileContent, err := os.ReadFile(filePath)
 		if err != nil {
 			return err
