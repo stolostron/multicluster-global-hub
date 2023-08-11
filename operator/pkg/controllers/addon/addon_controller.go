@@ -18,7 +18,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
@@ -67,7 +67,7 @@ func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 func (a *HoHAddonController) Start(ctx context.Context) error {
 	addonScheme := runtime.NewScheme()
 	utilruntime.Must(mchv1.AddToScheme(addonScheme))
-	utilruntime.Must(v1alpha3.AddToScheme(addonScheme))
+	utilruntime.Must(globalhubv1alpha4.AddToScheme(addonScheme))
 	utilruntime.Must(operatorsv1.AddToScheme(addonScheme))
 	utilruntime.Must(operatorsv1alpha1.AddToScheme(addonScheme))
 

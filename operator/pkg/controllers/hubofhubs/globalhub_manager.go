@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -28,7 +28,7 @@ import (
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
-	mgh *operatorv1alpha3.MulticlusterGlobalHub,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("manager")
 
@@ -68,8 +68,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 
 	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
-	dataRetention := mgh.Spec.DataLayer.LargeScale.Postgres.Retention
-	duration, err := commonutils.ParseDuration(mgh.Spec.DataLayer.LargeScale.Postgres.Retention)
+	dataRetention := mgh.Spec.DataLayer.Postgres.Retention
+	duration, err := commonutils.ParseDuration(mgh.Spec.DataLayer.Postgres.Retention)
 	// if parsing fails, then set the error message to the condition
 	if err != nil {
 		e := condition.SetConditionDataRetention(ctx, r.Client, mgh,
@@ -130,7 +130,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			KafkaBootstrapServer:   kafkaBootstrapServer,
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
-			TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
+			TransportFormat:        string(mgh.Spec.DataLayer.Kafka.TransportFormat),
 			Namespace:              config.GetDefaultNamespace(),
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
@@ -156,7 +156,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, objs []*unstructured.Unstructured,
-	mgh *operatorv1alpha3.MulticlusterGlobalHub, log logr.Logger,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub, log logr.Logger,
 ) error {
 	// manipulate the object
 	for _, obj := range objs {

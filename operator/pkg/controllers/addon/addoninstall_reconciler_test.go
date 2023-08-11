@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
@@ -84,8 +84,8 @@ func fakeHoHManagementAddon() *v1alpha1.ClusterManagementAddOn {
 	}
 }
 
-func fakeMGH(name, namespace string) *operatorv1alpha3.MulticlusterGlobalHub {
-	return &operatorv1alpha3.MulticlusterGlobalHub{
+func fakeMGH(name, namespace string) *globalhubv1alpha4.MulticlusterGlobalHub {
+	return &globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -142,14 +142,14 @@ func TestHoHAddonReconciler(t *testing.T) {
 	utilruntime.Must(v1.AddToScheme(addonTestScheme))
 	utilruntime.Must(v1alpha1.AddToScheme(addonTestScheme))
 	utilruntime.Must(v1alpha1.AddToScheme(addonTestScheme))
-	utilruntime.Must(operatorv1alpha3.AddToScheme(addonTestScheme))
+	utilruntime.Must(globalhubv1alpha4.AddToScheme(addonTestScheme))
 	utilruntime.Must(agentv1.SchemeBuilder.AddToScheme(addonTestScheme))
 
 	cases := []struct {
 		name                  string
 		cluster               *v1.ManagedCluster
 		managementAddon       *v1alpha1.ClusterManagementAddOn
-		mgh                   *operatorv1alpha3.MulticlusterGlobalHub
+		mgh                   *globalhubv1alpha4.MulticlusterGlobalHub
 		addon                 *v1alpha1.ManagedClusterAddOn
 		klusterletAddonConfig *agentv1.KlusterletAddonConfig
 		req                   reconcile.Request

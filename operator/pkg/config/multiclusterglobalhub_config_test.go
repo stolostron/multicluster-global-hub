@@ -22,7 +22,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -33,7 +33,7 @@ func TestSetImageOverrides(t *testing.T) {
 		desc               string
 		initImageManifests map[string]string
 		operandImagesEnv   map[string]string
-		mghInstance        *operatorv1alpha3.MulticlusterGlobalHub
+		mghInstance        *globalhubv1alpha4.MulticlusterGlobalHub
 		wantImageManifests map[string]string
 		wantErr            error
 	}{
@@ -49,12 +49,12 @@ func TestSetImageOverrides(t *testing.T) {
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
 				"RELATED_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
 			},
-			mghInstance: &operatorv1alpha3.MulticlusterGlobalHub{
+			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: constants.GHDefaultNamespace,
 					Name:      mghInstanceName,
 				},
-				Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 			},
 			wantImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
@@ -75,7 +75,7 @@ func TestSetImageOverrides(t *testing.T) {
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
 				"RELATED_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
 			},
-			mghInstance: &operatorv1alpha3.MulticlusterGlobalHub{
+			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: constants.GHDefaultNamespace,
 					Name:      mghInstanceName,
@@ -83,7 +83,7 @@ func TestSetImageOverrides(t *testing.T) {
 						operatorconstants.AnnotationImageRepo: "quay.io/testing",
 					},
 				},
-				Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 			},
 			wantImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/testing/multicluster-global-hub-agent:v0.6.0",
