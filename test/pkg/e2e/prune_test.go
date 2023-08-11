@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	mghv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -56,7 +56,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		appsubv1.SchemeBuilder.AddToScheme(scheme)
 		chnv1.AddToScheme(scheme)
 		placementrulesv1.AddToScheme(scheme)
-		mghv1alpha3.AddToScheme(scheme)
+		globalhubv1alpha4.AddToScheme(scheme)
 		var err error
 		runtimeClient, err = testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -143,7 +143,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 	It("delete multiclusterglobalhub", func() {
 		By("Check whether multiclusterglobalhub is exists")
-		mgh := &mghv1alpha3.MulticlusterGlobalHub{}
+		mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 		err := runtimeClient.Get(ctx, types.NamespacedName{
 			Namespace: "open-cluster-management",
 			Name:      "multiclusterglobalhub",

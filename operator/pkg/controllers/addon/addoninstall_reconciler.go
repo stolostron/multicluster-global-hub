@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -35,7 +35,7 @@ type HoHAddonInstallReconciler struct {
 }
 
 func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	mghList := &operatorv1alpha3.MulticlusterGlobalHubList{}
+	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
 	if err := r.List(ctx, mghList); err != nil {
 		return ctrl.Result{}, err
 	}

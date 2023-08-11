@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
@@ -30,7 +30,7 @@ const (
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
-	mgh *operatorv1alpha3.MulticlusterGlobalHub,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("grafana")
 
@@ -99,7 +99,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 // the GrafanaDatasource points to multicluster-global-hub cr
 func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
-	mgh *operatorv1alpha3.MulticlusterGlobalHub,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (string, error) {
 	postgresSecret, err := r.KubeClient.CoreV1().Secrets(mgh.Namespace).Get(
 		ctx, operatorconstants.GHStorageSecretName, metav1.GetOptions{})

@@ -45,7 +45,7 @@ import (
 	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -83,15 +83,15 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	// 	It("Should not add finalizer to MGH instance and not deploy anything", func() {
 	// 		ctx := context.Background()
 	// 		By("By creating a new MGH instance with native data layer type")
-	// 		mgh := &operatorv1alpha3.MulticlusterGlobalHub{
+	// 		mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 	// 			ObjectMeta: metav1.ObjectMeta{
 	// 				Name:      MGHName,
 	// 				Namespace: config.GetDefaultNamespace(),
 	// 			},
-	// 			Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
-	// 				DataLayer: &operatorv1alpha3.DataLayerConfig{
-	// 					Type:   operatorv1alpha3.Native,
-	// 					Native: &operatorv1alpha3.NativeConfig{},
+	// 			Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+	// 				DataLayer: &globalhubv1alpha4.DataLayerConfig{
+	// 					Type:   globalhubv1alpha4.Native,
+	// 					Native: &globalhubv1alpha4.NativeConfig{},
 	// 				},
 	// 			},
 	// 		}
@@ -99,7 +99,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 	// 		// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 	// 		mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
-	// 		createdMGH := &operatorv1alpha3.MulticlusterGlobalHub{}
+	// 		createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 
 	// 		// get this newly created MGH instance, given that creation may not immediately happen.
 	// 		Eventually(func() bool {
@@ -122,22 +122,18 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			ctx := context.Background()
 			// create a testing MGH instance with invalid large scale data layer setting
 			By("By creating a new MGH instance with invalid large scale data layer setting")
-			mgh := &operatorv1alpha3.MulticlusterGlobalHub{
+			mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
 				},
-				Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
-					DataLayer: &operatorv1alpha3.DataLayerConfig{
-						Type: operatorv1alpha3.LargeScale,
-					},
-				},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 			}
 			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
 			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
-			createdMGH := &operatorv1alpha3.MulticlusterGlobalHub{}
+			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 
 			// get this newly created MGH instance, given that creation may not immediately happen.
 			Eventually(func() bool {
@@ -146,7 +142,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// make sure the default values are filled
-			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
+			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(globalhubv1alpha4.Full))
 			// Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
 			// check finalizer is not added to MGH instance
@@ -164,7 +160,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			ctx := context.Background()
 			// create a testing MGH instance with reference to nonexisting image override configmap
 			By("By creating a new MGH instance with reference to nonexisting image override configmap")
-			mgh := &operatorv1alpha3.MulticlusterGlobalHub{
+			mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
@@ -172,17 +168,15 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 						operatorconstants.AnnotationImageOverridesCM: "noexisting-cm",
 					},
 				},
-				Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
-					DataLayer: &operatorv1alpha3.DataLayerConfig{
-						Type: operatorv1alpha3.LargeScale,
-					},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+					DataLayer: globalhubv1alpha4.DataLayerConfig{},
 				},
 			}
 			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
 			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
-			createdMGH := &operatorv1alpha3.MulticlusterGlobalHub{}
+			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 
 			// get this newly created MGH instance, given that creation may not immediately happen.
 			Eventually(func() bool {
@@ -191,7 +185,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// make sure the default values are filled
-			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
+			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(globalhubv1alpha4.Full))
 			// Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
 			// check finalizer should not be added to MGH instance
@@ -218,20 +212,17 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	})
 
 	Context("When create MGH instance with large scale data layer type", func() {
-		mgh := &operatorv1alpha3.MulticlusterGlobalHub{
+		mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: MGHName,
 			},
-			Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
-				DataLayer: &operatorv1alpha3.DataLayerConfig{
-					Type: operatorv1alpha3.LargeScale,
-					LargeScale: &operatorv1alpha3.LargeScaleConfig{
-						Kafka: &operatorv1alpha3.KafkaConfig{
-							TransportFormat: operatorv1alpha3.CloudEvents,
-						},
-						Postgres: &operatorv1alpha3.PostgresConfig{
-							Retention: "1y",
-						},
+			Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+				DataLayer: globalhubv1alpha4.DataLayerConfig{
+					Kafka: globalhubv1alpha4.KafkaConfig{
+						TransportFormat: globalhubv1alpha4.CloudEvents,
+					},
+					Postgres: globalhubv1alpha4.PostgresConfig{
+						Retention: "1y",
 					},
 				},
 				NodeSelector: map[string]string{"foo": "bar"},
@@ -304,14 +295,14 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mgh.SetNamespace(config.GetDefaultNamespace())
 			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
-			createdMGH := &operatorv1alpha3.MulticlusterGlobalHub{}
+			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			// get this newly created MGH instance, given that creation may not immediately happen.
 			Eventually(func() error {
 				return k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)
 			}, timeout, interval).Should(Succeed())
 
 			// make sure the default values are filled
-			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(operatorv1alpha3.Full))
+			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(globalhubv1alpha4.Full))
 			// Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
 			Eventually(func() error {
@@ -395,7 +386,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaBootstrapServer:   kafkaBootstrapServer,
 					MessageCompressionType: string(operatorconstants.GzipCompressType),
 					TransportType:          string(transport.Kafka),
-					TransportFormat:        string(mgh.Spec.DataLayer.LargeScale.Kafka.TransportFormat),
+					TransportFormat:        string(mgh.Spec.DataLayer.Kafka.TransportFormat),
 					Namespace:              config.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",
@@ -410,7 +401,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
-					DataRetention:        mgh.Spec.DataLayer.LargeScale.Postgres.Retention,
+					DataRetention:        mgh.Spec.DataLayer.Postgres.Retention,
 					StatisticLogInterval: config.GetStatisticLogInterval(),
 				}, nil
 			})
@@ -596,7 +587,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			By("By checking the kafkaBootstrapServer")
-			createdMGH := &operatorv1alpha3.MulticlusterGlobalHub{}
+			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
 			server, _, _, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH.Namespace,
 				operatorconstants.GHTransportSecretName)

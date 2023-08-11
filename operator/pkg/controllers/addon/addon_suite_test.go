@@ -49,7 +49,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
@@ -117,7 +117,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = placementrulesv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = operatorv1alpha3.AddToScheme(scheme.Scheme)
+	err = globalhubv1alpha4.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = appsv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -188,20 +188,13 @@ const (
 	interval = time.Millisecond * 250
 )
 
-var mgh = &operatorv1alpha3.MulticlusterGlobalHub{
+var mgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 	ObjectMeta: metav1.ObjectMeta{
 		Name: MGHName,
 	},
-	Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
+	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
 		ImagePullSecret: "test-pull-secret",
-		DataLayer: &operatorv1alpha3.DataLayerConfig{
-			Type: operatorv1alpha3.LargeScale,
-			LargeScale: &operatorv1alpha3.LargeScaleConfig{
-				Kafka: &operatorv1alpha3.KafkaConfig{
-					TransportFormat: operatorv1alpha3.CloudEvents,
-				},
-			},
-		},
+		DataLayer:       globalhubv1alpha4.DataLayerConfig{},
 	},
 }
 
@@ -228,7 +221,7 @@ func prepareBeforeTest() {
 	// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 	mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
 	config.SetHoHMGHNamespacedName(mghLookupKey)
-	createdMGH := &operatorv1alpha3.MulticlusterGlobalHub{}
+	createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 
 	// get this newly created MGH instance, given that creation may not immediately happen.
 	Eventually(func() bool {

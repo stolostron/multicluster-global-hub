@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -19,7 +19,7 @@ import (
 
 // reconcileSystemConfig tries to create hoh resources if they don't exist
 func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Context,
-	mgh *operatorv1alpha3.MulticlusterGlobalHub,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("config")
 	// set image overrides

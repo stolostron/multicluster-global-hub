@@ -45,7 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -114,7 +114,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	r.Log.Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
 
 	// Fetch the multiclusterglobalhub instance
-	mgh := &operatorv1alpha3.MulticlusterGlobalHub{}
+	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 	if err := r.Get(ctx, req.NamespacedName, mgh); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -141,21 +141,8 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	if mgh.Spec.DataLayer == nil {
-		return ctrl.Result{}, fmt.Errorf("empty data layer type")
-	}
-
-	switch mgh.Spec.DataLayer.Type {
-	// case operatorv1alpha3.Native:
-	// 	if err := r.reconcileNativeGlobalHub(ctx, mgh); err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-	case operatorv1alpha3.LargeScale:
-		if err := r.reconcileLargeScaleGlobalHub(ctx, mgh); err != nil {
-			return ctrl.Result{}, err
-		}
-	default:
-		return ctrl.Result{}, fmt.Errorf("unsupported data layer type: %s", mgh.Spec.DataLayer.Type)
+	if err := r.reconcileGlobalHub(ctx, mgh); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// Make sure the reconcile work properly, and then add finalizer to the multiclusterglobalhub instance
@@ -189,14 +176,8 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) reconcileNativeGlobalHub(ctx context.Context,
-	mgh *operatorv1alpha3.MulticlusterGlobalHub,
-) error {
-	return fmt.Errorf("native data layer is not supported yet")
-}
-
-func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx context.Context,
-	mgh *operatorv1alpha3.MulticlusterGlobalHub,
+func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	// reconcile config: need to be done before reconciling manager and grafana
 	// 1. global image: annotation -> env -> default
@@ -336,7 +317,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	})
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1alpha3.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
+		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).

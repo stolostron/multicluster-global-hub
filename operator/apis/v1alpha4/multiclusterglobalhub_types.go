@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha3
+package v1alpha4
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -70,37 +70,14 @@ type MulticlusterGlobalHubSpec struct {
 	// DataLayer can be configured to use a different data layer, only support largeScale now.
 	// largeScale: large scale data layer served by kafka and postgres.
 	// +kubebuilder:validation:Required
-	DataLayer *DataLayerConfig `json:"dataLayer"`
+	DataLayer DataLayerConfig `json:"dataLayer"`
 }
 
 // DataLayerConfig is a discriminated union of data layer specific configuration.
 // +union
 type DataLayerConfig struct {
-	// +unionDiscriminator
-	// +kubebuilder:validation:Required
-	Type DataLayerType `json:"type"`
-
-	// // Native may use a syncer to sync data from the managed hub cluster to the global hub cluster.
-	// // The data is stored in the global hub kubernetes api server backed by etcd.
-	// // This is not for a large scale environment.
-	// // +optional
-	// Native *NativeConfig `json:"native,omitempty"`
-
-	// LargeScale is to use kafka as transport layer and use postgres as data layer
-	// This is for a large scale environment.
-	// +optional
-	LargeScale *LargeScaleConfig `json:"largeScale,omitempty"`
-}
-
-// // NativeConfig is the config of the native data layer
-// type NativeConfig struct{}
-
-// LargeScaleConfig is the config of large scale data layer
-type LargeScaleConfig struct {
-	// +optional
-	Kafka *KafkaConfig `json:"kafka,omitempty"`
-	// +optional
-	Postgres *PostgresConfig `json:"postgres,omitempty"`
+	Kafka    KafkaConfig    `json:"kafka,omitempty"`
+	Postgres PostgresConfig `json:"postgres,omitempty"`
 }
 
 // PostgresConfig defines the desired state of postgres
