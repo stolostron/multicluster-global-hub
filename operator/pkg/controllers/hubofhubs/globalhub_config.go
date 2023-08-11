@@ -17,8 +17,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-var monitorFlag = false
-
 // reconcileSystemConfig tries to create hoh resources if they don't exist
 func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Context,
 	mgh *operatorv1alpha3.MulticlusterGlobalHub,
@@ -33,25 +31,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	// set statistic log interval
 	if err := config.SetStatisticLogInterval(mgh); err != nil {
 		return err
-	}
-
-	// add label openshift.io/cluster-monitoring: "true" to the ns, so that the prometheus can detect the ServiceMonitor.
-	if !monitorFlag {
-		r.KubeClient.CoreV1().Namespaces()
-		ns, err := r.KubeClient.CoreV1().Namespaces().Get(ctx, config.GetDefaultNamespace(), metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		labels := ns.GetLabels()
-		if labels == nil {
-			labels = make(map[string]string)
-		}
-		labels[operatorconstants.ClusterMonitoringLabelKey] = operatorconstants.ClusterMonitoringLabelVal
-		ns.SetLabels(labels)
-		if _, err = r.KubeClient.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
-		monitorFlag = true
 	}
 
 	// reconcile global hub global hub config

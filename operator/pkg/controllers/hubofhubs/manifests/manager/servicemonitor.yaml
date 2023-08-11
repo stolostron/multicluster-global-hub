@@ -2,10 +2,13 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: multicluster-global-hub-manager
-  namespace: {{.Namespace}}
+  namespace: openshift-monitoring # namespace where prometheus is running
   labels:
     name: multicluster-global-hub-manager
 spec:
+  namespaceSelector:
+    matchNames:
+    - {{.Namespace}}
   selector:
     matchLabels:
       name: multicluster-global-hub-manager

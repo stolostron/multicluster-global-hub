@@ -75,12 +75,6 @@ const (
 	GHDefaultStorageRetention = "18m"                               // 18 months
 )
 
-// metrics monitoring namespace label
-const (
-	ClusterMonitoringLabelKey = "openshift.io/cluster-monitoring"
-	ClusterMonitoringLabelVal = "true"
-)
-
 const (
 	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
 	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"
