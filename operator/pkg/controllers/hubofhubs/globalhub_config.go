@@ -28,6 +28,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 		return err
 	}
 
+	// set statistic log interval
+	if err := config.SetStatisticLogInterval(mgh); err != nil {
+		return err
+	}
+
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.GHSystemNamespace,

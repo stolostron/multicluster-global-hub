@@ -151,8 +151,10 @@ func updatePolicyStatusInBundle(policyGenericStatus *status.PolicyGenericComplia
 	policyStatus *policyStatus,
 ) {
 	policyGenericStatus.CompliantClusters = createSliceFromSet(policyStatus.compliantClusters)
-	policyGenericStatus.NonCompliantClusters = createSliceFromSet(policyStatus.nonCompliantClusters)
-	policyGenericStatus.UnknownComplianceClusters = createSliceFromSet(policyStatus.unknownClusters)
+	policyGenericStatus.NonCompliantClusters =
+		createSliceFromSet(policyStatus.nonCompliantClusters)
+	policyGenericStatus.UnknownComplianceClusters =
+		createSliceFromSet(policyStatus.unknownClusters)
 }
 
 func (bundle *DeltaComplianceStatusBundle) SetVersion(version *status.BundleVersion) {

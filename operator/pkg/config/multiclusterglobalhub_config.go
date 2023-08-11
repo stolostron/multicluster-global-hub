@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -62,6 +63,7 @@ var (
 		GrafanaImageKey:          "quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34",
 	}
 	globalHubAgentConfig *corev1.ConfigMap
+	statisticLogInterval = "1m"
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -190,4 +192,22 @@ func SetGlobalHubAgentConfig(config *corev1.ConfigMap) {
 
 func GetGlobalHubAgentConfig() *corev1.ConfigMap {
 	return globalHubAgentConfig
+}
+
+func SetStatisticLogInterval(mgh *operatorv1alpha3.MulticlusterGlobalHub) error {
+	interval := getAnnotation(mgh, operatorconstants.AnnotationStatisticInterval)
+	if interval == "" {
+		return nil
+	}
+
+	_, err := time.ParseDuration(interval)
+	if err != nil {
+		return err
+	}
+	statisticLogInterval = interval
+	return nil
+}
+
+func GetStatisticLogInterval() string {
+	return statisticLogInterval
 }

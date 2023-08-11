@@ -4,22 +4,24 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 type StatisticsConfig struct {
-	LogInterval time.Duration
+	LogInterval string
 }
 
 // NewStatistics creates a new instance of Statistics.
-func NewStatistics(log logr.Logger, statisticsConfig *StatisticsConfig, bundleTypes []string) *Statistics {
+func NewStatistics(statisticsConfig *StatisticsConfig, bundleTypes []string) *Statistics {
 	statistics := &Statistics{
-		log:           log,
+		log:           ctrl.Log.WithName("statistics"),
 		bundleMetrics: make(map[string]*bundleMetrics),
 		logInterval:   statisticsConfig.LogInterval,
 	}
@@ -36,14 +38,19 @@ type Statistics struct {
 	log                      logr.Logger
 	numOfAvailableDBWorkers  int
 	conflationReadyQueueSize int
+	numOfConflationUnits     int
 	bundleMetrics            map[string]*bundleMetrics
-	logInterval              time.Duration
+	logInterval              string
+	mutex                    sync.Mutex
 }
 
 // IncrementNumberOfReceivedBundles increments total number of received bundles of the specific type via transport.
+// if bundle type is not registered, do nothing
 func (s *Statistics) IncrementNumberOfReceivedBundles(bundle status.Bundle) {
-	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
-
+	bundleMetrics, ok := s.bundleMetrics[helpers.GetBundleType(bundle)]
+	if !ok {
+		return
+	}
 	bundleMetrics.totalReceived++
 }
 
@@ -59,37 +66,47 @@ func (s *Statistics) SetConflationReadyQueueSize(size int) {
 
 // StartConflationUnitMetrics starts conflation unit metrics of the specific bundle type.
 func (s *Statistics) StartConflationUnitMetrics(bundle status.Bundle) {
-	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
-
+	bundleMetrics, ok := s.bundleMetrics[helpers.GetBundleType(bundle)]
+	if !ok {
+		return
+	}
 	bundleMetrics.conflationUnit.start(bundle.GetLeafHubName())
 }
 
 // StopConflationUnitMetrics stops conflation unit metrics of the specific bundle type.
-func (s *Statistics) StopConflationUnitMetrics(bundle status.Bundle) {
-	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
-
-	bundleMetrics.conflationUnit.stop(bundle.GetLeafHubName())
+func (s *Statistics) StopConflationUnitMetrics(bundle status.Bundle, err error) {
+	bundleMetrics, ok := s.bundleMetrics[helpers.GetBundleType(bundle)]
+	if !ok {
+		return
+	}
+	bundleMetrics.conflationUnit.stop(bundle.GetLeafHubName(), err)
 }
 
-// IncrementNumberOfConflations increments number of conflations of the specific bundle type.
-func (s *Statistics) IncrementNumberOfConflations(bundle status.Bundle) {
-	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
-
-	bundleMetrics.conflationUnit.incrementNumberOfConflations()
+// IncrementNumberOfConflations increments number of conflations
+func (s *Statistics) IncrementNumberOfConflations() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.numOfConflationUnits++
 }
 
 // AddDatabaseMetrics adds database metrics of the specific bundle type.
 func (s *Statistics) AddDatabaseMetrics(bundle status.Bundle, duration time.Duration, err error) {
-	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
-
+	bundleMetrics, ok := s.bundleMetrics[helpers.GetBundleType(bundle)]
+	if !ok {
+		return
+	}
 	bundleMetrics.database.add(duration, err)
 }
 
 // Start starts the statistics.
 func (s *Statistics) Start(ctx context.Context) error {
 	s.log.Info("starting statistics")
+	duration, err := time.ParseDuration(s.logInterval)
+	if err != nil {
+		return err
+	}
 
-	go s.run(ctx)
+	go s.run(ctx, duration)
 
 	// blocking wait until getting cancel context event
 	<-ctx.Done()
@@ -98,12 +115,12 @@ func (s *Statistics) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *Statistics) run(ctx context.Context) {
-	if s.logInterval.Seconds() <= 0 {
+func (s *Statistics) run(ctx context.Context, duration time.Duration) {
+	if duration.Seconds() <= 0 {
 		return // if log interval is set to 0 or negative value, statistics log is disabled.
 	}
 
-	ticker := time.NewTicker(s.logInterval)
+	ticker := time.NewTicker(duration)
 
 	for {
 		select {
@@ -112,19 +129,31 @@ func (s *Statistics) run(ctx context.Context) {
 			return
 
 		case <-ticker.C: // dump statistics
-			var metrics strings.Builder
+			var stringBuilder strings.Builder
+			success := int64(0)
+			fail := int64(0)
+			storageAvg := float64(0)
+			conflationAvg := float64(0)
 
 			for bundleType, bundleMetrics := range s.bundleMetrics {
-				metrics.WriteString(fmt.Sprintf("[%s, (transport {total received=%d}), (cu {%s}), (db process {%s})], ",
+				stringBuilder.WriteString(fmt.Sprintf("[%-42s(%d) | conflation(%-42s) | storage(%-42s)] \n",
 					bundleType, bundleMetrics.totalReceived,
 					bundleMetrics.conflationUnit.toString(),
 					bundleMetrics.database.toString()))
+				success += bundleMetrics.totalReceived
+				fail += (bundleMetrics.conflationUnit.failures + bundleMetrics.database.failures)
+				if bundleMetrics.conflationUnit.successes > 0 {
+					conflationAvg = float64(bundleMetrics.conflationUnit.totalDuration / bundleMetrics.conflationUnit.successes)
+				}
+				if bundleMetrics.database.successes > 0 {
+					storageAvg = float64(bundleMetrics.database.totalDuration / bundleMetrics.database.successes)
+				}
 			}
+			metrics := fmt.Sprintf("{CU=%d, CUQueue=%d, idleDBW=%d, success=%d, fail=%d, CU Avg=%.0f ms, DB Avg=%.0f ms}",
+				s.numOfConflationUnits, s.conflationReadyQueueSize, s.numOfAvailableDBWorkers, success, fail,
+				conflationAvg, storageAvg)
 
-			s.log.Info("statistics:",
-				"conflation ready queue size", s.conflationReadyQueueSize,
-				"available db workers", s.numOfAvailableDBWorkers,
-				"metrics", strings.TrimSuffix(metrics.String(), ", "))
+			s.log.Info(fmt.Sprintf("%s\n%s", metrics, stringBuilder.String()))
 		}
 	}
 }

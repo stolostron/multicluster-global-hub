@@ -72,9 +72,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	duration, err := commonutils.ParseDuration(mgh.Spec.DataLayer.LargeScale.Postgres.Retention)
 	// if parsing fails, then set the error message to the condition
 	if err != nil {
-		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE, err.Error())
+		e := condition.SetConditionDataRetention(ctx, r.Client, mgh,
+			condition.CONDITION_STATUS_FALSE, err.Error())
 		if e != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, e)
+			return condition.FailToSetConditionError(
+				condition.CONDITION_TYPE_RETENTION_PARSED, e)
 		}
 		return fmt.Errorf("failed to parse data retention duration: %v", err)
 	}
@@ -88,7 +90,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		!condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_RETENTION_PARSED, condition.CONDITION_STATUS_TRUE) {
 		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE, msg)
 		if e != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, err)
+			return condition.FailToSetConditionError(
+				condition.CONDITION_TYPE_RETENTION_PARSED, err)
 		}
 	}
 
@@ -115,6 +118,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
 			DataRetention          string
+			StatisticLogInterval   string
 		}{
 			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -137,6 +141,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
 			DataRetention:          dataRetention,
+			StatisticLogInterval:   config.GetStatisticLogInterval(),
 		}, nil
 	})
 	if err != nil {

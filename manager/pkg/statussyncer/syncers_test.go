@@ -140,7 +140,9 @@ func TestConsumer(t *testing.T) {
 				},
 			},
 		},
-		StatisticsConfig: &statistics.StatisticsConfig{},
+		StatisticsConfig: &statistics.StatisticsConfig{
+			LogInterval: "1m",
+		},
 	}
 
 	registerable, err := statussyncer.AddStatusSyncers(mgr, managerConfig)

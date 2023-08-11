@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 )
 
 var (

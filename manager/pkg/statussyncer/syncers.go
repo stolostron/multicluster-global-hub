@@ -152,20 +152,21 @@ func requireInitialDependencyChecks(transportType string) bool {
 	}
 }
 
+// only statistic the local policy and managed clusters
 func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (*statistics.Statistics, error) {
 	// create statistics
-	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"), managerConfig.StatisticsConfig,
+	stats := statistics.NewStatistics(managerConfig.StatisticsConfig,
 		[]string{
 			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
-			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
+			// helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
+			// helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
+			// helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
+			// helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
+			// helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
 			helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
 			helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
-			helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
-			helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
+			// helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
+			// helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
 			helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
 			helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
 			helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
