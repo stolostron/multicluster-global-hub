@@ -288,7 +288,9 @@ rules:
   - create
   - delete
   - get
+  - list
   - update
+  - watch
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
