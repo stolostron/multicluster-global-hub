@@ -381,7 +381,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					NodeSelector           map[string]string
 					Tolerations            []corev1.Toleration
 					DataRetention          string
-					StatisticLogInterval   string
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -410,8 +409,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
-					DataRetention:        mgh.Spec.DataLayer.LargeScale.Postgres.Retention,
-					StatisticLogInterval: config.GetStatisticLogInterval(),
+					DataRetention: mgh.Spec.DataLayer.LargeScale.Postgres.Retention,
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())

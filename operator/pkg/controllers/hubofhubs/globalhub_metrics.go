@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -42,7 +43,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 				{
 					Port:     "metrics",
 					Path:     "/metrics",
-					Interval: "60s",
+					Interval: promv1.Duration(config.GetStatisticLogInterval().String()),
 				},
 			},
 		},
@@ -59,7 +60,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 
 	if !equality.Semantic.DeepDerivative(expectedServiceMonitor.Spec, serviceMonitor.Spec) ||
 		!equality.Semantic.DeepDerivative(expectedServiceMonitor.GetLabels(), serviceMonitor.GetLabels()) {
-		expectedServiceMonitor.ObjectMeta.ResourceVersion = serviceMonitor.ObjectMeta.ResourceVersion
+		expectedServiceMonitor.ObjectMeta.ResourceVersion =
+			serviceMonitor.ObjectMeta.ResourceVersion
 		log.Info("updating ServiceMonitor", "namespace", serviceMonitor.Namespace, "name", serviceMonitor.Name)
 		return r.Update(ctx, expectedServiceMonitor)
 	}

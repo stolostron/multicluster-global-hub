@@ -115,7 +115,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
 			DataRetention          string
-			StatisticLogInterval   string
 		}{
 			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -138,7 +137,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
 			DataRetention:          dataRetention,
-			StatisticLogInterval:   config.GetStatisticLogInterval(),
 		}, nil
 	})
 	if err != nil {

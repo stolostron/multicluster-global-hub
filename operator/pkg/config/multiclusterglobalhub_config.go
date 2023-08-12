@@ -63,7 +63,7 @@ var (
 		GrafanaImageKey:          "quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34",
 	}
 	globalHubAgentConfig *corev1.ConfigMap
-	statisticLogInterval = "1m"
+	statisticLogInterval = 1 * time.Minute
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -200,14 +200,14 @@ func SetStatisticLogInterval(mgh *operatorv1alpha3.MulticlusterGlobalHub) error 
 		return nil
 	}
 
-	_, err := time.ParseDuration(interval)
+	duration, err := time.ParseDuration(interval)
 	if err != nil {
 		return err
 	}
-	statisticLogInterval = interval
+	statisticLogInterval = duration
 	return nil
 }
 
-func GetStatisticLogInterval() string {
+func GetStatisticLogInterval() time.Duration {
 	return statisticLogInterval
 }
