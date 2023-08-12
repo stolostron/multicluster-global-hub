@@ -101,7 +101,7 @@ type MulticlusterGlobalHubReconciler struct {
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons/finalizers,verbs=update
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterhubs,verbs=get;list;patch;update;watch
 // +kubebuilder:rbac:groups=agent.open-cluster-management.io,resources=klusterletaddonconfigs,verbs=get;list;patch;update;watch
-// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;patch;update;watch
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create;delete;update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -227,6 +227,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 		return err
 	}
 
+	// reconcile metrics
+	if err := r.reconcileMetrics(ctx, mgh); err != nil {
+		return err
+	}
+
 	// reconcile grafana
 	if err := r.reconcileGrafana(ctx, mgh); err != nil {
 		return err
@@ -346,7 +351,6 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
 		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
 		Owns(&routev1.Route{}, builder.WithPredicates(ownPred)).
-		Owns(&promv1.ServiceMonitor{}, builder.WithPredicates(ownPred)).
 		Watches(&source.Kind{Type: &admissionregistrationv1.MutatingWebhookConfiguration{}},
 			globalHubEventHandler, builder.WithPredicates(webhookPred)).
 		// secondary watch for configmap
@@ -366,5 +370,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			globalHubEventHandler, builder.WithPredicates(resPred)).
 		Watches(&source.Kind{Type: &corev1.Secret{}},
 			globalHubEventHandler, builder.WithPredicates(secretPred)).
+		Watches(&source.Kind{Type: &promv1.ServiceMonitor{}},
+			globalHubEventHandler, builder.WithPredicates(resPred)).
 		Complete(r)
 }

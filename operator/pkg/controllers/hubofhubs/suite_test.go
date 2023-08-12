@@ -28,6 +28,8 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -49,6 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
@@ -159,6 +162,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: operatorconstants.GHServiceMonitorNamespace,
+		},
+	}, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	// the leader election will be propagate to global hub manager

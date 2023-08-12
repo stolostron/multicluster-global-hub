@@ -75,6 +75,12 @@ const (
 	GHDefaultStorageRetention = "18m"                               // 18 months
 )
 
+// global hub metrics
+const (
+	GHServiceMonitorNamespace = "openshift-monitoring"
+	GHServiceMonitorName      = "multicluster-global-hub-metrics"
+)
+
 const (
 	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
 	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"

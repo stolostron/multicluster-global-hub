@@ -277,6 +277,9 @@ func buildResourceFilterMap() cache.NewCacheFunc {
 			&admissionregistrationv1.MutatingWebhookConfiguration{}: {
 				Label: labelSelector,
 			},
+			&promv1.ServiceMonitor{}: {
+				Label: labelSelector,
+			},
 		},
 	})
 }

@@ -285,11 +285,10 @@ rules:
   resources:
   - servicemonitors
   verbs:
+  - create
+  - delete
   - get
-  - list
-  - patch
   - update
-  - watch
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
