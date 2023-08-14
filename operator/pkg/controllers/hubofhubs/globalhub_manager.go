@@ -112,7 +112,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RenewDeadline          string
 			RetryPeriod            string
 			SchedulerInterval      string
-			ClusterAPIUrl          string
+			SkipAuth               bool
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
 			DataRetention          string
@@ -136,7 +136,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
 			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
 			SchedulerInterval:      config.GetSchedulerInterval(mgh),
-			ClusterAPIUrl:          config.GetClusterAPIUrl(mgh),
+			SkipAuth:               config.SkipAuth(mgh),
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
 			DataRetention:          dataRetention,
