@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,6 +46,7 @@ const (
 	ExpectedLeafHubNum        = 2
 	ExpectedManagedClusterNum = 2
 	Namespace                 = "open-cluster-management"
+	ServiceMonitorNamespace   = "openshift-monitoring"
 )
 
 func TestClient(t *testing.T) {
@@ -154,8 +156,20 @@ func findRootDir(dir string) (string, error) {
 func deployGlobalHub() {
 	By("Creating client for the hub cluster")
 	scheme := runtime.NewScheme()
-	operatorv1alpha3.AddToScheme(scheme)
-	appsv1.AddToScheme(scheme)
+	Expect(operatorv1alpha3.AddToScheme(scheme)).Should(Succeed())
+	Expect(appsv1.AddToScheme(scheme)).Should(Succeed())
+
+	By("Creating namespace for the ServiceMonitor")
+	_, err := testClients.KubeClient().CoreV1().Namespaces().Get(context.Background(), ServiceMonitorNamespace,
+		metav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: ServiceMonitorNamespace,
+			},
+		}, metav1.CreateOptions{})
+	}
+	Expect(err).NotTo(HaveOccurred())
 
 	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
 	Expect(err).ShouldNot(HaveOccurred())

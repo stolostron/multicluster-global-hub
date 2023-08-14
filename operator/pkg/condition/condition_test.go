@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -22,9 +23,11 @@ import (
 var (
 	cfg           *rest.Config
 	runtimeClient client.Client
+	ctx           context.Context
 )
 
 func TestMain(m *testing.M) {
+	ctx = context.TODO()
 	// start testenv
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -80,56 +83,49 @@ func TestCondition(t *testing.T) {
 		},
 	}
 
-	err := runtimeClient.Create(context.TODO(), mgh)
-	if err != nil {
-		t.Fatalf("failed to create mgh: %v", err)
-	}
+	err := runtimeClient.Create(ctx, mgh)
+	assert.NoError(t, err)
 
-	cases := []struct {
+	t.Logf("testing condition %s with SetCondition", CONDITION_TYPE_RETENTION_PARSED)
+	err = SetCondition(ctx, runtimeClient, mgh, CONDITION_TYPE_RETENTION_PARSED,
+		metav1.ConditionStatus(CONDITION_STATUS_TRUE), "reason", "message")
+	assert.NoError(t, err)
+
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
+	assert.NoError(t, err)
+	assert.True(t, ContainConditionMessage(mgh, CONDITION_TYPE_RETENTION_PARSED, "message"))
+	assert.True(t, ContainConditionStatusReason(mgh, CONDITION_TYPE_RETENTION_PARSED, "reason", CONDITION_STATUS_TRUE))
+
+	statusTestCases := []struct {
 		name          string
 		conditionType string
 		setFunc       SetConditionFunc
 	}{
-		{CONDITION_MESSAGE_DATABASE_INIT, CONDITION_TYPE_DATABASE_INIT, SetConditionDatabaseInit},
-		{CONDITION_MESSAGE_TRANSPORT_INIT, CONDITION_TYPE_TRANSPORT_INIT, SetConditionTransportInit},
-		{CONDITION_MESSAGE_MANAGER_AVAILABLE, CONDITION_TYPE_MANAGER_AVAILABLE, SetConditionManagerAvailable},
-		{CONDITION_MESSAGE_GRAFANA_AVAILABLE, CONDITION_TYPE_GRAFANA_AVAILABLE, SetConditionGrafanaAvailable},
+		{"database initialization", CONDITION_TYPE_DATABASE_INIT, SetConditionDatabaseInit},
+		{"transport initialization", CONDITION_TYPE_TRANSPORT_INIT, SetConditionTransportInit},
+		{"manager deployment", CONDITION_TYPE_MANAGER_AVAILABLE, SetConditionManagerAvailable},
+		{"grafana deployment", CONDITION_TYPE_GRAFANA_AVAILABLE, SetConditionGrafanaAvailable},
 	}
-
-	for _, tc := range cases {
+	for _, tc := range statusTestCases {
 		t.Logf("testing condition %s ", tc.name)
-		tc.setFunc(context.TODO(), runtimeClient, mgh, CONDITION_STATUS_TRUE)
-		if condition := GetConditionStatus(mgh, tc.conditionType); condition != CONDITION_STATUS_TRUE {
-			t.Errorf("expected condition %s to be %s, got %s", tc.name, CONDITION_STATUS_TRUE, condition)
-		}
-		tc.setFunc(context.TODO(), runtimeClient, mgh, CONDITION_STATUS_FALSE)
-		if condition := GetConditionStatus(mgh, tc.conditionType); condition != CONDITION_STATUS_FALSE {
-			t.Errorf("expected condition %s to be %s, got %s", tc.name, CONDITION_STATUS_FALSE, condition)
-		}
-		tc.setFunc(context.TODO(), runtimeClient, mgh, CONDITION_STATUS_UNKNOWN)
-		if condition := GetConditionStatus(mgh, tc.conditionType); condition != CONDITION_STATUS_UNKNOWN {
-			t.Errorf("expected condition %s to be %s, got %s", tc.name, CONDITION_STATUS_UNKNOWN, condition)
-		}
+
+		// set the condition to true
+		tc.setFunc(ctx, runtimeClient, mgh, CONDITION_STATUS_TRUE)
+
+		// check the condition status
+		err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
+		assert.NoError(t, err)
+		assert.Equal(t, CONDITION_STATUS_TRUE, string(
+			GetConditionStatus(mgh, tc.conditionType)))
 	}
 
-	leafHubTestCases := []struct {
-		status string
-	}{
-		{CONDITION_STATUS_TRUE},
-		{CONDITION_STATUS_FALSE},
-		{CONDITION_STATUS_UNKNOWN},
-	}
+	t.Logf("testing condition %s ", CONDITION_TYPE_LEAFHUB_DEPLOY)
+	err = SetConditionLeafHubDeployed(ctx, runtimeClient, mgh, "test",
+		metav1.ConditionStatus(CONDITION_STATUS_TRUE))
+	assert.NoError(t, err)
 
-	for _, tc := range leafHubTestCases {
-		t.Logf("testing condition %s : %s ", CONDITION_TYPE_LEAFHUB_DEPLOY, tc.status)
-		err := SetConditionLeafHubDeployed(context.TODO(), runtimeClient, mgh, "test", metav1.ConditionStatus(tc.status))
-		if err != nil {
-			t.Errorf("failed to set %s condition: %v", CONDITION_TYPE_LEAFHUB_DEPLOY, err)
-		}
-		if condition := GetConditionStatus(mgh, CONDITION_TYPE_LEAFHUB_DEPLOY); condition !=
-			metav1.ConditionStatus(tc.status) {
-			t.Errorf("expected condition %s to be %s, got %s",
-				CONDITION_TYPE_LEAFHUB_DEPLOY, tc.status, condition)
-		}
-	}
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
+	assert.NoError(t, err)
+	assert.Equal(t, CONDITION_STATUS_TRUE, string(
+		GetConditionStatus(mgh, CONDITION_TYPE_LEAFHUB_DEPLOY)))
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -145,6 +146,19 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 		},
 	}
 	if err := r.Client.Delete(ctx, mghSystemNamespace); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	mghServiceMonitor := &promv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorconstants.GHServiceMonitorName,
+			Namespace: operatorconstants.GHServiceMonitorNamespace,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+	}
+	if err := r.Client.Delete(ctx, mghServiceMonitor); err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 

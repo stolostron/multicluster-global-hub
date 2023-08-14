@@ -22,8 +22,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	mgh *operatorv1alpha3.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("config")
+	log.Info("set operand images; service monitor interval; set global hub agent config")
 	// set image overrides
-	log.Info("set operand images; reconcile global hub configmap")
 	if err := config.SetImageOverrides(mgh); err != nil {
 		return err
 	}
@@ -33,6 +33,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 		return err
 	}
 
+	// reconcile global hub global hub config
 	if err := r.Client.Get(ctx,
 		types.NamespacedName{
 			Name: constants.GHSystemNamespace,

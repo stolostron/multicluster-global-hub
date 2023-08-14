@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -100,6 +101,7 @@ type MulticlusterGlobalHubReconciler struct {
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons/finalizers,verbs=update
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterhubs,verbs=get;list;patch;update;watch
 // +kubebuilder:rbac:groups=agent.open-cluster-management.io,resources=klusterletaddonconfigs,verbs=get;list;patch;update;watch
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create;delete;update;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -222,6 +224,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileLargeScaleGlobalHub(ctx conte
 
 	// reconcile manager
 	if err := r.reconcileManager(ctx, mgh); err != nil {
+		return err
+	}
+
+	// reconcile metrics
+	if err := r.reconcileMetrics(ctx, mgh); err != nil {
 		return err
 	}
 
@@ -363,5 +370,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			globalHubEventHandler, builder.WithPredicates(resPred)).
 		Watches(&source.Kind{Type: &corev1.Secret{}},
 			globalHubEventHandler, builder.WithPredicates(secretPred)).
+		Watches(&source.Kind{Type: &promv1.ServiceMonitor{}},
+			globalHubEventHandler, builder.WithPredicates(resPred)).
 		Complete(r)
 }

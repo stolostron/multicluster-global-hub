@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/metrics"
 )
 
 var (
@@ -33,6 +35,10 @@ var (
 	// sizes and measure the performance of the queries.
 )
 
+func init() {
+	metrics.GlobalHubJobGauge.WithLabelValues(localComplianceTaskName).Set(0)
+}
+
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
 	startTime = time.Now()
 
@@ -48,12 +54,22 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 		counterLock.Unlock()
 	}
 
+	var err error
+	defer func() {
+		if err != nil {
+			metrics.GlobalHubJobGauge.WithLabelValues(localComplianceTaskName).Set(1)
+		} else {
+			metrics.GlobalHubJobGauge.WithLabelValues(localComplianceTaskName).Set(0)
+		}
+	}()
+
 	historyDate := startTime.AddDate(0, 0, -interval)
 	log = ctrl.Log.WithName(localComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
 	log.Info("start running", "currentRun", job.LastRun().Format(timeFormat))
 
 	// insert or update with local_status.compliance
-	statusTotal, statusInsert, err := syncToLocalComplianceHistoryByLocalStatus(ctx, pool, batchSize, interval,
+	var statusTotal, statusInsert int64
+	statusTotal, statusInsert, err = syncToLocalComplianceHistoryByLocalStatus(ctx, pool, batchSize, interval,
 		enableSimulation)
 	if err != nil {
 		log.Error(err, "sync from local_status.compliance to history.local_compliance failed")
@@ -66,8 +82,10 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 	}
 
 	// insert or update with event.local_policies
-	eventTotal, eventInsert, err := syncToLocalComplianceHistoryByPolicyEvent(ctx, pool, batchSize)
+	var eventTotal, eventInsert int64
+	eventTotal, eventInsert, err = syncToLocalComplianceHistoryByPolicyEvent(ctx, pool, batchSize)
 	if err != nil {
+		metrics.GlobalHubJobGauge.WithLabelValues(localComplianceTaskName).Inc()
 		log.Error(err, "sync from history.local_policies to history.local_compliance failed")
 		return
 	}
