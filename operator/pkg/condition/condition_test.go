@@ -16,6 +16,8 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 )
 
 var (
@@ -46,7 +48,7 @@ func TestMain(m *testing.M) {
 	}
 
 	scheme := runtime.NewScheme()
-	err = operatorv1alpha3.AddToScheme(scheme)
+	err = globalhubv1alpha4.AddToScheme(scheme)
 	if err != nil {
 		panic(err)
 	}
@@ -68,16 +70,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestCondition(t *testing.T) {
-	mgh := &operatorv1alpha3.MulticlusterGlobalHub{
+	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
 		},
-		Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
-			DataLayer: &operatorv1alpha3.DataLayerConfig{
-				Type:       operatorv1alpha3.LargeScale,
-				LargeScale: &operatorv1alpha3.LargeScaleConfig{},
-			},
+		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+			DataLayer: globalhubv1alpha4.DataLayerConfig{},
 		},
 	}
 

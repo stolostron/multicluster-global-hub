@@ -19,6 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -129,7 +130,7 @@ func TestConsumer(t *testing.T) {
 		},
 		TransportConfig: &transport.TransportConfig{
 			TransportType:   string(transport.Kafka),
-			TransportFormat: string(operatorv1alpha3.KafkaMessage),
+			TransportFormat: string(globalhubv1alpha4.KafkaMessage),
 			KafkaConfig: &transport.KafkaConfig{
 				BootstrapServer: mockKafkaCluster.BootstrapServers(),
 				EnableTLS:       false,
