@@ -4,7 +4,7 @@
 KUBECONFIG=${1:-$KUBECONFIG}
 
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-rootDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." ; pwd -P)"
+rootDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." ; pwd -P)"
 
 source $rootDir/test/setup/common.sh
 

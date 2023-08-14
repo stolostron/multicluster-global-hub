@@ -60,13 +60,8 @@ function checkKind() {
 
 function initKinDCluster() {
   clusterName="$1"
-  kindConfig="$2"
   if [[ $(kind get clusters | grep "^${clusterName}$" || true) != "${clusterName}" ]]; then
-    if [[ "x${kindConfig}" == "x" ]]; then
-      kind create cluster --name "$clusterName" --wait 1m
-    else
-      kind create cluster --name "$clusterName" --wait 1m --config $kindConfig
-    fi
+    kind create cluster --name "$clusterName" --wait 1m
     currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     kubectl config view --context="kind-${clusterName}" --minify --flatten > ${currentDir}/config/kubeconfig-${clusterName}
   fi

@@ -1,4 +1,4 @@
-
+# it is from https://github.com/strimzi/strimzi-kafka-operator/tree/0.33.2/packaging/install/cluster-operator
 bases:
 - crds
 - manager

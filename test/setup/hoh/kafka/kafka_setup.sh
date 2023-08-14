@@ -2,7 +2,7 @@
 #!/bin/bash
 
 currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-setupDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." ; pwd -P)"
+setupDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." ; pwd -P)"
 source "$setupDir/common.sh"
 CTX_HUB=$1
 
@@ -17,12 +17,12 @@ fi
 
 # deploy kafka operator
 kubectl --context $CTX_HUB create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
-kubectl --context $CTX_HUB apply -k ${currentDir}/kafka/kafka-operator
+kubectl --context $CTX_HUB apply -k ${currentDir}/kafka-operator -n kafka
 waitAppear "kubectl --context $CTX_HUB get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
 echo "Kafka operator is ready"
 
 # deploy kafka cluster
-kubectl --context $CTX_HUB apply -k ${currentDir}/kafka/kafka-cluster
+kubectl --context $CTX_HUB apply -k ${currentDir}/kafka-cluster -n kafka
 waitAppear "kubectl --context $CTX_HUB -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found" 1200
 echo "Kafka cluster is ready"
 
