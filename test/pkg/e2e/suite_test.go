@@ -172,11 +172,11 @@ func deployGlobalHub() {
 			},
 		},
 		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
-			DataLayer: &globalhubv1alpha4.DataLayerConfig{
-				Kafka: &globalhubv1alpha4.KafkaConfig{
+			DataLayer: globalhubv1alpha4.DataLayerConfig{
+				Kafka: globalhubv1alpha4.KafkaConfig{
 					TransportFormat: globalhubv1alpha4.CloudEvents,
 				},
-				Postgres: &globalhubv1alpha4.PostgresConfig{
+				Postgres: globalhubv1alpha4.PostgresConfig{
 					Retention: "18m",
 				},
 			},
