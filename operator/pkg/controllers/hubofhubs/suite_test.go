@@ -61,13 +61,14 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg          *rest.Config
-	k8sClient    client.Client // You'll be using this client in your tests.
-	kubeClient   *kubernetes.Clientset
-	testEnv      *envtest.Environment
-	testPostgres *testpostgres.TestPostgres
-	ctx          context.Context
-	cancel       context.CancelFunc
+	cfg           *rest.Config
+	k8sClient     client.Client // You'll be using this client in your tests.
+	kubeClient    *kubernetes.Clientset
+	testEnv       *envtest.Environment
+	testPostgres  *testpostgres.TestPostgres
+	ctx           context.Context
+	cancel        context.CancelFunc
+	mghReconciler *hubofhubscontroller.MulticlusterGlobalHubReconciler
 )
 
 func TestControllers(t *testing.T) {
@@ -177,15 +178,16 @@ var _ = BeforeSuite(func() {
 		RenewDeadline: 107,
 		RetryPeriod:   26,
 	}
-	err = (&hubofhubscontroller.MulticlusterGlobalHubReconciler{
+
+	mghReconciler = &hubofhubscontroller.MulticlusterGlobalHubReconciler{
 		Manager:        k8sManager,
 		Client:         k8sManager.GetClient(),
 		KubeClient:     kubeClient,
 		Scheme:         k8sManager.GetScheme(),
 		LeaderElection: leaderElection,
 		Log:            ctrl.Log.WithName("multicluster-global-hub-reconciler"),
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	}
+	Expect(mghReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
 	err = (&hubofhubscontroller.GlobalHubConditionReconciler{
 		Client: k8sManager.GetClient(),

@@ -9,6 +9,9 @@ spec:
   users:
     - name: "postgres"
       databases: ["hoh"]
+    - name: "guest"
+      databases: ["hoh"]
+      options: "LOGIN"
   instances:
     - name: pgha1
       replicas: 3

@@ -5,6 +5,8 @@ import (
 	"embed"
 	"fmt"
 	iofs "io/fs"
+	"net/url"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,6 +63,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		}
 	}()
 
+	username := ""
+	objURI, err := url.Parse(string(postgresSecret.Data["database_uri_with_readonlyuser"]))
+	if err != nil {
+		log.Error(err, "failed to parse database_uri_with_readonlyuser")
+	} else {
+		username = objURI.User.Username()
+	}
+
 	err = iofs.WalkDir(databaseFS, "database", func(file string, d iofs.DirEntry, beforeError error) error {
 		if beforeError != nil {
 			return beforeError
@@ -72,7 +82,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", file, err)
 		}
-		_, err = conn.Exec(ctx, string(sqlBytes))
+		if file == "database/5.privileges.sql" {
+			if username != "" {
+				_, err = conn.Exec(ctx, strings.ReplaceAll(string(sqlBytes), "$1", username))
+			}
+		} else {
+			_, err = conn.Exec(ctx, string(sqlBytes))
+		}
 		if err != nil {
 			return fmt.Errorf("failed to create %s: %w", file, err)
 		}

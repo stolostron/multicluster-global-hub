@@ -75,6 +75,7 @@ The following sections provide the steps to start using the Multicluster Global 
     which contains the following two fields:
 
     - `database_uri`: Required, the URI user must have the permission to create the global hub database in the postgres.
+    - `database_uri_with_readonlyuser`: Required, the URI user must have the permission to read the global hub database in the postgres.
     - `ca.crt`: Optional, if your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If 
     the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
 
@@ -101,6 +102,7 @@ The following sections provide the steps to start using the Multicluster Global 
     Global hub manager and Grafana services need Postgres database to collect and display data. The data can be accessed by creating a storage secret named `multicluster-global-hub-storage` in the `open-cluster-management` namespace. This secret should contain the following two fields:
 
     - `database_uri`: Required: The URI user should have the required permission to create the global hub database in the postgres.
+    - `database_uri_with_readonlyuser`: Required, the URI user must have the permission to read the global hub database in the postgres.
     - `ca.crt`: Optional: If your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
 
     **Note:** There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and automatically create the secret `multicluster-global-hub-storage` in namespace `open-cluster-management`.

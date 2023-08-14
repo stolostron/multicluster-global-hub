@@ -107,9 +107,14 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		return "", err
 	}
 
-	datasourceVal, err := GrafanaDataSource(string(postgresSecret.Data["database_uri"]), postgresSecret.Data["ca.crt"])
+	datasourceVal, err := GrafanaDataSource(string(postgresSecret.Data["database_uri_with_readonlyuser"]),
+		postgresSecret.Data["ca.crt"])
 	if err != nil {
-		return "", err
+		datasourceVal, err = GrafanaDataSource(string(postgresSecret.Data["database_uri"]),
+			postgresSecret.Data["ca.crt"])
+		if err != nil {
+			return "", err
+		}
 	}
 
 	dsSecret := &corev1.Secret{

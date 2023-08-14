@@ -117,6 +117,20 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	// 	})
 	// })
 
+	BeforeAll(func() {
+		Expect(k8sClient.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      StorageSecretName,
+				Namespace: config.GetDefaultNamespace(),
+			},
+			Data: map[string][]byte{
+				"database_uri": []byte(testPostgres.URI),
+				"ca.crt":       []byte(""),
+			},
+			Type: corev1.SecretTypeOpaque,
+		})).Should(Succeed())
+	})
+
 	Context("When create MGH instance with invalid large scale data layer type", func() {
 		It("Should not add finalizer to MGH instance and not deploy anything", func() {
 			ctx := context.Background()
@@ -220,7 +234,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	Context("When create MGH instance with large scale data layer type", func() {
 		mgh := &operatorv1alpha3.MulticlusterGlobalHub{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: MGHName,
+				Name:      MGHName,
+				Namespace: config.GetDefaultNamespace(),
 			},
 			Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
 				DataLayer: &operatorv1alpha3.DataLayerConfig{
@@ -249,18 +264,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		var managerObjects []*unstructured.Unstructured
 		var grafanaObjects []*unstructured.Unstructured
 		It("Should update the conditions and mgh finalizer when MCH instance is created", func() {
-			By("By creating a storage secret")
-			Expect(k8sClient.Create(ctx, &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      StorageSecretName,
-					Namespace: config.GetDefaultNamespace(),
-				},
-				Data: map[string][]byte{
-					"database_uri": []byte(testPostgres.URI),
-					"ca.crt":       []byte(""),
-				},
-				Type: corev1.SecretTypeOpaque,
-			})).Should(Succeed())
 
 			By("By creating a fake transport secret")
 			Expect(k8sClient.Create(ctx, &corev1.Secret{
@@ -428,6 +431,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 			// get the grafana objects
 			By("By checking the multicluster-global-hub-grafana resources are created as expected")
+			// generate datasource secret: must before the grafana objects
+			datasourceSecretName, err := mghReconciler.GenerateGrafanaDataSourceSecret(ctx, mgh)
+			Expect(err).NotTo(HaveOccurred())
+
 			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
 					Namespace            string
