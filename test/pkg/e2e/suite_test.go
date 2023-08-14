@@ -168,7 +168,7 @@ func deployGlobalHub() {
 			Name:      "multiclusterglobalhub",
 			Namespace: "open-cluster-management",
 			Annotations: map[string]string{
-				constants.AnnotationMGHClusterAPIUrl: "test",
+				constants.AnnotationMGHSkipAuth: "true",
 			},
 		},
 		Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{

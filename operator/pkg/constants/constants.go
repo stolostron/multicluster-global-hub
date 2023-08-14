@@ -35,9 +35,9 @@ const (
 	// AnnotationImageOverridesCM sits in MulticlusterGlobalHub annotations
 	// to identify a custom configmap containing image overrides
 	AnnotationImageOverridesCM = "mgh-image-overrides-cm"
-	// AnnotationMGHClusterAPIUrl sits in MulticlusterGlobalHub annotations
-	// to identify the cluster api url for the manager. It is only using for test.
-	AnnotationMGHClusterAPIUrl = "mgh-cluster-api-url"
+	// AnnotationMGHSkipAuth sits in MulticlusterGlobalHub annotations
+	// to skip auth for non-k8s api. It is only using for test.
+	AnnotationMGHSkipAuth = "mgh-skip-auth"
 	// AnnotationMGHSchedulerInterval sits in MulticlusterGlobalHub annotations
 	// to identify the scheduler interval for moving policy compliance history
 	// valid value can be "month, week, day, hour, minute, second"

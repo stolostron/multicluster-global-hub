@@ -131,9 +131,14 @@ func GetSchedulerInterval(mgh *operatorv1alpha3.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
 }
 
-// GetClusterAPIUrl returns the cluster api url for the manager
-func GetClusterAPIUrl(mgh *operatorv1alpha3.MulticlusterGlobalHub) string {
-	return getAnnotation(mgh, operatorconstants.AnnotationMGHClusterAPIUrl)
+// SkipAuth returns true to skip authenticate for non-k8s api
+func SkipAuth(mgh *operatorv1alpha3.MulticlusterGlobalHub) bool {
+	toSkipAuth := getAnnotation(mgh, operatorconstants.AnnotationMGHSkipAuth)
+	if toSkipAuth != "" && strings.EqualFold(toSkipAuth, "true") {
+		return true
+	}
+
+	return false
 }
 
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
