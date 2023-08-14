@@ -59,7 +59,7 @@ var _ = Describe("SubscriptionReportsDbSyncer", Ordered, func() {
 		statusBundle := &GenericStatusBundle{
 			Objects:           make([]Object, 0),
 			LeafHubName:       leafHubName,
-			BundleVersion:     status.NewBundleVersion(0, 0),
+			BundleVersion:     status.NewBundleVersion(),
 			manipulateObjFunc: nil,
 			lock:              sync.Mutex{},
 		}
@@ -67,7 +67,7 @@ var _ = Describe("SubscriptionReportsDbSyncer", Ordered, func() {
 
 		By("Create transport message")
 		// increment the version
-		statusBundle.BundleVersion.Generation++
+		statusBundle.BundleVersion.Incr()
 		payloadBytes, err := json.Marshal(statusBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 

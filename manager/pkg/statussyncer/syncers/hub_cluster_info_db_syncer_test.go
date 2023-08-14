@@ -57,7 +57,7 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 				Host: routeHost,
 			},
 		}
-		statusBundle := hubcluster.NewLeafHubClusterInfoStatusBundle(leafHubName, 0)
+		statusBundle := hubcluster.NewLeafHubClusterInfoStatusBundle(leafHubName)
 		statusBundle.UpdateObject(obj)
 		By("Create transport message")
 		// increment the version

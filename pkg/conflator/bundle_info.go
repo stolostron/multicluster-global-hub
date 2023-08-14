@@ -20,8 +20,6 @@ type bundleInfo interface {
 	getTransportMetadataToCommit() bundle.BundleMetadata
 	// markAsProcessed marks the given metadata as processed.
 	markAsProcessed(metadata *BundleMetadata)
-	// reset the bundle version
-	resetBundleVersion()
 }
 
 // deltaBundleInfo extends BundleInfo with delta-bundle related functionalities.

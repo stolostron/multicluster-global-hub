@@ -3,13 +3,12 @@ package managedclusters
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	clusterV1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -21,10 +20,10 @@ const (
 
 // mgr, pro, env.LeafHubID, incarnation, config, syncIntervals
 // AddClustersStatusController adds managed clusters status controller to the manager.
-func AddClustersStatusController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervals *config.SyncIntervals,
-) error {
+func AddClustersStatusController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunction := func() bundle.Object { return &clusterV1.ManagedCluster{} }
+	leafHubName := agentstatusconfig.GetLeafHubName()
+
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, constants.ManagedClustersMsgKey)
 
 	// update bundle object
@@ -43,12 +42,12 @@ func AddClustersStatusController(mgr ctrl.Manager, producer transport.Producer, 
 
 	bundleCollection := []*generic.BundleCollectionEntry{ // single bundle for managed clusters
 		generic.NewBundleCollectionEntry(transportBundleKey,
-			bundle.NewGenericStatusBundle(leafHubName, incarnation, manipulateObjFunc),
+			bundle.NewGenericStatusBundle(leafHubName, manipulateObjFunc),
 			predicateFunc),
 	}
 
 	if err := generic.NewGenericStatusSyncController(mgr, clusterStatusSyncLogName, producer, bundleCollection,
-		createObjFunction, nil, syncIntervals.GetManagerClusters); err != nil {
+		createObjFunction, nil, agentstatusconfig.GetManagerClusterDuration); err != nil {
 		return fmt.Errorf("failed to add managed clusters controller to the manager - %w", err)
 	}
 

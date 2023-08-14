@@ -152,7 +152,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					return nil
 				}
 			}
-			return fmt.Errorf("the policy has not been applied to the managed cluster %s or it is already compliant", managedClusters[0].Name)
+			return fmt.Errorf("the policy has not been applied to the managed cluster(%s) or it's not compliant", managedClusters[0].Name)
 		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
@@ -390,7 +390,7 @@ func getPolicyStatus(client client.Client, httpClient *http.Client, name, namesp
 		return nil, err
 	}
 
-	klog.V(5).Info(fmt.Sprintf("get policy status reponse body: \n%s\n", body))
+	klog.V(5).Info(fmt.Sprintf("Get policy status response body from non-k8s-api: \n%s\n", body))
 
 	err = json.Unmarshal(body, policy)
 	if err != nil {

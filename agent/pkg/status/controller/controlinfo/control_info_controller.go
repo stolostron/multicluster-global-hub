@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/controlinfo"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -31,17 +31,16 @@ type LeafHubControlInfoController struct {
 }
 
 // AddControlInfoController creates a new instance of control info controller and adds it to the manager.
-func AddControlInfoController(mgr ctrl.Manager, producer transport.Producer, leafHubName string, incarnation uint64,
-	_ *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
-) error {
+func AddControlInfoController(mgr ctrl.Manager, producer transport.Producer) error {
+	leafHubName := agentstatusconfig.GetLeafHubName()
 	transportBundleKey := fmt.Sprintf("%s.%s", leafHubName, constants.ControlInfoMsgKey)
 
 	controlInfoCtrl := &LeafHubControlInfoController{
 		log:                     ctrl.Log.WithName(controlInfoLogName),
-		bundle:                  controlinfo.NewBundle(leafHubName, incarnation),
+		bundle:                  controlinfo.NewControlInfoBundle(leafHubName),
 		transportBundleKey:      transportBundleKey,
 		transport:               producer,
-		resolveSyncIntervalFunc: syncIntervalsData.GetControlInfo,
+		resolveSyncIntervalFunc: agentstatusconfig.GetControlInfoDuration,
 	}
 
 	if err := mgr.Add(controlInfoCtrl); err != nil {
@@ -90,7 +89,7 @@ func (c *LeafHubControlInfoController) periodicSync(ctx context.Context) {
 }
 
 func (c *LeafHubControlInfoController) syncBundle() {
-	c.bundle.UpdateObject(nil) // increase generation
+	c.bundle.UpdateObject(nil) // increase bundle value version
 
 	payloadBytes, err := json.Marshal(c.bundle)
 	if err != nil {
@@ -111,4 +110,5 @@ func (c *LeafHubControlInfoController) syncBundle() {
 	}); err != nil {
 		c.log.Error(err, "send control info error", "messageId", c.transportBundleKey)
 	}
+	c.bundle.GetBundleVersion().Next() // increase bundle generation version
 }

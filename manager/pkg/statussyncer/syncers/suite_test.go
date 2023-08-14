@@ -84,7 +84,7 @@ var _ = BeforeSuite(func() {
 			TransportType: string(transport.Chan),
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{
-			LogInterval: "1s",
+			LogInterval: "10s",
 		},
 	}
 	Expect(err).NotTo(HaveOccurred())
@@ -93,7 +93,7 @@ var _ = BeforeSuite(func() {
 	err = database.InitGormInstance(&database.DatabaseConfig{
 		URL:      testPostgres.URI,
 		Dialect:  database.PostgresDialect,
-		PoolSize: 1,
+		PoolSize: 5,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
@@ -116,9 +116,9 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient).NotTo(BeNil())
 
 	By("Create the global hub ConfigMap with aggregationLevel=full and enableLocalPolicies=true")
-	mghSystemNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
-	Expect(kubeClient.Create(ctx, mghSystemNamespace)).Should(Succeed())
-	mghSystemConfigMap := &v1.ConfigMap{
+	agentConfigNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
+	Expect(kubeClient.Create(ctx, agentConfigNamespace)).Should(Succeed())
+	agentConfig := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.GHAgentConfigCMName,
 			Namespace: constants.GHSystemNamespace,
@@ -126,7 +126,7 @@ var _ = BeforeSuite(func() {
 		},
 		Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
 	}
-	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
+	Expect(kubeClient.Create(ctx, agentConfig)).Should(Succeed())
 
 	By("Add controllers to manager")
 	transportDispatcher, err = statussyncer.AddStatusSyncers(mgr, managerConfig)

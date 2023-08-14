@@ -5,17 +5,17 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 
-	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	agentbundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // LeafHubClusterInfoStatusBundle creates a new instance of LeafHubClusterInfoStatusBundle.
-func NewLeafHubClusterInfoStatusBundle(leafHubName string, incarnation uint64) bundlepkg.Bundle {
+func NewLeafHubClusterInfoStatusBundle(leafHubName string) agentbundle.Bundle {
 	return &LeafHubClusterInfoStatusBundle{
 		BaseLeafHubClusterInfoStatusBundle: statusbundle.BaseLeafHubClusterInfoStatusBundle{
 			Objects:       make([]*statusbundle.LeafHubClusterInfo, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: statusbundle.NewBundleVersion(incarnation, 0),
+			BundleVersion: statusbundle.NewBundleVersion(),
 		},
 		lock: sync.Mutex{},
 	}
@@ -28,7 +28,7 @@ type LeafHubClusterInfoStatusBundle struct {
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *LeafHubClusterInfoStatusBundle) UpdateObject(object bundlepkg.Object) {
+func (bundle *LeafHubClusterInfoStatusBundle) UpdateObject(object agentbundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -39,11 +39,11 @@ func (bundle *LeafHubClusterInfoStatusBundle) UpdateObject(object bundlepkg.Obje
 			LeafHubName: bundle.LeafHubName,
 			ConsoleURL:  "https://" + route.Spec.Host,
 		})
-	bundle.BundleVersion.Generation++
+	bundle.BundleVersion.Incr()
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *LeafHubClusterInfoStatusBundle) DeleteObject(object bundlepkg.Object) {
+func (bundle *LeafHubClusterInfoStatusBundle) DeleteObject(object agentbundle.Object) {
 	// do nothing
 }
 

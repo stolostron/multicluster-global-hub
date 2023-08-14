@@ -22,7 +22,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/event"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/incarnation"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
@@ -246,20 +245,13 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	}
 
 	if mchExists || clusterManagerExists {
-		// incarnation version
-		incarnation, err := incarnation.GetIncarnation(mgr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get incarnation version: %w", err)
-		}
-		setupLog.Info("start agent with incarnation version", "version", incarnation)
-
 		// add spec controllers
 		if err := specController.AddToManager(mgr, agentConfig); err != nil {
 			return nil, fmt.Errorf("failed to add spec syncer: %w", err)
 		}
 		setupLog.Info("add spec controllers to manager")
 
-		if err := statusController.AddControllers(ctx, mgr, agentConfig, incarnation); err != nil {
+		if err := statusController.AddControllers(ctx, mgr, agentConfig); err != nil {
 			return nil, fmt.Errorf("failed to add status syncer: %w", err)
 		}
 

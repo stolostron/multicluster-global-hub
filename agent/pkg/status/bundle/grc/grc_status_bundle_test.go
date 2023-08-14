@@ -1,9 +1,9 @@
 package grc
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
@@ -13,7 +13,7 @@ import (
 
 func TestClusterPerPolicyStatusBundle(t *testing.T) {
 	extractObjIDFunc := func(obj bundle.Object) (string, bool) { return string(obj.GetUID()), true }
-	bundle := NewClustersPerPolicyBundle("leafhubname", 1, extractObjIDFunc)
+	bundle := NewClustersPerPolicyBundle("leafhubname", extractObjIDFunc)
 
 	policy := &policiesv1.Policy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -24,36 +24,31 @@ func TestClusterPerPolicyStatusBundle(t *testing.T) {
 
 	bundle.UpdateObject(policy) // add obj to bundle
 	version := bundle.GetBundleVersion()
-	if version.Generation != 1 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 1, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.1", version.String())
+
+	bundle.UpdateObject(policy) // add obj to bundle
+	version = bundle.GetBundleVersion()
+	assert.Equal(t, "0.1", version.String())
 
 	bundle.DeleteObject(policy) // remove obj by namespacedName from bundle
 	version = bundle.GetBundleVersion()
-	if version.Generation != 2 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 2, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.2", version.String())
 
 	policy.UID = "1234"
 	bundle.UpdateObject(policy) // add obj to bundle
 	version = bundle.GetBundleVersion()
-	if version.Generation != 3 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 3, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.3", version.String())
 
 	bundle.DeleteObject(policy) // remove obj by uid from bundle
 	version = bundle.GetBundleVersion()
-	if version.Generation != 4 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 4, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.4", version.String())
 }
 
 func TestCompleteComplianceStatusBundle(t *testing.T) {
 	extractObjIDFunc := func(obj bundle.Object) (string, bool) { return string(obj.GetUID()), true }
-	bundle := NewClustersPerPolicyBundle("leafhubname", 1, extractObjIDFunc)
+	bundle := NewClustersPerPolicyBundle("leafhubname", extractObjIDFunc)
 
-	completeComplianceStatusBundle := NewCompleteComplianceStatusBundle("leafHubName", bundle,
-		1, extractObjIDFunc)
+	completeComplianceStatusBundle := NewCompleteComplianceStatusBundle("leafHubName", bundle, extractObjIDFunc)
 
 	policy := &policiesv1.Policy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -64,9 +59,7 @@ func TestCompleteComplianceStatusBundle(t *testing.T) {
 
 	completeComplianceStatusBundle.UpdateObject(policy) // add obj to bundle
 	version := completeComplianceStatusBundle.GetBundleVersion()
-	if version.Generation != 0 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 0, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.0", version.String())
 
 	// create array *policiesv1.CompliancePerClusterStatus{}
 	policy.Status = policiesv1.PolicyStatus{
@@ -91,36 +84,28 @@ func TestCompleteComplianceStatusBundle(t *testing.T) {
 		},
 	}
 
-	// increase bundle generation in the case where cluster lists were changed
+	// increase bundle version in the case where cluster lists were changed
 	completeComplianceStatusBundle.UpdateObject(policy) // add obj to bundle
 	version = completeComplianceStatusBundle.GetBundleVersion()
-	if version.Generation != 1 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 1, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.1", version.String())
 
-	// do not increase generation, no need to send bundle when policy is removed (clusters per policy bundle is sent).
 	completeComplianceStatusBundle.DeleteObject(policy)
 	version = completeComplianceStatusBundle.GetBundleVersion()
-	if version.Generation != 1 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 1, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.2", version.String())
 
 	policy.UID = "1234"
 	completeComplianceStatusBundle.DeleteObject(policy)
 	version = completeComplianceStatusBundle.GetBundleVersion()
-	if version.Generation != 1 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 1, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.2", version.String())
 }
 
 func TestDeltaComplianceStatusBundle(t *testing.T) {
 	extractObjIDFunc := func(obj bundle.Object) (string, bool) { return string(obj.GetUID()), true }
-	bundle := NewClustersPerPolicyBundle("leafhubname", 1, extractObjIDFunc)
-	completeComplianceStatusBundle := NewCompleteComplianceStatusBundle("leafHubName", bundle,
-		1, extractObjIDFunc)
+	bundle := NewClustersPerPolicyBundle("leafhubname", extractObjIDFunc)
+	completeComplianceStatusBundle := NewCompleteComplianceStatusBundle("leafHubName", bundle, extractObjIDFunc)
 
 	deltaComplianceStatusBundle := NewDeltaComplianceStatusBundle("leafHubName", completeComplianceStatusBundle,
-		bundle.(*ClustersPerPolicyBundle), 1, extractObjIDFunc)
+		bundle.(*ClustersPerPolicyBundle), extractObjIDFunc)
 
 	policy := &policiesv1.Policy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -134,31 +119,19 @@ func TestDeltaComplianceStatusBundle(t *testing.T) {
 	// policy is new then sync what's in the clustersPerPolicy base
 	deltaComplianceStatusBundle.UpdateObject(runtimePolicy) // add obj to bundle
 	version := deltaComplianceStatusBundle.GetBundleVersion()
-	if version.Generation != 0 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 0, got %d", version.Generation))
-	}
-
-	deltaComplianceStatusBundle.DeleteObject(runtimePolicy) // add obj to bundle
-	version = completeComplianceStatusBundle.GetBundleVersion()
-	if version.Generation != 0 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 0, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.0", version.String())
 
 	deltaComplianceStatusBundle.UpdateObject(policy) // add obj to bundle
 	version = completeComplianceStatusBundle.GetBundleVersion()
-	if version.Generation != 0 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 0, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.0", version.String())
 
 	deltaComplianceStatusBundle.DeleteObject(policy) // add obj to bundle
 	version = completeComplianceStatusBundle.GetBundleVersion()
-	if version.Generation != 0 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 0, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.0", version.String())
 }
 
 func TestMinimalComplianceStatusBundle(t *testing.T) {
-	bundle := NewMinimalComplianceStatusBundle("leafHubName", 1)
+	bundle := NewMinimalComplianceStatusBundle("leafHubName")
 
 	policy := &policiesv1.Policy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -173,24 +146,17 @@ func TestMinimalComplianceStatusBundle(t *testing.T) {
 	})
 	bundle.UpdateObject(runtimePolicy)
 	version := bundle.GetBundleVersion()
-	if version.Generation != 1 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 1, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.1", version.String())
 
 	bundle.DeleteObject(runtimePolicy)
 	version = bundle.GetBundleVersion()
-	if version.Generation != 2 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 2, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.2", version.String())
 
 	bundle.UpdateObject(runtimePolicy)
 	version = bundle.GetBundleVersion()
-	if version.Generation != 3 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 3, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.3", version.String())
+
 	bundle.DeleteObject(policy)
 	version = bundle.GetBundleVersion()
-	if version.Generation != 4 {
-		t.Fatal(fmt.Errorf("expected version.Generation to be 4, got %d", version.Generation))
-	}
+	assert.Equal(t, "0.4", version.String())
 }

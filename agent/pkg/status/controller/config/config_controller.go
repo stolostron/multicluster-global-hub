@@ -13,30 +13,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
-	RequeuePeriod                     = 5 * time.Second
-	DefaultStatusSyncInterval         = 5 * time.Second
-	DefaultControllerInfoSyncInterval = 60 * time.Second
+	RequeuePeriod = 5 * time.Second
 )
 
 type hubOfHubsConfigController struct {
-	client            client.Client
-	log               logr.Logger
-	configObject      *corev1.ConfigMap
-	syncIntervalsData *SyncIntervals
+	client client.Client
+	log    logr.Logger
 }
 
 // AddConfigController creates a new instance of config controller and adds it to the manager.
-func AddConfigController(mgr ctrl.Manager, configObject *corev1.ConfigMap, syncIntervals *SyncIntervals) error {
+func AddConfigController(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
-		client:            mgr.GetClient(),
-		log:               ctrl.Log.WithName("multicluster-global-hub-agent-config"),
-		configObject:      configObject,
-		syncIntervalsData: syncIntervals,
+		client: mgr.GetClient(),
+		log:    ctrl.Log.WithName("multicluster-global-hub-agent-config"),
 	}
+	leafHubName = agentConfig.LeafHubName
 
 	configMapPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return object.GetNamespace() == constants.GHSystemNamespace &&
@@ -55,34 +51,32 @@ func AddConfigController(mgr ctrl.Manager, configObject *corev1.ConfigMap, syncI
 func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	if err := c.client.Get(ctx, request.NamespacedName, c.configObject); apierrors.IsNotFound(err) {
+	if err := c.client.Get(ctx, request.NamespacedName, agentConfigMap); apierrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
-		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
 		return ctrl.Result{Requeue: true, RequeueAfter: RequeuePeriod},
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
-	c.setSyncInterval(c.configObject, "managedClusters", &c.syncIntervalsData.managedClusters)
-	c.setSyncInterval(c.configObject, "policies", &c.syncIntervalsData.policies)
-	c.setSyncInterval(c.configObject, "controlInfo", &c.syncIntervalsData.controlInfo)
+	c.setSyncInterval(agentConfigMap, ManagedClusterIntervalKey)
+	c.setSyncInterval(agentConfigMap, PolicyIntervalKey)
+	c.setSyncInterval(agentConfigMap, ControlInfoIntervalKey)
 
 	reqLogger.Info("Reconciliation complete.")
 	return ctrl.Result{}, nil
 }
 
-func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key string, syncInterval *time.Duration) {
-	intervalStr, found := configMap.Data[key]
+func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key IntervalKey) {
+	intervalStr, found := configMap.Data[string(key)]
 	if !found {
-		c.log.Info(fmt.Sprintf("%s sync interval not defined, using %s", key, syncInterval.String()))
+		c.log.Info(fmt.Sprintf("%s sync interval not defined, using %s", key, syncIntervals[key].String()))
 		return
 	}
 
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil {
-		c.log.Info(fmt.Sprintf("%s sync interval has invalid format, using %s", key, syncInterval.String()))
+		c.log.Info(fmt.Sprintf("%s sync interval has invalid format, using %s", key, syncIntervals[key].String()))
 		return
 	}
-
-	*syncInterval = interval
+	syncIntervals[key] = interval
 }

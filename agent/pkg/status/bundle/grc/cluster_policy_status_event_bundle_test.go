@@ -6,19 +6,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 var _ = Describe("event bundle from cluster policy status", Ordered, func() {
 	var rootPolicy *policiesv1.Policy
 	var cluster *clusterv1.ManagedCluster
 	var bundle bundle.Bundle
-	var incarnation uint64
 
 	BeforeAll(func() {
 		By("Create a root policy")
@@ -45,13 +45,12 @@ var _ = Describe("event bundle from cluster policy status", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Initialize the bundle")
-		incarnation = uint64(1)
-		bundle = NewClusterPolicyHistoryEventBundle(ctx, "hub1", incarnation, runtimeClient)
+		bundle = NewClusterPolicyHistoryEventBundle("hub1", runtimeClient)
+		Expect(bundle.GetBundleVersion().String()).To(Equal("0.0"))
 	})
 
 	It("Should update the ClusterPolicyHistoryEventBundle", func() {
 		By("Update the bundle without policy history events")
-		Expect(bundle.GetBundleVersion().Generation).To(Equal(uint64(0)))
 		targetPolicy := &policiesv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test",
@@ -64,7 +63,7 @@ var _ = Describe("event bundle from cluster policy status", Ordered, func() {
 			Status: policiesv1.PolicyStatus{},
 		}
 		bundle.UpdateObject(targetPolicy)
-		Expect(bundle.GetBundleVersion().Generation).To(Equal(uint64(0)))
+		Expect(bundle.GetBundleVersion().String()).To(Equal("0.0"))
 
 		By("Update the bundle with policy history events")
 		targetPolicy.Status.Details = []*policiesv1.DetailsPerTemplate{
@@ -81,7 +80,7 @@ var _ = Describe("event bundle from cluster policy status", Ordered, func() {
 			},
 		}
 		bundle.UpdateObject(targetPolicy)
-		Expect(bundle.GetBundleVersion().Generation).To(Equal(uint64(1)))
+		Expect(bundle.GetBundleVersion().String()).To(Equal("0.1"))
 	})
 
 	It("Should parse the compliance for event message", func() {
@@ -94,7 +93,7 @@ var _ = Describe("event bundle from cluster policy status", Ordered, func() {
 	})
 
 	It("Should update the PolicyStatusEvents for event bundle", func() {
-		tmpBundle := NewClusterPolicyHistoryEventBundle(ctx, "hub1", 1, nil)
+		tmpBundle := NewClusterPolicyHistoryEventBundle("hub1", nil)
 		eventBundle, ok := tmpBundle.(*ClusterPolicyHistoryEventBundle)
 		Expect(ok).To(BeTrue())
 

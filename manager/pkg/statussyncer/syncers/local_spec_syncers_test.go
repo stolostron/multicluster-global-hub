@@ -58,6 +58,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 	})
 
 	It("sync LocalPolicyBundle to database", func() {
+		version := status.NewBundleVersion()
 		By("Create LocalPolicyBundle")
 		policy := &policiesv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -70,7 +71,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 		statusBundle := &GenericStatusBundle{
 			Objects:       make([]Object, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(0, 0),
+			BundleVersion: version,
 			manipulateObjFunc: func(object Object) {
 				policy, ok := object.(*policiesv1.Policy)
 				if !ok {
@@ -84,7 +85,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 
 		By("Create transport message")
 		// increment the version
-		statusBundle.BundleVersion.Generation++
+		statusBundle.BundleVersion.Incr()
 		payloadBytes, err := json.Marshal(statusBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -139,7 +140,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 		statusBundle := &GenericStatusBundle{
 			Objects:       make([]Object, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(0, 0),
+			BundleVersion: status.NewBundleVersion(),
 			manipulateObjFunc: func(object Object) {
 				placementRule, ok := object.(*placementrulev1.PlacementRule)
 				if !ok {
@@ -153,7 +154,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 
 		By("Create transport message")
 		// increment the version
-		statusBundle.BundleVersion.Generation++
+		statusBundle.BundleVersion.Incr()
 		payloadBytes, err := json.Marshal(statusBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 

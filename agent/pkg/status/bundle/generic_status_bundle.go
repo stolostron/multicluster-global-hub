@@ -9,7 +9,7 @@ import (
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.
-func NewGenericStatusBundle(leafHubName string, incarnation uint64, manipulateObjFunc func(obj Object)) Bundle {
+func NewGenericStatusBundle(leafHubName string, manipulateObjFunc func(obj Object)) Bundle {
 	if manipulateObjFunc == nil {
 		manipulateObjFunc = func(object Object) {
 			// do nothing
@@ -19,7 +19,7 @@ func NewGenericStatusBundle(leafHubName string, incarnation uint64, manipulateOb
 	return &GenericStatusBundle{
 		Objects:           make([]Object, 0),
 		LeafHubName:       leafHubName,
-		BundleVersion:     status.NewBundleVersion(incarnation, 0),
+		BundleVersion:     status.NewBundleVersion(),
 		manipulateObjFunc: manipulateObjFunc,
 		lock:              sync.Mutex{},
 	}
@@ -46,7 +46,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	index, err := bundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects, object)
-		bundle.BundleVersion.Generation++
+		bundle.BundleVersion.Incr()
 		return
 	}
 
@@ -56,7 +56,7 @@ func (bundle *GenericStatusBundle) UpdateObject(object Object) {
 	}
 
 	bundle.Objects[index] = object
-	bundle.BundleVersion.Generation++
+	bundle.BundleVersion.Incr()
 }
 
 // DeleteObject function to delete a single object inside a bundle.
@@ -69,7 +69,7 @@ func (bundle *GenericStatusBundle) DeleteObject(object Object) {
 		return
 	}
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	bundle.BundleVersion.Generation++
+	bundle.BundleVersion.Incr()
 }
 
 // GetBundleVersion function to get bundle version.

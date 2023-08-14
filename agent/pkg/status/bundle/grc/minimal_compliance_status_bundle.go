@@ -6,18 +6,18 @@ import (
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	agentbundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
-func NewMinimalComplianceStatusBundle(leafHubName string, incarnation uint64) bundlepkg.Bundle {
+func NewMinimalComplianceStatusBundle(leafHubName string) agentbundle.Bundle {
 	return &MinimalComplianceStatusBundle{
 		BaseMinimalComplianceStatusBundle: statusbundle.BaseMinimalComplianceStatusBundle{
 			Objects:       make([]*statusbundle.MinimalPolicyComplianceStatus, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: statusbundle.NewBundleVersion(incarnation, 0),
+			BundleVersion: statusbundle.NewBundleVersion(),
 		},
 		lock: sync.Mutex{},
 	}
@@ -30,7 +30,7 @@ type MinimalComplianceStatusBundle struct {
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *MinimalComplianceStatusBundle) UpdateObject(object bundlepkg.Object) {
+func (bundle *MinimalComplianceStatusBundle) UpdateObject(object agentbundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -48,7 +48,7 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object bundlepkg.Objec
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects,
 			bundle.getMinimalPolicyComplianceStatus(originPolicyID, policy))
-		bundle.BundleVersion.Generation++
+		bundle.BundleVersion.Incr()
 
 		return
 	}
@@ -59,14 +59,13 @@ func (bundle *MinimalComplianceStatusBundle) UpdateObject(object bundlepkg.Objec
 	}
 
 	// if cluster list has changed - update resource version of the object and bundle generation
-	bundle.BundleVersion.Generation++
+	bundle.BundleVersion.Incr()
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *MinimalComplianceStatusBundle) DeleteObject(object bundlepkg.Object) {
+func (bundle *MinimalComplianceStatusBundle) DeleteObject(object agentbundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
-
 	_, isPolicy := object.(*policiesv1.Policy)
 	if !isPolicy {
 		return // do not handle objects other than policy
@@ -78,7 +77,7 @@ func (bundle *MinimalComplianceStatusBundle) DeleteObject(object bundlepkg.Objec
 	}
 
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	bundle.BundleVersion.Generation++
+	bundle.BundleVersion.Incr()
 }
 
 // GetBundleVersion function to get bundle version.
@@ -96,7 +95,7 @@ func (bundle *MinimalComplianceStatusBundle) getObjectIndexByUID(uid string) (in
 		}
 	}
 
-	return -1, bundlepkg.ErrObjectNotFound
+	return -1, agentbundle.ErrObjectNotFound
 }
 
 func (bundle *MinimalComplianceStatusBundle) getMinimalPolicyComplianceStatus(originPolicyID string,
@@ -152,7 +151,7 @@ func (bundle *MinimalComplianceStatusBundle) getNumOfClusters(policy *policiesv1
 	return appliedClusters, nonCompliantClusters
 }
 
-func (bundle *MinimalComplianceStatusBundle) getObjectIndexByObj(obj bundlepkg.Object) (int, error) {
+func (bundle *MinimalComplianceStatusBundle) getObjectIndexByObj(obj agentbundle.Object) (int, error) {
 	originPolicyID, found := obj.GetAnnotations()[constants.OriginOwnerReferenceAnnotation]
 	if found {
 		for i, object := range bundle.Objects {
@@ -167,5 +166,5 @@ func (bundle *MinimalComplianceStatusBundle) getObjectIndexByObj(obj bundlepkg.O
 			}
 		}
 	}
-	return -1, bundlepkg.ErrObjectNotFound
+	return -1, agentbundle.ErrObjectNotFound
 }

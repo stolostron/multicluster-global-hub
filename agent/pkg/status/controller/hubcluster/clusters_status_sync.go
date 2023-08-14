@@ -15,6 +15,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/hubcluster"
+	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -31,13 +32,14 @@ type hubClusterController struct {
 // AddHubClusterController creates a controller and adds it to the manager.
 // this controller is responsible for syncing the hub cluster status.
 // right now, it only syncs the openshift console url.
-func AddHubClusterController(mgr ctrl.Manager, producer transport.Producer, leafHubName string) error {
+func AddHubClusterController(mgr ctrl.Manager, producer transport.Producer) error {
+	leafHubName := agentstatusconfig.GetLeafHubName()
 	hubClusterController := &hubClusterController{
 		client:             mgr.GetClient(),
 		leafHubName:        leafHubName,
 		transportBundleKey: fmt.Sprintf("%s.%s", leafHubName, constants.HubClusterInfoMsgKey),
 		transport:          producer,
-		bundle:             hubcluster.NewLeafHubClusterInfoStatusBundle(leafHubName, 0),
+		bundle:             hubcluster.NewLeafHubClusterInfoStatusBundle(leafHubName),
 		log:                ctrl.Log.WithName("hub-cluster-status-sync"),
 	}
 

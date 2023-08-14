@@ -22,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/incarnation"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -93,12 +92,8 @@ var _ = BeforeSuite(func() {
 	mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
 	Expect(kubeClient.Create(ctx, mghSystemNamespace)).Should(Succeed())
 
-	By("Get agent incarnation from manager")
-	incarnation, err := incarnation.GetIncarnation(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
 	By("Add controllers to manager")
-	err = statusController.AddControllers(ctx, mgr, agentConfig, incarnation)
+	err = statusController.AddControllers(ctx, mgr, agentConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Mock the consumer receive message from global hub manager")

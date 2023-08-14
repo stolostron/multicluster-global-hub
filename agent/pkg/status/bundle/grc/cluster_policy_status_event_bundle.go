@@ -12,21 +12,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
-	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	agentBundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
-func NewClusterPolicyHistoryEventBundle(ctx context.Context, leafHubName string, incarnation uint64,
-	runtimeClient client.Client,
-) bundlepkg.Bundle {
+func NewClusterPolicyHistoryEventBundle(leafHubName string, runtimeClient client.Client,
+) agentBundle.Bundle {
 	return &ClusterPolicyHistoryEventBundle{
 		BaseClusterPolicyStatusEventBundle: statusbundle.BaseClusterPolicyStatusEventBundle{
 			PolicyStatusEvents: make(map[string][]*models.LocalClusterPolicyEvent),
 			LeafHubName:        leafHubName,
-			BundleVersion:      statusbundle.NewBundleVersion(incarnation, 0),
+			BundleVersion:      statusbundle.NewBundleVersion(),
 		},
 		lock:          sync.Mutex{},
 		runtimeClient: runtimeClient,
@@ -46,7 +45,7 @@ type ClusterPolicyHistoryEventBundle struct {
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object bundlepkg.Object) {
+func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object agentBundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -111,12 +110,12 @@ func (bundle *ClusterPolicyHistoryEventBundle) UpdateObject(object bundlepkg.Obj
 
 	if len(deltaPolicyEvents) > 0 {
 		bundle.PolicyStatusEvents[string(policy.GetUID())] = deltaPolicyEvents
-		bundle.BundleVersion.Generation++
+		bundle.BundleVersion.Incr()
 	}
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *ClusterPolicyHistoryEventBundle) DeleteObject(object bundlepkg.Object) {
+func (bundle *ClusterPolicyHistoryEventBundle) DeleteObject(object agentBundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -126,7 +125,7 @@ func (bundle *ClusterPolicyHistoryEventBundle) DeleteObject(object bundlepkg.Obj
 	}
 
 	delete(bundle.PolicyStatusEvents, string(policy.GetUID()))
-	// bundle.BundleVersion.Generation++ // if the policy is deleted, we don't need to delete the event from database
+	// bundle.BundleVersion.Incr() // if the policy is deleted, we don't need to delete the event from database
 }
 
 // GetBundleVersion function to get bundle version.

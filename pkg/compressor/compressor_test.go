@@ -28,11 +28,8 @@ func TestTransportCompressor(t *testing.T) {
 				UnknownComplianceClusters: make([]string, 0),
 			},
 		},
-		LeafHubName: "hub1",
-		BundleVersion: &statusbundle.BundleVersion{
-			Incarnation: 0,
-			Generation:  2,
-		},
+		LeafHubName:   "hub1",
+		BundleVersion: statusbundle.NewBundleVersion(),
 	}
 	transportPayload, err := json.Marshal(clusterPerPolicyBundle)
 	if err != nil {

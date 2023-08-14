@@ -3,7 +3,6 @@ package placement
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	placementrulesV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -11,7 +10,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -23,15 +22,14 @@ const (
 )
 
 // AddPlacementRulesController adds placement-rule controller to the manager.
-func AddPlacementRulesController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	incarnation uint64, _ *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
-) error {
+func AddPlacementRulesController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunction := func() bundle.Object { return &placementrulesV1.PlacementRule{} }
+	leafHubName := agentstatusconfig.GetLeafHubName()
 
 	// TODO datatypes.PlacementRuleMsgKey
 	bundleCollection := []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, PlacementRuleMsgKey),
-			bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPlacementRule),
+			bundle.NewGenericStatusBundle(leafHubName, cleanPlacementRule),
 			func() bool { return true }),
 	} // bundle predicate - always send placement rules.
 
@@ -41,7 +39,7 @@ func AddPlacementRulesController(mgr ctrl.Manager, producer transport.Producer, 
 	})
 
 	if err := generic.NewGenericStatusSyncController(mgr, placementRuleSyncLog, producer, bundleCollection,
-		createObjFunction, ownerRefAnnotationPredicate, syncIntervalsData.GetPolicies); err != nil {
+		createObjFunction, ownerRefAnnotationPredicate, agentstatusconfig.GetPolicyDuration); err != nil {
 		return fmt.Errorf("failed to add placement rules controller to the manager - %w", err)
 	}
 

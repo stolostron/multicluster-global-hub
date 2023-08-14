@@ -13,9 +13,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -26,11 +25,11 @@ const (
 )
 
 // AddPoliciesStatusController adds policies status controller to the manager.
-func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
-) (*generic.HybridSyncManager, error) {
+func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer) (*generic.HybridSyncManager, error) {
+	leafHubName := agentstatusconfig.GetLeafHubName()
+	agentConfig := agentstatusconfig.GetAgentConfigMap()
 	bundleCollection, hybridSyncManager, err :=
-		createBundleCollection(producer, leafHubName, incarnation, hubOfHubsConfig)
+		createBundleCollection(producer, leafHubName, agentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
@@ -48,32 +47,32 @@ func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer, 
 	// initialize policy status controller (contains multiple bundles)
 	if err := generic.NewGenericStatusSyncController(mgr, policiesStatusSyncLog, producer, bundleCollection,
 		createObjFunction, predicate.And(rootPolicyPredicate, ownerRefAnnotationPredicate),
-		syncIntervalsData.GetPolicies); err != nil {
+		agentstatusconfig.GetPolicyDuration); err != nil {
 		return hybridSyncManager, fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
 	return hybridSyncManager, nil
 }
 
-func createBundleCollection(pro transport.Producer, leafHubName string,
-	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap,
-) ([]*generic.BundleCollectionEntry, *generic.HybridSyncManager, error) {
+func createBundleCollection(pro transport.Producer, leafHubName string, agentConfig *corev1.ConfigMap) (
+	[]*generic.BundleCollectionEntry, *generic.HybridSyncManager, error,
+) {
 	// clusters per policy (base bundle)
 	clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.ClustersPerPolicyMsgKey)
-	clustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, incarnation, extractPolicyID)
+	clustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, extractPolicyID)
 
 	// minimal compliance status bundle
 	minimalComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.MinimalPolicyComplianceMsgKey)
-	minimalComplianceStatusBundle := grc.NewMinimalComplianceStatusBundle(leafHubName, incarnation)
+	minimalComplianceStatusBundle := grc.NewMinimalComplianceStatusBundle(leafHubName)
 
-	fullStatusPredicate := func() bool { return hubOfHubsConfig.Data["aggregationLevel"] == "full" }
+	fullStatusPredicate := func() bool { return agentConfig.Data["aggregationLevel"] == "full" }
 	minimalStatusPredicate := func() bool {
-		return hubOfHubsConfig.Data["aggregationLevel"] == "minimal"
+		return agentConfig.Data["aggregationLevel"] == "minimal"
 	}
 
 	// apply a hybrid sync manager on the (full aggregation) compliance bundles
 	// completeComplianceStatusBundleCollectionEntry, deltaComplianceStatusBundleCollectionEntry,
-	hybridSyncManager, err := getHybridSyncManager(pro, leafHubName, incarnation, fullStatusPredicate,
+	hybridSyncManager, err := getHybridSyncManager(pro, leafHubName, fullStatusPredicate,
 		clustersPerPolicyBundle)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize hybrid sync manager - %w", err)
@@ -82,8 +81,8 @@ func createBundleCollection(pro transport.Producer, leafHubName string,
 	// no need to send in the same cycle both clusters per policy and compliance. if CpP was sent, don't send compliance
 	return []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
-		hybridSyncManager.GetBundleCollectionEntry(genericbundle.CompleteStateMode),
-		hybridSyncManager.GetBundleCollectionEntry(genericbundle.DeltaStateMode),
+		// hybridSyncManager.GetBundleCollectionEntry(genericbundle.CompleteStateMode),
+		// hybridSyncManager.GetBundleCollectionEntry(genericbundle.DeltaStateMode),
 		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
 			minimalStatusPredicate),
 	}, hybridSyncManager, nil
@@ -93,18 +92,18 @@ func createBundleCollection(pro transport.Producer, leafHubName string,
 // them managed by a genericHybridSyncManager.
 // The collection entries are returned (or nils with an error if any occurred).
 func getHybridSyncManager(producer transport.Producer, leafHubName string,
-	incarnation uint64, fullStatusPredicate func() bool, clustersPerPolicyBundle bundle.Bundle,
+	fullStatusPredicate func() bool, clustersPerPolicyBundle bundle.Bundle,
 ) (*generic.HybridSyncManager, error) {
 	// complete compliance status bundle
 	completeComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.PolicyCompleteComplianceMsgKey)
 	completeComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName, clustersPerPolicyBundle,
-		incarnation, extractPolicyID)
+		extractPolicyID)
 
 	// delta compliance status bundle
 	deltaComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyDeltaComplianceMsgKey)
 	deltaComplianceStatusBundle := grc.NewDeltaComplianceStatusBundle(leafHubName, completeComplianceStatusBundle,
-		clustersPerPolicyBundle.(*grc.ClustersPerPolicyBundle), incarnation, extractPolicyID)
+		clustersPerPolicyBundle.(*grc.ClustersPerPolicyBundle), extractPolicyID)
 
 	completeComplianceBundleCollectionEntry := generic.NewBundleCollectionEntry(completeComplianceStatusTransportKey,
 		completeComplianceStatusBundle, fullStatusPredicate)
