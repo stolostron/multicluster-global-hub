@@ -1,0 +1,5 @@
+resources:
+- 040-Crd-kafka.yaml
+- 041-Crd-kafkaconnect.yaml
+- 043-Crd-kafkatopic.yaml
+- 044-Crd-kafkauser.yaml

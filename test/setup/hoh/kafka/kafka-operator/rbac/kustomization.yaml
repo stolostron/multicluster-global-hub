@@ -1,0 +1,9 @@
+resources:
+- 020-ClusterRole-strimzi-cluster-operator-role.yaml
+- 020-RoleBinding-strimzi-cluster-operator.yaml
+- 021-ClusterRole-strimzi-cluster-operator-role.yaml
+- 021-ClusterRoleBinding-strimzi-cluster-operator.yaml
+- 022-ClusterRole-strimzi-cluster-operator-role.yaml
+- 022-RoleBinding-strimzi-cluster-operator.yaml
+- 023-ClusterRole-strimzi-cluster-operator-role.yaml
+- 023-RoleBinding-strimzi-cluster-operator.yaml

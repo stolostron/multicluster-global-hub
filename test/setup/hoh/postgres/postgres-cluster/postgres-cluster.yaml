@@ -1,0 +1,71 @@
+apiVersion: postgres-operator.crunchydata.com/v1beta1
+kind: PostgresCluster
+metadata:
+  name: hoh
+  namespace: hoh-postgres
+spec:
+  image: registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1
+  postgresVersion: 14
+  users:
+    - name: "postgres"
+      databases: ["hoh"]
+  instances:
+    - name: pgha1
+      replicas: 3
+      dataVolumeClaimSpec:
+        accessModes:
+          - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: 20Gi
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    postgres-operator.crunchydata.com/cluster: hoh
+                    postgres-operator.crunchydata.com/instance-set: pgha1
+  backups:
+    pgbackrest:
+      image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1
+      repos:
+        - name: repo1
+          volume:
+            volumeClaimSpec:
+              accessModes:
+                - "ReadWriteOnce"
+              resources:
+                requests:
+                  storage: 1Gi
+  proxy:
+    pgBouncer:
+      image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:ubi8-1.17-1
+      replicas: 3
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    postgres-operator.crunchydata.com/cluster: hoh
+                    postgres-operator.crunchydata.com/role: pgbouncer
+---
+# The configMap is used to set/unset HA configuration
+# To set HA:
+#   1. Use DisableAutofail: "false" or omit it
+#   2. Define at least 2 replicas in "instances" and "proxy" sections of the above PostgresCluster CR
+# To unset HA:
+#   1. Use DisableAutofail: "true"
+#   2. Define 1 replica in "instances" and "proxy" sections of the above PostgresCluster CR
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgo-config
+  namespace: hoh-postgres
+data:
+  DisableAutofail: "false"

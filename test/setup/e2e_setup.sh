@@ -26,7 +26,7 @@ hover $! "KUBECONFIG=${KUBECONFIG}"
 startTime_s=`date +%s`
 
 # init hoh
-initKinDCluster "$HUB_OF_HUB_NAME" ${CURRENT_DIR}/hoh/components/global-hub-kind-config.yaml >> $LOG 2>&1 &
+initKinDCluster "$HUB_OF_HUB_NAME" >> $LOG 2>&1 &
 hover $! "1 Prepare top hub cluster $HUB_OF_HUB_NAME"
 global_hub_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${HUB_OF_HUB_NAME}-control-plane)
 hub_kubeconfig="${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}"
@@ -34,9 +34,6 @@ kubectl --kubeconfig $hub_kubeconfig config set-cluster kind-${HUB_OF_HUB_NAME} 
 HOH_KUBECONFIG=${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}
 # enable  route
 enableRouter $CTX_HUB 2>&1 >> $LOG &
-# enable olm
-enableOLM $CTX_HUB 2>&1 >> $LOG &
-hover $! "  Enable OLM for $CTX_HUB"
 # enable service CA
 enableServiceCA $CTX_HUB ${HUB_OF_HUB_NAME} ${CURRENT_DIR} 2>&1 >> $LOG &
 
@@ -45,8 +42,8 @@ sumTime=$[ $endTime_s - $startTime_s ]
 echo "Prepare top hub :$sumTime seconds"
 
 # install some component in global hub in async mode
-bash ${CURRENT_DIR}/hoh/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
-bash ${CURRENT_DIR}/hoh/kafka_setup.sh $CTX_HUB 2>&1 >> $LOG &
+bash ${CURRENT_DIR}/hoh/postgres/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
+bash ${CURRENT_DIR}/hoh/kafka/kafka_setup.sh $CTX_HUB 2>&1 >> $LOG &
 initHub $CTX_HUB 2>&1 >> $LOG &
 startTime_s=`date +%s`
 
