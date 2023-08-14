@@ -176,6 +176,10 @@ func deployGlobalHub() {
 				Kafka: globalhubv1alpha4.KafkaConfig{
 					TransportFormat: globalhubv1alpha4.CloudEvents,
 				},
+				// generate default kafka config
+				// Kafka: &globalhubv1alpha4.KafkaConfig{
+				// 	TransportFormat: globalhubv1alpha4.CloudEvents,
+				// },
 				Postgres: globalhubv1alpha4.PostgresConfig{
 					Retention: "18m",
 				},
