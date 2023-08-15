@@ -37,8 +37,8 @@ func GetSaramaConfig() (string, *sarama.Config, error) {
 	}
 
 	// or manual generate client cert(the client ca and crt from the kafka operator)
-	// oc get secret kafka-brokers-cluster-clients-ca -n kafka -ojsonpath='{.data.ca\.key}' | base64 -d > client-ca.key
-	// oc get secret kafka-brokers-cluster-clients-ca-cert -n kafka -ojsonpath='{.data.ca\.crt}' | base64 -d >
+	// oc get secret kafka-clients-ca -n kafka -ojsonpath='{.data.ca\.key}' | base64 -d > client-ca.key
+	// oc get secret kafka-clients-ca-cert -n kafka -ojsonpath='{.data.ca\.crt}' | base64 -d >
 	// client-ca.crt
 	// openssl genrsa -out client.key 2048
 	// openssl req -new -key client.key -out client.csr -subj "/CN=global-hub"

@@ -2,9 +2,9 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: spec
-  namespace: kafka
+  namespace: multicluster-global-hub-kafka
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   partitions: 1
   replicas: 2
@@ -16,9 +16,9 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: status
-  namespace: kafka
+  namespace: multicluster-global-hub-kafka
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   partitions: 1
   replicas: 2
@@ -30,9 +30,9 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: event
-  namespace: kafka
+  namespace: multicluster-global-hub-kafka
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   partitions: 1
   replicas: 2
