@@ -75,9 +75,11 @@ func GetGorm() *gorm.DB {
 
 // Close the sql.DB connection
 func CloseGorm() {
-	err := sqlDB.Close()
-	if err != nil {
-		log.Error(err, "failed to close database connection")
+	if sqlDB != nil {
+		err := sqlDB.Close()
+		if err != nil {
+			log.Error(err, "failed to close database connection")
+		}
 	}
 }
 

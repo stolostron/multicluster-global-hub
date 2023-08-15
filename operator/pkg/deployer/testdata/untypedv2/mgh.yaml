@@ -1,8 +1,5 @@
-apiVersion: operator.open-cluster-management.io/v1alpha3
+apiVersion: operator.open-cluster-management.io/v1alpha4
 kind: MulticlusterGlobalHub
 metadata:
   name: multiclusterglobalhub
   namespace: default
-spec:
-  dataLayer:
-    type: largeScale

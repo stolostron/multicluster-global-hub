@@ -17,7 +17,7 @@ import (
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -25,7 +25,7 @@ import (
 )
 
 func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Context,
-	mgh *operatorv1alpha3.MulticlusterGlobalHub,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("prune")
 

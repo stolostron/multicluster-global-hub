@@ -24,7 +24,6 @@ require (
 	github.com/openshift/library-go v0.0.0-20220727134723-6802b30e83ba
 	github.com/operator-framework/api v0.15.0
 	github.com/operator-framework/operator-lifecycle-manager v0.21.2
-	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.58.0
 	github.com/resmoio/kubernetes-event-exporter v0.0.0-20230317084058-f4b7ad969e5c
 	github.com/rs/zerolog v1.28.0
@@ -49,8 +48,8 @@ require (
 	sigs.k8s.io/application v0.8.3
 	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/kustomize/api v0.11.4
-	sigs.k8s.io/yaml v1.3.0
 	sigs.k8s.io/kustomize/kyaml v0.13.6
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (

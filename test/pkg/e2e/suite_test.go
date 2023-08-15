@@ -23,7 +23,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
@@ -78,7 +78,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	//utils.DeleteTestingRBAC(testOptions)
+	// utils.DeleteTestingRBAC(testOptions)
 })
 
 func completeOptions() utils.Options {
@@ -142,7 +142,7 @@ func findRootDir(dir string) (string, error) {
 func deployGlobalHub() {
 	By("Creating client for the hub cluster")
 	scheme := runtime.NewScheme()
-	Expect(operatorv1alpha3.AddToScheme(scheme)).Should(Succeed())
+	Expect(globalhubv1alpha4.AddToScheme(scheme)).Should(Succeed())
 	Expect(appsv1.AddToScheme(scheme)).Should(Succeed())
 
 	By("Creating namespace for the ServiceMonitor")
@@ -163,7 +163,7 @@ func deployGlobalHub() {
 		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
-	mcgh := &operatorv1alpha3.MulticlusterGlobalHub{
+	mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "multiclusterglobalhub",
 			Namespace: "open-cluster-management",
@@ -171,16 +171,17 @@ func deployGlobalHub() {
 				constants.AnnotationMGHSkipAuth: "true",
 			},
 		},
-		Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
-			DataLayer: &operatorv1alpha3.DataLayerConfig{
-				Type: operatorv1alpha3.LargeScale,
-				LargeScale: &operatorv1alpha3.LargeScaleConfig{
-					Kafka: &operatorv1alpha3.KafkaConfig{
-						TransportFormat: operatorv1alpha3.CloudEvents,
-					},
-					Postgres: &operatorv1alpha3.PostgresConfig{
-						Retention: "18m",
-					},
+		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+			DataLayer: globalhubv1alpha4.DataLayerConfig{
+				Kafka: globalhubv1alpha4.KafkaConfig{
+					TransportFormat: globalhubv1alpha4.CloudEvents,
+				},
+				// generate default kafka config
+				// Kafka: &globalhubv1alpha4.KafkaConfig{
+				// 	TransportFormat: globalhubv1alpha4.CloudEvents,
+				// },
+				Postgres: globalhubv1alpha4.PostgresConfig{
+					Retention: "18m",
 				},
 			},
 		},
@@ -206,7 +207,6 @@ func deployGlobalHub() {
 		}
 		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
 	}, 3*time.Minute, 1*time.Second).Should(Succeed())
-
 }
 
 func checkDeployAvailable(runtimeClient client.Client, namespace, name string) error {

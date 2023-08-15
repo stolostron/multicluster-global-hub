@@ -5,22 +5,19 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "operator.open-cluster-management.io/v1alpha3",
+          "apiVersion": "operator.open-cluster-management.io/v1alpha4",
           "kind": "MulticlusterGlobalHub",
           "metadata": {
             "name": "multiclusterglobalhub"
           },
           "spec": {
             "dataLayer": {
-              "largeScale": {
-                "kafka": {
-                  "transportFormat": "cloudEvents"
-                },
-                "postgres": {
-                  "retention": "18m"
-                }
+              "kafka": {
+                "transportFormat": "cloudEvents"
               },
-              "type": "largeScale"
+              "postgres": {
+                "retention": "18m"
+              }
             }
           }
         }
@@ -29,7 +26,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2023-08-12T05:19:18Z"
+    createdAt: "2023-08-14T01:39:03Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     operatorframework.io/suggested-namespace: open-cluster-management
     operators.operatorframework.io/builder: operator-sdk-v1.28.0+git
@@ -44,7 +41,7 @@ spec:
     owned:
     - kind: MulticlusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
-      version: v1alpha3
+      version: v1alpha4
   description: "Multicluster Global Hub Operator defines the configuration for multicluster
     global hub installation and upgrade with one custom resource.\n\n## Prerequisites\n\n-
     Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs

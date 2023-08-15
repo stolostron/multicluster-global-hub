@@ -27,7 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -96,7 +96,7 @@ func GetOauthSessionSecret() (string, error) {
 }
 
 // getAnnotation returns the annotation value for a given key, or an empty string if not set
-func getAnnotation(mgh *operatorv1alpha3.MulticlusterGlobalHub, annotationKey string) string {
+func getAnnotation(mgh *globalhubv1alpha4.MulticlusterGlobalHub, annotationKey string) string {
 	annotations := mgh.GetAnnotations()
 	if annotations == nil {
 		return ""
@@ -106,7 +106,7 @@ func getAnnotation(mgh *operatorv1alpha3.MulticlusterGlobalHub, annotationKey st
 }
 
 // IsPaused returns true if the MulticlusterGlobalHub instance is annotated as paused, and false otherwise
-func IsPaused(mgh *operatorv1alpha3.MulticlusterGlobalHub) bool {
+func IsPaused(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
 	isPausedVal := getAnnotation(mgh, operatorconstants.AnnotationMGHPause)
 	if isPausedVal != "" && strings.EqualFold(isPausedVal, "true") {
 		return true
@@ -117,7 +117,7 @@ func IsPaused(mgh *operatorv1alpha3.MulticlusterGlobalHub) bool {
 
 // SkipDBInit returns true if the MulticlusterGlobalHub instance is annotated as skipping database initialization,
 // and false otherwise, used in dev/test environment
-func SkipDBInit(mgh *operatorv1alpha3.MulticlusterGlobalHub) bool {
+func SkipDBInit(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
 	toSkipDBInit := getAnnotation(mgh, operatorconstants.AnnotationMGHSkipDBInit)
 	if toSkipDBInit != "" && strings.EqualFold(toSkipDBInit, "true") {
 		return true
@@ -127,12 +127,12 @@ func SkipDBInit(mgh *operatorv1alpha3.MulticlusterGlobalHub) bool {
 }
 
 // GetSchedulerInterval returns the scheduler interval for moving policy compliance history
-func GetSchedulerInterval(mgh *operatorv1alpha3.MulticlusterGlobalHub) string {
+func GetSchedulerInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
 }
 
 // SkipAuth returns true to skip authenticate for non-k8s api
-func SkipAuth(mgh *operatorv1alpha3.MulticlusterGlobalHub) bool {
+func SkipAuth(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
 	toSkipAuth := getAnnotation(mgh, operatorconstants.AnnotationMGHSkipAuth)
 	if toSkipAuth != "" && strings.EqualFold(toSkipAuth, "true") {
 		return true
@@ -142,11 +142,11 @@ func SkipAuth(mgh *operatorv1alpha3.MulticlusterGlobalHub) bool {
 }
 
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
-func GetImageOverridesConfigmap(mgh *operatorv1alpha3.MulticlusterGlobalHub) string {
+func GetImageOverridesConfigmap(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)
 }
 
-func SetImageOverrides(mgh *operatorv1alpha3.MulticlusterGlobalHub) error {
+func SetImageOverrides(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	// first check for environment variables containing the 'RELATED_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)
@@ -204,7 +204,7 @@ func GetGlobalHubAgentConfig() *corev1.ConfigMap {
 	return globalHubAgentConfig
 }
 
-func SetStatisticLogInterval(mgh *operatorv1alpha3.MulticlusterGlobalHub) error {
+func SetStatisticLogInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	interval := getAnnotation(mgh, operatorconstants.AnnotationStatisticInterval)
 	if interval == "" {
 		return nil

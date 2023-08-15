@@ -144,7 +144,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	transportPostgreSQL.Stop()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 
 	By("Tearing down the test environment")
