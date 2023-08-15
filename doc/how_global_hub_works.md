@@ -60,7 +60,7 @@ The manual summarization process consists of two subtasks:
    
    You can use clients such as pgAdmin, tablePlush, etc. to connect to the Global Hub database to execute the SQL statements involved in the next few steps. If your postgres database is installed through [this script](../operator/config/samples/storage/deploy_postgres.sh), you can directly connect to the database on the cluster by running the following command:
    ```
-   kubectl exec -it $(kubectl get pods -n hoh-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -n hoh-postgres -c database -- psql -d hoh
+   kubectl exec -it $(kubectl get pods -n multicluster-global-hub-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -n multicluster-global-hub-postgres -c database -- psql -d hoh
    ```
        
 2. Determine the date when it needs to be run, such as `2023-07-06`.

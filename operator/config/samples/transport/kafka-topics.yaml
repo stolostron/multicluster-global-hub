@@ -4,7 +4,7 @@ metadata:
   name: spec
   namespace: multicluster-global-hub-kafka
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   partitions: 1
   replicas: 2
@@ -18,7 +18,7 @@ metadata:
   name: status
   namespace: multicluster-global-hub-kafka
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   partitions: 1
   replicas: 2
@@ -32,7 +32,7 @@ metadata:
   name: event
   namespace: multicluster-global-hub-kafka
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   partitions: 1
   replicas: 2

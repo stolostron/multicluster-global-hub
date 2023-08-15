@@ -1,7 +1,7 @@
 apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
-  name: kafka-brokers-cluster
+  name: kafka
   namespace: multicluster-global-hub-kafka
 spec:
   kafka:
@@ -27,6 +27,7 @@ spec:
       - name: external
         port: 9093
         type: route
+        host: kafka
         tls: true
         authentication:
           type: tls

@@ -17,8 +17,8 @@ fi
 # step2: deploy postgres operator pgo
 kubectl create namespace multicluster-global-hub-postgres --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f ${currentDir}/postgres-subscription.yaml
-waitAppear "kubectl get pods -n postgres-operator --ignore-not-found=true | grep pgo | grep Running || true"
-# kubectl -n postgres-operator wait --for=condition=Available Deployment/"pgo" --timeout=1000s
+waitAppear "kubectl get pods -n multicluster-global-hub-postgres --ignore-not-found=true | grep pgo | grep Running || true"
+# kubectl -n multicluster-global-hub-postgres wait --for=condition=Available Deployment/"pgo" --timeout=1000s
 
 # step3: deploy postgres cluster
 kubectl apply -f ${currentDir}/postgres-cluster.yaml

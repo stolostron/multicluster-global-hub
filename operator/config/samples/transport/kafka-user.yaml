@@ -4,7 +4,7 @@ metadata:
   name: global-hub-kafka-user
   namespace: multicluster-global-hub-kafka
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   authentication:
     type: tls

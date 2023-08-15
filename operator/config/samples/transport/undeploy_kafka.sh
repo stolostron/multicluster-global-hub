@@ -17,15 +17,15 @@ waitDisappear "kubectl get kafkatopic status -n multicluster-global-hub-kafka --
 
 # step3: delete kafka cluster
 kubectl delete -f ${currentDir}/kafka-cluster.yaml
-waitDisappear "kubectl -n multicluster-global-hub-kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster --ignore-not-found"
+waitDisappear "kubectl -n multicluster-global-hub-kafka get kafka.kafka.strimzi.io/kafka --ignore-not-found"
 
 # step4: delete kafka operator
-kubectl delete -f ${currentDir}/kafka-operator.yaml
-kubectl delete deploy --all -n multicluster-global-hub-kafka 
+kubectl delete -f ${currentDir}/kafka-subscription.yaml
+kubectl delete deploy --all -n multicluster-global-hub-kafka
 waitDisappear "kubectl get pods -n multicluster-global-hub-kafka | grep strimzi-cluster-operator | grep Running || true"
 
 # step5: delete kafka namesapce
-kubectl delete namespace kafka 
+kubectl delete namespace multicluster-global-hub-kafka
 
 
 
