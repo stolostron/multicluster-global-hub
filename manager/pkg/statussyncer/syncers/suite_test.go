@@ -37,7 +37,7 @@ var (
 	cfg                 *rest.Config
 	ctx                 context.Context
 	cancel              context.CancelFunc
-	postgres            *testpostgres.TestPostgres
+	testPostgres        *testpostgres.TestPostgres
 	transportPostgreSQL *postgresql.PostgreSQL
 	kubeClient          client.Client
 	producer            transport.Producer
@@ -68,16 +68,16 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	By("Prepare postgres database")
-	postgres, err = testpostgres.NewTestPostgres()
+	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
-	err = testpostgres.InitDatabase(postgres.URI)
+	err = testpostgres.InitDatabase(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Create test postgres")
 	managerConfig := &config.ManagerConfig{
 		DatabaseConfig: &config.DatabaseConfig{
-			ProcessDatabaseURL:         postgres.URI,
-			TransportBridgeDatabaseURL: postgres.URI,
+			ProcessDatabaseURL:         testPostgres.URI,
+			TransportBridgeDatabaseURL: testPostgres.URI,
 			CACertPath:                 "ca-test-path",
 		},
 		TransportConfig: &transport.TransportConfig{
@@ -91,7 +91,7 @@ var _ = BeforeSuite(func() {
 	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
 	Expect(err).NotTo(HaveOccurred())
 	err = database.InitGormInstance(&database.DatabaseConfig{
-		URL:      postgres.URI,
+		URL:      testPostgres.URI,
 		Dialect:  database.PostgresDialect,
 		PoolSize: 1,
 	})
@@ -144,8 +144,10 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	transportPostgreSQL.Stop()
-	Expect(postgres.Stop()).NotTo(HaveOccurred())
+	if transportPostgreSQL != nil {
+		transportPostgreSQL.Stop()
+	}
+	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 	database.CloseGorm()
 
 	By("Tearing down the test environment")
