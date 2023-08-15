@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -25,6 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1alpha3 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha3"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
@@ -35,7 +36,6 @@ var (
 	testTimeout time.Duration
 
 	testClients utils.TestClient
-	httpToken   string
 	httpClient  *http.Client
 
 	leafHubNames    []string
@@ -64,33 +64,21 @@ var _ = BeforeSuite(func() {
 	By("Complete the options and init clients")
 	testOptions = completeOptions()
 	testClients = utils.NewTestClient(testOptions)
+	httpClient = testClients.HttpClient()
 
 	By("Deploy the global hub")
 	deployGlobalHub()
 
-	By("Create the testing rbac")
-	err := utils.CreateTestingRBAC(testOptions)
-	Expect(err).ShouldNot(HaveOccurred())
-
-	By("Get the http token and client")
-	Eventually(func() error {
-		httpToken, err = utils.FetchBearerToken(testOptions)
-		return err
-	}, 1*time.Minute, 1*time.Second*5).ShouldNot(HaveOccurred())
-	klog.V(6).Info(fmt.Sprintf("Http BearerToken: %s", httpToken))
-	Expect(len(httpToken)).ShouldNot(BeZero())
-	httpClient = testClients.HttpClient()
-
 	By("Get the managed clusters")
 	Eventually(func() (err error) {
-		managedClusters, err = getManagedCluster(httpClient, httpToken)
+		managedClusters, err = getManagedCluster(httpClient)
 		return err
 	}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	Expect(len(managedClusters)).Should(Equal(ExpectedManagedClusterNum))
 })
 
 var _ = AfterSuite(func() {
-	utils.DeleteTestingRBAC(testOptions)
+	//utils.DeleteTestingRBAC(testOptions)
 })
 
 func completeOptions() utils.Options {
@@ -113,16 +101,14 @@ func completeOptions() utils.Options {
 	Expect(err).NotTo(HaveOccurred())
 
 	testOptions = testOptionsContainer.Options
-	if testOptions.HubCluster.KubeConfig == "" {
-		testOptions.HubCluster.KubeConfig = os.Getenv("KUBECONFIG")
+	if testOptions.GlobalHub.KubeConfig == "" {
+		testOptions.GlobalHub.KubeConfig = os.Getenv("KUBECONFIG")
 	}
 
 	s, _ := json.MarshalIndent(testOptionsContainer, "", "  ")
 	klog.V(6).Infof("OptionsContainer %s", s)
-	for _, cluster := range testOptions.ManagedClusters {
-		if cluster.Name == cluster.LeafHubName {
-			leafHubNames = append(leafHubNames, cluster.Name)
-		}
+	for _, cluster := range testOptions.GlobalHub.ManagedHubs {
+		leafHubNames = append(leafHubNames, cluster.Name)
 	}
 
 	Expect(len(leafHubNames)).Should(Equal(ExpectedLeafHubNum))
@@ -171,32 +157,19 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
-	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.HubCluster.Name, scheme)
-	Expect(err).ShouldNot(HaveOccurred())
-
-	By("Deploying operator with built image")
-	operatorYaml := fmt.Sprintf("%s/operator/config/manager/manager.yaml", rootDir)
-	err = replaceContent(operatorYaml, "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		testOptions.HubCluster.ManagerImageREF)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = replaceContent(operatorYaml, "quay.io/stolostron/multicluster-global-hub-agent:latest",
-		testOptions.HubCluster.AgentImageREF)
-	Expect(err).NotTo(HaveOccurred())
-
-	cmd := exec.Command("make", "-C", "../../../operator", "deploy")
-	cmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", testOptions.HubCluster.KubeConfig))
-	setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-	setCommandEnv(cmd, "IMG", testOptions.HubCluster.OperatorImageREF, nil)
-	output, err := cmd.CombinedOutput()
-	fmt.Println(string(output))
-	Expect(err).ShouldNot(HaveOccurred())
+	Expect(kustomize.Apply(testClients, testOptions,
+		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/test/pkg/e2e/resources", rootDir)})).NotTo(HaveOccurred())
+	Expect(kustomize.Apply(testClients, testOptions,
+		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
 	mcgh := &operatorv1alpha3.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "multiclusterglobalhub",
 			Namespace: "open-cluster-management",
+			Annotations: map[string]string{
+				constants.AnnotationMGHSkipAuth: "true",
+			},
 		},
 		Spec: operatorv1alpha3.MulticlusterGlobalHubSpec{
 			DataLayer: &operatorv1alpha3.DataLayerConfig{
@@ -212,6 +185,9 @@ func deployGlobalHub() {
 			},
 		},
 	}
+
+	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
+	Expect(err).ShouldNot(HaveOccurred())
 
 	err = runtimeClient.Create(context.TODO(), mcgh)
 	if !errors.IsAlreadyExists(err) {
@@ -229,60 +205,8 @@ func deployGlobalHub() {
 			return err
 		}
 		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
-	}, 3*time.Minute, 2*time.Second).Should(Succeed())
+	}, 3*time.Minute, 1*time.Second).Should(Succeed())
 
-	// globalhub setup for e2e
-	if os.Getenv("IS_CANARY_ENV") != "true" {
-		By("updating deployment && cluster-manager")
-		cmd := exec.Command("kubectl", "patch", "deployment", "governance-policy-propagator", "-n", Namespace, "-p", "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-propagator\",\"image\":\"quay.io/open-cluster-management-hub-of-hubs/governance-policy-propagator:v0.5.0\"}]}}}}")
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
-
-		cmd = exec.Command("kubectl", "patch", "clustermanager", "cluster-manager", "--type", "merge", "-p", "{\"spec\":{\"placementImagePullSpec\":\"quay.io/open-cluster-management/placement:latest\"}}")
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
-
-		cmd = exec.Command("kubectl", "apply", "-f", fmt.Sprintf("%s/test/setup/hoh/components/manager-service-local.yaml", rootDir), "-n", Namespace)
-		setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-		Expect(cmd.Run()).Should(Succeed())
-
-		Eventually(func() error {
-			cmd = exec.Command("kubectl", "annotate", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "service.beta.openshift.io/inject-cabundle-")
-			setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-			output, err := cmd.CombinedOutput()
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(output))
-
-			cmd = exec.Command("kubectl", "get", "secret", "multicluster-global-hub-webhook-certs", "-n", Namespace, "-o", "jsonpath={.data.tls\\.crt}")
-			setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-			ca, err := cmd.Output()
-			if err != nil {
-				return err
-			}
-
-			cmd = exec.Command("kubectl", "patch", "mutatingwebhookconfiguration", "multicluster-global-hub-mutator", "-n", Namespace, "-p", fmt.Sprintf("{\"webhooks\":[{\"name\":\"global-hub.open-cluster-management.io\",\"clientConfig\":{\"caBundle\":\"%s\"}}]}", ca))
-			setCommandEnv(cmd, "KUBECONFIG", testOptions.HubCluster.KubeConfig, os.Environ())
-			output, err = cmd.CombinedOutput()
-			fmt.Println(string(output))
-			return err
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
-	}
-}
-
-func setCommandEnv(cmd *exec.Cmd, key, val string, baseEvn []string) {
-	if baseEvn != nil {
-		cmd.Env = baseEvn
-	}
-	cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, val))
-}
-
-func replaceContent(file string, old, new string) error {
-	cmd := exec.Command("sed", "-i", fmt.Sprintf("s|%s|%s|g", old, new), file)
-	output, err := cmd.CombinedOutput()
-	fmt.Println(string(output))
-	return err
 }
 
 func checkDeployAvailable(runtimeClient client.Client, namespace, name string) error {

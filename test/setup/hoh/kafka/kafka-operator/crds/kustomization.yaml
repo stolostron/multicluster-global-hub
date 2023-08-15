@@ -1,0 +1,11 @@
+resources:
+- 040-Crd-kafka.yaml
+- 041-Crd-kafkaconnect.yaml
+- 042-Crd-strimzipodset.yaml
+- 043-Crd-kafkatopic.yaml
+- 044-Crd-kafkauser.yaml
+- 045-Crd-kafkamirrormaker.yaml
+- 046-Crd-kafkabridge.yaml
+- 047-Crd-kafkaconnector.yaml
+- 048-Crd-kafkamirrormaker2.yaml
+- 049-Crd-kafkarebalance.yaml

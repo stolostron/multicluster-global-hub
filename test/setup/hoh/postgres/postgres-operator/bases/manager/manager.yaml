@@ -1,0 +1,33 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgo
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  template:
+    spec:
+      containers:
+      - name: operator
+        # since the k8s v1.25 compatible fix has not been released yet, this image is used for now.
+        # https://github.com/CrunchyData/postgres-operator/issues/3365
+        image: quay.io/myan/postgres-operator:ubi8-k8s.1.25       
+        env:
+        - name: CRUNCHY_DEBUG
+          value: "true"
+        - name: RELATED_IMAGE_POSTGRES_13
+          value: "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-13.8-1"
+        - name: RELATED_IMAGE_POSTGRES_13_GIS_3.1
+          value: "registry.developers.crunchydata.com/crunchydata/crunchy-postgres-gis:ubi8-13.8-3.1-1"
+        - name: RELATED_IMAGE_PGBACKREST
+          value: "registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1"
+        - name: RELATED_IMAGE_PGBOUNCER
+          value: "registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:ubi8-1.17-1"
+        - name: RELATED_IMAGE_PGEXPORTER
+          value: "registry.developers.crunchydata.com/crunchydata/crunchy-postgres-exporter:ubi8-5.2.0-0"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+      serviceAccountName: pgo

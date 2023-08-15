@@ -1,5 +1,0 @@
-options:
-  kubeconfig: KUBECONFIG
-  hub:
-    name: HUB_CLUSTER_NAME
-    baseDomain: BASE_DOMAIN

@@ -30,11 +30,11 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 		By("Check the label is added")
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[0]))
+			err := updateClusterLabel(httpClient, patches, GetClusterID(managedClusters[0]))
 			if err != nil {
 				return err
 			}
-			managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedClusters[0].Name)
+			managedClusterInfo, err := getManagedClusterByName(httpClient, managedClusters[0].Name)
 			if err != nil {
 				return err
 			}
@@ -44,7 +44,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 				}
 			}
 			return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-		}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("add the label to the managed cluster", func() {
@@ -59,11 +59,11 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 			By("Check the label is added")
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedClusters[i]))
+				err := updateClusterLabel(httpClient, patches, GetClusterID(managedClusters[i]))
 				if err != nil {
 					return err
 				}
-				managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedClusters[i].Name)
+				managedClusterInfo, err := getManagedClusterByName(httpClient, managedClusters[i].Name)
 				if err != nil {
 					return err
 				}
@@ -73,7 +73,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 					}
 				}
 				return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 	})
 
@@ -89,11 +89,11 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 			By("Check the label is deleted")
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, httpToken, GetClusterID(managedCluster))
+				err := updateClusterLabel(httpClient, patches, GetClusterID(managedCluster))
 				if err != nil {
 					return err
 				}
-				managedClusterInfo, err := getManagedClusterByName(httpClient, httpToken, managedCluster.Name)
+				managedClusterInfo, err := getManagedClusterByName(httpClient, managedCluster.Name)
 				if err != nil {
 					return err
 				}
@@ -104,7 +104,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 					}
 				}
 				return nil
-			}, 3*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 	})
 })
@@ -115,13 +115,12 @@ type patch struct {
 	Value string `json:"value"`
 }
 
-func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCluster, error) {
-	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", testOptions.HubCluster.Nonk8sApiServer)
+func getManagedCluster(client *http.Client) ([]clusterv1.ManagedCluster, error) {
+	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters", testOptions.GlobalHub.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -146,16 +145,15 @@ func getManagedCluster(client *http.Client, token string) ([]clusterv1.ManagedCl
 	return managedClusterList.Items, nil
 }
 
-func getManagedClusterByName(client *http.Client, token, managedClusterName string) (
+func getManagedClusterByName(client *http.Client, managedClusterName string) (
 	*clusterv1.ManagedCluster, error,
 ) {
 	managedClusterUrl := fmt.Sprintf("%s/global-hub-api/v1/managedclusters",
-		testOptions.HubCluster.Nonk8sApiServer)
+		testOptions.GlobalHub.Nonk8sApiServer)
 	req, err := http.NewRequest("GET", managedClusterUrl, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -182,9 +180,9 @@ func getManagedClusterByName(client *http.Client, token, managedClusterName stri
 	return nil, nil
 }
 
-func updateClusterLabel(client *http.Client, patches []patch, token, managedClusterID string) error {
+func updateClusterLabel(client *http.Client, patches []patch, managedClusterID string) error {
 	updateLabelUrl := fmt.Sprintf("%s/global-hub-api/v1/managedcluster/%s",
-		testOptions.HubCluster.Nonk8sApiServer, managedClusterID)
+		testOptions.GlobalHub.Nonk8sApiServer, managedClusterID)
 	// set method and body
 	jsonBody, err := json.Marshal(patches)
 	if err != nil {
@@ -196,7 +194,6 @@ func updateClusterLabel(client *http.Client, patches []patch, token, managedClus
 	}
 
 	// add header
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	req.Header.Add("Accept", "application/json")
 
 	// do request

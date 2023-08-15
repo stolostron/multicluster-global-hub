@@ -1,4 +1,4 @@
-
+#!/bin/bash
 function checkEnv() {
   name="$1"
   value="$2"
@@ -59,37 +59,12 @@ function checkKind() {
 }
 
 function initKinDCluster() {
-  clusterName=$1
-  image="kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae" # or kindest/node:v1.23.4 
+  clusterName="$1"
   if [[ $(kind get clusters | grep "^${clusterName}$" || true) != "${clusterName}" ]]; then
-    kind create cluster --name "$clusterName" --image "$image" --wait 1m
+    kind create cluster --name "$clusterName" --wait 1m
     currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     kubectl config view --context="kind-${clusterName}" --minify --flatten > ${currentDir}/config/kubeconfig-${clusterName}
   fi
-}
-
-function initMicroShift() {
-  portMappings=$2
-  portMappingArray=(${portMappings//;/ })
-  portMappingFlag=""
-  for portMap in "${portMappingArray[@]}"; do
-    portMappingFlag="${portMappingFlag} -p ${portMap}"
-  done
-  docker run -d --rm --name $1 --privileged -v $1-data:/var/lib ${portMappingFlag} quay.io/microshift/microshift-aio:latest
-}
-
-function getMicroShiftKubeConfig() {
-  containerIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $1)
-
-  # wait until the kubeconfig is copied to target file successfully
-  until docker cp $1:/var/lib/microshift/resources/kubeadmin/kubeconfig $2 > /dev/null 2>&1
-  do
-    sleep 10
-  done
-
-  sed -i "s/microshift/${1}/" $2
-  sed -i "s/: user/: ${1}/" $2
-  sed -i "s/127.0.0.1/${containerIP}/" $2
 }
 
 function initHub() {
@@ -102,109 +77,119 @@ function initHub() {
 
 function initManaged() {
   hub="$1"
-  managed="$2"
+  managedPrefix="$2"
+  managedClusterNum="$3"
+  managedClusterName=""
 
   currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   joinCommand="${currentDir}/config/join-${hub}"
-  if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}" || true) == "" ]]; then
-    kubectl config use-context "${managed}"
-    clusteradm get token --context "${hub}" | grep "clusteradm" > "$joinCommand"
-    if [[ $hub =~ "kind" ]]; then
-      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup --wait;" "$joinCommand" > "${joinCommand}-named"
-      sed -e "s;<cluster_name>;${managed} --force-internal-endpoint-lookup --wait;" "$joinCommand" | bash
-    else
-      sed -e "s;<cluster_name>;${managed} --wait;" "$joinCommand" > "${joinCommand}-named"
-      sed -e "s;<cluster_name>;${managed} --wait;" "$joinCommand" | bash
+  for i in $(seq 1 "${managedClusterNum}"); do
+    if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managedPrefix}$i" || true) == "" ]]; then
+      kubectl config use-context "${managedPrefix}$i"
+      clusteradm get token --context "${hub}" | grep "clusteradm" > "$joinCommand"
+      if [[ $hub =~ "kind" ]]; then
+        sed -e "s;<cluster_name>;${managedPrefix}$i --force-internal-endpoint-lookup --wait;" "$joinCommand" > "${joinCommand}-named"
+        sed -e "s;<cluster_name>;${managedPrefix}$i --force-internal-endpoint-lookup --wait;" "$joinCommand" | bash
+      else
+        sed -e "s;<cluster_name>;${managedPrefix}$i --wait;" "$joinCommand" > "${joinCommand}-named"
+        sed -e "s;<cluster_name>;${managedPrefix}$i --wait;" "$joinCommand" | bash
+      fi
     fi
-    sleep 2
-    kubectl scale deployment klusterlet -n open-cluster-management --replicas=1
-  fi
-    
-  SECOND=0
-  while true; do
-    if [ $SECOND -gt 1000 ]; then
-      echo "Timeout waiting for ${hub} + ${managed}."
-      exit 1
-    fi
-
-    kubectl config use-context "${hub}"
-    hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}" || true)
-    while [[ "${hubManagedCsr}" != "" && "${hubManagedCsr}" =~ "Pending" ]]; do
-      echo "accepting ${hub} + ${managed} csr"
-      clusteradm accept --clusters "${managed}" --context "${hub}"
-      sleep 5
-      (( SECOND = SECOND + 5 ))
-      hubManagedCsr=$(kubectl get csr --context "${hub}" --ignore-not-found | grep "${managed}" || true)
-    done
-
-    hubManagedCluster=$(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managed}" || true)
-    if [[ "${hubManagedCluster}" != "" && $(echo "${hubManagedCluster}" | awk '{print $2}') == "true" ]]; then
-      echo "Cluster ${managed}: ${hubManagedCluster}"
-      break
-    elif [[ "${hubManagedCluster}" != "" && $(echo "${hubManagedCluster}" | awk '{print $2}') == "false" ]]; then
-      echo "Cluster ${managed}: ${hubManagedCluster}"
-      kubectl patch managedcluster "${managed}" -p='{"spec":{"hubAcceptsClient":true}}' --type=merge --context "${hub}"
-    fi
-    sleep 5
-    (( SECOND = SECOND + 5 ))
+    managedClusterName+="${managedPrefix}$i,"
   done
+  clusteradm accept --clusters "${managedClusterName%,*}" --context "${hub}" --wait
 }
 
 # init application-lifecycle
 function initApp() {
+  echo "init app for $1"
   hub="$1"
-  managed="$2"
-  echo "init application: $1 - $2"
+  managedPrefix="$2"
+  managedClusterNum="$3"
+
   # enable the applications.app.k8s.io
   kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml --context "${hub}"
-  kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml --context "${managed}"
 
-  SECOND=0
-  while true; do
-    if [ $SECOND -gt 300 ]; then
-      echo "Timeout waiting for ${hub} + ${managed}."
-      exit 1
-    fi
-    
+  for i in $(seq 1 "${managedClusterNum}"); do    
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml --context "${managedPrefix}$i"
     # deploy the subscription operators to the hub cluster
-    kubectl config use-context "${hub}"
-    hubSubOperator=$(kubectl -n open-cluster-management get deploy multicluster-operators-subscription --context "${hub}" --ignore-not-found)
-    if [[ -z "${hubSubOperator}" ]]; then 
-      echo "$hub install hub-addon application-manager"
-      clusteradm install hub-addon --names application-manager
-      sleep 2
-    fi
+    echo "$hub install hub-addon application-manager"
+    clusteradm install hub-addon --names application-manager --context "${hub}"
 
-    # create ocm-agent-addon namespace on the managed cluster
-    managedAgentAddonNS=$(kubectl get ns --context "${managed}" --ignore-not-found | grep "open-cluster-management-agent-addon" || true)
-    if [[ -z "${managedAgentAddonNS}" ]]; then
-      echo "create namespace open-cluster-management-agent-addon on ${managed}"
-      kubectl create ns open-cluster-management-agent-addon --context "${managed}"
-    fi
-
-    echo "check the application-manager is available on context: ${managed} "
-    managedSubAvailable=$(kubectl -n open-cluster-management-agent-addon get deploy --context "${managed}" --ignore-not-found | grep "application-manager" || true)
-    if [[ "${managedSubAvailable}" != "" && $(echo "${managedSubAvailable}" | awk '{print $4}') -gt 0 ]]; then
-      echo "Application installed $hub - ${managed}: $managedSubAvailable"
-      break
-    else
-      echo "Deploying the the subscription add-on to the managed cluster: $managed"
-      kubectl config use-context "${hub}"
-      clusteradm addon enable --names application-manager --clusters "${managed}"
-      sleep 5
-      (( SECOND = SECOND + 5 ))
-    fi
+    echo "Deploying the the subscription add-on to the managed cluster: $managedPrefix$i"
+    clusteradm addon enable --names application-manager --clusters "${managedPrefix}$i" --context "${hub}"
   done
 }
 
 function initPolicy() {
-  echo "init policy"
+  echo "init policy for $1"
+  hub="$1"
+  managedPrefix="$2"
+  managedClusterNum="$3"
+  HUB_KUBECONFIG="$4"
+
+  # Deploy the policy framework hub controllers
+  HUB_NAMESPACE="open-cluster-management"
+
+  for i in $(seq 1 "${managedClusterNum}"); do
+    kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.11.0/deploy"
+    ## Apply the CRDs
+    kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml 
+    kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml 
+    kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
+    kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
+    ## Deploy the policy-propagator
+    kubectl --context "${hub}" apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
+    kubectl --context "${hub}" patch deployment governance-policy-propagator -n ${HUB_NAMESPACE} -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management/governance-policy-propagator:v0.11.0"}]}}}}'
+
+    # Deploy the synchronization components to the managed cluster(s)
+    MANAGED_NAMESPACE="open-cluster-management-agent-addon"
+    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io"
+
+    ## Create the namespace for the synchronization components
+    kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "${managedPrefix}$i" apply -f -
+
+    ## Create the secret to authenticate with the hub
+    if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "${managedPrefix}$i" --ignore-not-found) == "" ]]; then 
+      kubectl --context "${managedPrefix}$i" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
+    fi
+
+    ## Apply the policy CRD
+    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/governance-policy-propagator/main/deploy/crds/policy.open-cluster-management.io_policies.yaml 
+
+    ## Set the managed cluster name and create the namespace
+    kubectl create ns "${managedPrefix}$i" --dry-run=client -o yaml | kubectl --context "${managedPrefix}$i" apply -f -
+
+    COMPONENT="governance-policy-spec-sync"
+    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}" 
+    kubectl --context "${managedPrefix}$i" set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managedPrefix}$i" 
+
+    COMPONENT="governance-policy-status-sync"
+    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
+    kubectl --context "${managedPrefix}$i" set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managedPrefix}$i"
+
+    COMPONENT="governance-policy-template-sync"
+    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}" 
+    kubectl --context "${managedPrefix}$i" set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managedPrefix}$i"
+
+    COMPONENT="config-policy-controller"
+    # Apply the config-policy-controller CRD
+    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
+    # Deploy the controller
+    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
+    kubectl --context "${managedPrefix}$i" set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managedPrefix}$i"
+    
+  done
+
+}
+
+function checkPolicyReadiness() {
   hub="$1"
   managed="$2"
-  HUB_KUBECONFIG="$3"
   SECOND=0
   while true; do
-    if [ $SECOND -gt 400 ]; then
+    if [ $SECOND -gt 100 ]; then
       echo "Timeout waiting for ${hub} + ${managed}."
       exit 1
     fi
@@ -212,84 +197,38 @@ function initPolicy() {
     componentCount=0
 
     # Deploy the policy framework hub controllers
-    kubectl config use-context "${hub}"
     HUB_NAMESPACE="open-cluster-management"
 
     policyPropagator=$(kubectl get pods -n "${HUB_NAMESPACE}" --context "${hub}" --ignore-not-found | grep "governance-policy-propagator" || true)
-    if [[ ${policyPropagator} == "" ]]; then 
-      kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-      GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.11.0/deploy"
-      ## Apply the CRDs
-      kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml 
-      kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml 
-      kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
-      kubectl apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
-      ## Deploy the policy-propagator
-      kubectl apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
-      kubectl patch deployment governance-policy-propagator -n ${HUB_NAMESPACE} -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management/governance-policy-propagator:v0.11.0"}]}}}}'
-    elif [[ $(echo "${policyPropagator}" | awk '{print $3}')  == "Running" ]]; then 
+    if [[ $(echo "${policyPropagator}" | awk '{print $3}')  == "Running" ]]; then 
       (( componentCount = componentCount + 1 ))
       echo "Policy: step${componentCount} ${hub} ${policyPropagator} is Running" 
     fi
 
-    # Deploy the synchronization components to the managed cluster(s)
-    kubectl config use-context "${managed}" 
-    MANAGED_NAMESPACE="open-cluster-management-agent-addon"
-    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io"
-
-    ## Create the namespace for the synchronization components
-    kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-
-    ## Create the secret to authenticate with the hub
-    if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "${managed}" --ignore-not-found) == "" ]]; then 
-      kubectl -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
-    fi
-
-    ## Apply the policy CRD
-    kubectl apply -f ${GIT_PATH}/governance-policy-propagator/main/deploy/crds/policy.open-cluster-management.io_policies.yaml 
-
-    ## Set the managed cluster name and create the namespace
-    kubectl create ns "${managed}" --dry-run=client -o yaml | kubectl apply -f -
-
     COMPONENT="governance-policy-spec-sync"
-    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
-    if [[ ${comp} == "" ]]; then 
-      kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}" 
-      kubectl set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managed}" 
-    elif [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
+    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
+    if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
       (( componentCount = componentCount + 1 ))
       echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
     fi
 
     COMPONENT="governance-policy-status-sync"
-    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
-    if [[ ${comp} == "" ]]; then 
-      kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
-      kubectl set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managed}"
-    elif [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
+    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
+    if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
       (( componentCount = componentCount + 1 ))
       echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
     fi
 
     COMPONENT="governance-policy-template-sync"
-    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
-    if [[ ${comp} == "" ]]; then 
-      kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}" 
-      kubectl set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managed}"
-    elif [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
+    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
+    if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
       (( componentCount = componentCount + 1 ))
       echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
     fi
 
     COMPONENT="config-policy-controller"
-    # Apply the config-policy-controller CRD
-    kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
-    comp=$(kubectl get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
-    if [[ ${comp} == "" ]]; then
-      # Deploy the controller
-      kubectl apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
-      kubectl set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managed}"
-    elif [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
+    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
+    if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
       (( componentCount = componentCount + 1 ))
       echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
     fi
@@ -299,82 +238,59 @@ function initPolicy() {
       break;
     fi 
 
-    sleep 10
-    (( SECOND = SECOND + 10 ))
+    sleep 1
+    (( SECOND = SECOND + 1 ))
   done
 }
 
 enableRouter() {
-  kubectl config use-context "$1"
-  kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
+  kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl --context "$1" apply -f -
   GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
-  kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
+  kubectl --context "$1" apply -f $GIT_PATH/deploy/route_crd.yaml
   # pacman application depends on route crd, but we do not need to have route pod running in the cluster
   # kubectl apply -f $GIT_PATH/deploy/router.yaml
   # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
 }
 
-function enableDependencyResources() {
-  kubectl config use-context "$1"
-  # crd
-  currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  kubectl apply -f ${currentDir}/crds
-
-  # # router: the microshift has the router resources - will be deprecated later
-  # kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl apply -f -
-  # GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
-  # kubectl apply -f $GIT_PATH/deploy/route_crd.yaml
-  # kubectl apply -f $GIT_PATH/deploy/router.yaml
-  # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
-
-  # # service ca: the microshift has the service ca resources - will be deprecated later
-  # kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl apply -f -
-  # kubectl apply -f ${currentDir}/service-ca
+enableServiceCA() {
+  HUB_OF_HUB_NAME=$2
+  CURRENT_DIR=$3
+  # apply service-ca
+  kubectl --context $1 label node ${HUB_OF_HUB_NAME}-control-plane node-role.kubernetes.io/master=
+  kubectl --context $1 apply -f ${CURRENT_DIR}/hoh/service-ca-crds
+  kubectl --context $1 create ns openshift-config-managed
+  kubectl --context $1 apply -f ${CURRENT_DIR}/hoh/service-ca/
 }
 
 # deploy olm
 function enableOLM() {
-  kubectl config use-context "$1"
   NS=olm
-  csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+  csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
   if [[ "$csvPhase" == "Succeeded" ]]; then
     echo "OLM is already installed in ${NS} namespace. Exiting..."
     exit 1
   fi
   
   GIT_PATH="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.22.0"
-  kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
-  kubectl wait --for=condition=Established -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
-  kubectl apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
+  kubectl --context "$1" apply -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
+  kubectl --context "$1" wait --for=condition=Established -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
+  kubectl --context "$1" apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
 
   retries=60
-  csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+  csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
   while [[ $retries -gt 0 && "$csvPhase" != "Succeeded" ]]; do
     echo "csvPhase: ${csvPhase}"
-    sleep 5
+    sleep 1
     retries=$((retries - 1))
-    csvPhase=$(kubectl get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+    csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
   done
-  kubectl rollout status -w deployment/packageserver --namespace="${NS}" --timeout=60s
+  kubectl --context "$1" rollout status -w deployment/packageserver --namespace="${NS}" --timeout=60s
 
   if [ $retries == 0 ]; then
     echo "CSV \"packageserver\" failed to reach phase succeeded"
     exit 1
   fi
   echo "CSV \"packageserver\" install succeeded"
-}
-
-function connectMicroshift() {
-  leafhubName=$1
-  microshiftContainerName=$2
-  invokeNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $leafhubName-control-plane)
-  microshiftContainerNetwork=$(docker inspect -f '{{range $key, $value := .NetworkSettings.Networks}}{{$key}} {{end}}' $microshiftContainerName)
-  if [[ "$invokeNetwork" =~ "$microshiftContainerNetwork" ]]; then
-    echo "Microshift network is already connected to ${invokeNetwork}"
-    exit 1
-  else 
-    docker network connect $microshiftContainerNetwork ${leafhubName}-control-plane
-  fi
 }
 
 function waitSecretToBeReady() {
@@ -384,8 +300,8 @@ function waitSecretToBeReady() {
   seconds=200
   while [[ $seconds -gt 0 && -z "$ready" ]]; do
     echo "wait secret: $secretNamespace - $secretName to be ready..."
-    sleep 5
-    seconds=$((seconds - 5))
+    sleep 1
+    seconds=$((seconds - 1))
     ready=$(kubectl get secret $secretName -n $secretNamespace --ignore-not-found=true)
   done
   if [[ $seconds == 0 ]]; then
@@ -404,8 +320,8 @@ function waitKafkaToBeReady() {
       exit 1
     fi
     echo "Waiting for kafka cluster to become available"
-    sleep 5
-    (( SECOND = SECOND + 5 ))
+    sleep 1
+    (( SECOND = SECOND + 1 ))
     clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found)
   done
   echo "Kafka cluster is ready"
@@ -422,31 +338,13 @@ function waitPostgresToBeReady() {
       exit 1
     fi
     echo "Waiting for Postgres cluster to become available"
-    sleep 5
-    (( SECOND = SECOND + 5 ))
+    sleep 1
+    (( SECOND = SECOND + 1 ))
     clusterIsReady=$(kubectl -n hoh-postgres get PostgresCluster/hoh -o jsonpath={.status.instances..readyReplicas} --ignore-not-found)
   done
   echo "Postgres cluster is ready"
   waitSecretToBeReady ${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"} "open-cluster-management"
   echo "Postgres secret is ready"
-}
-
-function checkManagedCluster() {
-  context=$1
-  cluster=$2
-  available=$(kubectl get mcl --context "$context" | grep "$cluster" |awk '{print $5}')
-  seconds=200
-  while [[ "$available" != "True" && $seconds -gt 0 ]]; do
-    echo "retry to import managed cluster $cluster to $context"
-    initManaged $context $cluster
-    available=$(kubectl get mcl --context "$context" | grep "$cluster" |awk '{print $5}')
-    sleep 5
-    seconds=$((seconds - 5))
-  done
-  if [[ "$available" != "True" ]]; then 
-    echo "failed to import managed cluster $cluster to $context"
-    exit 1
-  fi
 }
 
 waitDisappear() {
@@ -458,8 +356,8 @@ waitDisappear() {
       exit 1
     fi 
     echo "waiting to disappear[$seconds]: $command"
-    sleep 3
-    (( seconds = seconds - 3 ))
+    sleep 1
+    (( seconds = seconds - 1 ))
   done
   echo "> $command"
   eval $command
@@ -474,8 +372,8 @@ waitAppear() {
       exit 1
     fi 
     echo "waiting to appear[$seconds]: $command"
-    sleep 2
-    (( seconds = seconds - 2 ))
+    sleep 1
+    (( seconds = seconds - 1 ))
   done
   echo "> $command"
   eval $command

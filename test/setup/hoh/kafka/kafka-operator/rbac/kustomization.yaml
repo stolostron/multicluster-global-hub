@@ -1,0 +1,15 @@
+resources:
+- 020-ClusterRole-strimzi-cluster-operator-role.yaml
+- 020-RoleBinding-strimzi-cluster-operator.yaml
+- 021-ClusterRole-strimzi-cluster-operator-role.yaml
+- 021-ClusterRoleBinding-strimzi-cluster-operator.yaml
+- 022-ClusterRole-strimzi-cluster-operator-role.yaml
+- 022-RoleBinding-strimzi-cluster-operator.yaml
+- 023-ClusterRole-strimzi-cluster-operator-role.yaml
+- 023-RoleBinding-strimzi-cluster-operator.yaml
+- 030-ClusterRole-strimzi-kafka-broker.yaml
+- 030-ClusterRoleBinding-strimzi-cluster-operator-kafka-broker-delegation.yaml
+- 031-ClusterRole-strimzi-entity-operator.yaml
+- 031-RoleBinding-strimzi-cluster-operator-entity-operator-delegation.yaml
+- 033-ClusterRole-strimzi-kafka-client.yaml
+- 033-ClusterRoleBinding-strimzi-cluster-operator-kafka-client-delegation.yaml

@@ -381,6 +381,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					RenewDeadline          string
 					RetryPeriod            string
 					SchedulerInterval      string
+					SkipAuth               bool
 					NodeSelector           map[string]string
 					Tolerations            []corev1.Toleration
 					DataRetention          string
@@ -403,6 +404,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",
 					RetryPeriod:            "26",
+					SkipAuth:               config.SkipAuth(mgh),
 					SchedulerInterval:      config.GetSchedulerInterval(mgh),
 					NodeSelector:           map[string]string{"foo": "bar"},
 					Tolerations: []corev1.Toleration{

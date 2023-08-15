@@ -147,7 +147,7 @@ TARGET_NAMESPACE ?= open-cluster-management
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 ifneq ($(TARGET_NAMESPACE), open-cluster-management)
-	cd config/default  && $(KUSTOMIZE) edit set namespace ${TARGET_NAMESPACE}
+	cd config/default && $(KUSTOMIZE) edit set namespace ${TARGET_NAMESPACE}
 endif
 	cd config/manager && $(KUSTOMIZE) edit set image quay.io/stolostron/multicluster-global-hub-operator=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -

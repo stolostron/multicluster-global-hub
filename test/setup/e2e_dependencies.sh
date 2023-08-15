@@ -151,6 +151,7 @@ function checkVolume() {
   fi
   echo "docker root dir: $(docker info -f '{{ .DockerRootDir}}')"
 }
+startTime_s=`date +%s`
 
 checkGolang
 checkDocker
@@ -161,3 +162,6 @@ checkKind
 checkKubectl
 checkClusteradm
 checkGinkgo
+endTime_s=`date +%s`
+sumTime=$[ $endTime_s - $startTime_s ]
+echo "dependencies :$sumTime seconds"
