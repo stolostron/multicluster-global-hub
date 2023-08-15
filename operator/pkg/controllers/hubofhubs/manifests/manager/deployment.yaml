@@ -42,7 +42,7 @@ spec:
             {{- end}}
             - --data-retention={{.DataRetention}}
             - --statistics-log-interval={{.StatisticLogInterval}}
-            {{- if .SkipAuth}}
+            {{- if eq .SkipAuth true}}
             - --cluster-api-url=
             {{- end}}
           env:
