@@ -11,7 +11,7 @@ var GlobalHubJobGauge = prometheus.NewGaugeVec(
 		Help: "The status of the job. 0 == success, 1 == failure.",
 	},
 	[]string{
-		"name", // The name of the job.
+		"cronjob", // The name of the job.
 	},
 )
 
