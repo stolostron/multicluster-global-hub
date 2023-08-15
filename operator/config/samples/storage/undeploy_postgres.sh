@@ -17,5 +17,9 @@ echo "postgres cluster is deleted"
 
 # step3: delete postgres operator
 kubectl delete -f ${currentDir}/postgres-subscription.yaml
+kubectl delete deploy --all -n multicluster-global-hub-postgres
 waitDisappear "kubectl get deploy pgo -n multicluster-global-hub-postgres --ignore-not-found=true"
 echo "postgres operator: pgo is deleted"
+
+# step5: delete postgres namesapce
+kubectl delete namespace multicluster-global-hub-postgres

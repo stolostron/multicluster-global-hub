@@ -27,7 +27,6 @@ spec:
       - name: external
         port: 9093
         type: route
-        host: kafka
         tls: true
         authentication:
           type: tls
