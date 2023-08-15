@@ -2,7 +2,26 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[]'
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "operator.open-cluster-management.io/v1alpha4",
+          "kind": "MulticlusterGlobalHub",
+          "metadata": {
+            "name": "multiclusterglobalhub"
+          },
+          "spec": {
+            "dataLayer": {
+              "kafka": {
+                "transportFormat": "cloudEvents"
+              },
+              "postgres": {
+                "retention": "18m"
+              }
+            }
+          }
+        }
+      ]
     capabilities: Seamless Upgrades
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
