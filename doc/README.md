@@ -17,6 +17,7 @@ The multicluster global hub is useful when a single hub cluster cannot manage th
   - [Workings of Global Hub](./how_global_hub_works.md)
   - [Quick Start](#quick-start)
     - [Prerequisites](#prerequisites)
+      - [Support matrix](#support-matrix)
       - [Dependencies](#dependencies)
       - [Network configuration](#network-configuration)
     - [Installation](#installation)
@@ -149,6 +150,27 @@ The managed hub is also a managed cluster of global hub in Red Hat Advanced Clus
 | Direction | Protocol | Connection | Port (if specified) | Source address |	Destination address |
 | ------ | ------ | ------ | ------ | ------ | ------ |
 | Outbound to Kafka Cluster | HTTPS | Global hub agent need to sync cluster info and policy info to Kafka cluster | 443 | multicluster-global-hub-agent pod | Kafka route host |
+
+#### Support matrix
+
+Multicluster global hub has two main components:
+- A server component called the "global hub cluster" where the management tools and user interface run 
+- A client component that is installed on RHACM called the "managed hub" that can be managed by the "global hub cluster"
+
+RHACM Version | Support for global hub cluster |
+| --- | ---|
+| RHACM 2.9 | Y |
+| RHACM 2.8 | Y |
+| RHACM 2.7 | Y |
+| RHACM 2.6 and former release | N |
+
+|Platform | Support for global hub cluster | Support for managed hub clusters |
+| --- | ---| ---|
+| Red Hat OpenShift Container Platform (RHOCP) 4.14, and later 4.14.x releases | Y | Y
+| Red Hat OpenShift Container Platform (RHOCP) 4.13, and later 4.13.x releases | Y | Y
+| Red Hat OpenShift Container Platform (RHOCP) 4.12, and later 4.12.x releases | Y | Y
+| Red Hat OpenShift Container Platform (RHOCP) 4.12, and former releases | N | N
+
 
 ### Installation
 
