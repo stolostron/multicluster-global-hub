@@ -15,17 +15,18 @@ if [ ! -z "$ready" ]; then
 fi
 
 # step2: deploy postgres operator pgo
-kubectl apply --server-side -k ${currentDir}/postgres-operator
+kubectl create namespace multicluster-global-hub-postgres --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f ${currentDir}/postgres-subscription.yaml
 waitAppear "kubectl get pods -n postgres-operator --ignore-not-found=true | grep pgo | grep Running || true"
 # kubectl -n postgres-operator wait --for=condition=Available Deployment/"pgo" --timeout=1000s
 
 # step3: deploy postgres cluster
-kubectl apply -k ${currentDir}/postgres-cluster
-waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
-waitAppear "kubectl get secret hoh-pguser-guest -n hoh-postgres --ignore-not-found=true"
+kubectl apply -f ${currentDir}/postgres-cluster.yaml
+waitAppear "kubectl get secret hoh-pguser-postgres -n multicluster-global-hub-postgres --ignore-not-found=true"
+waitAppear "kubectl get secret hoh-pguser-guest -n multicluster-global-hub-postgres --ignore-not-found=true"
 
 # step4: generate storage secret
-pgnamespace="hoh-postgres"
+pgnamespace="multicluster-global-hub-postgres"
 superuserSecret="hoh-pguser-postgres"
 readonlyuserSecret="hoh-pguser-guest"
 certSecret="hoh-cluster-cert"

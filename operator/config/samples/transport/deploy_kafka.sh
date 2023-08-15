@@ -15,33 +15,33 @@ if [ ! -z "$ready" ]; then
 fi
 
 # step2: deploy kafka operator
-kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f ${currentDir}/kafka-operator.yaml
-waitAppear "kubectl get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true"
+kubectl create namespace multicluster-global-hub-kafka --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f ${currentDir}/kafka-subscription.yaml
+waitAppear "kubectl get pods -n multicluster-global-hub-kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true"
 echo "Kafka operator is ready"
 
 # step3: deploy Kafka cluster
 kubectl apply -f ${currentDir}/kafka-cluster.yaml
-waitAppear "kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found"
+waitAppear "kubectl -n multicluster-global-hub-kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found"
 echo "Kafka cluster is ready"
 
 # step4: deploy Kafka topics
 kubectl apply -f ${currentDir}/kafka-topics.yaml
-waitAppear "kubectl get kafkatopic spec -n kafka --ignore-not-found | grep spec || true"
-waitAppear "kubectl get kafkatopic status -n kafka --ignore-not-found | grep status || true"
+waitAppear "kubectl get kafkatopic spec -n multicluster-global-hub-kafka --ignore-not-found | grep spec || true"
+waitAppear "kubectl get kafkatopic status -n multicluster-global-hub-kafka --ignore-not-found | grep status || true"
 echo "Kafka topics spec and status are ready!"
 
 # step5: deploy Kafka user to generate tls secret
 kafkaUser=global-hub-kafka-user
 kubectl apply -f ${currentDir}/kafka-user.yaml
-waitAppear "kubectl get secret ${kafkaUser} -n kafka --ignore-not-found"
+waitAppear "kubectl get secret ${kafkaUser} -n multicluster-global-hub-kafka --ignore-not-found"
 
 # step5: generate transport-secret
-bootstrapServers=$(kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].bootstrapServers}')
-kubectl get kafka kafka-brokers-cluster -n kafka -o jsonpath='{.status.listeners[1].certificates[0]}' > $currentDir/kafka-ca-cert.pem
-# kubectl get secret kafka-brokers-cluster-clients-ca-cert -n kafka -o jsonpath='{.data.ca\.crt}' | base64 -d > $currentDir/kafka-ca-cert.pem
-kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.crt}' | base64 -d > $currentDir/kafka-client-cert.pem
-kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.key}' | base64 -d > $currentDir/kafka-client-key.pem
+bootstrapServers=$(kubectl get kafka kafka-brokers-cluster -n multicluster-global-hub-kafka -o jsonpath='{.status.listeners[1].bootstrapServers}')
+kubectl get kafka kafka-brokers-cluster -n multicluster-global-hub-kafka -o jsonpath='{.status.listeners[1].certificates[0]}' > $currentDir/kafka-ca-cert.pem
+# kubectl get secret kafka-brokers-cluster-clients-ca-cert -n multicluster-global-hub-kafka -o jsonpath='{.data.ca\.crt}' | base64 -d > $currentDir/kafka-ca-cert.pem
+kubectl get secret ${kafkaUser} -n multicluster-global-hub-kafka -o jsonpath='{.data.user\.crt}' | base64 -d > $currentDir/kafka-client-cert.pem
+kubectl get secret ${kafkaUser} -n multicluster-global-hub-kafka -o jsonpath='{.data.user\.key}' | base64 -d > $currentDir/kafka-client-key.pem
 
 kubectl create secret generic ${transportSecret} -n $targetNamespace \
     --from-literal=bootstrap_server=$bootstrapServers \

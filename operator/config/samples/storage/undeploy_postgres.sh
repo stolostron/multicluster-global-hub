@@ -11,11 +11,11 @@ kubectl delete secret $storageSecret -n $targetNamespace
 echo "deletes storage secret $storageSecret from namespace $targetNamespace"
 
 # step2: delete postgres cluster
-kubectl delete -k ${currentDir}/postgres-cluster
-waitDisappear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
+kubectl delete -f ${currentDir}/postgres-cluster.yaml
+waitDisappear "kubectl get secret hoh-pguser-postgres -n multicluster-global-hub-postgres --ignore-not-found=true"
 echo "postgres cluster is deleted"
 
 # step3: delete postgres operator
-kubectl delete -k ${currentDir}/postgres-operator
-waitDisappear "kubectl get deploy pgo -n postgres-operator --ignore-not-found=true"
+kubectl delete -f ${currentDir}/postgres-subscription.yaml
+waitDisappear "kubectl get deploy pgo -n multicluster-global-hub-postgres --ignore-not-found=true"
 echo "postgres operator: pgo is deleted"

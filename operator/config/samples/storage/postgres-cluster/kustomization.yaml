@@ -1,5 +1,0 @@
-namespace: hoh-postgres
-
-resources:
-- namespace.yaml
-- postgres-cluster.yaml
