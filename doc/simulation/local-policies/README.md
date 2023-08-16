@@ -18,16 +18,13 @@ And daily summary will add to `history.local_compliance` 20970 rows/day, which m
 1. To simulate the scalability for 1 year, change the scheduler interval of moving to compliance_history to 1 minute, then it needs about `12 * 30 / 60 = 6 hours` to generate `8 million` policy compliance history data, create the following MGH instance:
 
 ```yaml
-apiVersion: operator.open-cluster-management.io/v1alpha3
+apiVersion: operator.open-cluster-management.io/v1alpha4
 kind: MulticlusterGlobalHub
 metadata:
   annotations:
     mgh-scheduler-interval: minute # change scheduler interval of moving to compliance_history to 1 minute
   name: multiclusterglobalhub
   namespace: open-cluster-management
-spec:
-  dataLayer:
-    type: largeScale
 ```
 Note: You may need to restart the `multicluster-global-hub-operator` pod after the `multiclusterglobalhub` instance updated
 ```bash

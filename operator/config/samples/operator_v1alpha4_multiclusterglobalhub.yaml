@@ -1,4 +1,4 @@
-apiVersion: operator.open-cluster-management.io/v1alpha3
+apiVersion: operator.open-cluster-management.io/v1alpha4
 kind: MulticlusterGlobalHub
 metadata:
   # annotations:
@@ -10,9 +10,7 @@ metadata:
   name: multiclusterglobalhub
 spec:
   dataLayer:
-    type: largeScale
-    largeScale:
-      kafka:
-        transportFormat: cloudEvents
-      postgres: 
-        retention: 18m
+    kafka:
+      transportFormat: cloudEvents
+    postgres:
+      retention: 18m
