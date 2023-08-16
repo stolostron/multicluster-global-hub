@@ -5,19 +5,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-var GlobalHubJobGauge = prometheus.NewGaugeVec(
+var GlobalHubPartitionJobGauge = prometheus.NewGauge(
 	prometheus.GaugeOpts{
-		Name: "multicluster_global_hub_jobs_status",
-		Help: "The status of the job. 0 == success, 1 == failure.",
+		Name: "multicluster_global_hub_partition_job_status",
+		Help: "The status of the partition/retention job. 0 == success, 1 == failure.",
 	},
-	[]string{
-		"cronjob", // The name of the job.
+)
+
+var GlobalHubComplianceJobGauge = prometheus.NewGauge(
+	prometheus.GaugeOpts{
+		Name: "multicluster_global_hub_compliance_job_status",
+		Help: "The status of syncing local compliance history job. 0 == success, 1 == failure.",
 	},
 )
 
 func init() {
 	// Register custom metrics with the global prometheus registry
 	metrics.Registry.MustRegister(
-		GlobalHubJobGauge,
+		GlobalHubPartitionJobGauge,
+		GlobalHubComplianceJobGauge,
 	)
 }
