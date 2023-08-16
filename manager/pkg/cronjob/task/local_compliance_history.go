@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	metrics.GlobalHubComplianceJobGauge.Set(0)
+	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(localComplianceTaskName).Set(0)
 }
 
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
@@ -57,9 +57,9 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 	var err error
 	defer func() {
 		if err != nil {
-			metrics.GlobalHubComplianceJobGauge.Set(1)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(localComplianceTaskName).Set(1)
 		} else {
-			metrics.GlobalHubComplianceJobGauge.Set(0)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(localComplianceTaskName).Set(0)
 		}
 	}()
 

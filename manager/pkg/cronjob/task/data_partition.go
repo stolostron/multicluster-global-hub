@@ -44,7 +44,7 @@ var (
 )
 
 func init() {
-	metrics.GlobalHubPartitionJobGauge.Set(0)
+	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(retentionTaskName).Set(0)
 }
 
 func DataRetention(ctx context.Context, pool *pgxpool.Pool, retention time.Duration, job gocron.Job) {
@@ -53,9 +53,9 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, retention time.Durat
 	var err error
 	defer func() {
 		if err != nil {
-			metrics.GlobalHubPartitionJobGauge.Set(1)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(retentionTaskName).Set(1)
 		} else {
-			metrics.GlobalHubPartitionJobGauge.Set(0)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(retentionTaskName).Set(0)
 		}
 	}()
 
