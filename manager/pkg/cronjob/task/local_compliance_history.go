@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	metrics.GlobalHubJobGauge.WithLabelValues(localComplianceTaskName).Set(0)
+	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(localComplianceTaskName).Set(0)
 }
 
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
@@ -57,9 +57,9 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 	var err error
 	defer func() {
 		if err != nil {
-			metrics.GlobalHubJobGauge.WithLabelValues(localComplianceTaskName).Set(1)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(localComplianceTaskName).Set(1)
 		} else {
-			metrics.GlobalHubJobGauge.WithLabelValues(localComplianceTaskName).Set(0)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(localComplianceTaskName).Set(0)
 		}
 	}()
 
@@ -85,7 +85,6 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 	var eventTotal, eventInsert int64
 	eventTotal, eventInsert, err = syncToLocalComplianceHistoryByPolicyEvent(ctx, pool, batchSize)
 	if err != nil {
-		metrics.GlobalHubJobGauge.WithLabelValues(localComplianceTaskName).Inc()
 		log.Error(err, "sync from history.local_policies to history.local_compliance failed")
 		return
 	}
