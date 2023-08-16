@@ -226,7 +226,7 @@ You can install and subscribe an Operator from OperatorHub using the OpenShift C
 
 This is achieved by adding annotation to the MGH CR and specifying the image pull secret and image pull policy. e.g:
 ```yaml
-apiVersion: operator.open-cluster-management.io/v1alpha3
+apiVersion: operator.open-cluster-management.io/v1alpha4
 kind: MulticlusterGlobalHub
 metadata:
   annotations:
@@ -236,8 +236,6 @@ metadata:
 spec:
   imagePullPolicy: Always
   imagePullSecret: ecr-image-pull-secret
-  dataLayer:
-    type: largeScale
 ```
 This was the global configuration and all of your managed hubs will use the same image registry and image pull secret.
 
