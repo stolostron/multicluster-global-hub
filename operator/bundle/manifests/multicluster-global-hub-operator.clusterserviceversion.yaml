@@ -65,7 +65,7 @@ spec:
     \\\n --from-literal=database_uri_with_readonlyuser=<postgresql-uri-with-readonlyuser>
     \\\n --from-file=ca.crt=<CA-for-postgres-server> \n```\n>_Note:_ There is a sample
     script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:
-    the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres`
+    the client version of kubectl must be v1.21+) to install postgres in `multicluster-global-hub-postgres`
     namespace and create the secret `multicluster-global-hub-storage` in namespace
     `open-cluster-management` automatically. To override the secret namespace, set
     `TARGET_NAMESPACE` environment variable to the RHACM installation namespace before
