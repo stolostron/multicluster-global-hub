@@ -157,19 +157,19 @@ Multicluster global hub has two main components:
 - A server component called the "global hub cluster" where the management tools and user interface run 
 - A client component that is installed on RHACM called the "managed hub" that can be managed by the "global hub cluster"
 
-RHACM Version | Support for global hub cluster |
-| --- | ---|
-| RHACM 2.9 | Y |
-| RHACM 2.8 | Y |
-| RHACM 2.7 | Y |
-| RHACM 2.6 and former release | N |
+Supported platform for MCGH:
+| Platform | Support for global hub cluster | Support for managed hub clusters |
+| --- | --- | --- |
+| Red Hat Advanced Cluster Management (RHACM) 2.9, and later 2.9.x releases | Y | Y |
+| Red Hat Advanced Cluster Management (RHACM) 2.8, and later 2.8.x releases | Y | Y |
+| Red Hat Advanced Cluster Management (RHACM) 2.7, and later 2.7.x releases | Y | Y |
+| Red Hat Advanced Cluster Management (RHACM) 2.6, and former release | N | N |
 
-|Platform | Support for global hub cluster | Support for managed hub clusters |
-| --- | ---| ---|
-| Red Hat OpenShift Container Platform (RHOCP) 4.14, and later 4.14.x releases | Y | Y
-| Red Hat OpenShift Container Platform (RHOCP) 4.13, and later 4.13.x releases | Y | Y
-| Red Hat OpenShift Container Platform (RHOCP) 4.12, and later 4.12.x releases | Y | Y
-| Red Hat OpenShift Container Platform (RHOCP) 4.12, and former releases | N | N
+Supported middleware for MCGH:
+| Middleware | Support for multicluster global hub |
+| --- | --- |
+| Kafka 3.3, and later 3.3.x releases | Y |
+| Postgres 14+ | Y |
 
 
 ### Installation
