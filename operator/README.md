@@ -12,7 +12,7 @@ The operator of multicluster global hub (see: https://github.com/stolostron/mult
 kubectl create secret generic multicluster-global-hub-storage -n "open-cluster-management" \
     --from-literal=database_uri=<postgresql-uri> 
 ```
-> You can run this sample script `config/samples/storage/deploy_postgres.sh` to install postgres in `hoh-postgres` namespace and create the secret `multicluster-global-hub-storage` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script.
+> You can run this sample script `config/samples/storage/deploy_postgres.sh` to install postgres in `multicluster-global-hub-postgres` namespace and create the secret `multicluster-global-hub-storage` in namespace `open-cluster-management` automatically. To override the secret namespace, set `TARGET_NAMESPACE` environment variable to the ACM installation namespace before executing the script.
 
 4. Kafka is installed and two topics `spec` and `status` are created, also a secret with name `multicluster-global-hub-transport` that contains the kafka access information should be created in `open-cluster-management` namespace:
 

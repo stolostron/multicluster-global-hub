@@ -79,7 +79,7 @@ The following sections provide the steps to start using the Multicluster Global 
     - `ca.crt`: Optional, if your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If 
     the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
 
-    **Note:** There is a [sample script](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage) available to install postgres in `hoh-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster- 
+    **Note:** There is a [sample script](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage) available to install postgres in `multicluster-global-hub-postgres` namespace and create the secret `storage-secret` in namespace `open-cluster- 
     management` automatically. The client version of kubectl must be verison 1.21, or later. 
 
 - Transport secret
@@ -105,7 +105,7 @@ The following sections provide the steps to start using the Multicluster Global 
     - `database_uri_with_readonlyuser`: Required, the URI user must have the permission to read the global hub database in the postgres.
     - `ca.crt`: Optional: If your database service has TLS enabled, you can provide the appropriate certificate depending on the SSL mode of the connection. If the SSL mode is `verify-ca` and `verify-full`, then the `ca.crt` certificate must be provided.
 
-    **Note:** There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:the client version of kubectl must be v1.21+) to install postgres in `hoh-postgres` namespace and automatically create the secret `multicluster-global-hub-storage` in namespace `open-cluster-management`.
+    **Note:** There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:the client version of kubectl must be v1.21+) to install postgres in `multicluster-global-hub-postgres` namespace and automatically create the secret `multicluster-global-hub-storage` in namespace `open-cluster-management`.
 
 - Strimzi 0.33 or later needs to be installed
 
@@ -122,8 +122,8 @@ The following sections provide the steps to start using the Multicluster Global 
 
     | vCPU | Memory | Storage size | Namespace |
     | ---- | ------ | ------ | ------ |
-    | 100m | 2G | 20Gi*3 | hoh-postgres
-    | 10m | 500M | N/A | postgres-operator
+    | 100m | 2G | 20Gi*3 | multicluster-global-hub-postgres
+    | 10m | 500M | N/A | multicluster-global-hub-postgres
     
 3. **Minimum requirements for Strimzi**
 
