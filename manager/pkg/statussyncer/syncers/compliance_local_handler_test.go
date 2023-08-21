@@ -52,8 +52,8 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 
 		By("Build a new policy bundle in the managed hub")
-		version := status.NewBundleVersion()
-		version.Incr()
+		version := status.NewBundleVersion(0, 0)
+		version.Generation++
 		// policy bundle
 		clusterPerPolicyBundle := status.BaseClustersPerPolicyBundle{
 			Objects:       make([]*status.PolicyGenericComplianceStatus, 0),
@@ -112,8 +112,8 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 	It("LocalCompleteComplianceStatusBundle pass", func() {
 		db := database.GetGorm()
 		By("Create a complete compliance bundle")
-		version := status.NewBundleVersion()
-		version.Incr()
+		version := status.NewBundleVersion(0, 0)
+		version.Generation++
 		completeComplianceStatusBundle := status.BaseCompleteComplianceStatusBundle{
 			Objects:           make([]*status.PolicyCompleteComplianceStatus, 0),
 			LeafHubName:       leafHubName,
