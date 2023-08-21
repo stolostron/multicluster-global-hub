@@ -89,7 +89,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		clusterPerPolicyBundle := status.BaseClustersPerPolicyBundle{
 			Objects:       make([]*status.PolicyGenericComplianceStatus, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(),
+			BundleVersion: status.NewBundleVersion(0, 0),
 		}
 		clusterPerPolicyBundle.Objects = append(clusterPerPolicyBundle.Objects, &status.PolicyGenericComplianceStatus{
 			PolicyID:                  createdPolicyId,
@@ -98,7 +98,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 			UnknownComplianceClusters: make([]string, 0),
 		})
 		// transport bundle
-		clusterPerPolicyBundle.BundleVersion.Incr()
+		clusterPerPolicyBundle.BundleVersion.Generation++
 		clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.ClustersPerPolicyMsgKey)
 		payloadBytes, err := json.Marshal(clusterPerPolicyBundle)
 		Expect(err).ToNot(HaveOccurred())
@@ -154,8 +154,8 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		completeComplianceStatusBundle := status.BaseCompleteComplianceStatusBundle{
 			Objects:           make([]*status.PolicyCompleteComplianceStatus, 0),
 			LeafHubName:       leafHubName,
-			BundleVersion:     status.NewBundleVersion(),
-			BaseBundleVersion: status.NewBundleVersion(),
+			BundleVersion:     status.NewBundleVersion(0, 0),
+			BaseBundleVersion: status.NewBundleVersion(0, 0),
 		}
 		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
 		// hub1-cluster2 non_compliant => hub1-cluster2 compliant
@@ -166,8 +166,8 @@ var _ = Describe("Status Compliances", Ordered, func() {
 				UnknownComplianceClusters: []string{"cluster3"},
 			})
 		// transport bundle
-		completeComplianceStatusBundle.BaseBundleVersion.Incr()
-		completeComplianceStatusBundle.BundleVersion.Incr()
+		completeComplianceStatusBundle.BaseBundleVersion.Generation++
+		completeComplianceStatusBundle.BundleVersion.Generation++
 		policyCompleteComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
 		completePayloadBytes, err := json.Marshal(completeComplianceStatusBundle)
 		Expect(err).ToNot(HaveOccurred())
@@ -225,8 +225,8 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		deltaComplianceStatusBundle := status.BaseDeltaComplianceStatusBundle{
 			Objects:           make([]*status.PolicyGenericComplianceStatus, 0),
 			LeafHubName:       leafHubName,
-			BaseBundleVersion: status.NewBundleVersion(),
-			BundleVersion:     status.NewBundleVersion(),
+			BaseBundleVersion: status.NewBundleVersion(0, 0),
+			BundleVersion:     status.NewBundleVersion(0, 0),
 		}
 		// before send the delta bundle:
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 non_compliant
@@ -242,8 +242,8 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
 
 		// transport bundle
-		deltaComplianceStatusBundle.BaseBundleVersion.Incr()
-		deltaComplianceStatusBundle.BundleVersion.Incr()
+		deltaComplianceStatusBundle.BaseBundleVersion.Generation++
+		deltaComplianceStatusBundle.BundleVersion.Generation++
 		policyDeltaComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyDeltaComplianceMsgKey)
 		payloadBytes, err := json.Marshal(deltaComplianceStatusBundle)
 		Expect(err).ToNot(HaveOccurred())
@@ -315,7 +315,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		// before send the delta bundle:
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 compliant
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
-		deltaComplianceStatusBundle.BundleVersion.Incr()
+		deltaComplianceStatusBundle.BundleVersion.Generation++
 		deltaComplianceStatusBundle.Objects = append(deltaComplianceStatusBundle.Objects, &status.PolicyGenericComplianceStatus{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{},
@@ -398,7 +398,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		minimalComplianceBundle := status.BaseMinimalComplianceStatusBundle{
 			Objects:       make([]*status.MinimalPolicyComplianceStatus, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(),
+			BundleVersion: status.NewBundleVersion(0, 0),
 		}
 		minimalComplianceBundle.Objects = append(minimalComplianceBundle.Objects, &status.MinimalPolicyComplianceStatus{
 			PolicyID:             createdPolicyId,
@@ -407,7 +407,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 			AppliedClusters:      3,
 		})
 		// transport bundle
-		minimalComplianceBundle.BundleVersion.Incr()
+		minimalComplianceBundle.BundleVersion.Generation++
 		minimalPolicyComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
 		payloadBytes, err := json.Marshal(minimalComplianceBundle)
 		Expect(err).ToNot(HaveOccurred())
