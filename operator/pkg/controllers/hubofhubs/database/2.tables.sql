@@ -212,6 +212,7 @@ CREATE TABLE IF NOT EXISTS status.aggregated_compliance (
     applied_clusters integer NOT NULL,
     non_compliant_clusters integer NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS aggregated_compliance_unique_idx ON status.aggregated_compliance (policy_id, leaf_hub_name);
 
 CREATE TABLE IF NOT EXISTS status.compliance (
     policy_id uuid NOT NULL,
