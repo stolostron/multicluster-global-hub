@@ -45,10 +45,12 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 
 	It("sync ClusterPolicyStatusEventBundle to database", func() {
 		By("Create ClusterPolicyStatusEventBundle")
+		version := status.NewBundleVersion()
+		version.Incr()
 		baseClusterPolicyStatusEventBundle := status.BaseClusterPolicyStatusEventBundle{
 			PolicyStatusEvents: make(map[string][]*models.LocalClusterPolicyEvent),
 			LeafHubName:        leafHubName,
-			BundleVersion:      status.NewBundleVersion(1, 0),
+			BundleVersion:      version,
 		}
 		lastTimestamp := time.Now()
 		policyEvent := &models.LocalClusterPolicyEvent{
@@ -64,7 +66,6 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 
 		events := make([]*models.LocalClusterPolicyEvent, 0)
 		baseClusterPolicyStatusEventBundle.PolicyStatusEvents["clusterPolicyId"] = append(events, policyEvent)
-		baseClusterPolicyStatusEventBundle.BundleVersion.Generation++
 
 		By("Create transport message")
 		payloadBytes, err := json.Marshal(baseClusterPolicyStatusEventBundle)
