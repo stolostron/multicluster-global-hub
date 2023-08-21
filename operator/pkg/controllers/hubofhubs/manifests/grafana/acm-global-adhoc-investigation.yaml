@@ -36,7 +36,7 @@ data:
           "title": "Global Hub - What's Changed / Policies",
           "tooltip": "",
           "type": "link",
-          "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-policies?orgId=1"
+          "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed-policies?orgId=1"
         }
       ],
       "panels": [
@@ -395,7 +395,7 @@ data:
         },
         {
           "datasource": null,
-          "description": "List of offending managed clusters count for one policy based on non compliant message",
+          "description": "List of offending managed clusters count for one policy based on non compliant message.(If a policy has multiple templates, only show one failed message)",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -538,7 +538,7 @@ data:
         },
         {
           "datasource": null,
-          "description": "List of offending managed clusters ",
+          "description": "List of offending managed clusters(If a policy has multiple templates, only show one failed message)",
           "fieldConfig": {
             "defaults": {
               "color": {
