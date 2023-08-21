@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -29,8 +28,7 @@ const (
 func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
 	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
 ) (*generic.HybridSyncManager, error) {
-	bundleCollection, hybridSyncManager, err :=
-		createBundleCollection(producer, leafHubName, incarnation, hubOfHubsConfig)
+	bundleCollection, hybridSyncManager, err := createBundleCollection(producer, leafHubName, incarnation, hubOfHubsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
@@ -82,8 +80,8 @@ func createBundleCollection(pro transport.Producer, leafHubName string,
 	// no need to send in the same cycle both clusters per policy and compliance. if CpP was sent, don't send compliance
 	return []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
-		hybridSyncManager.GetBundleCollectionEntry(genericbundle.CompleteStateMode),
-		hybridSyncManager.GetBundleCollectionEntry(genericbundle.DeltaStateMode),
+		// hybridSyncManager.GetBundleCollectionEntry(genericbundle.CompleteStateMode),
+		// hybridSyncManager.GetBundleCollectionEntry(genericbundle.DeltaStateMode),
 		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
 			minimalStatusPredicate),
 	}, hybridSyncManager, nil
