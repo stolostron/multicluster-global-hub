@@ -40,6 +40,8 @@ var (
 
 	leafHubNames    []string
 	managedClusters []clusterv1.ManagedCluster
+	mcgh            *globalhubv1alpha4.MulticlusterGlobalHub
+	scheme          *runtime.Scheme
 )
 
 const (
@@ -141,7 +143,7 @@ func findRootDir(dir string) (string, error) {
 
 func deployGlobalHub() {
 	By("Creating client for the hub cluster")
-	scheme := runtime.NewScheme()
+	scheme = runtime.NewScheme()
 	Expect(globalhubv1alpha4.AddToScheme(scheme)).Should(Succeed())
 	Expect(appsv1.AddToScheme(scheme)).Should(Succeed())
 
@@ -163,7 +165,7 @@ func deployGlobalHub() {
 		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
-	mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{
+	mcgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "multiclusterglobalhub",
 			Namespace: "open-cluster-management",

@@ -278,14 +278,44 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return e.Object.GetName() == operatorconstants.GHStorageSecretName ||
-				e.Object.GetName() == operatorconstants.GHTransportSecretName
+				e.Object.GetName() == operatorconstants.GHTransportSecretName ||
+				e.Object.GetName() == operatorconstants.CustomGrafanaIniName
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return e.ObjectNew.GetName() == operatorconstants.GHStorageSecretName ||
-				e.ObjectNew.GetName() == operatorconstants.GHTransportSecretName
+				e.ObjectNew.GetName() == operatorconstants.GHTransportSecretName ||
+				e.ObjectNew.GetName() == operatorconstants.CustomGrafanaIniName
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
+			return e.Object.GetName() == operatorconstants.CustomGrafanaIniName
+		},
+	}
+
+	configmappred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+			// if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			// 	constants.GHOperatorOwnerLabelVal {
+			// 	return true
+			// }
+			// return e.Object.GetName() == operatorconstants.CustomAlertName
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return true
+			// if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			// 	constants.GHOperatorOwnerLabelVal &&
+			// 	e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+			// 	return true
+			// }
+			// return e.ObjectNew.GetName() == operatorconstants.CustomAlertName
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return true
+			// if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			// 	constants.GHOperatorOwnerLabelVal {
+			// 	return true
+			// }
+			// return e.Object.GetName() == operatorconstants.CustomAlertName
 		},
 	}
 
@@ -336,7 +366,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			globalHubEventHandler, builder.WithPredicates(webhookPred)).
 		// secondary watch for configmap
 		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
+			globalHubEventHandler, builder.WithPredicates(configmappred)).
 		// secondary watch for namespace
 		Watches(&source.Kind{Type: &corev1.Namespace{}},
 			globalHubEventHandler, builder.WithPredicates(resPred)).

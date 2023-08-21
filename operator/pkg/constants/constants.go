@@ -85,6 +85,11 @@ const (
 )
 
 const (
+	CustomAlertName      = "grafana-alerting-acm-global-custom-alerting"
+	CustomGrafanaIniName = "multicluster-global-hub-custom-grafana-config"
+)
+
+const (
 	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
 	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"
 	// AnnotationClusterHostingClusterName is the annotation for indicating the hosting cluster name in the cluster

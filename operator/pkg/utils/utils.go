@@ -20,11 +20,17 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"path/filepath"
+	"reflect"
 
+	corev1 "k8s.io/api/core/v1"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -103,4 +109,56 @@ func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.O
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		return runtimeClient.Update(ctx, obj, &client.UpdateOptions{})
 	})
+}
+
+func ApplyConfigMap(ctx context.Context, kubeClient kubernetes.Interface, requiredConfigMap *corev1.ConfigMap) (bool, error) {
+	curAlertConfigMap, err := kubeClient.CoreV1().ConfigMaps(requiredConfigMap.Namespace).Get(ctx, requiredConfigMap.Name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("creating configmap, namespace: %v, name: %v", requiredConfigMap.Namespace, requiredConfigMap.Name)
+			_, err := kubeClient.CoreV1().ConfigMaps(requiredConfigMap.Namespace).Create(ctx, requiredConfigMap, metav1.CreateOptions{})
+			if err != nil {
+				return false, fmt.Errorf("Failed to create alert configmap, namespace: %v, name: %v, error:%v", requiredConfigMap.Namespace, requiredConfigMap.Name, err)
+			}
+			return true, err
+		}
+		return false, nil
+	}
+
+	if reflect.DeepEqual(curAlertConfigMap.Data, requiredConfigMap.Data) {
+		return false, nil
+	}
+
+	klog.Infof("Update alert configmap, namespace: %v, name: %v", requiredConfigMap.Namespace, requiredConfigMap.Name)
+	_, err = kubeClient.CoreV1().ConfigMaps(requiredConfigMap.Namespace).Update(ctx, requiredConfigMap, metav1.UpdateOptions{})
+	if err != nil {
+		return false, fmt.Errorf("Failed to update alert configmap, namespace: %v, name: %v, error:%v", requiredConfigMap.Namespace, requiredConfigMap.Name, err)
+	}
+	return true, nil
+}
+
+func ApplySecret(ctx context.Context, kubeClient kubernetes.Interface, requiredSecret *corev1.Secret) (bool, error) {
+	curSecret, err := kubeClient.CoreV1().Secrets(requiredSecret.Namespace).Get(ctx, requiredSecret.Name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("creating secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
+			_, err := kubeClient.CoreV1().Secrets(requiredSecret.Namespace).Create(ctx, requiredSecret, metav1.CreateOptions{})
+			if err != nil {
+				return false, fmt.Errorf("Failed to create secret, namespace: %v, name: %v, error:%v", requiredSecret.Namespace, requiredSecret.Name, err)
+			}
+			return true, err
+		}
+		return false, nil
+	}
+
+	if reflect.DeepEqual(curSecret.Data, requiredSecret.Data) {
+		return false, nil
+	}
+
+	klog.Infof("Update secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
+	_, err = kubeClient.CoreV1().Secrets(requiredSecret.Namespace).Update(ctx, requiredSecret, metav1.UpdateOptions{})
+	if err != nil {
+		return false, fmt.Errorf("Failed to update secret, namespace: %v, name: %v, error:%v", requiredSecret.Namespace, requiredSecret.Name, err)
+	}
+	return true, nil
 }

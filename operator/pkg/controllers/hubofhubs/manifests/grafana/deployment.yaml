@@ -60,6 +60,8 @@ spec:
           name: grafana-datasources
         - mountPath: /etc/grafana/provisioning/dashboards
           name: grafana-dashboards
+        - mountPath: /etc/grafana/provisioning/alerting
+          name: grafana-alerting-acm-global-alerting-policy
         - mountPath: /grafana-dashboards/0/acm-global-cluster-group-compliancy-overview
           name: grafana-dashboard-acm-global-cluster-group-compliancy-overview
         - mountPath: /grafana-dashboards/0/acm-global-policy-group-compliancy-overview
@@ -148,6 +150,10 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-global-cluster-group-compliancy-overview
         name: grafana-dashboard-acm-global-cluster-group-compliancy-overview
+      - configMap:
+          defaultMode: 420
+          name: grafana-alerting-acm-global-alerting-policy
+        name: grafana-alerting-acm-global-alerting-policy  
       - configMap:
           defaultMode: 420
           name: grafana-dashboard-acm-global-policy-group-compliancy-overview
