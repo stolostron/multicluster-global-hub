@@ -65,7 +65,7 @@ var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
 		statusBundle := &GenericStatusBundle{
 			Objects:       make([]Object, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(0, 0),
+			BundleVersion: status.NewBundleVersion(),
 			manipulateObjFunc: func(object Object) {
 				helper.AddAnnotations(object, map[string]string{
 					constants.ManagedClusterManagedByAnnotation: leafHubName,
@@ -77,7 +77,7 @@ var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
 
 		By("Create transport message")
 		// increment the version
-		statusBundle.BundleVersion.Generation++
+		statusBundle.BundleVersion.Incr()
 		payloadBytes, err := json.Marshal(statusBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 

@@ -6,20 +6,20 @@ import (
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	agentbundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // NewCompleteComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
-func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle bundlepkg.Bundle, incarnation uint64,
-	extractObjIDFunc bundlepkg.ExtractObjIDFunc,
-) bundlepkg.Bundle {
+func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle agentbundle.Bundle,
+	extractObjIDFunc agentbundle.ExtractObjIDFunc,
+) agentbundle.Bundle {
 	return &ComplianceStatusBundle{
 		BaseCompleteComplianceStatusBundle: statusbundle.BaseCompleteComplianceStatusBundle{
 			Objects:           make([]*statusbundle.PolicyCompleteComplianceStatus, 0),
 			LeafHubName:       leafHubName,
 			BaseBundleVersion: baseBundle.GetBundleVersion(), // ALWAYS SYNCED SINCE POINTER
-			BundleVersion:     statusbundle.NewBundleVersion(incarnation, 0),
+			BundleVersion:     statusbundle.NewBundleVersion(),
 		},
 		baseBundle:       baseBundle,
 		extractObjIDFunc: extractObjIDFunc,
@@ -30,13 +30,13 @@ func NewCompleteComplianceStatusBundle(leafHubName string, baseBundle bundlepkg.
 // ComplianceStatusBundle abstracts management of compliance status bundle.
 type ComplianceStatusBundle struct {
 	statusbundle.BaseCompleteComplianceStatusBundle
-	baseBundle       bundlepkg.Bundle
-	extractObjIDFunc bundlepkg.ExtractObjIDFunc
+	baseBundle       agentbundle.Bundle
+	extractObjIDFunc agentbundle.ExtractObjIDFunc
 	lock             sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *ComplianceStatusBundle) UpdateObject(object bundlepkg.Object) {
+func (bundle *ComplianceStatusBundle) UpdateObject(object agentbundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -56,7 +56,7 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object bundlepkg.Object) {
 		// don't send in the bundle a policy where all clusters are compliant
 		if bundle.containsNonCompliantOrUnknownClusters(policyComplianceObject) {
 			bundle.Objects = append(bundle.Objects, policyComplianceObject)
-			bundle.BundleVersion.Generation++ // increase generation if objects array was changed
+			bundle.BundleVersion.Incr() // increase bundle version if objects array was changed
 		}
 
 		return
@@ -72,11 +72,11 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object bundlepkg.Object) {
 	}
 
 	// increase bundle generation in the case where cluster lists were changed
-	bundle.BundleVersion.Generation++
+	bundle.BundleVersion.Incr()
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *ComplianceStatusBundle) DeleteObject(object bundlepkg.Object) {
+func (bundle *ComplianceStatusBundle) DeleteObject(object agentbundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -92,6 +92,7 @@ func (bundle *ComplianceStatusBundle) DeleteObject(object bundlepkg.Object) {
 
 	// do not increase generation, no need to send bundle when policy is removed (clusters per policy bundle is sent).
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
+	bundle.BundleVersion.Incr()
 }
 
 // GetBundleVersion function to get bundle version
@@ -109,7 +110,7 @@ func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, erro
 		}
 	}
 
-	return -1, bundlepkg.ErrObjectNotFound
+	return -1, agentbundle.ErrObjectNotFound
 }
 
 func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
@@ -171,7 +172,7 @@ func (bundle *ComplianceStatusBundle) clusterListsEqual(oldClusters []string, ne
 	}
 
 	for _, newClusterName := range newClusters {
-		if !bundlepkg.ContainsString(oldClusters, newClusterName) {
+		if !agentbundle.ContainsString(oldClusters, newClusterName) {
 			return false
 		}
 	}
@@ -190,7 +191,7 @@ func (bundle *ComplianceStatusBundle) containsNonCompliantOrUnknownClusters(
 	return true
 }
 
-func (bundle *ComplianceStatusBundle) getObjectIndexByObj(obj bundlepkg.Object) (int, error) {
+func (bundle *ComplianceStatusBundle) getObjectIndexByObj(obj agentbundle.Object) (int, error) {
 	uid, _ := bundle.extractObjIDFunc(obj)
 	if len(uid) > 0 {
 		for i, object := range bundle.Objects {
@@ -205,5 +206,5 @@ func (bundle *ComplianceStatusBundle) getObjectIndexByObj(obj bundlepkg.Object) 
 			}
 		}
 	}
-	return -1, bundlepkg.ErrObjectNotFound
+	return -1, agentbundle.ErrObjectNotFound
 }

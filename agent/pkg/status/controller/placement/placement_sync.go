@@ -3,7 +3,6 @@ package placement
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -11,7 +10,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -22,14 +21,13 @@ const (
 )
 
 // AddPlacementsController adds placement controller to the manager.
-func AddPlacementsController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	incarnation uint64, _ *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
-) error {
+func AddPlacementsController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunction := func() bundle.Object { return &clustersv1beta1.Placement{} }
+	leafHubName := agentstatusconfig.GetLeafHubName()
 
 	bundleCollection := []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, constants.PlacementMsgKey),
-			bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPlacement),
+			bundle.NewGenericStatusBundle(leafHubName, cleanPlacement),
 			func() bool { return true }),
 	} // bundle predicate - always send placements.
 
@@ -38,7 +36,7 @@ func AddPlacementsController(mgr ctrl.Manager, producer transport.Producer, leaf
 	})
 
 	if err := generic.NewGenericStatusSyncController(mgr, placementSyncLog, producer, bundleCollection,
-		createObjFunction, ownerRefAnnotationPredicate, syncIntervalsData.GetPolicies); err != nil {
+		createObjFunction, ownerRefAnnotationPredicate, agentstatusconfig.GetPolicyDuration); err != nil {
 		return fmt.Errorf("failed to add placements controller to the manager - %w", err)
 	}
 

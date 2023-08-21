@@ -76,7 +76,7 @@ func (c *genericStatusSyncController) init() {
 }
 
 func (c *genericStatusSyncController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := c.log.WithValues("Namespace", request.Namespace, "Name", request.Name)
 
 	object := c.createBundleObjFunc()
 	if err := c.client.Get(ctx, request.NamespacedName, object); apierrors.IsNotFound(err) {
@@ -130,7 +130,8 @@ func (c *genericStatusSyncController) updateObjectAndFinalizer(ctx context.Conte
 	defer c.lock.Unlock()
 
 	for _, entry := range c.orderedBundleCollection {
-		entry.bundle.UpdateObject(object) // update in each bundle from the collection according to their order.
+		// update in each bundle from the collection according to their order.
+		entry.bundle.UpdateObject(object)
 	}
 	return nil
 }
@@ -204,8 +205,9 @@ func (c *genericStatusSyncController) syncBundles() {
 				c.log.Error(err, "send transport message error", "id", messageId)
 				continue
 			}
-
+			// set the last sent bundle version to the current bundle version and then increment the bundle generation.
 			entry.lastSentBundleVersion = *bundleVersion
+			entry.bundle.GetBundleVersion().Next()
 		}
 	}
 }

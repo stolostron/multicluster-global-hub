@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -178,6 +177,9 @@ func initMockAgentConfig() *config.AgentConfig {
 		PodNameSpace:   "default",
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
 		MetricsAddress: "0",
+		TransportConfig: &transport.TransportConfig{
+			TransportType: string(transport.Chan),
+		},
 	}
 }
 
@@ -272,8 +274,8 @@ func TestHasMCHCRDCR(t *testing.T) {
 	}
 
 	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
-	if !strings.Contains(err.Error(), "failed to create incarnation config-map") {
-		t.Fatalf("expect to have `failed to create incarnation config-map` error, but we got %v", err)
+	if err != nil {
+		panic(err)
 	}
 }
 
@@ -347,7 +349,7 @@ func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
 	}
 
 	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
-	if !strings.Contains(err.Error(), "failed to create incarnation config-map") {
-		t.Fatalf("expect to have `failed to create incarnation config-map` error, but we got %v", err)
+	if err != nil {
+		panic(err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
+	"k8s.io/apimachinery/pkg/api/errors"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -82,7 +83,7 @@ func (p *PolicyEventEnhancer) addPolicyCompliance(ctx context.Context, event *ku
 	if err := p.runtimeClient.Get(ctx, client.ObjectKey{
 		Name:      event.InvolvedObject.Name,
 		Namespace: event.InvolvedObject.Namespace,
-	}, &policy); err != nil {
+	}, &policy); err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 

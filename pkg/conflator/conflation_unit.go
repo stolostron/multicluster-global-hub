@@ -51,7 +51,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 			handlerFunction:            registration.handlerFunction,
 			dependency:                 registration.dependency, // nil if there is no dependency
 			isInProcess:                false,
-			lastProcessedBundleVersion: noBundleVersion(),
+			lastProcessedBundleVersion: statusbundle.NewBundleVersion(),
 		}
 
 		bundleTypeToPriority[registration.bundleType] = registration.priority
@@ -92,15 +92,22 @@ func (cu *ConflationUnit) insert(bundle statusbundle.Bundle, metadata bundle.Bun
 	conflationElementBundle := conflationElement.bundleInfo.getBundle()
 
 	// when the agent is started without incarnation configmap, the first message version will be 0.1. then we need to
-	// 1. reset lastProcessedBundleVersion to 0.0
-	// 2. reset the bundleInfo version to 0.0 (add the resetBundleVersion() function to bundleInfo interface)
-	if bundle.GetVersion().Equals(statusbundle.NewBundleVersion(0, 1)) {
-		conflationElement.lastProcessedBundleVersion = noBundleVersion()
-		conflationElement.bundleInfo.resetBundleVersion()
+	// 1. reset lastProcessedBundleVersion to 0
+	// 2. reset the bundleInfo version to 0 (add the resetBundleVersion() function to bundleInfo interface)
+	if bundle.GetVersion().InitGen() {
+		conflationElement.lastProcessedBundleVersion = statusbundle.NewBundleVersion()
+		if conflationElementBundle != nil {
+			conflationElementBundle.GetVersion().Reset()
+			cu.log.Info("resetting version", "LH", bundle.GetLeafHubName(), "type", bundleType,
+				"receivedVersion", bundle.GetVersion(),
+				"beforeVersion", conflationElementBundle.GetVersion(),
+				"lastProcessed", conflationElement.lastProcessedBundleVersion,
+			)
+		}
 	}
 
 	cu.log.Info("inserting bundle", "managedHub", bundle.GetLeafHubName(), "bundleType", bundleType,
-		"bundleVersion", bundle.GetVersion())
+		"bundleVersion", bundle.GetVersion().String())
 
 	if !bundle.GetVersion().NewerThan(conflationElement.lastProcessedBundleVersion) {
 		return // we got old bundle, a newer (or equal) bundle was already processed.
@@ -244,7 +251,7 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	dependencyLastProcessedVersion := cu.priorityQueue[dependencyIndex].lastProcessedBundleVersion
 
 	if !cu.requireInitialDependencyChecks &&
-		dependencyLastProcessedVersion.Equals(noBundleVersion()) {
+		dependencyLastProcessedVersion.Equals(statusbundle.NewBundleVersion()) {
 		return true // transport does not require initial dependency check
 	}
 
@@ -258,10 +265,6 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	default:
 		return !dependantBundle.GetDependencyVersion().NewerThan(dependencyLastProcessedVersion)
 	}
-}
-
-func noBundleVersion() *statusbundle.BundleVersion {
-	return statusbundle.NewBundleVersion(0, 0)
 }
 
 // getBundlesMetadata provides collections of the CU's bundle transport-metadata.

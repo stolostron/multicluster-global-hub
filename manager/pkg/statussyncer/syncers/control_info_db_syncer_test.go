@@ -43,16 +43,17 @@ var _ = Describe("leaf hubs heartbeats", Ordered, func() {
 	})
 
 	It("sync ControlInfo bundle", func() {
+		version := status.NewBundleVersion()
 		By("Create ControlInfo bundle")
 		controlInfoBundle := &Bundle{
 			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(0, 0),
+			BundleVersion: version,
 			lock:          sync.Mutex{},
 		}
 
 		By("Create transport message")
 		// increment the version
-		controlInfoBundle.BundleVersion.Generation++
+		controlInfoBundle.BundleVersion.Incr()
 		payloadBytes, err := json.Marshal(controlInfoBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 

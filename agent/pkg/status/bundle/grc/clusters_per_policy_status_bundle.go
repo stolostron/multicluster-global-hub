@@ -6,19 +6,18 @@ import (
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	bundlepkg "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	agentbundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
-func NewClustersPerPolicyBundle(leafHubName string, incarnation uint64,
-	extractObjIDFunc bundlepkg.ExtractObjIDFunc,
-) bundlepkg.Bundle {
+func NewClustersPerPolicyBundle(leafHubName string, extractObjIDFunc agentbundle.ExtractObjIDFunc,
+) agentbundle.Bundle {
 	return &ClustersPerPolicyBundle{
 		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
 			Objects:       make([]*statusbundle.PolicyGenericComplianceStatus, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: statusbundle.NewBundleVersion(incarnation, 0),
+			BundleVersion: statusbundle.NewBundleVersion(),
 		},
 		extractObjIDFunc: extractObjIDFunc,
 		lock:             sync.Mutex{},
@@ -28,12 +27,12 @@ func NewClustersPerPolicyBundle(leafHubName string, incarnation uint64,
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
 	statusbundle.BaseClustersPerPolicyBundle
-	extractObjIDFunc bundlepkg.ExtractObjIDFunc
+	extractObjIDFunc agentbundle.ExtractObjIDFunc
 	lock             sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *ClustersPerPolicyBundle) UpdateObject(object bundlepkg.Object) {
+func (bundle *ClustersPerPolicyBundle) UpdateObject(object agentbundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -51,7 +50,7 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object bundlepkg.Object) {
 	if err != nil { // object not found, need to add it to the bundle
 		bundle.Objects = append(bundle.Objects,
 			bundle.getClustersPerPolicy(originPolicyID, policy))
-		bundle.BundleVersion.Generation++
+		bundle.BundleVersion.Incr()
 
 		return
 	}
@@ -62,12 +61,12 @@ func (bundle *ClustersPerPolicyBundle) UpdateObject(object bundlepkg.Object) {
 	// that being said, we still want to update the internal data and keep it always up to date in case a policy will be
 	// inserted/removed (or cluster added/removed) and full state bundle will be triggered.
 	if bundle.updateObjectIfChanged(index, policy) { // returns true if cluster list has changed, otherwise false
-		bundle.BundleVersion.Generation++
+		bundle.BundleVersion.Incr()
 	}
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *ClustersPerPolicyBundle) DeleteObject(object bundlepkg.Object) {
+func (bundle *ClustersPerPolicyBundle) DeleteObject(object agentbundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -82,7 +81,7 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object bundlepkg.Object) {
 	}
 
 	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	bundle.BundleVersion.Generation++
+	bundle.BundleVersion.Incr()
 }
 
 // GetBundleVersion function to get bundle version.
@@ -100,7 +99,7 @@ func (bundle *ClustersPerPolicyBundle) getObjectIndexByUID(uid string) (int, err
 		}
 	}
 
-	return -1, bundlepkg.ErrObjectNotFound
+	return -1, agentbundle.ErrObjectNotFound
 }
 
 // getClusterStatuses returns (list of compliant clusters, list of nonCompliant clusters, list of unknown clusters,
@@ -174,7 +173,7 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, po
 
 func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
 	for _, clusterName := range subsetClusters {
-		if !bundlepkg.ContainsString(allClusters, clusterName) {
+		if !agentbundle.ContainsString(allClusters, clusterName) {
 			return false
 		}
 	}
@@ -182,7 +181,7 @@ func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []stri
 	return true
 }
 
-func (bundle *ClustersPerPolicyBundle) getObjectIndexByObj(obj bundlepkg.Object) (int, error) {
+func (bundle *ClustersPerPolicyBundle) getObjectIndexByObj(obj agentbundle.Object) (int, error) {
 	uid, _ := bundle.extractObjIDFunc(obj)
 	if len(uid) > 0 {
 		for i, object := range bundle.Objects {
@@ -198,5 +197,5 @@ func (bundle *ClustersPerPolicyBundle) getObjectIndexByObj(obj bundlepkg.Object)
 		}
 	}
 
-	return -1, bundlepkg.ErrObjectNotFound
+	return -1, agentbundle.ErrObjectNotFound
 }

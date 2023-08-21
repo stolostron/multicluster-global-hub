@@ -7,12 +7,11 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
-	globalhubagentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/controlinfo"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/hubcluster"
 	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
@@ -26,40 +25,30 @@ import (
 )
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig, incarnation uint64) error {
-	config := &corev1.ConfigMap{}
-	syncIntervals := globalhubagentconfig.NewSyncIntervals()
-	if err := globalhubagentconfig.AddConfigController(mgr, config, syncIntervals); err != nil {
+func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
+	if err := agentstatusconfig.AddConfigController(mgr, agentConfig); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
 	}
 
-	producer, isAsync, err := getProducer(mgr, agentConfig)
+	producer, _, err := getProducer(mgr, agentConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get producer: %w", err)
 	}
 
-	hybirdSyncManger, err := policies.AddPoliciesStatusController(mgr, producer, agentConfig.LeafHubName,
-		incarnation, config, syncIntervals)
+	_, err = policies.AddPoliciesStatusController(mgr, producer)
 	if err != nil {
 		return fmt.Errorf("failed to add PoliciesStatusController controller: %w", err)
 	}
+	// // support delta bundle sync mode
+	// if isAsync {
+	// 	kafkaProducer, ok := producer.(*transportproducer.KafkaProducer)
+	// 	if !ok {
+	// 		return fmt.Errorf("failed to set the kafka message producer callback() which is to switch the sync mode")
+	// 	}
+	// 	hybirdSyncManger.SetHybridModeCallBack(agentConfig.StatusDeltaCountSwitchFactor, kafkaProducer)
+	// }
 
-	err = hubcluster.AddHubClusterController(mgr, producer, agentConfig.LeafHubName)
-	if err != nil {
-		return fmt.Errorf("failed to add HubClusterController controller: %w", err)
-	}
-
-	// support delta bundle sync mode
-	if isAsync {
-		kafkaProducer, ok := producer.(*transportproducer.KafkaProducer)
-		if !ok {
-			return fmt.Errorf("failed to set the kafka message producer callback() which is to switch the sync mode")
-		}
-		hybirdSyncManger.SetHybridModeCallBack(agentConfig.StatusDeltaCountSwitchFactor, kafkaProducer)
-	}
-
-	addControllerFunctions := []func(ctrl.Manager, transport.Producer, string, uint64,
-		*corev1.ConfigMap, *globalhubagentconfig.SyncIntervals) error{
+	addControllerFunctions := []func(ctrl.Manager, transport.Producer) error{
 		managedclusters.AddClustersStatusController,
 		placement.AddPlacementRulesController,
 		placement.AddPlacementsController,
@@ -69,19 +58,14 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		localpolicies.AddLocalPoliciesController,
 		localplacement.AddLocalPlacementRulesController,
 		controlinfo.AddControlInfoController,
+		localpolicies.AddLocalClusterPolicyEventsController,
+		hubcluster.AddHubClusterController,
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, producer, agentConfig.LeafHubName, incarnation, config,
-			syncIntervals); err != nil {
+		if err := addControllerFunction(mgr, producer); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
-	}
-	// controller for local cluster policies history event bundle
-	err = localpolicies.AddLocalClusterPoliciesController(ctx, mgr, producer, agentConfig.LeafHubName, incarnation,
-		config, syncIntervals)
-	if err != nil {
-		return fmt.Errorf("failed to add local cluster policies controller: %w", err)
 	}
 	return nil
 }

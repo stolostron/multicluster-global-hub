@@ -255,7 +255,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		var managerObjects []*unstructured.Unstructured
 		var grafanaObjects []*unstructured.Unstructured
 		It("Should update the conditions and mgh finalizer when MCH instance is created", func() {
-
 			By("By creating a fake transport secret")
 			Expect(k8sClient.Create(ctx, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{

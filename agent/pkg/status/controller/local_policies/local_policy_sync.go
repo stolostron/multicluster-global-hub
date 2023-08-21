@@ -12,7 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -24,11 +24,11 @@ const (
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
-func AddLocalPoliciesController(mgr ctrl.Manager, producer transport.Producer, leafHubName string,
-	incarnation uint64, hubOfHubsConfig *corev1.ConfigMap, syncIntervalsData *config.SyncIntervals,
-) error {
+func AddLocalPoliciesController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
-	bundleCollection := createBundleCollection(leafHubName, incarnation, hubOfHubsConfig)
+	leafHubName := agentstatusconfig.GetLeafHubName()
+	agentConfig := agentstatusconfig.GetAgentConfigMap()
+	bundleCollection := createBundleCollection(leafHubName, agentConfig)
 
 	localPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return !helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) &&
@@ -36,14 +36,14 @@ func AddLocalPoliciesController(mgr ctrl.Manager, producer transport.Producer, l
 	})
 
 	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, producer, bundleCollection,
-		createObjFunc, localPolicyPredicate, syncIntervalsData.GetPolicies); err != nil {
+		createObjFunc, localPolicyPredicate, agentstatusconfig.GetPolicyDuration); err != nil {
 		return fmt.Errorf("failed to add local policies controller to the manager - %w", err)
 	}
 
 	return nil
 }
 
-func createBundleCollection(leafHubName string, incarnation uint64,
+func createBundleCollection(leafHubName string,
 	hubOfHubsConfig *corev1.ConfigMap,
 ) []*generic.BundleCollectionEntry {
 	extractLocalPolicyIDFunc := func(obj bundle.Object) (string, bool) { return string(obj.GetUID()), true }
@@ -51,17 +51,16 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 	// clusters per policy (base bundle)
 	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.LocalClustersPerPolicyMsgKey)
-	localClustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, incarnation,
-		extractLocalPolicyIDFunc)
+	localClustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, extractLocalPolicyIDFunc)
 
-	// compliance status bundle
-	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		constants.LocalPolicyCompleteComplianceMsgKey)
-	localCompleteComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName,
-		localClustersPerPolicyBundle, incarnation, extractLocalPolicyIDFunc)
+	// // compliance status bundle
+	// localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+	// 	constants.LocalPolicyCompleteComplianceMsgKey)
+	// localCompleteComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName,
+	// 	localClustersPerPolicyBundle, extractLocalPolicyIDFunc)
 
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPolicySpecMsgKey)
-	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, incarnation, cleanPolicy)
+	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, cleanPolicy)
 
 	// check for full information
 	localPolicyStatusPredicate := func() bool {
@@ -72,8 +71,8 @@ func createBundleCollection(leafHubName string, incarnation uint64,
 	return []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
 			localClustersPerPolicyBundle, localPolicyStatusPredicate),
-		generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
-			localCompleteComplianceStatusBundle, localPolicyStatusPredicate),
+		// generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
+		// 	localCompleteComplianceStatusBundle, localPolicyStatusPredicate),
 		generic.NewBundleCollectionEntry(localPolicySpecTransportKey, localPolicySpecBundle,
 			func() bool { return hubOfHubsConfig.Data["enableLocalPolicies"] == "true" }),
 	}
