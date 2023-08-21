@@ -307,7 +307,7 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Field: fields.OneTermEqualSelector("metadata.namespace", hubofhubsconfig.GetDefaultNamespace()),
 		},
 		&corev1.ConfigMap{}: {
-			Label: labelSelector,
+			Field: fields.OneTermEqualSelector("metadata.namespace", hubofhubsconfig.GetDefaultNamespace()),
 		},
 		&corev1.ServiceAccount{}: {
 			Label: labelSelector,

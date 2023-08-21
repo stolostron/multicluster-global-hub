@@ -1,31 +1,69 @@
 package hubofhubs
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
+	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
 	datasourceKey = "datasources.yaml"
+
+	mergedAlertName   = "multicluster-global-hub-alerting"
+	defaultAlertName  = "multicluster-global-hub-default-alerting"
+	alertConfigMapKey = "multicluster-globalhub-alerting.yaml"
+
+	mergedGrafanaIniName  = "multicluster-global-hub-grafana-config"
+	defaultGrafanaIniName = "multicluster-global-hub-default-grafana-config"
+	grafanaIniKey         = "grafana.ini"
+
+	grafanaDeploymentName = "multicluster-global-hub-grafana"
+
+	//Render can not parse the "{{ $value }}" which is a keyword of alert, so need to replace it
+	alertValueWord        = "{{ $value }}"
+	alertValuePlaceHolder = "<ALERT_PLACE_HOLDER>"
+)
+
+var (
+	supportAlertConfig = sets.NewString(
+		"groups",
+		"policies",
+		"contactPoints",
+		"muteTimes",
+		"templates",
+		"resetPolicies",
+	)
+	supportDeleteAlertConfig = sets.NewString(
+		"deleteRules",
+		"deleteContactPoints",
+		"deleteTemplates",
+		"deleteMuteTimes",
+	)
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
@@ -90,7 +128,274 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		return fmt.Errorf("failed to create/update grafana objects: %w", err)
 	}
 
+	changedAlert, err := r.generateAlertConfigMap(ctx, mgh)
+	if err != nil {
+		return fmt.Errorf("failed to generate merged alert configmap. err:%v", err)
+	}
+
+	changedGrafanaIni, err := r.generateGrafanaIni(ctx, mgh)
+
+	if changedAlert || changedGrafanaIni {
+		err = restartGrafanaPod(ctx, r.KubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to restart grafana pod. err:%v", err)
+		}
+	}
+
 	log.Info("grafana objects created/updated successfully")
+	return nil
+}
+
+// generateGranafaIni append the custom grafana.ini to default grafana.ini
+func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
+	ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) (bool, error) {
+	configNamespace := config.GetDefaultNamespace()
+	defaultGrafanaIniSecret, err := r.KubeClient.CoreV1().
+		Secrets(configNamespace).
+		Get(ctx,
+			defaultGrafanaIniName,
+			metav1.GetOptions{},
+		)
+	if err != nil {
+		return false, fmt.Errorf(
+			"failed to get default grafana.ini secret. Namespace:%v, Name:%v, Error: %w",
+			configNamespace,
+			defaultGrafanaIniName,
+			err,
+		)
+	}
+
+	customGrafanaIniSecret, err := r.KubeClient.CoreV1().
+		Secrets(configNamespace).
+		Get(ctx,
+			operatorconstants.CustomGrafanaIniName,
+			metav1.GetOptions{},
+		)
+	if err != nil && !errors.IsNotFound(err) {
+		return false, fmt.Errorf(
+			"failed to get custom grafana.ini secret. Namespace:%v, Name:%v, Error: %w",
+			configNamespace,
+			operatorconstants.CustomGrafanaIniName,
+			err,
+		)
+	}
+
+	mergedGrafanaIniSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mergedGrafanaIniName,
+			Namespace: configNamespace,
+			Labels: map[string]string{
+				"name":                           "multicluster-global-hub-grafana",
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+	}
+
+	if customGrafanaIniSecret == nil {
+		mergedGrafanaIniSecret.Data = map[string][]byte{
+			grafanaIniKey: defaultGrafanaIniSecret.Data[grafanaIniKey],
+		}
+	} else {
+		var mergedBytes []byte
+		mergedBytes, err = mergeGrafanaIni(
+			defaultGrafanaIniSecret.Data[grafanaIniKey],
+			customGrafanaIniSecret.Data[grafanaIniKey],
+		)
+		if err != nil {
+			klog.Errorf("Failed to merge default and custom grafana.ini, err:%v", err)
+			mergedBytes = defaultGrafanaIniSecret.Data[grafanaIniKey]
+		}
+		mergedGrafanaIniSecret.Data = map[string][]byte{
+			grafanaIniKey: mergedBytes,
+		}
+	}
+
+	if err = controllerutil.SetControllerReference(mgh, mergedGrafanaIniSecret, r.Scheme); err != nil {
+		return false, err
+	}
+	return utils.ApplySecret(ctx, r.KubeClient, mergedGrafanaIniSecret)
+}
+
+// generateAlertConfigMap generate the alert configmap which grafana direclly use
+// if there is no custom configmap, apply the alert configmap based on default alert configmap data.
+// if there is the custom configmap, merge the custom configmap and default configmap then apply the merged configmap
+func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
+	ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) (bool, error) {
+	configNamespace := config.GetDefaultNamespace()
+	defaultAlertConfigMap, err := r.KubeClient.CoreV1().
+		ConfigMaps(configNamespace).
+		Get(ctx,
+			defaultAlertName,
+			metav1.GetOptions{},
+		)
+	if err != nil {
+		return false, fmt.Errorf("failed to get default alert configmap: %w", err)
+	}
+
+	//replace the placeholder with original value word
+	defaultAlertConfigMap.Data[alertConfigMapKey] = strings.ReplaceAll(
+		defaultAlertConfigMap.Data[alertConfigMapKey],
+		alertValuePlaceHolder,
+		alertValueWord,
+	)
+
+	customAlertConfigMap, err := r.KubeClient.CoreV1().
+		ConfigMaps(configNamespace).
+		Get(ctx,
+			operatorconstants.CustomAlertName,
+			metav1.GetOptions{},
+		)
+	if err != nil && !errors.IsNotFound(err) {
+		return false, err
+	}
+
+	var mergedAlertConfigMap *corev1.ConfigMap
+	mergedAlertConfigMap, err = mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap)
+	if err != nil {
+		klog.Errorf("Failed to merge custom alert configmap:%v. err: %v", customAlertConfigMap.Name, err)
+		mergedAlertConfigMap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mergedAlertName,
+				Namespace: configNamespace,
+				Labels: map[string]string{
+					constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+				},
+			},
+			Data: defaultAlertConfigMap.Data,
+		}
+	}
+
+	// Set MGH instance as the owner and controller
+	if err = controllerutil.SetControllerReference(mgh, mergedAlertConfigMap, r.Scheme); err != nil {
+		return false, err
+	}
+	return utils.ApplyConfigMap(ctx, r.KubeClient, mergedAlertConfigMap)
+}
+
+// mergeGrafanaIni merge the default grafana.ini and custom grafana.ini
+// If a section exsts in both default and custom, use the default one
+func mergeGrafanaIni(defaultIni, customIni []byte) ([]byte, error) {
+	if len(defaultIni) == 0 {
+		return customIni, nil
+	}
+	if len(customIni) == 0 {
+		return defaultIni, nil
+	}
+	defaultCfg, err := ini.Load(defaultIni)
+	if err != nil {
+		return nil, err
+	}
+	customCfg, err := ini.Load(customIni)
+	if err != nil {
+		return nil, err
+	}
+
+	//delete sections from custom grafan.ini if the section exist in default grafana.ini
+	for _, v := range customCfg.Sections() {
+		if !defaultCfg.HasSection(v.Name()) {
+			continue
+		}
+		customCfg.DeleteSection(v.Name())
+	}
+
+	var defaultBuf bytes.Buffer
+	_, err = defaultCfg.WriteTo(&defaultBuf)
+	if err != nil {
+		return nil, err
+	}
+	var customBuf bytes.Buffer
+	_, err = customCfg.WriteTo(&customBuf)
+	if err != nil {
+		return nil, err
+	}
+	mergedBuf := defaultBuf.String() + "\n" + customBuf.String()
+
+	return []byte(mergedBuf), err
+}
+
+// mergeAlertYaml merge two grafana alert config file
+func mergeAlertYaml(a, b []byte) ([]byte, error) {
+	var o1, o2 map[string]interface{}
+	if len(a) == 0 {
+		return b, nil
+	}
+	if len(b) == 0 {
+		return a, nil
+	}
+
+	if err := yaml.Unmarshal(a, &o1); err != nil {
+		return nil, err
+	}
+	if err := yaml.Unmarshal(b, &o2); err != nil {
+		return nil, err
+	}
+
+	for k, v := range o2 {
+		if !supportAlertConfig.Has(k) && !supportDeleteAlertConfig.Has(k) {
+			continue
+		}
+		o1Array, _ := o1[k].([]interface{})
+		o2Array, _ := v.([]interface{})
+
+		o1[k] = append(o1Array, o2Array...)
+	}
+	return yaml.Marshal(o1)
+}
+
+// mergeAlertConfigMap merge the default alert configmap and custom alert configmap
+func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+	if defaultAlertConfigMap == nil && customAlertConfigMap == nil {
+		return nil, nil
+	}
+
+	var mergedAlertConfigMap corev1.ConfigMap
+	mergedAlertConfigMap.Name = mergedAlertName
+	mergedAlertConfigMap.Namespace = config.GetDefaultNamespace()
+
+	if defaultAlertConfigMap == nil {
+		mergedAlertConfigMap.Data = customAlertConfigMap.Data
+		return &mergedAlertConfigMap, nil
+	}
+	if customAlertConfigMap == nil {
+		mergedAlertConfigMap.Data = defaultAlertConfigMap.Data
+		return &mergedAlertConfigMap, nil
+	}
+
+	mergedAlertYaml, err := mergeAlertYaml(
+		[]byte(defaultAlertConfigMap.Data[alertConfigMapKey]),
+		[]byte(customAlertConfigMap.Data[alertConfigMapKey]))
+	if err != nil {
+		return nil, err
+	}
+	mergedAlertConfigMap.Data = map[string]string{
+		alertConfigMapKey: string(mergedAlertYaml),
+	}
+	return &mergedAlertConfigMap, nil
+}
+
+func restartGrafanaPod(ctx context.Context, kubeClient kubernetes.Interface) error {
+	configNamespace := config.GetDefaultNamespace()
+	labelSelector := fmt.Sprintf("name=%s", grafanaDeploymentName)
+
+	poList, err := kubeClient.CoreV1().Pods(configNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	for _, po := range poList.Items {
+		err := kubeClient.CoreV1().Pods(configNamespace).Delete(ctx, po.Name, metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
 	return nil
 }
 

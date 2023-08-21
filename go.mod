@@ -37,6 +37,7 @@ require (
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20230829141355-4ad378ab367f
 	github.com/stretchr/testify v1.8.3
 	go.uber.org/zap v1.25.0
+	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/datatypes v1.2.0
 	gorm.io/driver/postgres v1.5.2
@@ -47,6 +48,7 @@ require (
 	k8s.io/client-go v0.27.2
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.27.2
+	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 	open-cluster-management.io/addon-framework v0.7.1-0.20230814013922-f2fcbdd7e05f
 	open-cluster-management.io/api v0.11.1-0.20230731134013-26e75df27f50
 	open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
@@ -241,7 +243,6 @@ require (
 	k8s.io/component-base v0.27.2 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
-	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
