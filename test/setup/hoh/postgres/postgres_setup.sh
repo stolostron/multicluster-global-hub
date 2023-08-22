@@ -43,10 +43,6 @@ echo "storage secret is ready in $targetNamespace namespace!"
 # expose the postgres service as NodePort
 pgnamespace="hoh-postgres"
 kubectl --kubeconfig $KUBECONFIG patch postgrescluster hoh -n $pgnamespace -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
-# unset HA
-kubectl --kubeconfig $KUBECONFIG patch configmap pgo-config -n hoh-postgres --type json -p='[{"op": "replace", "path": "/data/DisableAutofail", "value": "true"}]'
-kubectl --kubeconfig $KUBECONFIG patch postgrescluster hoh -n hoh-postgres --type json -p='[{"op": "replace", "path": "/spec/instances/0/replicas", "value": 1}]'
-kubectl --kubeconfig $KUBECONFIG patch postgrescluster hoh -n hoh-postgres --type merge --patch '{"spec":{"proxy":{"pgBouncer":{"replicas":1}}}}'
 
 stss=$(kubectl --kubeconfig $KUBECONFIG get statefulset -n $pgnamespace -o jsonpath={.items..metadata.name})
 for sts in ${stss}; do
