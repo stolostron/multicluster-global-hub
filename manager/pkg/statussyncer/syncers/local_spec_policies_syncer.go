@@ -124,7 +124,7 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 			if specificObj.GetResourceVersion() == resourceVersionFromDB {
 				continue
 			}
-			tx.Model(&models.LocalSpecPolicy{}).
+			err = tx.Model(&models.LocalSpecPolicy{}).
 				Where(&models.LocalSpecPolicy{
 					LeafHubName: leafHubName,
 					PolicyID:    uid,
@@ -132,16 +132,22 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 				Updates(models.LocalSpecPolicy{
 					Payload:     payload,
 					LeafHubName: leafHubName,
-				})
+				}).Error
+			if err != nil {
+				return err
+			}
 		}
 
 		// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
 		for uid := range policyIdToVersionMapFromDB {
 			// https://gorm.io/docs/delete.html#Soft-Delete
-			tx.Where(&models.LocalSpecPolicy{
+			err = tx.Where(&models.LocalSpecPolicy{
 				LeafHubName: leafHubName,
 				PolicyID:    uid,
-			}).Delete(&models.LocalSpecPolicy{})
+			}).Delete(&models.LocalSpecPolicy{}).Error
+			if err != nil {
+				return err
+			}
 		}
 
 		// return nil will commit the whole transaction
