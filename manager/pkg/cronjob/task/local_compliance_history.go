@@ -14,6 +14,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/metrics"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 var (
@@ -145,7 +147,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 	insertCount := int64(0)
 	var err error
 	defer func() {
-		if e := traceComplianceHistory(ctx, pool,
+		if e := traceComplianceHistoryLog(ctx,
 			fmt.Sprintf("%s/local_status.compliance", localComplianceTaskName),
 			totalCount, offset, insertCount, startTime, err); e != nil {
 			log.Info("trace compliance job failed, retrying", "error", e)
@@ -234,7 +236,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 	err := wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
 		var insertError error
 		defer func() {
-			if e := traceComplianceHistory(ctx, pool,
+			if e := traceComplianceHistoryLog(ctx,
 				fmt.Sprintf("%s/event.local_policies", localComplianceTaskName),
 				totalCount, offset, insertCount, startTime, insertError); e != nil {
 				log.Info("trace compliance job failed, retrying", "error", e)
@@ -287,17 +289,21 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 	return insertCount, err
 }
 
-func traceComplianceHistory(ctx context.Context, pool *pgxpool.Pool, name string, total, offset, inserted int64,
+func traceComplianceHistoryLog(ctx context.Context, name string, total, offset, inserted int64,
 	start time.Time, err error,
 ) error {
-	end := time.Now()
-	errMessage := "none"
-	if err != nil {
-		errMessage = err.Error()
+	db := database.GetGorm()
+	localComplianceJobLog := &models.LocalComplianceJobLog{
+		Name:     name,
+		StartAt:  start,
+		EndAt:    time.Now(),
+		Error:    "none",
+		Total:    total,
+		Offsets:  offset,
+		Inserted: inserted,
 	}
-	_, err = pool.Exec(ctx, `
-	INSERT INTO history.local_compliance_job_log (name, start_at, end_at, total, offsets, inserted, error) 
-	VALUES ($1, $2, $3, $4, $5, $6, $7);`, name, start, end, total, offset, inserted, errMessage)
-
-	return err
+	if err != nil {
+		localComplianceJobLog.Error = err.Error()
+	}
+	return db.Create(localComplianceJobLog).Error
 }

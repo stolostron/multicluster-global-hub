@@ -131,6 +131,7 @@ func traceDataRetentionLog(tableName string, startTime time.Time, err error, par
 	dataRetentionLog := &models.DataRetentionJobLog{
 		Name:    tableName,
 		StartAt: startTime,
+		EndAt:   time.Now(),
 		Error:   "none",
 	}
 	if err != nil {
@@ -149,8 +150,7 @@ func traceDataRetentionLog(tableName string, startTime time.Time, err error, par
 			dataRetentionLog.MinDeletion = minDeletionTime
 		}
 	}
-	result := db.Create(dataRetentionLog)
-	return result.Error
+	return db.Create(dataRetentionLog).Error
 }
 
 func getMinMaxPartitions(tableName string) (string, string, error) {
