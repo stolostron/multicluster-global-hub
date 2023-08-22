@@ -205,9 +205,10 @@ func (c *genericStatusSyncController) syncBundles() {
 				c.log.Error(err, "send transport message error", "id", messageId)
 				continue
 			}
-			// set the last sent bundle version to the current bundle version and then increment the bundle generation.
-			entry.lastSentBundleVersion = *bundleVersion
+			// 1. get into the next generation
+			// 2. set the lastSentBundleVersion to first version of next generation
 			entry.bundle.GetBundleVersion().Next()
+			entry.lastSentBundleVersion = *entry.bundle.GetBundleVersion()
 		}
 	}
 }
