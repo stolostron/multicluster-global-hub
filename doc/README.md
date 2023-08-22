@@ -17,6 +17,7 @@ The multicluster global hub is useful when a single hub cluster cannot manage th
   - [Workings of Global Hub](./how_global_hub_works.md)
   - [Quick Start](#quick-start)
     - [Prerequisites](#prerequisites)
+      - [Support matrix](#support-matrix)
       - [Dependencies](#dependencies)
       - [Network configuration](#network-configuration)
     - [Installation](#installation)
@@ -149,6 +150,27 @@ The managed hub is also a managed cluster of global hub in Red Hat Advanced Clus
 | Direction | Protocol | Connection | Port (if specified) | Source address |	Destination address |
 | ------ | ------ | ------ | ------ | ------ | ------ |
 | Outbound to Kafka Cluster | HTTPS | Global hub agent need to sync cluster info and policy info to Kafka cluster | 443 | multicluster-global-hub-agent pod | Kafka route host |
+
+#### Support matrix
+
+Multicluster global hub has two main components:
+- A server component called the "global hub cluster" where the management tools and user interface run 
+- A client component that is installed on RHACM called the "managed hub" that can be managed by the "global hub cluster"
+
+Supported platform for MCGH:
+| Platform | Support for global hub cluster | Support for managed hub clusters |
+| --- | --- | --- |
+| Red Hat Advanced Cluster Management (RHACM) 2.9, and later 2.9.x releases | Y | Y |
+| Red Hat Advanced Cluster Management (RHACM) 2.8, and later 2.8.x releases | Y | Y |
+| Red Hat Advanced Cluster Management (RHACM) 2.7, and later 2.7.x releases | Y | Y |
+| Red Hat Advanced Cluster Management (RHACM) 2.6, and former release | N | N |
+
+Supported middleware for MCGH:
+| Middleware | Support for multicluster global hub |
+| --- | --- |
+| Kafka 3.3, and later 3.3.x releases | Y |
+| Postgres 14+ | Y |
+
 
 ### Installation
 
