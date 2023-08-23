@@ -60,7 +60,7 @@ var (
 		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
-		GrafanaImageKey:          "quay.io/stolostron/grafana:2.8.0-SNAPSHOT-2023-03-06-01-52-34",
+		GrafanaImageKey:          "quay.io/stolostron/grafana:globalhub-1.0",
 	}
 	globalHubAgentConfig *corev1.ConfigMap
 	statisticLogInterval = "1m"
