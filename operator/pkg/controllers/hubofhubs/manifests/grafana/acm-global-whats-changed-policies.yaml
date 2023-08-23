@@ -6,7 +6,10 @@ data:
         "list": [
           {
             "builtIn": 1,
-            "datasource": "-- Grafana --",
+            "datasource": {
+              "type": "datasource",
+              "uid": "grafana"
+            },
             "enable": false,
             "hide": true,
             "iconColor": "rgba(0, 211, 255, 1)",
@@ -22,9 +25,8 @@ data:
         ]
       },
       "editable": true,
-      "gnetId": null,
+      "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "iteration": 1690435609041,
       "links": [
         {
           "asDropdown": false,
@@ -39,9 +41,12 @@ data:
           "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1"
         }
       ],
+      "liveNow": false,
       "panels": [
         {
-          "datasource": "${datasource}",
+          "datasource": {
+            "uid": "${datasource}"
+          },
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -49,7 +54,8 @@ data:
               },
               "custom": {
                 "fillOpacity": 70,
-                "lineWidth": 0
+                "lineWidth": 0,
+                "spanNulls": false
               },
               "mappings": [
                 {
@@ -80,6 +86,18 @@ data:
                   {
                     "color": "transparent",
                     "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 2
                   }
                 ]
               },
@@ -97,19 +115,24 @@ data:
           "options": {
             "alignValue": "center",
             "legend": {
-              "displayMode": "hidden",
-              "placement": "bottom"
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
             },
             "mergeValues": true,
             "rowHeight": 0.9,
             "showValue": "never",
             "tooltip": {
-              "mode": "single"
+              "mode": "single",
+              "sort": "none"
             }
           },
           "pluginVersion": "8.5.20",
           "targets": [
             {
+              "datasource": {
+                "uid": "${datasource}"
+              },
               "format": "time_series",
               "group": [],
               "metricColumn": "none",
@@ -136,12 +159,14 @@ data:
               ]
             }
           ],
-          "timeFrom": null,
           "title": "Cluster State Timeline",
           "type": "state-timeline"
         },
         {
-          "datasource": null,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
@@ -149,11 +174,22 @@ data:
             "y": 11
           },
           "id": 6,
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "refId": "A"
+            }
+          ],
           "title": "Policy Events",
           "type": "row"
         },
         {
-          "datasource": "${datasource}",
+          "datasource": {
+            "uid": "${datasource}"
+          },
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -161,8 +197,11 @@ data:
               },
               "custom": {
                 "align": "auto",
-                "displayMode": "auto",
-                "filterable": true
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false
               },
               "mappings": [],
               "thresholds": {
@@ -243,14 +282,25 @@ data:
             "y": 12
           },
           "id": 4,
-          "interval": null,
           "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "8.5.20",
+          "pluginVersion": "9.5.6",
           "targets": [
             {
+              "datasource": {
+                "uid": "${datasource}"
+              },
               "format": "table",
               "group": [],
               "metricColumn": "none",
@@ -277,7 +327,6 @@ data:
               ]
             }
           ],
-          "timeFrom": null,
           "title": "Policy Propagation Events",
           "transformations": [
             {
@@ -304,7 +353,9 @@ data:
           "type": "table"
         },
         {
-          "datasource": "${datasource}",
+          "datasource": {
+            "uid": "${datasource}"
+          },
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -312,7 +363,9 @@ data:
               },
               "custom": {
                 "align": "auto",
-                "displayMode": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
                 "filterable": true
               },
               "mappings": [
@@ -336,8 +389,7 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-yellow",
-                    "value": null
+                    "color": "dark-yellow"
                   },
                   {
                     "color": "red",
@@ -354,8 +406,11 @@ data:
                 },
                 "properties": [
                   {
-                    "id": "custom.displayMode",
-                    "value": "color-background"
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "color-background"
+                    }
                   }
                 ]
               },
@@ -462,7 +517,6 @@ data:
             "y": 21
           },
           "id": 13,
-          "interval": null,
           "options": {
             "showHeader": true,
             "sortBy": [
@@ -475,6 +529,9 @@ data:
           "pluginVersion": "8.5.20",
           "targets": [
             {
+              "datasource": {
+                "uid": "${datasource}"
+              },
               "format": "table",
               "group": [],
               "metricColumn": "none",
@@ -501,7 +558,6 @@ data:
               ]
             }
           ],
-          "timeFrom": null,
           "title": "Policy Compliance Events",
           "transformations": [
             {
@@ -509,24 +565,24 @@ data:
               "options": {
                 "excludeByName": {},
                 "indexByName": {
-                  "time": 0,
-                  "policy_name": 1,
-                  "namespace": 2,
-                  "hub": 3,
                   "cluster_name": 4,
+                  "compliance": 7,
+                  "hub": 3,
                   "message": 5,
+                  "namespace": 2,
+                  "policy_name": 1,
                   "reason": 6,
-                  "compliance": 7
+                  "time": 0
                 },
                 "renameByName": {
-                  "time": "Time",
-                  "policy_name": "Policy",
-                  "namespace": "Namespace",
-                  "hub": "Hub",
                   "cluster_name": "Cluster",
+                  "compliance": "Compliance",
+                  "hub": "Hub",
                   "message": "Message",
+                  "namespace": "Namespace",
+                  "policy_name": "Policy",
                   "reason": "Reason",
-                  "compliance": "Compliance"
+                  "time": "Time"
                 }
               }
             }
@@ -534,8 +590,8 @@ data:
           "type": "table"
         }
       ],
-      "refresh": false,
-      "schemaVersion": 30,
+      "refresh": "",
+      "schemaVersion": 38,
       "style": "dark",
       "tags": [],
       "templating": {
@@ -546,8 +602,6 @@ data:
               "text": "Global-Hub-DataSource",
               "value": "Global-Hub-DataSource"
             },
-            "description": null,
-            "error": null,
             "hide": 2,
             "includeAll": false,
             "label": "Datasource",
@@ -561,16 +615,17 @@ data:
             "type": "datasource"
           },
           {
-            "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "",
               "value": ""
             },
-            "datasource": "${datasource}",
+            "datasource": {
+              "type": "postgres",
+              "uid": "${datasource}"
+            },
             "definition": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
             "description": "Managed hub cluster name",
-            "error": null,
             "hide": 0,
             "includeAll": false,
             "label": "Hub",
@@ -585,16 +640,17 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "open-cluster-management-global-set",
+              "value": "open-cluster-management-global-set"
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n  AND\n  lc.cluster_id IS NOT NULL\n)\nSELECT\n  p.payload -> 'metadata' ->> 'namespace'\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id",
             "description": "policy namespace ",
-            "error": null,
             "hide": 0,
             "includeAll": false,
             "label": "Namespace",
@@ -609,16 +665,16 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": false,
               "text": "",
               "value": ""
             },
-            "datasource": "${datasource}",
+            "datasource": {
+              "type": "postgres",
+              "uid": "${datasource}"
+            },
             "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'",
-            "description": null,
-            "error": null,
             "hide": 0,
             "includeAll": false,
             "label": "Policy",
@@ -633,16 +689,17 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": true,
               "text": "1:10",
               "value": "1:10"
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": "SELECT\n '1:10',\nCASE WHEN $maxtop > 10 THEN '$leftmaxtop:$maxtop'\nEND ",
             "description": "Top N Non Compliance Clusters",
-            "error": null,
             "hide": 1,
             "includeAll": false,
             "label": "Top",
@@ -657,19 +714,18 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": false,
               "text": "1",
               "value": "1"
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": "SELECT SPLIT_PART('$top', ':', 1);",
-            "description": null,
-            "error": null,
             "hide": 2,
             "includeAll": false,
-            "label": null,
             "multi": false,
             "name": "topleft",
             "options": [],
@@ -681,19 +737,18 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": false,
               "text": "10",
               "value": "10"
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": "SELECT SPLIT_PART('$top', ':', 2);",
-            "description": null,
-            "error": null,
             "hide": 2,
             "includeAll": false,
-            "label": null,
             "multi": false,
             "name": "topright",
             "options": [],
@@ -705,19 +760,18 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": false,
               "text": "",
               "value": ""
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name = '$hub'\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT lc.cluster_id\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi\n ON\n   pi.policy_id = lc.policy_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
-            "description": null,
-            "error": null,
             "hide": 2,
             "includeAll": false,
-            "label": null,
             "multi": false,
             "name": "maxtop",
             "options": [],
@@ -729,19 +783,18 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": false,
               "text": "",
               "value": ""
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": "select $maxtop-9",
-            "description": null,
-            "error": null,
             "hide": 2,
             "includeAll": false,
-            "label": null,
             "multi": false,
             "name": "leftmaxtop",
             "options": [],
@@ -753,19 +806,18 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": false,
               "text": "",
               "value": ""
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": "SELECT\n  console_url\nFROM\n  status.leaf_hubs\nwhere\n  leaf_hub_name = '$hub'",
-            "description": null,
-            "error": null,
             "hide": 2,
             "includeAll": false,
-            "label": null,
             "multi": false,
             "name": "hubConsoleURL",
             "options": [],
@@ -777,7 +829,6 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": true,
               "text": [
@@ -787,10 +838,11 @@ data:
                 "$__all"
               ]
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance\n  WHERE\n  $__timeFilter(compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
-            "description": null,
-            "error": null,
             "hide": 0,
             "includeAll": true,
             "label": "Cluster",
@@ -814,7 +866,8 @@ data:
       "timezone": "utc",
       "title": "Global Hub - What's Changed / Policies",
       "uid": "5a3a577af7894943aa6e7ca8408502fa",
-      "version": 1
+      "version": 1,
+      "weekStart": ""
     }
 kind: ConfigMap
 metadata:
