@@ -28,20 +28,20 @@ func TestClusterPerPolicyStatusBundle(t *testing.T) {
 
 	bundle.UpdateObject(policy) // add obj to bundle
 	version = bundle.GetBundleVersion()
-	assert.Equal(t, "0.1", version.String())
+	assert.Equal(t, "0.2", version.String())
 
 	bundle.DeleteObject(policy) // remove obj by namespacedName from bundle
 	version = bundle.GetBundleVersion()
-	assert.Equal(t, "0.2", version.String())
+	assert.Equal(t, "0.3", version.String())
 
 	policy.UID = "1234"
 	bundle.UpdateObject(policy) // add obj to bundle
 	version = bundle.GetBundleVersion()
-	assert.Equal(t, "0.3", version.String())
+	assert.Equal(t, "0.4", version.String())
 
 	bundle.DeleteObject(policy) // remove obj by uid from bundle
 	version = bundle.GetBundleVersion()
-	assert.Equal(t, "0.4", version.String())
+	assert.Equal(t, "0.5", version.String())
 }
 
 func TestCompleteComplianceStatusBundle(t *testing.T) {
