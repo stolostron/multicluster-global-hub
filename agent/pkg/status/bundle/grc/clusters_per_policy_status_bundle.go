@@ -150,18 +150,23 @@ func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyID strin
 
 // returns true if cluster list has changed, otherwise returns false (even if cluster statuses changed).
 func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, policy *policiesv1.Policy) bool {
-	newCompliantClusters, newNonCompliantClusters, newUnknownClusters, newClusters := bundle.getClusterStatuses(policy)
+	newCompliantClusters, newNonCompliantClusters, newUnknownClusters, _ := bundle.getClusterStatuses(policy)
 	oldPolicyStatus := bundle.Objects[objectIndex]
-	clusterListChanged := false
+	// clusterListChanged := false
 
-	// check if any cluster was added or removed
-	if len(oldPolicyStatus.CompliantClusters)+len(oldPolicyStatus.NonCompliantClusters)+
-		len(oldPolicyStatus.UnknownComplianceClusters) != len(newClusters) ||
-		!bundle.clusterListContains(oldPolicyStatus.CompliantClusters, newClusters) ||
-		!bundle.clusterListContains(oldPolicyStatus.NonCompliantClusters, newClusters) ||
-		!bundle.clusterListContains(oldPolicyStatus.UnknownComplianceClusters, newClusters) {
-		clusterListChanged = true // at least one cluster was added/removed
-	}
+	// // check if any cluster was added or removed
+	// if len(oldPolicyStatus.CompliantClusters)+len(oldPolicyStatus.NonCompliantClusters)+
+	// 	len(oldPolicyStatus.UnknownComplianceClusters) != len(newClusters) ||
+	// 	!bundle.clusterListContains(oldPolicyStatus.CompliantClusters, newClusters) ||
+	// 	!bundle.clusterListContains(oldPolicyStatus.NonCompliantClusters, newClusters) ||
+	// 	!bundle.clusterListContains(oldPolicyStatus.UnknownComplianceClusters, newClusters) {
+	// 	clusterListChanged = true // at least one cluster was added/removed
+	// }
+
+	// To simplify the logic, we will always update the internal bundle in case cluster list has changed.
+	// Also we will update the internal bundle in case cluster statuses changed(CompleteComplianceBundle)
+	// Reference: https://github.com/stolostron/multicluster-global-hub/issues/596
+	clusterListChanged := true
 
 	// in any case we want to update the internal bundle in case statuses changed
 	oldPolicyStatus.CompliantClusters = newCompliantClusters
@@ -171,15 +176,15 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, po
 	return clusterListChanged
 }
 
-func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
-	for _, clusterName := range subsetClusters {
-		if !agentbundle.ContainsString(allClusters, clusterName) {
-			return false
-		}
-	}
+// func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
+// 	for _, clusterName := range subsetClusters {
+// 		if !agentbundle.ContainsString(allClusters, clusterName) {
+// 			return false
+// 		}
+// 	}
 
-	return true
-}
+// 	return true
+// }
 
 func (bundle *ClustersPerPolicyBundle) getObjectIndexByObj(obj agentbundle.Object) (int, error) {
 	uid, _ := bundle.extractObjIDFunc(obj)

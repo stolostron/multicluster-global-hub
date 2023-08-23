@@ -116,7 +116,8 @@ func (bundle *ComplianceStatusBundle) getObjectIndexByUID(uid string) (int, erro
 func (bundle *ComplianceStatusBundle) getPolicyComplianceStatus(originPolicyID string,
 	policy *policiesv1.Policy,
 ) *statusbundle.PolicyCompleteComplianceStatus {
-	nonCompliantClusters, unknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
+	nonCompliantClusters, unknownComplianceClusters :=
+		bundle.getNonCompliantAndUnknownClusters(policy)
 
 	return &statusbundle.PolicyCompleteComplianceStatus{
 		PolicyID:                  originPolicyID,
@@ -151,7 +152,8 @@ func (bundle *ComplianceStatusBundle) getNonCompliantAndUnknownClusters(policy *
 // if a cluster was removed, object is not considered as changed.
 func (bundle *ComplianceStatusBundle) updateBundleIfObjectChanged(objectIndex int, policy *policiesv1.Policy) bool {
 	oldPolicyComplianceStatus := bundle.Objects[objectIndex]
-	newNonCompliantClusters, newUnknownComplianceClusters := bundle.getNonCompliantAndUnknownClusters(policy)
+	newNonCompliantClusters, newUnknownComplianceClusters :=
+		bundle.getNonCompliantAndUnknownClusters(policy)
 
 	if !bundle.clusterListsEqual(oldPolicyComplianceStatus.NonCompliantClusters, newNonCompliantClusters) ||
 		!bundle.clusterListsEqual(oldPolicyComplianceStatus.UnknownComplianceClusters, newUnknownComplianceClusters) {
