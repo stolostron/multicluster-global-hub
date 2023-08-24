@@ -43,20 +43,6 @@ spec:
               resources:
                 requests:
                   storage: 1Gi
-  proxy:
-    pgBouncer:
-      image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:ubi8-1.17-1
-      replicas: 3
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 1
-              podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-                labelSelector:
-                  matchLabels:
-                    postgres-operator.crunchydata.com/cluster: hoh
-                    postgres-operator.crunchydata.com/role: pgbouncer
 ---
 # The configMap is used to set/unset HA configuration
 # To set HA:
