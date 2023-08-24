@@ -15,7 +15,6 @@ package hubofhubs_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -102,7 +101,6 @@ var _ = BeforeSuite(func() {
 
 	// create test postgres
 	testPostgres, err = testpostgres.NewTestPostgres()
-	fmt.Println(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
 	// add scheme
