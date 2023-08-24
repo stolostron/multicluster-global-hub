@@ -15,6 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
 	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -80,7 +81,7 @@ func createBundleCollection(pro transport.Producer, leafHubName string, agentCon
 	// no need to send in the same cycle both clusters per policy and compliance. if CpP was sent, don't send compliance
 	return []*generic.BundleCollectionEntry{ // multiple bundles for policy status
 		generic.NewBundleCollectionEntry(clustersPerPolicyTransportKey, clustersPerPolicyBundle, fullStatusPredicate),
-		// hybridSyncManager.GetBundleCollectionEntry(genericbundle.CompleteStateMode),
+		hybridSyncManager.GetBundleCollectionEntry(genericbundle.CompleteStateMode),
 		// hybridSyncManager.GetBundleCollectionEntry(genericbundle.DeltaStateMode),
 		generic.NewBundleCollectionEntry(minimalComplianceStatusTransportKey, minimalComplianceStatusBundle,
 			minimalStatusPredicate),

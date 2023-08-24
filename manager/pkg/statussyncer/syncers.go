@@ -36,8 +36,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
 	// manage all Conflation Units
-	conflationManager := conflator.NewConflationManager(conflationReadyQueue,
-		requireInitialDependencyChecks(managerConfig.TransportConfig.TransportType), stats)
+	conflationManager := conflator.NewConflationManager(conflationReadyQueue, stats)
 
 	// database layer initialization - worker pool + connection pool
 	dbWorkerPool, err := workerpool.NewDBWorkerPool(managerConfig.DatabaseConfig, stats)
@@ -134,32 +133,14 @@ func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.Confl
 	}
 }
 
-// function to determine whether the transport component requires initial-dependencies between bundles to be checked
-// (on load). If the returned is false, then we may assume that dependency of the initial bundle of
-// each type is met. Otherwise, there are no guarantees and the dependencies must be checked.
-func requireInitialDependencyChecks(transportType string) bool {
-	switch transportType {
-	case string(transport.Kafka):
-		return false
-		// once kafka consumer loads up, it starts reading from the earliest un-processed bundle,
-		// as in all bundles that precede the latter have been processed, which include its dependency
-		// bundle.
-
-		// the order guarantee also guarantees that if while loading this component, a new bundle is written to a-
-		// partition, then surely its dependency was written before it (leaf-hub-status-sync on kafka guarantees).
-	default:
-		return true
-	}
-}
-
 // only statistic the local policy and managed clusters
 func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (*statistics.Statistics, error) {
 	// create statistics
 	stats := statistics.NewStatistics(managerConfig.StatisticsConfig,
 		[]string{
 			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
-			// helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
-			// helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
+			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
+			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
 			// helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
 			// helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
 			// helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),

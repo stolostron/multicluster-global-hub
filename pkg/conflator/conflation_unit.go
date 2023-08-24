@@ -34,8 +34,7 @@ type ResultReporter interface {
 }
 
 func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
-	registrations []*ConflationRegistration, requireInitialDependencyChecks bool,
-	statistics *statistics.Statistics,
+	registrations []*ConflationRegistration, statistics *statistics.Statistics,
 ) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]ConflationPriority)
@@ -58,27 +57,27 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 	}
 
 	return &ConflationUnit{
-		log:                            log,
-		priorityQueue:                  priorityQueue,
-		bundleTypeToPriority:           bundleTypeToPriority,
-		readyQueue:                     readyQueue,
-		requireInitialDependencyChecks: requireInitialDependencyChecks,
-		isInReadyQueue:                 false,
-		lock:                           sync.Mutex{},
-		statistics:                     statistics,
+		log:                  log,
+		priorityQueue:        priorityQueue,
+		bundleTypeToPriority: bundleTypeToPriority,
+		readyQueue:           readyQueue,
+		// requireInitialDependencyChecks: requireInitialDependencyChecks,
+		isInReadyQueue: false,
+		lock:           sync.Mutex{},
+		statistics:     statistics,
 	}
 }
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
-	log                            logr.Logger
-	priorityQueue                  []*conflationElement
-	bundleTypeToPriority           map[string]ConflationPriority
-	readyQueue                     *ConflationReadyQueue
-	requireInitialDependencyChecks bool
-	isInReadyQueue                 bool
-	lock                           sync.Mutex
-	statistics                     *statistics.Statistics
+	log                  logr.Logger
+	priorityQueue        []*conflationElement
+	bundleTypeToPriority map[string]ConflationPriority
+	readyQueue           *ConflationReadyQueue
+	// requireInitialDependencyChecks bool
+	isInReadyQueue bool
+	lock           sync.Mutex
+	statistics     *statistics.Statistics
 }
 
 // insert is an internal function, new bundles are inserted only via conflation manager.
@@ -232,6 +231,8 @@ func (cu *ConflationUnit) isCurrentOrAnyDependencyInProcess(conflationElement *c
 }
 
 // dependencies are organized in a chain.
+// if a bundle has a dependency, it will be processed only after its dependency was processed(using bundle value)
+// else if a bundle has no dependency, it will be processed immediately.
 func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) bool {
 	if conflationElement.dependency == nil {
 		return true // bundle in this conflation element has no dependency
@@ -250,20 +251,22 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
 	dependencyLastProcessedVersion := cu.priorityQueue[dependencyIndex].lastProcessedBundleVersion
 
-	if !cu.requireInitialDependencyChecks &&
-		dependencyLastProcessedVersion.Equals(statusbundle.NewBundleVersion()) {
-		return true // transport does not require initial dependency check
-	}
+	// comment: always check the dependency
+	// if !cu.requireInitialDependencyChecks &&
+	// 	dependencyLastProcessedVersion.Equals(statusbundle.NewBundleVersion()) {
+	// 	return true // transport does not require initial dependency check
+	// }
 
 	switch conflationElement.dependency.DependencyType {
 	case dependency.ExactMatch:
-		return dependantBundle.GetDependencyVersion().Equals(dependencyLastProcessedVersion)
+		return dependantBundle.GetDependencyVersion().EqualValue(dependencyLastProcessedVersion)
 
 	case dependency.AtLeast:
 		fallthrough // default case is AtLeast
 
 	default:
-		return !dependantBundle.GetDependencyVersion().NewerThan(dependencyLastProcessedVersion)
+		// return !dependantBundle.GetDependencyVersion().NewerThan(dependencyLastProcessedVersion)
+		return !dependantBundle.GetDependencyVersion().NewerValueThan(dependencyLastProcessedVersion)
 	}
 }
 
@@ -282,3 +285,21 @@ func (cu *ConflationUnit) getBundlesMetadata() []bundle.BundleMetadata {
 
 	return bundlesMetadata
 }
+
+// // function to determine whether the transport component requires initial-dependencies between bundles to be checked
+// // (on load). If the returned is false, then we may assume that dependency of the initial bundle of
+// // each type is met. Otherwise, there are no guarantees and the dependencies must be checked.
+// func requireInitialDependencyChecks(transportType string) bool {
+// 	switch transportType {
+// 	case string(transport.Kafka):
+// 		return false
+// 		// once kafka consumer loads up, it starts reading from the earliest un-processed bundle,
+// 		// as in all bundles that precede the latter have been processed, which include its dependency
+// 		// bundle.
+
+// 		// the order guarantee also guarantees that if while loading this component, a new bundle is written to a-
+// 		// partition, then surely its dependency was written before it (leaf-hub-status-sync on kafka guarantees).
+// 	default:
+// 		return true
+// 	}
+// }
