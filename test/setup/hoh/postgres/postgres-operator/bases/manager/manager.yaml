@@ -10,7 +10,7 @@ spec:
     spec:
       containers:
       - name: operator
-        image: registry.connect.redhat.com/crunchydata/postgres-operator@sha256:707a7718017ee5f195e269c66275d731aa2412bc5115731c82b710dfb640037a       
+        image: registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0
         env:
         - name: CRUNCHY_DEBUG
           value: "true"
