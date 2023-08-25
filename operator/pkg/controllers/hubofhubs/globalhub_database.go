@@ -8,13 +8,9 @@ import (
 	"net/url"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
@@ -41,19 +37,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		}
 	}
 
-	// since cache the namespace secret, so we can retrieve it from controller runtime client
-	log.Info("database initializing with storage secret", "namespace", mgh.Namespace, "name",
-		operatorconstants.GHStorageSecretName)
-	postgresSecret := &corev1.Secret{}
-	if err := r.Client.Get(ctx, client.ObjectKey{
-		Namespace: mgh.Namespace,
-		Name:      operatorconstants.GHStorageSecretName,
-	}, postgresSecret); err != nil {
-		return err
-	}
-
-	conn, err := database.PostgresConnection(ctx, string(postgresSecret.Data["database_uri"]),
-		postgresSecret.Data["ca.crt"])
+	conn, err := database.PostgresConnection(ctx, r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI,
+		r.MiddlewareConfig.PgConnection.CACert)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -64,7 +49,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	}()
 
 	username := ""
-	objURI, err := url.Parse(string(postgresSecret.Data["database_uri_with_readonlyuser"]))
+	objURI, err := url.Parse(r.MiddlewareConfig.PgConnection.ReadonlyUserDatabaseURI)
 	if err != nil {
 		log.Error(err, "failed to parse database_uri_with_readonlyuser")
 	} else {

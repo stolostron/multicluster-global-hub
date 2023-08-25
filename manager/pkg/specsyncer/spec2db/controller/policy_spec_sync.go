@@ -8,7 +8,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	"open-cluster-management.io/governance-policy-propagator/controllers/common"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -63,5 +62,21 @@ func arePoliciesEqual(instance1, instance2 client.Object) bool {
 
 	labelsMatch := equality.Semantic.DeepEqual(instance1.GetLabels(), instance2.GetLabels())
 
-	return common.CompareSpecAndAnnotation(policy1WithoutTemplates, policy2WithoutTemplates) && labelsMatch
+	return equivalentReplicatedPolicies(policy1WithoutTemplates, policy2WithoutTemplates) && labelsMatch
+}
+
+// equivalentReplicatedPolicies compares replicated policies. Returns true if they match.
+func equivalentReplicatedPolicies(plc1 *policyv1.Policy, plc2 *policyv1.Policy) bool {
+	// Compare annotations
+	if !equality.Semantic.DeepEqual(plc1.GetAnnotations(), plc2.GetAnnotations()) {
+		return false
+	}
+
+	// Compare labels
+	if !equality.Semantic.DeepEqual(plc1.GetLabels(), plc2.GetLabels()) {
+		return false
+	}
+
+	// Compare the specs
+	return equality.Semantic.DeepEqual(plc1.Spec, plc2.Spec)
 }

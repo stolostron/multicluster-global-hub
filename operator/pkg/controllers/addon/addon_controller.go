@@ -39,15 +39,16 @@ import (
 // +kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
 type HoHAddonController struct {
-	kubeConfig     *rest.Config
-	client         client.Client
-	leaderElection *commonobjects.LeaderElectionConfig
-	log            logr.Logger
-	addonManager   addonmanager.AddonManager
+	kubeConfig       *rest.Config
+	client           client.Client
+	leaderElection   *commonobjects.LeaderElectionConfig
+	log              logr.Logger
+	addonManager     addonmanager.AddonManager
+	MiddlewareConfig *operatorconstants.MiddlewareConfig
 }
 
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
-	leaderElection *commonobjects.LeaderElectionConfig,
+	leaderElection *commonobjects.LeaderElectionConfig, middlewareCfg *operatorconstants.MiddlewareConfig,
 ) (*HoHAddonController, error) {
 	log := ctrl.Log.WithName("addon-controller")
 	addonMgr, err := addonmanager.New(kubeConfig)
@@ -56,11 +57,12 @@ func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 		return nil, err
 	}
 	return &HoHAddonController{
-		kubeConfig:     kubeConfig,
-		client:         client,
-		leaderElection: leaderElection,
-		log:            log,
-		addonManager:   addonMgr,
+		kubeConfig:       kubeConfig,
+		client:           client,
+		leaderElection:   leaderElection,
+		log:              log,
+		addonManager:     addonMgr,
+		MiddlewareConfig: middlewareCfg,
 	}, nil
 }
 
@@ -95,6 +97,7 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		dynamicClient:        dynamicClient,
 		leaderElectionConfig: a.leaderElection,
 		log:                  a.log.WithName("values"),
+		MiddlewareConfig:     a.MiddlewareConfig,
 	}
 
 	agentAddon, err := addonfactory.NewAgentAddonFactory(

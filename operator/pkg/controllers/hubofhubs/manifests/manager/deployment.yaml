@@ -53,10 +53,7 @@ spec:
                   fieldPath: metadata.namespace
             - name: WATCH_NAMESPACE
             - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{.DBSecret}}
-                  key: database_uri
+              value: {{.DatabaseURL}}
           ports:
           - containerPort: 9443
             name: webhook-server
@@ -151,7 +148,7 @@ spec:
           secretName: kafka-certs-secret
       - name: postgres-ca
         secret:
-          secretName: {{.DBSecret}}
+          secretName: postgres-certs-secret
       - name: webhook-certs
         secret:
           secretName: multicluster-global-hub-webhook-certs

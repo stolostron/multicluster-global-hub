@@ -281,6 +281,17 @@ rules:
   - update
   - watch
 - apiGroups:
+  - kafka.strimzi.io
+  resources:
+  - kafkas
+  - kafkatopics
+  - kafkausers
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
   - monitoring.coreos.com
   resources:
   - servicemonitors
@@ -328,6 +339,17 @@ rules:
   - update
   - watch
 - apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - packages.operators.coreos.com
   resources:
   - packagemanifests
@@ -353,6 +375,15 @@ rules:
   - list
   - patch
   - update
+- apiGroups:
+  - postgres-operator.crunchydata.com
+  resources:
+  - postgresclusters
+  verbs:
+  - create
+  - get
+  - list
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

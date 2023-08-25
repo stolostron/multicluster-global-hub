@@ -358,7 +358,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ImagePullPolicy        string
 					ImagePullSecret        string
 					ProxySessionSecret     string
-					DBSecret               string
+					DatabaseURL            string
+					PostgresCACert         string
 					KafkaCACert            string
 					KafkaClientCert        string
 					KafkaClientKey         string
@@ -382,7 +383,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ImagePullPolicy:        string(imagePullPolicy),
 					ImagePullSecret:        mgh.Spec.ImagePullSecret,
 					ProxySessionSecret:     "testing",
-					DBSecret:               operatorconstants.GHStorageSecretName,
+					DatabaseURL:            testPostgres.URI,
+					PostgresCACert:         base64.StdEncoding.EncodeToString([]byte("")),
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
 					KafkaClientCert:        base64.RawStdEncoding.EncodeToString([]byte(kafkaClientCert)),
 					KafkaClientKey:         base64.RawStdEncoding.EncodeToString([]byte(KafkaClientKey)),
@@ -597,10 +599,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By checking the kafkaBootstrapServer")
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
-			server, _, _, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH.Namespace,
-				operatorconstants.GHTransportSecretName)
+			kafkaConnection, err := mghReconciler.GenerateKafkaConnectionFromGHStorageSecret(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(server).To(Equal(kafkaBootstrapServer))
+			Expect(kafkaConnection.BootstrapServer).To(Equal(kafkaBootstrapServer))
 
 			By("By checking the kafka secret is deleted")
 			Expect(k8sClient.Delete(ctx, &corev1.Secret{
@@ -609,8 +610,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Namespace: config.GetDefaultNamespace(),
 				},
 			})).Should(Succeed())
-			_, _, _, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH.Namespace,
-				operatorconstants.GHTransportSecretName)
+			_, err = mghReconciler.GenerateKafkaConnectionFromGHStorageSecret(ctx)
 			Expect(err).To(HaveOccurred())
 		})
 

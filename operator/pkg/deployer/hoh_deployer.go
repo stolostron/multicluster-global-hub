@@ -15,6 +15,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Deployer is the interface for the kubernetes resource deployer
+type Deployer interface {
+	Deploy(unsObj *unstructured.Unstructured) error
+}
+
 type deployFunc func(*unstructured.Unstructured, *unstructured.Unstructured) error
 
 // HoHDeployer is an implementation of Deployer interface
