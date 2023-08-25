@@ -2,7 +2,6 @@ package event
 
 import (
 	"context"
-	"flag"
 	"os"
 
 	"github.com/go-logr/logr"
@@ -79,8 +78,7 @@ func (e *eventExporter) Start(ctx context.Context) error {
 	validateEventConfig(&cfg, e.log)
 	e.log.Info("starting event exporter", "config", cfg)
 
-	metrics.Init(*flag.String("metrics-address", ":2112",
-		"The address to listen on for HTTP requests."))
+	// metrics.Init(*flag.String("metrics-address", ":2112", "The address to listen on for HTTP requests."))
 	metricsStore := metrics.NewMetricsStore(cfg.MetricsNamePrefix)
 
 	if cfg.LogLevel != "" {
