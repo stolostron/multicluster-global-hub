@@ -63,7 +63,7 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object agentbundle.Object) {
 	}
 	// if we reached here, policy already exists in the bundle with at least one non compliant or unknown cluster.
 	if !bundle.updateBundleIfObjectChanged(index, policy) {
-		return // true if changed, otherwise false. if policy compliance didn't change don't increment generation.
+		return // true if changed, otherwise false. if policy compliance didn't change don't increment version value.
 	}
 
 	// don't send in the bundle a policy where all clusters are compliant
@@ -71,7 +71,7 @@ func (bundle *ComplianceStatusBundle) UpdateObject(object agentbundle.Object) {
 		bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
 	}
 
-	// increase bundle generation in the case where cluster lists were changed
+	// increase bundle version value in the case where cluster lists were changed
 	bundle.BundleVersion.Incr()
 }
 

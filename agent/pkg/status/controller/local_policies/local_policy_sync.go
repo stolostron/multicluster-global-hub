@@ -53,11 +53,11 @@ func createBundleCollection(leafHubName string,
 		constants.LocalClustersPerPolicyMsgKey)
 	localClustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, extractLocalPolicyIDFunc)
 
-	// // compliance status bundle
-	// localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-	// 	constants.LocalPolicyCompleteComplianceMsgKey)
-	// localCompleteComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName,
-	// 	localClustersPerPolicyBundle, extractLocalPolicyIDFunc)
+	// compliance status bundle
+	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		constants.LocalPolicyCompleteComplianceMsgKey)
+	localCompleteComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName,
+		localClustersPerPolicyBundle, extractLocalPolicyIDFunc)
 
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPolicySpecMsgKey)
 	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, cleanPolicy)
@@ -71,8 +71,8 @@ func createBundleCollection(leafHubName string,
 	return []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
 			localClustersPerPolicyBundle, localPolicyStatusPredicate),
-		// generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
-		// 	localCompleteComplianceStatusBundle, localPolicyStatusPredicate),
+		generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
+			localCompleteComplianceStatusBundle, localPolicyStatusPredicate),
 		generic.NewBundleCollectionEntry(localPolicySpecTransportKey, localPolicySpecBundle,
 			func() bool { return hubOfHubsConfig.Data["enableLocalPolicies"] == "true" }),
 	}

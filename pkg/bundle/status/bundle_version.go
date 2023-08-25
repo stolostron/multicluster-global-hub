@@ -40,6 +40,20 @@ func (this *BundleVersion) Equals(other *BundleVersion) bool {
 	return this.Generation == other.Generation && this.Value == other.Value
 }
 
+// Equals returns whether the bundles are updated with the same value.
+func (this *BundleVersion) EqualValue(other *BundleVersion) bool {
+	return this.Value == other.Value
+}
+
+// NewerValueThan returns whether the caller's value is newer than that received as argument.
+// If other = nil the result is true.
+func (this *BundleVersion) NewerValueThan(other *BundleVersion) bool {
+	if other == nil {
+		return true
+	}
+	return this.Value > other.Value
+}
+
 // String returns string representation of the bundle version.
 func (this *BundleVersion) String() string {
 	return fmt.Sprintf("%d.%d", this.Generation, this.Value)
@@ -53,7 +67,6 @@ func (this *BundleVersion) Incr() {
 // Next increments the Generation and resets the Value when bundle is sended to the hub.
 func (this *BundleVersion) Next() {
 	this.Generation++
-	this.Value = 0
 }
 
 // Reset resets the bundle version with minimal Generation and Value.

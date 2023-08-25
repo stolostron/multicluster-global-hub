@@ -184,7 +184,7 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		stats := statistics.NewStatistics(&statistics.StatisticsConfig{}, []string{"ManagedClustersStatusBundle"})
 		conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
 		conflationManager := conflator.NewConflationManager(
-			conflationReadyQueue, false, stats) // manage all Conflation Units
+			conflationReadyQueue, stats) // manage all Conflation Units
 		conflationManager.Register(conflator.NewConflationRegistration(
 			conflator.ManagedClustersPriority,
 			bundle.CompleteStateMode,
