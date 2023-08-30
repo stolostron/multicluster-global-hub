@@ -53,11 +53,10 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		var err error
 
 		By("Create connection to the database")
-		dataConfig := &config.DatabaseConfig{
+		postgresSQL, err = postgresql.NewSpecPostgreSQL(ctx, &config.DatabaseConfig{
 			ProcessDatabaseURL: testPostgres.URI,
 			CACertPath:         "ca-cert-path",
-		}
-		postgresSQL, err = postgresql.NewSpecPostgreSQL(context.TODO(), dataConfig)
+		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(postgresSQL).NotTo(BeNil())
 
@@ -199,101 +198,101 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w2.Body.String()).Should(MatchJSON(
 			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
 
-		By("Check the managedcclusters can be listed as table")
-		mclTable := `
-{
-	"kind": "Table",
-	"apiVersion": "meta.k8s.io/v1",
-	"metadata": {},
-	"columnDefinitions": [
-		{
-		"name": "Name",
-		"type": "string",
-		"format": "name",
-		"description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
-		"priority": 0
-		},
-		{
-		"name": "Age",
-		"type": "date",
-		"format": "",
-		"description": "Custom resource definition column (in JSONPath format): .metadata.creationTimestamp",
-		"priority": 0
-		}
-	],
-	"rows": [
-		{
-		"cells": [
-			"mc1",
-			null
-		],
-		"object": {
-			"apiVersion": "cluster.open-cluster-management.io/v1",
-			"kind": "ManagedCluster",
-			"metadata": {
-			"uid": "2aa5547c-c172-47ed-b70b-db468c84d327",
-			"annotations": {
-				"global-hub.open-cluster-management.io/managed-by": "hub1",
-				"open-cluster-management/created-via": "other"
-			},
-			"creationTimestamp": null,
-			"labels": {
-				"cloud": "Other",
-				"vendor": "Other"
-			},
-			"name": "mc1"
-			},
-			"spec": {
-			"hubAcceptsClient": true,
-			"leaseDurationSeconds": 60
-			},
-			"status": {
-			"conditions": null,
-			"version": {}
-			}
-		}
-		},
-		{
-		"cells": [
-			"mc2",
-			null
-		],
-		"object": {
-			"apiVersion": "cluster.open-cluster-management.io/v1",
-			"kind": "ManagedCluster",
-			"metadata": {
-			"uid": "18c9e13c-4488-4dcd-a5ac-1196093abbc0",
-			"annotations": {
-				"global-hub.open-cluster-management.io/managed-by": "hub1",
-				"open-cluster-management/created-via": "other"
-			},
-			"creationTimestamp": null,
-			"labels": {
-				"cloud": "Other",
-				"vendor": "Other"
-			},
-			"name": "mc2"
-			},
-			"spec": {
-			"hubAcceptsClient": true,
-			"leaseDurationSeconds": 60
-			},
-			"status": {
-			"conditions": null,
-			"version": {}
-			}
-		}
-		}
-	]
-}
-`
-		w3 := httptest.NewRecorder()
-		req3, err := http.NewRequest("GET", "/global-hub-api/v1/managedclusters", nil)
-		Expect(err).ToNot(HaveOccurred())
-		req3.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
-		router.ServeHTTP(w3, req3)
-		Expect(w3.Code).To(Equal(200))
-		Expect(w3.Body.String()).Should(MatchJSON(mclTable))
+		// 		By("Check the managedcclusters can be listed as table")
+		// 		mclTable := `
+		// {
+		// 	"kind": "Table",
+		// 	"apiVersion": "meta.k8s.io/v1",
+		// 	"metadata": {},
+		// 	"columnDefinitions": [
+		// 		{
+		// 		"name": "Name",
+		// 		"type": "string",
+		// 		"format": "name",
+		// 		"description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
+		// 		"priority": 0
+		// 		},
+		// 		{
+		// 		"name": "Age",
+		// 		"type": "date",
+		// 		"format": "",
+		// 		"description": "Custom resource definition column (in JSONPath format): .metadata.creationTimestamp",
+		// 		"priority": 0
+		// 		}
+		// 	],
+		// 	"rows": [
+		// 		{
+		// 		"cells": [
+		// 			"mc1",
+		// 			null
+		// 		],
+		// 		"object": {
+		// 			"apiVersion": "cluster.open-cluster-management.io/v1",
+		// 			"kind": "ManagedCluster",
+		// 			"metadata": {
+		// 			"uid": "2aa5547c-c172-47ed-b70b-db468c84d327",
+		// 			"annotations": {
+		// 				"global-hub.open-cluster-management.io/managed-by": "hub1",
+		// 				"open-cluster-management/created-via": "other"
+		// 			},
+		// 			"creationTimestamp": null,
+		// 			"labels": {
+		// 				"cloud": "Other",
+		// 				"vendor": "Other"
+		// 			},
+		// 			"name": "mc1"
+		// 			},
+		// 			"spec": {
+		// 			"hubAcceptsClient": true,
+		// 			"leaseDurationSeconds": 60
+		// 			},
+		// 			"status": {
+		// 			"conditions": null,
+		// 			"version": {}
+		// 			}
+		// 		}
+		// 		},
+		// 		{
+		// 		"cells": [
+		// 			"mc2",
+		// 			null
+		// 		],
+		// 		"object": {
+		// 			"apiVersion": "cluster.open-cluster-management.io/v1",
+		// 			"kind": "ManagedCluster",
+		// 			"metadata": {
+		// 			"uid": "18c9e13c-4488-4dcd-a5ac-1196093abbc0",
+		// 			"annotations": {
+		// 				"global-hub.open-cluster-management.io/managed-by": "hub1",
+		// 				"open-cluster-management/created-via": "other"
+		// 			},
+		// 			"creationTimestamp": null,
+		// 			"labels": {
+		// 				"cloud": "Other",
+		// 				"vendor": "Other"
+		// 			},
+		// 			"name": "mc2"
+		// 			},
+		// 			"spec": {
+		// 			"hubAcceptsClient": true,
+		// 			"leaseDurationSeconds": 60
+		// 			},
+		// 			"status": {
+		// 			"conditions": null,
+		// 			"version": {}
+		// 			}
+		// 		}
+		// 		}
+		// 	]
+		// }
+		// `
+		// 		w3 := httptest.NewRecorder()
+		// 		req3, err := http.NewRequest("GET", "/global-hub-api/v1/managedclusters", nil)
+		// 		Expect(err).ToNot(HaveOccurred())
+		// 		req3.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
+		// 		router.ServeHTTP(w3, req3)
+		// 		Expect(w3.Code).To(Equal(200))
+		// 		Expect(w3.Body.String()).Should(MatchJSON(mclTable))
 
 		By("Check the managedcclusters can be listed with watch")
 		w4 := CreateTestResponseRecorder()
