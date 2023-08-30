@@ -66,7 +66,7 @@ data:
                 {
                   "targetBlank": true,
                   "title": "View offending clusters for policy  \"${policy}\" on hub cluster \"${hub}\"",
-                  "url": "${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results"
+                  "url": "${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results?perspective=acm"
                 }
               ],
               "mappings": [],
@@ -225,7 +225,7 @@ data:
                 {
                   "targetBlank": true,
                   "title": "View all clusters for policy  \"${policy}\" on hub cluster \"${hub}\"",
-                  "url": "View offending clusters for policy  \"${policy}\" on hub cluster \"${hub}\"\n${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results\n"
+                  "url": "View offending clusters for policy  \"${policy}\" on hub cluster \"${hub}\"\n${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results?perspective=acm\n"
                 }
               ],
               "mappings": [],
@@ -308,7 +308,7 @@ data:
                 {
                   "targetBlank": true,
                   "title": "View all clusters for policy  \"${policy}\" on hub cluster \"${hub}\"",
-                  "url": "${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results\n"
+                  "url": "${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results?perspective=acm\n"
                 }
               ],
               "mappings": [],
@@ -460,7 +460,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View offending clusters for policy  \"${policy}\" on hub cluster \"${hub}\"",
-                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results"
+                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results?perspective=acm"
                       }
                     ]
                   }
