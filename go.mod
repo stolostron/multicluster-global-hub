@@ -255,5 +255,4 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.26.7
 	k8s.io/component-base => k8s.io/component-base v0.26.7
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230530175149-33f04d5d6b58
-	open-cluster-management.io/governance-policy-propagator => open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
 )
