@@ -49,6 +49,8 @@ type MulticlusterGlobalHub struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// +kubebuilder:default={dataLayer: {postgres: {retention: "18m"}, kafka: {transportFormat: cloudEvents}}}
+	// +kubebuilder:validation:Required
 	Spec   MulticlusterGlobalHubSpec   `json:"spec,omitempty"`
 	Status MulticlusterGlobalHubStatus `json:"status,omitempty"`
 }
@@ -67,16 +69,17 @@ type MulticlusterGlobalHubSpec struct {
 	// Tolerations causes all components to tolerate any taints.
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// DataLayer can be configured to use a different data layer, only support largeScale now.
-	// largeScale: large scale data layer served by kafka and postgres.
+	// DataLayer can be configured to use a different data layer.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:default={postgres: {retention: "18m"}, kafka: {transportFormat: cloudEvents}}
 	DataLayer DataLayerConfig `json:"dataLayer"`
 }
 
 // DataLayerConfig is a discriminated union of data layer specific configuration.
-// +union
 type DataLayerConfig struct {
-	Kafka    KafkaConfig    `json:"kafka,omitempty"`
+	// +kubebuilder:default={transportFormat: cloudEvents}
+	Kafka KafkaConfig `json:"kafka,omitempty"`
+	// +kubebuilder:default={retention: "18m"}
 	Postgres PostgresConfig `json:"postgres,omitempty"`
 }
 

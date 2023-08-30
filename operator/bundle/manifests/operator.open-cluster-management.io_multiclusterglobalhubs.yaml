@@ -36,14 +36,25 @@ spec:
           metadata:
             type: object
           spec:
+            default:
+              dataLayer:
+                kafka:
+                  transportFormat: cloudEvents
+                postgres:
+                  retention: 18m
             description: MulticlusterGlobalHubSpec defines the desired state of MulticlusterGlobalHub
             properties:
               dataLayer:
-                description: 'DataLayer can be configured to use a different data
-                  layer, only support largeScale now. largeScale: large scale data
-                  layer served by kafka and postgres.'
+                default:
+                  kafka:
+                    transportFormat: cloudEvents
+                  postgres:
+                    retention: 18m
+                description: DataLayer can be configured to use a different data layer.
                 properties:
                   kafka:
+                    default:
+                      transportFormat: cloudEvents
                     description: KafkaConfig defines the desired state of kafka
                     properties:
                       transportFormat:
@@ -56,6 +67,8 @@ spec:
                         type: string
                     type: object
                   postgres:
+                    default:
+                      retention: 18m
                     description: PostgresConfig defines the desired state of postgres
                     properties:
                       retention:
