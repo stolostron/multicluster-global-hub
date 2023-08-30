@@ -26,15 +26,15 @@ require (
 	github.com/onsi/gomega v1.27.10
 	github.com/openshift/api v0.0.0-20230228142948-d170fcdc0fa6
 	github.com/openshift/library-go v0.0.0-20220727134723-6802b30e83ba
-	github.com/operator-framework/api v0.17.3
+	github.com/operator-framework/api v0.17.7-0.20230626210316-aa3e49803e7b
 	github.com/operator-framework/operator-lifecycle-manager v0.22.0
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.58.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.63.0
 	github.com/resmoio/kubernetes-event-exporter v0.0.0-20230804164846-bbcbeeb38571
 	github.com/rs/zerolog v1.28.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20230222063645-5b18b26381ff
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4
-	github.com/stolostron/multiclusterhub-operator v0.0.0-20230822204406-b5a79d20e641
+	github.com/stolostron/multiclusterhub-operator v0.0.0-20230829141355-4ad378ab367f
 	github.com/stretchr/testify v1.8.3
 	go.uber.org/zap v1.25.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -46,7 +46,7 @@ require (
 	k8s.io/apimachinery v0.27.2
 	k8s.io/client-go v0.27.2
 	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.26.0
+	k8s.io/kube-aggregator v0.26.2
 	open-cluster-management.io/addon-framework v0.7.1-0.20230814013922-f2fcbdd7e05f
 	open-cluster-management.io/api v0.11.1-0.20230731134013-26e75df27f50
 	open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
@@ -92,7 +92,7 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v2.0.8+incompatible // indirect
-	github.com/google/pprof v0.0.0-20230502171905-255e3b9b56de // indirect
+	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.1 // indirect
@@ -154,7 +154,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gorm.io/driver/mysql v1.4.7 // indirect
-	helm.sh/helm/v3 v3.11.1 // indirect
+	helm.sh/helm/v3 v3.11.2 // indirect
 	k8s.io/apiserver v0.27.2 // indirect
 	k8s.io/component-base v0.27.2 // indirect
 )
@@ -221,7 +221,7 @@ require (
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/sirupsen/logrus v1.9.2 // indirect
 	github.com/texttheater/golang-levenshtein v1.0.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/virtuald/go-ordered-json v0.0.0-20170621173500-b18e6e673d74 // indirect
