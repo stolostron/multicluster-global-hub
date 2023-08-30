@@ -48,7 +48,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 
 			server := m.GetWebhookServer()
 			server.Register("/mutating", &webhook.Admission{
-				Handler: &mgrwebhook.AdmissionHandler{Client: c},
+				Handler: mgrwebhook.NewAdmissionHandler(m.GetClient(), m.GetScheme()),
 			})
 
 			ctx, cancel = context.WithCancel(context.Background())

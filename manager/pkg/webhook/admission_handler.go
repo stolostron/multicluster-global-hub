@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,15 +18,22 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
+// NewAdmissionHandler is to handle the admission webhook for placementrule and placement
+func NewAdmissionHandler(c client.Client, s *runtime.Scheme) admission.Handler {
+	return &admissionHandler{
+		client:  c,
+		decoder: admission.NewDecoder(s),
+	}
+}
+
 var log = logf.Log.WithName("admission-handler")
 
-// AdmissionHandler is to handle the admission webhook for placementrule and placement
-type AdmissionHandler struct {
-	Client  client.Client
+type admissionHandler struct {
+	client  client.Client
 	decoder *admission.Decoder
 }
 
-func (a *AdmissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	log.Info("admission webhook is called", "name", req.Name, "namespace",
 		req.Namespace, "kind", req.Kind.Kind, "operation", req.Operation)
 
@@ -74,7 +82,7 @@ func (a *AdmissionHandler) Handle(ctx context.Context, req admission.Request) ad
 // A decoder will be automatically injected.
 
 // InjectDecoder injects the decoder.
-func (a *AdmissionHandler) InjectDecoder(d *admission.Decoder) error {
+func (a *admissionHandler) InjectDecoder(d *admission.Decoder) error {
 	a.decoder = d
 	return nil
 }

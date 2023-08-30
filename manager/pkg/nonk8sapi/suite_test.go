@@ -15,7 +15,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -39,13 +38,6 @@ var _ = BeforeSuite(func() {
 	var err error
 
 	testPostgres, err = testpostgres.NewTestPostgres()
-	Expect(err).NotTo(HaveOccurred())
-	err = database.InitGormInstance(&database.DatabaseConfig{
-		URL:        testPostgres.URI,
-		Dialect:    database.PostgresDialect,
-		CaCertPath: "test-ca-cert-path",
-		PoolSize:   2,
-	})
 	Expect(err).NotTo(HaveOccurred())
 	err = testpostgres.InitDatabase(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())

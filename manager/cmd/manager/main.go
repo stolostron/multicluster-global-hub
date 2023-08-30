@@ -267,7 +267,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	hookServer := mgr.GetWebhookServer()
 	setupLog.Info("registering webhooks to the webhook server")
 	hookServer.Register("/mutating", &webhook.Admission{
-		Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()},
+		Handler: mgrwebhook.NewAdmissionHandler(mgr.GetClient(), mgr.GetScheme()),
 	})
 
 	setupLog.Info("Starting the Manager")
