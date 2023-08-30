@@ -105,21 +105,27 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 
 			// if the row doesn't exist in db then add it.
 			if leafHub.LeafHubName == "" {
-				tx.Create(&models.LeafHub{
+				err = tx.Create(&models.LeafHub{
 					LeafHubName: leafHubName,
 					Payload:     payload,
-				})
+				}).Error
+				if err != nil {
+					return err
+				}
 				continue
 			}
 
-			tx.Model(&models.LeafHub{}).
+			err = tx.Model(&models.LeafHub{}).
 				Where(&models.LeafHub{
 					LeafHubName: leafHubName,
 				}).
 				Updates(models.LeafHub{
 					Payload:     payload,
 					LeafHubName: leafHubName,
-				})
+				}).Error
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil

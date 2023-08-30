@@ -96,7 +96,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 			if !ok {
 				continue
 			}
-			tx.Clauses(clause.OnConflict{
+			err := tx.Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 				DoNothing: true,
 			}).Create(&models.LocalClusterPolicyEvent{
@@ -112,7 +112,10 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 					CreatedAt:   policyStatusEvent.CreatedAt,
 				},
 				ClusterID: policyStatusEvent.ClusterID,
-			})
+			}).Error
+			if err != nil {
+				return err
+			}
 		}
 
 		// return nil will commit the whole transaction
