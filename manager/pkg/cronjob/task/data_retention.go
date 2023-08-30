@@ -17,10 +17,10 @@ import (
 
 var (
 	// The main tasks of this job are:
-	// 		1. create partition tables for days in the future, the partition table for the next month is created
-	//    2. delete partition tables that are no longer needed, the partition table for the previous 18 month is deleted
-	//    3. completely delete the soft deleted records from database after retainedMonths
-	retentionTaskName = "data-partition"
+	// 1. create partition tables for days in the future, the partition table for the next month is created
+	// 2. delete partition tables that are no longer needed, the partition table for the previous 18 month is deleted
+	// 3. completely delete the soft deleted records from database after retainedMonths
+	retentionTaskName = "data-retention"
 
 	// after the record is marked as deleted, retentionMonth is used to indicate how long it will be retained
 	// before it is completely deleted from database
@@ -40,7 +40,7 @@ var (
 		"event.local_root_policies",
 		"history.local_compliance",
 	}
-	partitionLog = ctrl.Log.WithName(retentionTaskName)
+	retentionLog = ctrl.Log.WithName(retentionTaskName)
 )
 
 func init() {
@@ -64,10 +64,10 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, retention time.Durat
 	for _, tableName := range partitionTables {
 		err = updatePartitionTables(tableName, creationPartitionTime, deletionPartitionTime)
 		if e := traceDataRetentionLog(tableName, currentTime, err, true); e != nil {
-			partitionLog.Error(e, "failed to trace data retention log")
+			retentionLog.Error(e, "failed to trace data retention log")
 		}
 		if err != nil {
-			partitionLog.Error(err, "failed to update partition tables")
+			retentionLog.Error(err, "failed to update partition tables")
 			return
 		}
 	}
@@ -76,15 +76,15 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, retention time.Durat
 	for _, tableName := range retentionTables {
 		err = deleteExpiredRecords(tableName, deletionPartitionTime)
 		if e := traceDataRetentionLog(tableName, currentTime, err, false); e != nil {
-			partitionLog.Error(e, "failed to trace data retention log")
+			retentionLog.Error(e, "failed to trace data retention log")
 		}
 		if err != nil {
-			partitionLog.Error(err, "failed to delete soft deleted records")
+			retentionLog.Error(err, "failed to delete soft deleted records")
 			return
 		}
 	}
 
-	partitionLog.Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
+	retentionLog.Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
 }
 
 func updatePartitionTables(tableName string, createTime, deleteTime time.Time) error {
@@ -100,7 +100,7 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 	if result := db.Exec(creationSql); result.Error != nil {
 		return fmt.Errorf("failed to create partition table %s: %w", tableName, result.Error)
 	}
-	partitionLog.Info("create partition table", "table", createPartitionTableName, "start", startTime.Format(dateFormat),
+	retentionLog.Info("create partition table", "table", createPartitionTableName, "start", startTime.Format(dateFormat),
 		"end", endTime.Format(dateFormat))
 
 	// delete the partition tables that are expired
@@ -109,7 +109,7 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 	if result := db.Exec(deletionSql); result.Error != nil {
 		return fmt.Errorf("failed to delete partition table %s: %w", tableName, result.Error)
 	}
-	partitionLog.Info("delete partition table", "table", deletePartitionTableName)
+	retentionLog.Info("delete partition table", "table", deletePartitionTableName)
 	return nil
 }
 
@@ -122,7 +122,7 @@ func deleteExpiredRecords(tableName string, deleteTime time.Time) error {
 		return fmt.Errorf("failed to delete records before %s from %s: %w",
 			minDate.Format(dateFormat), tableName, result.Error)
 	}
-	partitionLog.Info("delete records", "table", tableName, "before", minDate.Format(dateFormat))
+	retentionLog.Info("delete records", "table", tableName, "before", minDate.Format(dateFormat))
 	return nil
 }
 
@@ -182,7 +182,7 @@ func getMinMaxPartitions(tableName string) (string, string, error) {
 		return "", "", fmt.Errorf("failed to get min/max partition table: %w", result.Error)
 	}
 	if len(tables) < 1 {
-		partitionLog.Info("no partition table found", "table", tableName)
+		retentionLog.Info("no partition table found", "table", tableName)
 		return "", "", nil
 	}
 	return tables[0].Table, tables[len(tables)-1].Table, nil
