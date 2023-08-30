@@ -61,22 +61,9 @@ func arePoliciesEqual(instance1, instance2 client.Object) bool {
 	policy2WithoutTemplates.Spec.PolicyTemplates = nil
 
 	labelsMatch := equality.Semantic.DeepEqual(instance1.GetLabels(), instance2.GetLabels())
+	annotationMatch := equality.Semantic.DeepEqual(policy1WithoutTemplates.GetAnnotations(),
+		policy2WithoutTemplates.GetAnnotations())
+	specMatch := equality.Semantic.DeepEqual(policy1WithoutTemplates.Spec, policy2WithoutTemplates.Spec)
 
-	return equivalentReplicatedPolicies(policy1WithoutTemplates, policy2WithoutTemplates) && labelsMatch
-}
-
-// equivalentReplicatedPolicies compares replicated policies. Returns true if they match.
-func equivalentReplicatedPolicies(plc1 *policyv1.Policy, plc2 *policyv1.Policy) bool {
-	// Compare annotations
-	if !equality.Semantic.DeepEqual(plc1.GetAnnotations(), plc2.GetAnnotations()) {
-		return false
-	}
-
-	// Compare labels
-	if !equality.Semantic.DeepEqual(plc1.GetLabels(), plc2.GetLabels()) {
-		return false
-	}
-
-	// Compare the specs
-	return equality.Semantic.DeepEqual(plc1.Spec, plc2.Spec)
+	return labelsMatch && annotationMatch && specMatch
 }
