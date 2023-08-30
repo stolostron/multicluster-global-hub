@@ -15,6 +15,7 @@ package addon_test
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -52,6 +53,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
@@ -148,7 +150,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon controller to the manager")
-	middlewareCfg := &operatorconstants.MiddlewareConfig{}
+	middlewareCfg := &operatorconstants.MiddlewareConfig{
+		KafkaConnection: &kafka.KafkaConnection{
+			BootstrapServer: kafkaBootstrapServer,
+			CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCA)),
+			ClientCert:      "",
+			ClientKey:       "",
+		},
+	}
 	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient,
 		electionConfig, middlewareCfg)
 	Expect(err).ToNot(HaveOccurred())
@@ -198,20 +207,6 @@ var mgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 }
 
 func prepareBeforeTest() {
-	By("By creating a fake transport secret")
-	transportSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      TransportSecretName,
-			Namespace: config.GetDefaultNamespace(),
-		},
-		Data: map[string][]byte{
-			"CA":               []byte(kafkaCA),
-			"bootstrap_server": []byte(kafkaBootstrapServer),
-		},
-		Type: corev1.SecretTypeOpaque,
-	}
-	Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
-
 	// create a MGH instance
 	By("By creating a new MGH instance")
 	mgh.SetNamespace(config.GetDefaultNamespace())

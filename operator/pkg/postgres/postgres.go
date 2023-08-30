@@ -22,7 +22,7 @@ var (
 	installPlanApproval    = subv1alpha1.ApprovalAutomatic
 	packageName            = "crunchy-postgres-operator"
 	catalogSourceName      = "certified-operators"
-	catalogSourceNamespace = "openshift-marketplace" // https://olm.operatorframework.io/docs/tasks/troubleshooting/subscription/#a-subscription-in-namespace-x-cant-install-operators-from-a-catalogsource-in-namespace-y
+	catalogSourceNamespace = "openshift-marketplace"
 
 	// community postgres variables
 	communityChannel           = "v5"

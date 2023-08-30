@@ -216,7 +216,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	}
 
 	// support BYO kafka
-	r.MiddlewareConfig.KafkaConnection, err = r.GenerateKafkaConnectionFromGHStorageSecret(ctx)
+	r.MiddlewareConfig.KafkaConnection, err = r.GenerateKafkaConnectionFromGHTransportSecret(ctx)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}

@@ -11,7 +11,8 @@ import (
 )
 
 // GenerateSubConfig returns a SubscriptionConfig based on proxy variables and the mch operator configuration
-func (r *MulticlusterGlobalHubReconciler) GenerateSubConfig(ctx context.Context) (*subv1alpha1.SubscriptionConfig, error) {
+func (r *MulticlusterGlobalHubReconciler) GenerateSubConfig(ctx context.Context) (
+	*subv1alpha1.SubscriptionConfig, error) {
 	found := &appsv1.Deployment{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      constants.GHOperatorDeploymentName,

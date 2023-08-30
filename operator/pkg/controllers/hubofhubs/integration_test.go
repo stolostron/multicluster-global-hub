@@ -315,11 +315,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return fmt.Errorf("the database init condition is not set to true")
 				}
 				if condition.GetConditionStatus(createdMGH,
-					condition.CONDITION_TYPE_TRANSPORT_INIT) !=
-					condition.CONDITION_STATUS_TRUE {
-					return fmt.Errorf("the transport init condition is not set to true")
-				}
-				if condition.GetConditionStatus(createdMGH,
 					condition.CONDITION_TYPE_MANAGER_AVAILABLE) !=
 					condition.CONDITION_STATUS_FALSE {
 					return fmt.Errorf("the manager available condition is not set")
@@ -599,7 +594,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By checking the kafkaBootstrapServer")
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
-			kafkaConnection, err := mghReconciler.GenerateKafkaConnectionFromGHStorageSecret(ctx)
+			kafkaConnection, err := mghReconciler.GenerateKafkaConnectionFromGHTransportSecret(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kafkaConnection.BootstrapServer).To(Equal(kafkaBootstrapServer))
 
@@ -610,7 +605,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Namespace: config.GetDefaultNamespace(),
 				},
 			})).Should(Succeed())
-			_, err = mghReconciler.GenerateKafkaConnectionFromGHStorageSecret(ctx)
+			_, err = mghReconciler.GenerateKafkaConnectionFromGHTransportSecret(ctx)
 			Expect(err).To(HaveOccurred())
 		})
 

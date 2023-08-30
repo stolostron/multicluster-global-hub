@@ -134,7 +134,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				[]clusterv1.ManagedClusterClaim{},
 				clusterAvailableCondition)
 
-			By("By checking the addon CR is is created in the cluster ns")
+			By("By checking the addon CR is created in the cluster ns")
 			addon := &addonv1alpha1.ManagedClusterAddOn{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{

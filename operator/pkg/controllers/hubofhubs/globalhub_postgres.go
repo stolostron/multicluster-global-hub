@@ -16,6 +16,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
+const (
+	secretNilErrorMsg = "postgres secret %s is nil"
+)
+
 // ensureCrunchyPostgresSubscription verifies resources needed for Crunchy Postgres are created
 func (r *MulticlusterGlobalHubReconciler) ensureCrunchyPostgresSubscription(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
@@ -82,7 +86,7 @@ func (r *MulticlusterGlobalHubReconciler) waitForPostgresReady(ctx context.Conte
 	}, guestPostgresSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("postgres secret %s is nil", postgres.PostgresGuestUserSecretName)
+			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresGuestUserSecretName)
 		}
 		return nil, err
 	}
@@ -94,7 +98,7 @@ func (r *MulticlusterGlobalHubReconciler) waitForPostgresReady(ctx context.Conte
 	}, superuserPostgresSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("postgres secret %s is nil", postgres.PostgresGuestUserSecretName)
+			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresGuestUserSecretName)
 		}
 		return nil, err
 	}
@@ -106,7 +110,7 @@ func (r *MulticlusterGlobalHubReconciler) waitForPostgresReady(ctx context.Conte
 	}, postgresCertName)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("postgres secret %s is nil", postgres.PostgresGuestUserSecretName)
+			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresGuestUserSecretName)
 		}
 		return nil, err
 	}
@@ -131,8 +135,8 @@ func (r *MulticlusterGlobalHubReconciler) GeneratePGConnectionFromGHStorageSecre
 		return nil, err
 	}
 	return &postgres.PostgresConnection{
-		SuperuserDatabaseURI:    string(pgSecret.Data["database_uri"]) + postgres.PostgresURIWithSslmode,
-		ReadonlyUserDatabaseURI: string(pgSecret.Data["database_uri_with_readonlyuser"]) + postgres.PostgresURIWithSslmode,
+		SuperuserDatabaseURI:    string(pgSecret.Data["database_uri"]),
+		ReadonlyUserDatabaseURI: string(pgSecret.Data["database_uri_with_readonlyuser"]),
 		CACert:                  pgSecret.Data["ca.crt"],
 	}, nil
 }

@@ -64,7 +64,7 @@ func (r *MulticlusterGlobalHubReconciler) ensureKafka(ctx context.Context) error
 	}, kafkaCluster)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			err = r.Client.Create(ctx, kafka.NewKafka())
+			err = r.Client.Create(ctx, kafka.NewKafka(kafka.KafkaClusterName, config.GetDefaultNamespace()))
 			if err != nil {
 				return err
 			}
@@ -159,8 +159,8 @@ func (r *MulticlusterGlobalHubReconciler) waitForKafkaClusterReady(ctx context.C
 	return nil, fmt.Errorf("kafka cluster %s is not ready", kafkaCluster.Name)
 }
 
-// GenerateKafkaConnectionFromGHStorageSecret returns a kafka connection object from the BYO kafka secret
-func (r *MulticlusterGlobalHubReconciler) GenerateKafkaConnectionFromGHStorageSecret(ctx context.Context) (
+// GenerateKafkaConnectionFromGHTransportSecret returns a kafka connection object from the BYO kafka secret
+func (r *MulticlusterGlobalHubReconciler) GenerateKafkaConnectionFromGHTransportSecret(ctx context.Context) (
 	*kafka.KafkaConnection, error) {
 
 	kafkaSecret := &corev1.Secret{}

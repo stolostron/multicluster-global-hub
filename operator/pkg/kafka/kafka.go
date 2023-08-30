@@ -55,7 +55,7 @@ type KafkaConnection struct {
 }
 
 // NewSubscription returns an CrunchyPostgres subscription with desired default values
-func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.SubscriptionConfig,
+func NewSubscription(mcgh *globalhubv1alpha4.MulticlusterGlobalHub, cfg *subv1alpha1.SubscriptionConfig,
 	community bool) *subv1alpha1.Subscription {
 	chName, pkgName, catSourceName := channel, packageName, catalogSourceName
 	if community {
@@ -64,8 +64,8 @@ func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.
 		catSourceName = communityCatalogSourceName
 	}
 	labels := map[string]string{
-		"installer.name":                 m.GetName(),
-		"installer.namespace":            m.GetNamespace(),
+		"installer.name":                 mcgh.GetName(),
+		"installer.namespace":            mcgh.GetNamespace(),
 		constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 	}
 	sub := &subv1alpha1.Subscription{
@@ -84,7 +84,7 @@ func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.
 			Package:                pkgName,
 			CatalogSource:          catSourceName,
 			CatalogSourceNamespace: catalogSourceNamespace,
-			Config:                 c,
+			Config:                 cfg,
 		},
 	}
 
@@ -92,7 +92,7 @@ func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.
 }
 
 // RenderSubscription returns a subscription by modifying the spec of an existing subscription based on overrides
-func RenderSubscription(existingSubscription *subv1alpha1.Subscription, config *subv1alpha1.SubscriptionConfig,
+func RenderSubscription(existingSubscription *subv1alpha1.Subscription, cfg *subv1alpha1.SubscriptionConfig,
 	community bool) *subv1alpha1.Subscription {
 	copy := existingSubscription.DeepCopy()
 	copy.ManagedFields = nil
@@ -114,7 +114,7 @@ func RenderSubscription(existingSubscription *subv1alpha1.Subscription, config *
 		Package:                pkgName,
 		CatalogSource:          catSourceName,
 		CatalogSourceNamespace: catalogSourceNamespace,
-		Config:                 config,
+		Config:                 cfg,
 	}
 
 	// if updating channel must remove startingCSV
@@ -126,11 +126,11 @@ func RenderSubscription(existingSubscription *subv1alpha1.Subscription, config *
 }
 
 // NewKafka creates kafka operand
-func NewKafka() *kafkav1beta2.Kafka {
+func NewKafka(name, namespace string) *kafkav1beta2.Kafka {
 	return &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      KafkaClusterName,
-			Namespace: constants.GHDefaultNamespace,
+			Name:      name,
+			Namespace: namespace,
 		},
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
