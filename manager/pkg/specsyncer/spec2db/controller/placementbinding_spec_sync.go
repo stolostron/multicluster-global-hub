@@ -45,7 +45,7 @@ func cleanPlacementBindingStatus(instance client.Object) {
 	placementBinding.Status = policyv1.PlacementBindingStatus{}
 
 	// to compatible with 2.8
-	placementBinding.BindingOverrides = policyv1.BindingOverrides{}
+	// placementBinding.BindingOverrides = policyv1.BindingOverrides{}
 }
 
 func arePlacementBindingsEqual(instance1, instance2 client.Object) bool {

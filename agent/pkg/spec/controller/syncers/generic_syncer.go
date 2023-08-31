@@ -60,6 +60,18 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
 
+			// placementbinding: the older without the bindingOverrides
+			delete(unstructuredObject.Object, "bindingOverrides")
+
+			// placement: the older without the decisionStrategy and spreadPolicy under spec
+			spec, ok := unstructuredObject.Object["spec"]
+			if ok {
+				specMap := spec.(map[string]interface{})
+				delete(specMap, "decisionStrategy")
+				delete(specMap, "spreadPolicy")
+				unstructuredObject.Object["spec"] = specMap
+			}
+
 			if !syncer.enforceHohRbac { // if rbac not enforced, create missing namespaces.
 				if err := helper.CreateNamespaceIfNotExist(ctx, k8sClient,
 					unstructuredObject.GetNamespace()); err != nil {
