@@ -69,6 +69,13 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 				}
 			}
 
+			if val, err := json.MarshalIndent(unstructuredObject, "", " "); err != nil {
+				syncer.log.Info("Print the unstructuredObject", "val", val)
+			} else {
+				syncer.log.Error(err, "failed to MarshalIndent",
+					"namespace", unstructuredObject.GetNamespace())
+			}
+
 			err := helper.UpdateObject(ctx, k8sClient, unstructuredObject)
 			if err != nil {
 				syncer.log.Error(err, "failed to update object", "name", unstructuredObject.GetName(),
