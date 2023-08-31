@@ -24,7 +24,7 @@ func UpdateObject(ctx context.Context, k8sClient client.Client, obj *unstructure
 		return fmt.Errorf("failed to update object - %w", err)
 	}
 
-	forceChanges := true
+	forceChanges := false
 
 	if err := k8sClient.Patch(ctx, obj, client.RawPatch(types.ApplyPatchType, objectBytes), &client.PatchOptions{
 		FieldManager: controllerName,
