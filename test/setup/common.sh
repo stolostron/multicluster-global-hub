@@ -119,6 +119,13 @@ function initApp() {
     echo "Deploying the the subscription add-on to the managed cluster: $managedPrefix$i"
     clusteradm addon enable --names application-manager --clusters "${managedPrefix}$i" --context "${hub}"
   done
+
+  # update the placements crd
+  placementCrd="https://raw.githubusercontent.com/open-cluster-management-io/api/main/cluster/v1beta1/0000_02_clusters.open-cluster-management.io_placements.crd.yaml"
+  kubectl apply -f $placementCrd --context "${hub}"
+  for i in $(seq 1 "${managedClusterNum}"); do    
+    kubectl apply -f $placementCrd --context "${managedPrefix}$i"
+  done
 }
 
 function initPolicy() {
