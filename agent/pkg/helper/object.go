@@ -25,7 +25,7 @@ func UpdateObject(ctx context.Context, k8sClient client.Client, obj *unstructure
 	}
 
 	forceChanges := false
-
+	fmt.Println(">>>>>>>>> ", string(objectBytes))
 	if err := k8sClient.Patch(ctx, obj, client.RawPatch(types.ApplyPatchType, objectBytes), &client.PatchOptions{
 		FieldManager: controllerName,
 		Force:        &forceChanges,
