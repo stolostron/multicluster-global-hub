@@ -146,7 +146,7 @@ func traceDataRetentionLog(tableName string, startTime time.Time, err error, par
 		dataRetentionLog.MinPartition = minPartition
 		dataRetentionLog.MaxPartition = maxPartition
 	} else {
-		if minDeletionTime, err := getMinDeletionTime(tableName); err != nil && !minDeletionTime.IsZero() {
+		if minDeletionTime, err := getMinDeletionTime(tableName); err == nil && !minDeletionTime.IsZero() {
 			dataRetentionLog.MinDeletion = minDeletionTime
 		}
 	}
