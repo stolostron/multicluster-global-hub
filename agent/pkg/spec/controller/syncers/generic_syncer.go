@@ -81,6 +81,8 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 				}
 			}
 
+			syncer.log.Info("print the patch object", "obj", unstructuredObject.Object)
+
 			err := helper.UpdateObject(ctx, k8sClient, unstructuredObject)
 			if err != nil {
 				syncer.log.Error(err, "failed to update object", "name", unstructuredObject.GetName(),
