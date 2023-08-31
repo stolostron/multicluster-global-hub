@@ -136,7 +136,7 @@ function initPolicy() {
     GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.11.0/deploy"
     ## Apply the CRDs
     kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml 
-    ## Upgrade the PlacementBinding CRD https://github.com/open-cluster-management-io/governance-policy-propagator/commit/0d164a21ea1272fc2e090b2e7d54853756cb270b
+    ## Upgrade the CRD: https://github.com/open-cluster-management-io/governance-policy-propagator/pull/110
     kubectl --context "${hub}" apply -f https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/main/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml 
     kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
     kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
