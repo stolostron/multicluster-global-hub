@@ -23,7 +23,7 @@ func AddToManager(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
 	}
 
 	// add worker pool to manager
-	workers := workers.NewWorkerPool(agentConfig.SpecWorkPoolSize, mgr.GetConfig())
+	workers := workers.NewWorkerPool(agentConfig.SpecWorkPoolSize, mgr.GetConfig(), mgr.GetScheme())
 	if err := mgr.Add(workers); err != nil {
 		return fmt.Errorf("failed to add k8s workers pool to runtime manager: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -26,7 +27,7 @@ type WorkerPool struct {
 }
 
 // AddK8sWorkerPool adds k8s workers pool to the manager and returns it.
-func NewWorkerPool(size int, config *rest.Config) *WorkerPool {
+func NewWorkerPool(size int, config *rest.Config, scheme *runtime.Scheme) *WorkerPool {
 	// for impersonation workers we have additional workers, one per impersonated user.
 	workerPool := &WorkerPool{
 		log:                        ctrl.Log.WithName("workers-pool"),
@@ -34,7 +35,7 @@ func NewWorkerPool(size int, config *rest.Config) *WorkerPool {
 		jobsQueue:                  make(chan *Job, size), // each worker can handle at most one job at a time
 		poolSize:                   size,
 		initializationWaitingGroup: sync.WaitGroup{},
-		impersonationManager:       rbac.NewImpersonationManager(config),
+		impersonationManager:       rbac.NewImpersonationManager(config, scheme),
 		impersonationWorkersQueues: make(map[string]chan *Job),
 		impersonationWorkersLock:   sync.Mutex{},
 	}

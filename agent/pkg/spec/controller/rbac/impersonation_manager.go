@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -20,15 +21,17 @@ const (
 )
 
 // NewImpersonationManager creates a new instance of ImpersonationManager.
-func NewImpersonationManager(config *rest.Config) *ImpersonationManager {
+func NewImpersonationManager(config *rest.Config, scheme *runtime.Scheme) *ImpersonationManager {
 	return &ImpersonationManager{
 		k8sConfig: config,
+		scheme:    scheme,
 	}
 }
 
 // ImpersonationManager manages the k8s clients for the various users and for the controller.
 type ImpersonationManager struct {
 	k8sConfig *rest.Config
+	scheme    *runtime.Scheme
 }
 
 // Impersonate gets the user identity and returns the k8s client that represents the requesting user.
@@ -40,7 +43,7 @@ func (manager *ImpersonationManager) Impersonate(userIdentity string, userGroups
 		Extra:    nil,
 	}
 
-	userK8sClient, err := client.New(newConfig, client.Options{})
+	userK8sClient, err := client.New(newConfig, client.Options{Scheme: manager.scheme})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new k8s client for user - %w", err)
 	}
