@@ -75,7 +75,7 @@ func NewSubscription(mcgh *globalhubv1alpha4.MulticlusterGlobalHub, cfg *subv1al
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SubscriptionName,
-			Namespace: constants.GHDefaultNamespace,
+			Namespace: mcgh.GetNamespace(),
 			Labels:    labels,
 		},
 		Spec: &subv1alpha1.SubscriptionSpec{

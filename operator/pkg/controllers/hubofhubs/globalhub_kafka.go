@@ -19,8 +19,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
-// ensureKafkaSubscription verifies subscription needed for Kafka is created
-func (r *MulticlusterGlobalHubReconciler) ensureKafkaSubscription(ctx context.Context,
+// EnsureKafkaSubscription verifies subscription needed for Kafka is created
+func (r *MulticlusterGlobalHubReconciler) EnsureKafkaSubscription(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	kafkaSub, err := utils.GetSubscriptionByName(ctx, r.Client, kafka.SubscriptionName)
 	if err != nil {
@@ -54,9 +54,9 @@ func (r *MulticlusterGlobalHubReconciler) ensureKafkaSubscription(ctx context.Co
 	return nil
 }
 
-// ensureKafka verifies resources needed for Kafka are created
+// EnsureKafka verifies resources needed for Kafka are created
 // including kafka/kafkatopic/kafkauser
-func (r *MulticlusterGlobalHubReconciler) ensureKafka(ctx context.Context) error {
+func (r *MulticlusterGlobalHubReconciler) EnsureKafka(ctx context.Context) error {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      kafka.KafkaClusterName,
@@ -116,9 +116,9 @@ func (r *MulticlusterGlobalHubReconciler) ensureKafka(ctx context.Context) error
 	return nil
 }
 
-// waitForKafkaClusterReady waits for kafka cluster to be ready
+// WaitForKafkaClusterReady waits for kafka cluster to be ready
 // and returns a kafka connection object once ready
-func (r *MulticlusterGlobalHubReconciler) waitForKafkaClusterReady(ctx context.Context) (
+func (r *MulticlusterGlobalHubReconciler) WaitForKafkaClusterReady(ctx context.Context) (
 	*kafka.KafkaConnection, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := r.Client.Get(ctx, types.NamespacedName{
@@ -129,7 +129,7 @@ func (r *MulticlusterGlobalHubReconciler) waitForKafkaClusterReady(ctx context.C
 		return nil, err
 	}
 
-	if kafkaCluster.Status.Conditions == nil {
+	if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
 		return nil, fmt.Errorf("kafka cluster %s has no status conditions", kafkaCluster.Name)
 	}
 

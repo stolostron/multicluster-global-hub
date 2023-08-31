@@ -201,15 +201,15 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	// if not-provided postgres secret, create crunchy postgres in the global hub namespace
 	if r.MiddlewareConfig.PgConnection == nil {
 		// reconcile crunchy postgres
-		if err := r.ensureCrunchyPostgresSubscription(ctx, mgh); err != nil {
+		if err := r.EnsureCrunchyPostgresSubscription(ctx, mgh); err != nil {
 			return err
 		}
 
-		if err := r.ensureCrunchyPostgres(ctx); err != nil {
+		if err := r.EnsureCrunchyPostgres(ctx); err != nil {
 			return err
 		}
 		// store crunchy postgres connection
-		r.MiddlewareConfig.PgConnection, err = r.waitForPostgresReady(ctx)
+		r.MiddlewareConfig.PgConnection, err = r.WaitForPostgresReady(ctx)
 		if err != nil {
 			return err
 		}
@@ -223,15 +223,15 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	// if not-provided kafka secret, create kafka in the global hub namespace
 	if r.MiddlewareConfig.KafkaConnection == nil {
 		// reconcile kafka
-		if err := r.ensureKafkaSubscription(ctx, mgh); err != nil {
+		if err := r.EnsureKafkaSubscription(ctx, mgh); err != nil {
 			return err
 		}
 
-		if err := r.ensureKafka(ctx); err != nil {
+		if err := r.EnsureKafka(ctx); err != nil {
 			return err
 		}
 
-		r.MiddlewareConfig.KafkaConnection, err = r.waitForKafkaClusterReady(ctx)
+		r.MiddlewareConfig.KafkaConnection, err = r.WaitForKafkaClusterReady(ctx)
 		if err != nil {
 			return err
 		}

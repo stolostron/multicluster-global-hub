@@ -5,14 +5,13 @@ import (
 
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestNewSubscription(t *testing.T) {
 	sub := NewSubscription(&globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: constants.GHDefaultNamespace,
+			Namespace: "default",
 			Name:      "globalhub",
 		},
 		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
@@ -24,7 +23,7 @@ func TestNewSubscription(t *testing.T) {
 
 	sub = NewSubscription(&globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: constants.GHDefaultNamespace,
+			Namespace: "default",
 			Name:      "globalhub",
 		},
 		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
@@ -36,7 +35,7 @@ func TestNewSubscription(t *testing.T) {
 
 	sub = NewSubscription(&globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: constants.GHDefaultNamespace,
+			Namespace: "default",
 			Name:      "globalhub",
 		},
 		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},

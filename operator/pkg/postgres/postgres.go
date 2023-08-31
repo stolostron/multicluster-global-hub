@@ -6,7 +6,6 @@ package postgres
 import (
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	olmapi "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,28 +55,6 @@ type PostgresConnection struct {
 	CACert []byte
 }
 
-// mocks returning a single manifest
-var mockPackageManifests = func() *olmapi.PackageManifestList {
-	return &olmapi.PackageManifestList{
-		Items: []olmapi.PackageManifest{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: constants.GHDefaultNamespace,
-				},
-				Status: olmapi.PackageManifestStatus{
-					CatalogSource:          catalogSourceName,
-					CatalogSourceNamespace: catalogSourceNamespace,
-					Channels: []olmapi.PackageChannel{
-						{
-							Name: channel,
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 // NewSubscription returns an CrunchyPostgres subscription with desired default values
 func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.SubscriptionConfig,
 	community bool) *subv1alpha1.Subscription {
@@ -99,7 +76,7 @@ func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SubscriptionName,
-			Namespace: constants.GHDefaultNamespace,
+			Namespace: m.GetNamespace(),
 			Labels:    labels,
 		},
 		Spec: &subv1alpha1.SubscriptionSpec{
@@ -150,11 +127,11 @@ func RenderSubscription(existingSubscription *subv1alpha1.Subscription, config *
 }
 
 // NewPostgres returns a postgres cluster with desired default values
-func NewPostgres() *postgresv1beta1.PostgresCluster {
+func NewPostgres(name, namespace string) *postgresv1beta1.PostgresCluster {
 	return &postgresv1beta1.PostgresCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      PostgresName,
-			Namespace: constants.GHDefaultNamespace,
+			Name:      name,
+			Namespace: namespace,
 		},
 		Spec: postgresv1beta1.PostgresClusterSpec{
 			PostgresVersion: 14,

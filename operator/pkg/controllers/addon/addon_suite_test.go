@@ -54,7 +54,6 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -244,16 +243,16 @@ func prepareBeforeTest() {
 }
 
 func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {
-	config := &commonobjects.LeaderElectionConfig{
+	cfg := &commonobjects.LeaderElectionConfig{
 		LeaseDuration: 137,
 		RenewDeadline: 107,
 		RetryPeriod:   26,
 	}
 
-	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.GHDefaultNamespace).Get(
+	configMap, err := kubeClient.CoreV1().ConfigMaps(config.GetDefaultNamespace()).Get(
 		context.TODO(), operatorconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		return config, nil
+		return cfg, nil
 	}
 	if err != nil {
 		return nil, err
@@ -274,8 +273,8 @@ func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 		return nil, err
 	}
 
-	config.LeaseDuration = leaseDurationSec
-	config.RenewDeadline = renewDeadlineSec
-	config.RetryPeriod = retryPeriodSec
-	return config, nil
+	cfg.LeaseDuration = leaseDurationSec
+	cfg.RenewDeadline = renewDeadlineSec
+	cfg.RetryPeriod = retryPeriodSec
+	return cfg, nil
 }

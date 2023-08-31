@@ -24,7 +24,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func TestSetImageOverrides(t *testing.T) {
@@ -51,7 +50,7 @@ func TestSetImageOverrides(t *testing.T) {
 			},
 			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.GHDefaultNamespace,
+					Namespace: GetDefaultNamespace(),
 					Name:      mghInstanceName,
 				},
 				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
@@ -77,7 +76,7 @@ func TestSetImageOverrides(t *testing.T) {
 			},
 			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: constants.GHDefaultNamespace,
+					Namespace: GetDefaultNamespace(),
 					Name:      mghInstanceName,
 					Annotations: map[string]string{
 						operatorconstants.AnnotationImageRepo: "quay.io/testing",

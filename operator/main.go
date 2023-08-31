@@ -334,7 +334,7 @@ func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 		RetryPeriod:   26,
 	}
 
-	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.GHDefaultNamespace).Get(
+	configMap, err := kubeClient.CoreV1().ConfigMaps(hubofhubsconfig.GetDefaultNamespace()).Get(
 		context.TODO(), operatorconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return config, nil

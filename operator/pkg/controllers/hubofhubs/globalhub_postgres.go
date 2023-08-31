@@ -20,8 +20,8 @@ const (
 	secretNilErrorMsg = "postgres secret %s is nil"
 )
 
-// ensureCrunchyPostgresSubscription verifies resources needed for Crunchy Postgres are created
-func (r *MulticlusterGlobalHubReconciler) ensureCrunchyPostgresSubscription(ctx context.Context,
+// EnsureCrunchyPostgresSubscription verifies resources needed for Crunchy Postgres are created
+func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgresSubscription(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	postgresSub, err := utils.GetSubscriptionByName(ctx, r.Client, postgres.SubscriptionName)
 	if err != nil {
@@ -55,8 +55,8 @@ func (r *MulticlusterGlobalHubReconciler) ensureCrunchyPostgresSubscription(ctx 
 	return nil
 }
 
-// ensureCrunchyPostgres verifies PostgresCluster operand is created
-func (r *MulticlusterGlobalHubReconciler) ensureCrunchyPostgres(ctx context.Context) error {
+// EnsureCrunchyPostgres verifies PostgresCluster operand is created
+func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgres(ctx context.Context) error {
 
 	postgresCluster := &postgresv1beta1.PostgresCluster{}
 	err := r.Client.Get(ctx, types.NamespacedName{
@@ -65,7 +65,7 @@ func (r *MulticlusterGlobalHubReconciler) ensureCrunchyPostgres(ctx context.Cont
 	}, postgresCluster)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			err = r.Client.Create(ctx, postgres.NewPostgres())
+			err = r.Client.Create(ctx, postgres.NewPostgres(postgres.PostgresName, config.GetDefaultNamespace()))
 			if err != nil {
 				return err
 			}
@@ -76,8 +76,8 @@ func (r *MulticlusterGlobalHubReconciler) ensureCrunchyPostgres(ctx context.Cont
 	return nil
 }
 
-// waitForPostgresReady waits for postgres to be ready and returns a postgres connection
-func (r *MulticlusterGlobalHubReconciler) waitForPostgresReady(ctx context.Context) (
+// WaitForPostgresReady waits for postgres to be ready and returns a postgres connection
+func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Context) (
 	*postgres.PostgresConnection, error) {
 	guestPostgresSecret := &corev1.Secret{}
 	err := r.Client.Get(ctx, types.NamespacedName{
