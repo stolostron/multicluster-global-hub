@@ -116,10 +116,6 @@ function initApp() {
     echo "$hub install hub-addon application-manager"
     clusteradm install hub-addon --names application-manager --context "${hub}"
 
-    # hack: upgrade the placement crd
-    # https://github.com/open-cluster-management-io/multicloud-operators-subscription/pull/364
-    kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/api/main/cluster/v1beta1/0000_02_clusters.open-cluster-management.io_placements.crd.yaml --context "${hub}"
-
     echo "Deploying the the subscription add-on to the managed cluster: $managedPrefix$i"
     clusteradm addon enable --names application-manager --clusters "${managedPrefix}$i" --context "${hub}"
   done
@@ -140,8 +136,7 @@ function initPolicy() {
     GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.11.0/deploy"
     ## Apply the CRDs
     kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml 
-    ## Hack: upgrade the CRD: https://github.com/open-cluster-management-io/governance-policy-propagator/pull/110
-    kubectl --context "${hub}" apply -f https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/main/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml 
+    kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml
     kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
     kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
     ## Deploy the policy-propagator
