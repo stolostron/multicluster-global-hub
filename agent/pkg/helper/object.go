@@ -30,7 +30,7 @@ func UpdateObject(ctx context.Context, k8sClient client.Client, obj *unstructure
 		FieldManager: controllerName,
 		Force:        &forceChanges,
 		Raw: &metav1.PatchOptions{
-			FieldValidation: metav1.FieldValidationWarn,
+			FieldValidation: metav1.FieldValidationIgnore,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to update object - %w", err)
