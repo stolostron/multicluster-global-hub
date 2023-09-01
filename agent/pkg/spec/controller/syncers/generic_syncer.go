@@ -60,21 +60,6 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
 
-			// Deprecated: delete the bindingOverrides from placementbinding.
-			delete(unstructuredObject.Object, "bindingOverrides")
-
-			// Deprecated: delete the the decisionStrategy and spreadPolicy and from the spec of placement
-			spec, ok := unstructuredObject.Object["spec"]
-			if ok {
-				specMap := spec.(map[string]interface{})
-				delete(specMap, "decisionStrategy")
-				delete(specMap, "spreadPolicy")
-				unstructuredObject.Object["spec"] = specMap
-			}
-
-			// delete the status (.status.decisionGroups for placement) from all the spec objects
-			delete(unstructuredObject.Object, "status")
-
 			if !syncer.enforceHohRbac { // if rbac not enforced, create missing namespaces.
 				if err := helper.CreateNamespaceIfNotExist(ctx, k8sClient,
 					unstructuredObject.GetNamespace()); err != nil {
@@ -83,8 +68,6 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 					return
 				}
 			}
-
-			syncer.log.Info("print the patch object", "obj", unstructuredObject.Object)
 
 			err := helper.UpdateObject(ctx, k8sClient, unstructuredObject)
 			if err != nil {

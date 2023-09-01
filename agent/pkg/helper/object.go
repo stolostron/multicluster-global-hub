@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -24,11 +25,13 @@ func UpdateObject(ctx context.Context, k8sClient client.Client, obj *unstructure
 		return fmt.Errorf("failed to update object - %w", err)
 	}
 
-	forceChanges := false
-	fmt.Println(">>>>>>>>> ", string(objectBytes))
+	forceChanges := true
 	if err := k8sClient.Patch(ctx, obj, client.RawPatch(types.ApplyPatchType, objectBytes), &client.PatchOptions{
 		FieldManager: controllerName,
 		Force:        &forceChanges,
+		Raw: &metav1.PatchOptions{
+			FieldValidation: "Warn",
+		},
 	}); err != nil {
 		return fmt.Errorf("failed to update object - %w", err)
 	}
