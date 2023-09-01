@@ -79,6 +79,14 @@ waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-
 #need the following labels to enable deploying agent in leaf hub cluster
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
     kubectl label managedcluster kind-$LEAF_HUB_NAME$i vendor=OpenShift --overwrite 2>&1 >> $LOG
+
+    # Deprecated: Upgrade the leafhub environment to compatiable with the latest placement and placementbinding API
+    # 1. The clusteradm install the placement by the registration-operator
+    # https://github.com/open-cluster-management-io/registration-operator/pull/360(sync api to registration-operator)
+    kubectl --context kind-$LEAF_HUB_NAME$i apply -f https://raw.githubusercontent.com/open-cluster-management-io/api/main/cluster/v1beta1/0000_02_clusters.open-cluster-management.io_placements.crd.yaml
+    # 2. The placementbinding is installed by governance-policy-propagator, while the API was updated by this: 
+    # https://github.com/open-cluster-management-io/governance-policy-propagator/pull/110
+    kubectl --context kind-$LEAF_HUB_NAME$i apply -f https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/main/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml
 done
 export KUBECONFIG=$KUBECONFIG
 # TODO: think about readinessCheck
