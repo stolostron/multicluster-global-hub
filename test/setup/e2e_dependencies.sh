@@ -63,7 +63,7 @@ function checkKubectl() {
     chmod +x ./kubectl
     sudo mv ./kubectl ${binDir}/kubectl
   fi
-  echo "kubectl version: $(kubectl version --client --short)"
+  echo "kubectl version: $(kubectl version --client)"
 }
 
 function checkClusteradm() {
