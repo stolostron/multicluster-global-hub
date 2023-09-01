@@ -16,6 +16,11 @@ limitations under the License.
 
 package constants
 
+import (
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
+)
+
 const (
 	// ControllerLeaderElectionConfig allows customizing LeaseDuration, RenewDeadline and RetryPeriod
 	// for operator, manager and agent via the ConfigMap
@@ -129,3 +134,9 @@ const (
 	// NoopCompressType is an MessageCompressionType
 	NoopCompressType MessageCompressionType = "no-op"
 )
+
+// MiddlewareConfig defines the configuration for middleware and shared in opearator
+type MiddlewareConfig struct {
+	PgConnection    *postgres.PostgresConnection
+	KafkaConnection *kafka.KafkaConnection
+}

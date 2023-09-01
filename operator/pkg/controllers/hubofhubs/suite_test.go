@@ -20,12 +20,14 @@ import (
 	"testing"
 	"time"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
+	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -104,40 +106,25 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	// add scheme
-	err = operatorsv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = routev1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = clusterv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = clusterv1beta1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = clusterv1beta2.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = workv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = addonv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = hypershiftdeploymentv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = appsubv1.SchemeBuilder.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = appsubV1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = chnv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = placementrulesv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = globalhubv1alpha4.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = applicationv1beta1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = policyv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = mchv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = promv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(operatorsv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(routev1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(clusterv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(clusterv1beta1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(clusterv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(workv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(addonv1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(appsubv1.SchemeBuilder.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(appsubV1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(chnv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(placementrulesv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(globalhubv1alpha4.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(applicationv1beta1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(policyv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(mchv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(promv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(subv1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(postgresv1beta1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(kafkav1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 
@@ -178,12 +165,13 @@ var _ = BeforeSuite(func() {
 	}
 
 	mghReconciler = &hubofhubscontroller.MulticlusterGlobalHubReconciler{
-		Manager:        k8sManager,
-		Client:         k8sManager.GetClient(),
-		KubeClient:     kubeClient,
-		Scheme:         k8sManager.GetScheme(),
-		LeaderElection: leaderElection,
-		Log:            ctrl.Log.WithName("multicluster-global-hub-reconciler"),
+		Manager:          k8sManager,
+		Client:           k8sManager.GetClient(),
+		KubeClient:       kubeClient,
+		Scheme:           k8sManager.GetScheme(),
+		LeaderElection:   leaderElection,
+		Log:              ctrl.Log.WithName("multicluster-global-hub-reconciler"),
+		MiddlewareConfig: &operatorconstants.MiddlewareConfig{},
 	}
 	Expect(mghReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 

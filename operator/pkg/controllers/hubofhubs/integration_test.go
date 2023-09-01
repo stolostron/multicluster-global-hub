@@ -30,6 +30,7 @@ import (
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"gopkg.in/yaml.v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -128,6 +129,34 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				"ca.crt":       []byte(""),
 			},
 			Type: corev1.SecretTypeOpaque,
+		})).Should(Succeed())
+
+		Expect(k8sClient.Create(ctx, &appv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.GHOperatorDeploymentName,
+				Namespace: config.GetDefaultNamespace(),
+			},
+			Spec: appv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"label": "value"},
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"label": "value"},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.GHOperatorDeploymentName,
+								Image: "test-image",
+							},
+						},
+					},
+				},
+			},
+			Status: appv1.DeploymentStatus{
+				ReadyReplicas: 1,
+			},
 		})).Should(Succeed())
 	})
 
@@ -315,11 +344,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return fmt.Errorf("the database init condition is not set to true")
 				}
 				if condition.GetConditionStatus(createdMGH,
-					condition.CONDITION_TYPE_TRANSPORT_INIT) !=
-					condition.CONDITION_STATUS_TRUE {
-					return fmt.Errorf("the transport init condition is not set to true")
-				}
-				if condition.GetConditionStatus(createdMGH,
 					condition.CONDITION_TYPE_MANAGER_AVAILABLE) !=
 					condition.CONDITION_STATUS_FALSE {
 					return fmt.Errorf("the manager available condition is not set")
@@ -358,7 +382,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ImagePullPolicy        string
 					ImagePullSecret        string
 					ProxySessionSecret     string
-					DBSecret               string
+					DatabaseURL            string
+					PostgresCACert         string
 					KafkaCACert            string
 					KafkaClientCert        string
 					KafkaClientKey         string
@@ -382,7 +407,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ImagePullPolicy:        string(imagePullPolicy),
 					ImagePullSecret:        mgh.Spec.ImagePullSecret,
 					ProxySessionSecret:     "testing",
-					DBSecret:               operatorconstants.GHStorageSecretName,
+					DatabaseURL:            testPostgres.URI,
+					PostgresCACert:         base64.StdEncoding.EncodeToString([]byte("")),
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
 					KafkaClientCert:        base64.RawStdEncoding.EncodeToString([]byte(kafkaClientCert)),
 					KafkaClientKey:         base64.RawStdEncoding.EncodeToString([]byte(KafkaClientKey)),
@@ -597,10 +623,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By checking the kafkaBootstrapServer")
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
-			server, _, _, _, err := utils.GetKafkaConfig(ctx, kubeClient, createdMGH.Namespace,
-				operatorconstants.GHTransportSecretName)
+			kafkaConnection, err := mghReconciler.GenerateKafkaConnectionFromGHTransportSecret(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(server).To(Equal(kafkaBootstrapServer))
+			Expect(kafkaConnection.BootstrapServer).To(Equal(kafkaBootstrapServer))
 
 			By("By checking the kafka secret is deleted")
 			Expect(k8sClient.Delete(ctx, &corev1.Secret{
@@ -609,9 +634,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Namespace: config.GetDefaultNamespace(),
 				},
 			})).Should(Succeed())
-			_, _, _, _, err = utils.GetKafkaConfig(ctx, kubeClient, createdMGH.Namespace,
-				operatorconstants.GHTransportSecretName)
-			Expect(err).To(HaveOccurred())
+			Eventually(func() error {
+				_, err = mghReconciler.GenerateKafkaConnectionFromGHTransportSecret(ctx)
+				return err
+			}, timeout, interval).Should(HaveOccurred())
 		})
 
 		It("Should remove finalizer added to MGH consumer resources", func() {
@@ -874,6 +900,54 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			_, err := hubofhubs.GrafanaDataSource(testPostgres.URI, []byte("test"))
 			Expect(err).Should(Succeed())
 		})
+	})
+
+	Context("Get the kafka or postgres connection", func() {
+		It("Should get the postgres connection", func() {
+			pgConn, err := mghReconciler.GeneratePGConnectionFromGHStorageSecret(ctx)
+			Expect(err).Should(Succeed())
+			Expect(pgConn).ShouldNot(BeNil())
+		})
+		It("Should not get the kafka connection, because no secret created", func() {
+			_, err := mghReconciler.GenerateKafkaConnectionFromGHTransportSecret(ctx)
+			Expect(err).Should(HaveOccurred())
+		})
+	})
+
+	Context("Verify the Postgres and kafka resources are created", func() {
+		mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
+		It("Should create the MGH instance", func() {
+			mcgh = &globalhubv1alpha4.MulticlusterGlobalHub{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      MGHName,
+					Namespace: config.GetDefaultNamespace(),
+				},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+			}
+			Expect(k8sClient.Create(ctx, mcgh)).Should(Succeed())
+		})
+
+		It("Should create the postgres resources", func() {
+
+			Expect(mghReconciler.EnsureCrunchyPostgresSubscription(ctx, mcgh)).Should(Succeed())
+			Expect(mghReconciler.EnsureCrunchyPostgres(ctx)).Should(Succeed())
+			_, err := mghReconciler.WaitForPostgresReady(ctx)
+			// postgres cannot be ready in envtest
+			Expect(err).Should(HaveOccurred())
+		})
+		It("Should create the kafka resources", func() {
+
+			Expect(mghReconciler.EnsureKafkaSubscription(ctx, mcgh)).Should(Succeed())
+			Expect(mghReconciler.EnsureKafka(ctx)).Should(Succeed())
+			_, err := mghReconciler.WaitForKafkaClusterReady(ctx)
+			// postgres cannot be ready in envtest
+			Expect(err).Should(HaveOccurred())
+		})
+
+		It("Should delete the MGH instance", func() {
+			Expect(k8sClient.Delete(ctx, mcgh)).Should(Succeed())
+		})
+
 	})
 })
 

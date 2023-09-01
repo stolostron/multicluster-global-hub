@@ -114,17 +114,17 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"The path of client key for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.CACertPath, "postgres-ca-path", "/postgres-ca/ca.crt",
 		"The path of CA certificate for kafka bootstrap server.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kakfa-producer-id",
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kafka-producer-id",
 		"multicluster-global-hub", "ID for the kafka producer.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kakfa-producer-topic",
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
 		"spec", "Topic for the kafka producer.")
 	pflag.StringVar(&managerConfig.EventExporterTopic, "event-exporter-topic", "event", "Topic for the event exporter.")
 	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
-		"kakfa-consumer-id", "multicluster-global-hub", "ID for the kafka consumer.")
+		"kafka-consumer-id", "multicluster-global-hub", "ID for the kafka consumer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic,
-		"kakfa-consumer-topic", "status", "Topic for the kafka consumer.")
+		"kafka-consumer-topic", "status", "Topic for the kafka consumer.")
 	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "1m",
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",

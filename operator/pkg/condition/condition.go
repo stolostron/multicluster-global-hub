@@ -58,13 +58,6 @@ const (
 	CONDITION_REASON_RETENTION_PARSED = "DataRetentionParsed"
 )
 
-// NOTE: the status of TransportInitialized can be True or False
-const (
-	CONDITION_TYPE_TRANSPORT_INIT    = "TransportInitialized"
-	CONDITION_REASON_TRANSPORT_INIT  = "TransportInitialized"
-	CONDITION_MESSAGE_TRANSPORT_INIT = "Transport has been initialized"
-)
-
 // NOTE: the status of ManagerDeployed can only be True; otherwise there is no condition
 const (
 	CONDITION_TYPE_MANAGER_AVAILABLE    = "ManagerAvailable"
@@ -116,13 +109,6 @@ func SetConditionDataRetention(ctx context.Context, c client.Client, mgh *global
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RETENTION_PARSED, status,
 		CONDITION_REASON_RETENTION_PARSED, msg)
-}
-
-func SetConditionTransportInit(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-	status metav1.ConditionStatus,
-) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_TRANSPORT_INIT, status,
-		CONDITION_REASON_TRANSPORT_INIT, CONDITION_MESSAGE_TRANSPORT_INIT)
 }
 
 func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.MulticlusterGlobalHub,

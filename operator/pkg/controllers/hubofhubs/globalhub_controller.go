@@ -64,11 +64,12 @@ var fs embed.FS
 type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
-	AddonManager   addonmanager.AddonManager
-	KubeClient     kubernetes.Interface
-	Scheme         *runtime.Scheme
-	LeaderElection *commonobjects.LeaderElectionConfig
-	Log            logr.Logger
+	AddonManager     addonmanager.AddonManager
+	KubeClient       kubernetes.Interface
+	Scheme           *runtime.Scheme
+	LeaderElection   *commonobjects.LeaderElectionConfig
+	Log              logr.Logger
+	MiddlewareConfig *operatorconstants.MiddlewareConfig
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -102,6 +103,9 @@ type MulticlusterGlobalHubReconciler struct {
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterhubs,verbs=get;list;patch;update;watch
 // +kubebuilder:rbac:groups=agent.open-cluster-management.io,resources=klusterletaddonconfigs,verbs=get;list;patch;update;watch
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create;delete;update;list;watch
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;create;delete;update;list;watch
+// +kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;create;list;watch
+// +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers,verbs=get;create;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -144,7 +148,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if err := r.reconcileGlobalHub(ctx, mgh); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{Requeue: true}, err
 	}
 
 	// Make sure the reconcile work properly, and then add finalizer to the multiclusterglobalhub instance
@@ -187,6 +191,50 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	// 3. global configMap: open-cluster-management-global-hub-system/multicluster-global-hub-config
 	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
 		return err
+	}
+	var err error
+	// support BYO postgres
+	r.MiddlewareConfig.PgConnection, err = r.GeneratePGConnectionFromGHStorageSecret(ctx)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	// if not-provided postgres secret, create crunchy postgres in the global hub namespace
+	if r.MiddlewareConfig.PgConnection == nil {
+		// reconcile crunchy postgres
+		if err := r.EnsureCrunchyPostgresSubscription(ctx, mgh); err != nil {
+			return err
+		}
+
+		if err := r.EnsureCrunchyPostgres(ctx); err != nil {
+			return err
+		}
+		// store crunchy postgres connection
+		r.MiddlewareConfig.PgConnection, err = r.WaitForPostgresReady(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	// support BYO kafka
+	r.MiddlewareConfig.KafkaConnection, err = r.GenerateKafkaConnectionFromGHTransportSecret(ctx)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	// if not-provided kafka secret, create kafka in the global hub namespace
+	if r.MiddlewareConfig.KafkaConnection == nil {
+		// reconcile kafka
+		if err := r.EnsureKafkaSubscription(ctx, mgh); err != nil {
+			return err
+		}
+
+		if err := r.EnsureKafka(ctx); err != nil {
+			return err
+		}
+
+		r.MiddlewareConfig.KafkaConnection, err = r.WaitForKafkaClusterReady(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	// reconcile database

@@ -2,6 +2,7 @@ package hubofhubs
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"time"
@@ -21,7 +22,6 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -31,18 +31,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("manager")
-
-	log.Info("retrieving transport secret for the manager", "name",
-		operatorconstants.GHTransportSecretName)
-	kafkaBootstrapServer, kafkaCACert, kafkaClientCert, kafkaClientKey, err := utils.GetKafkaConfig(ctx,
-		r.KubeClient, mgh.Namespace, operatorconstants.GHTransportSecretName)
-	if err != nil {
-		return err
-	}
-	if e := condition.SetConditionTransportInit(ctx, r.Client, mgh,
-		condition.CONDITION_STATUS_TRUE); e != nil {
-		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, e)
-	}
 
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
@@ -99,7 +87,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			ImagePullSecret        string
 			ImagePullPolicy        string
 			ProxySessionSecret     string
-			DBSecret               string
+			DatabaseURL            string
+			PostgresCACert         string
 			KafkaCACert            string
 			KafkaClientCert        string
 			KafkaClientKey         string
@@ -123,11 +112,12 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			ImagePullSecret:        mgh.Spec.ImagePullSecret,
 			ImagePullPolicy:        string(imagePullPolicy),
 			ProxySessionSecret:     proxySessionSecret,
-			DBSecret:               operatorconstants.GHStorageSecretName,
-			KafkaCACert:            kafkaCACert,
-			KafkaClientCert:        kafkaClientCert,
-			KafkaClientKey:         kafkaClientKey,
-			KafkaBootstrapServer:   kafkaBootstrapServer,
+			DatabaseURL:            r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI,
+			PostgresCACert:         base64.StdEncoding.EncodeToString(r.MiddlewareConfig.PgConnection.CACert),
+			KafkaCACert:            r.MiddlewareConfig.KafkaConnection.CACert,
+			KafkaClientCert:        r.MiddlewareConfig.KafkaConnection.ClientCert,
+			KafkaClientKey:         r.MiddlewareConfig.KafkaConnection.ClientKey,
+			KafkaBootstrapServer:   r.MiddlewareConfig.KafkaConnection.BootstrapServer,
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
 			TransportFormat:        string(mgh.Spec.DataLayer.Kafka.TransportFormat),

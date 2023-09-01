@@ -72,7 +72,7 @@ function checkClusteradm() {
     curl -LO https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh
     chmod +x ./install.sh
     INSTALL_DIR=$binDir
-    source ./install.sh 0.4.1
+    source ./install.sh 0.6.0
     rm ./install.sh
   fi
   echo "clusteradm path: $(which clusteradm)"

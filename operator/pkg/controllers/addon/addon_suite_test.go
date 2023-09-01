@@ -15,6 +15,7 @@ package addon_test
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,7 +25,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
-	hypershiftdeploymentv1alpha1 "github.com/stolostron/hypershift-deployment-controller/api/v1alpha1"
 	agentv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -53,7 +53,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -107,8 +107,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = addonv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = hypershiftdeploymentv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
 	err = appsubv1.SchemeBuilder.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = appsubV1alpha1.AddToScheme(scheme.Scheme)
@@ -151,7 +149,16 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon controller to the manager")
-	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient, electionConfig)
+	middlewareCfg := &operatorconstants.MiddlewareConfig{
+		KafkaConnection: &kafka.KafkaConnection{
+			BootstrapServer: kafkaBootstrapServer,
+			CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCA)),
+			ClientCert:      "",
+			ClientKey:       "",
+		},
+	}
+	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient,
+		electionConfig, middlewareCfg)
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())
@@ -199,20 +206,6 @@ var mgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 }
 
 func prepareBeforeTest() {
-	By("By creating a fake transport secret")
-	transportSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      TransportSecretName,
-			Namespace: config.GetDefaultNamespace(),
-		},
-		Data: map[string][]byte{
-			"CA":               []byte(kafkaCA),
-			"bootstrap_server": []byte(kafkaBootstrapServer),
-		},
-		Type: corev1.SecretTypeOpaque,
-	}
-	Expect(k8sClient.Create(ctx, transportSecret)).Should(Succeed())
-
 	// create a MGH instance
 	By("By creating a new MGH instance")
 	mgh.SetNamespace(config.GetDefaultNamespace())
@@ -250,16 +243,16 @@ func prepareBeforeTest() {
 }
 
 func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {
-	config := &commonobjects.LeaderElectionConfig{
+	cfg := &commonobjects.LeaderElectionConfig{
 		LeaseDuration: 137,
 		RenewDeadline: 107,
 		RetryPeriod:   26,
 	}
 
-	configMap, err := kubeClient.CoreV1().ConfigMaps(constants.GHDefaultNamespace).Get(
+	configMap, err := kubeClient.CoreV1().ConfigMaps(config.GetDefaultNamespace()).Get(
 		context.TODO(), operatorconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		return config, nil
+		return cfg, nil
 	}
 	if err != nil {
 		return nil, err
@@ -280,8 +273,8 @@ func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 		return nil, err
 	}
 
-	config.LeaseDuration = leaseDurationSec
-	config.RenewDeadline = renewDeadlineSec
-	config.RetryPeriod = retryPeriodSec
-	return config, nil
+	cfg.LeaseDuration = leaseDurationSec
+	cfg.RenewDeadline = renewDeadlineSec
+	cfg.RetryPeriod = retryPeriodSec
+	return cfg, nil
 }

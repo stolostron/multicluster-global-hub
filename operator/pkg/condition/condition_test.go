@@ -99,7 +99,6 @@ func TestCondition(t *testing.T) {
 		setFunc       SetConditionFunc
 	}{
 		{"database initialization", CONDITION_TYPE_DATABASE_INIT, SetConditionDatabaseInit},
-		{"transport initialization", CONDITION_TYPE_TRANSPORT_INIT, SetConditionTransportInit},
 		{"manager deployment", CONDITION_TYPE_MANAGER_AVAILABLE, SetConditionManagerAvailable},
 		{"grafana deployment", CONDITION_TYPE_GRAFANA_AVAILABLE, SetConditionGrafanaAvailable},
 	}

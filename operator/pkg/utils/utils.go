@@ -1,5 +1,5 @@
 /*
-Copyright 2022.
+Copyright 2023
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,12 +20,16 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"path/filepath"
+	"os"
+	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 // Remove is used to remove string from a string array
@@ -84,23 +88,38 @@ func RemoveDuplicates(elements []string) []string {
 	return result
 }
 
-// GetKafkaConfig retrieves kafka server, caCert, clientCert, clientKey from the secret
-func GetKafkaConfig(ctx context.Context, kubeClient kubernetes.Interface,
-	namespace string, name string,
-) (string, string, string, string, error) {
-	kafkaSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return "", "", "", "", err
-	}
-	return string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
-		base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
-		base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
-		base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
-		nil
-}
-
 func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.Object) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		return runtimeClient.Update(ctx, obj, &client.UpdateOptions{})
 	})
+}
+
+// Finds subscription by name. Returns nil if none found.
+func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, name string) (
+	*subv1alpha1.Subscription, error) {
+	found := &subv1alpha1.Subscription{}
+	err := k8sClient.Get(ctx, types.NamespacedName{
+		Name:      name,
+		Namespace: config.GetDefaultNamespace(),
+	}, found)
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return found, nil
+}
+
+// IsCommunityMode returns true if operator is running in community mode
+func IsCommunityMode() bool {
+	image := os.Getenv("RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER")
+	if strings.Contains(image, "quay.io/stolostron") {
+		// image has quay.io/stolostron treat as community version
+		return true
+	} else {
+		return false
+	}
 }

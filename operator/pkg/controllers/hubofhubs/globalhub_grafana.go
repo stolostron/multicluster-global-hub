@@ -19,7 +19,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -101,17 +100,12 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (string, error) {
-	postgresSecret, err := r.KubeClient.CoreV1().Secrets(mgh.Namespace).Get(
-		ctx, operatorconstants.GHStorageSecretName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
 
-	datasourceVal, err := GrafanaDataSource(string(postgresSecret.Data["database_uri_with_readonlyuser"]),
-		postgresSecret.Data["ca.crt"])
+	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.PgConnection.ReadonlyUserDatabaseURI,
+		r.MiddlewareConfig.PgConnection.CACert)
 	if err != nil {
-		datasourceVal, err = GrafanaDataSource(string(postgresSecret.Data["database_uri"]),
-			postgresSecret.Data["ca.crt"])
+		datasourceVal, err = GrafanaDataSource(r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI,
+			r.MiddlewareConfig.PgConnection.CACert)
 		if err != nil {
 			return "", err
 		}

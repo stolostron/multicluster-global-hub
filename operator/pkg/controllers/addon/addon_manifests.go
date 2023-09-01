@@ -21,7 +21,6 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -70,6 +69,7 @@ type HohAgentAddon struct {
 	dynamicClient        dynamic.Interface
 	leaderElectionConfig *commonobjects.LeaderElectionConfig
 	log                  logr.Logger
+	MiddlewareConfig     *operatorconstants.MiddlewareConfig
 }
 
 func (a *HohAgentAddon) getMulticlusterGlobalHub() (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
@@ -150,11 +150,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	kafkaBootstrapServer, kafkaCACert, kafkaClientCert, kafkaClientKey, err := utils.GetKafkaConfig(a.ctx,
-		a.kubeClient, mgh.Namespace, operatorconstants.GHTransportSecretName)
-	if err != nil {
-		log.Error(err, "failed to get kafkaConfig")
-		return nil, err
+	if a.MiddlewareConfig.KafkaConnection == nil {
+		return nil, fmt.Errorf("failed to get kafka connection config")
 	}
 
 	image, err := a.getOverrideImage(mgh, cluster)
@@ -171,10 +168,10 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
-		KafkaBootstrapServer:   kafkaBootstrapServer,
-		KafkaCACert:            kafkaCACert,
-		KafkaClientCert:        kafkaClientCert,
-		KafkaClientKey:         kafkaClientKey,
+		KafkaBootstrapServer:   a.MiddlewareConfig.KafkaConnection.BootstrapServer,
+		KafkaCACert:            a.MiddlewareConfig.KafkaConnection.CACert,
+		KafkaClientCert:        a.MiddlewareConfig.KafkaConnection.ClientCert,
+		KafkaClientKey:         a.MiddlewareConfig.KafkaConnection.ClientKey,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		TransportFormat:        string(mgh.Spec.DataLayer.Kafka.TransportFormat),

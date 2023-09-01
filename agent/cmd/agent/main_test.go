@@ -126,7 +126,7 @@ func TestAgent(t *testing.T) {
 			"default",
 			"--leaf-hub-name",
 			"hub1",
-			"--kakfa-consumer-id",
+			"--kafka-consumer-id",
 			"hub1",
 			"--lease-duration",
 			"15",
