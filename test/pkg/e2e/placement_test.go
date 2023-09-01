@@ -308,7 +308,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					return nil
 				}
 				return fmt.Errorf("the policy have not applied to the managed cluster %s", managedClusters[1].Name)
-			}, 100*time.Minute, 1*time.Second).Should(Succeed())
+			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
 		It("scale policy with placement", func() {
