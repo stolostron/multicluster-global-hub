@@ -47,10 +47,6 @@ func cleanPlacementObject(instance client.Object) {
 		delete(placement.Annotations, clusterv1beta1.PlacementDisableAnnotation)
 	}
 	placement.Status = clusterv1beta1.PlacementStatus{}
-
-	// to compatible with 2.8
-	// placement.Spec.DecisionStrategy = clusterv1beta1.DecisionStrategy{}
-	// placement.Spec.SpreadPolicy = clusterv1beta1.SpreadPolicy{}
 }
 
 func arePlacementsEqual(instance1, instance2 client.Object) bool {
