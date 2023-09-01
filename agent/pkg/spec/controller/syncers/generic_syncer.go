@@ -60,10 +60,10 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
 
-			// placementbinding: the older without the bindingOverrides
+			// Deprecated: delete the bindingOverrides from placementbinding.
 			delete(unstructuredObject.Object, "bindingOverrides")
 
-			// placement: the older without the decisionStrategy and spreadPolicy under spec
+			// Deprecated: delete the the decisionStrategy and spreadPolicy and from the spec of placement
 			spec, ok := unstructuredObject.Object["spec"]
 			if ok {
 				specMap := spec.(map[string]interface{})
@@ -71,6 +71,9 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 				delete(specMap, "spreadPolicy")
 				unstructuredObject.Object["spec"] = specMap
 			}
+
+			// delete the status (.status.decisionGroups for placement) from all the spec objects
+			delete(unstructuredObject.Object, "status")
 
 			if !syncer.enforceHohRbac { // if rbac not enforced, create missing namespaces.
 				if err := helper.CreateNamespaceIfNotExist(ctx, k8sClient,
