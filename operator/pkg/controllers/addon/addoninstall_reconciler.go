@@ -98,7 +98,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			},
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{
-			InstallNamespace: constants.GHSystemNamespace,
+			InstallNamespace: constants.GHAgentNamespace,
 		},
 	}
 	expectedAddonAnnotations := map[string]string{}

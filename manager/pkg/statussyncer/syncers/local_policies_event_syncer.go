@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
@@ -21,10 +20,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
-func NewLocalPoliciesStatusEventSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
+func NewLocalPoliciesStatusEventSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &localPoliciesStatusEventSyncer{
 		log:                                    log,
-		config:                                 config,
 		createLocalPolicyStatusEventBundleFunc: status.NewClusterPolicyStatusEventBundle,
 	}
 	log.Info("initialized local policies status event syncer")
@@ -33,14 +31,13 @@ func NewLocalPoliciesStatusEventSyncer(log logr.Logger, config *corev1.ConfigMap
 
 type localPoliciesStatusEventSyncer struct {
 	log                                    logr.Logger
-	config                                 *corev1.ConfigMap
 	createLocalPolicyStatusEventBundleFunc status.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *localPoliciesStatusEventSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	predicate := func() bool {
-		return syncer.config.Data["enableLocalPolicies"] == "true"
+		return true
 	}
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{

@@ -14,7 +14,7 @@ export TOKEN=$(oc whoami -t)
 3. Get the host of multicluster global hub API
 
 ```bash
-export GLOBAL_HUB_API_HOST=$(oc -n open-cluster-management get route multicluster-global-hub-manager -o jsonpath={.spec.host})
+export GLOBAL_HUB_API_HOST=$(oc -n multicluster-global-hub get route multicluster-global-hub-manager -o jsonpath={.spec.host})
 ```
 
 4. Access the multicluster global hub API

@@ -3,12 +3,10 @@ package statussyncer
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
-	configctl "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/dispatcher"
 	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
@@ -59,16 +57,10 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 		return nil, fmt.Errorf("failed to add conflation dispatcher to runtime manager: %w", err)
 	}
 
-	// register config controller within the runtime manager
-	config, err := addConfigController(mgr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add config controller to manager - %w", err)
-	}
-
 	// register db syncers create bundle functions within transport and handler functions within dispatcher
 	dbSyncers := []dbsyncer.DBSyncer{
 		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-clusters-db-syncer")),
-		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies-db-syncer"), config),
+		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies-db-syncer")),
 		dbsyncer.NewPlacementRulesDBSyncer(ctrl.Log.WithName("placement-rules-db-syncer")),
 		dbsyncer.NewPlacementsDBSyncer(ctrl.Log.WithName("placements-db-syncer")),
 		dbsyncer.NewPlacementDecisionsDBSyncer(ctrl.Log.WithName("placement-decisions-db-syncer")),
@@ -76,11 +68,11 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 		dbsyncer.NewSubscriptionStatusesDBSyncer(ctrl.Log.WithName("subscription-statuses-db-syncer")),
 		dbsyncer.NewSubscriptionReportsDBSyncer(ctrl.Log.WithName("subscription-reports-db-syncer")),
 		dbsyncer.NewLocalSpecPlacementruleSyncer(ctrl.Log.WithName(
-			"local-spec-placementrule-syncer"), config),
-		dbsyncer.NewLocalSpecPoliciesSyncer(ctrl.Log.WithName("local-spec-policy-syncer"), config),
+			"local-spec-placementrule-syncer")),
+		dbsyncer.NewLocalSpecPoliciesSyncer(ctrl.Log.WithName("local-spec-policy-syncer")),
 		dbsyncer.NewControlInfoDBSyncer(ctrl.Log.WithName("control-info-db-syncer")),
 		dbsyncer.NewLocalPoliciesStatusEventSyncer(
-			ctrl.Log.WithName("local-policies-status-event-syncer"), config),
+			ctrl.Log.WithName("local-policies-status-event-syncer")),
 	}
 
 	for _, dbsyncerObj := range dbSyncers {
@@ -160,18 +152,4 @@ func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 		return nil, fmt.Errorf("failed to add statistics to manager - %w", err)
 	}
 	return stats, nil
-}
-
-func addConfigController(mgr ctrl.Manager) (*corev1.ConfigMap, error) {
-	config := &corev1.ConfigMap{Data: map[string]string{"aggregationLevel": "full"}}
-	// default value is full until the config is read from the CR
-
-	if err := configctl.AddConfigController(mgr,
-		ctrl.Log.WithName("multicluster-global-hub-config"),
-		config,
-	); err != nil {
-		return nil, fmt.Errorf("failed to add config controller: %w", err)
-	}
-
-	return config, nil
 }

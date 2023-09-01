@@ -12,8 +12,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,7 +25,6 @@ import (
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -94,21 +91,6 @@ var _ = BeforeSuite(func() {
 	kubeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kubeClient).NotTo(BeNil())
-
-	By("Create the global hub ConfigMap with aggregationLevel=full and enableLocalPolicies=true")
-	mghSystemNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
-	Expect(kubeClient.Create(ctx, mghSystemNamespace)).Should(Succeed())
-	mghSystemConfigMap := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.GHAgentConfigCMName,
-			Namespace: constants.GHSystemNamespace,
-			Labels: map[string]string{
-				constants.GlobalHubGlobalResourceLabel: "",
-			},
-		},
-		Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
-	}
-	Expect(kubeClient.Create(ctx, mghSystemConfigMap)).Should(Succeed())
 
 	managerConfig := &config.ManagerConfig{
 		SyncerConfig: &config.SyncerConfig{

@@ -8,8 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
 var _ = Describe("Check all the connection of clients and necessary parameter validation", Label("e2e-tests-validation"), func() {
@@ -20,15 +18,6 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 			deployList, err := deployClient.List(context.TODO(), metav1.ListOptions{Limit: 2})
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(len(deployList.Items) > 0).To(BeTrue())
-		})
-
-		It("connect to the apiserver with dynamic interface", func() {
-			dynamicClient := testClients.KubeDynamicClient()
-			hohConfigMapGVR := utils.NewHoHConfigMapGVR()
-			configMapList, err := dynamicClient.Resource(hohConfigMapGVR).Namespace(
-				"open-cluster-management-global-hub-system").List(context.TODO(), metav1.ListOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(len(configMapList.Items) > 0).To(BeTrue())
 		})
 
 		It("check whether the cluster is running properly", func() {

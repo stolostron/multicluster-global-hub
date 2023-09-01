@@ -19,7 +19,7 @@ func GetTransportSecret() (*v1.Secret, error) {
 	}
 	namespace := os.Getenv("SECRET_NAMESPACE")
 	if namespace == "" {
-		namespace = "open-cluster-management"
+		namespace = "multicluster-global-hub"
 	}
 	name := os.Getenv("SECRET_NAME")
 	if name == "" {

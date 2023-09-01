@@ -1,9 +1,0 @@
-apiVersion: addon.open-cluster-management.io/v1alpha1
-kind: ManagedClusterAddOn
-metadata:
-  name: application-manager
-  namespace: ${HYPERSHIFT_MANAGED_CLUSTER_NAME}
-  finalizers:
-  - test
-spec:
-  installNamespace: open-cluster-management-agent-addon

@@ -79,7 +79,7 @@ func TestMain(m *testing.M) {
 
 	if _, err := kubeClient.CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.GHSystemNamespace,
+			Name: constants.GHAgentNamespace,
 		},
 	}, metav1.CreateOptions{}); err != nil {
 		panic(err)

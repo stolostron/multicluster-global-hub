@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
@@ -23,10 +22,9 @@ import (
 )
 
 // NewLocalSpecPoliciesSyncer creates a new instance of LocalSpecDBSyncer.
-func NewLocalSpecPoliciesSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
+func NewLocalSpecPoliciesSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &localSpecPoliciesSyncer{
 		log:                             log,
-		config:                          config,
 		createLocalPolicySpecBundleFunc: statusbundle.NewLocalPolicySpecBundle,
 	}
 	log.Info("initialized local spec policies syncer")
@@ -36,14 +34,13 @@ func NewLocalSpecPoliciesSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyn
 // localSpecPoliciesSyncer implements local objects spec db sync business logic.
 type localSpecPoliciesSyncer struct {
 	log                             logr.Logger
-	config                          *corev1.ConfigMap
 	createLocalPolicySpecBundleFunc status.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *localSpecPoliciesSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	predicate := func() bool {
-		return syncer.config.Data["enableLocalPolicies"] == "true"
+		return true
 	}
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{

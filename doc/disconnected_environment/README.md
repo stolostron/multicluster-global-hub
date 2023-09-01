@@ -165,17 +165,17 @@ multicluster-global-hub-operator   Community Operators   28m
   kind: OperatorGroup
   metadata:
     name: global-hub-operator-sdk-og
-    namespace: open-cluster-management
+    namespace: multicluster-global-hub
   spec:
     targetNamespaces:
-    - open-cluster-management
+    - multicluster-global-hub
 
   $ oc apply -f ./doc/disconnected_environment/operatorgroup.yaml   
   ```
  
 - Create the `Subscription`
 
-  Replace the `open-cluster-management` namespace with your project namespace.
+  Replace the `multicluster-global-hub` namespace with your project namespace.
   
   ```bash
   $ cat ./doc/disconnected_environment/subscription.yaml
@@ -183,7 +183,7 @@ multicluster-global-hub-operator   Community Operators   28m
   kind: Subscription
   metadata:
     name: multicluster-global-hub-operator
-    namespace: open-cluster-management
+    namespace: multicluster-global-hub
   spec:
     channel: alpha
     installPlanApproval: Automatic
@@ -196,19 +196,19 @@ multicluster-global-hub-operator   Community Operators   28m
   
 - Check the global hub operator
 
-  Replace the `open-cluster-management` namespace with your project namespace.
+  Replace the `multicluster-global-hub` namespace with your project namespace.
 
   ```bash
-  $ oc get pods -n open-cluster-management
+  $ oc get pods -n multicluster-global-hub
   NAME                                                READY   STATUS    RESTARTS   AGE
   multicluster-global-hub-operator-687584cb7c-fnftj   1/1     Running   0          2m12s
   
-  $ oc describe pod -n open-cluster-management multicluster-global-hub-operator-687584cb7c-fnftj
+  $ oc describe pod -n multicluster-global-hub multicluster-global-hub-operator-687584cb7c-fnftj
   ...
   Events:
   Type    Reason          Age    From               Message
   ----    ------          ----   ----               -------
-  Normal  Scheduled       2m52s  default-scheduler  Successfully assigned open-cluster-management/multicluster-global-hub-operator-5546668786-f7b7v to ip-10-0-137-91.ec2.internal
+  Normal  Scheduled       2m52s  default-scheduler  Successfully assigned multicluster-global-hub/multicluster-global-hub-operator-5546668786-f7b7v to ip-10-0-137-91.ec2.internal
   Normal  AddedInterface  2m50s  multus             Add eth0 [10.128.1.7/23] from openshift-sdn
   Normal  Pulling         2m49s  kubelet            Pulling image "registry.redhat.io/multicluster-globalhub/multicluster-global-hub-operator@sha256:f385a9cfa78442526d6721fc7aa182ec6b98dffdabc78e2732bf9adbc5c8e0df"
   Normal  Pulled          2m35s  kubelet            Successfully pulled image "registry.redhat.io/multicluster-globalhub/multicluster-global-hub-operator@sha256:f385a9cfa78442526d6721fc7aa182ec6b98dffdabc78e2732bf9adbc5c8e0df" in 14.180033246s
@@ -232,7 +232,7 @@ metadata:
   annotations:
     mgh-image-repository: <private-image-registry>
   name: multiclusterglobalhub
-  namespace: open-cluster-management
+  namespace: multicluster-global-hub
 spec:
   imagePullPolicy: Always
   imagePullSecret: ecr-image-pull-secret

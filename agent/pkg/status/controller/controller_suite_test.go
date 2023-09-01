@@ -89,7 +89,7 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient).NotTo(BeNil())
 
 	By("Create global hub system namespace")
-	mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
+	mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHAgentNamespace}}
 	Expect(kubeClient.Create(ctx, mghSystemNamespace)).Should(Succeed())
 
 	By("Add controllers to manager")

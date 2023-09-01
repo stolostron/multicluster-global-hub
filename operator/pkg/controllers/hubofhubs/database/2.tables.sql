@@ -124,14 +124,6 @@ CREATE TABLE IF NOT EXISTS spec.channels (
     deleted boolean DEFAULT false NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS spec.configs (
-    id uuid PRIMARY KEY,
-    payload jsonb NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    deleted boolean DEFAULT false NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS spec.managed_cluster_sets_tracking (
     cluster_set_name character varying(254) NOT NULL,
     leaf_hub_name character varying(254) NOT NULL,

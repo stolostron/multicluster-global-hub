@@ -30,7 +30,7 @@ hub_app_domain=$(kubectl -n openshift-ingress-operator get ingresscontrollers de
 hub_base_domain="${hub_app_domain#apps.}"
 hub_nonk8s_api_server="https://multicluster-global-hub-manager.apps.${hub_base_domain}"
 
-hub_namespace="open-cluster-management"
+hub_namespace="multicluster-global-hub"
 hub_database_secret="hub-of-hubs-database-secret"
 
 # imported managedcluster1

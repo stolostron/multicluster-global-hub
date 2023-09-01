@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: multicluster-global-hub-operator
-  namespace: open-cluster-management
+  namespace: multicluster-global-hub
 spec:
   template:
     spec:

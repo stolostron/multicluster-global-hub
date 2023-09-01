@@ -9,13 +9,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: multicluster-global-hub-operator
-  namespace: open-cluster-management
+  namespace: multicluster-global-hub
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: multicluster-global-hub-operator-aggregated-rolebinding
-  namespace: open-cluster-management
+  namespace: multicluster-global-hub
 roleRef:
   kind: Role
   name: multicluster-global-hub-operator-aggregated-role
@@ -23,4 +23,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: multicluster-global-hub-operator
-  namespace: open-cluster-management
+  namespace: multicluster-global-hub

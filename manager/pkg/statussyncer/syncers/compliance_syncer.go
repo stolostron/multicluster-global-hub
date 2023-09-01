@@ -5,7 +5,6 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
@@ -22,10 +21,9 @@ import (
 const failedBatchFormat = "failed to perform batch - %w"
 
 // NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
-func NewPoliciesDBSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
+func NewPoliciesDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &PoliciesDBSyncer{
 		log:                                           log,
-		config:                                        config,
 		createClustersPerPolicyBundleFunc:             statusbundle.NewClustersPerPolicyBundle,
 		createCompleteComplianceStatusBundleFunc:      statusbundle.NewCompleteComplianceStatusBundle,
 		createDeltaComplianceStatusBundleFunc:         statusbundle.NewDeltaComplianceStatusBundle,
@@ -42,7 +40,6 @@ func NewPoliciesDBSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
 // PoliciesDBSyncer implements policies db sync business logic.
 type PoliciesDBSyncer struct {
 	log                                           logr.Logger
-	config                                        *corev1.ConfigMap
 	createClustersPerPolicyBundleFunc             status.CreateBundleFunction
 	createCompleteComplianceStatusBundleFunc      status.CreateBundleFunction
 	createDeltaComplianceStatusBundleFunc         status.CreateBundleFunction
@@ -53,13 +50,12 @@ type PoliciesDBSyncer struct {
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
-	fullStatusPredicate := func() bool { return syncer.config.Data["aggregationLevel"] == "full" }
+	fullStatusPredicate := func() bool { return true }
 	minimalStatusPredicate := func() bool {
-		return syncer.config.Data["aggregationLevel"] == "minimal"
+		return false
 	}
 	localPredicate := func() bool {
-		return fullStatusPredicate() &&
-			syncer.config.Data["enableLocalPolicies"] == "true"
+		return fullStatusPredicate() && true
 	}
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{

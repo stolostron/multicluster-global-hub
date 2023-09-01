@@ -76,7 +76,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 	opts.BindFlags(defaultFlags)
 	pflag.CommandLine.AddGoFlagSet(defaultFlags)
 
-	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", "open-cluster-management",
+	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", "multicluster-global-hub",
 		"The manager running namespace, also used as leader election namespace.")
 	pflag.StringVar(&managerConfig.WatchNamespace, "watch-namespace", "",
 		"The watching namespace of the controllers, multiple namespace must be splited by comma.")

@@ -179,7 +179,7 @@ The CU-Lookup implements a read-write lock that is used to create new CUs. A TR 
 
 The bundles are used to transfer the status from the Managed Hubs to the Global Hub. In order to reduce repeated processing of messages, thereby reducing additional work load for global hub manager. Bundle version is introduced here to solve the above problem. Which is made up of two parts:
 
-- `Incarnation`: Every time the Global Hub Agent is restarted(may happen due to a failure), incarnation is increased. It's value is stored in ConfigMap(`open-cluster-management-global-hub-system/incarnation-config`).
+- `Incarnation`: Every time the Global Hub Agent is restarted(may happen due to a failure), incarnation is increased.
 
 - `Generation`: Every time the Global Hub Agent sends a message, the generation of the corresponding bundle will be incremented by 1.
 

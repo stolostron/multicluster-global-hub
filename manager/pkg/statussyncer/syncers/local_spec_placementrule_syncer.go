@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
@@ -20,10 +19,9 @@ import (
 )
 
 // NewLocalSpecPlacementruleSyncer creates a new instance of LocalSpecDBSyncer.
-func NewLocalSpecPlacementruleSyncer(log logr.Logger, config *corev1.ConfigMap) DBSyncer {
+func NewLocalSpecPlacementruleSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &LocalSpecDBSyncer{
-		log:    log,
-		config: config,
+		log: log,
 		// createLocalPolicySpecBundleFunc:         statusbundle.NewLocalPolicySpecBundle,
 		createLocalPlacementRulesSpecBundleFunc: statusbundle.NewLocalPlacementRulesBundle,
 	}
@@ -35,8 +33,7 @@ func NewLocalSpecPlacementruleSyncer(log logr.Logger, config *corev1.ConfigMap) 
 
 // LocalSpecDBSyncer implements local objects spec db sync business logic.
 type LocalSpecDBSyncer struct {
-	log    logr.Logger
-	config *corev1.ConfigMap
+	log logr.Logger
 	// createLocalPolicySpecBundleFunc         status.CreateBundleFunction
 	createLocalPlacementRulesSpecBundleFunc status.CreateBundleFunction
 }
@@ -44,7 +41,7 @@ type LocalSpecDBSyncer struct {
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	predicate := func() bool {
-		return syncer.config.Data["enableLocalPolicies"] == "true"
+		return true
 	}
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{

@@ -19,7 +19,7 @@ const acmPackageManifestJson = `{
             "catalog": "redhat-operators"
         },
         "name": "advanced-cluster-management",
-        "namespace": "open-cluster-management"
+        "namespace": "multicluster-global-hub"
     },
     "spec": {},
     "status": {
@@ -59,7 +59,7 @@ const mcePachageManifestJson = `{
             "catalog": "redhat-operators"
         },
         "name": "multicluster-engine",
-        "namespace": "open-cluster-management"
+        "namespace": "multicluster-global-hub"
     },
     "spec": {},
     "status": {

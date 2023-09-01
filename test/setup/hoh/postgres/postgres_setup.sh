@@ -9,7 +9,7 @@ rootDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." ; pwd -P)"
 source $rootDir/test/setup/common.sh
 
 # step1: check storage secret
-targetNamespace=${TARGET_NAMESPACE:-"open-cluster-management"}
+targetNamespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
 storageSecret=${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"}
 ready=$(kubectl get secret $storageSecret -n $targetNamespace --ignore-not-found=true)
 if [ ! -z "$ready" ]; then
@@ -23,18 +23,20 @@ waitAppear "kubectl get pods -n postgres-operator --ignore-not-found=true | grep
 # kubectl -n postgres-operator wait --for=condition=Available Deployment/"pgo" --timeout=1000s
 
 # step3: deploy  postgres cluster
-kubectl apply -k ${currentDir}/postgres-cluster
-waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
+kubectl --kubeconfig $KUBECONFIG apply -k ${currentDir}/postgres-cluster
+waitAppear "kubectl --kubeconfig $KUBECONFIG get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
 
 # step4: generate storage secret
 pgnamespace="hoh-postgres"
 userSecret="hoh-pguser-postgres"
 certSecret="hoh-cluster-cert"
 
-databaseURI=$(kubectl get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "uri" | base64decode}}')
-kubectl get secret $certSecret -n $pgnamespace -o jsonpath='{.data.ca\.crt}' |base64 -d > $currentDir/ca.crt
+databaseURI=$(kubectl --kubeconfig $KUBECONFIG get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "uri" | base64decode}}')
+kubectl --kubeconfig $KUBECONFIG get secret $certSecret -n $pgnamespace -o jsonpath='{.data.ca\.crt}' |base64 -d > $currentDir/ca.crt
 
-kubectl create secret generic $storageSecret -n $targetNamespace \
+# create target namespace
+kubectl --kubeconfig $KUBECONFIG create namespace $targetNamespace || true
+kubectl --kubeconfig $KUBECONFIG create secret generic $storageSecret -n $targetNamespace \
     --from-literal=database_uri="${databaseURI}?sslmode=verify-ca" \
     --from-file=ca.crt=$currentDir/ca.crt 
 

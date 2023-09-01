@@ -55,34 +55,6 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.move_configs_to_history() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  INSERT INTO history.configs SELECT * FROM spec.configs
-  WHERE payload -> 'metadata' ->> 'name' = NEW.payload -> 'metadata' ->> 'name' AND
-  (
-    (
-      (payload -> 'metadata' ->> 'namespace' IS NOT NULL AND NEW.payload -> 'metadata' ->> 'namespace' IS NOT NULL)
-    AND payload -> 'metadata' ->> 'namespace' = NEW.payload -> 'metadata' ->> 'namespace'
-    ) OR (
-      payload -> 'metadata' -> 'namespace' IS NULL AND NEW.payload -> 'metadata' -> 'namespace' IS NULL
-    )
-  );
-  DELETE FROM spec.configs
-  WHERE payload -> 'metadata' ->> 'name' = NEW.payload -> 'metadata' ->> 'name' AND
-  (
-    (
-      (payload -> 'metadata' ->> 'namespace' IS NOT NULL AND NEW.payload -> 'metadata' ->> 'namespace' IS NOT NULL)
-    AND payload -> 'metadata' ->> 'namespace' = NEW.payload -> 'metadata' ->> 'namespace'
-    ) OR (
-      payload -> 'metadata' -> 'namespace' IS NULL AND NEW.payload -> 'metadata' -> 'namespace' IS NULL
-    )
-  );
-  RETURN NEW;
-END;
-$$;
-
 CREATE OR REPLACE FUNCTION public.move_managedclustersetbindings_to_history() RETURNS trigger
     LANGUAGE plpgsql
     AS $$

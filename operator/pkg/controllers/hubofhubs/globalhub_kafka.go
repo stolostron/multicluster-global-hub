@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,10 +28,10 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafkaSubscription(ctx context.Co
 		return err
 	}
 
-	// Get sub config, catalogsource, and annotation overrides
-	subConfig, err := r.GenerateSubConfig(ctx)
-	if err != nil {
-		return err
+	// Generate sub config from mcgh CR
+	subConfig := &subv1alpha1.SubscriptionConfig{
+		NodeSelector: mgh.Spec.NodeSelector,
+		Tolerations:  mgh.Spec.Tolerations,
 	}
 
 	createSub := false

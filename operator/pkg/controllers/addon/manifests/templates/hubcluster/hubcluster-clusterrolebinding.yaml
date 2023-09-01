@@ -11,7 +11,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: open-cluster-management:hub-cluster-controller
+  name: multicluster-global-hub:hub-cluster-controller
 subjects:
 - kind: ServiceAccount
   name: klusterlet-work-sa

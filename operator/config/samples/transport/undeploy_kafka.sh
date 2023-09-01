@@ -6,7 +6,7 @@ rootDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." ; pwd -P)"
 source $rootDir/test/setup/common.sh
 
 # step1: delete transport secret 
-targetNamespace=${TARGET_NAMESPACE:-"open-cluster-management"}
+targetNamespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
 transportSecret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
 kubectl delete secret ${transportSecret} -n $targetNamespace
 

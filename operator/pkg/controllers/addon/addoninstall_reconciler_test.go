@@ -194,7 +194,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 				if err != nil {
 					t.Errorf("failed to reconcile .%v", err)
 				}
-				if addon.Spec.InstallNamespace != constants.GHSystemNamespace {
+				if addon.Spec.InstallNamespace != constants.GHAgentNamespace {
 					t.Errorf("expected installname %s, but got %s",
 						operatorconstants.GHAgentInstallNamespace, addon.Spec.InstallNamespace)
 				}
