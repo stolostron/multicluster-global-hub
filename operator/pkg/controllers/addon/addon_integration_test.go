@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1"
-	agentv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -62,31 +61,6 @@ func prepareCluster(name string, labels, annotations map[string]string,
 		},
 	})).Should(Succeed())
 
-	klusterletAddonConfig := &agentv1.KlusterletAddonConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: name,
-		},
-		Spec: agentv1.KlusterletAddonConfigSpec{
-			SearchCollectorConfig: agentv1.KlusterletAddonAgentConfigSpec{
-				Enabled: true,
-			},
-			PolicyController: agentv1.KlusterletAddonAgentConfigSpec{
-				Enabled: true,
-			},
-			ApplicationManagerConfig: agentv1.KlusterletAddonAgentConfigSpec{
-				Enabled: true,
-			},
-			CertPolicyControllerConfig: agentv1.KlusterletAddonAgentConfigSpec{
-				Enabled: true,
-			},
-			IAMPolicyControllerConfig: agentv1.KlusterletAddonAgentConfigSpec{
-				Enabled: true,
-			},
-		},
-	}
-
-	Expect(k8sClient.Create(ctx, klusterletAddonConfig)).Should(Succeed())
 }
 
 var _ = Describe("addon integration", Ordered, func() {

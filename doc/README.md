@@ -190,7 +190,6 @@ Supported middleware for MCGH:
 
     **Notes:**
     * The multicluster global hub is only available for the x86 platform.
-    * The policy and application are disabled in Red Hat Advanced Cluster Management after the multicluster global hub is installed.
 
 ### Import a managed hub cluster in default mode (Technology Preview)
 

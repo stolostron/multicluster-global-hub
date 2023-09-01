@@ -65,13 +65,6 @@ const (
 	CONDITION_MESSAGE_MANAGER_AVAILABLE = "Multicluster Global Hub Manager has been deployed"
 )
 
-// NOTE: the status of MCHConfigured can only be True; otherwise there is no condition
-const (
-	CONDITION_TYPE_MCH_CONFIGURED    = "MCHConfigured"
-	CONDITION_REASON_MCH_CONFIGURED  = "MCHConfigured"
-	CONDITION_MESSAGE_MCH_CONFIGURED = "MultiClusterHub instance has been configured"
-)
-
 // NOTE: the status of LeafHubDeployed can only be True; otherwise there is no condition
 const (
 	CONDITION_TYPE_LEAFHUB_DEPLOY           = "LeafHubDeployed"
@@ -116,13 +109,6 @@ func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *glo
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MANAGER_AVAILABLE, status,
 		CONDITION_REASON_MANAGER_AVAILABLE, CONDITION_MESSAGE_MANAGER_AVAILABLE)
-}
-
-func SetConditionMCHConfigured(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-	status metav1.ConditionStatus,
-) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_MCH_CONFIGURED, status,
-		CONDITION_REASON_MCH_CONFIGURED, CONDITION_MESSAGE_MCH_CONFIGURED)
 }
 
 func SetConditionLeafHubDeployed(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
