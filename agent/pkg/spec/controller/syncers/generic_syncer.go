@@ -69,6 +69,23 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 				}
 			}
 
+			// Deprecated: skip the "bindingOverrides" from the placementbinding
+			// Reference: https://github.com/open-cluster-management-io/governance-policy-propagator/pull/110
+			delete(unstructuredObject.Object, "bindingOverrides")
+
+			// Deprecated: skip the "spec.decisionStrategy" and "spec.spreadPolicy" from the placement
+			// Reference:
+			//   "spec.spreadPolicy": https://github.com/open-cluster-management-io/api/pull/225
+			//   "spec.decisionStrategy": https://github.com/open-cluster-management-io/api/pull/242
+			spec, ok := unstructuredObject.Object["spec"]
+			if ok {
+				specMap := spec.(map[string]interface{})
+				delete(specMap, "decisionStrategy")
+				delete(specMap, "spreadPolicy")
+				unstructuredObject.Object["spec"] = specMap
+			}
+
+			delete(unstructuredObject.Object, "status")
 			err := helper.UpdateObject(ctx, k8sClient, unstructuredObject)
 			if err != nil {
 				syncer.log.Error(err, "failed to update object", "name", unstructuredObject.GetName(),

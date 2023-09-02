@@ -29,7 +29,8 @@ const (
 func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer) (*generic.HybridSyncManager, error) {
 	leafHubName := agentstatusconfig.GetLeafHubName()
 	agentConfig := agentstatusconfig.GetAgentConfigMap()
-	bundleCollection, hybridSyncManager, err := createBundleCollection(producer, leafHubName, agentConfig)
+	bundleCollection, hybridSyncManager, err :=
+		createBundleCollection(producer, leafHubName, agentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}

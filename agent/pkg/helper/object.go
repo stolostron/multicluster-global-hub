@@ -19,14 +19,13 @@ const (
 )
 
 // UpdateObject function updates a given k8s object.
-func UpdateObject(ctx context.Context, k8sClient client.Client, obj *unstructured.Unstructured) error {
+func UpdateObject(ctx context.Context, runtimeClient client.Client, obj *unstructured.Unstructured) error {
 	objectBytes, err := obj.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("failed to update object - %w", err)
 	}
-
 	forceChanges := true
-	if err := k8sClient.Patch(ctx, obj, client.RawPatch(types.ApplyPatchType, objectBytes), &client.PatchOptions{
+	if err := runtimeClient.Patch(ctx, obj, client.RawPatch(types.ApplyPatchType, objectBytes), &client.PatchOptions{
 		FieldManager: controllerName,
 		Force:        &forceChanges,
 		Raw: &metav1.PatchOptions{
