@@ -55,7 +55,7 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportDispatche
 		return false
 	}
 	localPredicate := func() bool {
-		return fullStatusPredicate() && true
+		return fullStatusPredicate()
 	}
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{

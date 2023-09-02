@@ -66,7 +66,7 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafka(ctx context.Context) error
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = r.Client.Create(ctx, kafka.NewKafka(kafka.KafkaClusterName, config.GetDefaultNamespace()))
-			if err != nil {
+			if err != nil && !errors.IsAlreadyExists(err) {
 				return err
 			}
 		} else {
@@ -92,7 +92,7 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafka(ctx context.Context) error
 		}
 		if !found {
 			err := r.Client.Create(ctx, kafka.NewKafkaTopic(kafkaTopicName, config.GetDefaultNamespace()))
-			if err != nil {
+			if err != nil && !errors.IsAlreadyExists(err) {
 				return err
 			}
 		}
@@ -106,7 +106,7 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafka(ctx context.Context) error
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = r.Client.Create(ctx, kafka.NewKafkaUser(kafka.KafkaUserName, config.GetDefaultNamespace()))
-			if err != nil {
+			if err != nil && !errors.IsAlreadyExists(err) {
 				return err
 			}
 		} else {
