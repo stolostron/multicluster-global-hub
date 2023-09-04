@@ -23,10 +23,20 @@ import (
 	"os"
 	"strings"
 
+	"fmt"
+	"reflect"
+
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+
+	"gopkg.in/yaml.v2"
+	corev1 "k8s.io/api/core/v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -122,4 +132,133 @@ func IsCommunityMode() bool {
 	} else {
 		return false
 	}
+}
+
+func ApplyConfigMap(ctx context.Context, kubeClient kubernetes.Interface, required *corev1.ConfigMap) (bool, error) {
+	curAlertConfigMap, err := kubeClient.CoreV1().
+		ConfigMaps(required.Namespace).
+		Get(ctx,
+			required.Name,
+			metav1.GetOptions{},
+		)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("creating configmap, namespace: %v, name: %v", required.Namespace, required.Name)
+			_, err := kubeClient.CoreV1().
+				ConfigMaps(required.Namespace).
+				Create(ctx,
+					required,
+					metav1.CreateOptions{},
+				)
+			if err != nil {
+				return false, fmt.Errorf("Failed to create alert configmap, namespace: %v, name: %v, error:%v",
+					required.Namespace, required.Name, err)
+			}
+			return true, err
+		}
+		return false, nil
+	}
+
+	if reflect.DeepEqual(curAlertConfigMap.Data, required.Data) {
+		return false, nil
+	}
+
+	klog.Infof("Update alert configmap, namespace: %v, name: %v", required.Namespace, required.Name)
+	_, err = kubeClient.CoreV1().
+		ConfigMaps(required.Namespace).
+		Update(ctx,
+			required,
+			metav1.UpdateOptions{},
+		)
+	if err != nil {
+		return false, fmt.Errorf("Failed to update alert configmap, namespace: %v, name: %v, error:%v",
+			required.Namespace, required.Name, err)
+	}
+	return true, nil
+}
+
+func ApplySecret(ctx context.Context, kubeClient kubernetes.Interface, requiredSecret *corev1.Secret) (bool, error) {
+	curSecret, err := kubeClient.CoreV1().
+		Secrets(requiredSecret.Namespace).
+		Get(ctx,
+			requiredSecret.Name,
+			metav1.GetOptions{},
+		)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("creating secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
+			_, err := kubeClient.CoreV1().
+				Secrets(requiredSecret.Namespace).
+				Create(ctx,
+					requiredSecret,
+					metav1.CreateOptions{},
+				)
+			if err != nil {
+				return false, fmt.Errorf("Failed to create secret, namespace: %v, name: %v, error:%v",
+					requiredSecret.Namespace, requiredSecret.Name, err)
+			}
+			return true, err
+		}
+		return false, nil
+	}
+
+	if reflect.DeepEqual(curSecret.Data, requiredSecret.Data) {
+		return false, nil
+	}
+
+	klog.Infof("Update secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
+	_, err = kubeClient.CoreV1().
+		Secrets(requiredSecret.Namespace).
+		Update(ctx,
+			requiredSecret,
+			metav1.UpdateOptions{},
+		)
+	if err != nil {
+		return false, fmt.Errorf("Failed to update secret, namespace: %v, name: %v, error:%v",
+			requiredSecret.Namespace, requiredSecret.Name, err)
+	}
+	return true, nil
+}
+
+// getAlertGPCcount count the groupCount, policyCount, contactCount for the alert
+func GetAlertGPCcount(a []byte) (int, int, int, error) {
+	var o1 map[string]interface{}
+	var groupCount, policyCount, contactCount int
+	if len(a) == 0 {
+		return groupCount, policyCount, contactCount, nil
+	}
+	if err := yaml.Unmarshal(a, &o1); err != nil {
+		return groupCount, policyCount, contactCount, err
+	}
+	for k, v := range o1 {
+		if !(k == "groups" || k == "policies" || k == "contactPoints") {
+			continue
+		}
+		vArray, _ := v.([]interface{})
+		if k == "groups" {
+			groupCount = len(vArray)
+		}
+		if k == "policies" {
+			policyCount = len(vArray)
+		}
+		if k == "contactPoints" {
+			contactCount = len(vArray)
+		}
+	}
+	return groupCount, policyCount, contactCount, nil
+}
+
+func IsAlertGPCcountEqual(a, b []byte) (bool, error) {
+	ag, ap, ac, err := GetAlertGPCcount(a)
+	if err != nil {
+		return false, err
+	}
+	bg, bp, bc, err := GetAlertGPCcount(b)
+	if err != nil {
+		return false, err
+	}
+	if ag == bg && ap == bp && ac == bc {
+		return true, nil
+	}
+	return false, nil
 }

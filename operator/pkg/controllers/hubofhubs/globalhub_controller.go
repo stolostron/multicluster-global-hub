@@ -266,103 +266,127 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	return nil
 }
 
+var mghPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		// set request name to be used in leafhub controller
+		config.SetHoHMGHNamespacedName(types.NamespacedName{
+			Namespace: e.Object.GetNamespace(), Name: e.Object.GetName(),
+		})
+		return true
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return !e.DeleteStateUnknown
+	},
+}
+
+var ownPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() // only requeue when spec change
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return true
+	},
+}
+
+var resPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal &&
+			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+			return true
+		}
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal
+	},
+}
+
+var secretPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetName() == operatorconstants.GHStorageSecretName ||
+			e.Object.GetName() == operatorconstants.GHTransportSecretName ||
+			e.Object.GetName() == operatorconstants.CustomGrafanaIniName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetName() == operatorconstants.GHStorageSecretName ||
+			e.ObjectNew.GetName() == operatorconstants.GHTransportSecretName ||
+			e.ObjectNew.GetName() == operatorconstants.CustomGrafanaIniName
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetName() == operatorconstants.CustomGrafanaIniName
+	},
+}
+
+var configmappred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetName() == operatorconstants.CustomAlertName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal &&
+			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+			return true
+		}
+		return e.ObjectNew.GetName() == operatorconstants.CustomAlertName
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			return true
+		}
+		return e.Object.GetName() == operatorconstants.CustomAlertName
+	},
+}
+
+var webhookPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			new := e.ObjectNew.(*admissionregistrationv1.MutatingWebhookConfiguration)
+			old := e.ObjectOld.(*admissionregistrationv1.MutatingWebhookConfiguration)
+			if len(new.Webhooks) != len(old.Webhooks) ||
+				new.Webhooks[0].Name != old.Webhooks[0].Name ||
+				!reflect.DeepEqual(new.Webhooks[0].AdmissionReviewVersions,
+					old.Webhooks[0].AdmissionReviewVersions) ||
+				!reflect.DeepEqual(new.Webhooks[0].Rules, old.Webhooks[0].Rules) ||
+				!reflect.DeepEqual(new.Webhooks[0].ClientConfig.Service, old.Webhooks[0].ClientConfig.Service) {
+				return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+			}
+			return false
+		}
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal
+	},
+}
+
+var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
+	func(ctx context.Context, obj client.Object) []reconcile.Request {
+		return []reconcile.Request{
+			// trigger MGH instance reconcile
+			{NamespacedName: config.GetHoHMGHNamespacedName()},
+		}
+	},
+)
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	mghPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			// set request name to be used in leafhub controller
-			config.SetHoHMGHNamespacedName(types.NamespacedName{
-				Namespace: e.Object.GetNamespace(), Name: e.Object.GetName(),
-			})
-			return true
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return !e.DeleteStateUnknown
-		},
-	}
-
-	ownPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return false
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() // only requeue when spec change
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return true
-		},
-	}
-
-	resPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return false
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-				constants.GHOperatorOwnerLabelVal &&
-				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
-				return true
-			}
-			return false
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-				constants.GHOperatorOwnerLabelVal
-		},
-	}
-
-	secretPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Object.GetName() == operatorconstants.GHStorageSecretName ||
-				e.Object.GetName() == operatorconstants.GHTransportSecretName
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectNew.GetName() == operatorconstants.GHStorageSecretName ||
-				e.ObjectNew.GetName() == operatorconstants.GHTransportSecretName
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
-		},
-	}
-
-	webhookPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return false
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-				constants.GHOperatorOwnerLabelVal {
-				new := e.ObjectNew.(*admissionregistrationv1.MutatingWebhookConfiguration)
-				old := e.ObjectOld.(*admissionregistrationv1.MutatingWebhookConfiguration)
-				if len(new.Webhooks) != len(old.Webhooks) ||
-					new.Webhooks[0].Name != old.Webhooks[0].Name ||
-					!reflect.DeepEqual(new.Webhooks[0].AdmissionReviewVersions,
-						old.Webhooks[0].AdmissionReviewVersions) ||
-					!reflect.DeepEqual(new.Webhooks[0].Rules, old.Webhooks[0].Rules) ||
-					!reflect.DeepEqual(new.Webhooks[0].ClientConfig.Service, old.Webhooks[0].ClientConfig.Service) {
-					return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
-				}
-				return false
-			}
-			return false
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-				constants.GHOperatorOwnerLabelVal
-		},
-	}
-
-	globalHubEventHandler := handler.EnqueueRequestsFromMapFunc(
-		func(ctx context.Context, obj client.Object) []reconcile.Request {
-			return []reconcile.Request{
-				// trigger MGH instance reconcile
-				{NamespacedName: config.GetHoHMGHNamespacedName()},
-			}
-		})
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
@@ -376,7 +400,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			globalHubEventHandler, builder.WithPredicates(webhookPred)).
 		// secondary watch for configmap
 		Watches(&corev1.ConfigMap{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
+			globalHubEventHandler, builder.WithPredicates(configmappred)).
 		// secondary watch for namespace
 		Watches(&corev1.Namespace{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
