@@ -47,12 +47,6 @@ spec:
                 fieldRef:
                  apiVersion: v1
                  fieldPath: metadata.namespace
-            - name: WATCH_NAMESPACE
-              value: "open-cluster-management"
-              # valueFrom:
-              #   fieldRef:
-              #    apiVersion: v1
-              #    fieldPath: metadata.namespace
           volumeMounts:
           - mountPath: /var/run/secrets/managed
             name: kubeconfig

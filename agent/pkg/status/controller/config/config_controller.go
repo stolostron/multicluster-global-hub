@@ -35,7 +35,7 @@ func AddConfigController(mgr ctrl.Manager, agentConfig *config.AgentConfig) erro
 	leafHubName = agentConfig.LeafHubName
 
 	configMapPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == constants.GHSystemNamespace &&
+		return object.GetNamespace() == constants.GHAgentNamespace &&
 			object.GetName() == constants.GHAgentConfigCMName
 	})
 	if err := ctrl.NewControllerManagedBy(mgr).

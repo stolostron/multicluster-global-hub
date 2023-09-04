@@ -3,7 +3,6 @@ package addon_test
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +19,6 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -75,24 +73,6 @@ var _ = Describe("addon integration", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, clusterManagementAddon)).Should(Succeed())
-
-		By("Create global hub configmap instance")
-		expectedHoHConfigMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: constants.GHSystemNamespace,
-				Name:      constants.GHAgentConfigCMName,
-				Labels: map[string]string{
-					constants.GlobalHubOwnerLabelKey:       constants.GHOperatorOwnerLabelVal,
-					constants.GlobalHubGlobalResourceLabel: "",
-				},
-			},
-			Data: map[string]string{
-				"aggregationLevel":    string(operatorconstants.FullAggregation),
-				"enableLocalPolicies": strconv.FormatBool(true),
-			},
-		}
-		expectedHoHConfigMap.SetUID("test-uid")
-		config.SetGlobalHubAgentConfig(expectedHoHConfigMap)
 	})
 
 	Context("When configure the image registry and pull secret", func() {

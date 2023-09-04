@@ -29,7 +29,7 @@ var (
 	communityCatalogSourceName = "community-operators"
 
 	// default names
-	KafkaClusterName     = "strimzi-kafka-cluster"
+	KafkaClusterName     = "kafka"
 	KafkaSpecTopicName   = "spec"
 	KafkaStatusTopicName = "status"
 	KafkaEventTopicName  = "event"

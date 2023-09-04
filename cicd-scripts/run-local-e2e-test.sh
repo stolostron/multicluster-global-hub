@@ -27,7 +27,7 @@ hub_kubeconfig="${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}"
 kubectl config view --raw --minify --kubeconfig ${KUBECONFIG} --context "kind-$HUB_OF_HUB_NAME" > ${hub_kubeconfig}
 hub_api_server=$(kubectl config view -o jsonpath="{.clusters[0].cluster.server}" --kubeconfig ${hub_kubeconfig} --context "kind-$HUB_OF_HUB_NAME")
 global_hub_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${HUB_OF_HUB_NAME}-control-plane)
-hub_namespace="open-cluster-management"
+hub_namespace="multicluster-global-hub"
 
 # container nonk8s api server
 hub_nonk8s_api_server="http://${global_hub_node_ip}:30080"

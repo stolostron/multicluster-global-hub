@@ -1,26 +1,21 @@
 package statussyncer_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -100,27 +95,6 @@ func TestConsumer(t *testing.T) {
 
 	if err := managerscheme.AddToScheme(mgr.GetScheme()); err != nil {
 		t.Errorf("failed to add scheme: %v", err)
-	}
-
-	kubeClient, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		t.Errorf("failed to create kubeclient: %v", err)
-	}
-
-	mghSystemNamespace := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHSystemNamespace}}
-	if err := kubeClient.Create(context.TODO(), mghSystemNamespace); err != nil {
-		t.Errorf("failed to create namespace: %v", err)
-	}
-	mghSystemConfigMap := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.GHAgentConfigCMName,
-			Namespace: constants.GHSystemNamespace,
-			Labels:    map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
-		},
-		Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
-	}
-	if err := kubeClient.Create(context.TODO(), mghSystemConfigMap); err != nil {
-		t.Errorf("failed to create configmap: %v", err)
 	}
 
 	managerConfig := &config.ManagerConfig{

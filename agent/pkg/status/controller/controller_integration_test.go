@@ -70,7 +70,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		Expect(kubeClient.Create(ctx, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      constants.GHAgentConfigCMName,
-				Namespace: constants.GHSystemNamespace,
+				Namespace: constants.GHAgentNamespace,
 				Annotations: map[string]string{
 					constants.OriginOwnerReferenceAnnotation: "testing",
 				},

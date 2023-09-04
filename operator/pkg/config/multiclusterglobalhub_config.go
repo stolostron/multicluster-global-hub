@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -62,8 +61,11 @@ var (
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
 		GrafanaImageKey:          "quay.io/stolostron/grafana:globalhub-1.0",
 	}
-	globalHubAgentConfig *corev1.ConfigMap
 	statisticLogInterval = "1m"
+	// default values for the global hub configured by the operator
+	// We may expose these as CRD fields in the future
+	AggregationLevel    = "full"
+	EnableLocalPolicies = "true"
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -194,14 +196,6 @@ func DeleteManagedCluster(name string) {
 
 func GetManagedClusters() []string {
 	return managedClusters
-}
-
-func SetGlobalHubAgentConfig(config *corev1.ConfigMap) {
-	globalHubAgentConfig = config
-}
-
-func GetGlobalHubAgentConfig() *corev1.ConfigMap {
-	return globalHubAgentConfig
 }
 
 func SetStatisticLogInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {

@@ -8,7 +8,7 @@ CTX_HUB=$1
 
 # check the transport secret
 transportSecret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
-targetNamespace=${TARGET_NAMESPACE:-"open-cluster-management"}
+targetNamespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
 ready=$(kubectl --context $CTX_HUB get secret $transportSecret -n $targetNamespace --ignore-not-found=true)
 if [ ! -z "$ready" ]; then
   echo "transportSecret $transportSecret already exists in $targetNamespace namespace"
@@ -40,6 +40,8 @@ kubectl --context $CTX_HUB get kafka kafka-brokers-cluster -n kafka -o jsonpath=
 # kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.crt}' | base64 -d > $setupDir/config/kafka-client-cert.pem
 # kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.key}' | base64 -d > $setupDir/config/kafka-client-key.pem
 
+# create target namespace
+kubectl --context $CTX_HUB create namespace $targetNamespace || true
 kubectl --context $CTX_HUB create secret generic $transportSecret -n $targetNamespace \
     --from-literal=bootstrap_server=$bootstrapServers \
     --from-file=ca.crt=$setupDir/config/kafka-ca-cert.pem

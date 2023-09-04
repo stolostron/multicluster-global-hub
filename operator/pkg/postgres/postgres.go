@@ -29,7 +29,7 @@ var (
 	communityCatalogSourceName = "community-operators"
 
 	// default names
-	PostgresName                = "crunchy-postgres-cluster"
+	PostgresName                = "postgres"
 	PostgresGuestUser           = "guest"
 	PostgresGuestUserSecretName = PostgresName + "-" + "pguser" + "-" + PostgresGuestUser
 	PostgresSuperUser           = "postgres"

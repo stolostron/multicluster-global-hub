@@ -30,6 +30,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -76,7 +77,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 	opts.BindFlags(defaultFlags)
 	pflag.CommandLine.AddGoFlagSet(defaultFlags)
 
-	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", "open-cluster-management",
+	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", constants.GHDefaultNamespace,
 		"The manager running namespace, also used as leader election namespace.")
 	pflag.StringVar(&managerConfig.WatchNamespace, "watch-namespace", "",
 		"The watching namespace of the controllers, multiple namespace must be splited by comma.")
@@ -114,14 +115,14 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.StringVar(&managerConfig.DatabaseConfig.CACertPath, "postgres-ca-path", "/postgres-ca/ca.crt",
 		"The path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kafka-producer-id",
-		"multicluster-global-hub", "ID for the kafka producer.")
+		"multicluster-global-hub-manager", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
 		"spec", "Topic for the kafka producer.")
 	pflag.StringVar(&managerConfig.EventExporterTopic, "event-exporter-topic", "event", "Topic for the event exporter.")
 	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
-		"kafka-consumer-id", "multicluster-global-hub", "ID for the kafka consumer.")
+		"kafka-consumer-id", "multicluster-global-hub-manager", "ID for the kafka consumer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic,
 		"kafka-consumer-topic", "status", "Topic for the kafka consumer.")
 	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "1m",

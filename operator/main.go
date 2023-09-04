@@ -316,7 +316,7 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Label: labelSelector,
 		},
 		&appsv1.Deployment{}: {
-			// Label: labelSelector,
+			Label: labelSelector,
 		},
 		&batchv1.Job{}: {
 			Label: labelSelector,

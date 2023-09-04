@@ -14,13 +14,10 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/spf13/pflag"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
@@ -144,29 +141,6 @@ func TestManager(t *testing.T) {
 		os.Args = append([]string{tc.name}, tc.args...)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if _, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: constants.GHSystemNamespace,
-			},
-		}, metav1.CreateOptions{}); err != nil {
-			t.Errorf("failed to create global hub system namespace: %v", err)
-		}
-		if _, err := kubeClient.CoreV1().ConfigMaps(constants.GHSystemNamespace).Create(ctx,
-			&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.GHAgentConfigCMName,
-					Namespace: constants.GHSystemNamespace,
-					Annotations: map[string]string{
-						constants.OriginOwnerReferenceAnnotation: "testing",
-					},
-					Labels: map[string]string{
-						constants.GlobalHubGlobalResourceLabel: "",
-					},
-				},
-				Data: map[string]string{"aggregationLevel": "full", "enableLocalPolicies": "true"},
-			}, metav1.CreateOptions{}); err != nil {
-			t.Errorf("failed to create global hub configuration configmap: %v", err)
-		}
 		actualExit := doMain(ctx, cfg)
 		if tc.expectedExit != actualExit {
 			t.Errorf("unexpected exit code for args: %v, expected: %v, got: %v",

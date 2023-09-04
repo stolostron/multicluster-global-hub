@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
+	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,10 +29,10 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgresSubscription(ctx 
 		return err
 	}
 
-	// Get sub config, catalogsource, and annotation overrides
-	subConfig, err := r.GenerateSubConfig(ctx)
-	if err != nil {
-		return err
+	// Generate sub config from mcgh CR
+	subConfig := &subv1alpha1.SubscriptionConfig{
+		NodeSelector: mgh.Spec.NodeSelector,
+		Tolerations:  mgh.Spec.Tolerations,
 	}
 
 	createSub := false

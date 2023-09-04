@@ -185,8 +185,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 ) error {
 	// reconcile config: need to be done before reconciling manager and grafana
 	// 1. global image: annotation -> env -> default
-	// 2. add label to storage/transport secret so that the manager can watch them
-	// 3. global configMap: open-cluster-management-global-hub-system/multicluster-global-hub-config
 	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
 		return err
 	}

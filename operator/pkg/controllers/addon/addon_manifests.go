@@ -188,11 +188,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	log.Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName,
 		"image", manifestsConfig.HoHAgentImage)
 
-	globalHubConfig := config.GetGlobalHubAgentConfig()
-	if globalHubConfig != nil {
-		manifestsConfig.AggregationLevel = globalHubConfig.Data["aggregationLevel"]
-		manifestsConfig.EnableLocalPolicies = globalHubConfig.Data["enableLocalPolicies"]
-	}
+	manifestsConfig.AggregationLevel = config.AggregationLevel
+	manifestsConfig.EnableLocalPolicies = config.EnableLocalPolicies
 
 	if a.installACMHub(cluster) {
 		manifestsConfig.InstallACMHub = true

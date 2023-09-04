@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
@@ -47,7 +48,7 @@ var (
 const (
 	ExpectedLeafHubNum        = 2
 	ExpectedManagedClusterNum = 2
-	Namespace                 = "open-cluster-management"
+	Namespace                 = "multicluster-global-hub"
 	ServiceMonitorNamespace   = "openshift-monitoring"
 )
 
@@ -162,6 +163,18 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Creating namespace for the multicluster global hub")
+	_, err = testClients.KubeClient().CoreV1().Namespaces().Get(context.Background(), config.GetDefaultNamespace(),
+		metav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: config.GetDefaultNamespace(),
+			},
+		}, metav1.CreateOptions{})
+	}
+	Expect(err).NotTo(HaveOccurred())
+
 	Expect(kustomize.Apply(testClients, testOptions,
 		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/test/pkg/e2e/resources", rootDir)})).NotTo(HaveOccurred())
 	Expect(kustomize.Apply(testClients, testOptions,
@@ -171,7 +184,7 @@ func deployGlobalHub() {
 	mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "multiclusterglobalhub",
-			Namespace: "open-cluster-management",
+			Namespace: "multicluster-global-hub",
 			Annotations: map[string]string{
 				constants.AnnotationMGHSkipAuth: "true",
 			},

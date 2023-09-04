@@ -30,7 +30,6 @@ import (
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"gopkg.in/yaml.v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -130,34 +129,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			},
 			Type: corev1.SecretTypeOpaque,
 		})).Should(Succeed())
-
-		Expect(k8sClient.Create(ctx, &appv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.GHOperatorDeploymentName,
-				Namespace: config.GetDefaultNamespace(),
-			},
-			Spec: appv1.DeploymentSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"label": "value"},
-				},
-				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"label": "value"},
-					},
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  constants.GHOperatorDeploymentName,
-								Image: "test-image",
-							},
-						},
-					},
-				},
-			},
-			Status: appv1.DeploymentStatus{
-				ReadyReplicas: 1,
-			},
-		})).Should(Succeed())
 	})
 
 	Context("When create MGH instance with invalid large scale data layer type", func() {
@@ -183,10 +154,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-
-			// make sure the default values are filled
-			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(globalhubv1alpha4.Full))
-			// Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
 			// check finalizer is not added to MGH instance
 			By("By checking finalizer is not added to MGH instance")
@@ -226,10 +193,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-
-			// make sure the default values are filled
-			// Expect(createdMGH.Spec.AggregationLevel).Should(Equal(globalhubv1alpha4.Full))
-			// Expect(createdMGH.Spec.EnableLocalPolicies).Should(Equal(true))
 
 			// check finalizer should not be added to MGH instance
 			Eventually(func() error {
@@ -502,27 +465,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should reconcile the resources when MGH instance is created", func() {
-			By("By checking the multicluster-global-hub-config configmap is created")
-			hohConfig := &corev1.ConfigMap{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: constants.GHSystemNamespace,
-					Name:      constants.GHAgentConfigCMName,
-				}, hohConfig)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-
-			By("By deleting the multicluster-global-hub-config configmap")
-			Expect(k8sClient.Delete(ctx, hohConfig)).Should(Succeed())
-
-			By("By checking the multicluster-global-hub-config configmap is recreated")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: constants.GHSystemNamespace,
-					Name:      constants.GHAgentConfigCMName,
-				}, &corev1.ConfigMap{})
-			}, timeout, interval).Should(Succeed())
-
 			By("By deleting the owned objects by the MGH instance and checking it can be recreated")
 			for _, obj := range managerObjects {
 				obj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
@@ -725,16 +667,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 			By("By deleting the testing MGH instance")
 			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
-
-			By("By checking the multicluster-global-hub-config configmap is deleted")
-			Eventually(func() bool {
-				cm := &corev1.ConfigMap{}
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: constants.GHSystemNamespace,
-					Name:      constants.GHAgentConfigCMName,
-				}, cm)
-				return errors.IsNotFound(err)
-			}, timeout, interval).Should(BeTrue())
 
 			By("By checking the clusterrole is deleted")
 			Eventually(func() error {

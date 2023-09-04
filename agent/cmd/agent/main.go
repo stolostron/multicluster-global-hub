@@ -26,6 +26,7 @@ import (
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -126,7 +127,7 @@ func parseFlags() *config.AgentConfig {
 		"spec", "Topic for the kafka consumer.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kafka-consumer-id",
 		"multicluster-global-hub-agent", "ID for the kafka consumer.")
-	pflag.StringVar(&agentConfig.PodNameSpace, "pod-namespace", "open-cluster-management",
+	pflag.StringVar(&agentConfig.PodNameSpace, "pod-namespace", constants.GHAgentNamespace,
 		"The agent running namespace, also used as leader election namespace")
 	pflag.StringVar(&agentConfig.TransportConfig.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'")

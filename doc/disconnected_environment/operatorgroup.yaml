@@ -2,7 +2,7 @@ apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
   name: global-hub-operator-sdk-og
-  namespace: open-cluster-management
+  namespace: multicluster-global-hub
 spec:
   targetNamespaces:
-  - open-cluster-management
+  - multicluster-global-hub

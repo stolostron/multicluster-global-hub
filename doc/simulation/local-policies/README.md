@@ -24,11 +24,11 @@ metadata:
   annotations:
     mgh-scheduler-interval: minute # change scheduler interval of moving to compliance_history to 1 minute
   name: multiclusterglobalhub
-  namespace: open-cluster-management
+  namespace: multicluster-global-hub
 ```
 Note: You may need to restart the `multicluster-global-hub-operator` pod after the `multiclusterglobalhub` instance updated
 ```bash
-oc delete pod multicluster-global-hub-operator-xxx -n open-cluster-management
+oc delete pod multicluster-global-hub-operator-xxx -n multicluster-global-hub
 ```
 
 2. Insert the simulated data into database:
@@ -48,7 +48,7 @@ kubectl exec -it $(kubectl get pods -n multicluster-global-hub-postgres -l postg
 4. Check the manager logs to make sure the scheduler job running successfully:
 
 ```bash
-# oc -n open-cluster-management logs -f deploy/multicluster-global-hub-manager multicluster-global-hub-manager
+# oc -n multicluster-global-hub logs -f deploy/multicluster-global-hub-manager multicluster-global-hub-manager
 {"level":"info","ts":1684217414.735211,"logger":"local-compliance-job","msg":"start running","LastRun":"2023-05-16 06:10:14","NextRun":"2023-05-16 06:11:14"}
 batchSize: 1000, insert: 1000, offset: 0
 batchSize: 1000, insert: 1000, offset: 1000

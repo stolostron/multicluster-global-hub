@@ -3,11 +3,9 @@ package constants
 // global hub common constants
 const (
 	// GHDefaultNamespace defines default namespace for ACM hub and Global hub operator and manager
-	GHDefaultNamespace = "open-cluster-management"
-	// GHOperatorDeploymentName defines global hub operator deployment name
-	GHOperatorDeploymentName = "multicluster-global-hub-operator"
-	// GHSystemNamespace defines global hub system namespace
-	GHSystemNamespace = "open-cluster-management-global-hub-system"
+	GHDefaultNamespace = "multicluster-global-hub"
+	// GHAgentNamespace defines global hub agent namespace
+	GHAgentNamespace = "multicluster-global-hub-agent"
 	// GHAgentConfigCMName is the name of configmap that stores important global hub settings
 	// eg. aggregationLevel and enableLocalPolicy.
 	GHAgentConfigCMName = "multicluster-global-hub-agent-config"

@@ -28,7 +28,7 @@ metadata:
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
     createdAt: "2023-08-30T08:24:32Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
-    operatorframework.io/suggested-namespace: open-cluster-management
+    operatorframework.io/suggested-namespace: multicluster-global-hub
     operators.operatorframework.io/builder: operator-sdk-v1.31.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/stolostron/multicluster-global-hub

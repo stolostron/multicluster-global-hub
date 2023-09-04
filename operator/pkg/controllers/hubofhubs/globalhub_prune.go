@@ -8,11 +8,9 @@ import (
 	"github.com/go-logr/logr"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -118,37 +116,6 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 
 // pruneNamespacedResources tries to delete mgh resources
 func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.Context) error {
-	existingMghConfigMap := &corev1.ConfigMap{}
-	err := r.Client.Get(ctx,
-		types.NamespacedName{
-			Namespace: constants.GHSystemNamespace,
-			Name:      constants.GHAgentConfigCMName,
-		}, existingMghConfigMap)
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	} else if err == nil {
-		// clean the finalizers added by multicluster-global-hub-manager
-		existingMghConfigMap.SetFinalizers([]string{})
-		if err := utils.UpdateObject(ctx, r.Client, existingMghConfigMap); err != nil {
-			return err
-		}
-		if err := r.Client.Delete(ctx, existingMghConfigMap); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	mghSystemNamespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.GHSystemNamespace,
-			Labels: map[string]string{
-				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-			},
-		},
-	}
-	if err := r.Client.Delete(ctx, mghSystemNamespace); err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-
 	mghServiceMonitor := &promv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHServiceMonitorName,
