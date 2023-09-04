@@ -61,7 +61,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}, clusterManagementAddOn)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			r.Log.Info("waiting util clustermanagementaddon is created", "namespacedname", req.NamespacedName)
+			r.Log.Info("waiting until clustermanagementaddon is created", "namespacedname", req.NamespacedName)
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		} else {
 			return ctrl.Result{}, err

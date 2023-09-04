@@ -1,6 +1,7 @@
 package hubofhubs
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/url"
@@ -138,19 +139,22 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		Namespace: dsSecret.Namespace,
 	}, grafanaDSFound)
 
-	if err != nil && errors.IsNotFound(err) {
-		if err := r.Client.Create(ctx, dsSecret); err != nil {
+	createSecret := false
+	if err != nil {
+		if errors.IsNotFound(err) {
+			createSecret = true
+		} else {
 			return dsSecret.GetName(), err
 		}
-	} else if err != nil {
-		return dsSecret.GetName(), err
 	}
 
-	if grafanaDSFound.Data == nil {
-		grafanaDSFound.Data = make(map[string][]byte)
+	if createSecret {
+		err = r.Client.Create(ctx, dsSecret)
+	} else if !bytes.Equal(grafanaDSFound.Data[datasourceKey], datasourceVal) {
+		grafanaDSFound.Data[datasourceKey] = datasourceVal
+		err = r.Client.Update(ctx, grafanaDSFound)
 	}
-	grafanaDSFound.Data[datasourceKey] = datasourceVal
-	if err = r.Client.Update(ctx, grafanaDSFound); err != nil {
+	if err != nil {
 		return dsSecret.GetName(), err
 	}
 
