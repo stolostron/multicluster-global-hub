@@ -870,7 +870,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		It("Should create the kafka resources", func() {
 
 			Expect(mghReconciler.EnsureKafkaSubscription(ctx, mcgh)).Should(Succeed())
-			Expect(mghReconciler.EnsureKafka(ctx)).Should(Succeed())
+			Expect(mghReconciler.EnsureKafkaResources(ctx)).Should(Succeed())
 			_, err := mghReconciler.WaitForKafkaClusterReady(ctx)
 			// postgres cannot be ready in envtest
 			Expect(err).Should(HaveOccurred())

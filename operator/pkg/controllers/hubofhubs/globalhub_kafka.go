@@ -9,6 +9,7 @@ import (
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,7 +47,9 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafkaSubscription(ctx context.Co
 	if createSub {
 		err = r.Client.Create(ctx, calcSub)
 	} else {
-		err = r.Client.Update(ctx, calcSub)
+		if !equality.Semantic.DeepEqual(kafkaSub.Spec, calcSub.Spec) {
+			err = r.Client.Update(ctx, calcSub)
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("error updating subscription %s: %w", calcSub.Name, err)
@@ -55,9 +58,9 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafkaSubscription(ctx context.Co
 	return nil
 }
 
-// EnsureKafka verifies resources needed for Kafka are created
+// EnsureKafkaResources verifies resources needed for Kafka are created
 // including kafka/kafkatopic/kafkauser
-func (r *MulticlusterGlobalHubReconciler) EnsureKafka(ctx context.Context) error {
+func (r *MulticlusterGlobalHubReconciler) EnsureKafkaResources(ctx context.Context) error {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      kafka.KafkaClusterName,
