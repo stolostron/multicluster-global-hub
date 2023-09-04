@@ -241,69 +241,6 @@ func parseFlags() *operatorConfig {
 	return config
 }
 
-func buildResourceFilterMap() cache.NewCacheFunc {
-	return cache.BuilderWithOptions(cache.Options{
-		SelectorsByObject: cache.SelectorsByObject{
-			&corev1.Secret{}: {
-				Field: fields.SelectorFromSet(fields.Set{"metadata.namespace": hubofhubsconfig.GetDefaultNamespace()}),
-			},
-			&corev1.ConfigMap{}: {
-				Label: labelSelector,
-			},
-			&corev1.ServiceAccount{}: {
-				Label: labelSelector,
-			},
-			&corev1.Service{}: {
-				Label: labelSelector,
-			},
-			&appsv1.Deployment{}: {
-				Label: labelSelector,
-			},
-			&batchv1.Job{}: {
-				Label: labelSelector,
-			},
-			&rbacv1.Role{}: {
-				Label: labelSelector,
-			},
-			&rbacv1.RoleBinding{}: {
-				Label: labelSelector,
-			},
-			&rbacv1.ClusterRole{}: {
-				Label: labelSelector,
-			},
-			&rbacv1.ClusterRoleBinding{}: {
-				Label: labelSelector,
-			},
-			&routev1.Route{}: {
-				Label: labelSelector,
-			},
-			&clusterv1.ManagedCluster{}: {
-				Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
-			},
-			&workv1.ManifestWork{}: {
-				Label: labelSelector,
-			},
-			&addonv1alpha1.ClusterManagementAddOn{}: {
-				Label: labelSelector,
-			},
-			&addonv1alpha1.ManagedClusterAddOn{}: {
-				Label: labelSelector,
-			},
-			&admissionregistrationv1.MutatingWebhookConfiguration{}: {
-				Label: labelSelector,
-			},
-			&promv1.ServiceMonitor{}: {
-				Label: labelSelector,
-			},
-			&subv1alpha1.Subscription{}:        {},
-			&kafkav1beta2.Kafka{}:              {},
-			&kafkav1beta2.KafkaTopic{}:         {},
-			&kafkav1beta2.KafkaUser{}:          {},
-			&postgresv1beta1.PostgresCluster{}: {},
-		},
-	})
-}
-
 func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderElectionConfig,
 	operatorConfig *operatorConfig,
 ) (ctrl.Manager, error) {
@@ -379,7 +316,7 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Label: labelSelector,
 		},
 		&appsv1.Deployment{}: {
-			// Label: labelSelector,
+			Label: labelSelector,
 		},
 		&batchv1.Job{}: {
 			Label: labelSelector,
