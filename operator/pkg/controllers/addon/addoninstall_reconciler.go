@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -214,8 +213,8 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 		// primary watch for managedcluster
 		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
 		// secondary watch for managedclusteraddon
-		Watches(&source.Kind{Type: &v1alpha1.ManagedClusterAddOn{}},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+		Watches(&v1alpha1.ManagedClusterAddOn{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					// only trigger the addon reconcile when addon is updated/deleted
 					{NamespacedName: types.NamespacedName{
@@ -224,8 +223,8 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 				}
 			}), builder.WithPredicates(addonPred)).
 		// secondary watch for managedclusteraddon
-		Watches(&source.Kind{Type: &v1alpha1.ClusterManagementAddOn{}},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+		Watches(&v1alpha1.ClusterManagementAddOn{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				requests := []reconcile.Request{}
 				// list all the managedCluster
 				managedClusterList := &clusterv1.ManagedClusterList{}

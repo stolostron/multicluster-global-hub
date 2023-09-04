@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -53,7 +52,7 @@ func StartClusterClaimController(mgr ctrl.Manager) error {
 	})
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&clustersv1alpha1.ClusterClaim{}, builder.WithPredicates(clusterClaimPredicate)).
-		Watches(&source.Kind{Type: &mchv1.MultiClusterHub{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&mchv1.MultiClusterHub{}, &handler.EnqueueRequestForObject{}).
 		Complete(&clusterClaimController{
 			client: mgr.GetClient(),
 			log:    ctrl.Log.WithName("clusterclaim-controller"),

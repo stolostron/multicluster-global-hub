@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -358,12 +357,13 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		},
 	}
 
-	globalHubEventHandler := handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-		return []reconcile.Request{
-			// trigger MGH instance reconcile
-			{NamespacedName: config.GetHoHMGHNamespacedName()},
-		}
-	})
+	globalHubEventHandler := handler.EnqueueRequestsFromMapFunc(
+		func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return []reconcile.Request{
+				// trigger MGH instance reconcile
+				{NamespacedName: config.GetHoHMGHNamespacedName()},
+			}
+		})
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
@@ -374,26 +374,26 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
 		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
 		Owns(&routev1.Route{}, builder.WithPredicates(ownPred)).
-		Watches(&source.Kind{Type: &admissionregistrationv1.MutatingWebhookConfiguration{}},
+		Watches(&admissionregistrationv1.MutatingWebhookConfiguration{},
 			globalHubEventHandler, builder.WithPredicates(webhookPred)).
 		// secondary watch for configmap
-		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
+		Watches(&corev1.ConfigMap{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
 		// secondary watch for namespace
-		Watches(&source.Kind{Type: &corev1.Namespace{}},
+		Watches(&corev1.Namespace{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
 		// secondary watch for clusterrole
-		Watches(&source.Kind{Type: &rbacv1.ClusterRole{}},
+		Watches(&rbacv1.ClusterRole{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
 		// secondary watch for clusterrolebinding
-		Watches(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}},
+		Watches(&rbacv1.ClusterRoleBinding{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
 		// secondary watch for clustermanagementaddon
-		Watches(&source.Kind{Type: &addonv1alpha1.ClusterManagementAddOn{}},
+		Watches(&addonv1alpha1.ClusterManagementAddOn{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
-		Watches(&source.Kind{Type: &corev1.Secret{}},
+		Watches(&corev1.Secret{},
 			globalHubEventHandler, builder.WithPredicates(secretPred)).
-		Watches(&source.Kind{Type: &promv1.ServiceMonitor{}},
+		Watches(&promv1.ServiceMonitor{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
 		Complete(r)
 }

@@ -46,8 +46,11 @@ func NewEventWatcher(config *rest.Config, namespace string, MaxEventAgeSeconds i
 		metricsStore:    metricsStore,
 	}
 
-	informer.AddEventHandler(watcher)
-	err := informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	_, err := informer.AddEventHandler(watcher)
+	if err != nil {
+		log.Error().Err(err).Msg("Cannot add event handler")
+	}
+	err = informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		watcher.metricsStore.WatchErrors.Inc()
 	})
 	if err != nil {

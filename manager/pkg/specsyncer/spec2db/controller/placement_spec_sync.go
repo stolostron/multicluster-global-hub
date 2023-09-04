@@ -46,7 +46,6 @@ func cleanPlacementObject(instance client.Object) {
 		// remove the annotation so that the placement controller can take over
 		delete(placement.Annotations, clusterv1beta1.PlacementDisableAnnotation)
 	}
-
 	placement.Status = clusterv1beta1.PlacementStatus{}
 }
 

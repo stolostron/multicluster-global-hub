@@ -21,7 +21,7 @@ import (
 
 const timeFormat = "2006-01-02_15-04-05.000000"
 
-var _ = Describe("Syncers Integration", func() {
+var _ = Describe("ManagerClusterLabel Bundle", func() {
 	It("sync managedclusterlabel bundle", func() {
 		managedClusterName := "mc1"
 

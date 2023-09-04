@@ -79,19 +79,18 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(p.ctx, 1*time.Minute)
-	defer cancel()
-	err = wait.PollUntilWithContext(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		result := p.db.Clauses(clause.OnConflict{
-			Columns:   conflictColumns,
-			UpdateAll: true,
-		}).Create(insertEvent)
-		if result.Error != nil {
-			p.log.Error(result.Error, "insert or update local (root) policy event failed, retrying...")
-			return false, nil
-		}
-		return true, nil
-	})
+	err = wait.PollUntilContextTimeout(p.ctx, 10*time.Second, 1*time.Minute, true,
+		func(ctx context.Context) (bool, error) {
+			result := p.db.Clauses(clause.OnConflict{
+				Columns:   conflictColumns,
+				UpdateAll: true,
+			}).Create(insertEvent)
+			if result.Error != nil {
+				p.log.Error(result.Error, "insert or update local (root) policy event failed, retrying...")
+				return false, nil
+			}
+			return true, nil
+		})
 	if err != nil {
 		p.log.Error(err, "insert or update local (root) policy event failed")
 		return

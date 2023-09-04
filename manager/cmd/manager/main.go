@@ -18,7 +18,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -192,9 +191,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	// Also note that you may face performance issues when using this with a high number of namespaces.
 	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
 	if strings.Contains(managerConfig.WatchNamespace, ",") {
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(
-			strings.Split(managerConfig.WatchNamespace, ","))
+		options.Cache.Namespaces = strings.Split(managerConfig.WatchNamespace, ",")
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
@@ -270,7 +267,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	hookServer := mgr.GetWebhookServer()
 	setupLog.Info("registering webhooks to the webhook server")
 	hookServer.Register("/mutating", &webhook.Admission{
-		Handler: &mgrwebhook.AdmissionHandler{Client: mgr.GetClient()},
+		Handler: mgrwebhook.NewAdmissionHandler(mgr.GetClient(), mgr.GetScheme()),
 	})
 
 	setupLog.Info("Starting the Manager")

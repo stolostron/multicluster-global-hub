@@ -39,6 +39,8 @@ var _ = BeforeSuite(func() {
 
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
+	err = testpostgres.InitDatabase(testPostgres.URI)
+	Expect(err).NotTo(HaveOccurred())
 
 	testAuthServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

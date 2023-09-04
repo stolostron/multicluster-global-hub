@@ -140,10 +140,6 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpoo
 func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName string, interval int,
 	pool *pgxpool.Pool, totalCount, batchSize, offset int64, enableSimulation bool,
 ) (int64, error) {
-	// retry until success, use timeout context to avoid long running
-	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
-
 	insertCount := int64(0)
 	var err error
 	defer func() {
@@ -153,8 +149,9 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 			log.Info("trace compliance job failed, retrying", "error", e)
 		}
 	}()
-	err = wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
-		selectInsertSQLTemplate := `
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true,
+		func(ctx context.Context) (done bool, err error) {
+			selectInsertSQLTemplate := `
 			INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date) 
 				(
 					SELECT policy_id,cluster_id,leaf_hub_name,compliance,(CURRENT_DATE - INTERVAL '%d day') 
@@ -164,8 +161,8 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 				)
 			ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING
 		`
-		if enableSimulation {
-			selectInsertSQLTemplate = `
+			if enableSimulation {
+				selectInsertSQLTemplate = `
 				do
 				$$
 				declare
@@ -185,17 +182,17 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 				end;
 				$$;
 			`
-		}
-		selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, interval, tableName, batchSize, offset)
-		result, err := pool.Exec(ctx, selectInsertSQL)
-		if err != nil {
-			log.Info("exec failed, retrying", "error", err)
-			return false, nil
-		}
-		insertCount = result.RowsAffected()
-		log.Info("from local_status.compliance", "batch", batchSize, "insert", insertCount, "offset", offset)
-		return true, nil
-	})
+			}
+			selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, interval, tableName, batchSize, offset)
+			result, err := pool.Exec(ctx, selectInsertSQL)
+			if err != nil {
+				log.Info("exec failed, retrying", "error", err)
+				return false, nil
+			}
+			insertCount = result.RowsAffected()
+			log.Info("from local_status.compliance", "batch", batchSize, "insert", insertCount, "offset", offset)
+			return true, nil
+		})
 	return insertCount, err
 }
 
@@ -228,21 +225,18 @@ func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpoo
 func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpool.Pool,
 	totalCount, batchSize, offset int64,
 ) (int64, error) {
-	// retry until success, use timeout context to avoid long running
-	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
-
 	insertCount := int64(0)
-	err := wait.PollUntilWithContext(timeoutCtx, 5*time.Second, func(ctx context.Context) (done bool, err error) {
-		var insertError error
-		defer func() {
-			if e := traceComplianceHistoryLog(ctx,
-				fmt.Sprintf("%s/event.local_policies", localComplianceTaskName),
-				totalCount, offset, insertCount, startTime, insertError); e != nil {
-				log.Info("trace compliance job failed, retrying", "error", e)
-			}
-		}()
-		selectInsertSQLTemplate := `
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true,
+		func(ctx context.Context) (done bool, err error) {
+			var insertError error
+			defer func() {
+				if e := traceComplianceHistoryLog(ctx,
+					fmt.Sprintf("%s/event.local_policies", localComplianceTaskName),
+					totalCount, offset, insertCount, startTime, insertError); e != nil {
+					log.Info("trace compliance job failed, retrying", "error", e)
+				}
+			}()
+			selectInsertSQLTemplate := `
 			INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance_date, compliance,
 					compliance_changed_frequency)
 			WITH compliance_aggregate AS (
@@ -273,19 +267,19 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 				compliance = EXCLUDED.compliance,
 				compliance_changed_frequency = EXCLUDED.compliance_changed_frequency;
 			`
-		selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, dateInterval, dateInterval-1,
-			dateInterval, dateInterval, dateInterval-1)
+			selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, dateInterval, dateInterval-1,
+				dateInterval, dateInterval, dateInterval-1)
 
-		var result pgconn.CommandTag
-		result, insertError = pool.Exec(ctx, selectInsertStatement, batchSize, offset)
-		if insertError != nil {
-			log.Info("insert failed, retrying", "error", insertError)
-			return false, nil
-		}
-		insertCount = result.RowsAffected()
-		log.Info("from event.local_policies", "batch", batchSize, "insert", insertCount, "offset", offset)
-		return true, nil
-	})
+			var result pgconn.CommandTag
+			result, insertError = pool.Exec(ctx, selectInsertStatement, batchSize, offset)
+			if insertError != nil {
+				log.Info("insert failed, retrying", "error", insertError)
+				return false, nil
+			}
+			insertCount = result.RowsAffected()
+			log.Info("from event.local_policies", "batch", batchSize, "insert", insertCount, "offset", offset)
+			return true, nil
+		})
 	return insertCount, err
 }
 
