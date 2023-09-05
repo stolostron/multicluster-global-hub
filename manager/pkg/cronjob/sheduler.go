@@ -48,7 +48,7 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	case EverySecond:
 		scheduler = scheduler.Every(1).Second()
 	default:
-		scheduler = scheduler.Every(1).Day()
+		scheduler = scheduler.Every(1).Day().At("00:00")
 	}
 	complianceJob, err := scheduler.DoWithJobDetails(task.SyncLocalCompliance, ctx, pool, enableSimulation)
 	if err != nil {
