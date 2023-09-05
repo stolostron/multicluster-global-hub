@@ -90,7 +90,7 @@ const (
 )
 
 const (
-	CustomAlertName      = "multicluster-global-hub-custom-alert"
+	CustomAlertName      = "multicluster-global-hub-custom-alerting"
 	CustomGrafanaIniName = "multicluster-global-hub-custom-grafana-config"
 )
 
