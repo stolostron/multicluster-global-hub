@@ -1,0 +1,37 @@
+apiVersion: operator.open-cluster-management.io/v1
+kind: MultiClusterHub
+metadata:
+  annotations:
+    installer.open-cluster-management.io/mce-subscription-spec: '{"source": "multiclusterengine-catalog"}'
+  name: multiclusterhub
+  namespace: multicluster-global-hub
+spec:
+  availabilityConfig: High
+  enableClusterBackup: false
+  imagePullSecret: multiclusterhub-operator-pull-secret
+  ingress: {}
+  overrides:
+    components:
+    - enabled: true
+      name: console
+    - enabled: true
+      name: insights
+    - enabled: false
+      name: grc
+    - enabled: true
+      name: cluster-lifecycle
+    - enabled: true
+      name: volsync
+    - enabled: true
+      name: multicluster-engine
+    - enabled: true
+      name: search
+    - enabled: false
+      name: app-lifecycle
+    - enabled: true
+      name: observability
+    - enabled: true
+      name: cluster-permission
+    - enabled: false
+      name: cluster-backup
+  separateCertificateManagement: false
