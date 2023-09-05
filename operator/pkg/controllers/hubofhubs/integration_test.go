@@ -79,46 +79,10 @@ const (
 )
 
 var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
-	// Context("When create MGH Instance without native data layer type", func() {
-	// 	It("Should not add finalizer to MGH instance and not deploy anything", func() {
-	// 		ctx := context.Background()
-	// 		By("By creating a new MGH instance with native data layer type")
-	// 		mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
-	// 			ObjectMeta: metav1.ObjectMeta{
-	// 				Name:      MGHName,
-	// 				Namespace: config.GetDefaultNamespace(),
-	// 			},
-	// 			Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
-	// 				DataLayer: &globalhubv1alpha4.DataLayerConfig{
-	// 					Type:   globalhubv1alpha4.Native,
-	// 					Native: &globalhubv1alpha4.NativeConfig{},
-	// 				},
-	// 			},
-	// 		}
-	// 		Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
-	// 		// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
-	// 		mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
-	// 		createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
-
-	// 		// get this newly created MGH instance, given that creation may not immediately happen.
-	// 		Eventually(func() bool {
-	// 			err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
-	// 			return err == nil
-	// 		}, timeout, interval).Should(BeTrue())
-
-	// 		// check finalizer is not added to MGH instance
-	// 		By("By checking finalizer is not added to MGH instance")
-	// 		Expect(createdMGH.GetFinalizers()).Should(BeNil())
-
-	// 		// delete the testing MGH instance with native data layer type
-	// 		By("By deleting the testing MGH instance with native data layer type")
-	// 		Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
-	// 	})
-	// })
-
+	var storageSecret *corev1.Secret
 	BeforeAll(func() {
-		Expect(k8sClient.Create(ctx, &corev1.Secret{
+		storageSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      StorageSecretName,
 				Namespace: config.GetDefaultNamespace(),
@@ -128,7 +92,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				"ca.crt":       []byte(""),
 			},
 			Type: corev1.SecretTypeOpaque,
-		})).Should(Succeed())
+		}
+		Expect(k8sClient.Create(ctx, storageSecret)).Should(Succeed())
 	})
 
 	Context("When create MGH instance with invalid large scale data layer type", func() {
@@ -834,19 +799,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 	})
 
-	Context("Get the kafka or postgres connection", func() {
-		It("Should get the postgres connection", func() {
-			pgConn, err := mghReconciler.GeneratePGConnectionFromGHStorageSecret(ctx)
-			Expect(err).Should(Succeed())
-			Expect(pgConn).ShouldNot(BeNil())
-		})
-		It("Should not get the kafka connection, because no secret created", func() {
-			_, err := mghReconciler.GenerateKafkaConnectionFromGHTransportSecret(ctx)
-			Expect(err).Should(HaveOccurred())
-		})
-	})
-
-	Context("Verify the Postgres and kafka resources are created", func() {
+	Context("Reconcile the Postgres and kafka resources", func() {
 		mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 		It("Should create the MGH instance", func() {
 			mcgh = &globalhubv1alpha4.MulticlusterGlobalHub{
@@ -859,8 +812,24 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(k8sClient.Create(ctx, mcgh)).Should(Succeed())
 		})
 
-		It("Should create the postgres resources", func() {
+		It("Should get the postgres connection", func() {
+			_, err := mghReconciler.ReconcileMiddleware(ctx, mcgh)
+			Expect(err).Should(HaveOccurred())
+			// has multicluster-global-hub-storage secret
+			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
+			// no multicluster-global-hub-transport secret
+			Expect(mghReconciler.MiddlewareConfig.KafkaConnection).Should(BeNil())
+		})
 
+		It("Should not get the postgres connection", func() {
+			Expect(k8sClient.Delete(ctx, storageSecret)).Should(Succeed())
+			_, err := mghReconciler.ReconcileMiddleware(ctx, mcgh)
+			Expect(err).Should(HaveOccurred())
+			// has multicluster-global-hub-storage secret
+			Expect(mghReconciler.MiddlewareConfig.PgConnection).Should(BeNil())
+		})
+
+		It("Should create the postgres resources", func() {
 			Expect(mghReconciler.EnsureCrunchyPostgresSubscription(ctx, mcgh)).Should(Succeed())
 			Expect(mghReconciler.EnsureCrunchyPostgres(ctx)).Should(Succeed())
 			_, err := mghReconciler.WaitForPostgresReady(ctx)
@@ -868,9 +837,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(err).Should(HaveOccurred())
 		})
 		It("Should create the kafka resources", func() {
-
 			Expect(mghReconciler.EnsureKafkaSubscription(ctx, mcgh)).Should(Succeed())
-			Expect(mghReconciler.EnsureKafka(ctx)).Should(Succeed())
+			Expect(mghReconciler.EnsureKafkaResources(ctx)).Should(Succeed())
 			_, err := mghReconciler.WaitForKafkaClusterReady(ctx)
 			// postgres cannot be ready in envtest
 			Expect(err).Should(HaveOccurred())

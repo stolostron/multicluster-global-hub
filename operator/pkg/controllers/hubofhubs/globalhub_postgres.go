@@ -7,6 +7,7 @@ import (
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -47,7 +48,9 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgresSubscription(ctx 
 	if createSub {
 		err = r.Client.Create(ctx, calcSub)
 	} else {
-		err = r.Client.Update(ctx, calcSub)
+		if !equality.Semantic.DeepEqual(postgresSub.Spec, calcSub.Spec) {
+			err = r.Client.Update(ctx, calcSub)
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("error updating subscription %s: %w", calcSub.Name, err)

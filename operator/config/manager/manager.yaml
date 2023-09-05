@@ -5,6 +5,15 @@ metadata:
     name: multicluster-global-hub-operator
   name: multicluster-global-hub
 ---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: default
+  namespace: multicluster-global-hub
+spec:
+  targetNamespaces:
+  - multicluster-global-hub
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -35,6 +35,7 @@ superuserDatabaseURI=$(kubectl get secrets -n "${pgnamespace}" "${superuserSecre
 readonlyuserDatabaseURI=$(kubectl get secrets -n "${pgnamespace}" "${readonlyuserSecret}" -o go-template='{{index (.data) "uri" | base64decode}}')
 kubectl get secret $certSecret -n $pgnamespace -o jsonpath='{.data.ca\.crt}' |base64 -d > $currentDir/ca.crt
 
+kubectl create namespace $targetNamespace || true
 kubectl create secret generic $storageSecret -n $targetNamespace \
     --from-literal=database_uri="${superuserDatabaseURI}?sslmode=verify-ca" \
     --from-literal=database_uri_with_readonlyuser="${readonlyuserDatabaseURI}?sslmode=verify-ca" \
