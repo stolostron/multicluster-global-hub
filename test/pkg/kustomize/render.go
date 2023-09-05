@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -90,6 +91,7 @@ func Apply(testClients utils.TestClient, testOptions utils.Options, o Options) e
 		klog.V(6).Infof("apiVersion: %s\n", apiVersion)
 
 		clientKube := testClients.KubeClient()
+		dynamicClient := testClients.KubeDynamicClient()
 		clientAPIExtension := testClients.KubeClientAPIExtension()
 		// now use switch over the type of the object
 		// and match each type-case
@@ -378,6 +380,24 @@ func Apply(testClients utils.TestClient, testOptions utils.Options, o Options) e
 				obj.ObjectMeta = existingObject.ObjectMeta
 				klog.Warningf("%s %s/%s already exists, updating!", obj.Kind, obj.Namespace, obj.Name)
 				_, err = clientKube.StorageV1().StorageClasses().Update(context.TODO(), obj, metav1.UpdateOptions{})
+			}
+		case "OperatorGroup":
+			klog.V(6).Infof("Install %s: %s\n", kind, f)
+			obj := &unstructured.Unstructured{}
+			err = yaml.Unmarshal([]byte(f), obj)
+			if err != nil {
+				return err
+			}
+			existingObject, errGet := dynamicClient.Resource(operatorsv1.GroupVersion.WithResource("operatorgroups")).
+				Namespace(obj.GetNamespace()).Get(context.TODO(), obj.GetName(), metav1.GetOptions{})
+			if errGet != nil {
+				_, err = dynamicClient.Resource(operatorsv1.GroupVersion.WithResource("operatorgroups")).
+					Namespace(obj.GetNamespace()).Create(context.TODO(), obj, metav1.CreateOptions{})
+			} else {
+				obj.SetResourceVersion(existingObject.GetResourceVersion())
+				klog.Warningf("%s %s/%s already exists, updating!", obj.GetKind(), obj.GetNamespace(), obj.GetName())
+				_, err = dynamicClient.Resource(operatorsv1.GroupVersion.WithResource("operatorgroups")).
+					Namespace(obj.GetNamespace()).Update(context.TODO(), obj, metav1.UpdateOptions{})
 			}
 		default:
 			return fmt.Errorf("resource %s not supported", kind)
