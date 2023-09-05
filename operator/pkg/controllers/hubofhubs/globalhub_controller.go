@@ -146,7 +146,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	if result, err := r.reconcileMiddleware(ctx, mgh); err != nil {
+	if result, err := r.ReconcileMiddleware(ctx, mgh); err != nil {
 		return result, err
 	}
 
@@ -185,7 +185,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) reconcileMiddleware(ctx context.Context,
+func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (ctrl.Result, error) {
 
