@@ -332,7 +332,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					StatisticLogInterval   string
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
-					Replicas:               1,
+					Replicas:               2,
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
 					ImagePullPolicy:        string(imagePullPolicy),
 					ImagePullSecret:        mgh.Spec.ImagePullSecret,
