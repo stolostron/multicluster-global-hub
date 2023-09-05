@@ -226,15 +226,137 @@ To navigate the global hub dashboards, you can choose to observe and filter the 
 
 Similarly, if you want to examine the policy data by `cluster` grouping, begin by using the `Global Hub - Cluster Group Compliancy Overview` dashboard. The navigation flow is identical to the `policy` grouping flow, but you select filters that are related to the cluster, such as managed cluster `labels` and `values`. Instead of viewing policy events for all clusters, after reaching the `Global Hub - What's Changed / Clusters` dashboard, you can view policy events related to an individual cluster.
 
+### Grafana Alerts (Technology Preview)
+#### Default Grafana Alerts
+We have three alerts by default. These alerts are stored in configmap `multicluster-global-hub-default-alerting`. They will watch suspicious policies, suspicious clusters compliance status change and failed cron jobs.
+1. Suspicious Policy Change
+This Alert rule watches the suspicious policies change, if the following events occur more than 5 times in 1 hour, it becomes a firing alert.
+- A policy was enabled/disabled
+- A policy was updated
+
+2. Suspicious Cluster Compliance Status Change
+This alert watches the cluster compliance status and policy events for a cluster. There are two rules in this alert.
+- Cluster compliance status change frequently
+  If a cluster compliance status changes from `compliance` to `non-compliance` more than 3 times in 1 hour, it becomes a firing alert.
+- Too many policy events in a cluster
+  For a policy in a cluster, if there are more than 20 events in 5 minutes, it becomes a firing alert. If this alert is always firing, the data in the `event.local_policies` table will increase too fast.
+
+3. Cron Job Failed
+This alert watch the [Cron jobs](#Cronjobs-and-Metrics) failed events. There are two rules in this alert.
+- Local Compliance Job Failed
+  If this alert rule becomes firing, it means the [Local compliance status sync job](#Local-compliance-status-sync-job) failed. It may cause the data to be lost in the `history.local_compliance` table. Please check it and [manually run the job](./how_global_hub_works.md#running-the-summarization-process-manually)
+
+- Data Retention Job Failed
+  If this alert rule becomes firing, it means the [Partition job](#Partition-job) failed. 
+
+#### Delete Default Grafana Alert Rule
+If you want to delete a default grafana alert rule, you need to create the [Customize Grafana Alerting Resources](#Customize-Grafana-Alerting-Resources) and include the `deleteRules`.
+
+For deleting all default alerting, the config should be like:
+```
+    deleteRules:
+      - orgId: 1
+        uid: globalhub_suspicious_policy_change
+      - orgId: 1
+        uid: globalhub_cluster_compliance_status_change_frequently
+      - orgId: 1
+        uid: globalhub_high_number_of_policy_events
+      - orgId: 1
+        uid: globalhub_data_retention_job
+      - orgId: 1
+        uid: globalhub_local_compliance_job
+```
+
+#### Customize Grafana Alerts
+##### Customize grafana.ini
+Global hub support customize the grafana.ini files. You just need to create a secret in namespace `multicluster-global-hub`, and the secret name must be: `multicluster-global-hub-custom-grafana-config`, the secret data key must be: `grafana.ini`. The following is an example:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: multicluster-global-hub-custom-grafana-config
+  namespace: multicluster-global-hub
+type: Opaque
+stringData:
+  grafana.ini: |
+    [smtp]
+    enabled = true
+    host = smtp.google.com:465
+    user = example@google.com
+    password = xxx
+    ;cert_file =
+    ;key_file =
+    skip_verify = true
+    from_address = example@163.com
+    from_name = Grafana	
+    # EHLO identity in SMTP dialog (defaults to instance_name)
+    ;ehlo_identity = dashboard.example.com
+```
+Note: you can not config the section which already in `multicluster-global-hub-default-grafana-config` secret
+
+##### Customize Grafana Alerting Resources 
+Global hub support customize the alerting resources which [grafana support](https://grafana.com/docs/grafana/v9.5/alerting/set-up/provision-alerting-resources/file-provisioning/). You just need to create a configmap in namespace `multicluster-global-hub`, and the configmap name must be: `multicluster-global-hub-custom-alerting`, the configmap data key must be: `alerting.yaml`. The following is an example:
+
+```yaml
+apiVersion: v1
+data:
+  alerting.yaml: |
+    contactPoints:
+      - orgId: 1
+        name: globalhub_policy
+        receivers:
+          - uid: globalhub_policy_alert_email
+            type: slack
+            type: email
+            settings:
+              addresses: example@redhat.com
+              singleEmail: false
+          - uid: globalhub_policy_alert_slack
+            type: slack
+            settings:
+              url: <Slack Webhook URL>
+              title: |
+                {{ template "globalhub.policy.title" . }}
+              text: |
+                {{ template "globalhub.policy.message" . }}              
+    policies:
+      - orgId: 1
+        receiver: globalhub_policy
+        group_by: ['grafana_folder', 'alertname']
+        matchers:
+          - grafana_folder = Policy
+        repeat_interval: 1d
+    deleteRules:
+      - orgId: 1
+        uid: <Alert Rule Uid>
+    muteTimes:
+      - orgId: 1
+        name: mti_1
+        time_intervals:
+          - times:
+              - start_time: '06:00'
+                end_time: '23:59'
+                location: 'UTC'
+            weekdays: ['monday:wednesday', 'saturday', 'sunday']
+            months: ['1:3', 'may:august', 'december']
+            years: ['2020:2022', '2030']
+            days_of_month: ['1:5', '-3:-1']
+kind: ConfigMap
+metadata:
+  name: multicluster-global-hub-custom-alerting
+  namespace: multicluster-global-hub
+
+```
+
 ### Cronjobs and Metrics
 
 After installing the global hub operand, the global hub manager starts running and pull ups a job scheduler to schedule two cronjobs:
 
-- Local compliance status sync job
+#### Local compliance status sync job
 
   At 0 o'clock every day, based on the policy status and events collected by the manager on the previous day. Running the job to summarize the compliance status and change frequency of the policy on the cluster, and store them to the `history.local_compliance` table as the data source of grafana dashboards. Please refer to [here](./how_global_hub_works.md) for more details.
 
-- Partition job
+#### Partition job
 
   Some data tables in global hub will continue to grow over time. Generally, they fall into two categories: the policy event tables and the `history.local_compliance` growing every day, the tables containing soft deleted records. The former generates a large amount of data, we use range partitioning to break down the large tables into small partitions. Which helps in executing queries/deletions on these tables faster. The later has a small amount of data, and we add `deletedAt` indexes to these tables to obtain better hard delete performance.
 
