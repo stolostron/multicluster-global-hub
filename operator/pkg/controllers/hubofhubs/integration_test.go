@@ -306,6 +306,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			) (interface{}, error) {
 				return struct {
 					Image                  string
+					Replicas               int32
 					ProxyImage             string
 					ImagePullPolicy        string
 					ImagePullSecret        string
@@ -331,6 +332,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					StatisticLogInterval   string
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
+					Replicas:               1,
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
 					ImagePullPolicy:        string(imagePullPolicy),
 					ImagePullSecret:        mgh.Spec.ImagePullSecret,

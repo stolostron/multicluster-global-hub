@@ -134,6 +134,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 
 	changedGrafanaIni, err := r.generateGrafanaIni(ctx, mgh)
+	if err != nil {
+		return fmt.Errorf("failed to generate grafana init. err:%v", err)
+	}
 
 	if changedAlert || changedGrafanaIni {
 		err = restartGrafanaPod(ctx, r.KubeClient)

@@ -80,9 +80,15 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			condition.CONDITION_TYPE_RETENTION_PARSED, err)
 	}
 
+	replicas := int32(1)
+	if mgh.Spec.AvailabilityConfig == globalhubv1alpha4.HAHigh {
+		replicas = 2
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                  string
+			Replicas               int32
 			ProxyImage             string
 			ImagePullSecret        string
 			ImagePullPolicy        string
@@ -108,6 +114,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			StatisticLogInterval   string
 		}{
 			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
+			Replicas:               replicas,
 			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
 			ImagePullSecret:        mgh.Spec.ImagePullSecret,
 			ImagePullPolicy:        string(imagePullPolicy),

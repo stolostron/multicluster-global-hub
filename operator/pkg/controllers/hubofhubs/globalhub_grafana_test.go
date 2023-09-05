@@ -626,8 +626,6 @@ email = example@redhat.com
 }
 
 func Test_mergeGrafanaIni(t *testing.T) {
-	type args struct {
-	}
 	tests := []struct {
 		name    string
 		a       []byte
