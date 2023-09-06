@@ -23,8 +23,11 @@ import (
 	"reflect"
 	"time"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
+	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -344,6 +347,18 @@ var secretPred = predicate.Funcs{
 	},
 }
 
+var deletePred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return true
+	},
+}
+
 var configmappred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetName() == operatorconstants.CustomAlertName
@@ -433,5 +448,15 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			globalHubEventHandler, builder.WithPredicates(secretPred)).
 		Watches(&promv1.ServiceMonitor{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
+		Watches(&subv1alpha1.Subscription{},
+			globalHubEventHandler, builder.WithPredicates(deletePred)).
+		Watches(&kafkav1beta2.Kafka{},
+			globalHubEventHandler, builder.WithPredicates(deletePred)).
+		Watches(&kafkav1beta2.KafkaTopic{},
+			globalHubEventHandler, builder.WithPredicates(deletePred)).
+		Watches(&kafkav1beta2.KafkaUser{},
+			globalHubEventHandler, builder.WithPredicates(deletePred)).
+		Watches(&postgresv1beta1.PostgresCluster{},
+			globalHubEventHandler, builder.WithPredicates(deletePred)).
 		Complete(r)
 }

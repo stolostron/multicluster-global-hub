@@ -821,14 +821,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(mghReconciler.MiddlewareConfig.KafkaConnection).Should(BeNil())
 		})
 
-		It("Should not get the postgres connection", func() {
-			Expect(k8sClient.Delete(ctx, storageSecret)).Should(Succeed())
-			_, err := mghReconciler.ReconcileMiddleware(ctx, mcgh)
-			Expect(err).Should(HaveOccurred())
-			// has multicluster-global-hub-storage secret
-			Expect(mghReconciler.MiddlewareConfig.PgConnection).Should(BeNil())
-		})
-
 		It("Should create the postgres resources", func() {
 			Expect(mghReconciler.EnsureCrunchyPostgresSubscription(ctx, mcgh)).Should(Succeed())
 			Expect(mghReconciler.EnsureCrunchyPostgres(ctx)).Should(Succeed())

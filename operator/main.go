@@ -354,6 +354,11 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&promv1.ServiceMonitor{}: {
 			Label: labelSelector,
 		},
+		&subv1alpha1.Subscription{}:        {},
+		&kafkav1beta2.Kafka{}:              {},
+		&kafkav1beta2.KafkaTopic{}:         {},
+		&kafkav1beta2.KafkaUser{}:          {},
+		&postgresv1beta1.PostgresCluster{}: {},
 	}
 	return cache.New(config, cacheOpts)
 }

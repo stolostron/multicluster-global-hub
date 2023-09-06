@@ -64,22 +64,20 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	defer func() {
+		// stop mock kafka cluster
+		mockKafkaCluster.Close()
+		// stop testenv
+		if err := testenv.Stop(); err != nil {
+			panic(err)
+		}
+		if err := testPostgres.Stop(); err != nil {
+			panic(err)
+		}
+	}()
+
 	// run testings
 	code := m.Run()
-
-	// stop mock kafka cluster
-	mockKafkaCluster.Close()
-
-	err = testPostgres.Stop()
-	if err != nil {
-		panic(err)
-	}
-
-	// stop testenv
-	err = testenv.Stop()
-	if err != nil {
-		panic(err)
-	}
 
 	os.Exit(code)
 }
