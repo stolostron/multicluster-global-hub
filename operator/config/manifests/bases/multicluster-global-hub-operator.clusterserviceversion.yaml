@@ -25,51 +25,49 @@ spec:
       kind: MulticlusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
       version: v1alpha2
-  description: "Multicluster Global Hub Operator defines the configuration for multicluster
-    global hub installation and upgrade with one custom resource.\n\n## Prerequisites\n\n-
-    Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs
-    to be installed.\n## How to Install\n\nInstall the Multicluster Global Hub Operator
-    by following the instructions that are displayed after you select the Install
-    button. The operator must be installed in the same namespace as Red Hat Advanced
-    Cluster Management for Kubernetes (RHACM), by default, in `open-cluster-management`
-    namespace.\n\nA pod will be created in `open-cluster-management` namespace\n\n```\n$
-    kubectl get pods -n open-cluster-management\nNAME                                                             READY
-    \  STATUS    RESTARTS   AGE\nmulticluster-global-hub-operator-5ccbbc878d-98fdp
-    \               1/1     Running   0          19s\n```\n\nThe operator is now providing
-    new Custom Resources Definitions: `multiclusterglobalhubs.operator.open-cluster-management.io`\n\n##
-    Using the Multicluster Global Hub Operator\n\nAfter installed the operator, create
-    an instance of the MulticlusterGlobalHub resource to instantiate the Multicluster
-    Global Hub.\n\nYou need to prepare:\n\n- PostgreSQL needs to be installed and
-    you must create database for the multicluster global hub. You must create a secret
-    named multicluster-global-hub-storage that contains the database access credential
-    in `open-cluster-management` namespace. You can run the following command to create
-    the secret: \n\n```\nkubectl create secret generic multicluster-global-hub-storage
-    -n open-cluster-management \\\n  --from-literal=database_uri=<postgresql-uri>
-    \\\n --from-literal=database_uri_with_readonlyuser=<postgresql-uri-with-readonlyuser>
-    \\\n --from-file=ca.crt=<CA-for-postgres-server> \n```\n>_Note:_ There is a sample
-    script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/storage)(Note:
-    the client version of kubectl must be v1.21+) to install postgres in `multicluster-global-hub-postgres`
-    namespace and create the secret `multicluster-global-hub-storage` in namespace
-    `open-cluster-management` automatically. To override the secret namespace, set
-    `TARGET_NAMESPACE` environment variable to the RHACM installation namespace before
-    executing the script.\n\n- Kafka needs to be installed, and you must create three
-    topics, `spec` `status` and `event`. You need to create a secret named multicluster-global-hub-transport
-    that contains the kafka access information should be created in `open-cluster-management`
-    namespace. You can run the following command to create the secret: \n\n```\nkubectl
-    create secret generic multicluster-global-hub-transport -n open-cluster-management
-    \\\n  --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \\\n      --from-file=ca.crt=<CA-cert-for-kafka-server>
-    --from-file=client.crt=<Client-cert-for-kafka-server> --from-file=client.key=<Client-key-for-kafka-server>
-    \n```\n >_Note:_ There is a sample script available [here](https://github.com/stolostron/multicluster-global-hub/tree/main/operator/config/samples/transport)
-    to install kafka in `kafka` namespace and create the secret `multicluster-global-hub-transport`
-    in namespace `open-cluster-management` automatically. To override the secret namespace,
-    set `TARGET_NAMESPACE` environment variable to the RHACM installation namespace
-    before executing the script.\n\nOnce an instance of the MulticlusterGlobalHub
-    is created, the following pods are created in the `open-cluster-management` namespace:\n\n```\n$
-    kubectl get pods -n open-cluster-management\nNAME                                                             READY
-    \  STATUS    RESTARTS   AGE\nmulticluster-global-hub-grafana-79f8d59f58-qwcjl
-    \                1/1     Running   0          22s\nmulticluster-global-hub-operator-5ccbbc878d-98fdp
-    \               1/1     Running   0          56s\nmulticluster-global-hub-manager-7c55644568-mth8f
-    \                1/1     Running   0          11s\n```\n"
+  description: |
+    The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager` and `multicluster-global-hub-grafana` in the global hub cluster and `multicluster-global-hub-agent` in the managed hub clusters.
+    The Operator also deploys the strimzi kafka and crunchy postgres if you do not bring your own kafka and postgres.
+
+    ## Prerequisites
+    - Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed.
+
+    ## How to Install
+    Install the Multicluster Global Hub Operator by following the instructions that are displayed after you select the Install button.
+    A pod will be created in `multicluster-global-hub` namespace:
+    ```
+    $ kubectl get pods -n multicluster-global-hub
+    NAME                                                             READY   STATUS    RESTARTS   AGE
+    multicluster-global-hub-operator-5ccbbc878d-98fdp                1/1     Running   0          19s
+    ```
+    The operator is now providing new Custom Resources Definitions: `multiclusterglobalhubs.operator.open-cluster-management.io`
+
+    ## Using the Multicluster Global Hub Operator
+    After installed the operator, create an instance of the MulticlusterGlobalHub resource to instantiate the Multicluster Global Hub.
+    Once an instance of the MulticlusterGlobalHub is created, the following pods are created in the `multicluster-global-hub` namespace:
+    ```
+    $ kubectl get pods -n multicluster-global-hub
+    NAME                                                             READY   STATUS    RESTARTS    AGE
+    kafka-kafka-0                                                    1/1     Running     0          21h
+    kafka-kafka-1                                                    1/1     Running     0          21h
+    kafka-kafka-2                                                    1/1     Running     0          21h
+    kafka-zookeeper-0                                                1/1     Running     0          21h
+    kafka-zookeeper-1                                                1/1     Running     0          21h
+    kafka-zookeeper-2                                                1/1     Running     0          21h
+    multicluster-global-hub-grafana-579cdf759d-mp7fm                 2/2     Running     0          21h
+    multicluster-global-hub-manager-7bdcdd745f-5np24                 2/2     Running     0          21h
+    multicluster-global-hub-operator-59744b8d75-nrwvd                1/1     Running     0          21h
+    pgo-6b5cbdc5cc-wnct9                                             1/1     Running     0          21h
+    postgres-backup-vrh6-lpjvm                                       0/1     Completed   0          21h
+    postgres-pgha1-8rms-0                                            4/4     Running     0          21h
+    postgres-pgha1-9fgb-0                                            4/4     Running     0          21h
+    postgres-pgha1-mlzf-0                                            4/4     Running     0          21h
+    postgres-repo-host-0                                             2/2     Running     0          21h
+    strimzi-cluster-operator-v0.36.1-684d7cccb7-zjbf9                1/1     Running     0          21h
+    ```
+
+    ##Documentation
+    For documentation about installing and using the Multicluster GlobalHub Operator with Red Hat Advanced Cluster Management for Kubernetes, see [Multicluser Global Hub Documentation](https://github.com/stolostron/multicluster-global-hub/tree/main/doc#readme).
   displayName: Multicluster Global Hub Operator
   icon:
   - base64data: PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTguNTEgMjU4LjUxIj48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6I2QxZDFkMTt9LmNscy0ye2ZpbGw6IzhkOGQ4Zjt9PC9zdHlsZT48L2RlZnM+PHRpdGxlPkFzc2V0IDQ8L3RpdGxlPjxnIGlkPSJMYXllcl8yIiBkYXRhLW5hbWU9IkxheWVyIDIiPjxnIGlkPSJMYXllcl8xLTIiIGRhdGEtbmFtZT0iTGF5ZXIgMSI+PHBhdGggY2xhc3M9ImNscy0xIiBkPSJNMTI5LjI1LDIwQTEwOS4xLDEwOS4xLDAsMCwxLDIwNi40LDIwNi40LDEwOS4xLDEwOS4xLDAsMSwxLDUyLjExLDUyLjExLDEwOC40NSwxMDguNDUsMCwwLDEsMTI5LjI1LDIwbTAtMjBoMEM1OC4xNiwwLDAsNTguMTYsMCwxMjkuMjVIMGMwLDcxLjA5LDU4LjE2LDEyOS4yNiwxMjkuMjUsMTI5LjI2aDBjNzEuMDksMCwxMjkuMjYtNTguMTcsMTI5LjI2LTEyOS4yNmgwQzI1OC41MSw1OC4xNiwyMDAuMzQsMCwxMjkuMjUsMFoiLz48cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik0xNzcuNTQsMTAzLjQxSDE0MS42NkwxNTQuOSw2NS43NmMxLjI1LTQuNC0yLjMzLTguNzYtNy4yMS04Ljc2SDEwMi45M2E3LjMyLDcuMzIsMCwwLDAtNy40LDZsLTEwLDY5LjYxYy0uNTksNC4xNywyLjg5LDcuODksNy40LDcuODloMzYuOUwxMTUuNTUsMTk3Yy0xLjEyLDQuNDEsMi40OCw4LjU1LDcuMjQsOC41NWE3LjU4LDcuNTgsMCwwLDAsNi40Ny0zLjQ4TDE4NCwxMTMuODVDMTg2Ljg2LDEwOS4yNCwxODMuMjksMTAzLjQxLDE3Ny41NCwxMDMuNDFaIi8+PC9nPjwvZz48L3N2Zz4=
