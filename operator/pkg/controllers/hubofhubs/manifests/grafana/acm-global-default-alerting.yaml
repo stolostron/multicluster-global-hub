@@ -82,29 +82,13 @@ data:
                         params: []
                         type: max
                       type: query
-                datasource:
-                    name: Expression
-                    type: __expr__
-                    uid: __expr__
-                expression: ""
-                intervalMs: 1000
-                maxDataPoints: 43200
-                refId: B
-                type: classic_conditions
-            - refId: D
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: __expr__
-              model:
-                conditions:
                     - evaluator:
                         params:
                             - 5
                             - 0
                         type: gt
                       operator:
-                        type: and
+                        type: or
                       query:
                         params:
                             - C
@@ -119,7 +103,7 @@ data:
                 expression: ""
                 intervalMs: 1000
                 maxDataPoints: 43200
-                refId: D
+                refId: B
                 type: classic_conditions
           noDataState: OK
           execErrState: Error
@@ -201,11 +185,12 @@ data:
             description: |-
                 We are getting the cluster compliance status changes frequently.
                 Details: <ALERT_PLACE_HOLDER>
+            summary: Cluster is going in and out of compliance frequently
           labels:
             alertname: Cluster compliance status change frequently
           isPaused: false
         - uid: ef9c0904-cb28-4f53-a527-e30f747b6803
-          title: Too many policy events in a cluster
+          title: High number of policy events in a cluster
           condition: B
           data:
             - refId: A
@@ -266,18 +251,19 @@ data:
           for: 0s
           annotations:
             description: |-
-                We are getting too many events for policy in a cluster.
+                We are getting too many policy events in a cluster.
                 Detail: <ALERT_PLACE_HOLDER>
+            summary: There are too many policy events in a cluster
           labels:
-            alertname: Too many policy events in a cluster
+            alertname: High number of policy events in a cluster
           isPaused: false
     - orgId: 1
-      name: Cron Job Fail
+      name: Cron Job Failed
       folder: Policy
       interval: 1d
       rules:
         - uid: f04445ec-5e8f-47c0-8266-ea4fbfdd0253
-          title: Data Retention Job Fail
+          title: Data Retention Job Failed
           condition: B
           data:
             - refId: A
@@ -337,12 +323,13 @@ data:
           execErrState: Error
           for: 0s
           annotations:
-            description: Data retention job fail, it may cause the stale data not cleaned up.
+            description: Data retention job failed, it may cause the stale data not cleaned up.
+            summary: Data retention job failed
           labels:
-            alertname: Data Retention Job Fail
+            alertname: Data Retention Job failed
           isPaused: false
         - uid: b5f94547-6f5e-4f0e-9a0e-e14a42af00f7
-          title: Local Compliance Job Fail
+          title: Local Compliance Job failed
           condition: B
           data:
             - refId: A
@@ -402,9 +389,10 @@ data:
           execErrState: Error
           for: 0s
           annotations:
-            description: Local compliance job fail, it may cause the compliance data lost.
+            description: Local compliance job failed, it may cause the compliance data lost.
+            summary: Local compliance job failed
           labels:
-            alertname: Local Compliance Job Fail
+            alertname: Local Compliance Job failed
           isPaused: false
 kind: ConfigMap
 metadata:
