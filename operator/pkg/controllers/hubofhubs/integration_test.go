@@ -386,6 +386,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
 					Namespace            string
+					Replicas             int32
 					SessionSecret        string
 					ProxyImage           string
 					GrafanaImage         string
@@ -396,6 +397,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Tolerations          []corev1.Toleration
 				}{
 					Namespace:            config.GetDefaultNamespace(),
+					Replicas:             2,
 					SessionSecret:        "testing",
 					ProxyImage:           config.GetImage(config.OauthProxyImageKey),
 					GrafanaImage:         config.GetImage(config.GrafanaImageKey),
