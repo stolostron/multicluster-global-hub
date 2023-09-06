@@ -1,8 +1,8 @@
-Multicluster global hub depends on the middleware (kafka, postgres) and observability platform (grafana) to provide the policy compliance view. Multicluster global hub has build-in kafka, postgres and grafana, but you still can bring your own kafka, postgres and grafana. This document focuses on how to bring your own.
+Multicluster global hub depends on the middleware (Kafka, Postgres) and observability platform (grafana) to provide the policy compliance view. Multicluster global hub has build-in Kafka, postgres and grafana, but you still can bring your own Kafka, postgres and grafana. This document focuses on how to bring your own.
 
 ## Bring your own Kafka
 
-If you have your own kafka, you can use it as the transport for multicluster global hub. You need to create a secret `multicluster-global-hub-transport` in `multicluster-global-hub` namespace. The secret contains the following fields:
+If you have your own Kafka, you can use it as the transport for multicluster global hub. You need to create a secret `multicluster-global-hub-transport` in `multicluster-global-hub` namespace. The secret contains the following fields:
 
 - `bootstrap.servers`: Required, the Kafka bootstrap servers.
 - `ca.crt`: Required, if you use the `KafkaUser` custom resource to configure authentication credentials, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the STRIMZI documentation for the steps to extract the `ca.crt` certificate from the secret.
@@ -18,8 +18,9 @@ kubectl create secret generic multicluster-global-hub-transport -n multicluster-
     --from-file=client.key=<Client-key-for-kafka-server> 
 ```
 Please note that:
-- three topics `spec` `status` and `event` are needed. If your Kafka is configured to allow creating topics automatically, you can skip this step. Otherwise, you need to create the topics manually. And ensure that the above kafka user has the permission to read data from the topics and write data to the topics.
-- kakfa 3.3 or later is tested.
+- Three topics `spec` `status` and `event` are needed. If your Kafka is configured to allow creating topics automatically, you can skip this step. Otherwise, you need to create the topics manually. And ensure that the above Kafka user has the permission to read data from the topics and write data to the topics.
+- Kafka 3.3 or later is tested.
+- Suggest to have persistent volume for your Kafka.
 
 ## Bring your own Postgres
 
