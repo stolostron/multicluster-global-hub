@@ -6,7 +6,7 @@ metadata:
   labels:
     name: multicluster-global-hub-manager
 spec:
-  replicas: 1
+  replicas: {{.Replicas}}
   selector:
     matchLabels:
       name: multicluster-global-hub-manager

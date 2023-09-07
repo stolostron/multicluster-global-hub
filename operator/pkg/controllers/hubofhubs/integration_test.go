@@ -306,6 +306,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			) (interface{}, error) {
 				return struct {
 					Image                  string
+					Replicas               int32
 					ProxyImage             string
 					ImagePullPolicy        string
 					ImagePullSecret        string
@@ -331,6 +332,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					StatisticLogInterval   string
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
+					Replicas:               2,
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
 					ImagePullPolicy:        string(imagePullPolicy),
 					ImagePullSecret:        mgh.Spec.ImagePullSecret,
@@ -384,6 +386,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
 					Namespace            string
+					Replicas             int32
 					SessionSecret        string
 					ProxyImage           string
 					GrafanaImage         string
@@ -394,6 +397,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Tolerations          []corev1.Toleration
 				}{
 					Namespace:            config.GetDefaultNamespace(),
+					Replicas:             2,
 					SessionSecret:        "testing",
 					ProxyImage:           config.GetImage(config.OauthProxyImageKey),
 					GrafanaImage:         config.GetImage(config.GrafanaImageKey),

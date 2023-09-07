@@ -45,6 +45,11 @@ spec:
                   retention: 18m
             description: MulticlusterGlobalHubSpec defines the desired state of MulticlusterGlobalHub
             properties:
+              availabilityConfig:
+                default: High
+                description: 'Specifies deployment replication for improved availability.
+                  Options are: Basic and High (default)'
+                type: string
               dataLayer:
                 default:
                   kafka:

@@ -41,6 +41,16 @@ const (
 	CloudEvents  TransportFormatType = "cloudEvents"
 )
 
+// AvailabilityType ...
+type AvailabilityType string
+
+const (
+	// HABasic stands up most app subscriptions with a replicaCount of 1
+	HABasic AvailabilityType = "Basic"
+	// HAHigh stands up most app subscriptions with a replicaCount of 2
+	HAHigh AvailabilityType = "High"
+)
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName={mgh,mcgh}
@@ -57,6 +67,10 @@ type MulticlusterGlobalHub struct {
 
 // MulticlusterGlobalHubSpec defines the desired state of MulticlusterGlobalHub
 type MulticlusterGlobalHubSpec struct {
+
+	// Specifies deployment replication for improved availability. Options are: Basic and High (default)
+	// +kubebuilder:default:="High"
+	AvailabilityConfig AvailabilityType `json:"availabilityConfig,omitempty"`
 	// Pull policy of the multicluster global hub images
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`

@@ -88,11 +88,17 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
+	replicas := int32(1)
+	if mgh.Spec.AvailabilityConfig == globalhubv1alpha4.HAHigh {
+		replicas = 2
+	}
+
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
 	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 		return struct {
 			Namespace            string
+			Replicas             int32
 			SessionSecret        string
 			ProxyImage           string
 			GrafanaImage         string
@@ -103,6 +109,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			Tolerations          []corev1.Toleration
 		}{
 			Namespace:            config.GetDefaultNamespace(),
+			Replicas:             replicas,
 			SessionSecret:        proxySessionSecret,
 			ProxyImage:           config.GetImage(config.OauthProxyImageKey),
 			GrafanaImage:         config.GetImage(config.GrafanaImageKey),
@@ -134,6 +141,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 
 	changedGrafanaIni, err := r.generateGrafanaIni(ctx, mgh)
+	if err != nil {
+		return fmt.Errorf("failed to generate grafana init. err:%v", err)
+	}
 
 	if changedAlert || changedGrafanaIni {
 		err = restartGrafanaPod(ctx, r.KubeClient)
