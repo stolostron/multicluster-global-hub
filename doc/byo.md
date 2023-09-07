@@ -43,11 +43,11 @@ Please note that:
 - Require the storage size is at least 20Gb (store 3 managed hubs with 250 managed clusters and 50 policies per managed hub for 18 months).
 
 ## Bring your own Grafana
-You have been relying on your own Grafana to get metrics from multiple sources (Prometheus) from different clusters and have to aggregate the metrics yourself. In order to get multicluster global hub data into your own Grafana, you need to configure the datasource and import the dashboard.
+You have been relying on your own Grafana to get metrics from multiple sources (Prometheus) from different clusters and have to aggregate the metrics yourself. In order to get multicluster global hub data into your own Grafana, you need to configure the datasource and import the dashboards.
 
-1. Get the postgres connection information from the multicluster global hub storage secret
+1. Get the postgres connection information from the multicluster global hub Grafana datasource secret
 ```
-oc get secret multicluster-global-hub-grafana-datasources -ojsonpath='{.data.datasources\.yaml}' | base64 -d
+oc get secret multicluster-global-hub-grafana-datasources -n multicluster-global-hub -ojsonpath='{.data.datasources\.yaml}' | base64 -d
 ```
 the output likes:
 ```
