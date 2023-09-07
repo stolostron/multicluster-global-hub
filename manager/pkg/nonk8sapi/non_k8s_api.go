@@ -32,6 +32,12 @@ type NonK8sAPIServerConfig struct {
 	ServerBasePath         string
 }
 
+// NeedLeaderElection implements the LeaderElectionRunnable interface, which indicates
+// the nonK8sApiServer doesn't need leader election.
+func (*nonK8sApiServer) NeedLeaderElection() bool {
+	return false
+}
+
 // nonK8sApiServer defines the non-k8s-api-server
 type nonK8sApiServer struct {
 	log logr.Logger
