@@ -83,6 +83,8 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgres(ctx context.Cont
 // WaitForPostgresReady waits for postgres to be ready and returns a postgres connection
 func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Context) (
 	*postgres.PostgresConnection, error) {
+
+	// wait for postgres guest user secret to be ready
 	guestPostgresSecret := &corev1.Secret{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      postgres.PostgresGuestUserSecretName,
@@ -94,7 +96,7 @@ func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Conte
 		}
 		return nil, err
 	}
-	// wait for postgres user secret to be ready
+	// wait for postgres super user secret to be ready
 	superuserPostgresSecret := &corev1.Secret{}
 	err = r.Client.Get(ctx, types.NamespacedName{
 		Name:      postgres.PostgresSuperUserSecretName,
@@ -102,11 +104,11 @@ func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Conte
 	}, superuserPostgresSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresGuestUserSecretName)
+			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresSuperUserSecretName)
 		}
 		return nil, err
 	}
-	// wait for guest user secret to be ready
+	// wait for postgres cert secret to be ready
 	postgresCertName := &corev1.Secret{}
 	err = r.Client.Get(ctx, types.NamespacedName{
 		Name:      postgres.PostgresCertName,
@@ -114,7 +116,7 @@ func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Conte
 	}, postgresCertName)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresGuestUserSecretName)
+			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresCertName)
 		}
 		return nil, err
 	}
