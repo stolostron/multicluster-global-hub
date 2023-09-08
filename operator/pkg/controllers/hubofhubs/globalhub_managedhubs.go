@@ -44,3 +44,27 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManagedHubs(ctx context.Conte
 	return nil
 
 }
+
+func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) error {
+
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := r.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for _, managedHub := range clusters.Items {
+		if managedHub.Name == constants.LocalClusterName {
+			continue
+		}
+		annotations := managedHub.GetAnnotations()
+		if _, ok := annotations[constants.AnnotationONMulticlusterHub]; ok {
+			delete(annotations, constants.AnnotationONMulticlusterHub)
+			if err := r.Update(ctx, &managedHub, &client.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+
+}
