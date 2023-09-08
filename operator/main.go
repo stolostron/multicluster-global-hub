@@ -24,6 +24,7 @@ import (
 	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
+	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -141,6 +142,11 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
+	routeV1Client, err := routeV1Client.NewForConfig(cfg)
+	if err != nil {
+		setupLog.Error(err, "New route client config error:")
+	}
+
 	electionConfig, err := getElectionConfig(kubeClient)
 	if err != nil {
 		setupLog.Error(err, "failed to get election config")
@@ -187,6 +193,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	if err = (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
 		Manager:          mgr,
 		Client:           mgr.GetClient(),
+		RouteV1Client:    routeV1Client,
 		AddonManager:     addonController.AddonManager(),
 		KubeClient:       kubeClient,
 		Scheme:           mgr.GetScheme(),

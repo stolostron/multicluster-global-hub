@@ -47,6 +47,9 @@ const (
 	//Render can not parse the "{{ $value }}" which is a keyword of alert, so need to replace it
 	alertValueWord        = "{{ $value }}"
 	alertValuePlaceHolder = "<ALERT_PLACE_HOLDER>"
+
+	//Replace the <GRAFANA_ROUTE> with grafana route url
+	grafanaRouteWord = "<GRAFANA_ROUTE>"
 )
 
 var (
@@ -197,10 +200,33 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 			Name:      mergedGrafanaIniName,
 			Namespace: configNamespace,
 			Labels: map[string]string{
-				"name":                           "multicluster-global-hub-grafana",
+				"name":                           grafanaDeploymentName,
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
+	}
+
+	//Replace the grafana domain to grafana route url
+	if r.RouteV1Client != nil {
+		grafanaRoute, err := r.RouteV1Client.RouteV1().
+			Routes(configNamespace).
+			Get(ctx,
+				grafanaDeploymentName,
+				metav1.GetOptions{},
+			)
+		if err != nil {
+			klog.Errorf("Failed to get grafana route: %v", err)
+		} else {
+			if grafanaRoute != nil && len(grafanaRoute.Spec.Host) != 0 {
+				defaultGrafanaIniSecret.Data[grafanaIniKey] = []byte(
+					strings.ReplaceAll(
+						string(defaultGrafanaIniSecret.Data[grafanaIniKey]),
+						"localhost",
+						grafanaRoute.Spec.Host,
+					),
+				)
+			}
+		}
 	}
 
 	if customGrafanaIniSecret == nil {
@@ -317,6 +343,7 @@ func mergeGrafanaIni(defaultIni, customIni []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var customBuf bytes.Buffer
 	_, err = customCfg.WriteTo(&customBuf)
 	if err != nil {

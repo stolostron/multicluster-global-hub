@@ -24,8 +24,9 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.10
-	github.com/openshift/api v0.0.0-20230228142948-d170fcdc0fa6
-	github.com/openshift/library-go v0.0.0-20220727134723-6802b30e83ba
+	github.com/openshift/api v0.0.0-20230807132801-600991d550ac
+	github.com/openshift/client-go v0.0.0-20230807132528-be5346fb33cb
+	github.com/openshift/library-go v0.0.0-20230908101047-d058c695f677
 	github.com/operator-framework/api v0.17.7-0.20230626210316-aa3e49803e7b
 	github.com/operator-framework/operator-lifecycle-manager v0.22.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.63.0
@@ -42,13 +43,13 @@ require (
 	gorm.io/datatypes v1.2.0
 	gorm.io/driver/postgres v1.5.2
 	gorm.io/gorm v1.25.4
-	k8s.io/api v0.27.2
-	k8s.io/apiextensions-apiserver v0.27.2
-	k8s.io/apimachinery v0.27.2
-	k8s.io/client-go v0.27.2
+	k8s.io/api v0.27.4
+	k8s.io/apiextensions-apiserver v0.27.4
+	k8s.io/apimachinery v0.27.4
+	k8s.io/client-go v0.27.4
 	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.27.2
-	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+	k8s.io/kube-aggregator v0.27.4
+	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	open-cluster-management.io/addon-framework v0.7.1-0.20230814013922-f2fcbdd7e05f
 	open-cluster-management.io/api v0.11.1-0.20230731134013-26e75df27f50
 	open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
@@ -60,6 +61,8 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 	sigs.k8s.io/yaml v1.3.0
 )
+
+require sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
@@ -239,8 +242,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.4.7 // indirect
 	helm.sh/helm/v3 v3.11.2 // indirect
-	k8s.io/apiserver v0.27.2 // indirect
-	k8s.io/component-base v0.27.2 // indirect
+	k8s.io/apiserver v0.27.4 // indirect
+	k8s.io/component-base v0.27.4 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect

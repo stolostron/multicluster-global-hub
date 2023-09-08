@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"time"
 
+	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
+
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -66,6 +68,7 @@ var fs embed.FS
 type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
+	RouteV1Client    routeV1Client.Interface
 	AddonManager     addonmanager.AddonManager
 	KubeClient       kubernetes.Interface
 	Scheme           *runtime.Scheme
