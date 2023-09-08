@@ -16,27 +16,27 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManagedHubs(ctx context.Conte
 		return err
 	}
 
-	for _, managedHub := range clusters.Items {
+	for idx, managedHub := range clusters.Items {
 		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
 		annotations := managedHub.GetAnnotations()
 		if val, ok := annotations[constants.AnnotationONMulticlusterHub]; ok {
 			if !strings.EqualFold(val, "true") {
-				managedHub.SetAnnotations(map[string]string{
+				clusters.Items[idx].SetAnnotations(map[string]string{
 					constants.AnnotationONMulticlusterHub: "true",
 				})
-				if err := r.Update(ctx, &managedHub, &client.UpdateOptions{}); err != nil {
+				if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
 					return err
 				}
 			}
 			continue
 		}
 		// does not have the annotation, add it
-		managedHub.SetAnnotations(map[string]string{
+		clusters.Items[idx].SetAnnotations(map[string]string{
 			constants.AnnotationONMulticlusterHub: "true",
 		})
-		if err := r.Update(ctx, &managedHub, &client.UpdateOptions{}); err != nil {
+		if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -52,14 +52,14 @@ func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) 
 		return err
 	}
 
-	for _, managedHub := range clusters.Items {
+	for idx, managedHub := range clusters.Items {
 		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
 		annotations := managedHub.GetAnnotations()
 		if _, ok := annotations[constants.AnnotationONMulticlusterHub]; ok {
 			delete(annotations, constants.AnnotationONMulticlusterHub)
-			if err := r.Update(ctx, &managedHub, &client.UpdateOptions{}); err != nil {
+			if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
 				return err
 			}
 		}
