@@ -3,7 +3,6 @@ package renderer_test
 import (
 	"embed"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -110,7 +109,7 @@ var _ = Describe("Render", func() {
 			})
 			Expect(err).To(BeNil())
 
-			tempFile, err := ioutil.TempFile("", fmt.Sprintf("%s-", profile))
+			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-", profile))
 			defer os.Remove(tempFile.Name())
 
 			for _, unsObj := range nginxObjects {
@@ -150,7 +149,7 @@ var _ = Describe("Render", func() {
 			})
 			Expect(err).To(BeNil())
 
-			tempFile, err := ioutil.TempFile("", fmt.Sprintf("%s-", profile))
+			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-", profile))
 			defer os.Remove(tempFile.Name())
 
 			for _, unsObj := range nginxObjects {
@@ -190,7 +189,7 @@ var _ = Describe("Render", func() {
 			})
 			Expect(err).To(BeNil())
 
-			tempFile, err := ioutil.TempFile("", fmt.Sprintf("%s-", profile))
+			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-", profile))
 			defer os.Remove(tempFile.Name())
 
 			for _, unsObj := range nginxObjects {
@@ -230,7 +229,7 @@ var _ = Describe("Render", func() {
 			})
 			Expect(err).To(BeNil())
 
-			tempFile, err := ioutil.TempFile("", fmt.Sprintf("%s-", profile))
+			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-", profile))
 			defer os.Remove(tempFile.Name())
 
 			for _, unsObj := range nginxObjects {
@@ -273,7 +272,7 @@ var _ = Describe("Render", func() {
 				})
 			Expect(err).To(BeNil())
 
-			tempFile, err := ioutil.TempFile("", fmt.Sprintf("%s-%s-", profile, filter))
+			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-%s-", profile, filter))
 			defer os.Remove(tempFile.Name())
 
 			for _, unsObj := range nginxObjects {
