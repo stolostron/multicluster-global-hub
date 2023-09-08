@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -843,6 +844,61 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		It("Should delete the MGH instance", func() {
 			Expect(k8sClient.Delete(ctx, mcgh)).Should(Succeed())
 		})
+
+	})
+
+	Context("Should add addon.open-cluster-management.io/on-multicluster-hub annotation to the managed hubs", func() {
+		It("Should create the local-cluster instance", func() {
+			localCluster := &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      operatorconstants.LocalClusterName,
+					Namespace: config.GetDefaultNamespace(),
+				},
+			}
+			Expect(k8sClient.Create(ctx, localCluster)).Should(Succeed())
+		})
+		It("Should create a managed hub without this annotation", func() {
+			mh1 := &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mh1",
+					Namespace: config.GetDefaultNamespace(),
+				},
+			}
+			Expect(k8sClient.Create(ctx, mh1)).Should(Succeed())
+		})
+		It("Should create a managed hub with this annotation, but the value is false", func() {
+			mh2 := &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mh2",
+					Namespace: config.GetDefaultNamespace(),
+					Annotations: map[string]string{
+						operatorconstants.AnnotationONMulticlusterHub: "false",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, mh2)).Should(Succeed())
+		})
+
+		By("By checking the annotation in the managed hub is added")
+		Eventually(func() error {
+			clusters := &clusterv1.ManagedClusterList{}
+			if err := k8sClient.List(ctx, clusters, &client.ListOptions{}); err != nil {
+				return err
+			}
+
+			for _, managedHub := range clusters.Items {
+				if managedHub.Name == operatorconstants.LocalClusterName {
+					continue
+				}
+				annotations := managedHub.GetAnnotations()
+				if val, ok := annotations[operatorconstants.AnnotationONMulticlusterHub]; ok {
+					if val != "true" {
+						return fmt.Errorf("the annotation(%s) value is not true", operatorconstants.AnnotationONMulticlusterHub)
+					}
+				}
+			}
+			return nil
+		}, timeout, interval).Should(Succeed())
 
 	})
 })

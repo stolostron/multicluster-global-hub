@@ -246,6 +246,11 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
+	// add addon.open-cluster-management.io/on-multicluster-hub annotation to the managed hub
+	// clusters indicate the addons are running on a hub cluster
+	if err := r.reconcileManagedHubs(ctx); err != nil {
+		return err
+	}
 	// reconcile config: need to be done before reconciling manager and grafana
 	// 1. global image: annotation -> env -> default
 	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
@@ -455,6 +460,8 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Watches(&kafkav1beta2.KafkaTopic{},
 			globalHubEventHandler, builder.WithPredicates(deletePred)).
 		Watches(&kafkav1beta2.KafkaUser{},
+			globalHubEventHandler, builder.WithPredicates(deletePred)).
+		Watches(&postgresv1beta1.PostgresCluster{},
 			globalHubEventHandler, builder.WithPredicates(deletePred)).
 		Watches(&postgresv1beta1.PostgresCluster{},
 			globalHubEventHandler, builder.WithPredicates(deletePred)).
