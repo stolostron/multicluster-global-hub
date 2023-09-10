@@ -106,7 +106,6 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			if !exist { // cluster not found in the db table
 				syncer.log.Info("cluster created", "leafHubName", leafHubName, "clusterId", clusterId)
 				tx.Unscoped().Where(&models.ManagedCluster{
-					LeafHubName: leafHubName,
 					ClusterID:   clusterId,
 				}).Delete(&models.ManagedCluster{})
 				tx.Create(&models.ManagedCluster{
@@ -128,11 +127,11 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			syncer.log.Info("cluster updated", "leafHubName", leafHubName, "clusterId", clusterId)
 			tx.Model(&models.ManagedCluster{}).
 				Where(&models.ManagedCluster{
-					LeafHubName: leafHubName,
 					ClusterID:   clusterId,
 				}).
 				Updates(models.ManagedCluster{
 					Payload: payload,
+					LeafHubName: leafHubName,
 				})
 		}
 

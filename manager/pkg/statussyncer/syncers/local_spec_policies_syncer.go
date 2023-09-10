@@ -107,6 +107,10 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 
 			// if the row doesn't exist in db then add it.
 			if !objInDB {
+				syncer.log.Info("local policy created", "leafHubName", leafHubName, "policyID", uid)
+				tx.Unscoped().Where(&models.LocalSpecPolicy{
+					PolicyID:   uid,
+				}).Delete(&models.LocalSpecPolicy{})
 				tx.Create(&models.LocalSpecPolicy{
 					LeafHubName: leafHubName,
 					Payload:     payload,
@@ -162,6 +166,9 @@ func getPolicyIdToVersionMap(db *gorm.DB, schema, tableName, leafHubName string)
 
 	// Find soft deleted records: db.Unscoped().Where(...).Find(...)
 	err := db.Select("payload->'metadata'->>'uid' AS key, payload->'metadata'->>'resourceVersion' AS resource_version").
+		Where(&models.LocalSpecPolicy{ // Find soft deleted records: db.Unscoped().Where(...).Find(...)
+			LeafHubName: leafHubName,
+		}).
 		Find(&models.LocalSpecPolicy{}).Scan(&resourceVersions).Error
 	if err != nil {
 		return nil, err
