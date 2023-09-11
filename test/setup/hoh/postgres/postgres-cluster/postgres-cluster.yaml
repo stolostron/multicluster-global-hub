@@ -9,6 +9,15 @@ spec:
   users:
     - name: "postgres"
       databases: ["hoh"]
+  patroni:
+    dynamicConfiguration:
+      postgresql:
+        parameters:
+          max_wal_size: 2Gi
+          wal_buffers: 50MB
+          wal_recycle: off
+          wal_init_zero: off
+          wal_compression: on
   instances:
     - name: pgha1
       replicas: 1
