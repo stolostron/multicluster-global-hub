@@ -23,8 +23,6 @@ import (
 	"reflect"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -467,16 +465,6 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Watches(&promv1.ServiceMonitor{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
 		Watches(&subv1alpha1.Subscription{},
-			globalHubEventHandler, builder.WithPredicates(deletePred)).
-		Watches(&kafkav1beta2.Kafka{},
-			globalHubEventHandler, builder.WithPredicates(deletePred)).
-		Watches(&kafkav1beta2.KafkaTopic{},
-			globalHubEventHandler, builder.WithPredicates(deletePred)).
-		Watches(&kafkav1beta2.KafkaUser{},
-			globalHubEventHandler, builder.WithPredicates(deletePred)).
-		Watches(&postgresv1beta1.PostgresCluster{},
-			globalHubEventHandler, builder.WithPredicates(deletePred)).
-		Watches(&postgresv1beta1.PostgresCluster{},
 			globalHubEventHandler, builder.WithPredicates(deletePred)).
 		Watches(&clusterv1.ManagedCluster{},
 			globalHubEventHandler, builder.WithPredicates(mhPred)).
