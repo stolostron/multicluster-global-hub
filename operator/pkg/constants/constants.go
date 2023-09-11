@@ -51,6 +51,8 @@ const (
 	MGHOperandImagePrefix = "RELATED_IMAGE_"
 	// AnnotationStatisticInterval to log the interval of statistic log
 	AnnotationStatisticInterval = "mgh-statistic-interval"
+	// AnnotationONMulticlusterHub indicates the addons are running on a hub cluster
+	AnnotationONMulticlusterHub = "addon.open-cluster-management.io/on-multicluster-hub"
 )
 
 // hub installation constants

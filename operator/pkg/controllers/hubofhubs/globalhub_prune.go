@@ -27,6 +27,11 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Co
 ) error {
 	log := r.Log.WithName("prune")
 
+	// delete addon.open-cluster-management.io/on-multicluster-hub annotation
+	if err := r.pruneManagedHubs(ctx); err != nil {
+		return fmt.Errorf("failed to delete annotation from the managed cluster: %w", err)
+	}
+
 	// delete ClusterManagementAddon firstly to trigger clean up addons.
 	if err := r.deleteClusterManagementAddon(ctx); err != nil {
 		return fmt.Errorf("failed to delete ClusterManagementAddon: %w", err)

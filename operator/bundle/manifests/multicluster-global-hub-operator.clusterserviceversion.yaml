@@ -440,6 +440,7 @@ spec:
           verbs:
           - get
           - list
+          - update
           - watch
         - apiGroups:
           - cluster.open-cluster-management.io

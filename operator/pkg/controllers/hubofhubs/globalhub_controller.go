@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,7 +89,7 @@ type MulticlusterGlobalHubReconciler struct {
 // +kubebuilder:rbac:groups=app.k8s.io,resources=applications,verbs=get;list;patch;update
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=placements,verbs=get;list;patch;update
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets,verbs=get;list;patch;update
-
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
@@ -246,6 +247,11 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
+	// add addon.open-cluster-management.io/on-multicluster-hub annotation to the managed hub
+	// clusters indicate the addons are running on a hub cluster
+	if err := r.reconcileManagedHubs(ctx); err != nil {
+		return err
+	}
 	// reconcile config: need to be done before reconciling manager and grafana
 	// 1. global image: annotation -> env -> default
 	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
@@ -380,6 +386,18 @@ var configmappred = predicate.Funcs{
 	},
 }
 
+var mhPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return true
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return false
+	},
+}
+
 var webhookPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return false
@@ -458,5 +476,9 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			globalHubEventHandler, builder.WithPredicates(deletePred)).
 		Watches(&postgresv1beta1.PostgresCluster{},
 			globalHubEventHandler, builder.WithPredicates(deletePred)).
+		Watches(&postgresv1beta1.PostgresCluster{},
+			globalHubEventHandler, builder.WithPredicates(deletePred)).
+		Watches(&clusterv1.ManagedCluster{},
+			globalHubEventHandler, builder.WithPredicates(mhPred)).
 		Complete(r)
 }
