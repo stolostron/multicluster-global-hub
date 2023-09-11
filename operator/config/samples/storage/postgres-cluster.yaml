@@ -16,11 +16,10 @@ spec:
     dynamicConfiguration:
       postgresql:
         parameters:
-          max_wal_size: 2Gi
-          wal_buffers: 50MB
-          wal_recycle: off
-          wal_init_zero: off
-          wal_compression: on
+          max_wal_size: 2048MB
+          wal_recycle: true
+          wal_init_zero: false
+          wal_compression: true
   instances:
     - name: pgha1
       replicas: 3
