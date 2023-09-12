@@ -225,7 +225,7 @@ data:
                 {
                   "targetBlank": true,
                   "title": "View all clusters for policy  \"${policy}\" on hub cluster \"${hub}\"",
-                  "url": "View offending clusters for policy  \"${policy}\" on hub cluster \"${hub}\"\n${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results?perspective=acm\n"
+                  "url": "${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results?perspective=acm\n"
                 }
               ],
               "mappings": [],
