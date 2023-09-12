@@ -153,7 +153,7 @@ func NewPostgres(name, namespace string) *postgresv1beta1.PostgresCluster {
 				DynamicConfiguration: map[string]interface{}{
 					"postgresql": map[string]interface{}{
 						"parameters": map[string]interface{}{
-							"max_wal_size":  "2048MB",
+							"max_wal_size":  "3GB",
 							"wal_recycle":   true,
 							"wal_init_zero": false,
 						},

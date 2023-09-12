@@ -16,7 +16,7 @@ spec:
     dynamicConfiguration:
       postgresql:
         parameters:
-          max_wal_size: 2048MB
+          max_wal_size: 3GB
           wal_recycle: true
           wal_init_zero: false
           wal_compression: true
