@@ -57,7 +57,8 @@ type PostgresConnection struct {
 
 // NewSubscription returns an CrunchyPostgres subscription with desired default values
 func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.SubscriptionConfig,
-	community bool) *subv1alpha1.Subscription {
+	community bool,
+) *subv1alpha1.Subscription {
 	chName, pkgName, catSourceName := channel, packageName, catalogSourceName
 	if community {
 		chName = communityChannel
@@ -94,7 +95,8 @@ func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.
 
 // RenderSubscription returns a subscription by modifying the spec of an existing subscription based on overrides
 func RenderSubscription(existingSubscription *subv1alpha1.Subscription, config *subv1alpha1.SubscriptionConfig,
-	community bool) *subv1alpha1.Subscription {
+	community bool,
+) *subv1alpha1.Subscription {
 	copy := existingSubscription.DeepCopy()
 	copy.ManagedFields = nil
 	copy.TypeMeta = metav1.TypeMeta{
@@ -145,6 +147,17 @@ func NewPostgres(name, namespace string) *postgresv1beta1.PostgresCluster {
 					Name:      postgresv1beta1.PostgresIdentifier(PostgresGuestUser),
 					Databases: []postgresv1beta1.PostgresIdentifier{"hoh"},
 					Options:   "LOGIN",
+				},
+			},
+			Patroni: &postgresv1beta1.PatroniSpec{
+				DynamicConfiguration: map[string]interface{}{
+					"postgresql": map[string]interface{}{
+						"parameters": map[string]interface{}{
+							"max_wal_size":  "2048MB",
+							"wal_recycle":   true,
+							"wal_init_zero": false,
+						},
+					},
 				},
 			},
 			InstanceSets: []postgresv1beta1.PostgresInstanceSetSpec{
