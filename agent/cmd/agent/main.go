@@ -154,6 +154,8 @@ func parseFlags() *config.AgentConfig {
 	pflag.StringVar(&agentConfig.KubeEventExporterConfigPath,
 		"kubernetes-event-exporter-config", "",
 		"The configuration file for the kubernetes event exporter")
+	pflag.BoolVar(&agentConfig.EnableGlobalResource, "enable-global-resource", false,
+		"Enable the global resource feature.")
 
 	pflag.Parse()
 
@@ -247,10 +249,12 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 
 	if mchExists || clusterManagerExists {
 		// add spec controllers
-		if err := specController.AddToManager(mgr, agentConfig); err != nil {
-			return nil, fmt.Errorf("failed to add spec syncer: %w", err)
+		if agentConfig.EnableGlobalResource {
+			if err := specController.AddToManager(mgr, agentConfig); err != nil {
+				return nil, fmt.Errorf("failed to add spec syncer: %w", err)
+			}
+			setupLog.Info("add spec controllers to manager")
 		}
-		setupLog.Info("add spec controllers to manager")
 
 		if err := statusController.AddControllers(ctx, mgr, agentConfig); err != nil {
 			return nil, fmt.Errorf("failed to add status syncer: %w", err)

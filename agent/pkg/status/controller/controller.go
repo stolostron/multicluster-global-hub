@@ -50,16 +50,21 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Producer) error{
 		managedclusters.AddClustersStatusController,
-		placement.AddPlacementRulesController,
-		placement.AddPlacementsController,
-		placement.AddPlacementDecisionsController,
 		// apps.AddSubscriptionStatusesController,
-		apps.AddSubscriptionReportsController,
 		localpolicies.AddLocalPoliciesController,
-		localplacement.AddLocalPlacementRulesController,
 		controlinfo.AddControlInfoController,
 		localpolicies.AddLocalClusterPolicyEventsController,
 		hubcluster.AddHubClusterController,
+	}
+
+	if agentConfig.EnableGlobalResource {
+		addControllerFunctions = append(addControllerFunctions,
+			placement.AddPlacementRulesController,
+			placement.AddPlacementsController,
+			placement.AddPlacementDecisionsController,
+			apps.AddSubscriptionReportsController,
+			localplacement.AddLocalPlacementRulesController,
+		)
 	}
 
 	for _, addControllerFunction := range addControllerFunctions {

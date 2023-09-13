@@ -16,4 +16,5 @@ type AgentConfig struct {
 	Terminating                  bool
 	KubeEventExporterConfigPath  string
 	MetricsAddress               string
+	EnableGlobalResource         bool
 }

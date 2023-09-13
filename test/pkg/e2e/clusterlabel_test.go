@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,7 +31,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 		By("Check the label is added")
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, GetClusterID(managedClusters[0]))
+			err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[0]))
 			if err != nil {
 				return err
 			}
@@ -59,7 +60,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 			By("Check the label is added")
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, GetClusterID(managedClusters[i]))
+				err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[i]))
 				if err != nil {
 					return err
 				}
@@ -89,7 +90,7 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 
 			By("Check the label is deleted")
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, GetClusterID(managedCluster))
+				err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedCluster))
 				if err != nil {
 					return err
 				}
@@ -180,7 +181,7 @@ func getManagedClusterByName(client *http.Client, managedClusterName string) (
 	return nil, nil
 }
 
-func updateClusterLabel(client *http.Client, patches []patch, managedClusterID string) error {
+func updateClusterLabelByAPI(client *http.Client, patches []patch, managedClusterID string) error {
 	updateLabelUrl := fmt.Sprintf("%s/global-hub-api/v1/managedcluster/%s",
 		testOptions.GlobalHub.Nonk8sApiServer, managedClusterID)
 	// set method and body
@@ -202,5 +203,15 @@ func updateClusterLabel(client *http.Client, patches []patch, managedClusterID s
 		return err
 	}
 	defer response.Body.Close()
+	return nil
+}
+
+func updateClusterLabel(managedClusterName, labelStr string) error {
+
+	leafhubName, _ := strings.CutSuffix(managedClusterName, "-cluster1")
+	_, err := testClients.Kubectl(leafhubName, "label", "managedcluster", managedClusterName, labelStr)
+	if err != nil {
+		return err
+	}
 	return nil
 }

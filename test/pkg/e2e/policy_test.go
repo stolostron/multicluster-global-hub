@@ -66,7 +66,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 		By("Check the label is added")
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, GetClusterID(managedClusters[0]))
+			err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[0]))
 			if err != nil {
 				return err
 			}
@@ -168,7 +168,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 			By("Check the label is added")
 			Eventually(func() error {
-				err := updateClusterLabel(httpClient, patches, GetClusterID(managedClusters[i]))
+				err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[i]))
 				if err != nil {
 					return err
 				}
@@ -242,7 +242,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, GetClusterID(managedClusters[0]))
+			err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[0]))
 			if err != nil {
 				return err
 			}
@@ -347,7 +347,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}
 		Eventually(func() error {
 			for i := 1; i < len(managedClusters); i++ {
-				err := updateClusterLabel(httpClient, patches, GetClusterID(managedClusters[i]))
+				err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[i]))
 				if err != nil {
 					return err
 				}

@@ -1,3 +1,4 @@
+{{ if .EnableGlobalResource }}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -16,3 +17,4 @@ spec:
     name: multicluster-global-hub-manager
     weight: 100
   wildcardPolicy: None
+{{ end }}

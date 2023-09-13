@@ -45,7 +45,7 @@ const (
 	webhookPort                = 9443
 	webhookCertDir             = "/webhook-certs"
 	kafkaTransportType         = "kafka"
-	leaderElectionLockID       = "multicluster-global-hub-lock"
+	leaderElectionLockID       = "multicluster-global-hub-manager-lock"
 )
 
 var (
@@ -138,6 +138,8 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.IntVar(&managerConfig.ElectionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
 	pflag.StringVar(&managerConfig.DatabaseConfig.DataRetention, "data-retention", "18m",
 		"data retention duration indicates how long the data will be kept in the database")
+	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
+		"Enable the global resource feature.")
 
 	pflag.Parse()
 	// set zap logger
@@ -178,13 +180,20 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
-		Port:                    webhookPort,
-		CertDir:                 webhookCertDir,
-		TLSOpts: []func(*tls.Config){
-			func(config *tls.Config) {
-				config.MinVersion = tls.VersionTLS12
+	}
+
+	if managerConfig.EnableGlobalResource {
+		options.WebhookServer = &webhook.DefaultServer{
+			Options: webhook.Options{
+				Port:    webhookPort,
+				CertDir: webhookCertDir,
+				TLSOpts: []func(*tls.Config){
+					func(config *tls.Config) {
+						config.MinVersion = tls.VersionTLS12
+					},
+				},
 			},
-		},
+		}
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
@@ -209,8 +218,10 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
-	if err := specsyncer.AddSpecSyncers(mgr, managerConfig, processPostgreSQL); err != nil {
-		return nil, fmt.Errorf("failed to add spec syncers: %w", err)
+	if managerConfig.EnableGlobalResource {
+		if err := specsyncer.AddSpecSyncers(mgr, managerConfig, processPostgreSQL); err != nil {
+			return nil, fmt.Errorf("failed to add spec syncers: %w", err)
+		}
 	}
 
 	if _, err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {
@@ -265,11 +276,13 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 1
 	}
 
-	hookServer := mgr.GetWebhookServer()
-	setupLog.Info("registering webhooks to the webhook server")
-	hookServer.Register("/mutating", &webhook.Admission{
-		Handler: mgrwebhook.NewAdmissionHandler(mgr.GetClient(), mgr.GetScheme()),
-	})
+	if managerConfig.EnableGlobalResource {
+		hookServer := mgr.GetWebhookServer()
+		setupLog.Info("registering webhooks to the webhook server")
+		hookServer.Register("/mutating", &webhook.Admission{
+			Handler: mgrwebhook.NewAdmissionHandler(mgr.GetClient(), mgr.GetScheme()),
+		})
+	}
 
 	setupLog.Info("Starting the Manager")
 	if err := mgr.Start(ctx); err != nil {

@@ -23,6 +23,7 @@ type ManagerConfig struct {
 	StatisticsConfig      *statistics.StatisticsConfig
 	NonK8sAPIServerConfig *nonk8sapi.NonK8sAPIServerConfig
 	ElectionConfig        *commonobjects.LeaderElectionConfig
+	EnableGlobalResource  bool
 }
 
 type SyncerConfig struct {

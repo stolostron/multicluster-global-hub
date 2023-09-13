@@ -60,6 +60,7 @@ type ManifestsConfig struct {
 	Tolerations            []corev1.Toleration
 	AggregationLevel       string
 	EnableLocalPolicies    string
+	EnableGlobalResource   bool
 }
 
 type HohAgentAddon struct {
@@ -70,6 +71,7 @@ type HohAgentAddon struct {
 	leaderElectionConfig *commonobjects.LeaderElectionConfig
 	log                  logr.Logger
 	MiddlewareConfig     *operatorconstants.MiddlewareConfig
+	EnableGlobalResource bool
 }
 
 func (a *HohAgentAddon) getMulticlusterGlobalHub() (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
@@ -180,6 +182,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		RetryPeriod:            strconv.Itoa(a.leaderElectionConfig.RetryPeriod),
 		KlusterletNamespace:    "open-cluster-management-agent",
 		KlusterletWorkSA:       "klusterlet-work-sa",
+		EnableGlobalResource:   a.EnableGlobalResource,
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {

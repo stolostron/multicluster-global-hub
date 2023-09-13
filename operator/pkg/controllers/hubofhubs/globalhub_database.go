@@ -19,6 +19,9 @@ var DatabaseReconcileCounter = 0
 //go:embed database
 var databaseFS embed.FS
 
+//go:embed database.old
+var databaseOldFS embed.FS
+
 func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
@@ -81,6 +84,35 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to exec database sql: %w", err)
+	}
+
+	if r.EnableGlobalResource {
+		err = iofs.WalkDir(databaseOldFS, "database.old", func(file string, d iofs.DirEntry, beforeError error) error {
+			if beforeError != nil {
+				return beforeError
+			}
+			if d.IsDir() {
+				return nil
+			}
+			sqlBytes, err := databaseOldFS.ReadFile(file)
+			if err != nil {
+				return fmt.Errorf("failed to read %s: %w", file, err)
+			}
+			if file == "database.old/5.privileges.sql" {
+				if username != "" {
+					_, err = conn.Exec(ctx, strings.ReplaceAll(string(sqlBytes), "$1", username))
+				}
+			} else {
+				_, err = conn.Exec(ctx, string(sqlBytes))
+			}
+			if err != nil {
+				return fmt.Errorf("failed to create %s: %w", file, err)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to exec database sql: %w", err)
+		}
 	}
 
 	log.Info("database initialized")

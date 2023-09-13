@@ -75,10 +75,16 @@ e2e-setup-clean:
 	./test/setup/e2e_clean.sh
 
 e2e-tests-all: tidy vendor
-	./cicd-scripts/run-local-e2e-test.sh -v $(VERBOSE)
+	./cicd-scripts/run-local-e2e-test.sh -f "e2e-tests-validation,e2e-tests-local-policy,e2e-tests-grafana,(e2e-tests-placement && !e2e-tests-global-resource)" -v $(VERBOSE)
 
-e2e-tests-validation e2e-tests-label e2e-tests-placement e2e-tests-app e2e-tests-policy e2e-tests-local-policy e2e-tests-prune: tidy vendor
+e2e-tests-validation e2e-tests-label e2e-tests-placement e2e-tests-app e2e-tests-policy e2e-tests-local-policy: tidy vendor
 	./cicd-scripts/run-local-e2e-test.sh -f $@ -v $(VERBOSE)
+
+e2e-tests-prune: tidy vendor
+	./cicd-scripts/run-local-e2e-test.sh -f "(e2e-tests-prune && !e2e-tests-global-resource)" -v $(VERBOSE)
+
+e2e-tests-prune-all: tidy vendor
+	./cicd-scripts/run-local-e2e-test.sh -f e2e-tests-prune -v $(VERBOSE)
 
 e2e-prow-tests: 
 	./cicd-scripts/run-prow-e2e-test.sh

@@ -331,6 +331,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Tolerations            []corev1.Toleration
 					DataRetention          string
 					StatisticLogInterval   string
+					EnableGlobalResource   bool
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					Replicas:               2,
@@ -364,6 +365,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					},
 					DataRetention:        mgh.Spec.DataLayer.Postgres.Retention,
 					StatisticLogInterval: config.GetStatisticLogInterval(),
+					EnableGlobalResource: true,
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())
