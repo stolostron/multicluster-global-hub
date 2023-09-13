@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -101,67 +102,69 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// https://gorm.io/docs/transactions.html
-			err = db.Transaction(func(tx *gorm.DB) error {
-				payload, err := json.Marshal(cluster)
-				if err != nil {
-					return err
-				}
+			payload, err := json.Marshal(cluster)
+			if err != nil {
+				syncer.log.Error(err, "failed marshal cluster", "clusterID", clusterId)
+				return
+			}
 
-				clusterVersionFromDB, exist := clusterIdToVersionMapFromDB[clusterId]
-				if !exist { // cluster not found in the db table
-					syncer.log.Info("cluster created", "leafHubName", leafHubName, "clusterId", clusterId)
-					tx.Unscoped().Where(&models.ManagedCluster{
-						ClusterID: clusterId,
-					}).Delete(&models.ManagedCluster{})
-					tx.Create(&models.ManagedCluster{
-						ClusterID:   clusterId,
-						LeafHubName: leafHubName,
-						Payload:     payload,
-						Error:       database.ErrorNone,
-					})
-					return nil
-				}
+			err = backoff.Retry(func() error {
+				return db.Transaction(func(tx *gorm.DB) error {
+					clusterVersionFromDB, exist := clusterIdToVersionMapFromDB[clusterId]
+					if !exist { // cluster not found in the leafhub
+						syncer.log.Info("cluster created", "leafHubName", leafHubName, "clusterId", clusterId)
+						// insert or update on primary key. updating the record when the cluster is found on other leafhub
+						return tx.Save(&models.ManagedCluster{
+							ClusterID:   clusterId,
+							LeafHubName: leafHubName,
+							Payload:     payload,
+							Error:       database.ErrorNone,
+						}).Error
+					}
 
-				// remove the handled object from the map
-				delete(clusterIdToVersionMapFromDB, clusterId)
+					// remove the handled object from the map
+					delete(clusterIdToVersionMapFromDB, clusterId)
 
-				if cluster.GetResourceVersion() == clusterVersionFromDB {
-					return nil // update cluster in db only if what we got is a different (newer) version of the resource
-				}
+					if cluster.GetResourceVersion() == clusterVersionFromDB {
+						return nil // update cluster in db only if what we got is a different (newer) version of the resource
+					}
 
-				syncer.log.Info("cluster updated", "leafHubName", leafHubName, "clusterId", clusterId)
-				tx.Model(&models.ManagedCluster{}).
-					Where(&models.ManagedCluster{
-						ClusterID: clusterId,
-					}).
-					Updates(models.ManagedCluster{
-						Payload:     payload,
-						LeafHubName: leafHubName,
-					})
-
+					syncer.log.Info("cluster updated", "leafHubName", leafHubName, "clusterId", clusterId)
 					// return nil will commit the whole transaction
-				return nil
-			})
+					return tx.Model(&models.ManagedCluster{}).
+						Where(&models.ManagedCluster{
+							ClusterID: clusterId,
+						}).Updates(models.ManagedCluster{
+						Payload:     payload,
+						LeafHubName: leafHubName,
+					}).Error
+				})
+			}, backoff.NewExponentialBackOff())
+			// https://gorm.io/docs/transactions.html
 			if err != nil {
 				syncer.log.Error(err, "failed handling managed clusters bundle", "clusterID", clusterId)
 			}
 		}()
 	}
 
-	err = db.Transaction(func(tx *gorm.DB) error {
-		// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
-		for clusterId := range clusterIdToVersionMapFromDB {
-			// https://gorm.io/docs/delete.html#Soft-Delete
-			tx.Where(&models.ManagedCluster{
-				LeafHubName: leafHubName,
-				ClusterID:   clusterId,
-			}).Delete(&models.ManagedCluster{})
-		}
-		return nil
-	})
+	err = backoff.Retry(func() error {
+		return db.Transaction(func(tx *gorm.DB) error {
+			// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
+			for clusterId := range clusterIdToVersionMapFromDB {
+				// https://gorm.io/docs/delete.html#Soft-Delete
+				err := tx.Where(&models.ManagedCluster{
+					// LeafHubName: leafHubName,
+					ClusterID: clusterId,
+				}).Delete(&models.ManagedCluster{}).Error
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}, backoff.NewExponentialBackOff())
 	if err != nil {
-		return fmt.Errorf("failed handling managed clusters bundle - %w", err)
+		return fmt.Errorf("failed delete objects from database - %w", err)
 	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)

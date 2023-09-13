@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cenkalti/backoff/v4"
 	set "github.com/deckarep/golang-set"
 	"gorm.io/gorm"
 
@@ -32,64 +33,68 @@ func (syncer *PoliciesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.C
 			continue // do not handle objects other than PolicyGenericComplianceStatus
 		}
 
-		policyClusterSetFromDB, policyExistsInDB :=
-			allPolicyClusterSetsFromDB[clustersPerPolicyFromBundle.PolicyID]
-		if !policyExistsInDB {
-			policyClusterSetFromDB = NewPolicyClusterSets()
-		}
-		allClustersOnDB := policyClusterSetFromDB.GetAllClusters()
-
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// update a specific policy within a transaction
-			err = db.Transaction(func(tx *gorm.DB) error {
-				var err error
-				// handle compliant clusters of the policy
-				allClustersOnDB, err = handleLocalClustersPerPolicyWithTx(tx,
-					leafHubName, clustersPerPolicyFromBundle.PolicyID,
-					clustersPerPolicyFromBundle.CompliantClusters, allClustersOnDB, database.Compliant,
-					policyClusterSetFromDB.GetClusters(database.Compliant))
-				if err != nil {
-					return fmt.Errorf(failedBatchFormat, err)
-				}
 
-				// handle non compliant clusters of the policy
-				allClustersOnDB, err = handleLocalClustersPerPolicyWithTx(tx,
-					leafHubName, clustersPerPolicyFromBundle.PolicyID,
-					clustersPerPolicyFromBundle.NonCompliantClusters, allClustersOnDB, database.NonCompliant,
-					policyClusterSetFromDB.GetClusters(database.NonCompliant))
-				if err != nil {
-					return fmt.Errorf(failedBatchFormat, err)
-				}
+			policyClusterSetFromDB, policyExistsInDB :=
+				allPolicyClusterSetsFromDB[clustersPerPolicyFromBundle.PolicyID]
+			if !policyExistsInDB {
+				policyClusterSetFromDB = NewPolicyClusterSets()
+			}
 
-				// handle unknown compliance clusters of the policy
-				allClustersOnDB, err = handleLocalClustersPerPolicyWithTx(tx,
-					leafHubName, clustersPerPolicyFromBundle.PolicyID,
-					clustersPerPolicyFromBundle.UnknownComplianceClusters, allClustersOnDB, database.Unknown,
-					policyClusterSetFromDB.GetClusters(database.Unknown))
-				if err != nil {
-					return fmt.Errorf(failedBatchFormat, err)
-				}
-
-				// delete compliance status rows in the db that were not sent in the bundle
-				for _, name := range allClustersOnDB.ToSlice() {
-					clusterName, ok := name.(string)
-					if !ok {
-						continue
-					}
-					err := tx.Where(&models.LocalStatusCompliance{
-						LeafHubName: leafHubName,
-						PolicyID:    clustersPerPolicyFromBundle.PolicyID,
-						ClusterName: clusterName,
-					}).Delete(&models.LocalStatusCompliance{}).Error
+			// retry if failed
+			err = backoff.Retry(func() error {
+				return db.Transaction(func(tx *gorm.DB) error {
+					// handle compliant clusters of the policy
+					allClustersOnDB := policyClusterSetFromDB.GetAllClusters()
+					allClustersOnDB, err = handleLocalClustersPerPolicyWithTx(tx,
+						leafHubName, clustersPerPolicyFromBundle.PolicyID,
+						clustersPerPolicyFromBundle.CompliantClusters, allClustersOnDB, database.Compliant,
+						policyClusterSetFromDB.GetClusters(database.Compliant))
 					if err != nil {
 						return fmt.Errorf(failedBatchFormat, err)
 					}
-				}
-				// return nil will commit the whole transaction
-				return nil
-			})
+
+					// handle non compliant clusters of the policy
+					allClustersOnDB, err = handleLocalClustersPerPolicyWithTx(tx,
+						leafHubName, clustersPerPolicyFromBundle.PolicyID,
+						clustersPerPolicyFromBundle.NonCompliantClusters, allClustersOnDB, database.NonCompliant,
+						policyClusterSetFromDB.GetClusters(database.NonCompliant))
+					if err != nil {
+						return fmt.Errorf(failedBatchFormat, err)
+					}
+
+					// handle unknown compliance clusters of the policy
+					allClustersOnDB, err = handleLocalClustersPerPolicyWithTx(tx,
+						leafHubName, clustersPerPolicyFromBundle.PolicyID,
+						clustersPerPolicyFromBundle.UnknownComplianceClusters, allClustersOnDB, database.Unknown,
+						policyClusterSetFromDB.GetClusters(database.Unknown))
+					if err != nil {
+						return fmt.Errorf(failedBatchFormat, err)
+					}
+
+					// delete compliance status rows in the db that were not sent in the bundle
+					for _, name := range allClustersOnDB.ToSlice() {
+						clusterName, ok := name.(string)
+						if !ok {
+							continue
+						}
+						err := tx.Where(&models.LocalStatusCompliance{
+							LeafHubName: leafHubName,
+							PolicyID:    clustersPerPolicyFromBundle.PolicyID,
+							ClusterName: clusterName,
+						}).Delete(&models.LocalStatusCompliance{}).Error
+						if err != nil {
+							return fmt.Errorf(failedBatchFormat, err)
+						}
+					}
+					// return nil will commit the whole transaction
+					return nil
+				})
+			}, backoff.NewExponentialBackOff())
+
+			// update a specific policy within a transaction
 			if err != nil {
 				syncer.log.Error(err, "failed to handle clusters per policy bundle", "policyID",
 					clustersPerPolicyFromBundle.PolicyID)
@@ -103,17 +108,19 @@ func (syncer *PoliciesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.C
 	wg.Wait()
 
 	// remove policies that were not sent in the bundle
-	err = db.Transaction(func(tx *gorm.DB) error {
-		for policyID := range allPolicyClusterSetsFromDB {
-			err := tx.Where(&models.LocalStatusCompliance{
-				PolicyID: policyID,
-			}).Delete(&models.LocalStatusCompliance{}).Error
-			if err != nil {
-				return fmt.Errorf(failedBatchFormat, err)
+	err = backoff.Retry(func() error {
+		return db.Transaction(func(tx *gorm.DB) error {
+			for policyID := range allPolicyClusterSetsFromDB {
+				err := tx.Where(&models.LocalStatusCompliance{
+					PolicyID: policyID,
+				}).Delete(&models.LocalStatusCompliance{}).Error
+				if err != nil {
+					return fmt.Errorf(failedBatchFormat, err)
+				}
 			}
-		}
-		return nil
-	})
+			return nil
+		})
+	}, backoff.NewExponentialBackOff())
 
 	if err != nil {
 		return fmt.Errorf("failed to delete clusters per policy bundle - %w", err)
@@ -126,8 +133,9 @@ func handleLocalClustersPerPolicyWithTx(tx *gorm.DB, leafHub, policyID string, b
 	allClusterFromDB set.Set, complianceStatus database.ComplianceStatus, typedClusters set.Set,
 ) (set.Set, error) {
 	for _, clusterName := range bundleClusters {
-		if !allClusterFromDB.Contains(clusterName) {
-			err := tx.Create(models.LocalStatusCompliance{
+		// if the policy on cluster not exist or compliance is updated
+		if !allClusterFromDB.Contains(clusterName) || !typedClusters.Contains(clusterName) {
+			err := tx.Save(&models.LocalStatusCompliance{
 				LeafHubName: leafHub,
 				PolicyID:    policyID,
 				ClusterName: clusterName,
@@ -137,20 +145,8 @@ func handleLocalClustersPerPolicyWithTx(tx *gorm.DB, leafHub, policyID string, b
 			if err != nil {
 				return nil, err
 			}
-			continue
 		}
-		if !typedClusters.Contains(clusterName) {
-			err := tx.Model(&models.LocalStatusCompliance{}).Where(&models.LocalStatusCompliance{
-				PolicyID:    policyID,
-				ClusterName: clusterName,
-				LeafHubName: leafHub,
-			}).Updates(&models.LocalStatusCompliance{
-				Compliance: complianceStatus,
-			}).Error
-			if err != nil {
-				return nil, err
-			}
-		}
+
 		// either way if status was updated or not, remove from allClustersFromDB to mark this cluster as handled
 		allClusterFromDB.Remove(clusterName)
 	}

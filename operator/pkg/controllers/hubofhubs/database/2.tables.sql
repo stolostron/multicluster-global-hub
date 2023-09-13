@@ -5,13 +5,14 @@ CREATE TABLE IF NOT EXISTS local_spec.policies (
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     deleted_at timestamp without time zone,
-    policy_id uuid PRIMARY KEY generated always as (uuid(payload->'metadata'->>'uid')) stored,
+    policy_id uuid PRIMARY KEY,
     policy_name character varying(254) generated always as (payload -> 'metadata' ->> 'name') stored,
     policy_standard character varying(254) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/standards') stored,
     policy_category character varying(254) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/categories') stored,
     policy_control character varying(254) generated always as (payload -> 'metadata' -> 'annotations' ->> 'policy.open-cluster-management.io/controls') stored
 );
 CREATE INDEX IF NOT EXISTS local_policies_deleted_at_idx ON local_spec.policies (deleted_at);
+CREATE INDEX IF NOT EXISTS local_policies_leafhub_idx ON local_spec.policies (leaf_hub_name);
 
 CREATE TABLE IF NOT EXISTS local_status.compliance (
     policy_id uuid NOT NULL,
@@ -21,11 +22,13 @@ CREATE TABLE IF NOT EXISTS local_status.compliance (
     compliance local_status.compliance_type NOT NULL,
     cluster_id uuid
 );
+ALTER TABLE local_status.compliance ADD PRIMARY KEY (policy_id, cluster_name, leaf_hub_name);
 
 CREATE TABLE IF NOT EXISTS status.leaf_hub_heartbeats (
     leaf_hub_name character varying(254) NOT NULL,
     last_timestamp timestamp without time zone DEFAULT now() NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats (leaf_hub_name);
 
 CREATE TABLE IF NOT EXISTS status.managed_clusters (
     leaf_hub_name character varying(254) NOT NULL,
@@ -37,7 +40,9 @@ CREATE TABLE IF NOT EXISTS status.managed_clusters (
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     deleted_at timestamp without time zone
 );
+ALTER TABLE status.managed_clusters ADD PRIMARY KEY (cluster_id);
 CREATE INDEX IF NOT EXISTS cluster_deleted_at_idx ON status.managed_clusters (deleted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS leafhub_cluster_idx ON status.managed_clusters (leaf_hub_name, cluster_name);
 
 CREATE TABLE IF NOT EXISTS status.leaf_hubs (
     leaf_hub_name character varying(254) NOT NULL PRIMARY KEY,
@@ -108,10 +113,3 @@ CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
     error TEXT
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS policies_leaf_hub_name_id_idx ON local_spec.policies (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
-
-CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats (leaf_hub_name);
-
-CREATE UNIQUE INDEX IF NOT EXISTS managed_clusters_leaf_hub_name_metadata_uid_idx ON status.managed_clusters (leaf_hub_name, cluster_id);
-
-CREATE INDEX IF NOT EXISTS managed_clusters_metadata_name_idx ON status.managed_clusters ((((payload -> 'metadata'::text) ->> 'name'::text)));
