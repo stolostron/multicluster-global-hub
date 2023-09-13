@@ -23,15 +23,16 @@ func (syncer *PoliciesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.C
 		return err
 	}
 
-	err = db.Transaction(func(tx *gorm.DB) error {
-		for _, object := range bundle.GetObjects() { // every object is clusters list per policy with full state
-			clustersPerPolicyFromBundle, ok := object.(*status.PolicyGenericComplianceStatus)
-			if !ok {
-				continue // do not handle objects other than PolicyGenericComplianceStatus
-			}
+	for _, object := range bundle.GetObjects() { // every object is clusters list per policy with full state
 
-			policyClusterSetFromDB, policyExistsInDB :=
-				allPolicyClusterSetsFromDB[clustersPerPolicyFromBundle.PolicyID]
+		clustersPerPolicyFromBundle, ok := object.(*status.PolicyGenericComplianceStatus)
+		if !ok {
+			continue // do not handle objects other than PolicyGenericComplianceStatus
+		}
+
+		// update a specific policy within a transaction
+		err = db.Transaction(func(tx *gorm.DB) error {
+			policyClusterSetFromDB, policyExistsInDB := allPolicyClusterSetsFromDB[clustersPerPolicyFromBundle.PolicyID]
 			if !policyExistsInDB {
 				policyClusterSetFromDB = NewPolicyClusterSets()
 			}
@@ -77,11 +78,21 @@ func (syncer *PoliciesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.C
 					return fmt.Errorf(failedBatchFormat, err)
 				}
 			}
+			// return nil will commit the whole transaction
+			return nil
+		})
+
+		if err != nil {
+			return fmt.Errorf("failed to handle clusters per policy(%s) bundle - %w",
+				clustersPerPolicyFromBundle.PolicyID, err)
+		} else {
 			// keep this policy in db, should remove from db only policies that were not sent in the bundle
 			delete(allPolicyClusterSetsFromDB, clustersPerPolicyFromBundle.PolicyID)
 		}
+	}
 
-		// remove policies that were not sent in the bundle
+	// remove policies that were not sent in the bundle
+	err = db.Transaction(func(tx *gorm.DB) error {
 		for policyID := range allPolicyClusterSetsFromDB {
 			err := tx.Where(&models.LocalStatusCompliance{
 				PolicyID: policyID,
@@ -90,11 +101,11 @@ func (syncer *PoliciesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.C
 				return fmt.Errorf(failedBatchFormat, err)
 			}
 		}
-		// return nil will commit the whole transaction
 		return nil
 	})
+
 	if err != nil {
-		return fmt.Errorf("failed to handle clusters per policy bundle - %w", err)
+		return fmt.Errorf("failed to delete clusters per policy bundle - %w", err)
 	}
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
 	return nil
@@ -157,8 +168,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx co
 				continue // do not handle objects other than PolicyComplianceStatus
 			}
 			// nonCompliantClusters includes both non Compliant and Unknown clusters
-			nonComplianceClusterSetsFromDB, policyExistsInDB :=
-				allPolicyComplianceRowsFromDB[policyComplianceStatus.PolicyID]
+			nonComplianceClusterSetsFromDB, policyExistsInDB := allPolicyComplianceRowsFromDB[policyComplianceStatus.PolicyID]
 			if !policyExistsInDB {
 				nonComplianceClusterSetsFromDB = NewPolicyClusterSets()
 			}
