@@ -36,7 +36,7 @@ const (
 
 	mergedAlertName   = "multicluster-global-hub-alerting"
 	defaultAlertName  = "multicluster-global-hub-default-alerting"
-	alertConfigMapKey = "multicluster-globalhub-alerting.yaml"
+	alertConfigMapKey = "alerting.yaml"
 
 	mergedGrafanaIniName  = "multicluster-global-hub-grafana-config"
 	defaultGrafanaIniName = "multicluster-global-hub-default-grafana-config"
@@ -44,12 +44,12 @@ const (
 
 	grafanaDeploymentName = "multicluster-global-hub-grafana"
 
-	//Render can not parse the "{{ $value }}" which is a keyword of alert, so need to replace it
-	alertValueWord        = "{{ $value }}"
-	alertValuePlaceHolder = "<ALERT_PLACE_HOLDER>"
+	//Render can not parse the "{{ XXX }}" which is a keyword of alert, so need to replace it
+	alertLeftWord  = "{{"
+	alertRightWord = "}}"
 
-	//Replace the <GRAFANA_ROUTE> with grafana route url
-	grafanaRouteWord = "<GRAFANA_ROUTE>"
+	alertLeftPlaceHolder  = "<VARIABLE_LEFT_HOLDER>"
+	alertRightPlaceHolder = "<VARIABLE_RIGHT_HOLDER>"
 )
 
 var (
@@ -275,8 +275,13 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 	//replace the placeholder with original value word
 	defaultAlertConfigMap.Data[alertConfigMapKey] = strings.ReplaceAll(
 		defaultAlertConfigMap.Data[alertConfigMapKey],
-		alertValuePlaceHolder,
-		alertValueWord,
+		alertLeftPlaceHolder,
+		alertLeftWord,
+	)
+	defaultAlertConfigMap.Data[alertConfigMapKey] = strings.ReplaceAll(
+		defaultAlertConfigMap.Data[alertConfigMapKey],
+		alertRightPlaceHolder,
+		alertRightWord,
 	)
 
 	customAlertConfigMap, err := r.KubeClient.CoreV1().
