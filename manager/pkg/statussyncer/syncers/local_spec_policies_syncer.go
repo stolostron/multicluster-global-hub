@@ -109,7 +109,7 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 			if !objInDB {
 				syncer.log.Info("local policy created", "leafHubName", leafHubName, "policyID", uid)
 				tx.Unscoped().Where(&models.LocalSpecPolicy{
-					PolicyID:   uid,
+					PolicyID: uid,
 				}).Delete(&models.LocalSpecPolicy{})
 				tx.Create(&models.LocalSpecPolicy{
 					LeafHubName: leafHubName,
