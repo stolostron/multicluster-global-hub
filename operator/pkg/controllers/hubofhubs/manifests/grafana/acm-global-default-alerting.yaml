@@ -35,32 +35,6 @@ data:
                             type: string
                           type: groupBy
                     limit: 50
-            - refId: C
-              relativeTimeRange:
-                from: 3600
-                to: 0
-              datasourceUid: P244538DD76A4C61D
-              model:
-                datasource:
-                    type: postgres
-                    uid: P244538DD76A4C61D
-                editorMode: code
-                format: table
-                hide: false
-                intervalMs: 1000
-                maxDataPoints: 43200
-                rawQuery: true
-                rawSql: "WITH rootpolicy  AS ( \n  SELECT \n    policy_id\n  FROM \n    event.local_root_policies\n  WHERE $__timeFilter(created_at) \n  AND  reason = 'PolicyPropagation'\n  AND message LIKE '%was disabled'\n),\npolicy_cluster_count AS(\n  SELECT \n    COUNT(*) AS disabled_events_count,\n    policy_id\n  FROM \n    rootpolicy\n  GROUP BY policy_id\n)\nSELECT \n  pcc.disabled_events_count,\n  p.policy_name,\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.leaf_hub_name\nFROM \n  policy_cluster_count pcc\nINNER JOIN\n  local_spec.policies p ON pcc.policy_id = p.policy_id\n\n\n"
-                refId: C
-                sql:
-                    columns:
-                        - parameters: []
-                          type: function
-                    groupBy:
-                        - property:
-                            type: string
-                          type: groupBy
-                    limit: 50
             - refId: B
               relativeTimeRange:
                 from: 600
@@ -74,24 +48,10 @@ data:
                             - 0
                         type: gt
                       operator:
-                        type: and
+                        type: when
                       query:
                         params:
                             - A
-                      reducer:
-                        params: []
-                        type: max
-                      type: query
-                    - evaluator:
-                        params:
-                            - 5
-                            - 0
-                        type: gt
-                      operator:
-                        type: or
-                      query:
-                        params:
-                            - C
                       reducer:
                         params: []
                         type: max
@@ -260,7 +220,7 @@ data:
     - orgId: 1
       name: Cron Job Failed
       folder: Policy
-      interval: 1d
+      interval: 8h
       rules:
         - uid: f04445ec-5e8f-47c0-8266-ea4fbfdd0253
           title: Data Retention Job Failed

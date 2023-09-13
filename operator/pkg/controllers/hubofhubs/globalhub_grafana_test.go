@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	openshiftV1 "github.com/openshift/api/route/v1"
+	routefake "github.com/openshift/client-go/route/clientset/versioned/fake"
+
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -387,6 +390,7 @@ func Test_generateGranafaIni(t *testing.T) {
 	tests := []struct {
 		name        string
 		initObjects []runtime.Object
+		initRoute   []runtime.Object
 		wantSecret  *corev1.Secret
 		wantChange  bool
 		wantErr     bool
@@ -399,6 +403,17 @@ func Test_generateGranafaIni(t *testing.T) {
 		},
 		{
 			name: "only has default grafana.ini",
+			initRoute: []runtime.Object{
+				&openshiftV1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: configNamespace,
+						Name:      "multicluster-global-hub-grafana",
+					},
+					Spec: openshiftV1.RouteSpec{
+						Host: "grafana.com",
+					},
+				},
+			},
 			initObjects: []runtime.Object{
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
@@ -590,10 +605,13 @@ email = example@redhat.com
 			if err != nil {
 				t.Error("Failed to add scheme")
 			}
+			fakeRouteV1Client := routefake.NewSimpleClientset(tt.initRoute...)
+
 			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
 			r := &MulticlusterGlobalHubReconciler{
-				KubeClient: kubeClient,
-				Scheme:     scheme.Scheme,
+				KubeClient:    kubeClient,
+				Scheme:        scheme.Scheme,
+				RouteV1Client: fakeRouteV1Client,
 			}
 
 			ctx := context.Background()
