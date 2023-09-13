@@ -45,7 +45,7 @@ func TestScheduler(t *testing.T) {
 	assert.Nil(t, err)
 	managerConfig := &config.ManagerConfig{
 		DatabaseConfig: &config.DatabaseConfig{
-			DataRetention: "18m",
+			DataRetention: 18,
 		},
 	}
 	managerConfig.SchedulerInterval = "month"

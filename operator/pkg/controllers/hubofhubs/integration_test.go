@@ -56,6 +56,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
@@ -80,7 +81,6 @@ const (
 )
 
 var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
-
 	var storageSecret *corev1.Secret
 	BeforeAll(func() {
 		storageSecret = &corev1.Secret{
@@ -301,7 +301,12 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				imagePullPolicy = mgh.Spec.ImagePullPolicy
 			}
 
-			var err error
+			// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
+			months, err := commonutils.ParseRetentionMonth(mgh.Spec.DataLayer.Postgres.Retention)
+			Expect(err).NotTo(HaveOccurred())
+			if months < 1 {
+				months = 1
+			}
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {
@@ -329,7 +334,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					SkipAuth               bool
 					NodeSelector           map[string]string
 					Tolerations            []corev1.Toleration
-					DataRetention          string
+					RetentionMonth         int
 					StatisticLogInterval   string
 					EnableGlobalResource   bool
 				}{
@@ -363,7 +368,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
-					DataRetention:        mgh.Spec.DataLayer.Postgres.Retention,
+					RetentionMonth:       months,
 					StatisticLogInterval: config.GetStatisticLogInterval(),
 					EnableGlobalResource: true,
 				}, nil
@@ -901,7 +906,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		It("Should delete the MGH instance", func() {
 			Expect(k8sClient.Delete(ctx, mcgh)).Should(Succeed())
 		})
-
 	})
 })
 
