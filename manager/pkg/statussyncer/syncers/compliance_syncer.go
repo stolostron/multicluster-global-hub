@@ -20,8 +20,8 @@ import (
 
 const failedBatchFormat = "failed to perform batch - %w"
 
-// NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
-func NewPoliciesDBSyncer(log logr.Logger) DBSyncer {
+// NewComplianceDBSyncer creates a new instance of PoliciesDBSyncer.
+func NewComplianceDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &PoliciesDBSyncer{
 		log:                                           log,
 		createClustersPerPolicyBundleFunc:             statusbundle.NewClustersPerPolicyBundle,

@@ -59,6 +59,8 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 
 	// register db syncers create bundle functions within transport and handler functions within dispatcher
 	dbSyncers := []dbsyncer.DBSyncer{
+		dbsyncer.NewControlInfoDBSyncer(ctrl.Log.WithName("control-info-db-syncer")),
+		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-cluster-info-db-syncer")),
 		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-clusters-db-syncer")),
 		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies-db-syncer")),
 		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-cluster-info-db-syncer")),
@@ -130,7 +132,6 @@ func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.Confl
 
 // only statistic the local policy and managed clusters
 func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (*statistics.Statistics, error) {
-
 	bundleTypes := []string{
 		helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
 		helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),

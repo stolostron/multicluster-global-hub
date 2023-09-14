@@ -112,4 +112,3 @@ CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
     offsets int8, 
     error TEXT
 );
-

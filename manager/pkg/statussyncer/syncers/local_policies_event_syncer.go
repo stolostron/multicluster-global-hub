@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
@@ -20,7 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
-func NewLocalPoliciesStatusEventSyncer(log logr.Logger) DBSyncer {
+func NewLocalPolicyEventSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &localPoliciesStatusEventSyncer{
 		log:                                    log,
 		createLocalPolicyStatusEventBundleFunc: status.NewClusterPolicyStatusEventBundle,
@@ -81,43 +80,43 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 	bundle status.Bundle,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
-	leafHubName := bundle.GetLeafHubName()
-	db := database.GetGorm()
-	// https://gorm.io/docs/transactions.html
-	err := db.Transaction(func(tx *gorm.DB) error {
-		if len(bundle.GetObjects()) == 0 {
-			return nil
-		}
-		for _, object := range bundle.GetObjects() {
-			policyStatusEvent, ok := object.(*models.LocalClusterPolicyEvent)
-			if !ok {
-				continue
-			}
-			err := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
-				DoNothing: true,
-			}).Create(&models.LocalClusterPolicyEvent{
-				BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
-					EventName:   policyStatusEvent.EventName,
-					PolicyID:    policyStatusEvent.PolicyID,
-					Message:     policyStatusEvent.Message,
-					Reason:      policyStatusEvent.Reason,
-					LeafHubName: leafHubName,
-					Source:      nil,
-					Count:       policyStatusEvent.Count,
-					Compliance:  string(common.GetDatabaseCompliance(policyStatusEvent.Compliance)),
-					CreatedAt:   policyStatusEvent.CreatedAt,
-				},
-				ClusterID: policyStatusEvent.ClusterID,
-			}).Error
-			if err != nil {
-				return err
-			}
-		}
 
-		// return nil will commit the whole transaction
+	if len(bundle.GetObjects()) == 0 {
 		return nil
-	})
+	}
+
+	leafHubName := bundle.GetLeafHubName()
+	batchUpsertLocalPolicyEvents := []models.LocalClusterPolicyEvent{}
+
+	for _, object := range bundle.GetObjects() {
+		policyStatusEvent, ok := object.(*models.LocalClusterPolicyEvent)
+		if !ok {
+			continue
+		}
+		batchUpsertLocalPolicyEvents = append(batchUpsertLocalPolicyEvents, models.LocalClusterPolicyEvent{
+			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
+				EventName:   policyStatusEvent.EventName,
+				PolicyID:    policyStatusEvent.PolicyID,
+				Message:     policyStatusEvent.Message,
+				Reason:      policyStatusEvent.Reason,
+				LeafHubName: leafHubName,
+				Source:      nil,
+				Count:       policyStatusEvent.Count,
+				Compliance:  string(common.GetDatabaseCompliance(policyStatusEvent.Compliance)),
+				CreatedAt:   policyStatusEvent.CreatedAt,
+			},
+			ClusterID: policyStatusEvent.ClusterID,
+		})
+	}
+
+	db := database.GetGorm()
+	err := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
+		DoNothing: true,
+	}).CreateInBatches(batchUpsertLocalPolicyEvents, 100).Error
+	if err != nil {
+		return err
+	}
 	if err != nil {
 		return fmt.Errorf("failed handling leaf hub LocalPolicyStatusEvent bundle - %w", err)
 	}
