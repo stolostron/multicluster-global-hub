@@ -46,6 +46,14 @@ spec:
         - containerPort: 3001
           name: http
           protocol: TCP
+        - containerPort: 9094
+          name: grafana-alert
+          protocol: TCP
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         resources:
           limits:
             cpu: 500m
