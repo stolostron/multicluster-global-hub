@@ -12,6 +12,14 @@ spec:
     - name: "guest"
       databases: ["hoh"]
       options: "LOGIN"
+  patroni:
+    dynamicConfiguration:
+      postgresql:
+        parameters:
+          max_wal_size: 3GB
+          wal_recycle: true
+          wal_init_zero: false
+          wal_compression: true
   instances:
     - name: pgha1
       replicas: 3
