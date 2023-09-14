@@ -83,6 +83,7 @@ var _ = BeforeSuite(func() {
 		StatisticsConfig: &statistics.StatisticsConfig{
 			LogInterval: "10s",
 		},
+		EnableGlobalResource: true,
 	}
 	Expect(err).NotTo(HaveOccurred())
 	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
