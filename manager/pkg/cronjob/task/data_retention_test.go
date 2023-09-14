@@ -1,6 +1,7 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -9,6 +10,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -178,24 +183,22 @@ func createRetentionData(tableName string, date time.Time) error {
 
 	switch tableName {
 	case "status.managed_clusters":
-		uid := uuid.New().String()
-		mcPayload := fmt.Sprintf(`
-		{
-			"kind": "ManagedCluster", 
-			"spec": {
-				"hubAcceptsClient": true, 
-				"leaseDurationSeconds": 60
-				}, 
-			"metadata": {
-				"uid": %s, 
-				"name": "leafhub1"
-			}, 
-			"apiVersion": "cluster.open-cluster-management.io/v1"
-		}`, uid)
+		cluster := &clusterv1.ManagedCluster{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "cluster1",
+				UID:  types.UID(uuid.New().String()),
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				HubAcceptsClient:     true,
+				LeaseDurationSeconds: 60,
+			},
+		}
+		payload, _ := json.Marshal(cluster)
+
 		result = db.Exec(
 			fmt.Sprintf(`INSERT INTO status.managed_clusters (leaf_hub_name, cluster_id, payload, error, 
-				created_at, updated_at, deleted_at) VALUES ("leafhub1", "%s", "%s", "none", "%s", "%s", "%s")`, uid,
-				mcPayload, date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
+				created_at, updated_at, deleted_at) VALUES ('leafhub1', '%s', '%s', 'none', '%s', '%s', '%s')`,
+				string(cluster.UID), payload, date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 
 	case "status.leaf_hubs":
 		result = db.Exec(
@@ -204,21 +207,19 @@ func createRetentionData(tableName string, date time.Time) error {
 				date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 
 	case "local_spec.policies":
-		uid := uuid.New().String()
-		policyPayload := fmt.Sprintf(`
-		{
-			"kind": "Policy", 
-			"spec": {}, 
-			"metadata": {
-				"uid": %s, 
-				"name": "policy1", 
-				"namespace": "default"
-			}, 
-			"apiVersion": "policy.open-cluster-management.io/v1"
-		}`, uid)
+		policy := policyv1.Policy{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "policy1",
+				Namespace: "default",
+				UID:       types.UID(uuid.New().String()),
+			},
+			Spec: policyv1.PolicySpec{},
+		}
+		payload, _ := json.Marshal(policy)
+
 		result = db.Exec(
 			fmt.Sprintf(`INSERT INTO local_spec.policies (policy_id, leaf_hub_name, payload, created_at, 
-				updated_at, deleted_at) VALUES ("%s", "leafhub1", "%s", "%s", "%s", "%s")`, uid, policyPayload,
+				updated_at, deleted_at) VALUES ('%s', 'leafhub1', '%s', '%s', '%s', '%s')`, policy.UID, payload,
 				date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 	}
 	if result.Error != nil {
