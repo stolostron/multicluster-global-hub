@@ -1,6 +1,6 @@
 apiVersion: v1
 data:
-  multicluster-globalhub-alerting.yaml: |
+  alerting.yaml: |
     apiVersion: 1
     groups:
     - orgId: 1
@@ -8,7 +8,7 @@ data:
       folder: Policy
       interval: 5m
       rules:
-        - uid: f74c00e6-1041-4c39-b51f-10c534284702
+        - uid: globalhub_suspicious_policy_change
           title: Suspicious policy change
           condition: B
           data:
@@ -71,7 +71,11 @@ data:
           annotations:
             description: |-
                 We are getting many propagation/disabled events for a policy, it may caused by suspicious changes to policy.
-                Details: <ALERT_PLACE_HOLDER>
+     
+                Details: <VARIABLE_LEFT_HOLDER> range $k, $v := $values <VARIABLE_RIGHT_HOLDER>
+                      The following policy updated/disabled <VARIABLE_LEFT_HOLDER> $v <VARIABLE_RIGHT_HOLDER> times in last 1 hour:
+                        > <VARIABLE_LEFT_HOLDER> $v.Labels <VARIABLE_RIGHT_HOLDER>
+                      <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
             summary: Suspicious policy change
           labels:
             alertname: suspicious policy changes
@@ -81,7 +85,7 @@ data:
       folder: Policy
       interval: 5m
       rules:
-        - uid: a1c615d0-6bc8-48aa-8113-534083945f01
+        - uid: globalhub_cluster_compliance_status_change_frequently
           title: Cluster compliance status change frequently
           condition: B
           data:
@@ -144,12 +148,16 @@ data:
           annotations:
             description: |-
                 We are getting the cluster compliance status changes frequently.
-                Details: <ALERT_PLACE_HOLDER>
+
+                Details: <VARIABLE_LEFT_HOLDER> range $k, $v := $values <VARIABLE_RIGHT_HOLDER>
+                      The following clusters going in and out of compliance <VARIABLE_LEFT_HOLDER> $v <VARIABLE_RIGHT_HOLDER> times in last 1 hour:
+                        > <VARIABLE_LEFT_HOLDER> $v.Labels <VARIABLE_RIGHT_HOLDER>
+                      <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
             summary: Cluster is going in and out of compliance frequently
           labels:
             alertname: Cluster compliance status change frequently
           isPaused: false
-        - uid: ef9c0904-cb28-4f53-a527-e30f747b6803
+        - uid: globalhub_high_number_of_policy_events
           title: High number of policy events in a cluster
           condition: B
           data:
@@ -212,7 +220,11 @@ data:
           annotations:
             description: |-
                 We are getting too many policy events in a cluster.
-                Detail: <ALERT_PLACE_HOLDER>
+
+                Details: <VARIABLE_LEFT_HOLDER> range $k, $v := $values <VARIABLE_RIGHT_HOLDER>
+                      There are <VARIABLE_LEFT_HOLDER> $v <VARIABLE_RIGHT_HOLDER> policy events in last 5 minutes for the following policy and cluster:
+                        > <VARIABLE_LEFT_HOLDER> $v.Labels <VARIABLE_RIGHT_HOLDER>
+                      <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
             summary: There are too many policy events in a cluster
           labels:
             alertname: High number of policy events in a cluster
@@ -222,7 +234,7 @@ data:
       folder: Policy
       interval: 8h
       rules:
-        - uid: f04445ec-5e8f-47c0-8266-ea4fbfdd0253
+        - uid: globalhub_data_retention_job
           title: Data Retention Job Failed
           condition: B
           data:
@@ -288,7 +300,7 @@ data:
           labels:
             alertname: Data Retention Job failed
           isPaused: false
-        - uid: b5f94547-6f5e-4f0e-9a0e-e14a42af00f7
+        - uid: globalhub_local_compliance_job
           title: Local Compliance Job failed
           condition: B
           data:
@@ -354,6 +366,53 @@ data:
           labels:
             alertname: Local Compliance Job failed
           isPaused: false
+    templates:
+      - orgID: 1
+        name: globalhub_policy
+        template: |
+          <VARIABLE_LEFT_HOLDER> define "globalhub.policy.title" <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> if .Alerts.Firing -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> range .Alerts.Firing <VARIABLE_RIGHT_HOLDER>
+          [FIRING] <VARIABLE_LEFT_HOLDER> .Labels.grafana_folder <VARIABLE_RIGHT_HOLDER> > <VARIABLE_LEFT_HOLDER> .Labels.alertname <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> if .Alerts.Resolved -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> range .Alerts.Resolved <VARIABLE_RIGHT_HOLDER>
+          [RESOLVED] <VARIABLE_LEFT_HOLDER> .Labels.grafana_folder <VARIABLE_RIGHT_HOLDER> > <VARIABLE_LEFT_HOLDER> .Labels.alertname <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
+
+          <VARIABLE_LEFT_HOLDER> define "print.message" <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> if .Annotations.Error <VARIABLE_RIGHT_HOLDER>
+          Error:
+                <VARIABLE_LEFT_HOLDER> .Annotations.Error <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER>- end <VARIABLE_RIGHT_HOLDER>
+
+          Summary:
+                <VARIABLE_LEFT_HOLDER> .Annotations.summary <VARIABLE_RIGHT_HOLDER>
+
+          Description:
+                <VARIABLE_LEFT_HOLDER> .Annotations.description <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> if gt (len .GeneratorURL) 0 -<VARIABLE_RIGHT_HOLDER>
+          Source: 
+                <VARIABLE_LEFT_HOLDER> .GeneratorURL <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
+
+          <VARIABLE_LEFT_HOLDER> define "globalhub.policy.message" -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> if .Alerts.Firing -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> range .Alerts.Firing <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> template "print.message" . <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> if .Alerts.Resolved -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> range .Alerts.Resolved <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> template "print.message" . <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
+          <VARIABLE_LEFT_HOLDER>- end <VARIABLE_RIGHT_HOLDER>
+
 kind: ConfigMap
 metadata:
   name: multicluster-global-hub-default-alerting

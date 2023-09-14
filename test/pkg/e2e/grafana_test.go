@@ -18,7 +18,7 @@ import (
 const (
 	mergedAlertName   = "multicluster-global-hub-alerting"
 	defaultAlertName  = "multicluster-global-hub-default-alerting"
-	alertConfigMapKey = "multicluster-globalhub-alerting.yaml"
+	alertConfigMapKey = "alerting.yaml"
 
 	mergedGrafanaIniName  = "multicluster-global-hub-grafana-config"
 	defaultGrafanaIniName = "multicluster-global-hub-default-grafana-config"
