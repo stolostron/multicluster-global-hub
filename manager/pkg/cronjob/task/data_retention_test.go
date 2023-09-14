@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
@@ -177,7 +178,8 @@ func createRetentionData(tableName string, date time.Time) error {
 
 	switch tableName {
 	case "status.managed_clusters":
-		mcPayload := `
+		uid := uuid.New().String()
+		mcPayload := fmt.Sprintf(`
 		{
 			"kind": "ManagedCluster", 
 			"spec": {
@@ -185,14 +187,14 @@ func createRetentionData(tableName string, date time.Time) error {
 				"leaseDurationSeconds": 60
 				}, 
 			"metadata": {
-				"uid": "00000000-0000-0000-0000-000000000000", 
+				"uid": %s, 
 				"name": "leafhub1"
 			}, 
 			"apiVersion": "cluster.open-cluster-management.io/v1"
-		}`
+		}`, uid)
 		result = db.Exec(
-			fmt.Sprintf(`INSERT INTO status.managed_clusters (leaf_hub_name, cluster_id, payload, error, created_at, updated_at, deleted_at) 
-			VALUES ('leafhub1', '00000000-0000-0000-0000-000000000000', '%s', 'none', '%s', '%s', '%s')`,
+			fmt.Sprintf(`INSERT INTO status.managed_clusters (leaf_hub_name, cluster_id, payload, error, 
+				created_at, updated_at, deleted_at) VALUES ("leafhub1", "%s", "%s", "none", "%s", "%s", "%s")`, uid,
 				mcPayload, date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 
 	case "status.leaf_hubs":
@@ -202,20 +204,21 @@ func createRetentionData(tableName string, date time.Time) error {
 				date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 
 	case "local_spec.policies":
-		policyPayload := `
+		uid := uuid.New().String()
+		policyPayload := fmt.Sprintf(`
 		{
 			"kind": "Policy", 
 			"spec": {}, 
 			"metadata": {
-				"uid": "00000000-0000-0000-0000-000000000000", 
+				"uid": %s, 
 				"name": "policy1", 
 				"namespace": "default"
 			}, 
 			"apiVersion": "policy.open-cluster-management.io/v1"
-		}`
+		}`, uid)
 		result = db.Exec(
-			fmt.Sprintf(`INSERT INTO local_spec.policies (leaf_hub_name, payload, created_at, updated_at, deleted_at)
-			VALUES ('leafhub1', '%s', '%s', '%s', '%s')`, policyPayload,
+			fmt.Sprintf(`INSERT INTO local_spec.policies (policy_id, leaf_hub_name, payload, created_at, 
+				updated_at, deleted_at) VALUES ("%s", "leafhub1", "%s", "%s", "%s", "%s")`, uid, policyPayload,
 				date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 	}
 	if result.Error != nil {
