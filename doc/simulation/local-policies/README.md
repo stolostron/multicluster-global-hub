@@ -35,8 +35,8 @@ oc delete pod multicluster-global-hub-operator-xxx -n multicluster-global-hub
 
 ```bash
 kubectl cp create_local_policies.sql multicluster-global-hub/$(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}'):/tmp
-kubectl exec -it $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- ls -l /tmp/create_local_policies.sql
-kubectl exec -it $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- psql -U postgres -d hoh -f /tmp/create_local_policies.sql
+kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- ls -l /tmp/create_local_policies.sql
+kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- psql -U postgres -d hoh -f /tmp/create_local_policies.sql
 ```
 
 3. Data Inserted into database
