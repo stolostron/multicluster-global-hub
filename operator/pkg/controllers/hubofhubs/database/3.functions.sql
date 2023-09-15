@@ -130,3 +130,15 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+--- deleta the monthly partitioned tables function
+--- sample: SELECT delete_monthly_range_partitioned_table('event.local_root_policies', '2023-08-01');
+CREATE OR REPLACE FUNCTION delete_monthly_range_partitioned_table(full_table_name text, input_time text)
+RETURNS VOID AS
+$$ 
+BEGIN 
+    EXECUTE format('DROP TABLE IF EXISTS %1$s_%2$s',
+                   full_table_name, 
+                   to_char(input_time::date, 'YYYY_MM')
+                  );
+END $$ LANGUAGE plpgsql;

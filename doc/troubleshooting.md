@@ -168,7 +168,9 @@ There are two goals for this job. One is create the partation tables for the fur
 
   - Delete the expired data based on the retention
 
-  Let's say you set the data retention with `18m`, which means `18` month. Then you need to manually delete the partition data from the previous `19th` month.
+  Let's say you set the data retention with `18m`, which means `18` month. 
+  
+  Then you need to manually delete the partition data from the previous `19th` month.
 
   ```sql
   SELECT delete_monthly_range_partitioned_table('event.local_root_policies', to_char(current_date - interval '19 month', 'YYYY-MM-DD'))
