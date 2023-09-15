@@ -302,14 +302,14 @@ After installing the global hub operand, the global hub manager starts running a
 
   At the practical level, we run a scheduled job to delete expired data, so as to avoid the table being too large, and there is an additional task for it which is to create a buffer partition table for the next month.
 
-  How long the job should keep the data can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/main/operator/apis/v1alpha4/multiclusterglobalhub_types.go#L90) on the global hub operand. it's recommended minimum value is 1 month, default value is 18 months. Therefore, the execution interval of this job should be less than one month.
+  How long the job should keep the data can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/main/operator/apis/v1alpha4/multiclusterglobalhub_types.go#L90) on the global hub operand. it's recommended minimum value is `1` month, default value is `18` months. Therefore, the execution interval of this job should be less than one month.
 
 The above cronjobs are executed every time the global hub manager starts. The compliance sync job is run once a day and can be run multiple times within the day without changing the result. The partitioning job is run once a week and also can be run many times per month, the results will not change. 
 These two jobs' status are saved in the metrics named `multicluster_global_hub_jobs_status`, as shown in the figure below from the console of the Openshift cluster. Where `0` means the job runs successfully, otherwise `1` means failure. 
 
 ![Global Hub Jobs Status Metrics Panel](./images/global-hub-jobs-status-metrics-panel.png)
 
-If there is a failed job, then you can dive into the log tables(`history.local_compliance_job_log`, `event.data_retention_job_log`) for more details.
+If there is a failed job, then you can dive into the log tables(`history.local_compliance_job_log`, `event.data_retention_job_log`) for more details and decide whether to [running it manually](./troubleshooting.md/#cronjobs).
 
 ## Troubleshooting
 
