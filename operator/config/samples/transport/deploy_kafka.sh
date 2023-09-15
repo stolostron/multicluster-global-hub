@@ -43,7 +43,6 @@ kubectl get kafka kafka -n $targetNamespace -o jsonpath='{.status.listeners[1].c
 kubectl get secret ${kafkaUser} -n $targetNamespace -o jsonpath='{.data.user\.crt}' | base64 -d > $currentDir/kafka-client-cert.pem
 kubectl get secret ${kafkaUser} -n $targetNamespace -o jsonpath='{.data.user\.key}' | base64 -d > $currentDir/kafka-client-key.pem
 
-kubectl create namespace $targetNamespace || true
 kubectl create secret generic ${transportSecret} -n $targetNamespace \
     --from-literal=bootstrap_server=$bootstrapServers \
     --from-file=ca.crt=$currentDir/kafka-ca-cert.pem \

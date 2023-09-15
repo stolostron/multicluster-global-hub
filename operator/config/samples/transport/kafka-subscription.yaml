@@ -1,19 +1,10 @@
-apiVersion: operators.coreos.com/v1
-kind: OperatorGroup
-metadata:
-  name: kafka-operators
-  namespace: multicluster-global-hub
-spec:
-  targetNamespaces:
-    - multicluster-global-hub
----
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
   name: strimzi-kafka-operator
   namespace: multicluster-global-hub
 spec:
-  channel: strimzi-0.33.x
+  channel: stable
   installPlanApproval: Automatic
   name: strimzi-kafka-operator
   source: community-operators

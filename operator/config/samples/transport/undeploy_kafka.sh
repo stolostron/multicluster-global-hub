@@ -26,8 +26,8 @@ waitDisappear "kubectl get kafkauser global-hub-kafka-user -n $targetNamespace -
 
 # step4: delete kafka operator
 # https://operator-framework.github.io/olm-book/docs/uninstall-an-operator.html
-# kubectl delete -f ${currentDir}/kafka-subscription.yaml
-kubectl delete subscription.operators.coreos.com strimzi-kafka-operator -n $targetNamespace
+kubectl delete -f ${currentDir}/kafka-subscription.yaml
+# kubectl delete subscription.operators.coreos.com strimzi-kafka-operator -n $targetNamespace
 csv=$(kubectl get clusterserviceversion -n $targetNamespace | grep strimzi-cluster-operator | awk '{print $1}')
 kubectl delete clusterserviceversion $csv -n $targetNamespace
 waitDisappear "kubectl get pods -n $targetNamespace | grep strimzi-cluster-operator | grep Running || true"
