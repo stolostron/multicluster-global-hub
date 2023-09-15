@@ -187,7 +187,7 @@ This alert watch the [Cron jobs](#Cronjobs-and-Metrics) failed events. There are
   If this alert rule becomes firing, it means the [Local compliance status sync job](#Local-compliance-status-sync-job) failed. It may cause the data to be lost in the `history.local_compliance` table. Please check it and [manually run the job](./how_global_hub_works.md#running-the-summarization-process-manually)
 
 - Data Retention Job Failed
-  If this alert rule becomes firing, it means the [Partition job](#Partition-job) failed. 
+  If this alert rule becomes firing, it means the [Partition job](#Partition-job) failed and you can also [run it manually](./troubleshooting.md#run-the-data-retetion-job-manually).
 
 #### Delete Default Grafana Alert Rule
 If you want to delete a default grafana alert rule, you need to create the [Customize Grafana Alerting Resources](#Customize-Grafana-Alerting-Resources) and include the `deleteRules`.
