@@ -1,13 +1,19 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/go-co-op/gocron"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -68,7 +74,8 @@ var _ = Describe("data retention job", Ordered, func() {
 		for _, table := range retentionTables {
 			By(fmt.Sprintf("Check whether the record was created in table %s", table))
 			Eventually(func() error {
-				rows, err := db.Raw(fmt.Sprintf(`SELECT leaf_hub_name, deleted_at FROM %s WHERE DELETED_AT <= '%s'`, table, expirationTime.Format(timeFormat))).Rows()
+				rows, err := db.Raw(fmt.Sprintf(`SELECT leaf_hub_name, deleted_at FROM %s WHERE DELETED_AT <= '%s'`,
+					table, expirationTime.Format(timeFormat))).Rows()
 				if err != nil {
 					return fmt.Errorf("error reading from table %s due to: %v", table, err)
 				}
@@ -117,7 +124,8 @@ var _ = Describe("data retention job", Ordered, func() {
 		for _, table := range retentionTables {
 			By(fmt.Sprintf("Check whether the record were deleted in table %s", table))
 			Eventually(func() error {
-				rows, err := db.Raw(fmt.Sprintf(`SELECT leaf_hub_name, deleted_at FROM %s WHERE DELETED_AT <= '%s'`, table, expirationTime.Format(timeFormat))).Rows()
+				rows, err := db.Raw(fmt.Sprintf(`SELECT leaf_hub_name, deleted_at FROM %s WHERE DELETED_AT <= '%s'`,
+					table, expirationTime.Format(timeFormat))).Rows()
 				if err != nil {
 					return fmt.Errorf("error reading from table %s due to: %v", table, err)
 				}
@@ -175,43 +183,44 @@ func createRetentionData(tableName string, date time.Time) error {
 
 	switch tableName {
 	case "status.managed_clusters":
-		mcPayload := `
-		{
-			"kind": "ManagedCluster", 
-			"spec": {
-				"hubAcceptsClient": true, 
-				"leaseDurationSeconds": 60
-				}, 
-			"metadata": {
-				"uid": "00000000-0000-0000-0000-000000000000", 
-				"name": "leafhub1"
-			}, 
-			"apiVersion": "cluster.open-cluster-management.io/v1"
-		}`
+		cluster := &clusterv1.ManagedCluster{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "cluster1",
+				UID:  types.UID(uuid.New().String()),
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				HubAcceptsClient:     true,
+				LeaseDurationSeconds: 60,
+			},
+		}
+		payload, _ := json.Marshal(cluster)
+
 		result = db.Exec(
-			fmt.Sprintf(`INSERT INTO status.managed_clusters (leaf_hub_name, cluster_id, payload, error, created_at, updated_at, deleted_at) 
-			VALUES ('leafhub1', '00000000-0000-0000-0000-000000000000', '%s', 'none', '%s', '%s', '%s')`, mcPayload, date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
+			fmt.Sprintf(`INSERT INTO status.managed_clusters (leaf_hub_name, cluster_id, payload, error, 
+				created_at, updated_at, deleted_at) VALUES ('leafhub1', '%s', '%s', 'none', '%s', '%s', '%s')`,
+				string(cluster.UID), payload, date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 
 	case "status.leaf_hubs":
 		result = db.Exec(
 			fmt.Sprintf(`INSERT INTO status.leaf_hubs (leaf_hub_name, payload, created_at, updated_at, deleted_at) 
-			VALUES ('leafhub1', '{"consoleURL": "https://leafhub1.com", "leafHubName": "leafhub1"}', '%s', '%s', '%s')`, date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
+			VALUES ('leafhub1', '{"consoleURL": "https://leafhub1.com", "leafHubName": "leafhub1"}', '%s', '%s', '%s')`,
+				date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 
 	case "local_spec.policies":
-		policyPayload := `
-		{
-			"kind": "Policy", 
-			"spec": {}, 
-			"metadata": {
-				"uid": "00000000-0000-0000-0000-000000000000", 
-				"name": "policy1", 
-				"namespace": "default"
-			}, 
-			"apiVersion": "policy.open-cluster-management.io/v1"
-		}`
+		policy := policyv1.Policy{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "policy1",
+				Namespace: "default",
+				UID:       types.UID(uuid.New().String()),
+			},
+			Spec: policyv1.PolicySpec{},
+		}
+		payload, _ := json.Marshal(policy)
+
 		result = db.Exec(
-			fmt.Sprintf(`INSERT INTO local_spec.policies (leaf_hub_name, payload, created_at, updated_at, deleted_at)
-			VALUES ('leafhub1', '%s', '%s', '%s', '%s')`, policyPayload, date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
+			fmt.Sprintf(`INSERT INTO local_spec.policies (policy_id, leaf_hub_name, payload, created_at, 
+				updated_at, deleted_at) VALUES ('%s', 'leafhub1', '%s', '%s', '%s', '%s')`, policy.UID, payload,
+				date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 	}
 	if result.Error != nil {
 		return fmt.Errorf("failed to create retention data in table %s due to: %w", tableName, result.Error)

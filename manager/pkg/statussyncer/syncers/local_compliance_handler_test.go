@@ -102,7 +102,7 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 					addedCount++
 				}
 			}
-			if expiredCount == 0 && addedCount > 0 {
+			if expiredCount == 0 && addedCount == 2 {
 				return nil
 			}
 			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, complianceTable)
@@ -154,29 +154,26 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 				return err
 			}
 
-			cluster1Passed := false
-			cluster2Passed := false
-			cluster3Passed := true
+			success := 0
 			for _, localCompliance := range localCompliances {
 				fmt.Printf("LocalCompleteCompliance: id(%s) %s/%s %s \n", localCompliance.PolicyID,
 					localCompliance.LeafHubName, localCompliance.ClusterName, localCompliance.Compliance)
 				if localCompliance.PolicyID == createdPolicyId {
 					if localCompliance.ClusterName == "cluster1" &&
 						localCompliance.Compliance == database.NonCompliant {
-						cluster1Passed = true
+						success++
 					}
 					if localCompliance.ClusterName == "cluster2" &&
 						localCompliance.Compliance == database.Compliant {
-						cluster2Passed = true
+						success++
 					}
 					if localCompliance.ClusterName == "cluster3" {
-						cluster3Passed = false
+						return fmt.Errorf("the cluster3 shouldn't synced by the local compliance bundle")
 					}
 				}
 			}
 
-			// check deletion do not take effect
-			if cluster1Passed && cluster2Passed && cluster3Passed {
+			if success == 2 {
 				return nil
 			}
 			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, complianceTable)

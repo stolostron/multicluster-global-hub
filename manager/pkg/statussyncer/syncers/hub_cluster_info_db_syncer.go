@@ -24,7 +24,7 @@ func NewHubClusterInfoDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &hubClusterInfoDBSyncer{
 		log: log,
 		createHubClusterInfoFunc: func() status.Bundle {
-			return &status.BaseLeafHubClusterInfoStatusBundle{}
+			return &status.HubClusterInfoBundle{}
 		},
 	}
 

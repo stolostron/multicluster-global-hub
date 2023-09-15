@@ -22,7 +22,7 @@ import (
 func NewClusterPolicyHistoryEventBundle(leafHubName string, runtimeClient client.Client,
 ) agentBundle.Bundle {
 	return &ClusterPolicyHistoryEventBundle{
-		BaseClusterPolicyStatusEventBundle: statusbundle.BaseClusterPolicyStatusEventBundle{
+		ClusterPolicyEventBundle: statusbundle.ClusterPolicyEventBundle{
 			PolicyStatusEvents: make(map[string][]*models.LocalClusterPolicyEvent),
 			LeafHubName:        leafHubName,
 			BundleVersion:      statusbundle.NewBundleVersion(),
@@ -36,7 +36,7 @@ func NewClusterPolicyHistoryEventBundle(leafHubName string, runtimeClient client
 }
 
 type ClusterPolicyHistoryEventBundle struct {
-	statusbundle.BaseClusterPolicyStatusEventBundle
+	statusbundle.ClusterPolicyEventBundle
 	lock          sync.Mutex
 	runtimeClient client.Client
 	ctx           context.Context

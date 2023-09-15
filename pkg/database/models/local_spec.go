@@ -10,7 +10,7 @@ import (
 type LocalSpecPolicy struct {
 	LeafHubName    string         `gorm:"column:leaf_hub_name"`
 	Payload        datatypes.JSON `gorm:"column:payload;type:jsonb"`
-	PolicyID       string         `gorm:"column:policy_id;default:(-)"`
+	PolicyID       string         `gorm:"column:policy_id;primaryKey"`
 	PolicyName     string         `gorm:"column:policy_name;default:(-)"`
 	PolicyStandard string         `gorm:"column:policy_standard;default:(-)"`
 	PolicyCategory string         `gorm:"column:policy_category;default:(-)"`

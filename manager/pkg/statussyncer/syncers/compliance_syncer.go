@@ -20,9 +20,9 @@ import (
 
 const failedBatchFormat = "failed to perform batch - %w"
 
-// NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
-func NewPoliciesDBSyncer(log logr.Logger) DBSyncer {
-	dbSyncer := &PoliciesDBSyncer{
+// NewCompliancesDBSyncer creates a new instance of PoliciesDBSyncer.
+func NewCompliancesDBSyncer(log logr.Logger) DBSyncer {
+	dbSyncer := &CompliancesDBSyncer{
 		log:                                           log,
 		createClustersPerPolicyBundleFunc:             statusbundle.NewClustersPerPolicyBundle,
 		createCompleteComplianceStatusBundleFunc:      statusbundle.NewCompleteComplianceStatusBundle,
@@ -37,8 +37,8 @@ func NewPoliciesDBSyncer(log logr.Logger) DBSyncer {
 	return dbSyncer
 }
 
-// PoliciesDBSyncer implements policies db sync business logic.
-type PoliciesDBSyncer struct {
+// CompliancesDBSyncer implements policies db sync business logic.
+type CompliancesDBSyncer struct {
 	log                                           logr.Logger
 	createClustersPerPolicyBundleFunc             status.CreateBundleFunction
 	createCompleteComplianceStatusBundleFunc      status.CreateBundleFunction
@@ -49,7 +49,7 @@ type PoliciesDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
+func (syncer *CompliancesDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	fullStatusPredicate := func() bool { return true }
 	minimalStatusPredicate := func() bool {
 		return false
@@ -102,7 +102,7 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportDispatche
 // therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the database.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
-func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
+func (syncer *CompliancesDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	clustersPerPolicyBundleType := helpers.GetBundleType(
 		syncer.createClustersPerPolicyBundleFunc())
 	completeComplianceStatusBundleType := helpers.GetBundleType(
