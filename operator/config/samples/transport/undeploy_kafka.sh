@@ -20,11 +20,18 @@ waitDisappear "kubectl get kafkatopic event -n $targetNamespace --ignore-not-fou
 kubectl delete -f ${currentDir}/kafka-cluster.yaml
 waitDisappear "kubectl -n $targetNamespace get kafka.kafka.strimzi.io/kafka --ignore-not-found"
 
+# step4: delete kafka user
+kubectl delete -f ${currentDir}/kafka-user.yaml
+waitDisappear "kubectl get kafkauser global-hub-kafka-user -n $targetNamespace --ignore-not-found | grep status || true"
+
 # step4: delete kafka operator
-kubectl delete -f ${currentDir}/kafka-subscription.yaml
-kafkaOperator=$(kubectl get deploy -n $targetNamespace | grep strimzi-cluster-operator | awk '{print $1}')
-kubectl delete deploy $kafkaOperator -n $targetNamespace
+# https://operator-framework.github.io/olm-book/docs/uninstall-an-operator.html
+# kubectl delete -f ${currentDir}/kafka-subscription.yaml
+kubectl delete subscription.operators.coreos.com strimzi-kafka-operator -n $targetNamespace
+csv=$(kubectl get clusterserviceversion -n $targetNamespace | grep strimzi-cluster-operator | awk '{print $1}')
+kubectl delete clusterserviceversion $csv -n $targetNamespace
 waitDisappear "kubectl get pods -n $targetNamespace | grep strimzi-cluster-operator | grep Running || true"
+echo "uninstall kafka operator"
 
 
 
