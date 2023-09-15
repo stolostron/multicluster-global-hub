@@ -68,13 +68,14 @@ var fs embed.FS
 type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
-	RouteV1Client    routeV1Client.Interface
-	AddonManager     addonmanager.AddonManager
-	KubeClient       kubernetes.Interface
-	Scheme           *runtime.Scheme
-	LeaderElection   *commonobjects.LeaderElectionConfig
-	Log              logr.Logger
-	MiddlewareConfig *operatorconstants.MiddlewareConfig
+	RouteV1Client        routeV1Client.Interface
+	AddonManager         addonmanager.AddonManager
+	KubeClient           kubernetes.Interface
+	Scheme               *runtime.Scheme
+	LeaderElection       *commonobjects.LeaderElectionConfig
+	Log                  logr.Logger
+	MiddlewareConfig     *operatorconstants.MiddlewareConfig
+	EnableGlobalResource bool
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete

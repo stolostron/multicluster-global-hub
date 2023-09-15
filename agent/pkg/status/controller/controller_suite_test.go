@@ -66,6 +66,7 @@ var _ = BeforeSuite(func() {
 			CommitterInterval: 1 * time.Second,
 			TransportType:     string(transport.Chan),
 		},
+		EnableGlobalResource: true,
 	}
 
 	By("Create cloudevents consumer")

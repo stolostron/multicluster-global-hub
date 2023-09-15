@@ -39,16 +39,18 @@ import (
 // +kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
 type HoHAddonController struct {
-	kubeConfig       *rest.Config
-	client           client.Client
-	leaderElection   *commonobjects.LeaderElectionConfig
-	log              logr.Logger
-	addonManager     addonmanager.AddonManager
-	MiddlewareConfig *operatorconstants.MiddlewareConfig
+	kubeConfig           *rest.Config
+	client               client.Client
+	leaderElection       *commonobjects.LeaderElectionConfig
+	log                  logr.Logger
+	addonManager         addonmanager.AddonManager
+	MiddlewareConfig     *operatorconstants.MiddlewareConfig
+	EnableGlobalResource bool
 }
 
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 	leaderElection *commonobjects.LeaderElectionConfig, middlewareCfg *operatorconstants.MiddlewareConfig,
+	enableGlobalResource bool,
 ) (*HoHAddonController, error) {
 	log := ctrl.Log.WithName("addon-controller")
 	addonMgr, err := addonmanager.New(kubeConfig)
@@ -57,12 +59,13 @@ func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 		return nil, err
 	}
 	return &HoHAddonController{
-		kubeConfig:       kubeConfig,
-		client:           client,
-		leaderElection:   leaderElection,
-		log:              log,
-		addonManager:     addonMgr,
-		MiddlewareConfig: middlewareCfg,
+		kubeConfig:           kubeConfig,
+		client:               client,
+		leaderElection:       leaderElection,
+		log:                  log,
+		addonManager:         addonMgr,
+		MiddlewareConfig:     middlewareCfg,
+		EnableGlobalResource: enableGlobalResource,
 	}, nil
 }
 
@@ -98,6 +101,7 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		leaderElectionConfig: a.leaderElection,
 		log:                  a.log.WithName("values"),
 		MiddlewareConfig:     a.MiddlewareConfig,
+		EnableGlobalResource: a.EnableGlobalResource,
 	}
 
 	agentAddon, err := addonfactory.NewAgentAddonFactory(

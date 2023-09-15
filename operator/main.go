@@ -122,10 +122,11 @@ func init() {
 }
 
 type operatorConfig struct {
-	MetricsAddress string
-	ProbeAddress   string
-	PodNamespace   string
-	LeaderElection bool
+	MetricsAddress        string
+	ProbeAddress          string
+	PodNamespace          string
+	LeaderElection        bool
+	GlobalResourceEnabled bool
 }
 
 func main() {
@@ -172,7 +173,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	}
 
 	addonController, err := hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(),
-		electionConfig, middlewareCfg)
+		electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled)
 	if err != nil {
 		setupLog.Error(err, "unable to create addon controller")
 		return 1
@@ -191,15 +192,16 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	}
 
 	if err = (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
-		Manager:          mgr,
-		Client:           mgr.GetClient(),
-		RouteV1Client:    routeV1Client,
-		AddonManager:     addonController.AddonManager(),
-		KubeClient:       kubeClient,
-		Scheme:           mgr.GetScheme(),
-		LeaderElection:   electionConfig,
-		Log:              ctrl.Log.WithName("global-hub-reconciler"),
-		MiddlewareConfig: middlewareCfg,
+		Manager:              mgr,
+		Client:               mgr.GetClient(),
+		RouteV1Client:        routeV1Client,
+		AddonManager:         addonController.AddonManager(),
+		KubeClient:           kubeClient,
+		Scheme:               mgr.GetScheme(),
+		LeaderElection:       electionConfig,
+		Log:                  ctrl.Log.WithName("global-hub-reconciler"),
+		MiddlewareConfig:     middlewareCfg,
+		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
 		return 1
@@ -241,6 +243,8 @@ func parseFlags() *operatorConfig {
 		"The address the probe endpoint binds to.")
 	pflag.BoolVar(&config.LeaderElection, "leader-election", false,
 		"Enable leader election for controller manager. ")
+	pflag.BoolVar(&config.GlobalResourceEnabled, "global-resource-enabled", false,
+		"Enable the global resource. It is expermental feature. Do not support upgrade.")
 	pflag.Parse()
 
 	// set zap logger

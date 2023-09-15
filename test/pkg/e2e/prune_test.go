@@ -68,7 +68,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		managedClusterUID2 = GetClusterID(managedClusters[1])
 	})
 
-	It("create application", func() {
+	It("create application", Label("e2e-tests-global-resource"), func() {
 		By("Add app label to the managedcluster1")
 		patches := []patch{
 			{
@@ -78,7 +78,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			},
 		}
 		Eventually(func() error {
-			if err := updateClusterLabel(httpClient, patches, managedClusterUID1); err != nil {
+			if err := updateClusterLabelByAPI(httpClient, patches, managedClusterUID1); err != nil {
 				return err
 			}
 			return nil
@@ -100,7 +100,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
-	It("create policy", func() {
+	It("create policy", Label("e2e-tests-global-resource"), func() {
 		By("Add policy label to the managedcluster2")
 		patches := []patch{
 			{
@@ -110,7 +110,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 			},
 		}
 		Eventually(func() error {
-			err := updateClusterLabel(httpClient, patches, managedClusterUID2)
+			err := updateClusterLabelByAPI(httpClient, patches, managedClusterUID2)
 			if err != nil {
 				return err
 			}
@@ -205,7 +205,8 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete placement finalizer")
 		Eventually(func() error {
 			placements := &clusterv1beta1.PlacementList{}
-			if err := runtimeClient.List(ctx, placements, &client.ListOptions{}); err != nil {
+			if err := runtimeClient.List(ctx, placements, &client.ListOptions{}); err != nil &&
+				!errors.IsNotFound(err) {
 				return err
 			}
 			for idx := range placements.Items {
@@ -251,7 +252,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
-	It("prune application", func() {
+	It("prune application", Label("e2e-tests-global-resource"), func() {
 		By("Delete the application finalizer")
 		Eventually(func() error {
 			applications := &applicationv1beta1.ApplicationList{}
@@ -314,7 +315,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
-	It("prune policy", func() {
+	It("prune policy", Label("e2e-tests-global-resource"), func() {
 		By("Delete the policies finalizer")
 		Eventually(func() error {
 			policies := &policiesv1.PolicyList{}

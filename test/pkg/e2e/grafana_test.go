@@ -12,7 +12,6 @@ import (
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
 )
 
 const (
@@ -41,8 +40,8 @@ var _ = Describe("The alert configmap should be created", Ordered, Label("e2e-te
 				return err
 			}
 			if !equal {
-				klog.Errorf("defaultAlertConfigMap data: %v", defaultAlertConfigMap.Data[alertConfigMapKey])
-				klog.Errorf("mergedAlertConfigMap data: %v", mergedAlertConfigMap.Data)
+				return fmt.Errorf("mergedAlert %v is not equal with default %v",
+					mergedAlertConfigMap.Data, defaultAlertConfigMap.Data[alertConfigMapKey])
 			}
 			return nil
 		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
@@ -106,11 +105,8 @@ policies:
 			if mg == dg+cg && mp == dp+cp && mc == dc+cc {
 				return nil
 			}
-			klog.Errorf("defaultAlertConfigMap data: %v", defaultAlertConfigMap.Data[alertConfigMapKey])
-			klog.Errorf("mergedAlertConfigMap data: %v", mergedAlertConfigMap.Data)
-			klog.Errorf("customAlertConfigMap data: %v", customAlertConfigMap.Data)
-
-			return fmt.Errorf("mergedAlert is not equal with default and custom. mg:%v,mp:%v,mc:%v", mg, mp, mc)
+			return fmt.Errorf("mergedAlert is not equal with default and custom. default: %v, custom: %v, merged: %v",
+				defaultAlertConfigMap.Data[alertConfigMapKey], customAlertConfigMap.Data, mergedAlertConfigMap.Data)
 		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 
 		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, operatorconstants.CustomAlertName, metav1.DeleteOptions{})
@@ -131,9 +127,8 @@ policies:
 				return nil
 			}
 
-			klog.Errorf("defaultAlertConfigMap data: %v", defaultAlertConfigMap.Data)
-			klog.Errorf("mergedAlertConfigMap data: %v", mergedAlertConfigMap.Data)
-			return fmt.Errorf("mergedAlert is not equal with default.")
+			return fmt.Errorf("mergedAlert %v is not equal with default %v.",
+				mergedAlertConfigMap.Data, defaultAlertConfigMap.Data)
 		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 	})
 
@@ -173,9 +168,8 @@ policies:
 				return nil
 			}
 
-			klog.Errorf("defaultAlertConfigMap data: %v", defaultAlertConfigMap.Data[alertConfigMapKey])
-			klog.Errorf("mergedAlertConfigMap data: %v", mergedAlertConfigMap.Data)
-			return fmt.Errorf("mergedAlert is not equal with default.")
+			return fmt.Errorf("mergedAlert %v is not equal with default %v",
+				mergedAlertConfigMap.Data, defaultAlertConfigMap.Data[alertConfigMapKey])
 
 		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 

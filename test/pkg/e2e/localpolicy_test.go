@@ -69,15 +69,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 
 		It("add the label to a managedcluster for the local policy", func() {
 			By("Add local label to the managed cluster")
-			patches := []patch{
-				{
-					Op:    "add",
-					Path:  "/metadata/labels/" + LOCAL_POLICY_LABEL_KEY,
-					Value: LOCAL_POLICY_LABEL_VALUE,
-				},
-			}
 			for _, managedCluster := range managedClusters {
-				Expect(updateClusterLabel(httpClient, patches, GetClusterID(managedCluster))).Should(Succeed())
+				Expect(updateClusterLabel(managedCluster.GetName(), LOCAL_POLICY_LABEL_KEY+"="+LOCAL_POLICY_LABEL_VALUE)).Should(Succeed())
 			}
 			Eventually(func() error {
 				for _, managedCluster := range managedClusters {
@@ -121,7 +114,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						if err := rows.Scan(&leafhub, policy); err != nil {
 							return err
 						}
-						fmt.Printf("local_spec.policies: %s/%s \n", policy.Namespace, policy.Name)
 						for _, leafhubName := range leafHubNames {
 							if leafhub == leafhubName && policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
 								policies[leafhub] = policy
@@ -282,25 +274,6 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						}
 						if policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
 							return fmt.Errorf("the policy(%s) is not deleted from local_spec.policies", policy.GetName())
-						}
-					}
-					return nil
-				}, 1*time.Minute, 1*time.Second).Should(Succeed())
-
-				By("Verify the local placementrule is deleted from the spec table")
-				Eventually(func() error {
-					rows, err := postgresConn.Query(context.TODO(), "select payload from local_spec.placementrules")
-					if err != nil {
-						return err
-					}
-					defer rows.Close()
-					placementrule := &placementrulev1.PlacementRule{}
-					for rows.Next() {
-						if err := rows.Scan(placementrule); err != nil {
-							return err
-						}
-						if placementrule.Name == LOCAL_PLACEMENT_RULE_NAME && placementrule.Namespace == LOCAL_POLICY_NAMESPACE {
-							return fmt.Errorf("the placementrule(%s) is not deleted from local_spec.policies", placementrule.Name)
 						}
 					}
 					return nil

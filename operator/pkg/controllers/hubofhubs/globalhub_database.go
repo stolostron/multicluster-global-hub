@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/jackc/pgx/v4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -18,6 +19,9 @@ var DatabaseReconcileCounter = 0
 
 //go:embed database
 var databaseFS embed.FS
+
+//go:embed database.old
+var databaseOldFS embed.FS
 
 func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
@@ -56,7 +60,27 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		username = objURI.User.Username()
 	}
 
-	err = iofs.WalkDir(databaseFS, "database", func(file string, d iofs.DirEntry, beforeError error) error {
+	if err := applySQL(ctx, conn, databaseFS, "database", username); err != nil {
+		return err
+	}
+
+	if r.EnableGlobalResource {
+		if err := applySQL(ctx, conn, databaseOldFS, "database.old", username); err != nil {
+			return err
+		}
+	}
+
+	log.Info("database initialized")
+	DatabaseReconcileCounter++
+	err = condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE)
+	if err != nil {
+		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
+	}
+	return nil
+}
+
+func applySQL(ctx context.Context, conn *pgx.Conn, databaseFS embed.FS, rootDir, username string) error {
+	err := iofs.WalkDir(databaseFS, rootDir, func(file string, d iofs.DirEntry, beforeError error) error {
 		if beforeError != nil {
 			return beforeError
 		}
@@ -67,7 +91,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", file, err)
 		}
-		if file == "database/5.privileges.sql" {
+		if file == rootDir+"/5.privileges.sql" {
 			if username != "" {
 				_, err = conn.Exec(ctx, strings.ReplaceAll(string(sqlBytes), "$1", username))
 			}
@@ -81,13 +105,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to exec database sql: %w", err)
-	}
-
-	log.Info("database initialized")
-	DatabaseReconcileCounter++
-	err = condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE)
-	if err != nil {
-		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
 	}
 	return nil
 }

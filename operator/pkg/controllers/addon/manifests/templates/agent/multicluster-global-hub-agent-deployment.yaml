@@ -38,6 +38,7 @@ spec:
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
             - --kubernetes-event-exporter-config=/kube-event/config.yaml
+            - --enable-global-resource={{.EnableGlobalResource}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

@@ -158,7 +158,7 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient,
-		electionConfig, middlewareCfg)
+		electionConfig, middlewareCfg, true)
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())

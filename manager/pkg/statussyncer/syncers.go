@@ -61,18 +61,21 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 	dbSyncers := []dbsyncer.DBSyncer{
 		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-clusters-db-syncer")),
 		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies-db-syncer")),
-		dbsyncer.NewPlacementRulesDBSyncer(ctrl.Log.WithName("placement-rules-db-syncer")),
-		dbsyncer.NewPlacementsDBSyncer(ctrl.Log.WithName("placements-db-syncer")),
-		dbsyncer.NewPlacementDecisionsDBSyncer(ctrl.Log.WithName("placement-decisions-db-syncer")),
 		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-cluster-info-db-syncer")),
-		dbsyncer.NewSubscriptionStatusesDBSyncer(ctrl.Log.WithName("subscription-statuses-db-syncer")),
-		dbsyncer.NewSubscriptionReportsDBSyncer(ctrl.Log.WithName("subscription-reports-db-syncer")),
-		dbsyncer.NewLocalSpecPlacementruleSyncer(ctrl.Log.WithName(
-			"local-spec-placementrule-syncer")),
 		dbsyncer.NewLocalSpecPoliciesSyncer(ctrl.Log.WithName("local-spec-policy-syncer")),
 		dbsyncer.NewControlInfoDBSyncer(ctrl.Log.WithName("control-info-db-syncer")),
-		dbsyncer.NewLocalPoliciesStatusEventSyncer(
-			ctrl.Log.WithName("local-policies-status-event-syncer")),
+		dbsyncer.NewLocalPoliciesStatusEventSyncer(ctrl.Log.WithName("local-policies-status-event-syncer")),
+	}
+
+	if managerConfig.EnableGlobalResource {
+		dbSyncers = append(dbSyncers,
+			dbsyncer.NewPlacementRulesDBSyncer(ctrl.Log.WithName("placement-rules-db-syncer")),
+			dbsyncer.NewPlacementsDBSyncer(ctrl.Log.WithName("placements-db-syncer")),
+			dbsyncer.NewPlacementDecisionsDBSyncer(ctrl.Log.WithName("placement-decisions-db-syncer")),
+			dbsyncer.NewSubscriptionStatusesDBSyncer(ctrl.Log.WithName("subscription-statuses-db-syncer")),
+			dbsyncer.NewSubscriptionReportsDBSyncer(ctrl.Log.WithName("subscription-reports-db-syncer")),
+			dbsyncer.NewLocalSpecPlacementruleSyncer(ctrl.Log.WithName("local-spec-placementrule-syncer")),
+		)
 	}
 
 	for _, dbsyncerObj := range dbSyncers {
@@ -127,27 +130,29 @@ func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.Confl
 
 // only statistic the local policy and managed clusters
 func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (*statistics.Statistics, error) {
-	// create statistics
-	stats := statistics.NewStatistics(managerConfig.StatisticsConfig,
-		[]string{
-			helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
-			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
-			// helpers.GetBundleType(&statusbundle.DeltaComplianceStatusBundle{}),
-			// helpers.GetBundleType(&statusbundle.MinimalComplianceStatusBundle{}),
-			// helpers.GetBundleType(&statusbundle.PlacementRulesBundle{}),
+
+	bundleTypes := []string{
+		helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
+		helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
+		helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
+		helpers.GetBundleType(&status.BaseLeafHubClusterInfoStatusBundle{}),
+		helpers.GetBundleType(&status.BaseClusterPolicyStatusEventBundle{}),
+		helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
+		helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
+	}
+
+	if managerConfig.EnableGlobalResource {
+		bundleTypes = append(bundleTypes,
+			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
 			helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
 			helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
-			// helpers.GetBundleType(&statusbundle.SubscriptionStatusesBundle{}),
-			// helpers.GetBundleType(&statusbundle.SubscriptionReportsBundle{}),
-			helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
-			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
-			helpers.GetBundleType(&status.BaseLeafHubClusterInfoStatusBundle{}),
-			helpers.GetBundleType(&status.BaseClusterPolicyStatusEventBundle{}),
-		})
+			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
+			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
+		)
+	}
+	// create statistics
+	stats := statistics.NewStatistics(managerConfig.StatisticsConfig, bundleTypes)
+
 	if err := mgr.Add(stats); err != nil {
 		return nil, fmt.Errorf("failed to add statistics to manager - %w", err)
 	}
