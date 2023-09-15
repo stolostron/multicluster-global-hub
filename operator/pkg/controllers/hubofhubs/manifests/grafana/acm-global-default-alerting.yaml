@@ -77,8 +77,6 @@ data:
                         > <VARIABLE_LEFT_HOLDER> $v.Labels <VARIABLE_RIGHT_HOLDER>
                       <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
             summary: Suspicious policy change
-          labels:
-            alertname: suspicious policy changes
           isPaused: false
     - orgId: 1
       name: Suspicious Cluster Compliance Status Change
@@ -154,8 +152,6 @@ data:
                         > <VARIABLE_LEFT_HOLDER> $v.Labels <VARIABLE_RIGHT_HOLDER>
                       <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
             summary: Cluster is going in and out of compliance frequently
-          labels:
-            alertname: Cluster compliance status change frequently
           isPaused: false
         - uid: globalhub_high_number_of_policy_events
           title: High number of policy events in a cluster
@@ -226,8 +222,6 @@ data:
                         > <VARIABLE_LEFT_HOLDER> $v.Labels <VARIABLE_RIGHT_HOLDER>
                       <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
             summary: There are too many policy events in a cluster
-          labels:
-            alertname: High number of policy events in a cluster
           isPaused: false
     - orgId: 1
       name: Cron Job Failed
@@ -297,8 +291,6 @@ data:
           annotations:
             description: Data retention job failed, it may cause the stale data not cleaned up.
             summary: Data retention job failed
-          labels:
-            alertname: Data Retention Job failed
           isPaused: false
         - uid: globalhub_local_compliance_job
           title: Local Compliance Job failed
@@ -363,8 +355,6 @@ data:
           annotations:
             description: Local compliance job failed, it may cause the compliance data lost.
             summary: Local compliance job failed
-          labels:
-            alertname: Local Compliance Job failed
           isPaused: false
     templates:
       - orgID: 1
