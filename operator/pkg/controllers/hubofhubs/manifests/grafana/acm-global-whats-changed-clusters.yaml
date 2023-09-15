@@ -428,7 +428,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View policy \"${__data.fields.Policy}\" on hub cluster \"${__data.fields.Hub}\"",
-                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}/results?search=${__data.fields.Cluster}?perspective=acm"
+                        "url": "${hubConsoleURL}/multicloud/governance/policies/details/${__data.fields.Namespace}/${__data.fields.Policy}/results?search=${__data.fields.Cluster}&perspective=acm"
                       }
                     ]
                   },
