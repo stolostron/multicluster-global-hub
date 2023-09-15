@@ -164,12 +164,12 @@ func (syncer *PoliciesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx co
 			nonComplianceClusterSetsFromDB = NewPolicyClusterSets()
 		}
 		allNonComplianceClusters := nonComplianceClusterSetsFromDB.GetAllClusters()
-		batchUpsertCompliances := []models.LocalStatusCompliance{}
+		batchUpdateCompliances := []models.LocalStatusCompliance{}
 
 		// update in db batch the non Compliant clusters as it was reported by leaf hub
 		for _, clusterName := range policyComplianceStatus.NonCompliantClusters { // go over bundle non compliant clusters
 			if !nonComplianceClusterSetsFromDB.GetClusters(database.NonCompliant).Contains(clusterName) {
-				batchUpsertCompliances = append(batchUpsertCompliances, models.LocalStatusCompliance{
+				batchUpdateCompliances = append(batchUpdateCompliances, models.LocalStatusCompliance{
 					PolicyID:    policyComplianceStatus.PolicyID,
 					LeafHubName: leafHubName,
 					ClusterName: clusterName,
@@ -183,7 +183,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx co
 		// update in db batch the unknown clusters as it was reported by leaf hub
 		for _, clusterName := range policyComplianceStatus.UnknownComplianceClusters { // go over bundle unknown clusters
 			if !nonComplianceClusterSetsFromDB.GetClusters(database.Unknown).Contains(clusterName) {
-				batchUpsertCompliances = append(batchUpsertCompliances, models.LocalStatusCompliance{
+				batchUpdateCompliances = append(batchUpdateCompliances, models.LocalStatusCompliance{
 					PolicyID:    policyComplianceStatus.PolicyID,
 					LeafHubName: leafHubName,
 					ClusterName: clusterName,
@@ -199,7 +199,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx co
 			if !ok {
 				continue
 			}
-			batchUpsertCompliances = append(batchUpsertCompliances, models.LocalStatusCompliance{
+			batchUpdateCompliances = append(batchUpdateCompliances, models.LocalStatusCompliance{
 				PolicyID:    policyComplianceStatus.PolicyID,
 				LeafHubName: leafHubName,
 				ClusterName: clusterName,
@@ -208,11 +208,17 @@ func (syncer *PoliciesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx co
 			})
 		}
 
-		err = db.Clauses(clause.OnConflict{
-			UpdateAll: true,
-		}).CreateInBatches(batchUpsertCompliances, 100).Error
+		err = db.Transaction(func(tx *gorm.DB) error {
+			for _, compliance := range batchUpdateCompliances {
+				e := tx.Updates(compliance).Error
+				if e != nil {
+					return e
+				}
+			}
+			return nil
+		})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed upating compliances from local complainces - %w", err)
 		}
 
 		// for policies that are found in the db but not in the bundle - all clusters are Compliant (implicitly)
@@ -222,7 +228,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx co
 	// update policies not in the bundle - all is Compliant
 	err = db.Transaction(func(tx *gorm.DB) error {
 		for policyID := range allPolicyComplianceRowsFromDB {
-			err := db.Model(&models.LocalStatusCompliance{}).Where("policy_id = ? AND leaf_hub_name = ?",
+			err := tx.Model(&models.LocalStatusCompliance{}).Where("policy_id = ? AND leaf_hub_name = ?",
 				policyID, leafHubName).Updates(&models.LocalStatusCompliance{Compliance: database.Compliant}).Error
 			if err != nil {
 				return err
