@@ -53,6 +53,8 @@ const (
 	AnnotationStatisticInterval = "mgh-statistic-interval"
 	// AnnotationONMulticlusterHub indicates the addons are running on a hub cluster
 	AnnotationONMulticlusterHub = "addon.open-cluster-management.io/on-multicluster-hub"
+	// AnnotationPolicyONMulticlusterHub indicates the policy spec sync is running on a hub cluster
+	AnnotationPolicyONMulticlusterHub = "policy.open-cluster-management.io/sync-policies-on-multicluster-hub"
 )
 
 // hub installation constants

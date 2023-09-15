@@ -2,9 +2,9 @@ package hubofhubs
 
 import (
 	"context"
-	"strings"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -21,23 +21,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManagedHubs(ctx context.Conte
 			continue
 		}
 		annotations := managedHub.GetAnnotations()
-		if val, ok := annotations[constants.AnnotationONMulticlusterHub]; ok {
-			if !strings.EqualFold(val, "true") {
-				clusters.Items[idx].SetAnnotations(map[string]string{
-					constants.AnnotationONMulticlusterHub: "true",
-				})
-				if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
-					return err
-				}
-			}
-			continue
-		}
-		// does not have the annotation, add it
 		clusters.Items[idx].SetAnnotations(map[string]string{
-			constants.AnnotationONMulticlusterHub: "true",
+			constants.AnnotationONMulticlusterHub:       "true",
+			constants.AnnotationPolicyONMulticlusterHub: "true",
 		})
-		if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
-			return err
+		if !equality.Semantic.DeepEqual(annotations, clusters.Items[idx].GetAnnotations()) {
+			if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -57,8 +48,9 @@ func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) 
 			continue
 		}
 		annotations := managedHub.GetAnnotations()
-		if _, ok := annotations[constants.AnnotationONMulticlusterHub]; ok {
-			delete(annotations, constants.AnnotationONMulticlusterHub)
+		delete(annotations, constants.AnnotationONMulticlusterHub)
+		delete(annotations, constants.AnnotationPolicyONMulticlusterHub)
+		if !equality.Semantic.DeepEqual(annotations, clusters.Items[idx].GetAnnotations()) {
 			if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
 				return err
 			}
