@@ -4,7 +4,7 @@ export KUBECONFIG=${KUBECONFIG:-$1}
 echo "KUBECONFIG=$KUBECONFIG"
 
 while [ true ]; do
-    pgha="$(oc get pods -n multicluster-global-hub-postgres |grep hoh-pgha |awk '{print $1}' || true)"
+    pgha="$(oc get pods -n multicluster-global-hub |grep hoh-pgha |awk '{print $1}' || true)"
     if [ "$pgha" != "" ]; then
         echo "database pod $pgha"
         break
@@ -25,7 +25,7 @@ stopwatch &
 
 while [ true ]; do
     sleep 0.4
-    num=$(oc exec -i $pgha -c database -n multicluster-global-hub-postgres -- psql -A -t -U postgres -d hoh -c "select count(1) from status.managed_clusters" | grep -v row | grep -oP '\d*' || echo 0)
+    num=$(oc exec -i $pgha -c database -n multicluster-global-hub -- psql -A -t -U postgres -d hoh -c "select count(1) from status.managed_clusters" | grep -v row | grep -oP '\d*' || echo 0)
     if [ "$num" -gt 0 ]; then
         echo " [ MCs: $num ] "
     fi

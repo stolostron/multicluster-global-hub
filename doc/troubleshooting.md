@@ -9,52 +9,52 @@ Depending on the type of service, there are three ways to access the [provisione
 * `ClusterIP` service
     1. Run the following command to determine your postgres connection URI:
         ```
-        kubectl get secrets -n multicluster-global-hub-postgres hoh-pguser-postgres -o go-template='{{index (.data) "uri" | base64decode}}'
+        kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "uri" | base64decode}}'
         ```
     2. Run the following command to access the database:
         ```
-        kubectl exec -it $(kubectl get pods -n multicluster-global-hub-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub-postgres -- psql -U postgres -d hoh -c "SELECT 1"
+        kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- psql -U postgres -d hoh -c "SELECT 1"
         ```
 
 * `NodePort` service
     1. Run the following command to modify the service to NodePort, set the host to be the node IP, and set the port to 32432: 
         ```
-        kubectl patch postgrescluster hoh -n multicluster-global-hub-postgres -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
+        kubectl patch postgrescluster hoh -n multicluster-global-hub -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
         ```
     2. Run the following command to add your username: 
         ```
-        kubectl get secrets -n multicluster-global-hub-postgres hoh-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
+        kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
         ```
     3. Run the following command to add your password: 
         ```
-        kubectl get secrets -n multicluster-global-hub-postgres hoh-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
+        kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
         ```
     4. Run the following command to add your database name: 
         ```
-        kubectl get secrets -n multicluster-global-hub-postgres hoh-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
+        kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
         ```
 
 * `LoadBalancer`
     1. Set the service type to `LoadBalancer` by running the following command:
         ```
-        kubectl patch postgrescluster hoh -n multicluster-global-hub-postgres -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
+        kubectl patch postgrescluster hoh -n multicluster-global-hub -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
         ```
         The default port is 5432
     2. Run the following command to set your hostname:
         ```
-        kubectl get svc -n multicluster-global-hub-postgres hoh-ha -ojsonpath='{.status.loadBalancer.ingress[0].hostname}'
+        kubectl get svc -n multicluster-global-hub postgres-ha -ojsonpath='{.status.loadBalancer.ingress[0].hostname}'
         ```
     4. Run the following command to add your username: 
         ```
-        kubectl get secrets -n multicluster-global-hub-postgres hoh-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
+        kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
         ```
     3. Run the following command to add your password: 
         ```
-        kubectl get secrets -n multicluster-global-hub-postgres hoh-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
+        kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
         ```
     4. Run the following command to add your database name: 
         ```
-        kubectl get secrets -n multicluster-global-hub-postgres hoh-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
+        kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
         ```
 
 ## Running the must-gather command for troubleshooting
@@ -126,7 +126,7 @@ pg_dump hoh > hoh.sql
 To dump global hub database located on some remote server with compressed format, use the command-line options to control the connection details:
 
 ```
-pg_dump -h my.host.com -p 5432 -U postgres -F t hoh -f hoh-$(date +%d-%m-%y_%H-%M).tar
+pg_dump -h my.host.com -p 5432 -U postgres -F t hoh -f postgres-$(date +%d-%m-%y_%H-%M).tar
 ```
 
 ### Restore Database from Dump
@@ -140,7 +140,7 @@ psql -h another.host.com -p 5432 -U postgres -d hoh < hoh.sql
 The `pg_restore` tool is used to restore a PostgreSQL database from an archive created by `pg_dump` in one of the non-plain-text formats (custom, tar, or directory):
 
 ```
-pg_restore -h another.host.com -p 5432 -U postgres -d hoh hoh-$(date +%d-%m-%y_%H-%M).tar
+pg_restore -h another.host.com -p 5432 -U postgres -d hoh postgres-$(date +%d-%m-%y_%H-%M).tar
 ```
 
 ## Cronjob Compliance Data Restore

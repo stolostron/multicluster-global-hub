@@ -2,7 +2,7 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: kafka
-  namespace: multicluster-global-hub-kafka
+  namespace: multicluster-global-hub
 spec:
   kafka:
     replicas: 3
@@ -36,7 +36,7 @@ spec:
       transaction.state.log.replication.factor: 3
       transaction.state.log.min.isr: 2
       log.message.format.version: 3.3
-      inter.broker.protocol.version: 3.3
+      inter.broker.protocol.version: 3.4
       ssl.cipher.suites: "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
       ssl.enabled.protocols: "TLSv1.2"
       ssl.protocol: "TLSv1.2"

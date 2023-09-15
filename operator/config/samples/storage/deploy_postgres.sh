@@ -15,21 +15,23 @@ if [ ! -z "$ready" ]; then
 fi
 
 # step2: deploy postgres operator pgo
-kubectl create namespace multicluster-global-hub-postgres --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace multicluster-global-hub --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f ${currentDir}/postgres-subscription.yaml
-waitAppear "kubectl get pods -n multicluster-global-hub-postgres --ignore-not-found=true | grep pgo | grep Running || true"
-# kubectl -n multicluster-global-hub-postgres wait --for=condition=Available Deployment/"pgo" --timeout=1000s
+waitAppear "kubectl get pods -n multicluster-global-hub --ignore-not-found=true | grep pgo | grep Running || true"
+# kubectl -n multicluster-global-hub wait --for=condition=Available Deployment/"pgo" --timeout=1000s
 
 # step3: deploy postgres cluster
 kubectl apply -f ${currentDir}/postgres-cluster.yaml
-waitAppear "kubectl get secret hoh-pguser-postgres -n multicluster-global-hub-postgres --ignore-not-found=true"
-waitAppear "kubectl get secret hoh-pguser-guest -n multicluster-global-hub-postgres --ignore-not-found=true"
 
 # step4: generate storage secret
-pgnamespace="multicluster-global-hub-postgres"
-superuserSecret="hoh-pguser-postgres"
-readonlyuserSecret="hoh-pguser-guest"
-certSecret="hoh-cluster-cert"
+pgnamespace="multicluster-global-hub"
+superuserSecret="postgres-pguser-postgres"
+readonlyuserSecret="postgres-pguser-guest"
+certSecret="postgres-cluster-cert"
+
+waitAppear "kubectl get secret $superuserSecret -n multicluster-global-hub --ignore-not-found=true"
+waitAppear "kubectl get secret $readonlyuserSecret -n multicluster-global-hub --ignore-not-found=true"
+waitAppear "kubectl get secret $certSecret -n multicluster-global-hub --ignore-not-found=true"
 
 superuserDatabaseURI=$(kubectl get secrets -n "${pgnamespace}" "${superuserSecret}" -o go-template='{{index (.data) "uri" | base64decode}}')
 readonlyuserDatabaseURI=$(kubectl get secrets -n "${pgnamespace}" "${readonlyuserSecret}" -o go-template='{{index (.data) "uri" | base64decode}}')

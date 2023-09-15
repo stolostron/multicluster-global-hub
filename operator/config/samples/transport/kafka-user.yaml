@@ -2,7 +2,7 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
   name: global-hub-kafka-user
-  namespace: multicluster-global-hub-kafka
+  namespace: multicluster-global-hub
   labels:
     strimzi.io/cluster: kafka
 spec:

@@ -12,20 +12,19 @@ kubectl delete secret ${transportSecret} -n $targetNamespace
 
 # step2: delete kafka topics
 kubectl delete -f ${currentDir}/kafka-topics.yaml
-waitDisappear "kubectl get kafkatopic spec -n multicluster-global-hub-kafka --ignore-not-found | grep spec || true"
-waitDisappear "kubectl get kafkatopic status -n multicluster-global-hub-kafka --ignore-not-found | grep status || true"
+waitDisappear "kubectl get kafkatopic spec -n $targetNamespace --ignore-not-found | grep spec || true"
+waitDisappear "kubectl get kafkatopic status -n $targetNamespace --ignore-not-found | grep status || true"
+waitDisappear "kubectl get kafkatopic event -n $targetNamespace --ignore-not-found | grep status || true"
 
 # step3: delete kafka cluster
 kubectl delete -f ${currentDir}/kafka-cluster.yaml
-waitDisappear "kubectl -n multicluster-global-hub-kafka get kafka.kafka.strimzi.io/kafka --ignore-not-found"
+waitDisappear "kubectl -n $targetNamespace get kafka.kafka.strimzi.io/kafka --ignore-not-found"
 
 # step4: delete kafka operator
 kubectl delete -f ${currentDir}/kafka-subscription.yaml
-kubectl delete deploy --all -n multicluster-global-hub-kafka
-waitDisappear "kubectl get pods -n multicluster-global-hub-kafka | grep strimzi-cluster-operator | grep Running || true"
-
-# step5: delete kafka namesapce
-kubectl delete namespace multicluster-global-hub-kafka
+kafkaOperator=$(kubectl get deploy -n $targetNamespace | grep strimzi-cluster-operator | awk '{print $1}')
+kubectl delete deploy $kafkaOperator -n $targetNamespace
+waitDisappear "kubectl get pods -n $targetNamespace | grep strimzi-cluster-operator | grep Running || true"
 
 
 
