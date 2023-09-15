@@ -13,7 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
-func (syncer *PoliciesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.Context, bundle status.Bundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	db := database.GetGorm()
@@ -30,7 +30,8 @@ func (syncer *PoliciesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.C
 			continue // do not handle objects other than PolicyGenericComplianceStatus
 		}
 
-		policyClusterSetFromDB, policyExistsInDB := allPolicyClusterSetsFromDB[clustersPerPolicyFromBundle.PolicyID]
+		policyClusterSetFromDB, policyExistsInDB :=
+			allPolicyClusterSetsFromDB[clustersPerPolicyFromBundle.PolicyID]
 		if !policyExistsInDB {
 			policyClusterSetFromDB = NewPolicyClusterSets()
 		}
@@ -138,7 +139,7 @@ func addClustersForLocalPolicies(leafHub, policyID string, bundleClusters []stri
 	return allClusterFromDB, allCompliances
 }
 
-func (syncer *PoliciesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx context.Context,
+func (syncer *CompliancesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx context.Context,
 	bundle status.Bundle,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
@@ -159,7 +160,8 @@ func (syncer *PoliciesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx co
 			continue // do not handle objects other than PolicyComplianceStatus
 		}
 		// nonCompliantClusters includes both non Compliant and Unknown clusters
-		nonComplianceClusterSetsFromDB, policyExistsInDB := allPolicyComplianceRowsFromDB[policyComplianceStatus.PolicyID]
+		nonComplianceClusterSetsFromDB, policyExistsInDB :=
+			allPolicyComplianceRowsFromDB[policyComplianceStatus.PolicyID]
 		if !policyExistsInDB {
 			nonComplianceClusterSetsFromDB = NewPolicyClusterSets()
 		}

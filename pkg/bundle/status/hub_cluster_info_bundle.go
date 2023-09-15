@@ -6,15 +6,15 @@ type LeafHubClusterInfo struct {
 	ConsoleURL  string `json:"consoleURL"`
 }
 
-// BaseLeafHubClusterInfoStatusBundle the bundle for the hub cluster info.
-type BaseLeafHubClusterInfoStatusBundle struct {
+// HubClusterInfoBundle the bundle for the hub cluster info.
+type HubClusterInfoBundle struct {
 	Objects       []*LeafHubClusterInfo `json:"objects"`
 	LeafHubName   string                `json:"leafHubName"`
 	BundleVersion *BundleVersion        `json:"bundleVersion"`
 }
 
 // GetObjects return all the objects that the bundle holds.
-func (baseBundle *BaseLeafHubClusterInfoStatusBundle) GetObjects() []interface{} {
+func (baseBundle *HubClusterInfoBundle) GetObjects() []interface{} {
 	result := make([]interface{}, len(baseBundle.Objects))
 	for i, obj := range baseBundle.Objects {
 		result[i] = obj
@@ -24,16 +24,16 @@ func (baseBundle *BaseLeafHubClusterInfoStatusBundle) GetObjects() []interface{}
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
-func (baseBundle *BaseLeafHubClusterInfoStatusBundle) GetLeafHubName() string {
+func (baseBundle *HubClusterInfoBundle) GetLeafHubName() string {
 	return baseBundle.LeafHubName
 }
 
 // GetVersion returns the bundle version.
-func (baseBundle *BaseLeafHubClusterInfoStatusBundle) GetVersion() *BundleVersion {
+func (baseBundle *HubClusterInfoBundle) GetVersion() *BundleVersion {
 	return baseBundle.BundleVersion
 }
 
-func (baseBundle *BaseLeafHubClusterInfoStatusBundle) SetVersion(version *BundleVersion) {
+func (baseBundle *HubClusterInfoBundle) SetVersion(version *BundleVersion) {
 	baseBundle.BundleVersion = version
 }
 

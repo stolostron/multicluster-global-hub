@@ -59,24 +59,26 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 
 	// register db syncers create bundle functions within transport and handler functions within dispatcher
 	dbSyncers := []dbsyncer.DBSyncer{
-		dbsyncer.NewControlInfoDBSyncer(ctrl.Log.WithName("control-info-db-syncer")),
-		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-cluster-info-db-syncer")),
-		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-clusters-db-syncer")),
-		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies-db-syncer")),
-		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-cluster-info-db-syncer")),
-		dbsyncer.NewLocalSpecPoliciesSyncer(ctrl.Log.WithName("local-spec-policy-syncer")),
-		dbsyncer.NewControlInfoDBSyncer(ctrl.Log.WithName("control-info-db-syncer")),
-		dbsyncer.NewLocalPoliciesStatusEventSyncer(ctrl.Log.WithName("local-policies-status-event-syncer")),
+		dbsyncer.NewHubClusterHeartbeatDBSyncer(ctrl.Log.WithName("hub-heartbeat-syncer")),
+		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-info-syncer")),
+		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-cluster-syncer")),
+		dbsyncer.NewCompliancesDBSyncer(ctrl.Log.WithName("compliances-syncer")),
+		dbsyncer.NewLocalPolicySpecSyncer(ctrl.Log.WithName("local-policy-spec-syncer")),
+		dbsyncer.NewLocalPolicyEventSyncer(ctrl.Log.WithName("local-policy-event-syncer")),
 	}
 
 	if managerConfig.EnableGlobalResource {
 		dbSyncers = append(dbSyncers,
 			dbsyncer.NewPlacementRulesDBSyncer(ctrl.Log.WithName("placement-rules-db-syncer")),
 			dbsyncer.NewPlacementsDBSyncer(ctrl.Log.WithName("placements-db-syncer")),
-			dbsyncer.NewPlacementDecisionsDBSyncer(ctrl.Log.WithName("placement-decisions-db-syncer")),
-			dbsyncer.NewSubscriptionStatusesDBSyncer(ctrl.Log.WithName("subscription-statuses-db-syncer")),
-			dbsyncer.NewSubscriptionReportsDBSyncer(ctrl.Log.WithName("subscription-reports-db-syncer")),
-			dbsyncer.NewLocalSpecPlacementruleSyncer(ctrl.Log.WithName("local-spec-placementrule-syncer")),
+			dbsyncer.NewPlacementDecisionsDBSyncer(
+				ctrl.Log.WithName("placement-decisions-db-syncer")),
+			dbsyncer.NewSubscriptionStatusesDBSyncer(
+				ctrl.Log.WithName("subscription-statuses-db-syncer")),
+			dbsyncer.NewSubscriptionReportsDBSyncer(
+				ctrl.Log.WithName("subscription-reports-db-syncer")),
+			dbsyncer.NewLocalSpecPlacementruleSyncer(
+				ctrl.Log.WithName("local-spec-placementrule-syncer")),
 		)
 	}
 
@@ -133,11 +135,11 @@ func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.Confl
 // only statistic the local policy and managed clusters
 func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (*statistics.Statistics, error) {
 	bundleTypes := []string{
+		helpers.GetBundleType(&status.HubClusterInfoBundle{}),
+		helpers.GetBundleType(&statusbundle.HubClusterHeartbeatBundle{}),
 		helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
-		helpers.GetBundleType(&statusbundle.ControlInfoBundle{}),
 		helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
-		helpers.GetBundleType(&status.BaseLeafHubClusterInfoStatusBundle{}),
-		helpers.GetBundleType(&status.BaseClusterPolicyStatusEventBundle{}),
+		helpers.GetBundleType(&status.ClusterPolicyEventBundle{}),
 		helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
 		helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
 	}

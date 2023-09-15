@@ -19,7 +19,7 @@ import (
 // this bundle is triggered only when policy was added/removed or when placement rule has changed which caused list of
 // clusters (of at least one policy) to change.
 // in other cases where only compliance status change, only compliance bundle is received.
-func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleClustersPerPolicyBundle(ctx context.Context, bundle status.Bundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	db := database.GetGorm()
@@ -162,7 +162,7 @@ func handleClustersPerPolicyWithTx(tx *gorm.DB, leafHub, policyID string, bundle
 // was already handled and base bundle was already handled successfully)
 // we assume that 'ClustersPerPolicy' handler function handles the addition or removal of clusters rows.
 // in this handler function, we handle only the existing clusters rows.
-func (syncer *PoliciesDBSyncer) handleCompleteStatusComplianceBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleCompleteStatusComplianceBundle(ctx context.Context, bundle status.Bundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	db := database.GetGorm()
@@ -265,7 +265,7 @@ func updateStatusCompliance(tx *gorm.DB, policyID string, leafHubName string, cl
 }
 
 // if we got to the handler function, then the bundle pre-conditions were satisfied.
-func (syncer *PoliciesDBSyncer) handleDeltaComplianceBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleDeltaComplianceBundle(ctx context.Context, bundle status.Bundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	db := database.GetGorm()
@@ -314,7 +314,7 @@ func (syncer *PoliciesDBSyncer) handleDeltaComplianceBundle(ctx context.Context,
 }
 
 // if we got to the handler function, then the bundle pre-conditions are satisfied.
-func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleMinimalComplianceBundle(ctx context.Context, bundle status.Bundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	schemaTable := database.StatusSchema + "." + database.MinimalComplianceTable

@@ -22,7 +22,7 @@ import (
 func NewLocalPolicyEventSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &localPoliciesStatusEventSyncer{
 		log:                                    log,
-		createLocalPolicyStatusEventBundleFunc: status.NewClusterPolicyStatusEventBundle,
+		createLocalPolicyStatusEventBundleFunc: status.NewClusterPolicyEventBundle,
 	}
 	log.Info("initialized local policies status event syncer")
 	return dbSyncer

@@ -47,7 +47,7 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 		By("Create ClusterPolicyStatusEventBundle")
 		version := status.NewBundleVersion()
 		version.Incr()
-		baseClusterPolicyStatusEventBundle := status.BaseClusterPolicyStatusEventBundle{
+		baseClusterPolicyStatusEventBundle := status.ClusterPolicyEventBundle{
 			PolicyStatusEvents: make(map[string][]*models.LocalClusterPolicyEvent),
 			LeafHubName:        leafHubName,
 			BundleVersion:      version,

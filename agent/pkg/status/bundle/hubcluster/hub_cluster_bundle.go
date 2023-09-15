@@ -12,7 +12,7 @@ import (
 // LeafHubClusterInfoStatusBundle creates a new instance of LeafHubClusterInfoStatusBundle.
 func NewLeafHubClusterInfoStatusBundle(leafHubName string) agentbundle.Bundle {
 	return &LeafHubClusterInfoStatusBundle{
-		BaseLeafHubClusterInfoStatusBundle: statusbundle.BaseLeafHubClusterInfoStatusBundle{
+		HubClusterInfoBundle: statusbundle.HubClusterInfoBundle{
 			Objects:       make([]*statusbundle.LeafHubClusterInfo, 0),
 			LeafHubName:   leafHubName,
 			BundleVersion: statusbundle.NewBundleVersion(),
@@ -23,7 +23,7 @@ func NewLeafHubClusterInfoStatusBundle(leafHubName string) agentbundle.Bundle {
 
 // LeafHubClusterInfoStatusBundle holds information for leaf hub cluster info status bundle.
 type LeafHubClusterInfoStatusBundle struct {
-	statusbundle.BaseLeafHubClusterInfoStatusBundle
+	statusbundle.HubClusterInfoBundle
 	lock sync.Mutex
 }
 

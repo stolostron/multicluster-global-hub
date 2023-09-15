@@ -17,11 +17,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
-// NewControlInfoDBSyncer creates a new instance of ControlInfoDBSyncer.
-func NewControlInfoDBSyncer(log logr.Logger) DBSyncer {
-	dbSyncer := &ControlInfoDBSyncer{
+// NewHubClusterHeartbeatDBSyncer creates a new instance of ControlInfoDBSyncer.
+func NewHubClusterHeartbeatDBSyncer(log logr.Logger) DBSyncer {
+	dbSyncer := &HubClusterHeartbeatDBSyncer{
 		log:              log,
-		createBundleFunc: statusbundle.NewControlInfoBundle,
+		createBundleFunc: statusbundle.NewHubClusterInfoBundle,
 	}
 
 	log.Info("initialized control info db syncer")
@@ -29,14 +29,14 @@ func NewControlInfoDBSyncer(log logr.Logger) DBSyncer {
 	return dbSyncer
 }
 
-// ControlInfoDBSyncer implements control info transport to db sync.
-type ControlInfoDBSyncer struct {
+// HubClusterHeartbeatDBSyncer implements control info transport to db sync.
+type HubClusterHeartbeatDBSyncer struct {
 	log              logr.Logger
 	createBundleFunc status.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *ControlInfoDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
+func (syncer *HubClusterHeartbeatDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.ControlInfoMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
@@ -45,7 +45,7 @@ func (syncer *ControlInfoDBSyncer) RegisterCreateBundleFunctions(transportDispat
 }
 
 // RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
-func (syncer *ControlInfoDBSyncer) RegisterBundleHandlerFunctions(
+func (syncer *HubClusterHeartbeatDBSyncer) RegisterBundleHandlerFunctions(
 	conflationManager *conflator.ConflationManager,
 ) {
 	conflationManager.Register(conflator.NewConflationRegistration(
@@ -58,7 +58,7 @@ func (syncer *ControlInfoDBSyncer) RegisterBundleHandlerFunctions(
 	))
 }
 
-func (syncer *ControlInfoDBSyncer) handleControlInfoBundle(ctx context.Context, bundle status.Bundle,
+func (syncer *HubClusterHeartbeatDBSyncer) handleControlInfoBundle(ctx context.Context, bundle status.Bundle,
 	dbClient postgres.ControlInfoDB,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)

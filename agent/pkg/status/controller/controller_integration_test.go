@@ -29,7 +29,7 @@ import (
 )
 
 var msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
-	constants.ControlInfoMsgKey:              statusbundle.NewControlInfoBundle,
+	constants.ControlInfoMsgKey:              statusbundle.NewHubClusterInfoBundle,
 	constants.ManagedClustersMsgKey:          statusbundle.NewManagedClustersStatusBundle,
 	constants.ClustersPerPolicyMsgKey:        statusbundle.NewClustersPerPolicyBundle,
 	constants.PolicyCompleteComplianceMsgKey: statusbundle.NewCompleteComplianceStatusBundle,
@@ -40,7 +40,7 @@ var msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
 	constants.PlacementMsgKey:                statusbundle.NewPlacementsBundle,
 	constants.PlacementDecisionMsgKey:        statusbundle.NewPlacementDecisionsBundle,
 	constants.HubClusterInfoMsgKey: func() status.Bundle {
-		return &status.BaseLeafHubClusterInfoStatusBundle{}
+		return &status.HubClusterInfoBundle{}
 	},
 }
 
@@ -535,8 +535,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
-			subscriptionReportsStatusBundle, ok :=
-				statusBundle.(*statusbundle.SubscriptionReportsBundle)
+			subscriptionReportsStatusBundle, ok := statusBundle.(*statusbundle.SubscriptionReportsBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type, want PlacementDecisionsBundle")
 			}
