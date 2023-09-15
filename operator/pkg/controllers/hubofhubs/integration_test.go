@@ -558,6 +558,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Name:      "mh2",
 					Namespace: config.GetDefaultNamespace(),
 					Annotations: map[string]string{
+						"foo": "bar",
 						operatorconstants.AnnotationONMulticlusterHub: "false",
 					},
 				},
