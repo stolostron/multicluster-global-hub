@@ -296,7 +296,7 @@ After installing the global hub operand, the global hub manager starts running a
 
   At 0 o'clock every day, based on the policy status and events collected by the manager on the previous day. Running the job to summarize the compliance status and change frequency of the policy on the cluster, and store them to the `history.local_compliance` table as the data source of grafana dashboards. Please refer to [here](./how_global_hub_works.md) for more details.
 
-#### Partition job
+#### Data retention job
 
   Some data tables in global hub will continue to grow over time. Generally, they fall into two categories: the policy event tables and the `history.local_compliance` growing every day, the tables containing soft deleted records. The former generates a large amount of data, we use range partitioning to break down the large tables into small partitions. Which helps in executing queries/deletions on these tables faster. The later has a small amount of data, and we add `deletedAt` indexes to these tables to obtain better hard delete performance.
 
