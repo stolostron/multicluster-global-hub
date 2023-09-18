@@ -19,7 +19,7 @@ Depending on the type of service, there are three ways to access the [provisione
 * `NodePort` service
     1. Run the following command to modify the service to NodePort, set the host to be the node IP, and set the port to 32432: 
         ```
-        kubectl patch postgrescluster hoh -n multicluster-global-hub -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
+        kubectl patch postgrescluster postgres -n multicluster-global-hub -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
         ```
     2. Run the following command to add your username: 
         ```
@@ -37,7 +37,7 @@ Depending on the type of service, there are three ways to access the [provisione
 * `LoadBalancer`
     1. Set the service type to `LoadBalancer` by running the following command:
         ```
-        kubectl patch postgrescluster hoh -n multicluster-global-hub -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
+        kubectl patch postgrescluster postgres -n multicluster-global-hub -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
         ```
         The default port is 5432
     2. Run the following command to set your hostname:
