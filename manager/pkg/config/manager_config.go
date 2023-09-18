@@ -37,5 +37,5 @@ type DatabaseConfig struct {
 	TransportBridgeDatabaseURL string
 	CACertPath                 string
 	MaxOpenConns               int
-	DataRetention              string
+	DataRetention              int
 }

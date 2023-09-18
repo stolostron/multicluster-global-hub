@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -56,28 +55,22 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 
 	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
-	dataRetention := mgh.Spec.DataLayer.Postgres.Retention
-	duration, err := commonutils.ParseDuration(mgh.Spec.DataLayer.Postgres.Retention)
+	months, err := commonutils.ParseRetentionMonth(mgh.Spec.DataLayer.Postgres.Retention)
 	// if parsing fails, then set the error message to the condition
 	if err != nil {
-		e := condition.SetConditionDataRetention(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_FALSE, err.Error())
+		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE, err.Error())
 		if e != nil {
-			return condition.FailToSetConditionError(
-				condition.CONDITION_TYPE_RETENTION_PARSED, e)
+			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, e)
 		}
-		return fmt.Errorf("failed to parse data retention duration: %v", err)
+		return fmt.Errorf("failed to parse month retention: %v", err)
 	}
-	if duration < time.Duration(30*24*time.Hour) {
-		dataRetention = "1m"
-		duration = time.Duration(30 * 24 * time.Hour)
+	if months < 1 {
+		months = 1
 	}
 	// If parsing succeeds, update the MGH status and message of the condition if they are not set or changed
-	msg := fmt.Sprintf("The data will be kept in the database for %d months.", int(duration.Hours()/24/30))
-	if e := condition.SetConditionDataRetention(ctx, r.Client, mgh,
-		condition.CONDITION_STATUS_TRUE, msg); e != nil {
-		return condition.FailToSetConditionError(
-			condition.CONDITION_TYPE_RETENTION_PARSED, err)
+	msg := fmt.Sprintf("The data will be kept in the database for %d months.", months)
+	if e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE, msg); e != nil {
+		return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, err)
 	}
 
 	replicas := int32(1)
@@ -110,7 +103,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			SkipAuth               bool
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
-			DataRetention          string
+			RetentionMonth         int
 			StatisticLogInterval   string
 			EnableGlobalResource   bool
 		}{
@@ -137,7 +130,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			SkipAuth:               config.SkipAuth(mgh),
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
-			DataRetention:          dataRetention,
+			RetentionMonth:         months,
 			StatisticLogInterval:   config.GetStatisticLogInterval(),
 			EnableGlobalResource:   r.EnableGlobalResource,
 		}, nil

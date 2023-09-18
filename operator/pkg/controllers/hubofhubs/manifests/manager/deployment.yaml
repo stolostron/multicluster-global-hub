@@ -41,7 +41,7 @@ spec:
             {{- if .SchedulerInterval}}
             - --scheduler-interval={{.SchedulerInterval}}
             {{- end}}
-            - --data-retention={{.DataRetention}}
+            - --data-retention={{.RetentionMonth}}
             - --statistics-log-interval={{.StatisticLogInterval}}
             {{- if eq .SkipAuth true}}
             - --cluster-api-url=

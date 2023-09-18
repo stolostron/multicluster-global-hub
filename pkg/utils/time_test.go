@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -66,4 +67,33 @@ func TestParseDuration(t *testing.T) {
 			assert.Equal(t, tc.expected, duration)
 		})
 	}
+}
+
+func TestParseRetention(t *testing.T) {
+	s := "-1y4m"
+	m, e := ParseRetentionMonth(s)
+	assert.EqualError(t, e, fmt.Errorf("invalid retention %s", s).Error())
+
+	s = "2y"
+	m, e = ParseRetentionMonth(s)
+	assert.ErrorIs(t, e, nil)
+	assert.Equal(t, 24, m)
+
+	s = "6m"
+	m, e = ParseRetentionMonth(s)
+	assert.ErrorIs(t, e, nil)
+	assert.Equal(t, 6, m)
+
+	s = "3m2y"
+	m, e = ParseRetentionMonth(s)
+	assert.ErrorIs(t, e, nil)
+	assert.Equal(t, 27, m)
+
+	s = "-y"
+	m, e = ParseRetentionMonth(s)
+	assert.EqualError(t, e, fmt.Errorf("invalid retention %s", s).Error())
+
+	s = "2+m"
+	m, e = ParseRetentionMonth(s)
+	assert.EqualError(t, e, fmt.Errorf("invalid retention %s", s).Error())
 }

@@ -47,7 +47,7 @@ func init() {
 	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(retentionTaskName).Set(0)
 }
 
-func DataRetention(ctx context.Context, pool *pgxpool.Pool, retention time.Duration, job gocron.Job) {
+func DataRetention(ctx context.Context, pool *pgxpool.Pool, retentionMonth int, job gocron.Job) {
 	currentTime := time.Now()
 
 	var err error
@@ -60,7 +60,7 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, retention time.Durat
 	}()
 
 	creationPartitionTime := currentTime.AddDate(0, 1, 0)
-	deletionPartitionTime := currentTime.Add(-retention).AddDate(0, -1, 0)
+	deletionPartitionTime := currentTime.AddDate(0, -(retentionMonth + 1), 0)
 	for _, tableName := range partitionTables {
 		err = updatePartitionTables(tableName, creationPartitionTime, deletionPartitionTime)
 		if e := traceDataRetentionLog(tableName, currentTime, err, true); e != nil {
@@ -113,8 +113,8 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 	return nil
 }
 
-func deleteExpiredRecords(tableName string, deleteTime time.Time) error {
-	minTime := deleteTime.AddDate(0, 1, 0)
+func deleteExpiredRecords(tableName string, deletedPartitionTime time.Time) error {
+	minTime := deletedPartitionTime.AddDate(0, 1, 0)
 	minDate := time.Date(minTime.Year(), minTime.Month(), 1, 0, 0, 0, 0, minTime.Location())
 	sql := fmt.Sprintf("DELETE FROM %s WHERE deleted_at < '%s'", tableName, minDate.Format(dateFormat))
 	db := database.GetGorm()

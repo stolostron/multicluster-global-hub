@@ -22,10 +22,10 @@ import (
 var _ = Describe("data retention job", Ordered, func() {
 	expiredPartitionTables := map[string]bool{}
 	currentTime := time.Now()
-	duration := time.Duration(18) * 30 * 24 * time.Hour
+	retentionMonth := 18
 
-	minTime := currentTime.Add(-duration)
-	expirationTime := currentTime.Add(-duration).AddDate(0, -1, 0)
+	minTime := currentTime.AddDate(0, -retentionMonth, 0)
+	expirationTime := minTime.AddDate(0, -1, 0)
 	maxTime := currentTime.AddDate(0, 1, 0)
 
 	BeforeAll(func() {
@@ -94,7 +94,7 @@ var _ = Describe("data retention job", Ordered, func() {
 	It("the data retention job should work", func() {
 		By("Create the data retention job")
 		s := gocron.NewScheduler(time.UTC)
-		_, err := s.Every(1).Week().DoWithJobDetails(DataRetention, ctx, pool, duration)
+		_, err := s.Every(1).Week().DoWithJobDetails(DataRetention, ctx, pool, retentionMonth)
 		Expect(err).ToNot(HaveOccurred())
 		s.StartAsync()
 		defer s.Clear()

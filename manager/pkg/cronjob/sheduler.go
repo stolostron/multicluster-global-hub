@@ -11,7 +11,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -56,11 +55,8 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	}
 	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 
-	retentionDuration, err := utils.ParseDuration(managerConfig.DatabaseConfig.DataRetention)
-	if err != nil {
-		return err
-	}
-	dataRetentionJob, err := scheduler.Every(1).Week().DoWithJobDetails(task.DataRetention, ctx, pool, retentionDuration)
+	dataRetentionJob, err := scheduler.Every(1).Month(1, 15, 28).At("00:00").
+		DoWithJobDetails(task.DataRetention, ctx, pool, managerConfig.DatabaseConfig.DataRetention)
 	if err != nil {
 		return err
 	}

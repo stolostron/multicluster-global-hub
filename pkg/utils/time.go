@@ -6,6 +6,9 @@ package utils
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -16,6 +19,44 @@ var unitMap = map[string]uint64{
 	// "d": uint64(time.Hour * 24),
 	"m": uint64(time.Hour * 24 * 30),
 	"y": uint64(time.Hour * 24 * 365),
+}
+
+func ParseRetentionMonth(s string) (int, error) {
+	years := 0
+	months := 0
+	var err error
+
+	validateRegex := regexp.MustCompile(`^[0-9][0-9my]*[m|y]$`)
+	if !validateRegex.MatchString(s) {
+		return -1, fmt.Errorf("invalid retention %s", s)
+	}
+
+	yearRegex := regexp.MustCompile(`(\d*)y`)
+	matches := yearRegex.FindStringSubmatch(s)
+	if len(matches) == 2 {
+		if matches[1] != "" {
+			years, err = strconv.Atoi(matches[1])
+			if err != nil {
+				return -1, err
+			}
+		} else {
+			return -1, fmt.Errorf("unable to parse year from %s", s)
+		}
+	}
+
+	monthRegex := regexp.MustCompile(`(\d*)m`)
+	matches = monthRegex.FindStringSubmatch(s)
+	if len(matches) == 2 {
+		if matches[1] != "" {
+			months, err = strconv.Atoi(matches[1])
+			if err != nil {
+				return -1, err
+			}
+		} else {
+			return -1, fmt.Errorf("unable to parse month from %s", s)
+		}
+	}
+	return (years*12 + months), nil
 }
 
 func ParseDuration(s string) (time.Duration, error) {
