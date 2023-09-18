@@ -103,28 +103,6 @@ func (p *PruneFinalizer) prunePlacementResources() error {
 		}
 	}
 
-	p.log.Info("clean up the managedclusterset finalizer")
-	managedclustersetv1beta1 := &clusterv1beta1.ManagedClusterSetList{}
-	if err := p.client.List(p.ctx, managedclustersetv1beta1, &client.ListOptions{}); err != nil {
-		p.log.Error(err, "failed to list managedclustersets")
-	}
-	for idx := range managedclustersetv1beta1.Items {
-		if err := p.pruneFinalizer(&managedclustersetv1beta1.Items[idx]); err != nil {
-			return err
-		}
-	}
-
-	p.log.Info("clean up the managedclustersetbinding finalizer")
-	managedclustersetbindingv1beta1 := &clusterv1beta1.ManagedClusterSetBindingList{}
-	if err := p.client.List(p.ctx, managedclustersetbindingv1beta1, &client.ListOptions{}); err != nil {
-		p.log.Error(err, "failed to list managedclustersetbindings")
-	}
-	for idx := range managedclustersetbindingv1beta1.Items {
-		if err := p.pruneFinalizer(&managedclustersetbindingv1beta1.Items[idx]); err != nil {
-			return err
-		}
-	}
-
 	p.log.Info("clean up the application placementrule finalizer")
 	palcementrules := &placementrulesv1.PlacementRuleList{}
 	if err := p.client.List(p.ctx, palcementrules, &client.ListOptions{}); err != nil {
