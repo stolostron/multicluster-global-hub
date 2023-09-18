@@ -262,3 +262,9 @@ func IsAlertGPCcountEqual(a, b []byte) (bool, error) {
 	}
 	return false, nil
 }
+
+func CopyMap(newMap, originalMap map[string]string) {
+	for key, value := range originalMap {
+		newMap[key] = value
+	}
+}

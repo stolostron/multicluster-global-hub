@@ -2,9 +2,10 @@ package hubofhubs
 
 import (
 	"context"
-	"strings"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -20,24 +21,20 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManagedHubs(ctx context.Conte
 		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
-		annotations := managedHub.GetAnnotations()
-		if val, ok := annotations[constants.AnnotationONMulticlusterHub]; ok {
-			if !strings.EqualFold(val, "true") {
-				clusters.Items[idx].SetAnnotations(map[string]string{
-					constants.AnnotationONMulticlusterHub: "true",
-				})
-				if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
-					return err
-				}
-			}
-			continue
+		orgAnnotations := managedHub.GetAnnotations()
+		if orgAnnotations == nil {
+			orgAnnotations = make(map[string]string)
 		}
-		// does not have the annotation, add it
-		clusters.Items[idx].SetAnnotations(map[string]string{
-			constants.AnnotationONMulticlusterHub: "true",
-		})
-		if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
-			return err
+		annotations := make(map[string]string, len(orgAnnotations))
+		utils.CopyMap(annotations, managedHub.GetAnnotations())
+
+		//set the annotations for the managed hub
+		orgAnnotations[constants.AnnotationONMulticlusterHub] = "true"
+		orgAnnotations[constants.AnnotationPolicyONMulticlusterHub] = "true"
+		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
+			if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -56,9 +53,16 @@ func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) 
 		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
-		annotations := managedHub.GetAnnotations()
-		if _, ok := annotations[constants.AnnotationONMulticlusterHub]; ok {
-			delete(annotations, constants.AnnotationONMulticlusterHub)
+		orgAnnotations := managedHub.GetAnnotations()
+		if orgAnnotations == nil {
+			continue
+		}
+		annotations := make(map[string]string, len(orgAnnotations))
+		utils.CopyMap(annotations, managedHub.GetAnnotations())
+
+		delete(orgAnnotations, constants.AnnotationONMulticlusterHub)
+		delete(orgAnnotations, constants.AnnotationPolicyONMulticlusterHub)
+		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
 			if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
 				return err
 			}
