@@ -133,7 +133,7 @@ func SetCondition(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.M
 	} else {
 		containMessage := ContainConditionMessage(mgh, typeName, message)
 		containReason := ContainConditionStatusReason(mgh, typeName, reason, status)
-		if containMessage && containReason {
+		if !containMessage || !containReason {
 			err := DeleteCondition(ctx, c, mgh, typeName, reason)
 			if err != nil {
 				return err

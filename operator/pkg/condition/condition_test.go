@@ -83,16 +83,6 @@ func TestCondition(t *testing.T) {
 	err := runtimeClient.Create(ctx, mgh)
 	assert.NoError(t, err)
 
-	t.Logf("testing condition %s with SetCondition", CONDITION_TYPE_RETENTION_PARSED)
-	err = SetCondition(ctx, runtimeClient, mgh, CONDITION_TYPE_RETENTION_PARSED,
-		metav1.ConditionStatus(CONDITION_STATUS_TRUE), "reason", "message")
-	assert.NoError(t, err)
-
-	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
-	assert.NoError(t, err)
-	assert.True(t, ContainConditionMessage(mgh, CONDITION_TYPE_RETENTION_PARSED, "message"))
-	assert.True(t, ContainConditionStatusReason(mgh, CONDITION_TYPE_RETENTION_PARSED, "reason", CONDITION_STATUS_TRUE))
-
 	statusTestCases := []struct {
 		name          string
 		conditionType string
@@ -124,4 +114,32 @@ func TestCondition(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, CONDITION_STATUS_TRUE, string(
 		GetConditionStatus(mgh, CONDITION_TYPE_LEAFHUB_DEPLOY)))
+}
+
+func TestRetentionCondition(t *testing.T) {
+	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-condition",
+			Namespace: "default",
+		},
+		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+			DataLayer: globalhubv1alpha4.DataLayerConfig{},
+		},
+	}
+	err := runtimeClient.Create(ctx, mgh)
+	assert.NoError(t, err)
+
+	err = SetConditionDataRetention(ctx, runtimeClient, mgh, CONDITION_STATUS_TRUE, "the rentention is set 18 month")
+	assert.NoError(t, err)
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
+	assert.NoError(t, err)
+	assert.True(t, ContainConditionMessage(mgh, CONDITION_TYPE_RETENTION_PARSED, "the rentention is set 18 month"))
+	assert.Equal(t, CONDITION_STATUS_TRUE, string(mgh.Status.Conditions[0].Status))
+
+	err = SetConditionDataRetention(ctx, runtimeClient, mgh, CONDITION_STATUS_FALSE, "invalid retention 1s")
+	assert.NoError(t, err)
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
+	assert.NoError(t, err)
+	assert.True(t, ContainConditionMessage(mgh, CONDITION_TYPE_RETENTION_PARSED, "invalid retention 1s"))
+	assert.Equal(t, CONDITION_STATUS_FALSE, string(mgh.Status.Conditions[0].Status))
 }
