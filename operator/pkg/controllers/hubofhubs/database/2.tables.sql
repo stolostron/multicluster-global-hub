@@ -20,9 +20,9 @@ CREATE TABLE IF NOT EXISTS local_status.compliance (
     leaf_hub_name character varying(254) NOT NULL,
     error status.error_type NOT NULL,
     compliance local_status.compliance_type NOT NULL,
-    cluster_id uuid
+    cluster_id uuid,
+    PRIMARY KEY (policy_id, cluster_name, leaf_hub_name)
 );
-ALTER TABLE local_status.compliance ADD PRIMARY KEY (policy_id, cluster_name, leaf_hub_name);
 
 CREATE TABLE IF NOT EXISTS status.leaf_hub_heartbeats (
     leaf_hub_name character varying(254) NOT NULL,
@@ -33,14 +33,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.lea
 CREATE TABLE IF NOT EXISTS status.managed_clusters (
     leaf_hub_name character varying(254) NOT NULL,
     cluster_name character varying(254) generated always as (payload -> 'metadata' ->> 'name') stored,
-    cluster_id uuid NOT NULL,
+    cluster_id uuid PRIMARY KEY,
     payload jsonb NOT NULL,
     error status.error_type NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     deleted_at timestamp without time zone
 );
-ALTER TABLE status.managed_clusters ADD PRIMARY KEY (cluster_id);
 CREATE INDEX IF NOT EXISTS cluster_deleted_at_idx ON status.managed_clusters (deleted_at);
 CREATE UNIQUE INDEX IF NOT EXISTS leafhub_cluster_idx ON status.managed_clusters (leaf_hub_name, cluster_name);
 
