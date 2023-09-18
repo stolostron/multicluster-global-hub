@@ -187,7 +187,7 @@ This alert watch the [Cron jobs](#Cronjobs-and-Metrics) failed events. There are
   If this alert rule becomes firing, it means the [Local compliance status sync job](#Local-compliance-status-sync-job) failed. It may cause the data to be lost in the `history.local_compliance` table. Please check it and [manually run the job](./how_global_hub_works.md#running-the-summarization-process-manually)
 
 - Data Retention Job Failed
-  If this alert rule becomes firing, it means the [Partition job](#Partition-job) failed. 
+  If this alert rule becomes firing, it means the [Data retention job](#data-retention-job) failed and you can also [run it manually](./troubleshooting.md#run-the-data-retetion-job-manually).
 
 #### Delete Default Grafana Alert Rule
 If you want to delete a default grafana alert rule, you need to create the [Customize Grafana Alerting Resources](#Customize-Grafana-Alerting-Resources) and include the `deleteRules`.
@@ -296,20 +296,20 @@ After installing the global hub operand, the global hub manager starts running a
 
   At 0 o'clock every day, based on the policy status and events collected by the manager on the previous day. Running the job to summarize the compliance status and change frequency of the policy on the cluster, and store them to the `history.local_compliance` table as the data source of grafana dashboards. Please refer to [here](./how_global_hub_works.md) for more details.
 
-#### Partition job
+#### Data retention job
 
   Some data tables in global hub will continue to grow over time. Generally, they fall into two categories: the policy event tables and the `history.local_compliance` growing every day, the tables containing soft deleted records. The former generates a large amount of data, we use range partitioning to break down the large tables into small partitions. Which helps in executing queries/deletions on these tables faster. The later has a small amount of data, and we add `deletedAt` indexes to these tables to obtain better hard delete performance.
 
   At the practical level, we run a scheduled job to delete expired data, so as to avoid the table being too large, and there is an additional task for it which is to create a buffer partition table for the next month.
 
-  How long the job should keep the data can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/main/operator/apis/v1alpha4/multiclusterglobalhub_types.go#L90) on the global hub operand. it's recommended minimum value is 1 month, default value is 18 months. Therefore, the execution interval of this job should be less than one month.
+  How long the job should keep the data can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/main/operator/apis/v1alpha4/multiclusterglobalhub_types.go#L90) on the global hub operand. it's recommended minimum value is `1` month, default value is `18` months. Therefore, the execution interval of this job should be less than one month.
 
 The above cronjobs are executed every time the global hub manager starts. The compliance sync job is run once a day and can be run multiple times within the day without changing the result. The partitioning job is run once a week and also can be run many times per month, the results will not change. 
 These two jobs' status are saved in the metrics named `multicluster_global_hub_jobs_status`, as shown in the figure below from the console of the Openshift cluster. Where `0` means the job runs successfully, otherwise `1` means failure. 
 
 ![Global Hub Jobs Status Metrics Panel](./images/global-hub-jobs-status-metrics-panel.png)
 
-If there is a failed job, then you can dive into the log tables(`history.local_compliance_job_log`, `event.data_retention_job_log`) for more details.
+If there is a failed job, then you can dive into the log tables(`history.local_compliance_job_log`, `event.data_retention_job_log`) for more details and decide whether to [running it manually](./troubleshooting.md/#cronjobs).
 
 ## Troubleshooting
 
