@@ -26,6 +26,11 @@ func ParseRetentionMonth(s string) (int, error) {
 	months := 0
 	var err error
 
+	validateRegex := regexp.MustCompile(`^[0-9][0-9my]*[m|y]$`)
+	if !validateRegex.MatchString(s) {
+		return -1, fmt.Errorf("invalid retention %s", s)
+	}
+
 	yearRegex := regexp.MustCompile(`(\d*)y`)
 	matches := yearRegex.FindStringSubmatch(s)
 	if len(matches) == 2 {
@@ -51,9 +56,6 @@ func ParseRetentionMonth(s string) (int, error) {
 			return -1, fmt.Errorf("unable to parse month from %s", s)
 		}
 	}
-
-	fmt.Println("matches", matches, "month", (years*12 + months))
-
 	return (years*12 + months), nil
 }
 
