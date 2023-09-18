@@ -93,7 +93,7 @@ Notes:
     service:
       type: LoadBalancer
 ```
-into `PostgresCluster` operand and then you can get the EXTERNAL-IP from `hoh-ha` service. for example: 
+into `PostgresCluster` operand and then you can get the EXTERNAL-IP from `postgres-ha` service. for example: 
 ```
 oc get svc postgres-ha -n multicluster-global-hub
 NAME     TYPE           CLUSTER-IP      EXTERNAL-IP                                                               PORT(S)          AGE
