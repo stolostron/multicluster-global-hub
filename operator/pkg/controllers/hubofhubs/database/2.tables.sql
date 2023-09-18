@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS local_status.compliance (
     error status.error_type NOT NULL,
     compliance local_status.compliance_type NOT NULL,
     cluster_id uuid,
-    CONSTRAINT PRIMARY KEY (policy_id, cluster_name, leaf_hub_name)
+    PRIMARY KEY (policy_id, cluster_name, leaf_hub_name)
 );
 
 CREATE TABLE IF NOT EXISTS status.leaf_hub_heartbeats (
