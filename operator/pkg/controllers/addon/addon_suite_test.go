@@ -157,6 +157,7 @@ var _ = BeforeSuite(func() {
 			ClientKey:       "",
 		},
 	}
+	config.SetKafkaReady(true)
 	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient,
 		electionConfig, middlewareCfg, true)
 	Expect(err).ToNot(HaveOccurred())
