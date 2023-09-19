@@ -62,6 +62,10 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	}
 	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
 
+	if managerConfig.LaunchJobImmediately {
+		scheduler.RunAll()
+	}
+
 	return mgr.Add(&GlobalHubJobScheduler{
 		log:       log,
 		scheduler: scheduler,

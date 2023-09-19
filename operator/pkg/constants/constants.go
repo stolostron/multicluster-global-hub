@@ -34,6 +34,8 @@ const (
 	AnnotationMGHPause = "mgh-pause"
 	// AnnotationMGHSkipDBInit skips database initialization, used for dev/test
 	AnnotationMGHSkipDBInit = "mgh-skip-database-init"
+	// AnnotationLaunchJobImmediately will exec the job once the container restart, used for dev/test
+	AnnotationLaunchJobImmediately = "mgh-launch-job-immediately"
 	// AnnotationImageRepo sits in MulticlusterGlobalHub annotations
 	// to identify a custom image repository to use
 	AnnotationImageRepo = "mgh-image-repository"

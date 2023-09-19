@@ -139,7 +139,9 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.IntVar(&managerConfig.DatabaseConfig.DataRetention, "data-retention", 18,
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
-		"Enable the global resource feature.")
+		"enable the global resource feature.")
+	pflag.BoolVar(&managerConfig.LaunchJobImmediately, "launch-job-immediately", false,
+		"run the cronjobs once the container started.")
 
 	pflag.Parse()
 	// set zap logger

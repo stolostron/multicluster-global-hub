@@ -54,23 +54,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
-	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
-	months, err := commonutils.ParseRetentionMonth(mgh.Spec.DataLayer.Postgres.Retention)
-	// if parsing fails, then set the error message to the condition
+	months, err := r.parseRetentionWithCondition(ctx, mgh)
 	if err != nil {
-		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE, err.Error())
-		if e != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, e)
-		}
-		return fmt.Errorf("failed to parse month retention: %v", err)
-	}
-	if months < 1 {
-		months = 1
-	}
-	// If parsing succeeds, update the MGH status and message of the condition if they are not set or changed
-	msg := fmt.Sprintf("The data will be kept in the database for %d months.", months)
-	if e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE, msg); e != nil {
-		return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, err)
+		return err
 	}
 
 	replicas := int32(1)
@@ -101,6 +87,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RetryPeriod            string
 			SchedulerInterval      string
 			SkipAuth               bool
+			LaunchJobImmediately   bool
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
 			RetentionMonth         int
@@ -128,6 +115,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
 			SchedulerInterval:      config.GetSchedulerInterval(mgh),
 			SkipAuth:               config.SkipAuth(mgh),
+			LaunchJobImmediately:   config.LaunchJobImmediately(mgh),
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
 			RetentionMonth:         months,
@@ -144,6 +132,31 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 	log.Info("manager objects are created/updated successfully")
 	return nil
+}
+
+// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
+func (r *MulticlusterGlobalHubReconciler) parseRetentionWithCondition(ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) (int, error) {
+	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
+	months, err := commonutils.ParseRetentionMonth(mgh.Spec.DataLayer.Postgres.Retention)
+	// if parsing fails, then set the error message to the condition
+	if err != nil {
+		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE, err.Error())
+		if e != nil {
+			return months, condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, e)
+		}
+		return months, fmt.Errorf("failed to parse month retention: %v", err)
+	}
+	if months < 1 {
+		months = 1
+	}
+	// If parsing succeeds, update the MGH status and message of the condition if they are not set or changed
+	msg := fmt.Sprintf("The data will be kept in the database for %d months.", months)
+	if e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE, msg); e != nil {
+		return months, condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, err)
+	}
+	return months, nil
 }
 
 func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,

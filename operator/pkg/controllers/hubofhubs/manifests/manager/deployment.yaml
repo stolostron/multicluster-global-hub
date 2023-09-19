@@ -46,6 +46,7 @@ spec:
             {{- if eq .SkipAuth true}}
             - --cluster-api-url=
             {{- end}}
+            - --launch-job-immediately={{.LaunchJobImmediately}}
           env:
             - name: POD_NAMESPACE
               valueFrom:
