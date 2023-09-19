@@ -152,8 +152,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	if a.MiddlewareConfig.KafkaConnection == nil {
-		return nil, fmt.Errorf("failed to get kafka connection config")
+	if !config.GetKafkaReady() {
+		return nil, fmt.Errorf("kafka credential isn't ready")
 	}
 
 	image, err := a.getOverrideImage(mgh, cluster)

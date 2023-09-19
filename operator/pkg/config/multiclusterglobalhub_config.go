@@ -66,6 +66,7 @@ var (
 	// We may expose these as CRD fields in the future
 	AggregationLevel    = "full"
 	EnableLocalPolicies = "true"
+	kafkaReady          = false
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -214,4 +215,12 @@ func SetStatisticLogInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error
 
 func GetStatisticLogInterval() string {
 	return statisticLogInterval
+}
+
+func SetKafkaReady(status bool) {
+	kafkaReady = status
+}
+
+func GetKafkaReady() bool {
+	return kafkaReady
 }
