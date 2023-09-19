@@ -39,7 +39,8 @@ const (
 
 // store all the finalizers
 const (
-	// cleanup finalizer
+	// The finalizer is only for the global resource. The finalizer will be added if it has the
+	// GlobalHubGlobalResourceLabel or OriginOwnerReferenceAnnotation
 	GlobalHubCleanupFinalizer = "global-hub.open-cluster-management.io/resource-cleanup"
 
 	// indicate the removing the global hub finalizer, shouldn't add it back to the resource
