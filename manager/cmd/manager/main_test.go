@@ -38,10 +38,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	err = os.Setenv("LAUNCH_JOB_IMMEDIATELY", "true")
-	if err != nil {
-		panic(err)
-	}
 
 	// start testenv
 	testenv := &envtest.Environment{

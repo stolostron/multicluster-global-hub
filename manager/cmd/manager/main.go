@@ -142,6 +142,8 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
 		"enable the global resource feature.")
+	pflag.StringVar(&managerConfig.LaunchJobImmediately, "launch-job-immediately", "",
+		"the specified jobs(concatenate multiple jobs with ',') runs when the container starts")
 
 	pflag.Parse()
 	// set zap logger
@@ -163,9 +165,6 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
 		return fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
-	}
-	if launchJobEnv := os.Getenv(launchJobImmediatelyEnv); launchJobEnv != "" {
-		managerConfig.LaunchJobImmediately = launchJobEnv
 	}
 	return nil
 }
