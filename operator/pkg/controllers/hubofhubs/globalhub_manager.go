@@ -101,7 +101,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RetryPeriod            string
 			SchedulerInterval      string
 			SkipAuth               bool
-			LaunchJobImmediately   bool
+			LaunchJobImmediately   string
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
 			RetentionMonth         int

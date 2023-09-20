@@ -143,13 +143,9 @@ func SkipAuth(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
 	return false
 }
 
-// LaunchJobImmediately returns true if running the jobs immediately
-func LaunchJobImmediately(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
-	launchJob := getAnnotation(mgh, operatorconstants.AnnotationLaunchJobImmediately)
-	if launchJob != "" && strings.EqualFold(launchJob, "true") {
-		return true
-	}
-	return false
+// LaunchJobImmediately returns the jobs concatenated using "," wchich will run once the constainer is started
+func LaunchJobImmediately(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+	return getAnnotation(mgh, operatorconstants.AnnotationLaunchJobImmediately)
 }
 
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set

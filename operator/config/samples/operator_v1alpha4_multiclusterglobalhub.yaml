@@ -3,7 +3,7 @@ kind: MulticlusterGlobalHub
 metadata:
   # annotations:
     # mgh-pause: "true"
-    # mgh-launch-job-immediately: "true"
+    # mgh-launch-job-immediately: data-retention,local-compliance-history
     # mgh-image-repository: quay.io/<quay_io_repo>
     # mgh-hub-ACM-snapshot: 2.5.0-SNAPSHOT-2022-05-13-20-43-27
     # mgh-hub-MCE-snapshot: 2.0.0-BACKPLANE-2022-05-13-17-52-12

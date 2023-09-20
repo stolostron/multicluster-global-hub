@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -71,7 +70,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 		StatisticsConfig:      &statistics.StatisticsConfig{},
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
-		LaunchJobImmediately:  false,
+		LaunchJobImmediately:  "",
 	}
 
 	// add zap flags
@@ -166,11 +165,7 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
 	}
 	if launchJobEnv := os.Getenv(launchJobImmediatelyEnv); launchJobEnv != "" {
-		boolValue, err := strconv.ParseBool(launchJobEnv)
-		if err != nil {
-			return fmt.Errorf("parsing %s as a boolean: %v", launchJobImmediatelyEnv, err)
-		}
-		managerConfig.LaunchJobImmediately = boolValue
+		managerConfig.LaunchJobImmediately = launchJobEnv
 	}
 	return nil
 }
