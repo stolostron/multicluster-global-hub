@@ -37,3 +37,4 @@ test/setup/config/
 kubeconfig
 
 __pycache__
+output
