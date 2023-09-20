@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS status.leaf_hubs (
     leaf_hub_name character varying(254) NOT NULL PRIMARY KEY,
     payload jsonb NOT NULL,
     console_url text generated always as (payload ->> 'consoleURL') stored,
+    grafana_url text generated always as (payload ->> 'grafanaURL') stored,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     deleted_at timestamp without time zone

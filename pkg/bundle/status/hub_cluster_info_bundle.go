@@ -4,6 +4,7 @@ package status
 type LeafHubClusterInfo struct {
 	LeafHubName string `json:"leafHubName"`
 	ConsoleURL  string `json:"consoleURL"`
+	GrafanaURL  string `json:"grafanaURL"`
 }
 
 // HubClusterInfoBundle the bundle for the hub cluster info.
