@@ -368,7 +368,8 @@ data:
                 "cellOptions": {
                   "type": "auto"
                 },
-                "filterable": true
+                "filterable": true,
+                "inspect": false
               },
               "mappings": [
                 {
@@ -391,7 +392,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-yellow"
+                    "color": "dark-yellow",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -520,6 +522,15 @@ data:
           },
           "id": 17,
           "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
             "showHeader": true,
             "sortBy": [
               {
@@ -528,7 +539,7 @@ data:
               }
             ]
           },
-          "pluginVersion": "8.5.20",
+          "pluginVersion": "9.5.6",
           "targets": [
             {
               "datasource": {
@@ -667,7 +678,7 @@ data:
           },
           {
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "1:5",
               "value": "1:5"
             },
@@ -746,14 +757,14 @@ data:
               "type": "postgres",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "WITH clusterid as(\nSELECT\n  DISTINCT cluster_id\nFROM\n  status.managed_clusters\nWHERE\n leaf_hub_name = '$hub'\nAND\n cluster_name = '$cluster'\n),\ncompcluster as(\n  SELECT DISTINCT lc.policy_id\n  FROM\n    history.local_compliance lc\n JOIN\n    clusterid ci\n ON\n   ci.cluster_id = lc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*) \nFROM \n  compcluster\n\n",
+            "definition": "WITH clusterid as(\nSELECT\n  DISTINCT cluster_id\nFROM\n  status.managed_clusters\nWHERE\n leaf_hub_name = '$hub'\nAND\n cluster_name = '$cluster'\n),\ncompcluster as(\n  SELECT DISTINCT (p.policy_name,p.payload -> 'metadata' ->> 'namespace')\n  FROM\n    history.local_compliance lc\n  JOIN\n    clusterid ci ON  ci.cluster_id = lc.cluster_id\n  JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*) \nFROM \n  compcluster",
             "description": "max value for top",
             "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "maxtop",
             "options": [],
-            "query": "WITH clusterid as(\nSELECT\n  DISTINCT cluster_id\nFROM\n  status.managed_clusters\nWHERE\n leaf_hub_name = '$hub'\nAND\n cluster_name = '$cluster'\n),\ncompcluster as(\n  SELECT DISTINCT lc.policy_id\n  FROM\n    history.local_compliance lc\n JOIN\n    clusterid ci\n ON\n   ci.cluster_id = lc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*) \nFROM \n  compcluster\n\n",
+            "query": "WITH clusterid as(\nSELECT\n  DISTINCT cluster_id\nFROM\n  status.managed_clusters\nWHERE\n leaf_hub_name = '$hub'\nAND\n cluster_name = '$cluster'\n),\ncompcluster as(\n  SELECT DISTINCT (p.policy_name,p.payload -> 'metadata' ->> 'namespace')\n  FROM\n    history.local_compliance lc\n  JOIN\n    clusterid ci ON  ci.cluster_id = lc.cluster_id\n  JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*) \nFROM \n  compcluster",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,

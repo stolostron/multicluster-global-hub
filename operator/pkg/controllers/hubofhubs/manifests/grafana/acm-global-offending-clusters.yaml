@@ -6,7 +6,10 @@ data:
         "list": [
           {
             "builtIn": 1,
-            "datasource": "-- Grafana --",
+            "datasource": {
+              "type": "datasource",
+              "uid": "grafana"
+            },
             "enable": true,
             "hide": true,
             "iconColor": "rgba(0, 211, 255, 1)",
@@ -22,9 +25,8 @@ data:
         ]
       },
       "editable": true,
-      "gnetId": null,
+      "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "iteration": 1687540075765,
       "links": [
         {
           "asDropdown": false,
@@ -51,9 +53,13 @@ data:
           "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-clusters?orgId=1"
         }
       ],
+      "liveNow": false,
       "panels": [
         {
-          "datasource": null,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
@@ -61,11 +67,23 @@ data:
             "y": 0
           },
           "id": 59,
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "refId": "A"
+            }
+          ],
           "title": "Cluster Status (Not impacted by selected filters)",
           "type": "row"
         },
         {
-          "datasource": null,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
           "description": "The distinct number of managed clusters that were \"non compliant\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
           "fieldConfig": {
             "defaults": {
@@ -108,14 +126,19 @@ data:
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.20",
+          "pluginVersion": "9.5.6",
           "targets": [
             {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
               "format": "table",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  non_compliant > 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_name,\n    SUM(non_compliant) as \"non_compliant\"\n  FROM\n    data\n  GROUP BY (cluster_name)\n)\nSELECT\n  COUNT(DISTINCT cluster_name)\nFROM\n  res\nWHERE\n  non_compliant > 0",
               "refId": "A",
               "select": [
                 [
@@ -127,6 +150,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -141,7 +181,10 @@ data:
           "type": "stat"
         },
         {
-          "datasource": null,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
           "description": "The distinct number of managed clusters that were \"compliant\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
           "fieldConfig": {
             "defaults": {
@@ -184,14 +227,19 @@ data:
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.20",
+          "pluginVersion": "9.5.6",
           "targets": [
             {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
               "format": "table",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_name,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_name)\n)\nSELECT\n  COUNT(DISTINCT cluster_name)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0",
               "refId": "A",
               "select": [
                 [
@@ -203,6 +251,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -217,7 +282,10 @@ data:
           "type": "stat"
         },
         {
-          "datasource": null,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
           "description": "The distinct number of managed clusters that were \"unknown\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
           "fieldConfig": {
             "defaults": {
@@ -260,14 +328,19 @@ data:
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.20",
+          "pluginVersion": "9.5.6",
           "targets": [
             {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
               "format": "table",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_name,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_name)\n)\nSELECT\n  COUNT(DISTINCT cluster_name)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0",
               "refId": "A",
               "select": [
                 [
@@ -279,6 +352,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -293,7 +383,10 @@ data:
           "type": "stat"
         },
         {
-          "datasource": null,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
           "description": "The distinct number of managed clusters that were in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
           "fieldConfig": {
             "defaults": {
@@ -336,14 +429,19 @@ data:
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.20",
+          "pluginVersion": "9.5.6",
           "targets": [
             {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
               "format": "table",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    ch.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_name)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_name,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_name)\n)\nSELECT\n  COUNT(DISTINCT cluster_name)\nFROM\n  res",
               "refId": "A",
               "select": [
                 [
@@ -355,6 +453,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -370,7 +485,10 @@ data:
         },
         {
           "collapsed": false,
-          "datasource": null,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
@@ -379,11 +497,23 @@ data:
           },
           "id": 61,
           "panels": [],
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "refId": "A"
+            }
+          ],
           "title": "Cluster Status > Non Compliant",
           "type": "row"
         },
         {
-          "datasource": null,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
           "description": "List of offending managed clusters by label: $label.",
           "fieldConfig": {
             "defaults": {
@@ -392,8 +522,11 @@ data:
               },
               "custom": {
                 "align": "auto",
-                "displayMode": "auto",
-                "filterable": true
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false
               },
               "links": [],
               "mappings": [],
@@ -435,8 +568,11 @@ data:
                 },
                 "properties": [
                   {
-                    "id": "custom.displayMode",
-                    "value": "color-background"
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "color-background"
+                    }
                   }
                 ]
               }
@@ -450,12 +586,25 @@ data:
           },
           "id": 50,
           "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "8.5.20",
+          "pluginVersion": "9.5.6",
           "targets": [
             {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
               "format": "table",
               "group": [],
               "metricColumn": "none",
@@ -505,7 +654,10 @@ data:
         },
         {
           "collapsed": true,
-          "datasource": null,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
@@ -515,7 +667,10 @@ data:
           "id": 55,
           "panels": [
             {
-              "datasource": null,
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
               "description": "List of unknown managed clusters by label: $label.",
               "fieldConfig": {
                 "defaults": {
@@ -524,7 +679,9 @@ data:
                   },
                   "custom": {
                     "align": "auto",
-                    "displayMode": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
                     "filterable": true
                   },
                   "links": [],
@@ -534,8 +691,7 @@ data:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "yellow",
-                        "value": null
+                        "color": "yellow"
                       }
                     ]
                   },
@@ -567,8 +723,11 @@ data:
                     },
                     "properties": [
                       {
-                        "id": "custom.displayMode",
-                        "value": "color-background"
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "color-background"
+                        }
                       },
                       {
                         "id": "mappings",
@@ -604,6 +763,10 @@ data:
               "pluginVersion": "8.5.20",
               "targets": [
                 {
+                  "datasource": {
+                    "type": "postgres",
+                    "uid": "P244538DD76A4C61D"
+                  },
                   "format": "table",
                   "group": [],
                   "metricColumn": "none",
@@ -651,12 +814,21 @@ data:
               "type": "table"
             }
           ],
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "refId": "A"
+            }
+          ],
           "title": "Cluster Status > Unknown",
           "type": "row"
         }
       ],
-      "refresh": false,
-      "schemaVersion": 30,
+      "refresh": "",
+      "schemaVersion": 38,
       "style": "dark",
       "tags": [],
       "templating": {
@@ -667,11 +839,8 @@ data:
               "text": "Global-Hub-DataSource",
               "value": "Global-Hub-DataSource"
             },
-            "description": null,
-            "error": null,
             "hide": 2,
             "includeAll": false,
-            "label": null,
             "multi": false,
             "name": "datasource",
             "options": [],
@@ -683,16 +852,17 @@ data:
             "type": "datasource"
           },
           {
-            "allValue": null,
             "current": {
               "selected": false,
               "text": "vendor",
               "value": "vendor"
             },
-            "datasource": "${datasource}",
+            "datasource": {
+              "type": "postgres",
+              "uid": "${datasource}"
+            },
             "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters mc\nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id",
             "description": "Managed cluster labels",
-            "error": null,
             "hide": 0,
             "includeAll": false,
             "label": "Label",
@@ -707,7 +877,6 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": true,
               "text": [
@@ -717,10 +886,12 @@ data:
                 "$__all"
               ]
             },
-            "datasource": "${datasource}",
+            "datasource": {
+              "type": "postgres",
+              "uid": "${datasource}"
+            },
             "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters mc \nJOIN\n  compcluster ch \nON\n mc.cluster_id = ch.cluster_id\nWHERE\n  payload -> 'metadata' -> 'labels' ->> '$label' IS NOT NULL",
             "description": "Managed cluster label values",
-            "error": null,
             "hide": 0,
             "includeAll": true,
             "label": "Value",
@@ -735,7 +906,6 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": true,
               "text": [
@@ -745,10 +915,12 @@ data:
                 "$__all"
               ]
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_standard\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\npolicy_standard IS NOT NULL;",
             "description": "Managed cluster policy standards",
-            "error": null,
             "hide": 0,
             "includeAll": true,
             "label": "Standard",
@@ -763,7 +935,6 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": true,
               "text": [
@@ -773,10 +944,12 @@ data:
                 "$__all"
               ]
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": " WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard) \nAND\n  policy_category IS NOT NULL",
             "description": "Cluster policy categories",
-            "error": null,
             "hide": 0,
             "includeAll": true,
             "label": "Category",
@@ -791,7 +964,6 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": true,
               "text": [
@@ -801,10 +973,12 @@ data:
                 "$__all"
               ]
             },
-            "datasource": null,
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
             "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IS NOT NULL",
             "description": "Cluster policy controls",
-            "error": null,
             "hide": 0,
             "includeAll": true,
             "label": "Control",
@@ -828,7 +1002,8 @@ data:
       "timezone": "utc",
       "title": "Global Hub - Offending Clusters",
       "uid": "0e0ddb7f16b946f99d96a483a4a3f95f",
-      "version": 1
+      "version": 1,
+      "weekStart": ""
     }
 kind: ConfigMap
 metadata:

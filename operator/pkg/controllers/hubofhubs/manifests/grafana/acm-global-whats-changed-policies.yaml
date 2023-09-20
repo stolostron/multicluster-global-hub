@@ -366,7 +366,8 @@ data:
                 "cellOptions": {
                   "type": "auto"
                 },
-                "filterable": true
+                "filterable": true,
+                "inspect": false
               },
               "mappings": [
                 {
@@ -389,7 +390,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-yellow"
+                    "color": "dark-yellow",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -518,6 +520,15 @@ data:
           },
           "id": 13,
           "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
             "showHeader": true,
             "sortBy": [
               {
@@ -526,7 +537,7 @@ data:
               }
             ]
           },
-          "pluginVersion": "8.5.20",
+          "pluginVersion": "9.5.6",
           "targets": [
             {
               "datasource": {
@@ -769,13 +780,13 @@ data:
               "type": "postgres",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name = '$hub'\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT lc.cluster_id\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi\n ON\n   pi.policy_id = lc.policy_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
+            "definition": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name = '$hub'\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT mc.cluster_name\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi ON pi.policy_id = lc.policy_id\n JOIN\n    status.managed_clusters mc ON lc.cluster_id = mc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
             "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "maxtop",
             "options": [],
-            "query": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name = '$hub'\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT lc.cluster_id\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi\n ON\n   pi.policy_id = lc.policy_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
+            "query": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name = '$hub'\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT mc.cluster_name\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi ON pi.policy_id = lc.policy_id\n JOIN\n    status.managed_clusters mc ON lc.cluster_id = mc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
