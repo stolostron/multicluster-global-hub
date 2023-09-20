@@ -35,18 +35,28 @@ func (bundle *LeafHubClusterInfoStatusBundle) UpdateObject(object agentbundle.Ob
 
 	route := object.(*routev1.Route)
 
-	if route.GetName() == constants.OpenShiftConsoleRouteName {
-		bundle.Objects = append(bundle.Objects,
-			&statusbundle.LeafHubClusterInfo{
-				LeafHubName: bundle.LeafHubName,
-				ConsoleURL:  "https://" + route.Spec.Host,
-			})
-	} else if route.GetName() == constants.ObservabilityGrafanaRouteName {
-		bundle.Objects = append(bundle.Objects,
-			&statusbundle.LeafHubClusterInfo{
-				LeafHubName: bundle.LeafHubName,
-				GrafanaURL:  "https://" + route.Spec.Host,
-			})
+	if len(bundle.Objects) == 0 {
+		if route.GetName() == constants.OpenShiftConsoleRouteName {
+			bundle.Objects = []*statusbundle.LeafHubClusterInfo{
+				{
+					LeafHubName: bundle.LeafHubName,
+					ConsoleURL:  "https://" + route.Spec.Host,
+				},
+			}
+		} else if route.GetName() == constants.ObservabilityGrafanaRouteName {
+			bundle.Objects = []*statusbundle.LeafHubClusterInfo{
+				{
+					LeafHubName: bundle.LeafHubName,
+					GrafanaURL:  "https://" + route.Spec.Host,
+				},
+			}
+		}
+	} else {
+		if route.GetName() == constants.OpenShiftConsoleRouteName {
+			bundle.Objects[0].ConsoleURL = "https://" + route.Spec.Host
+		} else if route.GetName() == constants.ObservabilityGrafanaRouteName {
+			bundle.Objects[0].GrafanaURL = "https://" + route.Spec.Host
+		}
 	}
 	bundle.BundleVersion.Incr()
 }
