@@ -8,5 +8,5 @@ set -eo pipefail
 for i in $(seq 1 $1)
 do
     echo "Deleting Simulated managedCluster managedcluster-${i}..."
-    kubectl delete managedcluster managedcluster-${i}
+    kubectl delete managedcluster managedcluster-${i} || true
 done

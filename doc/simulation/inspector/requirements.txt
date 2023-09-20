@@ -1,0 +1,7 @@
+kubernetes
+prometheus_api_client
+oauthlib
+colorama
+tabulate
+numpy
+psycopg2-binary

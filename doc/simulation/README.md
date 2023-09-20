@@ -2,186 +2,180 @@
 
 ## Environment
 
-This simulation requires **two Red Hat OpenShift Container Platform clusters**. One cluster serves as the global hub, and the other serves as a managed hub with agent. In the managed hub, the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) simulates a specific number of managed clusters. The [GRC simulator](https://github.com/stolostron/grc-simulator) continuously flips the compliant or noncompliant status of the policies. 
+This simulation requires a **Red Hat OpenShift Container Platform clusters**. And also you need a virtual machine to create the KinD cluster and managed hub. Then we will mock the resources on the KinD cluster and observe the status on the database. The overall architecture is shown in the figure below.
 
-![Scale Test Environment](../architecture/scale-tests-environment-arch.png)
+![Scale Test Environment](./../images/global-hub-scale-test-overview.png)
 
-You can use the scale test environment to simulate a large-scale cluster. Since the transport status path is very sensitive to the performance and represents a scale larger than the spec path, we simulate this path. The following two ways are combined to achieve a large-scale global hub environment.
-
-- Use the [CLC simulator](https://github.com/hanqiuzh/acm-clc-scale) to generate batches of managed clusters on the managed hub, for example, 1000.
-- Simulate the global hub agent by changing the `leafHubName` when it sends messages to the global hub manager, or status path. Use [the snippet](https://github.com/stolostron/leaf-hub-status-sync/blob/51cffef679da0a38a2bb888bd3828b9782dfbb4c/pkg/controller/generic/generic_status_sync_controller.go#L255-L272) of the agent sending bundle to manger code for reference.
+You can use the scale test environment to simulate a large-scale cluster. Since the transport status path is very sensitive to the performance and represents a scale larger than the spec path.
 
 There are two main metrics to express the scalability of global hubs:
 
-- Initialization: Time  to load all managed clusters and Policy to the Global Hub.
-- Policy status rotation: Time to complete the compliance status rotation on all policies.
+- Initialization: The time to load all managed clusters and Policies to the Global Hub
+- Policy status rotation: Rotate all the policies on the managed hubs and verify status changes on the database and observe the CPU and Memory consumption of the components.
 
-## Mock batch clusters on a KinD Managed Hub
+## Initialization 
 
-- Join the KinD cluster to the global hub
+- Initialize the clusters for global hub, managed hubs and managed clusters
 
-- Mock the environment so that the global hub agent can running on the KinD cluster
-
-  - Initialize a KinD cluster as managed hub cluster
-  
-    ```bash
-    kind create cluster --name hub1
-    ```
-
-  - Create the related namespace(kubectl version must be 1.24+)
-  
-    ```bash
-    kubectl create ns multicluster-global-hub --dry-run=client -oyaml | kubectl apply -f -
-    kubectl create ns application-system --dry-run=client -oyaml | kubectl apply -f -
-    ```
-  
-  - Apply the CRDs
-  
-    ```bash
-    kubectl apply --server-side=true --validate=false -f pkg/testdata/crds
-    ```
-  
-  - Mock the MultiClusterHub operand
-
-    ```bash
-    kubectl apply -f doc/simulation/managd-clusters/multiclusterhub.yaml 
-    ```
-
-- Mock the managed cluster clusters
-
-  - Setup the available managed clusters
-
-    You can run `setup-cluster.sh` followed with a parameter to set up multiple simulated managed clusters, you can also append another parameter with that will the the prefix of the clusterID. For example, set up 250 simulated managed clusters with clusterID prefix 1(means the first managed hub), by the following command:
-
-    ```bash
-    $ ./doc/simulation/managd-clusters/setup-cluster.sh 250 1                                         
-    Creating Simulated managedCluster managedcluster-1...
-    managedcluster.cluster.open-cluster-management.io/managedcluster-1 created
-    managedcluster.cluster.open-cluster-management.io/managedcluster-1 patched
-    managedcluster.cluster.open-cluster-management.io/managedcluster-1 patched
-    Creating Simulated managedCluster managedcluster-2...
-    managedcluster.cluster.open-cluster-management.io/managedcluster-2 created
-    managedcluster.cluster.open-cluster-management.io/managedcluster-2 patched
-    managedcluster.cluster.open-cluster-management.io/managedcluster-2 patched
-    ...
-    Creating Simulated managedCluster managedcluster-5...
-    managedcluster.cluster.open-cluster-management.io/managedcluster-5 created
-    managedcluster.cluster.open-cluster-management.io/managedcluster-5 patched
-    managedcluster.cluster.open-cluster-management.io/managedcluster-5 patched
-    ```
-
-    Check if all the managed cluster are set up successfully in ACM hub cluster:
-
-    ```bash
-    $ kubectl get managedcluster | grep managedcluster
-    NAME                 HUB ACCEPTED   MANAGED CLUSTER URLS   JOINED   AVAILABLE   AGE
-    managedcluster-1     true                                  True     True        11m
-    managedcluster-10    true                                  True     True        11m
-    ...
-    managedcluster-99    true                                  True     True        10m
-    $ oc get mcl | wc -l
-    251
-    ```
-
-  - Cleanup the available managed clusters
-
-    ```bash
-    $ ./doc/simulation/managd-clusters/cleanup-cluster.sh 250
-    Deleting Simulated managedCluster managedcluster-1...
-    managedcluster.cluster.open-cluster-management.io "managedcluster-1" deleted
-    Deleting Simulated managedCluster managedcluster-2...
-    managedcluster.cluster.open-cluster-management.io "managedcluster-2" deleted
-    ...
-    Deleting Simulated managedCluster managedcluster-250...
-    managedcluster.cluster.open-cluster-management.io "managedcluster-250" deleted
-    ```
-
-## Mock batch policy resources on the managed clusters
-
-- Initialize the policy on the above clusters
-
-    You can run `setup-policy.sh` followed with two parameter to many policies deploy on many clusters. For example, deploy 10 policies on the above 250 simulated managed clusters with the following command:
-
-    ```
-    $ ./doc/simulation/local-policies/setup-policy.sh 10 250
-    Creating Simulated Rootpolicy rootpolicy-1...
-    policy.policy.open-cluster-management.io/rootpolicy-1 created
-    Creating Simulated ReplicasPolicy default.rootpolicy-1 on managedcluster-1...
-    namespace/managedcluster-1 created
-    policy.policy.open-cluster-management.io/default.rootpolicy-1 created
-    policy.policy.open-cluster-management.io/default.rootpolicy-1 patched
-    Creating Simulated ReplicasPolicy default.rootpolicy-1 on managedcluster-2...
-    ...
-    namespace/managedcluster-250 configured
-    policy.policy.open-cluster-management.io/default.rootpolicy-10 created
-    policy.policy.open-cluster-management.io/default.rootpolicy-10 patched
-    policy.policy.open-cluster-management.io/rootpolicy-10 patched
-    ```
-
-- Cleanup the mocked polices.
-
-    ```
-    $ ./doc/simulation/local-policies/cleanup-policy.sh 10 250
-    Creating Simulated Rootpolicy rootpolicy-1...
-    policy.policy.open-cluster-management.io/rootpolicy-1 created
-    Creating Simulated ReplicasPolicy default.rootpolicy-1 on managedcluster-1...
-    namespace/managedcluster-1 created
-    policy.policy.open-cluster-management.io/default.rootpolicy-1 created
-    policy.policy.open-cluster-management.io/default.rootpolicy-1 patched
-    Creating Simulated ReplicasPolicy default.rootpolicy-1 on managedcluster-2...
-    ...
-    namespace/managedcluster-250 configured
-    policy.policy.open-cluster-management.io/default.rootpolicy-10 created
-    policy.policy.open-cluster-management.io/default.rootpolicy-10 patched
-    policy.policy.open-cluster-management.io/rootpolicy-10 patched
-    ```
-
-## Initialization
-
-- Join the KinD cluster to the managed
-  
-- Start the `stopwatch` to count the records
-  
-  This scenario specifies how much time it took to send all of the clusters, policies and events in the first time. When the database is empty, you can start sync resource from agent to manager. We can run queries to count the numbers of these tables. The time between the first data appearance in the database and the expected `COUNT` is the test result. 
-
-  We provide a [count script](stopwatch.sh) for the cluster, policies and events. You can optimize and enhance it to make it more of what you need.
+  You can execute the following scipt to create the hub clusters and join them into the global hub. To join these clusters to it, You must set the `KUBECONFIG` environment variable to enable these hubs can connect to the global hub. Besides, you also need to provide serveral parameters for the script:
 
   ```bash
-  ./doc/simulation/stopwatch.sh
+  ./doc/simulation/setup-cluster.sh 5 300
+  ```
+  - `$1` - How many managed hub clusters will be created
+  - `$2` - How many managed cluster will be created on per managed hub
+
+  That means create `5` managed hubs and each has `300` managed clusters. You can also run `./doc/simulation/managed-clusters/cleanup-cluster.sh 300` on each hub cluster to cleanup the generated managed clusters.
+
+- Create the policies on the managed hub clusters
+
+  Running the following script to create the policies on all the managed hubs.
+  ```bash
+  ./doc/simulation/setup-policy.sh 5 50 300
+  ```
+  - `$1` - How many managed hub clusters to mock the polices
+  - `$2` - How many root policy will be created per managed hub cluster
+  - `$3` - How many managed cluster the root policy will be propagated to on each hub cluster
+
+  That means the operation will run on the `5` managed hub concurrently. Each of them will create `50` root policies and propagate to the `300` managed clusters. So there will be `15000` replicas polices on the managed hub cluster. Likewise, you can execute `./doc/simulation/local-policies/cleanup-policy.sh 50 300` on each managed hub to delete the created polices.
+
+- Start the `stopwatch` to count the records synced to database
+  
+  This scenario specifies how much time it took to send all of the clusters, policies and events in the first time. We can run a queries to count the numbers of these tables. The time between the first data appearance in the database and the expected `COUNT` is the test result. 
+
+  We provide a [count script](stopwatch-initialization.sh) for the cluster, policies and events. You can optimize and enhance it to make it more of what you need.
+
+  ```bash
+  $ ./doc/simulation/stopwatch-initialization.sh
   ```
 
-- Add the label `vendor: OpenShift` to the KinD cluster to start `multicluster-global-hub-agent` 
+  The expected result should be:
+
+  - `1500` Managed Cluster: 5 managed hubs each with `300` clusters
+  - `150` Root Policies and `75000` Replicas Policies: each hub with `50` root policies and `50 * 300` replicas policies
+  - `75000` Events: each replicas polices with `1` event
+
+- Add the label `vendor: OpenShift` to the hub clusters to start the `multicluster-global-hub-agent` on each managed hub
   
   ```bash
   kubectl label mcl hub1 vendor=OpenShift --overwrite
+  kubectl label mcl hub2 vendor=OpenShift --overwrite
+  kubectl label mcl hub3 vendor=OpenShift --overwrite
+  kubectl label mcl hub4 vendor=OpenShift --overwrite
+  kubectl label mcl hub5 vendor=OpenShift --overwrite
   ```
 
-- Check the CPU and Memory consumption of the `multicluster-global-hub-manager`
-  
-  ```bash
-  oc adm top pod -n multicluster-global-hub
-  ```
-  
-- Observe the count of records and time in the tables
+- Observe the count of records in the tables
 
   ```bash
+  $ ./doc/simulation/stopwatch-initialization.sh
+  KUBECONFIG=/tmp/myan-global-hub
+  database pod hoh-pgha1-zkz9-0
 
+  2023-09-08 01:10:27 | cluster    |   300
+
+  2023-09-08 01:12:12 | cluster    |   300
+
+  ...
+  2023-09-08 01:12:17 | compliance | 15000
+  2023-09-08 01:12:17 | cluster    |   300
+
+  ...
+  2023-09-08 01:12:25 | compliance | 15000
+  2023-09-08 01:12:25 | cluster    |   600
+
+  ...
+  2023-09-08 01:13:11 | event      | 15000
+  2023-09-08 01:13:11 | compliance | 30000
+  2023-09-08 01:13:11 | cluster    |   900
+
+  ...
+  2023-09-08 01:13:15 | event      | 30000
+  2023-09-08 01:13:15 | compliance | 30000
+  2023-09-08 01:13:15 | cluster    |   900
+
+  ...
+  2023-09-08 01:13:46 | event      | 30000
+  2023-09-08 01:13:46 | compliance | 60000
+  2023-09-08 01:13:46 | cluster    |   900
+
+  ...
+  2023-09-08 01:13:50 | event      | 30000
+  2023-09-08 01:13:50 | compliance | 60000
+  2023-09-08 01:13:50 | cluster    |  1200
+
+  ...
+  2023-09-08 01:13:55 | event      | 60000
+  2023-09-08 01:13:55 | compliance | 60000
+  2023-09-08 01:13:55 | cluster    |  1200
+
+  ...
+  2023-09-08 01:14:28 | event      | 60000
+  2023-09-08 01:14:28 | compliance | 75000
+  2023-09-08 01:14:28 | cluster    |  1200
+
+  ...
+  2023-09-08 01:14:32 | event      | 60000
+  2023-09-08 01:14:32 | compliance | 75000
+  2023-09-08 01:14:32 | cluster    |  1500
+
+  ...
+  2023-09-08 01:14:40 | compliance | 75000
+  2023-09-08 01:14:40 | event      | 75000
+  2023-09-08 01:14:40 | cluster    |  1500
   ```
+  ![Record Counter](./../images/global-hub-record-counter.png)
+
+  The results above illustrate the growth of records in the databasae over time, indicating that these 5 managed hubs took approximately 5 minutes from initially receiving data to synchronizing all compliance status and clusters with the database.
+
+- Check the CPU consumption
+
+  ![Max Initialization CPU](./../images/global-hub-cpu-initialization-max.png)
+  ![Min Initialization CPU](./../images/global-hub-cpu-initialization-min.png)
+
+  It can be seen from the above graph that the CPU changes with the amount of data. The `multicluster-global-hub-grafana` CPU exhibits minor fluctuations, basically keep below `10m`. However, the `multicluster-global-hub-manager` CPU shows significant ups and downs in reponse to the data changes. It reaches its peak at `171 m`, and as the processing data decreases, it will be as low as `5 m` or less.
+
+- Check the Memory consumption
+
+  ![Min Initialization Memory](./../images/global-hub-memory-initialization-min.png)
+  ![Max Initialization Memory](./../images/global-hub-memory-initialization-max.png)
+
+  Unlike the CPU consumption, the memory consumption remains relatively consistent without frequent fluctuations. After all the data was inserted into the database, the consumption of  `multicluster-global-hub-grafana` memory reaches its peak at `186 MiB` and subsequently remained around `143 MiB`. Without processing any data, the `multicluster-global-hub-manager` has a memory usage of approximately `52 MiB`, Afther caching all the necessary data from the managed hub, its memory usage increased to around `190 MiB`.
 
 ## Policy Status Rotation
 
-Suppose that 1M policies on 100K managed clusters with 100 managed hubs are simulated to get the Policy status Rotation. You can simulate this by completing the following steps:
+We are using the `./local-policies/rotate-policy.sh` to update the status of the replicas policies on each managed hub. Every time the status of `5000` replicas policies is updated, wait `10` minutes before continuing, so that the compliance status in the database can be regularly found to be updated at intervals of `5000`. 
 
-1. Build a managed hub, and then generate 1000 managed clusters by using the CLC simulator.
-2. Create 10 policies on Global, and wait for them to be scheduled to the 1000 managed clusters, up until here we get 10K policies.
-3. Update the code to simulate 100 managed hub by changing the `leafHubName` to 100 different values when sending the bundle.
-4. Wait until both 100K managed clusters and 1M Policies are sent to the database. 
-5. Start running the GRC simulator on managed hub (as the `startTime`) and change the 10K policies status from `non-compliant` to `compliant`. the `endTime` should be 1M `compliant` policies found in the database of global hub.
-6. The time of Policies status rotation = `endTime` - `starTime`.
+- Update the policy status on managed hub
+
+```bash
+# update the 50 root policy on the 300 cluster, and update the status to Compliant(default NonCompliant)
+$ ./doc/simulation/local-policies/rotate-policy.sh 50 300 "Compliant"
+# $ ./doc/simulation/local-policies/rotate-policy.sh 50 300 "NonCompliant"
+```
+
+- Observe the status count of the compliance from database.
+```bash
+$ ./doc/simulation/stopwatch-compliance.sh 2>&1 | tee ./doc/simulation/compliance.log
+```
+
+- The CPU and Memory consumption of the `multicluster-global-hub`
+ ![Policy rotation CPU](./../images/global-hub-cpu-policy-rotation.png)
+ ![Policy rotation Memory](./../images/global-hub-memory-policy-rotation.png)
+
+  We can see that the  `multicluster-global-hub-manager` need more CPU resource when updating all the policy status. The maximum value can be up to `800m`, the rest are fluctuating around `250m`. After processing the all the rotation policies, keep it to about `6m`.
+
+  The memory consumption of `multicluster-global-hub-manager` stay around `370 MiB` when rotating the policies. And then fall back to about `180 MiB` after updating all the policy status.
+
+- The CPU and Memory consumption of the Postgres Pods
+  ![Postgres CPU](./../images/global-hub-cpu-postgres.png)
+  ![Postgres Memory](./../images/global-hub-memory-postgres.png)
+
+- The CPU and Memory consumption of the Kafka pods
+  ![Kafka CPU](./../images/global-hub-cpu-kafka.png)
+  ![Kafka Memory](./../images/global-hub-memory-kafka.png)
 
 ## Related Material
 
 - [Red Hat Advanced Cluster Management Hub-of-hubs Scale and Performance Tests](https://docs.google.com/presentation/d/1z6hESoacKRHuBQ-7I8nqWBuMnw7Z6CAw/edit#slide=id.p1)
 - [Replace Global Hub Transport with Cloudevents](https://github.com/stolostron/multicluster-global-hub/issues/310)
-
-**Note:** Thanks to [Nir Rozenbaum](https://github.com/nirrozenbaum) and [Maroon Ayoub](https://github.com/vMaroon) for their support.

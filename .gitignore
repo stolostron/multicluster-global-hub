@@ -31,3 +31,9 @@ test/setup/config/
 .idea
 *.crt
 *.key
+
+*.log
+
+kubeconfig
+
+__pycache__
