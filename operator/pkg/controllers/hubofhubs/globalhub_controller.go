@@ -192,8 +192,8 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 // ReconcileMiddleware creates the kafka and postgres if needed.
-// 1. create the kafka and postgres subscription together
-// 2. then create the kafka and postgres resources together
+// 1. create the kafka and postgres subscription at the same time
+// 2. then create the kafka and postgres resources at the same time
 // 3. wait for kafka and postgres ready
 func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
@@ -239,16 +239,14 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	}
 
 	if r.MiddlewareConfig.KafkaConnection == nil {
-		r.MiddlewareConfig.KafkaConnection, err = r.WaitForKafkaClusterReady(ctx)
-		if err != nil {
+		if r.MiddlewareConfig.KafkaConnection, err = r.WaitForKafkaClusterReady(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 	}
 
 	if r.MiddlewareConfig.PgConnection == nil {
 		// store crunchy postgres connection
-		r.MiddlewareConfig.PgConnection, err = r.WaitForPostgresReady(ctx)
-		if err != nil {
+		if r.MiddlewareConfig.PgConnection, err = r.WaitForPostgresReady(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 	}
