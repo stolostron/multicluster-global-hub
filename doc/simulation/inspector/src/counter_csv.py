@@ -2,16 +2,15 @@ from common import *
 from colorama import Fore, Back, Style
 from kubernetes import client, config
 from datetime import datetime
+import pytz
 import base64
 import psycopg2
 import threading
 import time
 import warnings
 import pandas as pd
-import pytz
 import os
 warnings.filterwarnings("ignore")
-
 
 script_path = os.path.realpath(__file__)
 output_path = os.path.join(os.path.dirname(script_path), "../output")
