@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,12 +41,13 @@ import (
 )
 
 const (
-	metricsHost                = "0.0.0.0"
-	metricsPort          int32 = 8384
-	webhookPort                = 9443
-	webhookCertDir             = "/webhook-certs"
-	kafkaTransportType         = "kafka"
-	leaderElectionLockID       = "multicluster-global-hub-manager-lock"
+	metricsHost                   = "0.0.0.0"
+	metricsPort             int32 = 8384
+	webhookPort                   = 9443
+	webhookCertDir                = "/webhook-certs"
+	kafkaTransportType            = "kafka"
+	leaderElectionLockID          = "multicluster-global-hub-manager-lock"
+	launchJobImmediatelyEnv       = "LAUNCH_JOB_IMMEDIATELY"
 )
 
 var (
@@ -69,6 +71,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 		StatisticsConfig:      &statistics.StatisticsConfig{},
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
+		LaunchJobImmediately:  false,
 	}
 
 	// add zap flags
@@ -140,8 +143,6 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
 		"enable the global resource feature.")
-	pflag.BoolVar(&managerConfig.LaunchJobImmediately, "launch-job-immediately", false,
-		"run the cronjobs once the container started.")
 
 	pflag.Parse()
 	// set zap logger
@@ -163,6 +164,13 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
 		return fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
+	}
+	if launchJobEnv := os.Getenv(launchJobImmediatelyEnv); launchJobEnv != "" {
+		boolValue, err := strconv.ParseBool(launchJobEnv)
+		if err != nil {
+			return fmt.Errorf("parsing %s as a boolean: %v", launchJobImmediatelyEnv, err)
+		}
+		managerConfig.LaunchJobImmediately = boolValue
 	}
 	return nil
 }
