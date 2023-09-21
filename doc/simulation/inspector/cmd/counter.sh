@@ -10,14 +10,14 @@ mkdir -p ${output}
 # Function to start the backend application
 start_backend() {
     echo "Starting the backend counter..."
-    python3 ${REPO_DIR}/src/counter_csv.py override 2>&1 > ${output}/counter.log &
+    python3 ${REPO_DIR}/src/counter.py override 2>&1 > ${output}/counter.log &
 }
 
 # Function to start the backend application
 continue_backend() {
     echo "Continue the backend counter..."
     pkill -f ${REPO_DIR}/src/counter.py
-    python3 ${REPO_DIR}/src/counter_csv.py 2>&1 >> ${output}/counter.log &
+    python3 ${REPO_DIR}/src/counter.py 2>&1 >> ${output}/counter.log &
 }
 
 # Function to stop the backend application

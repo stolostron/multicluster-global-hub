@@ -8,7 +8,7 @@ The inspector is inspired by [acm-inspector](https://github.com/bjoydeep/acm-ins
 2. Expose the postgres endpoint to allow get the database connection. You can achieve this by running `kubectl patch postgrescluster postgres -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge -n multicluster-global-hub`.
 3. The `python3` and the tool `pip3` have been installed on your environment.
 4. Enable the `Prometheus` on your global hub.
-5. Running the `pip3 install -r requirements` under the folder `doc/simulation/inspector` to install dependencies.
+5. Running the `pip3 install -r ./doc/simulation/inspector/requirements.txt` to install dependencies.
 
 ## Running the inspector
 

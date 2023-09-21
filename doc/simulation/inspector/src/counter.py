@@ -1,4 +1,3 @@
-from common import *       
 from colorama import Fore, Back, Style
 from kubernetes import client, config
 from datetime import datetime
@@ -9,6 +8,7 @@ import threading
 import time
 import pandas as pd
 import os
+from common import *
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -138,13 +138,14 @@ def draw():
     print(df)
     dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
 
+    plt.figure(figsize=[figure_with, figure_hight])
     host = host_subplot(111)
     twin = host.twinx()
 
     # time,compliance,event,cluster,heartbeats
     p1, = host.plot_date(dates, df['compliance'], '*-', alpha=0.8, label="Compliance")
     p2, = host.plot_date(dates, df['event'], '>--', color=p1.get_color(), alpha=0.8, label="Event")
-    p3, = twin.plot_date(dates, df['heartbeats'], 'o-', color='green', alpha=0.8, label="Cluster")
+    p3, = twin.plot_date(dates, df['cluster'], 'o-', color='green', alpha=0.8, label="Cluster")
 
     host.legend(labelcolor="linecolor")
 
@@ -173,7 +174,7 @@ def draw():
     df = pd.read_csv(output_path + '/count-compliance.csv')
     dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(figure_with, figure_hight))
     ax.plot(dates, df['compliant'], 'o-', color="green", label="Compliant")
     ax.plot(dates, df['non_compliant'], '*-', color="red", label="NonCompliant")
 
