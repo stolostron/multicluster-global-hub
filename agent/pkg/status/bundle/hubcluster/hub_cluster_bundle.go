@@ -34,28 +34,29 @@ func (bundle *LeafHubClusterInfoStatusBundle) UpdateObject(object agentbundle.Ob
 	defer bundle.lock.Unlock()
 
 	route := object.(*routev1.Route)
+	routeURL := "https://" + route.Spec.Host
 
 	if len(bundle.Objects) == 0 {
 		if route.GetName() == constants.OpenShiftConsoleRouteName {
 			bundle.Objects = []*statusbundle.LeafHubClusterInfo{
 				{
 					LeafHubName: bundle.LeafHubName,
-					ConsoleURL:  "https://" + route.Spec.Host,
+					ConsoleURL:  routeURL,
 				},
 			}
 		} else if route.GetName() == constants.ObservabilityGrafanaRouteName {
 			bundle.Objects = []*statusbundle.LeafHubClusterInfo{
 				{
 					LeafHubName: bundle.LeafHubName,
-					GrafanaURL:  "https://" + route.Spec.Host,
+					GrafanaURL:  routeURL,
 				},
 			}
 		}
 	} else {
 		if route.GetName() == constants.OpenShiftConsoleRouteName {
-			bundle.Objects[0].ConsoleURL = "https://" + route.Spec.Host
+			bundle.Objects[0].ConsoleURL = routeURL
 		} else if route.GetName() == constants.ObservabilityGrafanaRouteName {
-			bundle.Objects[0].GrafanaURL = "https://" + route.Spec.Host
+			bundle.Objects[0].GrafanaURL = routeURL
 		}
 	}
 	bundle.BundleVersion.Incr()
