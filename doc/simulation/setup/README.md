@@ -50,7 +50,7 @@ kubectl label mcl hub5 vendor=OpenShift --overwrite
 
 ## Rotate the Status of Polcies
 
-In order to better observe changes in compliance, we update policy status intermittently. After `5000` replicas policies is updated, wait `5` minutes before continuing, so that the compliance status in the database can be regularly found to be updated at intervals of `5000`. 
+You can run the following script to update the replicas policies status on each hub cluster.
 
 - Update the policy status on managed hub
 
