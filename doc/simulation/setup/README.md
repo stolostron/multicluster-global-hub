@@ -47,3 +47,15 @@ kubectl label mcl hub3 vendor=OpenShift --overwrite
 kubectl label mcl hub4 vendor=OpenShift --overwrite
 kubectl label mcl hub5 vendor=OpenShift --overwrite
 ```
+
+## Rotate the Status of Polcies
+
+In order to better observe changes in compliance, we update policy status intermittently. After `5000` replicas policies is updated, wait `5` minutes before continuing, so that the compliance status in the database can be regularly found to be updated at intervals of `5000`. 
+
+- Update the policy status on managed hub
+
+```bash
+# update the 50 root policy on the 300 cluster, and update the status to Compliant(default NonCompliant)
+$ ./doc/simulation/setup/rotate-policy.sh 50 300 "Compliant"
+# $ ./doc/simulation/setup/rotate-policy.sh 50 300 "NonCompliant"
+```

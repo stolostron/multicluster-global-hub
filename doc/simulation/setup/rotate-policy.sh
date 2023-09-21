@@ -42,7 +42,7 @@ do
 
     count=$(( $count + 1 ))
     if (( count == 5000 )); then
-      sleep 600
+      sleep 300
     else
       count=0
     fi
