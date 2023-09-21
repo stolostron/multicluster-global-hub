@@ -7,17 +7,20 @@ import base64
 import psycopg2
 import threading
 import time
-import warnings
 import pandas as pd
 import os
-warnings.filterwarnings("ignore")
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from mpl_toolkits.axes_grid1 import host_subplot
+from matplotlib.ticker import MaxNLocator
 
 script_path = os.path.realpath(__file__)
 output_path = os.path.join(os.path.dirname(script_path), "../output")
 if not os.path.exists(output_path):
     os.makedirs(output_path)
 
-def record_initial(cur):
+def record_initial(cur, override):
     initial_sql='''
     SELECT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS') as time, table_name, COUNT(1) AS count
     FROM (
@@ -26,8 +29,6 @@ def record_initial(cur):
         SELECT 'compliance' AS table_name FROM local_status.compliance
         UNION ALL
         SELECT 'event' AS table_name FROM "event".local_policies
-        UNION ALL
-        SELECT 'heartbeats' AS table_name from status.leaf_hub_heartbeats
     ) AS subquery
     GROUP BY table_name;
     '''
@@ -35,13 +36,13 @@ def record_initial(cur):
     while True:
       cur.execute(initial_sql)
       df = pd.DataFrame([
-        {'time': datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S"), 'compliance': 0, 'event': 0, 'cluster': 0, 'heartbeats': 0},
+        {'time': datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S"), 'compliance': 0, 'event': 0, 'cluster': 0},
       ])
       for record in cur.fetchall():
         df['time']=record[0]
         df[record[1]]=record[2]
         # df.loc[df['Name']==record[1], 'Time'] = record[0]
-      if withHeader:
+      if withHeader and override:
         df.to_csv(output_path + "/count-initialization.csv", header=True, index=False)
         withHeader = False
       else:
@@ -49,7 +50,7 @@ def record_initial(cur):
         
       time.sleep(10)
 
-def record_compliance(cur):
+def record_compliance(cur, override):
     compliance_sql='''
     SELECT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS') as time, compliance as status, COUNT(1) as count
     FROM local_status.compliance
@@ -65,7 +66,7 @@ def record_compliance(cur):
         df['time'] = record[0]
         df[record[1]] = record[2]
         
-      if withHeader:
+      if withHeader and override:
         df.to_csv(output_path + "/count-compliance.csv", header=True, index=False)
         withHeader = False
       else:
@@ -76,9 +77,13 @@ def main():
     now = datetime.now(pytz.utc)
     print(Back.LIGHTYELLOW_EX+"")
     print("************************************************************************************************")
-    print("Start GH Stopwatcher - ",now)
+    print("Start Global Hub Stopwatcher - ",now)
     print("************************************************************************************************")
     print(Style.RESET_ALL)
+    
+    override = False
+    if len(sys.argv) >= 2 and sys.argv[1] == "override":
+      override = True
     
     config.load_kube_config()
     
@@ -102,8 +107,8 @@ def main():
                         dbname=postgres_dict["dbname"])
       connection.autocommit = True  # Ensure data is added to the database immediately after write commands
       cur = connection.cursor()
-      thread1 = threading.Thread(target=record_initial, args=(cur,))
-      thread2 = threading.Thread(target=record_compliance, args=(cur,))
+      thread1 = threading.Thread(target=record_initial, args=(cur, override))
+      thread2 = threading.Thread(target=record_compliance, args=(cur, override))
 
       thread1.start()
       thread2.start()
@@ -120,9 +125,73 @@ def main():
 
     print(Back.LIGHTYELLOW_EX+"")
     print("************************************************************************************************")
-    print("End GH Stopwatcher")
+    print("End Global Hub Stopwatcher")
     print("************************************************************************************************")
     print(Style.RESET_ALL)
+
+def draw():
+      
+    # Initialization
+    plt.clf()
+
+    df = pd.read_csv(output_path + '/count-initialization.csv')
+    print(df)
+    dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
+
+    host = host_subplot(111)
+    twin = host.twinx()
+
+    # time,compliance,event,cluster,heartbeats
+    p1, = host.plot_date(dates, df['compliance'], '*-', alpha=0.8, label="Compliance")
+    p2, = host.plot_date(dates, df['event'], '>--', color=p1.get_color(), alpha=0.8, label="Event")
+    p3, = twin.plot_date(dates, df['heartbeats'], 'o-', color='green', alpha=0.8, label="Cluster")
+
+    host.legend(labelcolor="linecolor")
+
+    host.set_ylabel("Compliance and Event")
+    twin.set_ylabel("Cluster")
+
+    host.yaxis.get_label().set_color(p1.get_color())
+    twin.yaxis.get_label().set_color(p3.get_color())
+
+    host.set_xlabel("Time")
+    host.xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
+    host.xaxis.set_major_locator(mdates.SecondLocator(interval=20))
+
+    host.yaxis.set_major_locator(MaxNLocator(integer=True))
+    twin.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+    plt.grid(axis='y', color='0.95')
+
+    plt.title("Global Hub Resources Counter")
+    plt.savefig(output_path + '/count-initialization.png')
+
+
+    # compliance
+    plt.clf()
+    # time,compliant,non_compliant
+    df = pd.read_csv(output_path + '/count-compliance.csv')
+    dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
+
+    fig, ax = plt.subplots()
+    ax.plot(dates, df['compliant'], 'o-', color="green", label="Compliant")
+    ax.plot(dates, df['non_compliant'], '*-', color="red", label="NonCompliant")
+
+    ax.legend(labelcolor="linecolor")
+
+    ax.set_xlabel("Time")
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
+    ax.xaxis.set_major_locator(mdates.SecondLocator(interval=20))
+
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+    plt.title("Global Hub Compliance Counter")
+    plt.savefig(output_path + '/count-compliance.png')
+
+# plt.show()
     
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) >= 2 and sys.argv[1] == "draw":
+      draw()
+    else:
+      main()

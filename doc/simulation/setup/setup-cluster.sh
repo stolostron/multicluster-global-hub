@@ -6,7 +6,7 @@
 ### Usage: ./setup-cluster.sh <hub-cluster-number> <managed-cluster-number-on-each-hub> 
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../.." ; pwd -P)"
+REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 export KUBECONFIG=${KUBECONFIG}
 
 cluster_dir="${REPO_DIR}/doc/simulation/kubeconfig"

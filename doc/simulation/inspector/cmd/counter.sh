@@ -10,15 +10,27 @@ mkdir -p ${output}
 # Function to start the backend application
 start_backend() {
     echo "Starting the backend counter..."
-    python3 ${REPO_DIR}/src/counter_csv.py 2>&1 > ${output}/counter.log &
+    python3 ${REPO_DIR}/src/counter_csv.py override 2>&1 > ${output}/counter.log &
+}
+
+# Function to start the backend application
+continue_backend() {
+    echo "Continue the backend counter..."
+    pkill -f ${REPO_DIR}/src/counter.py
+    python3 ${REPO_DIR}/src/counter_csv.py 2>&1 >> ${output}/counter.log &
 }
 
 # Function to stop the backend application
 stop_backend() {
     echo "Stopping the backend counter..."
     # Replace the following line with the actual command or process name to stop your backend app
-    pkill -f ${REPO_DIR}/src/counter_csv.py
-    python3 ${REPO_DIR}/src/counter_png.py
+    pkill -f ${REPO_DIR}/src/counter.py
+    python3 ${REPO_DIR}/src/counter.py draw
+}
+
+csv_draw() {
+    echo "Drawing from the csv..."
+    python3 ${REPO_DIR}/src/counter.py draw
 }
 
 # Check if an argument is provided (start or stop)
@@ -32,8 +44,14 @@ case "$1" in
     "start")
         start_backend
         ;;
+    "continue")
+        continue_backend
+        ;;
     "stop")
         stop_backend
+        ;;
+     "draw")
+        csv_draw
         ;;
     *)
         echo "Usage: $0 {start|stop}"

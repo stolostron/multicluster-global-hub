@@ -3,39 +3,34 @@ import pytz
 from colorama import Back, Style
 import sys
 
+from cpu_usage import *
+from memory_usage import *
+
 # pass debug(boolean) as env
 def main():
     start_time=(datetime.now(pytz.utc) - timedelta(days=7))
     end_time=datetime.now(pytz.utc)
     step='1m'
     
+    try:
+      if len(sys.argv) >= 2 and sys.argv[1] != "":
+        start_time = datetime.strptime(sys.argv[1], "%Y-%m-%d %H:%M:%S")
+      if len(sys.argv) >= 3 and sys.argv[2] != "":
+        end_time = datetime.strptime(sys.argv[2], "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+      print("Invalid datetime format. Please use 'YYYY-MM-DD HH:MM:SS'.", sys.argv)
+
+    
     print(Back.LIGHTYELLOW_EX+"")
     print("************************************************************************************************")
     print("Starting date for the Global Hub Health Check  - ", datetime.now(pytz.utc))
-    print("Starting datetime for History collection - ", start_time)
-    print("End date and time for History collection - ", end_time)
+    print("Starting history collection from", start_time, "to", end_time)
     print("************************************************************************************************")
     print(Style.RESET_ALL)
    
-    # createSubdir()
-    # mch = checkMCHStatus()
-    # node = checkNodeStatus()
-
-    # if tsdb == "prom" : #if route is cluster prom
-    #      cont = checkACMContainerStatus(start_time, end_time, step)
-    #      api = checkAPIServerStatus(start_time, end_time, step)
-    #      etcd = checkEtcdStatus(start_time, end_time, step)
-    #      cpu = checkCPUUsage(start_time, end_time, step)
-    #      memory = checkMemoryUsage(start_time, end_time, step)
-    #      thanos = checkThanosStatus(start_time, end_time, step)
-    #      apiObjet = checkAPIServerObjects(start_time, end_time, step)
-    # else: #if route is observability thanos
-    #      # does not work yet
-    #      sizing = checkACMHubClusterUtilization() 
-    
-    # mc = checkManagedClusterStatus()
-    # getManagedClusterNodeCount()
-    # saveMasterDF()
+    config.load_kube_config()
+    check_global_hub_cpu(start_time, end_time, step)
+    check_global_hub_memory(start_time, end_time, step)
 
     print(Back.LIGHTYELLOW_EX+"")
     print("************************************************************************************************")
