@@ -2,6 +2,11 @@
 
 The operator of multicluster global hub (see: https://github.com/stolostron/multicluster-global-hub)
 
+## Prerequisites
+
+1. Connect to a Kubernetes cluster with `kubectl`
+2. ACM or OCM is installed on the Kubernetes cluster
+
 ## Getting started
 
 _Note:_ You can also install Multicluster Global Hub Operator from [Operator Hub](https://docs.openshift.com/container-platform/4.6/operators/understanding/olm-understanding-operatorhub.html) if you have ACM installed in an OpenShift Container Platform, the operator can be found in community operators by searching "multicluster global hub" keyword in the filter box, then follow the document to install the operator.
