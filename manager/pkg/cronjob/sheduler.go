@@ -73,7 +73,7 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 				return err
 			}
 		default:
-			log.Info("failed to launch the unknow job %s immediately", job)
+			log.Info("failed to launch the unknow job immediately", "name", job)
 		}
 	}
 
