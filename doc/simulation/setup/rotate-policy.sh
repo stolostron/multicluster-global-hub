@@ -9,6 +9,7 @@ set -eo pipefail
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 
+concurrent="${4:-1}"
 
 function update_cluster_policies() {
   root_policy_namespace=default
@@ -34,7 +35,7 @@ function update_cluster_policies() {
     fi
 
     count=$(( $count + 1 ))
-    if (( count == 10 )); then
+    if (( count == concurrent )); then
       wait
       count=0
     fi
@@ -49,5 +50,5 @@ function update_cluster_policies() {
 for i in $(seq 1 $1)
 do
   # path replicas policy: rootpolicy namespace, name and managed cluster
-  update_cluster_policies "rootpolicy-${i}" $2 $3 
+  update_cluster_policies "rootpolicy-${i}" $2 $3
 done
