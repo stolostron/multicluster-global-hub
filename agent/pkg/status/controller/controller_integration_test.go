@@ -138,11 +138,11 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 
 		Expect(kubeClient.Create(ctx, &routev1.Route{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.ObservabilityNamespace,
-				Namespace: constants.ObservabilityGrafanaRouteName,
+				Name:      constants.ObservabilityGrafanaRouteName,
+				Namespace: constants.ObservabilityNamespace,
 			},
 			Spec: routev1.RouteSpec{
-				Host: "//grafana-open-cluster-management-observability.apps.test-cluster",
+				Host: "grafana-open-cluster-management-observability.apps.test-cluster",
 				To: routev1.RouteTargetReference{
 					Kind: "Service",
 					Name: constants.ObservabilityGrafanaRouteName,
