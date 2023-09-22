@@ -317,8 +317,4 @@ For common Troubleshooting issues, see [Troubleshooting](troubleshooting.md).
 
 ## Known issues
 
-1. If the database is empty, the Grafana dashboards show the error `db query syntax error for {dashboard_name} dashboard`. The error is resolved when there is data in the database. The top-level dashboards are populated only the day after data collection is started, as explained in [Workings of Global Hub](how_global_hub_works.md)
-
-2. You cannot drill down by selecting the first datapoint from the `Policy Group Compliancy Overview` dashboard. You can drill down the `Offending Policies` dashboard when you click a datapoint from the `Policy Group Compliancy Overview` dashboard, but it is not working for the first datapoint in the list. This issue also applies to the `Cluster Group Compliancy Overview` dashboard.
-
-3. A managed cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster) is not counted in global hub policy compliance database, but shows in the Red Hat Advanced Cluster Management policy console.
+1. A managed cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster) is not counted in global hub policy compliance dashboards, but shows in the Red Hat Advanced Cluster Management policy console.
