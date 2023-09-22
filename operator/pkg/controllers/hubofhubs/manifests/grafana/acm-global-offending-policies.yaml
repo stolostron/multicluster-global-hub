@@ -1154,7 +1154,7 @@ data:
               "value": " is null "
             },
             "definition": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
-            "hide": 0,
+            "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "control_query",

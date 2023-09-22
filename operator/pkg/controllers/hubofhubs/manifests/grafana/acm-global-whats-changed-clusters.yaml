@@ -901,7 +901,7 @@ data:
               "value": " is null "
             },
             "definition": "select case when length($$${namespace}$$)>0 then $$ in ($namespace) $$ else ' is null ' end",
-            "hide": 0,
+            "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "namespace_query",
