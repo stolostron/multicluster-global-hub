@@ -13,7 +13,27 @@ There are two main metrics to express the scalability of global hubs:
 - Initialization: The time to load all managed clusters and Policies to the Global Hub
 - Policy status rotation: Rotate all the policies on the managed hubs and verify status changes on the database and observe the CPU and Memory consumption of the components.
 
-## Initialization 
+## Analysis
+
+You can setup `5` hubs, each with `300` clusters, `15000` replicas policies and at least `15000` policy events, by following the [document](./setup/README.md). Then run the global hub [inspector](./inspector/README.md) to `analysis` the CPU and `Memory` consumptoin of the components.
+
+The steps we simulate here are as follows:
+
+1. Install the global hub and then join the `5` simulated managed hubs into it.
+
+2. Deploy the `multicluster-global-hub-agent` to the `hub1` cluster and then rotating all the polcies status from `Complianct` to `NonCompliant`, or vice versa.
+
+3. After the step 2, apply the `agent` to `hub2` and `hub3`, then roating all the status from `NonCompliant` to `Compliant`.
+
+4. At last, install the `agent` to `hub4` and `hub5`
+
+Through the above steps, we can see the metrics changing trends of the global hub components under the management of `1`, `3` and `5` hubs
+
+
+- 
+
+
+
 
 
   ![Record Counter](./../images/global-hub-record-counter.png)

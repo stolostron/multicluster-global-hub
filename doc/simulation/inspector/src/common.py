@@ -11,7 +11,7 @@ if not os.path.exists(output_path):
     os.makedirs(output_path)
 
 global_hub_namespace="multicluster-global-hub"
-figure_with=16
+figure_with=18
 figure_hight=10
 
 def connectProm():
