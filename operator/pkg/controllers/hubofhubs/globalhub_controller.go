@@ -210,6 +210,8 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		if err := r.EnsureKafkaSubscription(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
+	} else {
+		r.MiddlewareConfig.KafkaConnection = kafkaConnection
 	}
 
 	// support BYO postgres
@@ -223,6 +225,8 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		if err := r.EnsureCrunchyPostgresSubscription(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
+	} else {
+		r.MiddlewareConfig.PgConnection = pgConnection
 	}
 
 	if pgConnection == nil {
