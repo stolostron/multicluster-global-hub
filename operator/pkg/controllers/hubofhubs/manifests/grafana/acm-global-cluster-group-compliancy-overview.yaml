@@ -85,7 +85,7 @@ data:
               ],
               "mappings": [],
               "max": 1,
-              "noValue": "N/A",
+              "noValue": "No data until tomorrow morning",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -127,7 +127,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT\n    lc.compliance_date as \"time\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"$label\",\n    COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance lc ON mc.cluster_id = lc.cluster_id\n  JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(lc.compliance_date)\n  AND\n    p.policy_standard IN ($standard) AND p.policy_category IN ($category) AND p.policy_control IN ($control)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' IN ($value)\n  GROUP BY (lc.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (lc.compliance_date)\n)\nSELECT\n  time,\n  $label as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data",
+              "rawSql": "WITH data as (\n  SELECT\n    lc.compliance_date as \"time\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"metric\",\n    COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance lc ON mc.cluster_id = lc.cluster_id\n  JOIN\n    local_spec.policies p ON lc.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(lc.compliance_date)\n  AND\n    p.policy_standard $standard_query AND p.policy_category $category_query AND p.policy_control $control_query\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' $value_query\n  GROUP BY (lc.compliance_date, mc.payload -> 'metadata' -> 'labels' ->> '$label')\n  ORDER BY (lc.compliance_date)\n)\nSELECT\n  time,\n  metric,\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data",
               "refId": "A",
               "select": [
                 [
@@ -314,6 +314,82 @@ data:
             "regex": "",
             "skipUrlSync": false,
             "sort": 5,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " is null ",
+              "value": " is null "
+            },
+            "definition": "select case when length($$${value}$$)>0 then $$ in ($value) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "value_query",
+            "options": [],
+            "query": "select case when length($$${value}$$)>0 then $$ in ($value) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " is null ",
+              "value": " is null "
+            },
+            "definition": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "standard_query",
+            "options": [],
+            "query": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " is null ",
+              "value": " is null "
+            },
+            "definition": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "category_query",
+            "options": [],
+            "query": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " is null ",
+              "value": " is null "
+            },
+            "definition": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
+            "hide": 0,
+            "includeAll": false,
+            "multi": false,
+            "name": "control_query",
+            "options": [],
+            "query": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
             "type": "query"
           }
         ]
