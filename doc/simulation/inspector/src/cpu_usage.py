@@ -223,13 +223,13 @@ def global_hub_total(pc, start_time, end_time, step):
 
 def global_hub_postgres(pc, start_time, end_time, step):
     file = 'global-hub-postgres-cpu-usage'
-    title = 'Global Hub Postgres CPU'
+    title = 'Global Hub Total(3 Replicas) Postgres CPU'
     print(title)
     try:
         query = '''
         sum(
           node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"postgres-pgha.*"}
-        ) by (namespace, pod)
+        ) by (namespace)
         '''
         cpu_trend = pc.custom_query_range(
           query=query,
@@ -256,13 +256,13 @@ def global_hub_postgres(pc, start_time, end_time, step):
 
 def global_hub_kafka(pc, start_time, end_time, step):
     file = 'global-hub-kafka-cpu-usage'
-    title = 'Global Hub Kafka CPU'
+    title = 'Global Hub Kafka Total(3 Replicas) CPU'
     print(title)
     try:
         query = '''
         sum(
           node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"kafka-kafka-.*"}
-        ) by (namespace, pod)
+        ) by (namespace)
         '''
         cpu_trend = pc.custom_query_range(
           query=query,

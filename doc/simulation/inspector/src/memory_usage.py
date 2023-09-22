@@ -204,7 +204,7 @@ def global_hub_grafana_memory_usage(pc, start_time, end_time, step):
     
 
 def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
-    total = "Average Global Hub Postgres Memory MB"
+    total = "Global Hub Postgres Total(3 Replicas) Memory GB"
     file = "global-hub-postgres-memory-usage"
     print(total)
     
@@ -213,7 +213,7 @@ def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
         query = '''
           sum(
             container_memory_usage_bytes{namespace="multicluster-global-hub", pod=~"postgres-pgha.*"}
-          ) by (namespace, pod) / (1024*1024) / 3
+          ) by (namespace) / (1024*1024*1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,
@@ -240,7 +240,7 @@ def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
     print("=============================================")
     
 def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
-    total = "Average Global Hub Kafka Memory MB"
+    total = "Global Hub Kafka Total(3 Replicas) Memory GB"
     file = "global-hub-kafka-memory-usage"
     print(total)
     
@@ -249,7 +249,7 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
         query = '''
           sum(
             container_memory_usage_bytes{namespace="multicluster-global-hub", pod=~"kafka-kafka-.*"}
-          ) by (namespace, pod) / (1024*1024) / 3
+          ) by (namespace) / (1024*1024*1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,
