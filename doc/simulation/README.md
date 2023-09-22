@@ -8,30 +8,30 @@ This simulation requires a **Red Hat OpenShift Container Platform clusters**. An
 
 You can use the scale test environment to simulate a large-scale cluster. Since the transport status path is very sensitive to the performance and represents a scale larger than the spec path.
 
-There are two main metrics to express the scalability of global hubs:
+There are several points we need to consider when simulating the global hub at large scale:
 
 - Initialization: The time to load all managed clusters and Policies to the Global Hub
 - Policy status rotation: Rotate all the policies on the managed hubs and verify status changes on the database and observe the CPU and Memory consumption of the components.
 
 ## Analysis
 
-You can setup `5` hubs, each with `300` clusters, `15000` replicas policies and at least `15000` policy events, by following the [document](./setup/README.md). Then run the global hub [inspector](./inspector/README.md) to `analysis` the CPU and `Memory` consumptoin of the components.
+You can setup `5` hubs, each with `300` clusters, `15000` replicas policies and at least `15000` policy events, by following the [setup guidance](./setup/README.md). Then run the global hub [inspector](./inspector/README.md) to `analysis` the CPU and `Memory` consumptions of the global hub components.
 
-The steps we simulate here are as follows:
+The simulation steps are as follows:
 
 1. Install the global hub and then join the `5` simulated managed hubs into it.
 
-2. Deploy the `multicluster-global-hub-agent` to the `hub1` cluster and then rotating all the polcies status from `Complianct` to `NonCompliant`, or vice versa.
+2. Deploy the **multicluster-global-hub-agent** to the **hub1** cluster and then rotating all the policies to update status from one to another, Like changing the all the status from `Complianct` to `NonCompliant`
 
-3. After the step 2, apply the `agent` to `hub2` and `hub3`, then roating all the status from `NonCompliant` to `Compliant`.
+3. After the step 2, apply the **agent** to **hub2** and **hub3**, then rotating all the status.
 
-4. At last, install the `agent` to `hub4` and `hub5`
+4. At last, repeat the step 3 to deploy the **agent** to **hub4** and **hub5**, and updating the status.
 
-Through the above steps, we can see the metrics changing trends of the global hub components under the management of `1`, `3` and `5` hubs
+Through the above steps, we can see the changing trends of the global hub metrics under the management of `1`, `3` and `5` hubs.
 
 ### The Count of the Global Hub Data from database
 
-The mulitcluster global hub counters are used to count the managed clusters, compliances and policy events from database over time. 
+The global hub counters are used to count the managed clusters, compliances and policy events from database over time. 
 
 - The Managed Clusters
 ![Manager Cluster](./../images/global-hub-count-cluster.png)
