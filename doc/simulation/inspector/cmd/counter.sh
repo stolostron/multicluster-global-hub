@@ -54,7 +54,7 @@ case "$1" in
         csv_draw
         ;;
     *)
-        echo "Usage: $0 {start|stop}"
+        echo "Usage: $0 {start|continue|stop|draw}"
         exit 1
         ;;
 esac

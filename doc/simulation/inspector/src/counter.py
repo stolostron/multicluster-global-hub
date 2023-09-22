@@ -187,19 +187,29 @@ def draw():
     plt.clf()
     fig, ax = plt.subplots(figsize=(figure_with, figure_hight))
     dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
-    ax.plot(dates, df['event'])
+    ax.plot(dates, df['event'], linewidth=3.0)
     plt.title("Global Hub Event Counter")
     plt.savefig(output_path + '/count-event.png')
 
     # Rotation Policy - compliance
-    plt.clf()
     # time,compliant,non_compliant
     df = pd.read_csv(output_path + '/count-compliance.csv', on_bad_lines='skip')
-    dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
-
+    # data cleaning
+    mask = (df['compliant'] == 0) & (df['non_compliant'] == 0)
+    indices = df[mask].index
+    indices_to_remove = []
+    prev_index = None
+    for index in indices:
+      if prev_index is not None and index != prev_index + 1:
+        indices_to_remove.append(index)
+      prev_index = index
+    df = df.drop(indices_to_remove)
+    
+    plt.clf()
     fig, ax = plt.subplots(figsize=(figure_with, figure_hight))
-    ax.plot(dates, df['compliant'], 'o-', color="green", label="Compliant")
-    ax.plot(dates, df['non_compliant'], '*-', color="red", label="NonCompliant")
+    dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
+    ax.plot(dates, df['compliant'], '-', color="green", label="Compliant",linewidth=2.0)
+    ax.plot(dates, df['non_compliant'], '--', color="#3399e6", label="NonCompliant",linewidth=2.0)
 
     ax.legend(labelcolor="linecolor")
 

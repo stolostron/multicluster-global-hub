@@ -7,4 +7,4 @@ REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/.." ; pwd -P)"
 output=${REPO_DIR}/output
 mkdir -p ${output}
 
-python3 ${REPO_DIR}/src/entry.py $1 $2
+python3 ${REPO_DIR}/src/entry.py "$1" "$2"
