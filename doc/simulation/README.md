@@ -29,50 +29,46 @@ The steps we simulate here are as follows:
 
 Through the above steps, we can see the metrics changing trends of the global hub components under the management of `1`, `3` and `5` hubs
 
+### The Count of the Global Hub Data from database
 
-- 
+The mulitcluster global hub counters are used to count the managed clusters, compliances and policy events from database over time. 
+
+- The Managed Clusters
+![Manager Cluster](./../images/global-hub-count-cluster.png)
+
+- The Compliances
+![Compliances](./../images/global-hub-count-compliance.png)
+
+- The Policy Events
+![Policy Events](./../images/global-hub-count-event.png)
 
 
+### The CPU and Memory Consumption of the Global Hub Components
 
+- Multicluster Global Hub Manager
+![Global Hub Manager CPU](./../images/global-hub-manager-cpu-usage.png)
+![Global Hub Manager Memory](./../images/global-hub-manager-memory-usage.png)
 
+- Multicluster Global Hub Grafana
+![Global Hub Grafana CPU](./../images/global-hub-grafana-cpu-usage.png)
+![Global Hub Grafana Memory](./../images/global-hub-grafana-memory-usage.png)
 
-  ![Record Counter](./../images/global-hub-record-counter.png)
+- Multicluster Global Hub Operator
+![Global Hub Operator CPU](./../images/global-hub-operator-cpu-usage.png)
+![Global Hub Operator Memory](./../images/global-hub-operator-memory-usage.png)
 
-  The results above illustrate the growth of records in the databasae over time, indicating that these 5 managed hubs took approximately 5 minutes from initially receiving data to synchronizing all compliance status and clusters with the database.
+### The CPU and Memory Consumption of the Middlewares
 
-- Check the CPU consumption
+- Multicluster Global Hub Kafka
+![Global Hub Kafka CPU](./../images/global-hub-kafka-cpu-usage.png)
+![Global Hub Kafka Memory](./../images/global-hub-kafka-memory-usage.png)
 
-  ![Max Initialization CPU](./../images/global-hub-cpu-initialization-max.png)
-  ![Min Initialization CPU](./../images/global-hub-cpu-initialization-min.png)
-
-  It can be seen from the above graph that the CPU changes with the amount of data. The `multicluster-global-hub-grafana` CPU exhibits minor fluctuations, basically keep below `10m`. However, the `multicluster-global-hub-manager` CPU shows significant ups and downs in reponse to the data changes. It reaches its peak at `171 m`, and as the processing data decreases, it will be as low as `5 m` or less.
-
-- Check the Memory consumption
-
-  ![Min Initialization Memory](./../images/global-hub-memory-initialization-min.png)
-  ![Max Initialization Memory](./../images/global-hub-memory-initialization-max.png)
-
-  Unlike the CPU consumption, the memory consumption remains relatively consistent without frequent fluctuations. After all the data was inserted into the database, the consumption of  `multicluster-global-hub-grafana` memory reaches its peak at `186 MiB` and subsequently remained around `143 MiB`. Without processing any data, the `multicluster-global-hub-manager` has a memory usage of approximately `52 MiB`, Afther caching all the necessary data from the managed hub, its memory usage increased to around `190 MiB`.
-
-## Policy Status Rotation
-
-- The CPU and Memory consumption of the `multicluster-global-hub`
- ![Policy rotation CPU](./../images/global-hub-cpu-policy-rotation.png)
- ![Policy rotation Memory](./../images/global-hub-memory-policy-rotation.png)
-
-  We can see that the  `multicluster-global-hub-manager` need more CPU resource when updating all the policy status. The maximum value can be up to `800m`, the rest are fluctuating around `250m`. After processing the all the rotation policies, keep it to about `6m`.
-
-  The memory consumption of `multicluster-global-hub-manager` stay around `370 MiB` when rotating the policies. And then fall back to about `180 MiB` after updating all the policy status.
-
-- The CPU and Memory consumption of the Postgres Pods
-  ![Postgres CPU](./../images/global-hub-cpu-postgres.png)
-  ![Postgres Memory](./../images/global-hub-memory-postgres.png)
-
-- The CPU and Memory consumption of the Kafka pods
-  ![Kafka CPU](./../images/global-hub-cpu-kafka.png)
-  ![Kafka Memory](./../images/global-hub-memory-kafka.png)
+- Multicluster Global Hub Postgres
+![Global Hub Postgres CPU](./../images/global-hub-postgres-cpu-usage.png)
+![Global Hub Postgres Memory](./../images/global-hub-postgres-memory-usage.png)
 
 ## Related Material
 
+- [acm-inspector](https://github.com/bjoydeep/acm-inspector)
 - [Red Hat Advanced Cluster Management Hub-of-hubs Scale and Performance Tests](https://docs.google.com/presentation/d/1z6hESoacKRHuBQ-7I8nqWBuMnw7Z6CAw/edit#slide=id.p1)
 - [Replace Global Hub Transport with Cloudevents](https://github.com/stolostron/multicluster-global-hub/issues/310)
