@@ -128,50 +128,73 @@ def main():
     print("End Global Hub Stopwatcher")
     print("************************************************************************************************")
     print(Style.RESET_ALL)
-
-def draw():
-      
-    # Initialization
+    
+def draw_intialization(df):
     plt.clf()
-
-    df = pd.read_csv(output_path + '/count-initialization.csv')
-    print(df)
-    dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
-
     plt.figure(figsize=[figure_with, figure_hight])
     host = host_subplot(111)
     twin = host.twinx()
 
+    dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
     # time,compliance,event,cluster,heartbeats
-    p1, = host.plot_date(dates, df['compliance'], '*-', alpha=0.8, label="Compliance")
-    p2, = host.plot_date(dates, df['event'], '>--', color=p1.get_color(), alpha=0.8, label="Event")
-    p3, = twin.plot_date(dates, df['cluster'], 'o-', color='green', alpha=0.8, label="Cluster")
+    hostline, = host.plot_date(dates, df['cluster'], '-', color='#3399e6', alpha=0.8, label="Cluster", linewidth=4.0)
+    # p2, = host.plot_date(dates, df['event'], '>--', color=p1.get_color(), alpha=0.8, label="Event")
+    twinline, = twin.plot_date(dates, df['compliance'], '--', color='green', alpha=0.8, label="Compliance", linewidth=2.0)
 
-    host.legend(labelcolor="linecolor")
+    host.legend(labelcolor="linecolor", fontsize=16)
 
-    host.set_ylabel("Compliance and Event")
-    twin.set_ylabel("Cluster")
+    host.set_ylabel("Cluster", fontsize=16)
+    twin.set_ylabel("Compliance", fontsize=16)
 
-    host.yaxis.get_label().set_color(p1.get_color())
-    twin.yaxis.get_label().set_color(p3.get_color())
+    host.yaxis.get_label().set_color(hostline.get_color())
+    twin.yaxis.get_label().set_color(twinline.get_color())
+    
+    # make the compliance and cluster not algin
+    max_cluster = df['cluster'].max()
+    host.set_ylim(0, max_cluster * 1.05) 
+    max_compliance = df['compliance'].max()
+    twin.set_ylim(0, max_compliance * 1.1) 
 
-    host.set_xlabel("Time")
-    host.xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
-    host.xaxis.set_major_locator(mdates.SecondLocator(interval=20))
+    host.set_xlabel("Time", fontsize=14)
+    # host.xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
+    # host.xaxis.set_major_locator(mdates.SecondLocator(interval=20))
 
-    host.yaxis.set_major_locator(MaxNLocator(integer=True))
-    twin.yaxis.set_major_locator(MaxNLocator(integer=True))
-
+    # host.yaxis.set_major_locator(MaxNLocator(integer=True))
+    # twin.yaxis.set_major_locator(MaxNLocator(integer=True))
+    
+def draw():
+    df = pd.read_csv(output_path + '/count-initialization.csv', on_bad_lines='skip')
+    
+    # data cleaning
+    mask = (df['cluster'] == 0) & (df['compliance'] == 0) & (df['event'] == 0)
+    indices = df[mask].index
+    indices_to_remove = []
+    prev_index = None
+    for index in indices:
+      if prev_index is not None and index != prev_index + 1:
+        indices_to_remove.append(index)
+      prev_index = index
+    df = df.drop(indices_to_remove)
+    
+    # intialization - cluster compiance
+    draw_intialization(df)
+    
     plt.grid(axis='y', color='0.95')
-
-    plt.title("Global Hub Resources Counter")
+    plt.title("Global Hub Managed Cluster andd Compliance Counter", fontsize=18)
     plt.savefig(output_path + '/count-initialization.png')
+    
+    # Initialization - event
+    plt.clf()
+    fig, ax = plt.subplots(figsize=(figure_with, figure_hight))
+    dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
+    ax.plot(dates, df['event'])
+    plt.title("Global Hub Event Counter")
+    plt.savefig(output_path + '/count-event.png')
 
-
-    # compliance
+    # Rotation Policy - compliance
     plt.clf()
     # time,compliant,non_compliant
-    df = pd.read_csv(output_path + '/count-compliance.csv')
+    df = pd.read_csv(output_path + '/count-compliance.csv', on_bad_lines='skip')
     dates = [datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in df['time']]
 
     fig, ax = plt.subplots(figsize=(figure_with, figure_hight))
@@ -181,10 +204,10 @@ def draw():
     ax.legend(labelcolor="linecolor")
 
     ax.set_xlabel("Time")
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
-    ax.xaxis.set_major_locator(mdates.SecondLocator(interval=20))
+    # ax.xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
+    # ax.xaxis.set_major_locator(mdates.SecondLocator(interval=20))
 
-    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    # ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
     plt.title("Global Hub Compliance Counter")
     plt.savefig(output_path + '/count-compliance.png')

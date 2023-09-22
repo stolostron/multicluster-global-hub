@@ -49,7 +49,7 @@ def kubeapi_memory_usage(pc, start_time, end_time, step):
         kubeapi_trend_df.rename(columns={"value": "KubeAPIMemUsageRSSGB"}, inplace = True)
         
         print(kubeapi_trend_df.head(3))
-        kubeapi_trend_df.plot(title=title,figsize=(30, 15))
+        kubeapi_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         
         plt.savefig(output_path + "/" + file + ".png")
         kubeapi_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
@@ -79,7 +79,7 @@ def global_hub_total_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df.rename(columns={"value": "GlobalHubMemUsageRSSGB"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
-        global_hub_trend_df.plot(title=total,figsize=(30, 15))
+        global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
         
         plt.savefig(output_path + "/" + file + ".png")
         global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
@@ -116,7 +116,7 @@ def global_hub_operator_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
-        global_hub_trend_df.plot(title=total,figsize=(30, 15))
+        global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
         
         plt.savefig(output_path + "/" + file + ".png")
         global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
@@ -153,7 +153,7 @@ def global_hub_manager_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
-        global_hub_trend_df.plot(title=total,figsize=(30, 15))
+        global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
         
         plt.savefig(output_path + "/" + file + ".png")
         global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
@@ -191,7 +191,7 @@ def global_hub_grafana_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
-        global_hub_trend_df.plot(title=total,figsize=(30, 15))
+        global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
         
         plt.savefig(output_path + "/" + file + ".png")
         global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
@@ -228,7 +228,7 @@ def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
-        global_hub_trend_df.plot(title=total,figsize=(30, 15))
+        global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
         
         plt.savefig(output_path + "/" + file + ".png")
         global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
@@ -264,7 +264,7 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
-        global_hub_trend_df.plot(title=total,figsize=(30, 15))
+        global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
         
         plt.savefig(output_path + "/" + file + ".png")
         global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)

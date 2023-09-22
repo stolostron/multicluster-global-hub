@@ -36,21 +36,6 @@ There are two main metrics to express the scalability of global hubs:
 
 ## Policy Status Rotation
 
-We are using the `./local-policies/rotate-policy.sh` to update the status of the replicas policies on each managed hub. Every time the status of `5000` replicas policies is updated, wait `10` minutes before continuing, so that the compliance status in the database can be regularly found to be updated at intervals of `5000`. 
-
-- Update the policy status on managed hub
-
-```bash
-# update the 50 root policy on the 300 cluster, and update the status to Compliant(default NonCompliant)
-$ ./doc/simulation/local-policies/rotate-policy.sh 50 300 "Compliant"
-# $ ./doc/simulation/local-policies/rotate-policy.sh 50 300 "NonCompliant"
-```
-
-- Observe the status count of the compliance from database.
-```bash
-$ ./doc/simulation/stopwatch-compliance.sh 2>&1 | tee ./doc/simulation/compliance.log
-```
-
 - The CPU and Memory consumption of the `multicluster-global-hub`
  ![Policy rotation CPU](./../images/global-hub-cpu-policy-rotation.png)
  ![Policy rotation Memory](./../images/global-hub-memory-policy-rotation.png)

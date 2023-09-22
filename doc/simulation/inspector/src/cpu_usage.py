@@ -58,7 +58,7 @@ def kubeapi_cpu_usage(pc, start_time, end_time, step):
         kubeapi_cpu_trend_df.index= pandas.to_datetime(kubeapi_cpu_trend_df.index, unit="s")
         kubeapi_cpu_trend_df.rename(columns={"value": "KubeAPICPUCoreUsage"}, inplace = True)
         print(kubeapi_cpu_trend_df.head(3))
-        kubeapi_cpu_trend_df.plot(title=title,figsize=(30, 15))
+        kubeapi_cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         kubeapi_cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
@@ -101,7 +101,7 @@ def global_hub_operator(pc, start_time, end_time, step):
         #node_cpu_trend_df =  node_cpu_trend_df.pivot( columns='node',values='value')
         operator_cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         print(operator_cpu_trend_df.head(3))
-        operator_cpu_trend_df.plot(title=title,figsize=(30, 15))
+        operator_cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         operator_cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
@@ -144,7 +144,7 @@ def global_hub_manager(pc, start_time, end_time, step):
         cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(cpu_trend_df.head(3))
-        cpu_trend_df.plot(title=title,figsize=(30, 15))
+        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
@@ -180,7 +180,7 @@ def global_hub_grafana(pc, start_time, end_time, step):
         cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(cpu_trend_df.head(3))
-        cpu_trend_df.plot(title=title,figsize=(30, 15))
+        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
@@ -211,7 +211,7 @@ def global_hub_total(pc, start_time, end_time, step):
         cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(cpu_trend_df.head(3))
-        cpu_trend_df.plot(title=title,figsize=(30, 15))
+        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
@@ -244,7 +244,7 @@ def global_hub_postgres(pc, start_time, end_time, step):
         cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(cpu_trend_df.head(3))
-        cpu_trend_df.plot(title=title,figsize=(30, 15))
+        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
@@ -277,7 +277,7 @@ def global_hub_kafka(pc, start_time, end_time, step):
         cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(cpu_trend_df.head(3))
-        cpu_trend_df.plot(title=title,figsize=(30, 15))
+        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
