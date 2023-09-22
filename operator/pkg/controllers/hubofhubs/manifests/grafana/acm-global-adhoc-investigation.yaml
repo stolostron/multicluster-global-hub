@@ -542,7 +542,7 @@ data:
               },
               "links": [],
               "mappings": [],
-              "noValue": "No data until tomorrow morning",
+              "noValue": "No data in response",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -704,7 +704,7 @@ data:
               },
               "links": [],
               "mappings": [],
-              "noValue": "No data until tomorrow morning",
+              "noValue": "No data in response",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
