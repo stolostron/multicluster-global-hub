@@ -57,7 +57,7 @@ datasources:
   isDefault: true
   name: Global-Hub-DataSource
   type: postgres
-  url: hoh-primary.multicluster-global-hub-postgres.svc:5432
+  url: postgres-primary.multicluster-global-hub.svc:5432
   database: hoh
   user: guest
   jsonData:
@@ -93,11 +93,11 @@ Notes:
     service:
       type: LoadBalancer
 ```
-into `PostgresCluster` operand and then you can get the EXTERNAL-IP from `hoh-ha` service. for example: 
+into `PostgresCluster` operand and then you can get the EXTERNAL-IP from `postgres-ha` service. for example: 
 ```
-oc get svc hoh-ha -n multicluster-global-hub-postgres
+oc get svc postgres-ha -n multicluster-global-hub
 NAME     TYPE           CLUSTER-IP      EXTERNAL-IP                                                               PORT(S)          AGE
-hoh-ha   LoadBalancer   172.30.227.58   xxxx.us-east-1.elb.amazonaws.com   5432:31442/TCP   128m
+postgres-ha   LoadBalancer   172.30.227.58   xxxx.us-east-1.elb.amazonaws.com   5432:31442/TCP   128m
 ```
 After that, you can use `xxxx.us-east-1.elb.amazonaws.com:5432` as Postgres Connection Host.
 

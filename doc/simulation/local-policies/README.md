@@ -34,9 +34,9 @@ oc delete pod multicluster-global-hub-operator-xxx -n multicluster-global-hub
 2. Insert the simulated data into database:
 
 ```bash
-kubectl cp create_local_policies.sql multicluster-global-hub-postgres/$(kubectl get pods -n multicluster-global-hub-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}'):/tmp
-kubectl exec -it $(kubectl get pods -n multicluster-global-hub-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub-postgres -- ls -l /tmp/create_local_policies.sql
-kubectl exec -it $(kubectl get pods -n multicluster-global-hub-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub-postgres -- psql -U postgres -d hoh -f /tmp/create_local_policies.sql
+kubectl cp create_local_policies.sql multicluster-global-hub/$(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}'):/tmp
+kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- ls -l /tmp/create_local_policies.sql
+kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- psql -U postgres -d hoh -f /tmp/create_local_policies.sql
 ```
 
 3. Data Inserted into database
@@ -67,7 +67,7 @@ batchSize: 1000, insert: 1000, offset: 10000
 5. After about 6 hours, check the row count of `history.local_compliance` table:
 
 ```bash
-# oc exec -it $(oc get pods -n multicluster-global-hub-postgres -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub-postgres -- psql -U postgres -d hoh -c "SELECT count(*) from history.local_compliance"
+# oc exec -it $(oc get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- psql -U postgres -d hoh -c "SELECT count(*) from history.local_compliance"
  count
 --------
  7942000
@@ -77,7 +77,7 @@ batchSize: 1000, insert: 1000, offset: 10000
 6. Check the PV usage of the postgres:
 
 ```bash
-# oc -n multicluster-global-hub-postgres exec -it hoh-pgha1-275z-0 -- df -h
+# oc -n multicluster-global-hub exec -it hoh-pgha1-275z-0 -- df -h
 Defaulted container "database" out of: database, replication-cert-copy, pgbackrest, pgbackrest-config, postgres-startup (init), nss-wrapper-init (init)
 Filesystem      Size  Used Avail Use% Mounted on
 overlay         120G   30G   90G  26% /
