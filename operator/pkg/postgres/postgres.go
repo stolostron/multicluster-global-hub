@@ -39,9 +39,9 @@ var (
 	replicas3 int32 = 3
 	// need append "?sslmode=verify-ca" to the end of the uri to access postgres
 	PostgresURIWithSslmode = "?sslmode=verify-ca"
-	// postgres storage size: 20Gi should be enough for 18 months data
-	// 3 managed hubs with 250 managed cluster each and 50 policies per managed hub cluster
-	storageSize = "20Gi"
+	// postgres storage size: 30Gi should be enough for 18 months data
+	// 5 managed hubs with 300 managed cluster each and 50 policies per managed hub cluster
+	storageSize = "30Gi"
 )
 
 type PostgresConnection struct {
