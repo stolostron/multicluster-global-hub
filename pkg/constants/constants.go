@@ -15,6 +15,10 @@ const (
 	OpenShiftConsoleNamespace = "openshift-console"
 	// OpenShift console route name
 	OpenShiftConsoleRouteName = "console"
+	// Observability grafana namespace
+	ObservabilityNamespace = "open-cluster-management-observability"
+	// Observability grafana route name
+	ObservabilityGrafanaRouteName = "grafana"
 )
 
 const (

@@ -44,8 +44,10 @@ func AddHubClusterController(mgr ctrl.Manager, producer transport.Producer) erro
 	}
 
 	hubClusterControllerPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == constants.OpenShiftConsoleNamespace &&
-			object.GetName() == constants.OpenShiftConsoleRouteName
+		return (object.GetNamespace() == constants.OpenShiftConsoleNamespace &&
+			object.GetName() == constants.OpenShiftConsoleRouteName) ||
+			(object.GetNamespace() == constants.ObservabilityNamespace &&
+				object.GetName() == constants.ObservabilityGrafanaRouteName)
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).

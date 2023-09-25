@@ -7,6 +7,7 @@ import (
 
 	agentbundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // LeafHubClusterInfoStatusBundle creates a new instance of LeafHubClusterInfoStatusBundle.
@@ -33,12 +34,31 @@ func (bundle *LeafHubClusterInfoStatusBundle) UpdateObject(object agentbundle.Ob
 	defer bundle.lock.Unlock()
 
 	route := object.(*routev1.Route)
+	routeURL := "https://" + route.Spec.Host
 
-	bundle.Objects = append(bundle.Objects,
-		&statusbundle.LeafHubClusterInfo{
-			LeafHubName: bundle.LeafHubName,
-			ConsoleURL:  "https://" + route.Spec.Host,
-		})
+	if len(bundle.Objects) == 0 {
+		if route.GetName() == constants.OpenShiftConsoleRouteName {
+			bundle.Objects = []*statusbundle.LeafHubClusterInfo{
+				{
+					LeafHubName: bundle.LeafHubName,
+					ConsoleURL:  routeURL,
+				},
+			}
+		} else if route.GetName() == constants.ObservabilityGrafanaRouteName {
+			bundle.Objects = []*statusbundle.LeafHubClusterInfo{
+				{
+					LeafHubName: bundle.LeafHubName,
+					GrafanaURL:  routeURL,
+				},
+			}
+		}
+	} else {
+		if route.GetName() == constants.OpenShiftConsoleRouteName {
+			bundle.Objects[0].ConsoleURL = routeURL
+		} else if route.GetName() == constants.ObservabilityGrafanaRouteName {
+			bundle.Objects[0].GrafanaURL = routeURL
+		}
+	}
 	bundle.BundleVersion.Incr()
 }
 

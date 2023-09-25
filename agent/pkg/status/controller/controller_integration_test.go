@@ -97,7 +97,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
 
-	It("should be able to sync hub cluster info", func() {
+	It("should be able to sync hub cluster info with openshift console url", func() {
 		By("Create openshift route for hub cluster")
 		Expect(kubeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{Name: constants.OpenShiftConsoleNamespace},
@@ -113,6 +113,39 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				To: routev1.RouteTargetReference{
 					Kind: "Service",
 					Name: constants.OpenShiftConsoleRouteName,
+				},
+			},
+		})).Should(Succeed())
+
+		By("Check the hub cluster info bundle can be read from cloudevents consumer")
+		Eventually(func() error {
+			message := <-consumer.MessageChan()
+
+			statusBundle, err := getStatusBundle(message, constants.HubClusterInfoMsgKey)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+	})
+
+	It("should be able to sync hub cluster info with grafana url", func() {
+		By("Create observability grafana route in the managed hub cluster")
+		Expect(kubeClient.Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: constants.ObservabilityNamespace},
+		})).Should(Succeed())
+
+		Expect(kubeClient.Create(ctx, &routev1.Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.ObservabilityGrafanaRouteName,
+				Namespace: constants.ObservabilityNamespace,
+			},
+			Spec: routev1.RouteSpec{
+				Host: "grafana-open-cluster-management-observability.apps.test-cluster",
+				To: routev1.RouteTargetReference{
+					Kind: "Service",
+					Name: constants.ObservabilityGrafanaRouteName,
 				},
 			},
 		})).Should(Succeed())
