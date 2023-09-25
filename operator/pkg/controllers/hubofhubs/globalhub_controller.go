@@ -199,57 +199,62 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (ctrl.Result, error) {
 
-	var err error
 	// support BYO kafka
-	r.MiddlewareConfig.KafkaConnection, err = r.GenerateKafkaConnectionFromGHTransportSecret(ctx)
+	kafkaConnection, err := r.GenerateKafkaConnectionFromGHTransportSecret(ctx)
 	if err != nil && !errors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
 	// if not-provided kafka secret, create kafka in the global hub namespace
-	if r.MiddlewareConfig.KafkaConnection == nil {
+	if kafkaConnection == nil {
 		// reconcile kafka
 		if err := r.EnsureKafkaSubscription(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
+	} else {
+		r.MiddlewareConfig.KafkaConnection = kafkaConnection
 	}
 
 	// support BYO postgres
-	r.MiddlewareConfig.PgConnection, err = r.GeneratePGConnectionFromGHStorageSecret(ctx)
+	pgConnection, err := r.GeneratePGConnectionFromGHStorageSecret(ctx)
 	if err != nil && !errors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
 	// if not-provided postgres secret, create crunchy postgres in the global hub namespace
-	if r.MiddlewareConfig.PgConnection == nil {
+	if pgConnection == nil {
 		// reconcile crunchy postgres
 		if err := r.EnsureCrunchyPostgresSubscription(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
+	} else {
+		r.MiddlewareConfig.PgConnection = pgConnection
 	}
 
-	if r.MiddlewareConfig.PgConnection == nil {
+	if pgConnection == nil {
 		if err := r.EnsureCrunchyPostgres(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 	}
 
-	if r.MiddlewareConfig.KafkaConnection == nil {
+	if kafkaConnection == nil {
 		if err := r.EnsureKafkaResources(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 	}
 
-	if r.MiddlewareConfig.KafkaConnection == nil {
-		if r.MiddlewareConfig.KafkaConnection, err = r.WaitForKafkaClusterReady(ctx); err != nil {
+	if kafkaConnection == nil {
+		if kafkaConnection, err = r.WaitForKafkaClusterReady(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 	}
 
-	if r.MiddlewareConfig.PgConnection == nil {
+	if pgConnection == nil {
 		// store crunchy postgres connection
-		if r.MiddlewareConfig.PgConnection, err = r.WaitForPostgresReady(ctx); err != nil {
+		if pgConnection, err = r.WaitForPostgresReady(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 	}
+	r.MiddlewareConfig.KafkaConnection = kafkaConnection
+	r.MiddlewareConfig.PgConnection = pgConnection
 
 	return ctrl.Result{}, nil
 }
