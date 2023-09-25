@@ -22,6 +22,7 @@ def check_global_hub_memory(start_time, end_time, step):
     global_hub_grafana_memory_usage(pc, start_time, end_time, step)
     global_hub_postgres_memory_usage(pc, start_time, end_time, step)
     global_hub_kafka_memory_usage(pc, start_time, end_time, step)
+    global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step)
     
     print(Back.LIGHTYELLOW_EX+"")
     print("************************************************************************************************")
@@ -280,7 +281,7 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
         print(Style.RESET_ALL)  
     print("=============================================")
     
-def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
+def global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step):
     title = "Global Hub Kafka Zookeeper Memory GB"
     file = "global-hub-kafka-zookeeper-memory-usage"
     print(title)

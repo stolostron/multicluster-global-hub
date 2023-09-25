@@ -24,6 +24,7 @@ def check_global_hub_cpu(start_time, end_time, step):
     global_hub_grafana(pc, start_time, end_time, step)
     global_hub_postgres(pc, start_time, end_time, step)
     global_hub_kafka(pc, start_time, end_time, step)
+    global_hub_zookeeper_kafka(pc, start_time, end_time, step)
     
     print(Back.LIGHTYELLOW_EX+"")
     print("************************************************************************************************")
@@ -294,7 +295,7 @@ def global_hub_kafka(pc, start_time, end_time, step):
           
     print("=============================================")
     
-def global_hub_kafka(pc, start_time, end_time, step):
+def global_hub_zookeeper_kafka(pc, start_time, end_time, step):
     file = 'global-hub-kafka-zookeeper-cpu-usage'
     title = 'Global Hub Kafka zookeeper CPU'
     print(title)
