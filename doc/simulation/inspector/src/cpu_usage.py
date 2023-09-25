@@ -259,7 +259,7 @@ def global_hub_postgres(pc, start_time, end_time, step):
     print("=============================================")
 
 def global_hub_kafka(pc, start_time, end_time, step):
-    file = 'global-hub-kafka-broker-bcpu-usage'
+    file = 'global-hub-kafka-broker-cpu-usage'
     title = 'Global Hub Kafka broker CPU'
     print(title)
     try:
