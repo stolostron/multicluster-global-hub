@@ -5,3 +5,4 @@ colorama
 tabulate
 numpy
 psycopg2-binary
+seaborn

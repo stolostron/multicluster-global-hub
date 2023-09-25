@@ -6,6 +6,7 @@ import pandas
 from common import *
 from colorama import Fore, Back, Style
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 def check_global_hub_cpu(start_time, end_time, step):
     print(Back.LIGHTYELLOW_EX+"")
@@ -223,13 +224,13 @@ def global_hub_total(pc, start_time, end_time, step):
 
 def global_hub_postgres(pc, start_time, end_time, step):
     file = 'global-hub-postgres-cpu-usage'
-    title = 'Global Hub Total(3 Replicas) Postgres CPU'
+    title = 'Global Hub Postgres CPU'
     print(title)
     try:
         query = '''
         sum(
           node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"postgres-pgha.*"}
-        ) by (namespace)
+        ) by (pod)
         '''
         cpu_trend = pc.custom_query_range(
           query=query,
@@ -241,10 +242,13 @@ def global_hub_postgres(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
-        cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
+        cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
         
         print(cpu_trend_df.head(3))
-        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='cpu', data=cpu_trend_df, hue='pod')
+        plt.title(title)
+        # cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
@@ -255,14 +259,14 @@ def global_hub_postgres(pc, start_time, end_time, step):
     print("=============================================")
 
 def global_hub_kafka(pc, start_time, end_time, step):
-    file = 'global-hub-kafka-cpu-usage'
-    title = 'Global Hub Kafka Total(3 Replicas) CPU'
+    file = 'global-hub-kafka-broker-bcpu-usage'
+    title = 'Global Hub Kafka broker CPU'
     print(title)
     try:
         query = '''
         sum(
           node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"kafka-kafka-.*"}
-        ) by (namespace)
+        ) by (pod)
         '''
         cpu_trend = pc.custom_query_range(
           query=query,
@@ -274,10 +278,13 @@ def global_hub_kafka(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
-        cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
+        cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
         
         print(cpu_trend_df.head(3))
-        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='cpu', data=cpu_trend_df, hue='pod')
+        plt.title(title)
+        # cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
@@ -286,4 +293,39 @@ def global_hub_kafka(pc, start_time, end_time, step):
         print(Style.RESET_ALL) 
           
     print("=============================================")
+    
+def global_hub_kafka(pc, start_time, end_time, step):
+    file = 'global-hub-kafka-zookeeper-cpu-usage'
+    title = 'Global Hub Kafka zookeeper CPU'
+    print(title)
+    try:
+        query = '''
+        sum(
+          node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"kafka-zookeeper-.*"}
+        ) by (pod)
+        '''
+        cpu_trend = pc.custom_query_range(
+          query=query,
+          start_time=start_time,
+          end_time=end_time,
+          step=step,
+        )
 
+        cpu_trend_df = MetricRangeDataFrame(cpu_trend)
+        cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
+        cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
+        
+        print(cpu_trend_df.head(3))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='cpu', data=cpu_trend_df, hue='pod')
+        plt.title(title)
+        # cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
+        plt.savefig(output_path + "/" + file + ".png")
+        cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
+        plt.close('all')
+    except Exception as e:
+        print(Fore.RED+"Error in getting CPU: ",e) 
+        print(Style.RESET_ALL) 
+          
+    print("=============================================")

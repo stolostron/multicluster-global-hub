@@ -5,6 +5,7 @@ import pandas
 from colorama import Fore, Back, Style
 import matplotlib.pyplot as plt
 from common import *
+import seaborn as sns
 
 def check_global_hub_memory(start_time, end_time, step):
     print(Back.LIGHTYELLOW_EX+"")
@@ -204,16 +205,15 @@ def global_hub_grafana_memory_usage(pc, start_time, end_time, step):
     
 
 def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
-    total = "Global Hub Postgres Total(3 Replicas) Memory GB"
+    title = "Global Hub Postgres Memory GB"
     file = "global-hub-postgres-memory-usage"
-    print(total)
+    print(title)
     
     try:
-        # replicas = 3
         query = '''
           sum(
             container_memory_usage_bytes{namespace="multicluster-global-hub", pod=~"postgres-pgha.*"}
-          ) by (namespace) / (1024*1024*1024)
+          ) by (pod) / (1024*1024*1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,
@@ -225,10 +225,13 @@ def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
         global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
         global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
-        global_hub_trend_df.rename(columns={"value": "Usage"}, inplace = True)
+        global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
-        global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
+        # global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='memory', data=global_hub_trend_df, hue='pod')
+        plt.title(title)
         
         plt.savefig(output_path + "/" + file + ".png")
         global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
@@ -240,16 +243,15 @@ def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
     print("=============================================")
     
 def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
-    total = "Global Hub Kafka Total(3 Replicas) Memory GB"
-    file = "global-hub-kafka-memory-usage"
-    print(total)
+    title = "Global Hub Kafka Broker Memory GB"
+    file = "global-hub-kafka-broker-memory-usage"
+    print(title)
     
     try:
-        # replicas = 3
         query = '''
           sum(
             container_memory_usage_bytes{namespace="multicluster-global-hub", pod=~"kafka-kafka-.*"}
-          ) by (namespace) / (1024*1024*1024)
+          ) by (pod) / (1024*1024*1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,
@@ -261,10 +263,51 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
         global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
         global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
-        global_hub_trend_df.rename(columns={"value": "Usage"}, inplace = True)
+        global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
-        global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
+        # global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='memory', data=global_hub_trend_df, hue='pod')
+        plt.title(title)
+        
+        plt.savefig(output_path + "/" + file + ".png")
+        global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
+        plt.close('all')
+
+    except Exception as e:
+        print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
+        print(Style.RESET_ALL)  
+    print("=============================================")
+    
+def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
+    title = "Global Hub Kafka Zookeeper Memory GB"
+    file = "global-hub-kafka-zookeeper-memory-usage"
+    print(title)
+    
+    try:
+        query = '''
+          sum(
+            container_memory_usage_bytes{namespace="multicluster-global-hub", pod=~"kafka-zookeeper-.*"}
+          ) by (pod) / (1024*1024*1024)
+        '''
+        global_hub_trend = pc.custom_query_range(
+            query=query,
+            start_time=start_time,
+            end_time=end_time,
+            step=step,
+        )
+
+        global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
+        global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
+        global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
+        global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
+        
+        print(global_hub_trend_df.head(3))
+        # global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='memory', data=global_hub_trend_df, hue='pod')
+        plt.title(title)
         
         plt.savefig(output_path + "/" + file + ".png")
         global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
