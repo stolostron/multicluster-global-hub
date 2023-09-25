@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	datasourceKey = "datasources.yaml"
+	datasourceKey  = "datasources.yaml"
+	datasourceName = "multicluster-global-hub-grafana-datasources"
 
 	mergedAlertName   = "multicluster-global-hub-alerting"
 	defaultAlertName  = "multicluster-global-hub-default-alerting"
@@ -81,7 +82,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 
 	// generate datasource secret: must before the grafana objects
-	datasourceSecretName, err := r.GenerateGrafanaDataSourceSecret(ctx, mgh)
+	changedDatasourceSecret, err := r.GenerateGrafanaDataSourceSecret(ctx, mgh)
 	if err != nil {
 		return fmt.Errorf("failed to generate grafana datasource secret: %v", err)
 	}
@@ -118,7 +119,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			GrafanaImage:         config.GetImage(config.GrafanaImageKey),
 			ImagePullSecret:      mgh.Spec.ImagePullSecret,
 			ImagePullPolicy:      string(imagePullPolicy),
-			DatasourceSecretName: datasourceSecretName,
+			DatasourceSecretName: datasourceName,
 			NodeSelector:         mgh.Spec.NodeSelector,
 			Tolerations:          mgh.Spec.Tolerations,
 		}, nil
@@ -148,7 +149,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		return fmt.Errorf("failed to generate grafana init. err:%v", err)
 	}
 
-	if changedAlert || changedGrafanaIni {
+	if changedAlert || changedGrafanaIni || changedDatasourceSecret {
 		err = restartGrafanaPod(ctx, r.KubeClient)
 		if err != nil {
 			return fmt.Errorf("failed to restart grafana pod. err:%v", err)
@@ -446,7 +447,7 @@ func restartGrafanaPod(ctx context.Context, kubeClient kubernetes.Interface) err
 func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) (string, error) {
+) (bool, error) {
 
 	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.PgConnection.ReadonlyUserDatabaseURI,
 		r.MiddlewareConfig.PgConnection.CACert)
@@ -454,13 +455,13 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		datasourceVal, err = GrafanaDataSource(r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI,
 			r.MiddlewareConfig.PgConnection.CACert)
 		if err != nil {
-			return "", err
+			return false, err
 		}
 	}
 
 	dsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "multicluster-global-hub-grafana-datasources",
+			Name:      datasourceName,
 			Namespace: config.GetDefaultNamespace(),
 			Labels: map[string]string{
 				"datasource/time-tarted":         time.Now().Format("2006-1-2.1504"),
@@ -475,7 +476,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 
 	// Set MGH instance as the owner and controller
 	if err = controllerutil.SetControllerReference(mgh, dsSecret, r.Scheme); err != nil {
-		return dsSecret.GetName(), err
+		return false, err
 	}
 
 	// Check if this already exists
@@ -485,26 +486,20 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		Namespace: dsSecret.Namespace,
 	}, grafanaDSFound)
 
-	createSecret := false
 	if err != nil {
 		if errors.IsNotFound(err) {
-			createSecret = true
-		} else {
-			return dsSecret.GetName(), err
+			err = r.Client.Create(ctx, dsSecret)
+			return true, err
 		}
+		return false, err
 	}
 
-	if createSecret {
-		err = r.Client.Create(ctx, dsSecret)
-	} else if !bytes.Equal(grafanaDSFound.Data[datasourceKey], datasourceVal) {
+	if !bytes.Equal(grafanaDSFound.Data[datasourceKey], datasourceVal) {
 		grafanaDSFound.Data[datasourceKey] = datasourceVal
 		err = r.Client.Update(ctx, grafanaDSFound)
+		return true, err
 	}
-	if err != nil {
-		return dsSecret.GetName(), err
-	}
-
-	return dsSecret.GetName(), nil
+	return false, nil
 }
 
 func GrafanaDataSource(databaseURI string, cert []byte) ([]byte, error) {

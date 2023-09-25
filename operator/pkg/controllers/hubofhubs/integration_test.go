@@ -388,7 +388,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			// get the grafana objects
 			By("By checking the multicluster-global-hub-grafana resources are created as expected")
 			// generate datasource secret: must before the grafana objects
-			datasourceSecretName, err := mghReconciler.GenerateGrafanaDataSourceSecret(ctx, mgh)
+			mghReconciler.GenerateGrafanaDataSourceSecret(ctx, mgh)
 			Expect(err).NotTo(HaveOccurred())
 
 			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
