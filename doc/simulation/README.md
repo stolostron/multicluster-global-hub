@@ -49,6 +49,11 @@ The global hub counters are used to count the managed clusters, compliances and 
 ![Global Hub Manager CPU](./../images/global-hub-manager-cpu-usage.png)
 ![Global Hub Manager Memory](./../images/global-hub-manager-memory-usage.png)
 
+  | Manager | Request | Limit |
+  |---|---|---|
+  | CPU | 0.1 | 0.5 |
+  | Memory | 100 MB | 300 MB |
+
 - Multicluster Global Hub Grafana
 ![Global Hub Grafana CPU](./../images/global-hub-grafana-cpu-usage.png)
 ![Global Hub Grafana Memory](./../images/global-hub-grafana-memory-usage.png)
@@ -57,11 +62,20 @@ The global hub counters are used to count the managed clusters, compliances and 
 ![Global Hub Operator CPU](./../images/global-hub-operator-cpu-usage.png)
 ![Global Hub Operator Memory](./../images/global-hub-operator-memory-usage.png)
 
+  | Operator | Request | Limit |
+  |---|---|---|
+  | CPU | 0.001 | 0.05 |
+  | Memory | 100 MB | 200 MB |
+
 ### The CPU and Memory Consumption of the Middlewares
 
-- Multicluster Global Hub Kafka
-![Global Hub Kafka CPU](./../images/global-hub-kafka-cpu-usage.png)
-![Global Hub Kafka Memory](./../images/global-hub-kafka-memory-usage.png)
+- Multicluster Global Hub Kafka Broker
+![Global Hub Kafka Broker CPU](./../images/global-hub-kafka-broker-cpu-usage.png)
+![Global Hub Kafka Broker Memory](./../images/global-hub-kafka-broker-memory-usage.png)
+
+- Multicluster Global Hub Kafka Zookeeper
+![Global Hub Kafka Zookeeper CPU](./../images/global-hub-kafka-zookeeper-cpu-usage.png)
+![Global Hub Kafka Zookeeper Memory](./../images/global-hub-kafka-zookeeper-memory-usage.png)
 
 - Multicluster Global Hub Postgres
 ![Global Hub Postgres CPU](./../images/global-hub-postgres-cpu-usage.png)
