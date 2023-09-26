@@ -265,7 +265,7 @@ func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderEle
 		Port:                    9443,
 		HealthProbeBindAddress:  operatorConfig.ProbeAddress,
 		LeaderElection:          operatorConfig.LeaderElection,
-		LeaderElectionID:        "549a8919.open-cluster-management.io",
+		LeaderElectionID:        "multicluster-global-hub-operator-lock",
 		LeaderElectionNamespace: operatorConfig.PodNamespace,
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
