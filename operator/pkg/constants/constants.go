@@ -27,6 +27,14 @@ const (
 	ControllerLeaderElectionConfig = "controller-leader-election-configmap"
 )
 
+// global hub metrics
+const (
+	// metrics monitoring namespace label
+	ClusterMonitoringLabelKey = "openshift.io/cluster-monitoring"
+	ClusterMonitoringLabelVal = "true"
+	GHServiceMonitorName      = "multicluster-global-hub-metrics"
+)
+
 // annotations for MGH CR
 const (
 	// AnnotationMCHPause sits in MulticlusterGlobalHub annotations
@@ -85,12 +93,6 @@ const (
 	GHTransportSecretName     = "multicluster-global-hub-transport" // #nosec G101
 	GHStorageSecretName       = "multicluster-global-hub-storage"   // #nosec G101
 	GHDefaultStorageRetention = "18m"                               // 18 months
-)
-
-// global hub metrics
-const (
-	GHServiceMonitorNamespace = "openshift-monitoring"
-	GHServiceMonitorName      = "multicluster-global-hub-metrics"
 )
 
 const (

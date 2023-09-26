@@ -15,15 +15,36 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
+var monitorFlag = false
+
 func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("metrics")
 
+	// add label openshift.io/cluster-monitoring: "true" to the ns, so that the prometheus can detect the ServiceMonitor.
+	if !monitorFlag {
+		ns, err := r.KubeClient.CoreV1().Namespaces().Get(ctx, config.GetDefaultNamespace(), metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		labels := ns.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[operatorconstants.ClusterMonitoringLabelKey] = operatorconstants.ClusterMonitoringLabelVal
+		ns.SetLabels(labels)
+		if _, err = r.KubeClient.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+		monitorFlag = true
+	}
+
+	// create ServiceMonitor under global hub namespace
 	expectedServiceMonitor := &promv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHServiceMonitorName,
-			Namespace: operatorconstants.GHServiceMonitorNamespace,
+			Namespace: config.GetDefaultNamespace(),
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
@@ -60,8 +81,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 
 	if !equality.Semantic.DeepDerivative(expectedServiceMonitor.Spec, serviceMonitor.Spec) ||
 		!equality.Semantic.DeepDerivative(expectedServiceMonitor.GetLabels(), serviceMonitor.GetLabels()) {
-		expectedServiceMonitor.ObjectMeta.ResourceVersion =
-			serviceMonitor.ObjectMeta.ResourceVersion
+		expectedServiceMonitor.ObjectMeta.ResourceVersion = serviceMonitor.ObjectMeta.ResourceVersion
 		log.Info("updating ServiceMonitor", "namespace", serviceMonitor.Namespace, "name", serviceMonitor.Name)
 		return r.Update(ctx, expectedServiceMonitor)
 	}
