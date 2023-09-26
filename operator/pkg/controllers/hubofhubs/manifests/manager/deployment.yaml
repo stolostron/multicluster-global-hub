@@ -46,9 +46,6 @@ spec:
             {{- if eq .SkipAuth true}}
             - --cluster-api-url=
             {{- end}}
-            {{- if .LaunchJobImmediately}}
-            - --launch-job-immediately={{.LaunchJobImmediately}}
-            {{- end}}
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -58,6 +55,10 @@ spec:
             - name: WATCH_NAMESPACE
             - name: DATABASE_URL
               value: {{.DatabaseURL}}
+            {{- if .LaunchJobImmediately}}
+            - name: LAUNCH_JOB_IMMEDIATELY
+              value: {{.LaunchJobImmediately}}
+            {{- end}}
           ports:
           - containerPort: 9443
             name: webhook-server
