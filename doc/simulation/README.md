@@ -15,7 +15,7 @@ There are several points we need to consider when simulating the global hub at l
 
 ## Analysis
 
-You can setup `5` hubs, each with `300` clusters, `15000` replicas policies and at least `15000` policy events, by following the [setup guidance](./setup/README.md). Then run the global hub [inspector](./inspector/README.md) to `analysis` the CPU and `Memory` consumptions of the global hub components.
+You can setup `5` hubs, each with `300` clusters, `15000` replicas policies and at least `15000` policy events, by following the [setup guidance](./setup/README.md). Then run the global hub [inspector](./inspector/README.md) to view the data from database, and analysis the CPU and Memory consumptions of the global hub components.
 
 The simulation steps are as follows:
 
