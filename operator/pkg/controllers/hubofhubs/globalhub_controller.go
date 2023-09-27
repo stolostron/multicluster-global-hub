@@ -74,6 +74,7 @@ type MulticlusterGlobalHubReconciler struct {
 	Scheme               *runtime.Scheme
 	LeaderElection       *commonobjects.LeaderElectionConfig
 	Log                  logr.Logger
+	LogLevel             string
 	MiddlewareConfig     *operatorconstants.MiddlewareConfig
 	EnableGlobalResource bool
 }

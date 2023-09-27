@@ -162,6 +162,7 @@ var _ = BeforeSuite(func() {
 		Scheme:               k8sManager.GetScheme(),
 		LeaderElection:       leaderElection,
 		Log:                  ctrl.Log.WithName("multicluster-global-hub-reconciler"),
+		LogLevel:             "info",
 		MiddlewareConfig:     &operatorconstants.MiddlewareConfig{},
 		EnableGlobalResource: true,
 	}

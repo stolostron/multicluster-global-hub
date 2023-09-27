@@ -77,7 +77,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 		log.Error(err, "sync from local_status.compliance to history.local_compliance failed")
 		return
 	}
-	log.Info("with local_status.compliance", "totalCount", statusTotal, "insertedCount", statusInsert)
+	log.V(2).Info("with local_status.compliance", "totalCount", statusTotal, "insertedCount", statusInsert)
 
 	if enableSimulation {
 		return
@@ -90,9 +90,9 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 		log.Error(err, "sync from history.local_policies to history.local_compliance failed")
 		return
 	}
-	log.Info("with event.local_policies", "totalCount", eventTotal, "insertedCount", eventInsert)
+	log.V(2).Info("with event.local_policies", "totalCount", eventTotal, "insertedCount", eventInsert)
 
-	log.Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
+	log.V(2).Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
 }
 
 func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpool.Pool, batchSize int64, interval int,
@@ -190,7 +190,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 				return false, nil
 			}
 			insertCount = result.RowsAffected()
-			log.Info("from local_status.compliance", "batch", batchSize, "insert", insertCount, "offset", offset)
+			log.V(2).Info("from local_status.compliance", "batch", batchSize, "insert", insertCount, "offset", offset)
 			return true, nil
 		})
 	return insertCount, err
@@ -277,7 +277,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 				return false, nil
 			}
 			insertCount = result.RowsAffected()
-			log.Info("from event.local_policies", "batch", batchSize, "insert", insertCount, "offset", offset)
+			log.V(2).Info("from event.local_policies", "batch", batchSize, "insert", insertCount, "offset", offset)
 			return true, nil
 		})
 	return insertCount, err

@@ -88,7 +88,7 @@ func (syncer *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
 	) {
 		defer syncer.bundleProcessingWaitingGroup.Done()
 
-		syncer.log.Info("update the label bundle to ManagedCluster CR...")
+		syncer.log.V(2).Info("update the label bundle to ManagedCluster CR...")
 		labelsSpec, ok := obj.(*specbundle.ManagedClusterLabelsSpec)
 		if !ok {
 			syncer.log.Error(errors.New("job obj is not a ManagedClusterLabelsSpec type"), "invald obj type")
@@ -129,7 +129,7 @@ func (syncer *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
 			return
 		}
 
-		syncer.log.Info("managed cluster updated", "name", labelsSpec.ClusterName)
+		syncer.log.V(2).Info("managed cluster updated", "name", labelsSpec.ClusterName)
 		syncer.managedClusterMarkUpdated(labelsSpec, lastProcessedTimestampPtr)
 	}))
 }

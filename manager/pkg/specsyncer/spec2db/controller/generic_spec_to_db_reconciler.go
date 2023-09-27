@@ -154,7 +154,7 @@ func (r *genericSpecToDBReconciler) processInstanceInTheDatabase(ctx context.Con
 	err := r.specDB.QuerySpecObject(ctx, r.tableName, instanceUID, &instanceInTheDatabase)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		log.Info("The instance with the current UID does not exist in the database, inserting...")
+		log.V(2).Info("The instance with the current UID does not exist in the database, inserting...")
 
 		if err := r.specDB.InsertSpecObject(ctx, r.tableName, instanceUID, &instance); err != nil {
 			return nil, err
@@ -191,7 +191,7 @@ func (r *genericSpecToDBReconciler) cleanInstance(instance client.Object) client
 func (r *genericSpecToDBReconciler) deleteFromTheDatabase(ctx context.Context, name, namespace string,
 	log logr.Logger,
 ) error {
-	log.Info("Instance was deleted, update the deleted field in the database")
+	log.V(2).Info("Instance was deleted, update the deleted field in the database")
 
 	if err := r.specDB.DeleteSpecObject(ctx, r.tableName, name, namespace); err != nil {
 		return err

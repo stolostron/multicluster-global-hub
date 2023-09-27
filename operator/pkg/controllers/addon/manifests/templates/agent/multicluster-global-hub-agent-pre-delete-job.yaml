@@ -24,7 +24,6 @@ spec:
         image: {{ .HoHAgentImage }}
         imagePullPolicy: {{.ImagePullPolicy}}
         args:
-        - --zap-devel=true
         - --pod-namespace=$(POD_NAMESPACE)
         - --leaf-hub-name={{ .LeafHubID }}
         - --terminating=true

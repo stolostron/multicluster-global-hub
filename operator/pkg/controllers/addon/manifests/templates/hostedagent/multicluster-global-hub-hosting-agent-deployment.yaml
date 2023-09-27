@@ -23,7 +23,6 @@ spec:
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             - --kubeconfig=/var/run/secrets/managed/kubeconfig
-            - '--zap-devel=true'
             - --pod-namespace=$(POD_NAMESPACE)
             - --leaf-hub-name={{ .LeafHubID }}
             - --kafka-consumer-id={{ .LeafHubID }}

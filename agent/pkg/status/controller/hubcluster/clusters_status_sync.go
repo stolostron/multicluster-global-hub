@@ -75,7 +75,7 @@ func (c *hubClusterController) Reconcile(ctx context.Context, request ctrl.Reque
 
 	c.syncBundle(ctx, consoleRoute)
 
-	reqLogger.Info("Reconciliation complete.")
+	reqLogger.V(2).Info("Reconciliation complete.")
 
 	return ctrl.Result{}, nil
 }

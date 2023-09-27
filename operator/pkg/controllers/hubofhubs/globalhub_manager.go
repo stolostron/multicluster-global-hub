@@ -107,6 +107,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RetentionMonth         int
 			StatisticLogInterval   string
 			EnableGlobalResource   bool
+			LogLevel               string
 		}{
 			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 			Replicas:               replicas,
@@ -135,6 +136,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RetentionMonth:         months,
 			StatisticLogInterval:   config.GetStatisticLogInterval(),
 			EnableGlobalResource:   r.EnableGlobalResource,
+			LogLevel:               r.LogLevel,
 		}, nil
 	})
 	if err != nil {

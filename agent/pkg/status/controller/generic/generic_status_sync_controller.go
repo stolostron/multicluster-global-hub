@@ -103,7 +103,7 @@ func (c *genericStatusSyncController) Reconcile(ctx context.Context, request ctr
 		}
 	}
 
-	reqLogger.Info("Reconciliation complete.")
+	reqLogger.V(2).Info("Reconciliation complete.")
 
 	return ctrl.Result{}, nil
 }

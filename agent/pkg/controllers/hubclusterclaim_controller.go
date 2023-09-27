@@ -23,7 +23,7 @@ type hubClusterClaimController struct {
 
 func (c *hubClusterClaimController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.V(2).Info("hub clusterClaim controller", request.NamespacedName)
+	reqLogger.V(2).Info("hub clusterClaim controller", "NamespacedName:", request.NamespacedName)
 
 	_, err := updateHubClusterClaim(ctx, c.client, request.NamespacedName)
 	return ctrl.Result{}, err
