@@ -4,6 +4,7 @@ import (
 	"context"
 
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,21 +24,25 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 	log := r.Log.WithName("metrics")
 
 	// add label openshift.io/cluster-monitoring: "true" to the ns, so that the prometheus can detect the ServiceMonitor.
-	if !monitorFlag {
-		ns, err := r.KubeClient.CoreV1().Namespaces().Get(ctx, config.GetDefaultNamespace(), metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		labels := ns.GetLabels()
-		if labels == nil {
-			labels = make(map[string]string)
-		}
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: config.GetDefaultNamespace(),
+		},
+	}
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(namespace), namespace); err != nil {
+		return err
+	}
+	labels := namespace.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	val, ok := labels[operatorconstants.ClusterMonitoringLabelKey]
+	if !ok || val != operatorconstants.ClusterMonitoringLabelVal {
 		labels[operatorconstants.ClusterMonitoringLabelKey] = operatorconstants.ClusterMonitoringLabelVal
-		ns.SetLabels(labels)
-		if _, err = r.KubeClient.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
-		monitorFlag = true
+	}
+	namespace.SetLabels(labels)
+	if err := r.Client.Update(ctx, namespace); err != nil {
+		return err
 	}
 
 	// create ServiceMonitor under global hub namespace

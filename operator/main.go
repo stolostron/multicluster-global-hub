@@ -326,6 +326,7 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&corev1.Service{}: {
 			Label: labelSelector,
 		},
+		&corev1.Namespace{}: {},
 		&appsv1.Deployment{}: {
 			Label: labelSelector,
 		},
