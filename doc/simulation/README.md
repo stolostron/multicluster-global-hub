@@ -72,14 +72,27 @@ The global hub counters are used to count the managed clusters, compliances and 
 - Multicluster Global Hub Kafka Broker
 ![Global Hub Kafka Broker CPU](./../images/global-hub-kafka-broker-cpu-usage.png)
 ![Global Hub Kafka Broker Memory](./../images/global-hub-kafka-broker-memory-usage.png)
+  | KafkaBroker | Request | Limit |
+  |---|---|---|
+  | CPU | 0.004 | 0.2 |
+  | Memory | 1.5 G | 5 G |
 
 - Multicluster Global Hub Kafka Zookeeper
 ![Global Hub Kafka Zookeeper CPU](./../images/global-hub-kafka-zookeeper-cpu-usage.png)
 ![Global Hub Kafka Zookeeper Memory](./../images/global-hub-kafka-zookeeper-memory-usage.png)
 
+  | KafkaZookeeper | Request | Limit |
+  |---|---|---|
+  | CPU | 0.01 | 0.02 |
+  | Memory | 0.8 G | 2 G |
+
 - Multicluster Global Hub Postgres
 ![Global Hub Postgres CPU](./../images/global-hub-postgres-cpu-usage.png)
 ![Global Hub Postgres Memory](./../images/global-hub-postgres-memory-usage.png)
+| Postgres | Request | Limit |
+|---|---|---|
+| CPU | 0.5 | 5 |
+<!-- | Memory | 0.8 G | 2 G | -->
 
 ## Related Material
 
