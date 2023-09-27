@@ -101,7 +101,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RetryPeriod            string
 			SchedulerInterval      string
 			SkipAuth               bool
-			LaunchJobImmediately   string
+			LaunchJobNames         string
 			NodeSelector           map[string]string
 			Tolerations            []corev1.Toleration
 			RetentionMonth         int
@@ -129,7 +129,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
 			SchedulerInterval:      config.GetSchedulerInterval(mgh),
 			SkipAuth:               config.SkipAuth(mgh),
-			LaunchJobImmediately:   config.LaunchJobImmediately(mgh),
+			LaunchJobNames:         config.GetLaunchJobNames(mgh),
 			NodeSelector:           mgh.Spec.NodeSelector,
 			Tolerations:            mgh.Spec.Tolerations,
 			RetentionMonth:         months,

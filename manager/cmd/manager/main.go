@@ -40,13 +40,13 @@ import (
 )
 
 const (
-	metricsHost                   = "0.0.0.0"
-	metricsPort             int32 = 8384
-	webhookPort                   = 9443
-	webhookCertDir                = "/webhook-certs"
-	kafkaTransportType            = "kafka"
-	leaderElectionLockID          = "multicluster-global-hub-manager-lock"
-	launchJobImmediatelyEnv       = "LAUNCH_JOB_IMMEDIATELY"
+	metricsHost                = "0.0.0.0"
+	metricsPort          int32 = 8384
+	webhookPort                = 9443
+	webhookCertDir             = "/webhook-certs"
+	kafkaTransportType         = "kafka"
+	leaderElectionLockID       = "multicluster-global-hub-manager-lock"
+	launchJobNamesEnv          = "LAUNCH_JOB_NAMES"
 )
 
 var (
@@ -70,7 +70,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 		StatisticsConfig:      &statistics.StatisticsConfig{},
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
-		LaunchJobImmediately:  "",
+		LaunchJobNames:        "",
 	}
 
 	// add zap flags
@@ -165,9 +165,9 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
 	}
 	// the specified jobs(concatenate multiple jobs with ',') runs when the container starts
-	val, ok := os.LookupEnv("LAUNCH_JOB_IMMEDIATELY")
+	val, ok := os.LookupEnv(launchJobNamesEnv)
 	if ok && val != "" {
-		managerConfig.LaunchJobImmediately = val
+		managerConfig.LaunchJobNames = val
 	}
 	return nil
 }

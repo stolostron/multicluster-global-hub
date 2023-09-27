@@ -65,7 +65,7 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
 
 	// get the jobs need to execute immediately
-	launchJobs := strings.Split(managerConfig.LaunchJobImmediately, ",")
+	launchJobs := strings.Split(managerConfig.LaunchJobNames, ",")
 	for _, job := range launchJobs {
 		switch job {
 		case task.LocalComplianceTaskName, task.RetentionTaskName:

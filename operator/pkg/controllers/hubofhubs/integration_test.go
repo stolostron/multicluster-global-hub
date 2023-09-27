@@ -337,7 +337,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					RetentionMonth         int
 					StatisticLogInterval   string
 					EnableGlobalResource   bool
-					LaunchJobImmediately   string
+					LaunchJobNames         string
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					Replicas:               2,
@@ -372,7 +372,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					RetentionMonth:       months,
 					StatisticLogInterval: config.GetStatisticLogInterval(),
 					EnableGlobalResource: true,
-					LaunchJobImmediately: config.LaunchJobImmediately(mgh),
+					LaunchJobNames:       config.GetLaunchJobNames(mgh),
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())

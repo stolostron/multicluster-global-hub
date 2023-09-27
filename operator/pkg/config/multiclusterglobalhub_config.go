@@ -143,9 +143,9 @@ func SkipAuth(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
 	return false
 }
 
-// LaunchJobImmediately returns the jobs concatenated using "," wchich will run once the constainer is started
-func LaunchJobImmediately(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
-	return getAnnotation(mgh, operatorconstants.AnnotationLaunchJobImmediately)
+// GetLaunchJobNames returns the jobs concatenated using "," wchich will run once the constainer is started
+func GetLaunchJobNames(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+	return getAnnotation(mgh, operatorconstants.AnnotationLaunchJobNames)
 }
 
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
