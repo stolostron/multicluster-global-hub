@@ -29,8 +29,6 @@ import (
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -148,13 +146,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: operatorconstants.GHServiceMonitorNamespace,
-		},
-	}, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	// the leader election will be propagate to global hub manager

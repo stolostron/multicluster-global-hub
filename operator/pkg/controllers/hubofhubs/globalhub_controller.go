@@ -198,7 +198,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (ctrl.Result, error) {
-
 	// support BYO kafka
 	kafkaConnection, err := r.GenerateKafkaConnectionFromGHTransportSecret(ctx)
 	if err != nil && !errors.IsNotFound(err) {
@@ -440,6 +439,19 @@ var webhookPred = predicate.Funcs{
 	},
 }
 
+var namespacePred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetName() == config.GetHoHMGHNamespacedName().Namespace
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetName() == config.GetHoHMGHNamespacedName().Namespace &&
+			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return false
+	},
+}
+
 var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 	func(ctx context.Context, obj client.Object) []reconcile.Request {
 		return []reconcile.Request{
@@ -467,7 +479,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			globalHubEventHandler, builder.WithPredicates(configmappred)).
 		// secondary watch for namespace
 		Watches(&corev1.Namespace{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
+			globalHubEventHandler, builder.WithPredicates(namespacePred)).
 		// secondary watch for clusterrole
 		Watches(&rbacv1.ClusterRole{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
