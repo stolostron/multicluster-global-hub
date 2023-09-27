@@ -52,6 +52,9 @@ The inspector is inspired by [acm-inspector](https://github.com/bjoydeep/acm-ins
 
    # The time range from the "2023-09-18 00:00:00" to the "2023-09-20 00:00:00"
   ./doc/simulation/inspector/cmd/check.sh "2023-09-18 00:00:00" "2023-09-20 00:00:00"
+
+  # For the global hub agent
+  ./doc/simulation/inspector/cmd/check_agent.sh
   ```
 
 All the csv file and picture will be save on the folder `doc/simulation/inspector/output`

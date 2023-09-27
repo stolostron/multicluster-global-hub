@@ -330,3 +330,42 @@ def global_hub_zookeeper_kafka(pc, start_time, end_time, step):
         print(Style.RESET_ALL) 
           
     print("=============================================")
+
+
+def check_global_hub_agent_cpu(start_time, end_time, step):
+    file = 'global-hub-agent-cpu-usage'
+    title = 'Global Hub Agent CPU'
+    print(title)
+    try:
+        query = '''
+          sum(
+            node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{cluster="",namespace="multicluster-global-hub-agent"}
+            * on(namespace,pod)
+            group_left(workload, workload_type) namespace_workload_pod:kube_pod_owner:relabel{cluster="", namespace="multicluster-global-hub-agent", workload="multicluster-global-hub-agent", workload_type="deployment"}
+          ) by (pod)
+        '''
+
+        pc=connectProm()
+        cpu_trend = pc.custom_query_range(
+          query=query,
+          start_time=start_time,
+          end_time=end_time,
+          step=step,
+        )
+
+        cpu_trend_df = MetricRangeDataFrame(cpu_trend)
+        cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
+        cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        
+        #node_cpu_trend_df =  node_cpu_trend_df.pivot( columns='node',values='value')
+        cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
+        print(cpu_trend_df.head(3))
+        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
+        plt.savefig(output_path + "/" + file + ".png")
+        cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
+        plt.close('all')
+    except Exception as e:
+        print(Fore.RED+"Error in getting cpu for Global Hub Agent: ",e) 
+        print(Style.RESET_ALL)   
+        
+    print("=============================================")

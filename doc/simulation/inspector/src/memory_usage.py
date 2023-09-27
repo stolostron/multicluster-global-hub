@@ -318,3 +318,41 @@ def global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step):
         print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
         print(Style.RESET_ALL)  
     print("=============================================")
+
+def check_global_hub_agent_memory(start_time, end_time, step):
+    total = "Total Global Hub Agent Memory MB"
+    file = "global-hub-agent-memory-usage"
+    print(total)
+    
+    try:
+        query = '''
+        sum(
+            container_memory_working_set_bytes{cluster="", namespace="multicluster-global-hub-agent", container!="", image!=""}
+          * on(namespace,pod)
+            group_left(workload, workload_type) namespace_workload_pod:kube_pod_owner:relabel{cluster="", namespace="multicluster-global-hub-agent", workload="multicluster-global-hub-agent", workload_type="deployment"}
+        ) by (pod) / (1024*1024)
+        '''
+        pc = connectProm()
+        memory_trend = pc.custom_query_range(
+            query=query,
+            start_time=start_time,
+            end_time=end_time,
+            step=step,
+        )
+
+        memory_trend_df = MetricRangeDataFrame(memory_trend)
+        memory_trend_df["value"]=memory_trend_df["value"].astype(float)
+        memory_trend_df.index= pandas.to_datetime(memory_trend_df.index, unit="s")
+        memory_trend_df.rename(columns={"value": "Usage"}, inplace = True)
+        
+        print(memory_trend_df.head(3))
+        memory_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
+        
+        plt.savefig(output_path + "/" + file + ".png")
+        memory_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
+        plt.close('all')
+
+    except Exception as e:
+        print(Fore.RED+"Error in getting Memory (rss) for GH Agent: ",e)  
+        print(Style.RESET_ALL)  
+    print("=============================================")
