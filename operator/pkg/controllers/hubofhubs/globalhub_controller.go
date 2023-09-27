@@ -444,8 +444,8 @@ var namespacePred = predicate.Funcs{
 		return e.Object.GetName() == config.GetHoHMGHNamespacedName().Namespace
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() &&
-			e.ObjectNew.GetName() == config.GetHoHMGHNamespacedName().Namespace
+		return e.ObjectNew.GetName() == config.GetHoHMGHNamespacedName().Namespace &&
+			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
