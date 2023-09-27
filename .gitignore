@@ -22,6 +22,8 @@ bin
 
 .vscode
 
+.DS_Store
+
 
 demos/setup/config/
 

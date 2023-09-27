@@ -67,6 +67,15 @@ The global hub counters are used to count the managed clusters, compliances and 
   | CPU | 0.001 | 0.05 |
   | Memory | 100 MB | 200 MB |
 
+- Multicluster Global Hub Agent on Managed Hub
+![Global Hub Agent CPU](./../images/global-hub-agent-cpu-usage.png)
+![Global Hub Agent Memory](./../images/global-hub-agent-memory-usage.png)
+
+  | Agent | Request | Limit |
+  |---|---|---|
+  | CPU | 0.01 | 0.05 |
+  | Memory | 400 MB | 1000 MB |
+
 ### The CPU and Memory Consumption of the Middlewares
 
 - Multicluster Global Hub Kafka Broker
@@ -89,10 +98,10 @@ The global hub counters are used to count the managed clusters, compliances and 
 - Multicluster Global Hub Postgres
 ![Global Hub Postgres CPU](./../images/global-hub-postgres-cpu-usage.png)
 ![Global Hub Postgres Memory](./../images/global-hub-postgres-memory-usage.png)
+
 | Postgres | Request | Limit |
 |---|---|---|
 | CPU | 0.5 | 5 |
-<!-- | Memory | 0.8 G | 2 G | -->
 
 ## Related Material
 
