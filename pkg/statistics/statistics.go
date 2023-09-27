@@ -153,7 +153,7 @@ func (s *Statistics) run(ctx context.Context, duration time.Duration) {
 				s.numOfConflationUnits, s.conflationReadyQueueSize, s.numOfAvailableDBWorkers, success, fail,
 				conflationAvg, storageAvg)
 
-			s.log.Info(fmt.Sprintf("%s\n%s", metrics, stringBuilder.String()))
+			s.log.V(4).Info(fmt.Sprintf("%s\n%s", metrics, stringBuilder.String()))
 		}
 	}
 }

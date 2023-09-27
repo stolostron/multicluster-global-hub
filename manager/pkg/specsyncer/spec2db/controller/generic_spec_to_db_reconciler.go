@@ -160,7 +160,7 @@ func (r *genericSpecToDBReconciler) processInstanceInTheDatabase(ctx context.Con
 			return nil, err
 		}
 
-		log.Info("The instance has been inserted into the database")
+		log.V(2).Info("The instance has been inserted into the database")
 
 		return instance, nil // the instance in the database is identical to the instance we just inserted
 	}
@@ -197,7 +197,7 @@ func (r *genericSpecToDBReconciler) deleteFromTheDatabase(ctx context.Context, n
 		return err
 	}
 
-	log.Info("Instance has been updated as deleted in the database")
+	log.V(2).Info("Instance has been updated as deleted in the database")
 
 	return nil
 }

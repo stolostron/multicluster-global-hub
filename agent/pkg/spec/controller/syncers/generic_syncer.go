@@ -92,7 +92,7 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 					"namespace", unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 				return
 			}
-			syncer.log.Info("object updated", "name", unstructuredObject.GetName(), "namespace",
+			syncer.log.V(2).Info("object updated", "name", unstructuredObject.GetName(), "namespace",
 				unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 		}))
 	}

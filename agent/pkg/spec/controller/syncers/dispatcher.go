@@ -56,7 +56,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 			}
 			syncer, found := d.syncers[message.ID]
 			if !found {
-				d.log.Info("dispatching to the default generic syncer", "messageID", message.ID)
+				d.log.V(2).Info("dispatching to the default generic syncer", "messageID", message.ID)
 				syncer = d.syncers[GenericMessageKey]
 			}
 			if err := syncer.Sync(message.Payload); err != nil {

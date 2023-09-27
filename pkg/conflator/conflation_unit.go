@@ -105,7 +105,7 @@ func (cu *ConflationUnit) insert(bundle statusbundle.Bundle, metadata bundle.Bun
 		}
 	}
 
-	cu.log.Info("inserting bundle", "managedHub", bundle.GetLeafHubName(), "bundleType", bundleType,
+	cu.log.V(2).Info("inserting bundle", "managedHub", bundle.GetLeafHubName(), "bundleType", bundleType,
 		"bundleVersion", bundle.GetVersion().String())
 
 	if !bundle.GetVersion().NewerThan(conflationElement.lastProcessedBundleVersion) {

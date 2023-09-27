@@ -91,7 +91,7 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			d.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 			// d.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
 			// 	message.TopicPartition.Offset))
-			d.log.Info("forward received bundle to conflation", "messageID", msgID)
+			d.log.V(2).Info("forward received bundle to conflation", "messageID", msgID)
 			d.conflationManager.Insert(receivedBundle, bundle.NewBaseBundleMetadata())
 		}
 	}

@@ -194,7 +194,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {
 		return nil, err
 	}
-	log.Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName,
+	log.V(4).Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName,
 		"image", manifestsConfig.HoHAgentImage)
 
 	manifestsConfig.AggregationLevel = config.AggregationLevel

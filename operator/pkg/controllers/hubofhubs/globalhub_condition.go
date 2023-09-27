@@ -29,7 +29,7 @@ type GlobalHubConditionReconciler struct {
 }
 
 func (r *GlobalHubConditionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Info("reconciling global hub status condition", "namespace", req.Namespace, "name", req.Name)
+	r.Log.V(2).Info("reconciling global hub status condition", "namespace", req.Namespace, "name", req.Name)
 
 	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
@@ -87,7 +87,7 @@ func (r *GlobalHubConditionReconciler) updateDeploymentStatus(ctx context.Contex
 		}
 	}
 
-	r.Log.Info("updating deployment status", "name", deployName, "message", desiredCondition.Message)
+	r.Log.V(2).Info("updating deployment status", "name", deployName, "message", desiredCondition.Message)
 	if err := condition.UpdateCondition(ctx, r.Client, mgh, desiredCondition); err != nil {
 		return err
 	}
