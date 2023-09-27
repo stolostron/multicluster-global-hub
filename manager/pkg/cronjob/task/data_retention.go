@@ -20,7 +20,7 @@ var (
 	// 1. create partition tables for days in the future, the partition table for the next month is created
 	// 2. delete partition tables that are no longer needed, the partition table for the previous 18 month is deleted
 	// 3. completely delete the soft deleted records from database after retainedMonths
-	retentionTaskName = "data-retention"
+	RetentionTaskName = "data-retention"
 
 	// after the record is marked as deleted, retentionMonth is used to indicate how long it will be retained
 	// before it is completely deleted from database
@@ -40,11 +40,11 @@ var (
 		"event.local_root_policies",
 		"history.local_compliance",
 	}
-	retentionLog = ctrl.Log.WithName(retentionTaskName)
+	retentionLog = ctrl.Log.WithName(RetentionTaskName)
 )
 
 func init() {
-	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(retentionTaskName).Set(0)
+	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(0)
 }
 
 func DataRetention(ctx context.Context, pool *pgxpool.Pool, retentionMonth int, job gocron.Job) {
@@ -53,9 +53,9 @@ func DataRetention(ctx context.Context, pool *pgxpool.Pool, retentionMonth int, 
 	var err error
 	defer func() {
 		if err != nil {
-			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(retentionTaskName).Set(1)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(1)
 		} else {
-			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(retentionTaskName).Set(0)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(0)
 		}
 	}()
 

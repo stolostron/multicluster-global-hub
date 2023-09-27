@@ -55,6 +55,10 @@ spec:
             - name: WATCH_NAMESPACE
             - name: DATABASE_URL
               value: {{.DatabaseURL}}
+            {{- if .LaunchJobNames}}
+            - name: LAUNCH_JOB_NAMES
+              value: {{.LaunchJobNames}}
+            {{- end}}
           ports:
           - containerPort: 9443
             name: webhook-server

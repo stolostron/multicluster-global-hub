@@ -30,8 +30,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	var err error
-	err = os.Setenv("POD_NAMESPACE", "default")
+	err := os.Setenv("POD_NAMESPACE", "default")
 	if err != nil {
 		panic(err)
 	}
