@@ -4,6 +4,7 @@ import (
 	"context"
 
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,15 +16,40 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
+var monitorFlag = false
+
 func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("metrics")
 
+	// add label openshift.io/cluster-monitoring: "true" to the ns, so that the prometheus can detect the ServiceMonitor.
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: config.GetDefaultNamespace(),
+		},
+	}
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(namespace), namespace); err != nil {
+		return err
+	}
+	labels := namespace.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	val, ok := labels[operatorconstants.ClusterMonitoringLabelKey]
+	if !ok || val != operatorconstants.ClusterMonitoringLabelVal {
+		labels[operatorconstants.ClusterMonitoringLabelKey] = operatorconstants.ClusterMonitoringLabelVal
+	}
+	namespace.SetLabels(labels)
+	if err := r.Client.Update(ctx, namespace); err != nil {
+		return err
+	}
+
+	// create ServiceMonitor under global hub namespace
 	expectedServiceMonitor := &promv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHServiceMonitorName,
-			Namespace: operatorconstants.GHServiceMonitorNamespace,
+			Namespace: config.GetDefaultNamespace(),
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
@@ -60,8 +86,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 
 	if !equality.Semantic.DeepDerivative(expectedServiceMonitor.Spec, serviceMonitor.Spec) ||
 		!equality.Semantic.DeepDerivative(expectedServiceMonitor.GetLabels(), serviceMonitor.GetLabels()) {
-		expectedServiceMonitor.ObjectMeta.ResourceVersion =
-			serviceMonitor.ObjectMeta.ResourceVersion
+		expectedServiceMonitor.ObjectMeta.ResourceVersion = serviceMonitor.ObjectMeta.ResourceVersion
 		log.Info("updating ServiceMonitor", "namespace", serviceMonitor.Namespace, "name", serviceMonitor.Name)
 		return r.Update(ctx, expectedServiceMonitor)
 	}

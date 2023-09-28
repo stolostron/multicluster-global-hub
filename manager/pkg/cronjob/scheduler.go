@@ -2,6 +2,7 @@ package cronjob
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -49,18 +50,32 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	default:
 		scheduler = scheduler.Every(1).Day().At("00:00")
 	}
-	complianceJob, err := scheduler.DoWithJobDetails(task.SyncLocalCompliance, ctx, pool, enableSimulation)
+	complianceJob, err := scheduler.Tag(task.LocalComplianceTaskName).DoWithJobDetails(
+		task.SyncLocalCompliance, ctx, pool, enableSimulation)
 	if err != nil {
 		return err
 	}
 	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 
-	dataRetentionJob, err := scheduler.Every(1).Month(1, 15, 28).At("00:00").
+	dataRetentionJob, err := scheduler.Every(1).Month(1, 15, 28).At("00:00").Tag(task.RetentionTaskName).
 		DoWithJobDetails(task.DataRetention, ctx, pool, managerConfig.DatabaseConfig.DataRetention)
 	if err != nil {
 		return err
 	}
 	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
+
+	// get the jobs need to execute immediately
+	launchJobs := strings.Split(managerConfig.LaunchJobNames, ",")
+	for _, job := range launchJobs {
+		switch job {
+		case task.LocalComplianceTaskName, task.RetentionTaskName:
+			if err = scheduler.RunByTag(job); err != nil {
+				return err
+			}
+		default:
+			log.Info("failed to launch the unknow job immediately", "name", job)
+		}
+	}
 
 	return mgr.Add(&GlobalHubJobScheduler{
 		log:       log,

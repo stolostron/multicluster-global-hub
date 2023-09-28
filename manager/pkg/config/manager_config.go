@@ -24,6 +24,7 @@ type ManagerConfig struct {
 	NonK8sAPIServerConfig *nonk8sapi.NonK8sAPIServerConfig
 	ElectionConfig        *commonobjects.LeaderElectionConfig
 	EnableGlobalResource  bool
+	LaunchJobNames        string
 }
 
 type SyncerConfig struct {

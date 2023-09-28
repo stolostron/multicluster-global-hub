@@ -70,6 +70,8 @@ spec:
           name: grafana-dashboards
         - mountPath: /etc/grafana/provisioning/alerting
           name: multicluster-global-hub-alerting
+        - mountPath: /grafana-dashboards/0/acm-global-overview
+          name: grafana-dashboard-acm-global-overview
         - mountPath: /grafana-dashboards/0/acm-global-cluster-group-compliancy-overview
           name: grafana-dashboard-acm-global-cluster-group-compliancy-overview
         - mountPath: /grafana-dashboards/0/acm-global-policy-group-compliancy-overview
@@ -186,6 +188,10 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-global-whats-changed-policies
         name: grafana-dashboard-acm-global-whats-changed-policies
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-global-overview
+        name: grafana-dashboard-acm-global-overview
       - name: grafana-config
         secret:
           defaultMode: 420

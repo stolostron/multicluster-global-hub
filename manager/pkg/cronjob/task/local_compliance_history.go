@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	localComplianceTaskName = "local-compliance-history"
+	LocalComplianceTaskName = "local-compliance-history"
 	startTime               time.Time
 	log                     logr.Logger
 	timeFormat              = "2006-01-02 15:04:05"
@@ -38,7 +38,7 @@ var (
 )
 
 func init() {
-	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(localComplianceTaskName).Set(0)
+	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(LocalComplianceTaskName).Set(0)
 }
 
 func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
@@ -59,14 +59,14 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 	var err error
 	defer func() {
 		if err != nil {
-			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(localComplianceTaskName).Set(1)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(LocalComplianceTaskName).Set(1)
 		} else {
-			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(localComplianceTaskName).Set(0)
+			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(LocalComplianceTaskName).Set(0)
 		}
 	}()
 
 	historyDate := startTime.AddDate(0, 0, -interval)
-	log = ctrl.Log.WithName(localComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
+	log = ctrl.Log.WithName(LocalComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
 	log.Info("start running", "currentRun", job.LastRun().Format(timeFormat))
 
 	// insert or update with local_status.compliance
@@ -144,7 +144,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 	var err error
 	defer func() {
 		if e := traceComplianceHistoryLog(ctx,
-			fmt.Sprintf("%s/local_status.compliance", localComplianceTaskName),
+			fmt.Sprintf("%s/local_status.compliance", LocalComplianceTaskName),
 			totalCount, offset, insertCount, startTime, err); e != nil {
 			log.Info("trace compliance job failed, retrying", "error", e)
 		}
@@ -231,7 +231,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 			var insertError error
 			defer func() {
 				if e := traceComplianceHistoryLog(ctx,
-					fmt.Sprintf("%s/event.local_policies", localComplianceTaskName),
+					fmt.Sprintf("%s/event.local_policies", LocalComplianceTaskName),
 					totalCount, offset, insertCount, startTime, insertError); e != nil {
 					log.Info("trace compliance job failed, retrying", "error", e)
 				}

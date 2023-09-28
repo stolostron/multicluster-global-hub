@@ -46,6 +46,7 @@ const (
 	webhookCertDir             = "/webhook-certs"
 	kafkaTransportType         = "kafka"
 	leaderElectionLockID       = "multicluster-global-hub-manager-lock"
+	launchJobNamesEnv          = "LAUNCH_JOB_NAMES"
 )
 
 var (
@@ -69,6 +70,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 		StatisticsConfig:      &statistics.StatisticsConfig{},
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
+		LaunchJobNames:        "",
 	}
 
 	// add zap flags
@@ -139,7 +141,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.IntVar(&managerConfig.DatabaseConfig.DataRetention, "data-retention", 18,
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
-		"Enable the global resource feature.")
+		"enable the global resource feature.")
 
 	pflag.Parse()
 	// set zap logger
@@ -161,6 +163,11 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
 		return fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
+	}
+	// the specified jobs(concatenate multiple jobs with ',') runs when the container starts
+	val, ok := os.LookupEnv(launchJobNamesEnv)
+	if ok && val != "" {
+		managerConfig.LaunchJobNames = val
 	}
 	return nil
 }
