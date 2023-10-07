@@ -74,7 +74,7 @@ The global hub counters are used to count the managed clusters, compliances and 
   | Agent | Request | Limit |
   |---|---|---|
   | CPU | 0.01 | 0.05 |
-  | Memory | 400 MB | 1000 MB |
+  | Memory | 200 MB | 1000 MB |
 
 ### The CPU and Memory Consumption of the Middlewares
 
