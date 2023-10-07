@@ -73,7 +73,7 @@ begin
             policy = REPLACE(policy, 'policy_control_template', all_policy_controls[policy_control_random_index]);
             SELECT floor(random() * 2 + 1)::int into policy_severity_random_index;
             policy = REPLACE(policy, 'policy_severity_template', all_policy_severities[policy_severity_random_index]);
-            insert into local_spec.policies (leaf_hub_name,payload) values (hub_name,jsonb(policy));
+            insert into local_spec.policies (leaf_hub_name,policy_id,payload) values (hub_name,policy_id,jsonb(policy));
         end loop;
 
         foreach managed_cluster_id in array managed_cluster_ids loop
