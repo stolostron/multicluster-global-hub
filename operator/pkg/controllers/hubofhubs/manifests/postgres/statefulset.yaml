@@ -70,8 +70,10 @@ spec:
         - mountPath: /var/lib/pgsql/data
           name: postgresdb
           readOnly: false
-        - mountPath: /sslcert
+        - mountPath: /opt/app-root/src/certs/
           name: multicluster-global-hub-postgres-certs
+        - mountPath: /opt/app-root/src/postgresql-cfg
+          name: postgresql-cfg
       serviceAccount: multicluster-global-hub-postgres
       serviceAccountName: multicluster-global-hub-postgres
       {{ if .ImagePullSecret }}
@@ -93,6 +95,10 @@ spec:
           {{- end}}
         {{- end}}
       volumes:
+      - configMap:
+          defaultMode: 420
+          name: multicluster-global-hub-postgres
+        name: postgresql-cfg
       - name: multicluster-global-hub-postgres-certs
         secret:
           defaultMode: 416
