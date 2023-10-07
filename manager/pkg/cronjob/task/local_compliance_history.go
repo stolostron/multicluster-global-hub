@@ -27,8 +27,8 @@ var (
 	dateInterval            = 1
 	simulationCounter       = 1
 	counterLock             sync.Mutex
-	batchSize               = int64(2000)
-	// batchSize = 2000 for now
+	batchSize               = int64(1000)
+	// batchSize = 1000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
 	// several factors such as the size of the table, available memory, network bandwidth, and hardware specifications.
 	// However, as a general rule of thumb, a batch size of around 1000 to 5000 records is a good starting point. This
@@ -226,7 +226,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 	totalCount, batchSize, offset int64,
 ) (int64, error) {
 	insertCount := int64(0)
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true,
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Minute, true,
 		func(ctx context.Context) (done bool, err error) {
 			var insertError error
 			defer func() {
