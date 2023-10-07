@@ -35,13 +35,15 @@ var databaseFS embed.FS
 //go:embed database.old
 var databaseOldFS embed.FS
 
+const postgresUsername = "global-hub-user"
+
 func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("database")
 
 	var err error
-	postgresPassword, err := getPostgresPassword(ctx, mgh, r)
+	postgresUser, postgresPassword, err := getPostgresCredential(ctx, mgh, r)
 	if err != nil {
 		return err
 	}
@@ -63,6 +65,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 				NodeSelector         map[string]string
 				Tolerations          []corev1.Toleration
 				PostgresUserPassword string
+				PostgresUsername     string
 			}{
 				Namespace:            config.GetDefaultNamespace(),
 				PostgresImage:        config.GetImage(config.PostgresImageKey),
@@ -72,6 +75,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 				Tolerations:          mgh.Spec.Tolerations,
 				StorageSize:          "25Gi",
 				PostgresUserPassword: postgresPassword,
+				PostgresUsername:     postgresUser,
 			}, nil
 		})
 		if err != nil {
@@ -89,7 +93,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 			return fmt.Errorf("failed to create/update postgres objects: %w", err)
 		}
 		r.MiddlewareConfig.PgConnection = &postgres.PostgresConnection{
-			SuperuserDatabaseURI: "postgresql://postgres:" + base64.StdEncoding.EncodeToString([]byte(postgresPassword)) +
+			SuperuserDatabaseURI: "postgresql://" + postgresUser + ":" +
+				base64.StdEncoding.EncodeToString([]byte(postgresPassword)) +
 				"@multicluster-global-hub-postgres.multicluster-global-hub.svc:5432/hoh?sslmode=disable",
 		}
 	}
@@ -183,16 +188,16 @@ func generatePassword(length int) string {
 	return string(buf)
 }
 
-func getPostgresPassword(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub, r *MulticlusterGlobalHubReconciler) (string, error) {
+func getPostgresCredential(ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub, r *MulticlusterGlobalHubReconciler) (string, string, error) {
 	postgres := &corev1.Secret{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      "multicluster-global-hub-postgres",
 		Namespace: mgh.Namespace,
 	}, postgres); err != nil && errors.IsNotFound(err) {
-		return generatePassword(16), nil
+		return postgresUsername, generatePassword(16), nil
 	} else if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return string(postgres.Data["database-password"]), nil
+	return string(postgres.Data["database-user"]), string(postgres.Data["database-password"]), nil
 }
