@@ -27,8 +27,8 @@ var (
 	dateInterval            = 1
 	simulationCounter       = 1
 	counterLock             sync.Mutex
-	batchSize               = int64(1000)
-	// batchSize = 1000 for now
+	batchSize               = int64(2000)
+	// batchSize = 2000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
 	// several factors such as the size of the table, available memory, network bandwidth, and hardware specifications.
 	// However, as a general rule of thumb, a batch size of around 1000 to 5000 records is a good starting point. This
@@ -200,7 +200,7 @@ func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpoo
 	totalCount int64, insertedCount int64, err error,
 ) {
 	totalCountSQLTemplate := `
-		SELECT COUNT(*) FROM (
+		SELECT COUNT(1) FROM (
 			SELECT DISTINCT policy_id, cluster_id FROM event.local_policies
 			WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
 		) AS subquery
@@ -250,7 +250,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 					GROUP BY cluster_id, policy_id, leaf_hub_name
 			)
 			SELECT policy_id, cluster_id, leaf_hub_name, (CURRENT_DATE - INTERVAL '%d day'), aggregated_compliance,
-					(SELECT COUNT(*) FROM (
+					(SELECT COUNT(1) FROM (
 							SELECT created_at, compliance, 
 									LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC)
 									AS prev_compliance
