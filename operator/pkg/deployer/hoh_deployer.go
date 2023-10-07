@@ -33,6 +33,7 @@ func NewHoHDeployer(client client.Client) Deployer {
 	deployer := &HoHDeployer{client: client}
 	deployer.deployFuncs = map[string]deployFunc{
 		"Deployment":         deployer.deployDeployment,
+		"StatefulSet":        deployer.deployDeployment,
 		"Service":            deployer.deployService,
 		"ServiceAccount":     deployer.deployServiceAccount,
 		"ConfigMap":          deployer.deployConfigMap,

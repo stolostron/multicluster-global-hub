@@ -453,6 +453,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
+		Owns(&appsv1.StatefulSet{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).

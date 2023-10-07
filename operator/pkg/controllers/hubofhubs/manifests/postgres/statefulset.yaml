@@ -68,7 +68,8 @@ spec:
             memory: 128Mi
         volumeMounts:
         - mountPath: /var/lib/pgsql/data
-          name: multicluster-global-hub-postgresdb
+          name: postgresdb
+          readOnly: false
         - mountPath: /sslcert
           name: multicluster-global-hub-postgres-certs
       serviceAccount: multicluster-global-hub-postgres
@@ -102,7 +103,7 @@ spec:
         app: multicluster-global-hub
         component: multicluster-global-hub-operator
         name: multicluster-global-hub-postgres
-      name: multicluster-global-hub-postgresdb
+      name: postgresdb
     spec:
       accessModes:
       - ReadWriteOnce

@@ -90,7 +90,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		}
 		r.MiddlewareConfig.PgConnection = &postgres.PostgresConnection{
 			SuperuserDatabaseURI: "postgresql://postgres:" + base64.StdEncoding.EncodeToString([]byte(postgresPassword)) +
-				"@multicluster-global-hub-postgres.multicluster-global-hub.svc:5432/hoh?sslmode=require",
+				"@multicluster-global-hub-postgres.multicluster-global-hub.svc:5432/hoh?sslmode=disable",
 		}
 	}
 
