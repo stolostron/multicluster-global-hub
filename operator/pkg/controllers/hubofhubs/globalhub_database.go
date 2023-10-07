@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"embed"
-	"encoding/base64"
 	"fmt"
 	iofs "io/fs"
 	"math/big"
@@ -35,7 +34,10 @@ var databaseFS embed.FS
 //go:embed database.old
 var databaseOldFS embed.FS
 
-const postgresUsername = "global-hub-user"
+const (
+	postgresUsername = "global-hub-user"
+	postgresCA       = "multicluster-global-hub-postgres-ca"
+)
 
 func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
@@ -92,10 +94,16 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		if err = r.manipulateObj(ctx, postgresDeployer, mapper, postgresObjects, mgh, log); err != nil {
 			return fmt.Errorf("failed to create/update postgres objects: %w", err)
 		}
+
+		ca, err := getPostgresCA(ctx, mgh, r)
+		if err != nil {
+			return err
+		}
 		r.MiddlewareConfig.PgConnection = &postgres.PostgresConnection{
 			SuperuserDatabaseURI: "postgresql://" + postgresUser + ":" +
-				base64.StdEncoding.EncodeToString([]byte(postgresPassword)) +
-				"@multicluster-global-hub-postgres.multicluster-global-hub.svc:5432/hoh?sslmode=disable",
+				postgresPassword +
+				"@multicluster-global-hub-postgres.multicluster-global-hub.svc:5432/hoh?sslmode=verify-ca",
+			CACert: []byte(ca),
 		}
 	}
 
@@ -200,4 +208,16 @@ func getPostgresCredential(ctx context.Context,
 		return "", "", err
 	}
 	return string(postgres.Data["database-user"]), string(postgres.Data["database-password"]), nil
+}
+
+func getPostgresCA(ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub, r *MulticlusterGlobalHubReconciler) (string, error) {
+	ca := &corev1.ConfigMap{}
+	if err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      postgresCA,
+		Namespace: mgh.Namespace,
+	}, ca); err != nil {
+		return "", err
+	}
+	return ca.Data["service-ca.crt"], nil
 }
