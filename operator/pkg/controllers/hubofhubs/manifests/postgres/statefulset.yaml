@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: multicluster-global-hub-postgres
+  namespace: {{.Namespace}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multicluster-global-hub
+      component: multicluster-global-hub-operator
+      name: multicluster-global-hub-postgres
+  template:
+    metadata:
+      labels:
+        app: multicluster-global-hub
+        component: multicluster-global-hub-operator
+        name: multicluster-global-hub-postgres
+    spec:
+      containers:
+      - env:
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: database-user
+              name: multicluster-global-hub-postgres
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-password
+              name: multicluster-global-hub-postgres
+        - name: POSTGRESQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              key: database-name
+              name: multicluster-global-hub-postgres
+        - name: POSTGRESQL_SHARED_BUFFERS
+          value: 64MB
+        - name: POSTGRESQL_EFFECTIVE_CACHE_SIZE
+          value: 128MB
+        - name: WORK_MEM
+          value: 16MB
+        image: {{.PostgresImage}}
+        imagePullPolicy: {{.ImagePullPolicy}}
+        livenessProbe:
+          exec:
+            command:
+            - /usr/libexec/check-container
+            - --live
+          initialDelaySeconds: 120
+          timeoutSeconds: 10
+        name: multicluster-global-hub-postgres
+        ports:
+        - containerPort: 5432
+          name: multicluster-global-hub-postgres
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /usr/libexec/check-container
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        resources:
+          limits:
+            memory: 4Gi
+          requests:
+            cpu: 25m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /var/lib/pgsql/data
+          name: multicluster-global-hub-postgresdb
+        - mountPath: /sslcert
+          name: multicluster-global-hub-postgres-certs
+      serviceAccount: multicluster-global-hub-postgres
+      serviceAccountName: multicluster-global-hub-postgres
+      {{ if .ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{.ImagePullSecret}}
+      {{ end }}
+      nodeSelector:
+        {{- range $key, $value := .NodeSelector}}
+        "{{$key}}": "{{$value}}"
+        {{- end}}
+      tolerations:
+        {{- range .Tolerations}}
+        - key: "{{.Key}}"
+          operator: "{{.Operator}}"
+          value: "{{.Value}}"
+          effect: "{{.Effect}}"
+          {{- if .TolerationSeconds}}
+          tolerationSeconds: {{.TolerationSeconds}}
+          {{- end}}
+        {{- end}}
+      volumes:
+      - name: multicluster-global-hub-postgres-certs
+        secret:
+          defaultMode: 416
+          secretName: multicluster-global-hub-postgres-certs
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app: multicluster-global-hub
+        component: multicluster-global-hub-operator
+        name: multicluster-global-hub-postgres
+      name: multicluster-global-hub-postgresdb
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{.StorageSize}}

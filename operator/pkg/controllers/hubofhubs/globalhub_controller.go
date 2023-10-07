@@ -205,55 +205,42 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	}
 	// if not-provided kafka secret, create kafka in the global hub namespace
 	if kafkaConnection == nil {
-		// reconcile kafka
+		// reconcile kafka subscription
 		if err := r.EnsureKafkaSubscription(ctx, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
-	} else {
-		r.MiddlewareConfig.KafkaConnection = kafkaConnection
-	}
-
-	// support BYO postgres
-	pgConnection, err := r.GeneratePGConnectionFromGHStorageSecret(ctx)
-	if err != nil && !errors.IsNotFound(err) {
-		return ctrl.Result{}, err
-	}
-	// if not-provided postgres secret, create crunchy postgres in the global hub namespace
-	if pgConnection == nil {
-		// reconcile crunchy postgres
-		if err := r.EnsureCrunchyPostgresSubscription(ctx, mgh); err != nil {
-			return ctrl.Result{}, err
-		}
-	} else {
-		r.MiddlewareConfig.PgConnection = pgConnection
-	}
-
-	if pgConnection == nil {
-		if err := r.EnsureCrunchyPostgres(ctx); err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
-		}
-	}
-
-	if kafkaConnection == nil {
+		// reconcile kafka resources
 		if err := r.EnsureKafkaResources(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
-	}
-
-	if kafkaConnection == nil {
+		// wait for kafka cluster ready
 		if kafkaConnection, err = r.WaitForKafkaClusterReady(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
+		r.MiddlewareConfig.KafkaConnection = kafkaConnection
 	}
 
-	if pgConnection == nil {
-		// store crunchy postgres connection
-		if pgConnection, err = r.WaitForPostgresReady(ctx); err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+	if config.GetInstallCrunchyOperator(mgh) {
+		// support BYO postgres
+		pgConnection, err := r.GeneratePGConnectionFromGHStorageSecret(ctx)
+		if err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
 		}
+		// if not-provided postgres secret, create crunchy postgres in the global hub namespace
+		if pgConnection == nil {
+			// reconcile crunchy postgres
+			if err := r.EnsureCrunchyPostgresSubscription(ctx, mgh); err != nil {
+				return ctrl.Result{}, err
+			}
+			if err := r.EnsureCrunchyPostgres(ctx); err != nil {
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+			}
+			if pgConnection, err = r.WaitForPostgresReady(ctx); err != nil {
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+			}
+		}
+		r.MiddlewareConfig.PgConnection = pgConnection
 	}
-	r.MiddlewareConfig.KafkaConnection = kafkaConnection
-	r.MiddlewareConfig.PgConnection = pgConnection
 
 	return ctrl.Result{}, nil
 }

@@ -49,6 +49,7 @@ const (
 	GlobalHubManagerImageKey = "multicluster_global_hub_manager"
 	OauthProxyImageKey       = "oauth_proxy"
 	GrafanaImageKey          = "grafana"
+	PostgresImageKey         = "postgres"
 )
 
 var (
@@ -60,6 +61,7 @@ var (
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
 		GrafanaImageKey:          "quay.io/stolostron/grafana:globalhub-1.0",
+		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
 	}
 	statisticLogInterval = "1m"
 	// default values for the global hub configured by the operator
@@ -117,17 +119,6 @@ func IsPaused(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
 	return false
 }
 
-// SkipDBInit returns true if the MulticlusterGlobalHub instance is annotated as skipping database initialization,
-// and false otherwise, used in dev/test environment
-func SkipDBInit(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
-	toSkipDBInit := getAnnotation(mgh, operatorconstants.AnnotationMGHSkipDBInit)
-	if toSkipDBInit != "" && strings.EqualFold(toSkipDBInit, "true") {
-		return true
-	}
-
-	return false
-}
-
 // GetSchedulerInterval returns the scheduler interval for moving policy compliance history
 func GetSchedulerInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
@@ -137,6 +128,15 @@ func GetSchedulerInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
 func SkipAuth(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
 	toSkipAuth := getAnnotation(mgh, operatorconstants.AnnotationMGHSkipAuth)
 	if toSkipAuth != "" && strings.EqualFold(toSkipAuth, "true") {
+		return true
+	}
+
+	return false
+}
+
+func GetInstallCrunchyOperator(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
+	toInstallCrunchyOperator := getAnnotation(mgh, operatorconstants.AnnotationMGHInstallCrunchyOperator)
+	if toInstallCrunchyOperator != "" && strings.EqualFold(toInstallCrunchyOperator, "true") {
 		return true
 	}
 
