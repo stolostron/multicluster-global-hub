@@ -801,6 +801,10 @@ data:
               "values": true
             },
             "showUnfilled": true,
+            "text": {
+              "titleSize": 20,
+              "valueSize": 30
+            },
             "valueMode": "color"
           },
           "pluginVersion": "9.5.6",
@@ -813,7 +817,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\nSELECT\n  lc.leaf_hub_name,\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (lc.leaf_hub_name, cluster_id)\n),\ncluster_compliant_data AS(\nSELECT \n  leaf_hub_name,\n  cluster_id,\n  CASE WHEN compliant > 0 AND unknown=0 AND non_compliant=0 THEN 1  ELSE 0 END AS \"cluster_compliant\"\nFROM data\n)\nSELECT \n leaf_hub_name,\n SUM(cluster_compliant)::float/COUNT(*) AS \"compliant_percentage\"\nFROM\ncluster_compliant_data\nGROUP BY leaf_hub_name",
+              "rawSql": "WITH data AS (\nSELECT\n  lc.leaf_hub_name,\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (lc.leaf_hub_name, cluster_id)\n),\ncluster_compliant_data AS(\nSELECT \n  leaf_hub_name,\n  cluster_id,\n  CASE WHEN compliant > 0 AND unknown=0 AND non_compliant=0 THEN 1  ELSE 0 END AS \"cluster_compliant\"\nFROM data\n)\nSELECT \n leaf_hub_name,\n SUM(cluster_compliant)::float/COUNT(*) AS \"compliant_percentage\"\nFROM\ncluster_compliant_data\nGROUP BY leaf_hub_name\nORDER BY compliant_percentage",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -888,6 +892,10 @@ data:
               "values": true
             },
             "showUnfilled": true,
+            "text": {
+              "titleSize": 20,
+              "valueSize": 30
+            },
             "valueMode": "color"
           },
           "pluginVersion": "9.5.6",
@@ -900,7 +908,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\nSELECT\n  lc.leaf_hub_name,\n  policy_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (lc.leaf_hub_name, policy_id)\n),\npolicy_compliant_data AS(\nSELECT \n  leaf_hub_name,\n  policy_id,\n  CASE WHEN compliant > 0 AND unknown=0 AND non_compliant=0 THEN 1  ELSE 0 END AS \"policy_compliant\"\nFROM data\n)\nSELECT \n leaf_hub_name,\n SUM(policy_compliant)::float/COUNT(*) AS \"compliant_percentage\"\nFROM\npolicy_compliant_data\nGROUP BY leaf_hub_name",
+              "rawSql": "WITH data AS (\nSELECT\n  lc.leaf_hub_name,\n  policy_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (lc.leaf_hub_name, policy_id)\n),\npolicy_compliant_data AS(\nSELECT \n  leaf_hub_name,\n  policy_id,\n  CASE WHEN compliant > 0 AND unknown=0 AND non_compliant=0 THEN 1  ELSE 0 END AS \"policy_compliant\"\nFROM data\n)\nSELECT \n leaf_hub_name,\n SUM(policy_compliant)::float/COUNT(*) AS \"compliant_percentage\"\nFROM\npolicy_compliant_data\nGROUP BY leaf_hub_name\nORDER BY compliant_percentage",
               "refId": "A",
               "sql": {
                 "columns": [
