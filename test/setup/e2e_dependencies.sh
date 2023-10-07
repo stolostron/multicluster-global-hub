@@ -39,7 +39,7 @@ function checkGolang() {
   if ! command -v go >/dev/null 2>&1; then
     wget https://dl.google.com/go/go1.20.3.linux-amd64.tar.gz >/dev/null 2>&1
     sudo tar -C /usr/local/ -xvf go1.20.3.linux-amd64.tar.gz >/dev/null 2>&1
-    sudo rm go1.18.4.linux-amd64.tar.gz
+    sudo rm go1.20.3.linux-amd64.tar.gz
   fi
   if [[ $(go version) < "go version go1.20" ]]; then
     echo "go version is less than 1.20, update to 1.20"
@@ -56,9 +56,9 @@ function checkKubectl() {
   if ! command -v kubectl >/dev/null 2>&1; then 
     echo "This script will install kubectl (https://kubernetes.io/docs/tasks/tools/install-kubectl/) on your machine"
     if [[ "$(uname)" == "Linux" ]]; then
-        curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.21.0/bin/linux/amd64/kubectl
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.28.1/bin/linux/amd64/kubectl
     elif [[ "$(uname)" == "Darwin" ]]; then
-        curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.21.0/bin/darwin/amd64/kubectl
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.28.1/bin/darwin/amd64/kubectl
     fi
     chmod +x ./kubectl
     sudo mv ./kubectl ${binDir}/kubectl

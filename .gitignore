@@ -22,6 +22,8 @@ bin
 
 .vscode
 
+.DS_Store
+
 
 demos/setup/config/
 
@@ -31,3 +33,10 @@ test/setup/config/
 .idea
 *.crt
 *.key
+
+*.log
+
+kubeconfig
+
+__pycache__
+output
