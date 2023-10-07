@@ -15,4 +15,4 @@ spec:
     name: postgres
     protocol: TCP
   selector:
-    name: multicluster-global-hub-manager
+    name: multicluster-global-hub-postgres

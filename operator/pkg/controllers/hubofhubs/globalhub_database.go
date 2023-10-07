@@ -19,7 +19,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,7 +41,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	log := r.Log.WithName("database")
 
 	var err error
-	postgresPassword, err := GetPostgresPassword(ctx, mgh, r)
+	postgresPassword, err := getPostgresPassword(ctx, mgh, r)
 	if err != nil {
 		return err
 	}
@@ -184,21 +183,16 @@ func generatePassword(length int) string {
 	return string(buf)
 }
 
-func GetPostgresPassword(ctx context.Context,
+func getPostgresPassword(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub, r *MulticlusterGlobalHubReconciler) (string, error) {
-	deployment := &appsv1.Deployment{}
+	postgres := &corev1.Secret{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      "multicluster-global-hub-postgres",
 		Namespace: mgh.Namespace,
-	}, deployment); err != nil && errors.IsNotFound(err) {
+	}, postgres); err != nil && errors.IsNotFound(err) {
 		return generatePassword(16), nil
 	} else if err != nil {
 		return "", err
 	}
-	for _, env := range deployment.Spec.Template.Spec.Containers[0].Env {
-		if env.Name == "POSTGRES_PASSWORD" {
-			return env.Value, nil
-		}
-	}
-	return generatePassword(16), nil
+	return string(postgres.Data["database-password"]), nil
 }
