@@ -12,7 +12,7 @@ spec:
   ports:
   - port: 5432
     targetPort: 5432
-    name: multicluster-global-hub-postgres
+    name: postgres
     protocol: TCP
   selector:
     name: multicluster-global-hub-manager

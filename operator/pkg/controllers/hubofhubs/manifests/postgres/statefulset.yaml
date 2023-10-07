@@ -52,7 +52,7 @@ spec:
         name: multicluster-global-hub-postgres
         ports:
         - containerPort: 5432
-          name: multicluster-global-hub-postgres
+          name: postgres
           protocol: TCP
         readinessProbe:
           exec:
