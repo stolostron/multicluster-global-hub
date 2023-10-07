@@ -148,7 +148,17 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		setupLog.Error(err, "New route client config error:")
 	}
 
-	electionConfig, err := getElectionConfig(kubeClient)
+	controllerConfigMap, err := kubeClient.CoreV1().ConfigMaps(hubofhubsconfig.GetDefaultNamespace()).Get(
+		context.TODO(), operatorconstants.ControllerConfig, metav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			setupLog.Error(err, "failed to get controller config")
+			return 1
+		}
+		controllerConfigMap = nil
+	}
+
+	electionConfig, err := getElectionConfig(controllerConfigMap)
 	if err != nil {
 		setupLog.Error(err, "failed to get election config")
 		return 1
@@ -173,7 +183,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	}
 
 	addonController, err := hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(),
-		electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled)
+		electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled, controllerConfigMap)
 	if err != nil {
 		setupLog.Error(err, "unable to create addon controller")
 		return 1
@@ -275,40 +285,42 @@ func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderEle
 	return mgr, err
 }
 
-func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {
+func getElectionConfig(configMap *corev1.ConfigMap) (*commonobjects.LeaderElectionConfig, error) {
 	config := &commonobjects.LeaderElectionConfig{
 		LeaseDuration: 137,
 		RenewDeadline: 107,
 		RetryPeriod:   26,
 	}
-
-	configMap, err := kubeClient.CoreV1().ConfigMaps(hubofhubsconfig.GetDefaultNamespace()).Get(
-		context.TODO(), operatorconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
+	if configMap == nil {
 		return config, nil
 	}
-	if err != nil {
-		return nil, err
+	_, leaseDurationExist := configMap.Data["leaseDuration"]
+	if leaseDurationExist {
+		leaseDurationSec, err := strconv.Atoi(configMap.Data["leaseDuration"])
+		if err != nil {
+			return nil, err
+		}
+		config.LeaseDuration = leaseDurationSec
 	}
 
-	leaseDurationSec, err := strconv.Atoi(configMap.Data["leaseDuration"])
-	if err != nil {
-		return nil, err
+	_, renewDeadlineExist := configMap.Data["renewDeadline"]
+	if renewDeadlineExist {
+		renewDeadlineSec, err := strconv.Atoi(configMap.Data["renewDeadline"])
+		if err != nil {
+			return nil, err
+		}
+		config.RenewDeadline = renewDeadlineSec
 	}
 
-	renewDeadlineSec, err := strconv.Atoi(configMap.Data["renewDeadline"])
-	if err != nil {
-		return nil, err
+	_, retryPeriodExist := configMap.Data["retryPeriod"]
+	if retryPeriodExist {
+		retryPeriodSec, err := strconv.Atoi(configMap.Data["retryPeriod"])
+		if err != nil {
+			return nil, err
+		}
+		config.RetryPeriod = retryPeriodSec
 	}
 
-	retryPeriodSec, err := strconv.Atoi(configMap.Data["retryPeriod"])
-	if err != nil {
-		return nil, err
-	}
-
-	config.LeaseDuration = leaseDurationSec
-	config.RenewDeadline = renewDeadlineSec
-	config.RetryPeriod = retryPeriodSec
 	return config, nil
 }
 

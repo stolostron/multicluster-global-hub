@@ -158,7 +158,7 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient,
-		electionConfig, middlewareCfg, true)
+		electionConfig, middlewareCfg, true, &corev1.ConfigMap{})
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())
@@ -250,7 +250,7 @@ func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 	}
 
 	configMap, err := kubeClient.CoreV1().ConfigMaps(config.GetDefaultNamespace()).Get(
-		context.TODO(), operatorconstants.ControllerLeaderElectionConfig, metav1.GetOptions{})
+		context.TODO(), operatorconstants.ControllerConfig, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return cfg, nil
 	}

@@ -61,6 +61,8 @@ type ManifestsConfig struct {
 	AggregationLevel       string
 	EnableLocalPolicies    string
 	EnableGlobalResource   bool
+	AgentQPS               float32
+	AgentBurst             int
 }
 
 type HohAgentAddon struct {
@@ -72,6 +74,7 @@ type HohAgentAddon struct {
 	log                  logr.Logger
 	MiddlewareConfig     *operatorconstants.MiddlewareConfig
 	EnableGlobalResource bool
+	ControllerConfig     *corev1.ConfigMap
 }
 
 func (a *HohAgentAddon) getMulticlusterGlobalHub() (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
@@ -166,6 +169,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
+	agentQPS, agentBurst := a.getAgentRestConfig(a.ControllerConfig)
+
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
@@ -183,6 +188,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KlusterletNamespace:    "open-cluster-management-agent",
 		KlusterletWorkSA:       "klusterlet-work-sa",
 		EnableGlobalResource:   a.EnableGlobalResource,
+		AgentQPS:               agentQPS,
+		AgentBurst:             agentBurst,
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {
@@ -208,6 +215,35 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	a.setInstallHostedMode(cluster, &manifestsConfig)
 
 	return addonfactory.StructToValues(manifestsConfig), nil
+}
+
+// getAgentRestConfig return the agent qps and burst, if not set, use default QPS and Burst
+func (a *HohAgentAddon) getAgentRestConfig(configMap *corev1.ConfigMap) (float32, int) {
+	if configMap == nil {
+		a.log.V(4).Info("controller configmap is nil, Use default agentQPS: %v, agentBurst: %v", constants.DefaultAgentQPS, constants.DefaultAgentBurst)
+		return constants.DefaultAgentQPS, constants.DefaultAgentBurst
+	}
+	agentQPS := constants.DefaultAgentQPS
+	_, agentQPSExist := configMap.Data["agentQPS"]
+	if agentQPSExist {
+		agentQPSInt, err := strconv.Atoi(configMap.Data["agentQPS"])
+		if err == nil {
+			agentQPS = float32(agentQPSInt)
+		}
+	}
+
+	agentBurst := constants.DefaultAgentBurst
+	_, agentBurstExist := configMap.Data["agentBurst"]
+	if agentBurstExist {
+		agentBurstAtoi, err := strconv.Atoi(configMap.Data["agentBurst"])
+		if err == nil {
+			agentBurst = agentBurstAtoi
+		}
+	}
+
+	a.log.V(4).Info("AgentQPS: %v, AgentBurst: %v", agentQPS, agentBurst)
+
+	return agentQPS, agentBurst
 }
 
 // GetImagePullSecret returns the image pull secret name and data

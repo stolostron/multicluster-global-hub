@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: controller-leader-election-configmap
+  name: controller-config
   namespace: multicluster-global-hub
 data:
   leaseDuration: "15"
