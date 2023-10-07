@@ -24,8 +24,9 @@ const (
 )
 
 type GlobalHubJobScheduler struct {
-	log       logr.Logger
-	scheduler *gocron.Scheduler
+	log                   logr.Logger
+	scheduler             *gocron.Scheduler
+	launchImmediatelyJobs []string
 }
 
 func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool,
@@ -64,29 +65,35 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 	}
 	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
 
-	// get the jobs need to execute immediately
-	launchJobs := strings.Split(managerConfig.LaunchJobNames, ",")
-	for _, job := range launchJobs {
-		switch job {
-		case task.LocalComplianceTaskName, task.RetentionTaskName:
-			if err = scheduler.RunByTag(job); err != nil {
-				return err
-			}
-		default:
-			log.Info("failed to launch the unknow job immediately", "name", job)
-		}
-	}
-
 	return mgr.Add(&GlobalHubJobScheduler{
-		log:       log,
-		scheduler: scheduler,
+		log:                   log,
+		scheduler:             scheduler,
+		launchImmediatelyJobs: strings.Split(managerConfig.LaunchJobNames, ","),
 	})
 }
 
 func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
 	s.log.Info("start job scheduler")
 	s.scheduler.StartAsync()
+	if err := s.execJobs(ctx); err != nil {
+		return err
+	}
 	<-ctx.Done()
 	s.scheduler.Stop()
+	return nil
+}
+
+func (s *GlobalHubJobScheduler) execJobs(ctx context.Context) error {
+	for _, job := range s.launchImmediatelyJobs {
+		switch job {
+		case task.LocalComplianceTaskName, task.RetentionTaskName:
+			s.log.Info("launch the job", "name", job)
+			if err := s.scheduler.RunByTag(job); err != nil {
+				return err
+			}
+		default:
+			s.log.Info("failed to launch the unknow job immediately", "name", job)
+		}
+	}
 	return nil
 }
