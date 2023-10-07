@@ -33,7 +33,7 @@ func NewHoHDeployer(client client.Client) Deployer {
 	deployer := &HoHDeployer{client: client}
 	deployer.deployFuncs = map[string]deployFunc{
 		"Deployment":         deployer.deployDeployment,
-		"StatefulSet":        deployer.deployDeployment,
+		"StatefulSet":        deployer.deployStatefulSet,
 		"Service":            deployer.deployService,
 		"ServiceAccount":     deployer.deployServiceAccount,
 		"ConfigMap":          deployer.deployConfigMap,
@@ -105,6 +105,30 @@ func (d *HoHDeployer) deployDeployment(desiredObj, existingObj *unstructured.Uns
 		!apiequality.Semantic.DeepDerivative(desiredDepoly.GetLabels(), existingDepoly.GetLabels()) ||
 		!apiequality.Semantic.DeepDerivative(desiredDepoly.GetAnnotations(), existingDepoly.GetAnnotations()) {
 		return d.client.Update(context.TODO(), desiredDepoly)
+	}
+
+	return nil
+}
+
+func (d *HoHDeployer) deployStatefulSet(desiredObj, existingObj *unstructured.Unstructured) error {
+	existingJSON, _ := existingObj.MarshalJSON()
+	existingSTS := &appsv1.StatefulSet{}
+	err := json.Unmarshal(existingJSON, existingSTS)
+	if err != nil {
+		return err
+	}
+
+	desiredJSON, _ := desiredObj.MarshalJSON()
+	desiredSTS := &appsv1.StatefulSet{}
+	err = json.Unmarshal(desiredJSON, desiredSTS)
+	if err != nil {
+		return err
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredSTS.Spec, existingSTS.Spec) ||
+		!apiequality.Semantic.DeepDerivative(desiredSTS.GetLabels(), existingSTS.GetLabels()) ||
+		!apiequality.Semantic.DeepDerivative(desiredSTS.GetAnnotations(), existingSTS.GetAnnotations()) {
+		return d.client.Update(context.TODO(), desiredSTS)
 	}
 
 	return nil
