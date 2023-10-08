@@ -200,7 +200,7 @@ func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpoo
 	totalCount int64, insertedCount int64, err error,
 ) {
 	totalCountSQLTemplate := `
-		SELECT COUNT(*) FROM (
+		SELECT COUNT(1) FROM (
 			SELECT DISTINCT policy_id, cluster_id FROM event.local_policies
 			WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
 		) AS subquery
@@ -226,7 +226,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 	totalCount, batchSize, offset int64,
 ) (int64, error) {
 	insertCount := int64(0)
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true,
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Minute, true,
 		func(ctx context.Context) (done bool, err error) {
 			var insertError error
 			defer func() {
@@ -250,7 +250,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 					GROUP BY cluster_id, policy_id, leaf_hub_name
 			)
 			SELECT policy_id, cluster_id, leaf_hub_name, (CURRENT_DATE - INTERVAL '%d day'), aggregated_compliance,
-					(SELECT COUNT(*) FROM (
+					(SELECT COUNT(1) FROM (
 							SELECT created_at, compliance, 
 									LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC)
 									AS prev_compliance

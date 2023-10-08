@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-co-op/gocron"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -14,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
 )
 
 var (
@@ -60,6 +62,24 @@ func TestScheduler(t *testing.T) {
 	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
 	managerConfig.SchedulerInterval = "second"
 	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+
+	scheduler := gocron.NewScheduler(time.Local)
+	_, err = scheduler.Every(1).Day().At("00:00").Tag(task.LocalComplianceTaskName).DoWithJobDetails(
+		task.SyncLocalCompliance, ctx, pool, false)
+	assert.Nil(t, err)
+
+	_, err = scheduler.Every(1).Month(1, 15, 28).At("00:00").Tag(task.RetentionTaskName).
+		DoWithJobDetails(task.DataRetention, ctx, pool, managerConfig.DatabaseConfig.DataRetention)
+	assert.Nil(t, err)
+
+	globalScheduler := &GlobalHubJobScheduler{
+		log:                   ctrl.Log.WithName("cronjob-scheduler"),
+		scheduler:             scheduler,
+		launchImmediatelyJobs: []string{task.RetentionTaskName, task.LocalComplianceTaskName, "unexpected_name"},
+	}
+
+	err = globalScheduler.execJobs(ctx)
+	assert.Nil(t, err)
 
 	cancel()
 	err = testenv.Stop()
