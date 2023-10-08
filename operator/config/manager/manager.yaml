@@ -75,10 +75,11 @@ spec:
         # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
           limits:
-            cpu: 500m
-            memory: 512Mi
+            # cpu: 50m
+            # https://home.robusta.dev/blog/stop-using-cpu-limits
+            memory: 200Mi
           requests:
-            cpu: 10m
-            memory: 64Mi
+            cpu: 1m
+            memory: 100Mi
       serviceAccountName: multicluster-global-hub-operator
       terminationGracePeriodSeconds: 10

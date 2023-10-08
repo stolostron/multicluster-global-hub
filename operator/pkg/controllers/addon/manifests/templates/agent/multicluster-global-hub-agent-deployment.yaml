@@ -20,6 +20,12 @@ spec:
       containers:
         - name: multicluster-global-hub-agent
           image: {{ .HoHAgentImage }}
+          resources:
+            requests:
+              memory: 200Mi
+              cpu: 10m
+            limits:
+              memory: 1000Mi
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             - '--zap-devel=true'
