@@ -43,7 +43,7 @@ type postgresCredential struct {
 }
 
 const (
-	postgresAdminUsername    = "global-hub-admin-user"
+	postgresAdminUsername    = "postgres"
 	postgresReadonlyUsername = "global-hub-readonly-user" // #nosec G101
 	postgresCA               = "multicluster-global-hub-postgres-ca"
 )
@@ -185,7 +185,6 @@ func (r *MulticlusterGlobalHubReconciler) createPostgres(ctx context.Context,
 				ImagePullPolicy              string
 				NodeSelector                 map[string]string
 				Tolerations                  []corev1.Toleration
-				PostgresAdminUsername        string
 				PostgresAdminUserPassword    string
 				PostgresReadonlyUsername     string
 				PostgresReadonlyUserPassword string
@@ -198,7 +197,6 @@ func (r *MulticlusterGlobalHubReconciler) createPostgres(ctx context.Context,
 				NodeSelector:                 mgh.Spec.NodeSelector,
 				Tolerations:                  mgh.Spec.Tolerations,
 				StorageSize:                  config.GetPostgresStorageSize(mgh),
-				PostgresAdminUsername:        credential.postgresAdminUsername,
 				PostgresAdminUserPassword:    credential.postgresAdminUserPassword,
 				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
 				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
@@ -251,8 +249,8 @@ func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.Multiclus
 		return nil, err
 	}
 	return &postgresCredential{
-		postgresAdminUsername:        string(postgres.Data["database-user"]),
-		postgresAdminUserPassword:    string(postgres.Data["database-password"]),
+		postgresAdminUsername:        postgresAdminUsername,
+		postgresAdminUserPassword:    string(postgres.Data["database-admin-password"]),
 		postgresReadonlyUsername:     string(postgres.Data["database-readonly-user"]),
 		postgresReadonlyUserPassword: string(postgres.Data["database-readonly-password"]),
 	}, nil

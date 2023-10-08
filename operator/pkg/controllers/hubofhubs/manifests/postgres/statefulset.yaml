@@ -19,20 +19,10 @@ spec:
     spec:
       containers:
       - env:
-        - name: POSTGRESQL_USER
+        - name: POSTGRESQL_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
-              key: database-user
-              name: multicluster-global-hub-postgres
-        - name: POSTGRESQL_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: database-password
-              name: multicluster-global-hub-postgres
-        - name: POSTGRESQL_DATABASE
-          valueFrom:
-            secretKeyRef:
-              key: database-name
+              key: database-admin-password
               name: multicluster-global-hub-postgres
         - name: POSTGRESQL_SHARED_BUFFERS
           value: 64MB
@@ -74,6 +64,8 @@ spec:
           name: multicluster-global-hub-postgres-certs
         - mountPath: /opt/app-root/src/postgresql-cfg
           name: postgresql-cfg
+        - mountPath: /opt/app-root/src/postgresql-start
+          name: postgresql-start
       serviceAccount: multicluster-global-hub-postgres
       serviceAccountName: multicluster-global-hub-postgres
       {{ if .ImagePullSecret }}
@@ -97,8 +89,12 @@ spec:
       volumes:
       - configMap:
           defaultMode: 420
-          name: multicluster-global-hub-postgres
+          name: multicluster-global-hub-postgres-config
         name: postgresql-cfg
+      - configMap:
+          defaultMode: 420
+          name: multicluster-global-hub-postgres-init
+        name: postgresql-start
       - name: multicluster-global-hub-postgres-certs
         secret:
           defaultMode: 416
