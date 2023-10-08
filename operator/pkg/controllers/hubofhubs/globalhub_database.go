@@ -44,7 +44,7 @@ type postgresCredential struct {
 
 const (
 	postgresAdminUsername    = "global-hub-admin-user"
-	postgresReadonlyUsername = "global-hub-readonly-user"
+	postgresReadonlyUsername = "global-hub-readonly-user" // #nosec G101
 	postgresCA               = "multicluster-global-hub-postgres-ca"
 )
 
