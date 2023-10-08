@@ -10,10 +10,12 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -34,77 +36,29 @@ var databaseFS embed.FS
 //go:embed database.old
 var databaseOldFS embed.FS
 
+type postgresCredential struct {
+	postgresAdminUsername        string
+	postgresAdminUserPassword    string
+	postgresReadonlyUsername     string
+	postgresReadonlyUserPassword string
+}
+
 const (
-	postgresUsername = "global-hub-user"
-	postgresCA       = "multicluster-global-hub-postgres-ca"
+	postgresAdminUsername    = "global-hub-admin-user"
+	postgresReadonlyUsername = "global-hub-readonly-user"
+	postgresCA               = "multicluster-global-hub-postgres-ca"
 )
+
+var partialPostgresURI = "@multicluster-global-hub-postgres." +
+	config.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=verify-ca"
 
 func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("database")
 
-	var err error
-	postgresUser, postgresPassword, err := getPostgresCredential(ctx, mgh, r)
-	if err != nil {
+	if err := r.createPostgres(ctx, mgh, log); err != nil {
 		return err
-	}
-
-	if !config.GetInstallCrunchyOperator(mgh) {
-		imagePullPolicy := corev1.PullAlways
-		if mgh.Spec.ImagePullPolicy != "" {
-			imagePullPolicy = mgh.Spec.ImagePullPolicy
-		}
-		// get the postgres objects
-		postgresRenderer, postgresDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
-		postgresObjects, err := postgresRenderer.Render("manifests/postgres", "", func(profile string) (interface{}, error) {
-			return struct {
-				Namespace            string
-				PostgresImage        string
-				StorageSize          string
-				ImagePullSecret      string
-				ImagePullPolicy      string
-				NodeSelector         map[string]string
-				Tolerations          []corev1.Toleration
-				PostgresUserPassword string
-				PostgresUsername     string
-			}{
-				Namespace:            config.GetDefaultNamespace(),
-				PostgresImage:        config.GetImage(config.PostgresImageKey),
-				ImagePullSecret:      mgh.Spec.ImagePullSecret,
-				ImagePullPolicy:      string(imagePullPolicy),
-				NodeSelector:         mgh.Spec.NodeSelector,
-				Tolerations:          mgh.Spec.Tolerations,
-				StorageSize:          "25Gi",
-				PostgresUserPassword: postgresPassword,
-				PostgresUsername:     postgresUser,
-			}, nil
-		})
-		if err != nil {
-			return fmt.Errorf("failed to render postgres manifests: %w", err)
-		}
-
-		// create restmapper for deployer to find GVR
-		dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
-		if err != nil {
-			return err
-		}
-		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-
-		if err = r.manipulateObj(ctx, postgresDeployer, mapper, postgresObjects, mgh, log); err != nil {
-			return fmt.Errorf("failed to create/update postgres objects: %w", err)
-		}
-
-		ca, err := getPostgresCA(ctx, mgh, r)
-		if err != nil {
-			return err
-		}
-		r.MiddlewareConfig.PgConnection = &postgres.PostgresConnection{
-			SuperuserDatabaseURI: "postgresql://" + postgresUser + ":" +
-				postgresPassword +
-				"@multicluster-global-hub-postgres.multicluster-global-hub.svc:5432/hoh?sslmode=verify-ca",
-			CACert: []byte(ca),
-		}
 	}
 
 	if condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
@@ -144,7 +98,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		}
 	}
 
-	log.Info("database initialized")
+	log.V(7).Info("database initialized")
 	DatabaseReconcileCounter++
 	err = condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE)
 	if err != nil {
@@ -196,18 +150,116 @@ func generatePassword(length int) string {
 	return string(buf)
 }
 
-func getPostgresCredential(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub, r *MulticlusterGlobalHubReconciler) (string, string, error) {
+func (r *MulticlusterGlobalHubReconciler) createPostgres(ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub, log logr.Logger) error {
+
+	// check if the customer provides the postgres
+	pgSecret := &corev1.Secret{}
+	err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      constants.GHStorageSecretName,
+		Namespace: config.GetDefaultNamespace(),
+	}, pgSecret)
+	if err == nil {
+		return nil
+	}
+	// check if install crunchy operator
+	if config.GetInstallCrunchyOperator(mgh) {
+		return nil
+	}
+
+	// install the postgres statefulset only
+	credential, err := getPostgresCredential(ctx, mgh, r)
+	if err != nil {
+		return err
+	}
+
+	imagePullPolicy := corev1.PullAlways
+	if mgh.Spec.ImagePullPolicy != "" {
+		imagePullPolicy = mgh.Spec.ImagePullPolicy
+	}
+	// get the postgres objects
+	postgresRenderer, postgresDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
+	postgresObjects, err := postgresRenderer.Render("manifests/postgres", "",
+		func(profile string) (interface{}, error) {
+			return struct {
+				Namespace                    string
+				PostgresImage                string
+				StorageSize                  string
+				ImagePullSecret              string
+				ImagePullPolicy              string
+				NodeSelector                 map[string]string
+				Tolerations                  []corev1.Toleration
+				PostgresAdminUsername        string
+				PostgresAdminUserPassword    string
+				PostgresReadonlyUsername     string
+				PostgresReadonlyUserPassword string
+				StorageClass                 string
+			}{
+				Namespace:                    config.GetDefaultNamespace(),
+				PostgresImage:                config.GetImage(config.PostgresImageKey),
+				ImagePullSecret:              mgh.Spec.ImagePullSecret,
+				ImagePullPolicy:              string(imagePullPolicy),
+				NodeSelector:                 mgh.Spec.NodeSelector,
+				Tolerations:                  mgh.Spec.Tolerations,
+				StorageSize:                  config.GetPostgresStorageSize(mgh),
+				PostgresAdminUsername:        credential.postgresAdminUsername,
+				PostgresAdminUserPassword:    credential.postgresAdminUserPassword,
+				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
+				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
+				StorageClass:                 mgh.Spec.DataLayer.Postgres.StorageClass,
+			}, nil
+		})
+	if err != nil {
+		return fmt.Errorf("failed to render postgres manifests: %w", err)
+	}
+
+	// create restmapper for deployer to find GVR
+	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
+	if err != nil {
+		return err
+	}
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
+
+	if err = r.manipulateObj(ctx, postgresDeployer, mapper, postgresObjects, mgh, log); err != nil {
+		return fmt.Errorf("failed to create/update postgres objects: %w", err)
+	}
+
+	ca, err := getPostgresCA(ctx, mgh, r)
+	if err != nil {
+		return err
+	}
+	r.MiddlewareConfig.PgConnection = &postgres.PostgresConnection{
+		SuperuserDatabaseURI: "postgresql://" + credential.postgresAdminUsername + ":" +
+			credential.postgresAdminUserPassword + partialPostgresURI,
+		ReadonlyUserDatabaseURI: "postgresql://" + credential.postgresReadonlyUsername + ":" +
+			credential.postgresReadonlyUserPassword + partialPostgresURI,
+		CACert: []byte(ca),
+	}
+	return nil
+}
+
+func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	r *MulticlusterGlobalHubReconciler) (*postgresCredential, error) {
 	postgres := &corev1.Secret{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      "multicluster-global-hub-postgres",
 		Namespace: mgh.Namespace,
 	}, postgres); err != nil && errors.IsNotFound(err) {
-		return postgresUsername, generatePassword(16), nil
+		return &postgresCredential{
+			postgresAdminUsername:        postgresAdminUsername,
+			postgresAdminUserPassword:    generatePassword(16),
+			postgresReadonlyUsername:     postgresReadonlyUsername,
+			postgresReadonlyUserPassword: generatePassword(16),
+		}, nil
 	} else if err != nil {
-		return "", "", err
+		return nil, err
 	}
-	return string(postgres.Data["database-user"]), string(postgres.Data["database-password"]), nil
+	return &postgresCredential{
+		postgresAdminUsername:        string(postgres.Data["database-user"]),
+		postgresAdminUserPassword:    string(postgres.Data["database-password"]),
+		postgresReadonlyUsername:     string(postgres.Data["database-readonly-user"]),
+		postgresReadonlyUserPassword: string(postgres.Data["database-readonly-password"]),
+	}, nil
 }
 
 func getPostgresCA(ctx context.Context,

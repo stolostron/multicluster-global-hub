@@ -105,6 +105,14 @@ type PostgresConfig struct {
 	// such as "1y6m". Valid time units are "m" and "y".
 	// +kubebuilder:default:="18m"
 	Retention string `json:"retention,omitempty"`
+
+	// Specify the size for postgres persistent volume claim.
+	// +optional
+	StorageSize string `json:"storageSize,omitempty"`
+
+	// Specify the storageClass for postgres persistent volume claim.
+	// +optional
+	StorageClass string `json:"storageClass,omitempty"`
 }
 
 // KafkaConfig defines the desired state of kafka

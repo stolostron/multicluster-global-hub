@@ -220,3 +220,10 @@ func SetStatisticLogInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error
 func GetStatisticLogInterval() string {
 	return statisticLogInterval
 }
+
+func GetPostgresStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+	if mgh.Spec.DataLayer.Postgres.StorageSize != "" {
+		return mgh.Spec.DataLayer.Postgres.StorageSize
+	}
+	return operatorconstants.GHDefaultStorageSize
+}

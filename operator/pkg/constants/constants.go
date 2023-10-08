@@ -95,6 +95,7 @@ const (
 	GHTransportSecretName     = "multicluster-global-hub-transport" // #nosec G101
 	GHStorageSecretName       = "multicluster-global-hub-storage"   // #nosec G101
 	GHDefaultStorageRetention = "18m"                               // 18 months
+	GHDefaultStorageSize      = "25Gi"
 )
 
 const (
