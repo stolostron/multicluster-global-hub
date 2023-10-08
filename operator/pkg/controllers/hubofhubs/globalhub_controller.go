@@ -276,7 +276,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	}
 
 	// reconcile database
-	if err := r.reconcileDatabase(ctx, mgh); err != nil {
+	if err := r.ReconcileDatabase(ctx, mgh); err != nil {
 		if e := condition.SetConditionDatabaseInit(ctx, r.Client, mgh,
 			condition.CONDITION_STATUS_FALSE); e != nil {
 			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)

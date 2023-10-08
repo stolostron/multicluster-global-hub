@@ -952,6 +952,26 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(k8sClient.Delete(ctx, mcgh)).Should(Succeed())
 		})
 	})
+
+	Context("Reconcile the Postgres database", func() {
+		mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
+		It("Should create the MGH instance", func() {
+			mcgh = &globalhubv1alpha4.MulticlusterGlobalHub{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      MGHName,
+					Namespace: config.GetDefaultNamespace(),
+				},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+			}
+			Expect(k8sClient.Create(ctx, mcgh)).Should(Succeed())
+		})
+
+		It("Should get the postgres connection", func() {
+			mghReconciler.MiddlewareConfig.PgConnection = nil
+			mghReconciler.ReconcileDatabase(ctx, mcgh)
+			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
+		})
+	})
 })
 
 func prettyPrint(v interface{}) error {

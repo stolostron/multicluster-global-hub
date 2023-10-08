@@ -51,7 +51,7 @@ const (
 var partialPostgresURI = "@multicluster-global-hub-postgres." +
 	config.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=verify-ca"
 
-func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
+func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("database")
