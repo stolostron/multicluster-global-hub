@@ -80,20 +80,19 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 		}
 	}()
 
-	username := ""
 	objURI, err := url.Parse(r.MiddlewareConfig.PgConnection.ReadonlyUserDatabaseURI)
 	if err != nil {
 		log.Error(err, "failed to parse database_uri_with_readonlyuser")
-	} else {
-		username = objURI.User.Username()
 	}
+	readonlyUsername := objURI.User.Username()
+	readonlyUserPwd, _ := objURI.User.Password()
 
-	if err := applySQL(ctx, conn, databaseFS, "database", username); err != nil {
+	if err := applySQL(ctx, conn, databaseFS, "database", readonlyUsername, readonlyUserPwd); err != nil {
 		return err
 	}
 
 	if r.EnableGlobalResource {
-		if err := applySQL(ctx, conn, databaseOldFS, "database.old", username); err != nil {
+		if err := applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername, readonlyUserPwd); err != nil {
 			return err
 		}
 	}
@@ -107,7 +106,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileDatabase(ctx context.Context,
 	return nil
 }
 
-func applySQL(ctx context.Context, conn *pgx.Conn, databaseFS embed.FS, rootDir, username string) error {
+func applySQL(ctx context.Context, conn *pgx.Conn, databaseFS embed.FS, rootDir, username, password string) error {
 	err := iofs.WalkDir(databaseFS, rootDir, func(file string, d iofs.DirEntry, beforeError error) error {
 		if beforeError != nil {
 			return beforeError
@@ -121,7 +120,8 @@ func applySQL(ctx context.Context, conn *pgx.Conn, databaseFS embed.FS, rootDir,
 		}
 		if file == rootDir+"/5.privileges.sql" {
 			if username != "" {
-				_, err = conn.Exec(ctx, strings.ReplaceAll(string(sqlBytes), "$1", username))
+				_, err = conn.Exec(ctx, strings.ReplaceAll(
+					strings.ReplaceAll(string(sqlBytes), "$1", username), "$2", password))
 			}
 		} else {
 			_, err = conn.Exec(ctx, string(sqlBytes))
