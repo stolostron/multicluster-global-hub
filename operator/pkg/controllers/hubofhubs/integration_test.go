@@ -888,6 +888,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
 					Namespace: config.GetDefaultNamespace(),
+					Annotations: map[string]string{
+						operatorconstants.AnnotationMGHInstallCrunchyOperator: "true",
+					},
 				},
 				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 			}

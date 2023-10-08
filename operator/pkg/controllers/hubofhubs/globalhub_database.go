@@ -15,7 +15,6 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -154,12 +153,9 @@ func (r *MulticlusterGlobalHubReconciler) createPostgres(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub, log logr.Logger) error {
 
 	// check if the customer provides the postgres
-	pgSecret := &corev1.Secret{}
-	err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      constants.GHStorageSecretName,
-		Namespace: config.GetDefaultNamespace(),
-	}, pgSecret)
-	if err == nil {
+	var err error
+	r.MiddlewareConfig.PgConnection, _ = r.GeneratePGConnectionFromGHStorageSecret(ctx)
+	if r.MiddlewareConfig.PgConnection != nil {
 		return nil
 	}
 	// check if install crunchy operator
