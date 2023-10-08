@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	imageregistryv1alpha1 "github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -209,6 +210,21 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 		},
 	}
 
+	secretPred := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Object.GetName() == operatorconstants.GHTransportSecretName ||
+				e.Object.GetName() == config.GetImagePullSecretName()
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return (e.ObjectNew.GetName() == operatorconstants.GHTransportSecretName ||
+				e.ObjectNew.GetName() == config.GetImagePullSecretName()) &&
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		// primary watch for managedcluster
 		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
@@ -224,35 +240,43 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 			}), builder.WithPredicates(addonPred)).
 		// secondary watch for managedclusteraddon
 		Watches(&v1alpha1.ClusterManagementAddOn{},
-			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-				requests := []reconcile.Request{}
-				// list all the managedCluster
-				managedClusterList := &clusterv1.ManagedClusterList{}
-				err := r.List(ctx, managedClusterList)
-				if err != nil {
-					if errors.IsNotFound(err) {
-						r.Log.Info("no managed cluster found to trigger addoninstall reconciler")
-						return requests
-					}
-					r.Log.Error(err, "failed to list managed clusters to trigger addoninstall reconciler")
-					return requests
-				}
-
-				for i := range managedClusterList.Items {
-					managedCluster := managedClusterList.Items[i]
-					if filterManagedCluster(&managedCluster) {
-						continue
-					}
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Name: managedCluster.GetName(),
-						},
-					})
-				}
-				r.Log.Info("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
-				return requests
-			}), builder.WithPredicates(clusterManagementAddonPred)).
+			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
+			builder.WithPredicates(clusterManagementAddonPred)).
+		Watches(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
+			builder.WithPredicates(secretPred)).
 		Complete(r)
+}
+
+func (r *HoHAddonInstallReconciler) renderAllManifestsHandler(
+	ctx context.Context, obj client.Object,
+) []reconcile.Request {
+	requests := []reconcile.Request{}
+	// list all the managedCluster
+	managedClusterList := &clusterv1.ManagedClusterList{}
+	err := r.List(ctx, managedClusterList)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			r.Log.Info("no managed cluster found to trigger addoninstall reconciler")
+			return requests
+		}
+		r.Log.Error(err, "failed to list managed clusters to trigger addoninstall reconciler")
+		return requests
+	}
+
+	for i := range managedClusterList.Items {
+		managedCluster := managedClusterList.Items[i]
+		if filterManagedCluster(&managedCluster) {
+			continue
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: managedCluster.GetName(),
+			},
+		})
+	}
+	r.Log.Info("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
+	return requests
 }
 
 func filterManagedCluster(obj client.Object) bool {

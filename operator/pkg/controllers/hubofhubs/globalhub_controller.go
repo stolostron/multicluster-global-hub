@@ -358,12 +358,15 @@ var secretPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetName() == operatorconstants.GHStorageSecretName ||
 			e.Object.GetName() == operatorconstants.GHTransportSecretName ||
-			e.Object.GetName() == operatorconstants.CustomGrafanaIniName
+			e.Object.GetName() == operatorconstants.CustomGrafanaIniName ||
+			e.Object.GetName() == config.GetImagePullSecretName()
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetName() == operatorconstants.GHStorageSecretName ||
+		return (e.ObjectNew.GetName() == operatorconstants.GHStorageSecretName ||
 			e.ObjectNew.GetName() == operatorconstants.GHTransportSecretName ||
-			e.ObjectNew.GetName() == operatorconstants.CustomGrafanaIniName
+			e.ObjectNew.GetName() == operatorconstants.CustomGrafanaIniName ||
+			e.ObjectNew.GetName() == config.GetImagePullSecretName()) &&
+			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetName() == operatorconstants.CustomGrafanaIniName

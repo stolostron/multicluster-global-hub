@@ -18,6 +18,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 		return err
 	}
 
+	config.SetImagePullSecretName(mgh)
+
 	// set statistic log interval
 	if err := config.SetStatisticLogInterval(mgh); err != nil {
 		return err

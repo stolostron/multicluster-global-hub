@@ -10,7 +10,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
@@ -217,9 +216,10 @@ func (a *HohAgentAddon) setImagePullSecret(mgh *globalhubv1alpha4.MulticlusterGl
 	imagePullSecret := &corev1.Secret{}
 	// pull secret from the mgh
 	if len(mgh.Spec.ImagePullSecret) > 0 {
-		var err error
-		imagePullSecret, err = a.kubeClient.CoreV1().Secrets(mgh.Namespace).Get(a.ctx, mgh.Spec.ImagePullSecret,
-			metav1.GetOptions{})
+		err := a.client.Get(context.Background(), client.ObjectKey{
+			Namespace: mgh.Namespace,
+			Name:      mgh.Spec.ImagePullSecret,
+		}, imagePullSecret, &client.GetOptions{})
 		if err != nil {
 			return err
 		}
