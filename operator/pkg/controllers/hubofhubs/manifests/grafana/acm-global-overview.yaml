@@ -148,19 +148,17 @@ data:
                 "inspect": false
               },
               "mappings": [],
+              "noValue": "-",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
-              }
+              },
+              "unit": "string"
             },
             "overrides": [
               {
@@ -169,10 +167,6 @@ data:
                   "options": "Hub"
                 },
                 "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 0
-                  },
                   {
                     "id": "links",
                     "value": [
@@ -212,6 +206,10 @@ data:
                         "url": "${__data.fields.hub_console_url}/multicloud/infrastructure/clusters/details/${__data.fields.cluster_name}/${__data.fields.cluster_name}/overview?perspective=acm"
                       }
                     ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 153
                   }
                 ]
               },
@@ -224,6 +222,65 @@ data:
                   {
                     "id": "custom.hidden",
                     "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Status"
+                },
+                "properties": [
+                  {
+                    "id": "color"
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "compliant": {
+                            "color": "green",
+                            "index": 0,
+                            "text": "compliant"
+                          },
+                          "non_compliant": {
+                            "color": "red",
+                            "index": 1,
+                            "text": "non_compliant"
+                          },
+                          "unknown": {
+                            "color": "yellow",
+                            "index": 2,
+                            "text": "unknown"
+                          }
+                        },
+                        "type": "value"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 105
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "transparent",
+                          "value": null
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -245,10 +302,15 @@ data:
               "reducer": [
                 "count"
               ],
-              "show": true
+              "show": false
             },
             "showHeader": true,
-            "sortBy": []
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "Status"
+              }
+            ]
           },
           "pluginVersion": "9.5.6",
           "targets": [
@@ -260,7 +322,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT \nmc.leaf_hub_name,\nconsole_url as \"hub_console_url\",\ngrafana_url,\ncluster_name\nFROM status.managed_clusters mc\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nWHERE mc.deleted_at IS NULL\n",
+              "rawSql": "WITH data AS (\nSELECT\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (cluster_id)\n),\ncompliance_data AS(\nSELECT cluster_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \nmc.leaf_hub_name,\nconsole_url as \"hub_console_url\",\ngrafana_url,\ncluster_name,\ncd.compliance\nFROM status.managed_clusters mc\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON mc.cluster_id = cd.cluster_id\nWHERE mc.deleted_at IS NULL",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -293,6 +355,7 @@ data:
                 "indexByName": {},
                 "renameByName": {
                   "cluster_name": "Managed Cluster",
+                  "compliance": "Status",
                   "leaf_hub_name": "Hub"
                 }
               }
@@ -397,6 +460,7 @@ data:
                 "inspect": false
               },
               "mappings": [],
+              "noValue": "-",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -439,6 +503,10 @@ data:
                         "url": "${__data.fields.hub_console_url}/multicloud/governance/policies?perspective=acm"
                       }
                     ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 143
                   }
                 ]
               },
@@ -457,6 +525,78 @@ data:
                         "url": "${__data.fields.hub_console_url}/multicloud/governance/policies/details/${__data.fields.namespace}/${__data.fields.policy_name}?perspective=acm"
                       }
                     ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 138
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Status"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "compliant": {
+                            "color": "green",
+                            "index": 0,
+                            "text": "compliant"
+                          },
+                          "non_compliant": {
+                            "color": "red",
+                            "index": 1,
+                            "text": "non_compliant"
+                          },
+                          "unknown": {
+                            "color": "yellow",
+                            "index": 2,
+                            "text": "unknown"
+                          }
+                        },
+                        "type": "value"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 100
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "transparent",
+                          "value": null
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Namespace"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 181
                   }
                 ]
               }
@@ -480,7 +620,8 @@ data:
               ],
               "show": true
             },
-            "showHeader": true
+            "showHeader": true,
+            "sortBy": []
           },
           "pluginVersion": "9.5.6",
           "targets": [
@@ -492,7 +633,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT \np.leaf_hub_name,\np.payload -> 'metadata' ->> 'namespace' as \"namespace\",\nconsole_url as \"hub_console_url\",\npolicy_name\nFROM local_spec.policies p\nLEFT JOIN status.leaf_hubs lh\nON p.leaf_hub_name=lh.leaf_hub_name\nwhere p.deleted_at IS NULL",
+              "rawSql": "WITH data AS (\nSELECT\n  policy_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (policy_id)\n),\ncompliance_data AS(\nSELECT policy_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \np.leaf_hub_name,\np.payload -> 'metadata' ->> 'namespace' as \"namespace\",\nconsole_url as \"hub_console_url\",\npolicy_name,\ncompliance\nFROM local_spec.policies p\nLEFT JOIN status.leaf_hubs lh\nON p.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON p.policy_id = cd.policy_id\nwhere p.deleted_at IS NULL",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -521,6 +662,7 @@ data:
                 "excludeByName": {},
                 "indexByName": {},
                 "renameByName": {
+                  "compliance": "Status",
                   "leaf_hub_name": "Hub",
                   "namespace": "Namespace",
                   "policy_name": "Policy"
