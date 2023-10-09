@@ -210,15 +210,16 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 		},
 	}
 
+	secretCond := func(obj client.Object) bool {
+		return obj.GetName() == operatorconstants.GHTransportSecretName ||
+			obj.GetName() == config.GetImagePullSecretName()
+	}
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Object.GetName() == operatorconstants.GHTransportSecretName ||
-				e.Object.GetName() == config.GetImagePullSecretName()
+			return secretCond(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return (e.ObjectNew.GetName() == operatorconstants.GHTransportSecretName ||
-				e.ObjectNew.GetName() == config.GetImagePullSecretName()) &&
-				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+			return secretCond(e.ObjectNew) && e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
