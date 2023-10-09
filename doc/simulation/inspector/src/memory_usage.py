@@ -212,9 +212,11 @@ def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
     
     try:
         query = '''
-          sum(
-            container_memory_usage_bytes{namespace="multicluster-global-hub", pod=~"postgres-pgha.*"}
-          ) by (pod) / (1024*1024*1024)
+        sum(
+            container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"multicluster-global-hub-postgres-.*"}
+          * on(pod)
+            group_left(workload, workload_type) namespace_workload_pod:kube_pod_owner:relabel{cluster="", namespace="multicluster-global-hub", workload_type="statefulset"}
+        ) by (pod) / (1024 * 1024 * 1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,
@@ -250,9 +252,7 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
     
     try:
         query = '''
-          sum(
-            container_memory_usage_bytes{namespace="multicluster-global-hub", pod=~"kafka-kafka-.*"}
-          ) by (pod) / (1024*1024*1024)
+        sum(container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"kafka-kafka-.*"}) by (pod) / (1024*1024*1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,
@@ -282,15 +282,13 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
     print("=============================================")
     
 def global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step):
-    title = "Global Hub Kafka Zookeeper Memory GB"
+    title = "Global Hub Kafka Zookeeper Memory MB"
     file = "global-hub-kafka-zookeeper-memory-usage"
     print(title)
     
     try:
         query = '''
-          sum(
-            container_memory_usage_bytes{namespace="multicluster-global-hub", pod=~"kafka-zookeeper-.*"}
-          ) by (pod) / (1024*1024*1024)
+         sum(container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"kafka-zookeeper-.*"}) by (pod) / (1024*1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,
