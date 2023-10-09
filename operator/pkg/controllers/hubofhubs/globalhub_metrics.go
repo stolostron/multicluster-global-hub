@@ -16,8 +16,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-var monitorFlag = false
-
 func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {

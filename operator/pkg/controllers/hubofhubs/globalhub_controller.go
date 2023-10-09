@@ -98,6 +98,7 @@ type MulticlusterGlobalHubReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update;delete
@@ -203,7 +204,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	if err != nil && !errors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
-	// if not-provided kafka secret, create kafka in the global hub namespace
+
 	if kafkaConnection == nil {
 		// reconcile kafka
 		if err := r.EnsureKafkaSubscription(ctx, mgh); err != nil {
@@ -221,14 +222,16 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	// if not-provided postgres secret, create crunchy postgres in the global hub namespace
 	if pgConnection == nil {
 		// reconcile crunchy postgres
-		if err := r.EnsureCrunchyPostgresSubscription(ctx, mgh); err != nil {
-			return ctrl.Result{}, err
+		if config.GetInstallCrunchyOperator(mgh) {
+			if err := r.EnsureCrunchyPostgresSubscription(ctx, mgh); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	} else {
 		r.MiddlewareConfig.PgConnection = pgConnection
 	}
 
-	if pgConnection == nil {
+	if pgConnection == nil && config.GetInstallCrunchyOperator(mgh) {
 		if err := r.EnsureCrunchyPostgres(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
@@ -246,7 +249,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		}
 	}
 
-	if pgConnection == nil {
+	if pgConnection == nil && config.GetInstallCrunchyOperator(mgh) {
 		// store crunchy postgres connection
 		if pgConnection, err = r.WaitForPostgresReady(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
@@ -273,7 +276,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	}
 
 	// reconcile database
-	if err := r.reconcileDatabase(ctx, mgh); err != nil {
+	if err := r.ReconcileDatabase(ctx, mgh); err != nil {
 		if e := condition.SetConditionDatabaseInit(ctx, r.Client, mgh,
 			condition.CONDITION_STATUS_FALSE); e != nil {
 			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
@@ -466,6 +469,7 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
+		Owns(&appsv1.StatefulSet{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).

@@ -18,8 +18,6 @@ package utils
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"os"
 	"strings"
 
@@ -69,17 +67,6 @@ func GetAnnotation(annotations map[string]string, key string) string {
 		return ""
 	}
 	return annotations[key]
-}
-
-// GeneratePassword returns a base64 encoded securely random bytes.
-func GeneratePassword(n int) (string, error) {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-
-	return base64.StdEncoding.EncodeToString(b), err
 }
 
 func RemoveDuplicates(elements []string) []string {

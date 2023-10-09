@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multicluster-global-hub-postgres-config
+  namespace: {{.Namespace}}
+data:
+  postgresql.conf: |
+    ssl = on
+    ssl_cert_file = '/opt/app-root/src/certs/tls.crt' # server certificate
+    ssl_key_file =  '/opt/app-root/src/certs/tls.key' # server private key

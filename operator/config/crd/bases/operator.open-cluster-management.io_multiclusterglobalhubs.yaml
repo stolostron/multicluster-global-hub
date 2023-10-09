@@ -86,6 +86,14 @@ spec:
                           each with optional fraction and a unit suffix, such as "1y6m".
                           Valid time units are "m" and "y".
                         type: string
+                      storageClass:
+                        description: Specify the storageClass for postgres persistent
+                          volume claim.
+                        type: string
+                      storageSize:
+                        description: Specify the size for postgres persistent volume
+                          claim.
+                        type: string
                     type: object
                 type: object
               imagePullPolicy:

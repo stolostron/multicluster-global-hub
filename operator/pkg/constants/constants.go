@@ -40,8 +40,6 @@ const (
 	// AnnotationMCHPause sits in MulticlusterGlobalHub annotations
 	// to identify if the MulticlusterGlobalHub is paused or not
 	AnnotationMGHPause = "mgh-pause"
-	// AnnotationMGHSkipDBInit skips database initialization, used for dev/test
-	AnnotationMGHSkipDBInit = "mgh-skip-database-init"
 	// AnnotationLaunchJobNames will exec the job once the container restart, used for dev/test
 	AnnotationLaunchJobNames = "mgh-launch-job-names"
 	// AnnotationImageRepo sits in MulticlusterGlobalHub annotations
@@ -53,6 +51,8 @@ const (
 	// AnnotationMGHSkipAuth sits in MulticlusterGlobalHub annotations
 	// to skip auth for non-k8s api. It is only using for test.
 	AnnotationMGHSkipAuth = "mgh-skip-auth"
+	// AnnotationMGHInstallCrunchyOperator installs crunchy operator to provide postgres
+	AnnotationMGHInstallCrunchyOperator = "mgh-install-crunchy-operator"
 	// AnnotationMGHSchedulerInterval sits in MulticlusterGlobalHub annotations
 	// to identify the scheduler interval for moving policy compliance history
 	// valid value can be "month, week, day, hour, minute, second"
@@ -95,6 +95,7 @@ const (
 	GHTransportSecretName     = "multicluster-global-hub-transport" // #nosec G101
 	GHStorageSecretName       = "multicluster-global-hub-storage"   // #nosec G101
 	GHDefaultStorageRetention = "18m"                               // 18 months
+	GHDefaultStorageSize      = "25Gi"
 )
 
 const (
