@@ -20,7 +20,32 @@ output_path = os.path.join(os.path.dirname(script_path), "../output")
 if not os.path.exists(output_path):
     os.makedirs(output_path)
 
-def record_initial(cur, override):
+def get_conn():
+    v1 = client.CoreV1Api()
+    # secret = v1.read_namespaced_secret(name="postgres-pguser-postgres", namespace=global_hub_namespace)
+    secret = v1.read_namespaced_secret(name="multicluster-global-hub-postgres", namespace=global_hub_namespace)
+    postgres_dict = {key: base64.b64decode(val).decode('utf-8') for key, val in secret.data.items()}
+    print(postgres_dict)
+    
+    # need to expose the external host: 
+    # kubectl patch postgrescluster postgres -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
+    service = v1.read_namespaced_service(name="multicluster-global-hub-postgres-lb", namespace=global_hub_namespace)
+    external_host = service.status.load_balancer.ingress[0].hostname
+    
+    # Create connection to postgres
+    connection = psycopg2.connect(host=external_host,
+                      port=5432,
+                      user=postgres_dict["database-user"],
+                      password=postgres_dict["database-password"],
+                      dbname=postgres_dict["database-name"])
+    connection.autocommit = True  # Ensure data is added to the database immediately after write commands
+    # cur = connection.cursor()
+    return connection
+
+def record_initial(override):
+    connection = get_conn()
+    cur = connection.cursor()
+
     initial_sql='''
     SELECT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS') as time, table_name, COUNT(1) AS count
     FROM (
@@ -34,7 +59,13 @@ def record_initial(cur, override):
     '''
     withHeader=True
     while True:
-      cur.execute(initial_sql)
+      try:
+        cur.execute(initial_sql)
+      except ValueError:
+        print("Invalid operation.", ValueError)
+        connection = get_conn()
+        cur = connection.cursor()
+      
       df = pd.DataFrame([
         {'time': datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S"), 'compliance': 0, 'event': 0, 'cluster': 0},
       ])
@@ -50,7 +81,10 @@ def record_initial(cur, override):
         
       time.sleep(10)
 
-def record_compliance(cur, override):
+def record_compliance(override):
+    connection = get_conn()
+    cur = connection.cursor()
+    
     compliance_sql='''
     SELECT TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS') as time, compliance as status, COUNT(1) as count
     FROM local_status.compliance
@@ -58,7 +92,13 @@ def record_compliance(cur, override):
     '''
     withHeader=True
     while True:
-      cur.execute(compliance_sql)
+      try:
+        cur.execute(compliance_sql)
+      except ValueError:
+        print("Invalid operation.", ValueError)
+        connection = get_conn()
+        cur = connection.cursor()
+      # cur.execute(compliance_sql)
       df = pd.DataFrame([
         {'time': datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S"), 'compliant': 0, 'non_compliant': 0},
       ])
@@ -73,6 +113,7 @@ def record_compliance(cur, override):
         df.to_csv(output_path + "/count-compliance.csv", mode='a', header=False, index=False)
       time.sleep(60)
 
+  
 def main():
     now = datetime.now(pytz.utc)
     print(Back.LIGHTYELLOW_EX+"")
@@ -87,28 +128,10 @@ def main():
     
     config.load_kube_config()
     
-    v1 = client.CoreV1Api()
-    
     try:
       
-      secret = v1.read_namespaced_secret(name="postgres-pguser-postgres", namespace=global_hub_namespace)
-      postgres_dict = {key: base64.b64decode(val).decode('utf-8') for key, val in secret.data.items()}
-      
-      # need to expose the external host: 
-      # kubectl patch postgrescluster postgres -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
-      service = v1.read_namespaced_service(name="postgres-ha", namespace=global_hub_namespace)
-      external_host = service.status.load_balancer.ingress[0].hostname
-      
-      # Create connection to postgres
-      connection = psycopg2.connect(host=external_host,
-                        port=postgres_dict["port"],
-                        user=postgres_dict["user"],
-                        password=postgres_dict["password"],
-                        dbname=postgres_dict["dbname"])
-      connection.autocommit = True  # Ensure data is added to the database immediately after write commands
-      cur = connection.cursor()
-      thread1 = threading.Thread(target=record_initial, args=(cur, override))
-      thread2 = threading.Thread(target=record_compliance, args=(cur, override))
+      thread1 = threading.Thread(target=record_initial, args=(override,))
+      thread2 = threading.Thread(target=record_compliance, args=(override,))
 
       thread1.start()
       thread2.start()

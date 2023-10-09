@@ -230,7 +230,7 @@ def global_hub_postgres(pc, start_time, end_time, step):
     try:
         query = '''
         sum(
-          node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"postgres-pgha.*"}
+          node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"multicluster-global-hub-postgres.*"}
         ) by (pod)
         '''
         cpu_trend = pc.custom_query_range(
