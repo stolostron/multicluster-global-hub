@@ -1,9 +1,5 @@
 -- grant privileges to a readonly user
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$1') THEN
-        CREATE ROLE "$1" LOGIN PASSWORD '$2';
-    END IF;
-    
     IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$1') THEN
         GRANT USAGE ON SCHEMA status TO "$1";
         GRANT USAGE ON SCHEMA event TO "$1";
