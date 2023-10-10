@@ -22,7 +22,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "id": 7,
+      "id": 3,
       "links": [
         {
           "asDropdown": false,
@@ -148,7 +148,6 @@ data:
                 "inspect": false
               },
               "mappings": [],
-              "noValue": "-",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -209,7 +208,7 @@ data:
                   },
                   {
                     "id": "custom.width",
-                    "value": 153
+                    "value": 151
                   }
                 ]
               },
@@ -268,7 +267,7 @@ data:
                   },
                   {
                     "id": "custom.width",
-                    "value": 105
+                    "value": 114
                   },
                   {
                     "id": "thresholds",
@@ -281,6 +280,10 @@ data:
                         }
                       ]
                     }
+                  },
+                  {
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               }
@@ -460,7 +463,6 @@ data:
                 "inspect": false
               },
               "mappings": [],
-              "noValue": "-",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -506,7 +508,7 @@ data:
                   },
                   {
                     "id": "custom.width",
-                    "value": 143
+                    "value": 136
                   }
                 ]
               },
@@ -572,7 +574,7 @@ data:
                   },
                   {
                     "id": "custom.width",
-                    "value": 100
+                    "value": 117
                   },
                   {
                     "id": "thresholds",
@@ -585,18 +587,10 @@ data:
                         }
                       ]
                     }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Namespace"
-                },
-                "properties": [
+                  },
                   {
-                    "id": "custom.width",
-                    "value": 181
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               }
@@ -890,7 +884,7 @@ data:
               }
             }
           ],
-          "title": "Total Polices For Each Hub",
+          "title": "Total Policies For Each Hub",
           "type": "piechart"
         },
         {
@@ -927,7 +921,7 @@ data:
             "overrides": []
           },
           "gridPos": {
-            "h": 7,
+            "h": 8,
             "w": 11,
             "x": 0,
             "y": 14
@@ -945,8 +939,8 @@ data:
             },
             "showUnfilled": true,
             "text": {
-              "titleSize": 20,
-              "valueSize": 30
+              "titleSize": 14,
+              "valueSize": 18
             },
             "valueMode": "color"
           },
@@ -1018,7 +1012,7 @@ data:
             "overrides": []
           },
           "gridPos": {
-            "h": 7,
+            "h": 8,
             "w": 13,
             "x": 11,
             "y": 14
@@ -1036,8 +1030,8 @@ data:
             },
             "showUnfilled": true,
             "text": {
-              "titleSize": 20,
-              "valueSize": 30
+              "titleSize": 14,
+              "valueSize": 18
             },
             "valueMode": "color"
           },
