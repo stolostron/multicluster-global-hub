@@ -106,7 +106,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add to Scheme")
-	Expect(managerscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
+	managerscheme.AddToScheme(mgr.GetScheme())
 
 	By("Get kubeClient")
 	kubeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

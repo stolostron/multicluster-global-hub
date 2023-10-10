@@ -10,14 +10,26 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/mohae/deepcopy"
 	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	subscriptionv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -26,7 +38,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector"
 	globalhubmetrics "github.com/stolostron/multicluster-global-hub/manager/pkg/metrics"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
@@ -51,11 +63,17 @@ const (
 )
 
 var (
+	setupLog                     = ctrl.Log.WithName("setup")
+	watchNamespace               = constants.GHDefaultNamespace
+	scheme                       = runtime.NewScheme()
+	enableSimulation             = false
 	errFlagParameterEmpty        = errors.New("flag parameter empty")
 	errFlagParameterIllegalValue = errors.New("flag parameter illegal value")
-	enableSimulation             = false
-	setupLog                     = ctrl.Log.WithName("setup")
 )
+
+func init() {
+	managerscheme.AddToScheme(scheme)
+}
 
 func parseFlags() *managerconfig.ManagerConfig {
 	managerConfig := &managerconfig.ManagerConfig{
@@ -83,7 +101,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", constants.GHDefaultNamespace,
 		"The manager running namespace, also used as leader election namespace.")
 	pflag.StringVar(&managerConfig.WatchNamespace, "watch-namespace", "",
-		"The watching namespace of the controllers, multiple namespace must be splited by comma.")
+		"The watching namespace of the controller")
 	pflag.StringVar(&managerConfig.SchedulerInterval, "scheduler-interval", "day",
 		"The job scheduler interval for moving policy compliance history, "+
 			"can be 'month', 'week', 'day', 'hour', 'minute' or 'second', default value is 'day'.")
@@ -154,6 +172,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 			enableSimulation = true
 		}
 	})
+	watchNamespace = managerConfig.WatchNamespace
 	return managerConfig
 }
 
@@ -180,7 +199,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(managerConfig.ElectionConfig.RetryPeriod) * time.Second
 	options := ctrl.Options{
-		Namespace:               managerConfig.WatchNamespace,
+		Scheme:                  scheme,
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
@@ -188,6 +207,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
+		NewCache:                initCache,
 	}
 
 	if managerConfig.EnableGlobalResource {
@@ -208,17 +228,13 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	// Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
 	// Also note that you may face performance issues when using this with a high number of namespaces.
 	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
-	if strings.Contains(managerConfig.WatchNamespace, ",") {
-		options.Cache.Namespaces = strings.Split(managerConfig.WatchNamespace, ",")
-	}
+	// if strings.Contains(managerConfig.WatchNamespace, ",") {
+	// 	options.Cache.Namespaces = strings.Split(managerConfig.WatchNamespace, ",")
+	// }
 
 	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
-	}
-
-	if err := scheme.AddToScheme(mgr.GetScheme()); err != nil {
-		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
 	if err := nonk8sapi.AddNonK8sApiServer(mgr, processPostgreSQL,
@@ -227,9 +243,13 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	}
 
 	if managerConfig.EnableGlobalResource {
-		if err := specsyncer.AddSpecSyncers(mgr, managerConfig, processPostgreSQL); err != nil {
-			return nil, fmt.Errorf("failed to add spec syncers: %w", err)
+		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, processPostgreSQL); err != nil {
+			return nil, fmt.Errorf("failed to add global resource spec syncers: %w", err)
 		}
+	}
+
+	if err := specsyncer.AddBasicSpecSyncers(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add basic spec syncers: %w", err)
 	}
 
 	if _, err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {
@@ -307,4 +327,26 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 
 func main() {
 	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
+}
+
+func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
+	cacheOpts.ByObject = map[client.Object]cache.ByObject{
+		&corev1.Secret{}: {
+			Field: fields.OneTermEqualSelector("metadata.namespace", watchNamespace),
+		},
+		&corev1.ConfigMap{}: {
+			Field: fields.OneTermEqualSelector("metadata.namespace", watchNamespace),
+		},
+		&applicationv1beta1.Application{}:          {},
+		&channelv1.Channel{}:                       {},
+		&clusterv1beta2.ManagedClusterSet{}:        {},
+		&clusterv1beta2.ManagedClusterSetBinding{}: {},
+		&clusterv1.ManagedCluster{}:                {},
+		&clusterv1beta1.Placement{}:                {},
+		&policyv1.PlacementBinding{}:               {},
+		&placementrulev1.PlacementRule{}:           {},
+		&policyv1.Policy{}:                         {},
+		&subscriptionv1.Subscription{}:             {},
+	}
+	return cache.New(config, cacheOpts)
 }

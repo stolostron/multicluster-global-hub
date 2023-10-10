@@ -9,9 +9,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
 )
 
-func AddSpecSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
+func AddGlobalResourceSpecSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
 	processPostgreSQL *postgresql.PostgreSQL,
 ) error {
 	if err := spec2db.AddSpec2DBControllers(mgr, processPostgreSQL); err != nil {
@@ -27,4 +28,8 @@ func AddSpecSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
 		return fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 	return nil
+}
+
+func AddBasicSpecSyncers(mgr ctrl.Manager) error {
+	return controller.AddManagedHubController(mgr)
 }
