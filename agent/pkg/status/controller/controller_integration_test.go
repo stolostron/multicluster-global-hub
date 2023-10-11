@@ -568,7 +568,8 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
-			subscriptionReportsStatusBundle, ok := statusBundle.(*statusbundle.SubscriptionReportsBundle)
+			subscriptionReportsStatusBundle, ok :=
+				statusBundle.(*statusbundle.SubscriptionReportsBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type, want PlacementDecisionsBundle")
 			}

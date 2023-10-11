@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
@@ -90,48 +90,38 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 		return fmt.Errorf("failed fetching leaf hub '%s.%s' from db - %w", schema, tableName, err)
 	}
 
-	// https://gorm.io/docs/transactions.html
-	err = db.Transaction(func(tx *gorm.DB) error {
-		for _, object := range bundle.GetObjects() {
-			specificObj, ok := object.(*status.LeafHubClusterInfo)
-			if !ok {
-				continue
-			}
-
-			payload, err := json.Marshal(specificObj)
-			if err != nil {
-				return err
-			}
-
-			// if the row doesn't exist in db then add it.
-			if leafHub.LeafHubName == "" {
-				err = tx.Create(&models.LeafHub{
-					LeafHubName: leafHubName,
-					Payload:     payload,
-				}).Error
-				if err != nil {
-					return err
-				}
-				continue
-			}
-
-			err = tx.Model(&models.LeafHub{}).
-				Where(&models.LeafHub{
-					LeafHubName: leafHubName,
-				}).
-				Updates(models.LeafHub{
-					Payload:     payload,
-					LeafHubName: leafHubName,
-				}).Error
-			if err != nil {
-				return err
-			}
+	batchLeafhub := []models.LeafHub{}
+	for _, object := range bundle.GetObjects() {
+		specificObj, ok := object.(*status.LeafHubClusterInfo)
+		if !ok {
+			continue
 		}
 
-		return nil
-	})
+		payload, err := json.Marshal(specificObj)
+		if err != nil {
+			return err
+		}
+
+		// if the row doesn't exist in db then add it.
+		if leafHub.LeafHubName == "" {
+			batchLeafhub = append(batchLeafhub, models.LeafHub{
+				LeafHubName: leafHubName,
+				Payload:     payload,
+			})
+			continue
+		}
+
+		batchLeafhub = append(batchLeafhub, models.LeafHub{
+			LeafHubName: leafHubName,
+			Payload:     payload,
+		})
+	}
+
+	err = db.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).CreateInBatches(batchLeafhub, 100).Error
 	if err != nil {
-		return fmt.Errorf("failed handling leaf hub '%s.%s' bundle - %w", schema, tableName, err)
+		return err
 	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)

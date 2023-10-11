@@ -5,13 +5,14 @@ package controller
 
 import (
 	"context"
-	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/api/errors"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -36,17 +37,13 @@ func AddManagedHubController(mgr ctrl.Manager) error {
 			return !filterManagedHub(e.Object)
 		},
 	}
-	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&clusterv1.ManagedCluster{}).
-		WithEventFilter(clusterPred).
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
 		Complete(&managedHubReconciler{
-			client:        mgr.GetClient(),
 			log:           ctrl.Log.WithName("managedhub-syncer"),
+			client:        mgr.GetClient(),
 			finalizerName: constants.GlobalHubCleanupFinalizer,
-		}); err != nil {
-		return fmt.Errorf("failed to add managed cluster set controller to the manager: %w", err)
-	}
-	return nil
+		})
 }
 
 type managedHubReconciler struct {
@@ -59,7 +56,6 @@ func (r *managedHubReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 	reqLogger := r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	cluster := &clusterv1.ManagedCluster{}
-
 	err := r.client.Get(ctx, request.NamespacedName, cluster)
 	// the managed hub is deleted
 	if err != nil && errors.IsNotFound(err) {
@@ -87,25 +83,36 @@ func (r *managedHubReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 			e = tx.Where(&models.LocalSpecPolicy{
 				LeafHubName: cluster.Name,
 			}).Delete(&models.LocalSpecPolicy{}).Error
+			if e != nil {
+				return e
+			}
+			e = tx.Where(&models.LocalStatusCompliance{
+				LeafHubName: cluster.Name,
+			}).Delete(&models.LocalStatusCompliance{}).Error
 			return e
 		})
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 		reqLogger.Info("remove finalizer from the cluster")
 		if controllerutil.RemoveFinalizer(cluster, r.finalizerName) {
-			err = r.client.Update(ctx, cluster)
+			if err = r.client.Update(ctx, cluster); err != nil {
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+			}
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	// if the managed hub is created/updated, then add the finalizer to it
-	added := controllerutil.AddFinalizer(cluster, r.finalizerName)
-	if !added {
+	add := controllerutil.AddFinalizer(cluster, r.finalizerName)
+	if add {
 		reqLogger.Info("add finalizer to the cluster")
 		err = r.client.Update(ctx, cluster)
+		if err != nil {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+		}
 	}
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
 func filterManagedHub(obj client.Object) bool {

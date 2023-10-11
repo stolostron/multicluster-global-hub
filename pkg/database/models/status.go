@@ -17,7 +17,7 @@ type ManagedCluster struct {
 	// ClusterName string         `gorm:"column:cluster_name"`
 	CreatedAt time.Time      `gorm:"column:created_at;default:(-)"` // https://gorm.io/docs/conventions.html#CreatedAt
 	UpdatedAt time.Time      `gorm:"column:updated_at;default:(-)"`
-	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at;default:(-)"`
+	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at"`
 }
 
 func (ManagedCluster) TableName() string {
@@ -31,7 +31,7 @@ type LeafHub struct {
 	GrafanaURL  string         `gorm:"column:grafana_url;default:(-)"`
 	CreatedAt   time.Time      `gorm:"column:created_at;default:(-)"` // https://gorm.io/docs/conventions.html#CreatedAt
 	UpdatedAt   time.Time      `gorm:"column:updated_at;default:(-)"`
-	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at;default:(-)"`
+	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at"`
 }
 
 func (LeafHub) TableName() string {
