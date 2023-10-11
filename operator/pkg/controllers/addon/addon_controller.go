@@ -7,10 +7,12 @@ import (
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+
 	"k8s.io/client-go/rest"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
@@ -46,11 +48,12 @@ type HoHAddonController struct {
 	addonManager         addonmanager.AddonManager
 	MiddlewareConfig     *operatorconstants.MiddlewareConfig
 	EnableGlobalResource bool
+	ControllerConfig     *corev1.ConfigMap
 }
 
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 	leaderElection *commonobjects.LeaderElectionConfig, middlewareCfg *operatorconstants.MiddlewareConfig,
-	enableGlobalResource bool,
+	enableGlobalResource bool, controllerConfig *corev1.ConfigMap,
 ) (*HoHAddonController, error) {
 	log := ctrl.Log.WithName("addon-controller")
 	addonMgr, err := addonmanager.New(kubeConfig)
@@ -66,6 +69,7 @@ func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 		addonManager:         addonMgr,
 		MiddlewareConfig:     middlewareCfg,
 		EnableGlobalResource: enableGlobalResource,
+		ControllerConfig:     controllerConfig,
 	}, nil
 }
 
@@ -102,6 +106,7 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		log:                  a.log.WithName("values"),
 		MiddlewareConfig:     a.MiddlewareConfig,
 		EnableGlobalResource: a.EnableGlobalResource,
+		ControllerConfig:     a.ControllerConfig,
 	}
 
 	agentAddon, err := addonfactory.NewAgentAddonFactory(

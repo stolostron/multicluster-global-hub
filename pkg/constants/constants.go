@@ -19,6 +19,9 @@ const (
 	ObservabilityNamespace = "open-cluster-management-observability"
 	// Observability grafana route name
 	ObservabilityGrafanaRouteName = "grafana"
+
+	DefaultAgentQPS   = float32(150)
+	DefaultAgentBurst = 300
 )
 
 const (

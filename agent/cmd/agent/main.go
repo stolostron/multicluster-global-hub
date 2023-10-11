@@ -47,10 +47,17 @@ func main() {
 	// otherwise kubeconfig will not be passed to agent main process
 	agentConfig := parseFlags()
 	utils.PrintVersion(setupLog)
+
+	restConfig := ctrl.GetConfigOrDie()
+
+	restConfig.QPS = agentConfig.QPS
+	restConfig.Burst = agentConfig.Burst
+
 	if agentConfig.Terminating {
-		os.Exit(doTermination(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
+		os.Exit(doTermination(ctrl.SetupSignalHandler(), restConfig))
 	}
-	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie(), agentConfig))
+
+	os.Exit(doMain(ctrl.SetupSignalHandler(), restConfig, agentConfig))
 }
 
 func doTermination(ctx context.Context, restConfig *rest.Config) int {
@@ -156,7 +163,10 @@ func parseFlags() *config.AgentConfig {
 		"The configuration file for the kubernetes event exporter")
 	pflag.BoolVar(&agentConfig.EnableGlobalResource, "enable-global-resource", false,
 		"Enable the global resource feature.")
-
+	pflag.Float32Var(&agentConfig.QPS, "qps", 150,
+		"QPS for the multicluster global hub agent")
+	pflag.IntVar(&agentConfig.Burst, "burst", 300,
+		"Burst for the multicluster global hub agent")
 	pflag.Parse()
 
 	// set zap logger

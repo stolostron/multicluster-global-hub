@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	// ControllerLeaderElectionConfig allows customizing LeaseDuration, RenewDeadline and RetryPeriod
+	// ControllerConfig allows customizing LeaseDuration, RenewDeadline and RetryPeriod
 	// for operator, manager and agent via the ConfigMap
-	ControllerLeaderElectionConfig = "controller-leader-election-configmap"
+	ControllerConfig = "controller-config"
 )
 
 // global hub metrics

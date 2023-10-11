@@ -92,7 +92,7 @@ func TestOperator(t *testing.T) {
 			":18081",
 		}, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      operatorconstants.ControllerLeaderElectionConfig,
+				Name:      operatorconstants.ControllerConfig,
 				Namespace: config.GetDefaultNamespace(),
 			},
 			Data: map[string]string{"leaseDuration": "138", "renewDeadline": "107", "retryPeriod": "26"},

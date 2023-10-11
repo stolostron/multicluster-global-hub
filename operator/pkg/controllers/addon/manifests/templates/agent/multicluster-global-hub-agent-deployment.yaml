@@ -45,6 +45,8 @@ spec:
             - --retry-period={{.RetryPeriod}}
             - --kubernetes-event-exporter-config=/kube-event/config.yaml
             - --enable-global-resource={{.EnableGlobalResource}}
+            - --qps={{.AgentQPS}}
+            - --burst={{.AgentBurst}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

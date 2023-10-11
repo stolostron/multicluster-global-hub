@@ -17,4 +17,6 @@ type AgentConfig struct {
 	KubeEventExporterConfigPath  string
 	MetricsAddress               string
 	EnableGlobalResource         bool
+	QPS                          float32
+	Burst                        int
 }
