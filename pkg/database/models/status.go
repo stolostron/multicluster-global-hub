@@ -25,7 +25,7 @@ func (ManagedCluster) TableName() string {
 }
 
 type LeafHub struct {
-	LeafHubName string         `gorm:"column:leaf_hub_name;not null"`
+	LeafHubName string         `gorm:"column:leaf_hub_name;primaryKey"`
 	Payload     datatypes.JSON `gorm:"column:payload;type:jsonb"`
 	ConsoleURL  string         `gorm:"column:console_url;default:(-)"`
 	GrafanaURL  string         `gorm:"column:grafana_url;default:(-)"`

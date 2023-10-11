@@ -91,7 +91,7 @@ var _ = BeforeSuite(func() {
 	err = database.InitGormInstance(&database.DatabaseConfig{
 		URL:      testPostgres.URI,
 		Dialect:  database.PostgresDialect,
-		PoolSize: 5,
+		PoolSize: 2,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
