@@ -317,7 +317,7 @@ var mghPred = predicate.Funcs{
 		return true
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return !e.DeleteStateUnknown
