@@ -28,7 +28,7 @@ spec:
               memory: 1000Mi
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
-            - '--zap-devel=true'
+            - --zap-log-level={{.LogLevel}}
             - --pod-namespace=$(POD_NAMESPACE)
             - --leaf-hub-name={{ .LeafHubID }}
             - --kafka-consumer-id={{ .LeafHubID }}

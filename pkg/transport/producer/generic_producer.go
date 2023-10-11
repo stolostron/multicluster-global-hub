@@ -98,7 +98,7 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 			return fmt.Errorf("failed to send generic message to transport: %s", result.Error())
 		}
 
-		p.log.Info("sent message", "ID", msg.ID, "Version", msg.Version)
+		p.log.V(2).Info("sent message", "ID", msg.ID, "Version", msg.Version)
 	}
 	return nil
 }

@@ -49,11 +49,12 @@ type HoHAddonController struct {
 	MiddlewareConfig     *operatorconstants.MiddlewareConfig
 	EnableGlobalResource bool
 	ControllerConfig     *corev1.ConfigMap
+	LogLevel             string
 }
 
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 	leaderElection *commonobjects.LeaderElectionConfig, middlewareCfg *operatorconstants.MiddlewareConfig,
-	enableGlobalResource bool, controllerConfig *corev1.ConfigMap,
+	enableGlobalResource bool, controllerConfig *corev1.ConfigMap, logLevel string,
 ) (*HoHAddonController, error) {
 	log := ctrl.Log.WithName("addon-controller")
 	addonMgr, err := addonmanager.New(kubeConfig)
@@ -70,6 +71,7 @@ func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 		MiddlewareConfig:     middlewareCfg,
 		EnableGlobalResource: enableGlobalResource,
 		ControllerConfig:     controllerConfig,
+		LogLevel:             logLevel,
 	}, nil
 }
 
@@ -107,6 +109,7 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		MiddlewareConfig:     a.MiddlewareConfig,
 		EnableGlobalResource: a.EnableGlobalResource,
 		ControllerConfig:     a.ControllerConfig,
+		LogLevel:             a.LogLevel,
 	}
 
 	agentAddon, err := addonfactory.NewAgentAddonFactory(

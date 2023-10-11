@@ -106,7 +106,7 @@ func (assembler *messageAssembler) assemble(chunk *messageChunk) *transport.Mess
 
 	if chunkCollection.totalSize == chunkCollection.accumulatedSize {
 		transportMessageBytes := chunkCollection.collect()
-		assembler.log.Info("assemble collection successfully", "id", chunkCollection.id,
+		assembler.log.V(2).Info("assemble collection successfully", "id", chunkCollection.id,
 			"collection.size", chunkCollection.totalSize)
 
 		transportMessage := &transport.Message{}

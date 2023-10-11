@@ -62,6 +62,7 @@ type ManifestsConfig struct {
 	EnableGlobalResource   bool
 	AgentQPS               float32
 	AgentBurst             int
+	LogLevel               string
 }
 
 type HohAgentAddon struct {
@@ -74,6 +75,7 @@ type HohAgentAddon struct {
 	MiddlewareConfig     *operatorconstants.MiddlewareConfig
 	EnableGlobalResource bool
 	ControllerConfig     *corev1.ConfigMap
+	LogLevel             string
 }
 
 func (a *HohAgentAddon) getMulticlusterGlobalHub() (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
@@ -189,12 +191,13 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		EnableGlobalResource:   a.EnableGlobalResource,
 		AgentQPS:               agentQPS,
 		AgentBurst:             agentBurst,
+		LogLevel:               a.LogLevel,
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {
 		return nil, err
 	}
-	log.Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName,
+	log.V(4).Info("rendering manifests", "pullSecret", manifestsConfig.ImagePullSecretName,
 		"image", manifestsConfig.HoHAgentImage)
 
 	manifestsConfig.AggregationLevel = config.AggregationLevel

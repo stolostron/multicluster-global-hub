@@ -62,7 +62,7 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 	c.setSyncInterval(agentConfigMap, PolicyIntervalKey)
 	c.setSyncInterval(agentConfigMap, ControlInfoIntervalKey)
 
-	reqLogger.Info("Reconciliation complete.")
+	reqLogger.V(2).Info("Reconciliation complete.")
 	return ctrl.Result{}, nil
 }
 

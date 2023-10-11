@@ -338,6 +338,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					StatisticLogInterval   string
 					EnableGlobalResource   bool
 					LaunchJobNames         string
+					LogLevel               string
 				}{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					Replicas:               2,
@@ -373,6 +374,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					StatisticLogInterval: config.GetStatisticLogInterval(),
 					EnableGlobalResource: true,
 					LaunchJobNames:       config.GetLaunchJobNames(mgh),
+					LogLevel:             "info",
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -405,6 +407,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ImagePullSecret      string
 					NodeSelector         map[string]string
 					Tolerations          []corev1.Toleration
+					LogLevel             string
 				}{
 					Namespace:            config.GetDefaultNamespace(),
 					Replicas:             2,
@@ -423,6 +426,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
+					LogLevel: "info",
 				}, nil
 			})
 

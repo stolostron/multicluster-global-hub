@@ -27,7 +27,7 @@ spec:
               memory: 300Mi
           imagePullPolicy: {{.ImagePullPolicy}}
           args:
-            - --zap-devel=true
+            - --zap-log-level={{.LogLevel}}
             - --manager-namespace=$(POD_NAMESPACE)
             - --watch-namespace=$(WATCH_NAMESPACE)
             - --transport-type={{.TransportType}}

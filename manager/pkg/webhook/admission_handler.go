@@ -34,7 +34,7 @@ type admissionHandler struct {
 }
 
 func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	log.Info("admission webhook is called", "name", req.Name, "namespace",
+	log.V(2).Info("admission webhook is called", "name", req.Name, "namespace",
 		req.Namespace, "kind", req.Kind.Kind, "operation", req.Operation)
 
 	if req.Kind.Kind == "Placement" {

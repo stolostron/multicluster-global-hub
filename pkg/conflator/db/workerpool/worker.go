@@ -69,7 +69,7 @@ func (worker *Worker) start(ctx context.Context) {
 					"BundleType", helpers.GetBundleType(job.bundle),
 					"Version", job.bundle.GetVersion().String())
 			} else {
-				worker.log.Info("worker processes the DB job successfully", "LeafHubName", job.bundle.GetLeafHubName(),
+				worker.log.V(2).Info("worker processes the DB job successfully", "LeafHubName", job.bundle.GetLeafHubName(),
 					"WorkerID", worker.workerID,
 					"BundleType", helpers.GetBundleType(job.bundle),
 					"Version", job.bundle.GetVersion().String())

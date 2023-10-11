@@ -162,7 +162,7 @@ func (c *KafkaConsumer) handleKafkaMessages(ctx context.Context) {
 			return
 
 		case msg := <-c.messageChan:
-			c.log.Info("received message and forward to bundle chan...")
+			c.log.V(2).Info("received message and forward to bundle chan...")
 			if c.conflationManager == nil {
 				c.processMessage(msg) // agent consumer
 			} else {

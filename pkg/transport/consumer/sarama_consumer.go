@@ -100,7 +100,7 @@ func (cgh *consumeGroupHandler) Setup(session sarama.ConsumerGroupSession) error
 		for {
 			select {
 			case msg := <-cgh.processedChan:
-				cgh.log.Info("mark offset", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
+				cgh.log.V(2).Info("mark offset", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
 				session.MarkMessage(msg, "")
 			case <-session.Context().Done():
 				return

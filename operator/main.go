@@ -127,6 +127,7 @@ type operatorConfig struct {
 	PodNamespace          string
 	LeaderElection        bool
 	GlobalResourceEnabled bool
+	LogLevel              string
 }
 
 func main() {
@@ -183,7 +184,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	}
 
 	addonController, err := hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(),
-		electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled, controllerConfigMap)
+		electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled, controllerConfigMap, operatorConfig.LogLevel)
 	if err != nil {
 		setupLog.Error(err, "unable to create addon controller")
 		return 1
@@ -212,6 +213,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		Log:                  ctrl.Log.WithName("global-hub-reconciler"),
 		MiddlewareConfig:     middlewareCfg,
 		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
+		LogLevel:             operatorConfig.LogLevel,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
 		return 1
@@ -257,6 +259,12 @@ func parseFlags() *operatorConfig {
 		"Enable the global resource. It is expermental feature. Do not support upgrade.")
 	pflag.Parse()
 
+	logLevel := "info"
+	logflag := defaultFlags.Lookup("zap-log-level")
+	if len(logflag.Value.String()) != 0 {
+		logLevel = logflag.Value.String()
+	}
+	config.LogLevel = logLevel
 	// set zap logger
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	return config

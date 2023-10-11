@@ -166,7 +166,7 @@ func (watcher *managedClusterLabelsStatusWatcher) trimDeletedLabelsByStatus(ctx 
 				continue
 			}
 
-			watcher.log.Info("trimmed labels successfully", "leafHub",
+			watcher.log.V(2).Info("trimmed labels successfully", "leafHub",
 				managedClusterLabelsSpecBundle.LeafHubName,
 				"managedCluster", managedClusterLabelsSpec.ClusterName, "version", managedClusterLabelsSpec.Version)
 		}

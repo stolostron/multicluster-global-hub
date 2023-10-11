@@ -36,7 +36,7 @@ func NewPolicyProcessor(ctx context.Context, offsetManager OffsetManager) *polic
 }
 
 func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventOffset) {
-	p.log.Info(event.ClusterName, "namespace", event.Namespace, "name", event.Name, "count",
+	p.log.V(2).Info(event.ClusterName, "namespace", event.Namespace, "name", event.Name, "count",
 		fmt.Sprintf("%d", event.Count), "offset", fmt.Sprintf("%d", eventOffset.Offset))
 
 	clusterCompliance, ok := event.InvolvedObject.Labels[constants.PolicyEventComplianceLabelKey]

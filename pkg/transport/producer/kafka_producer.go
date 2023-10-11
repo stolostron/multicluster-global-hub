@@ -163,7 +163,7 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 		return
 	}
 	InvokeCallback(p.eventSubscriptionMap, string(msg.ID), DeliveryAttempt)
-	p.log.Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType, "Version", msg.Version)
+	p.log.V(2).Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType, "Version", msg.Version)
 }
 
 // Close closes the KafkaProducer.

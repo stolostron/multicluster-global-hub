@@ -74,7 +74,7 @@ func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericCon
 
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	err := c.client.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
-		c.log.Info("received message and forward to bundle channel", "event.ID", event.ID())
+		c.log.V(2).Info("received message and forward to bundle channel", "event.ID", event.ID())
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {

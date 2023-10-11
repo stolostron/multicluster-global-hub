@@ -62,7 +62,7 @@ func (e *eventDispatcher) Start(ctx context.Context) error {
 			e.log.Info("context cancelled, exiting event dispatcher")
 			return nil
 		case message := <-e.messageChan:
-			e.log.Info("received message", "topic", message.Topic, "partition",
+			e.log.V(2).Info("received message", "topic", message.Topic, "partition",
 				message.Partition, "offset", message.Offset)
 			event := &kube.EnhancedEvent{}
 			if err := json.Unmarshal(message.Value, &event); err != nil {
