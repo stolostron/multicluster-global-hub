@@ -1,7 +1,11 @@
 package metrics
 
 import (
+	"context"
+
+	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -15,9 +19,21 @@ var GlobalHubCronJobGaugeVec = prometheus.NewGaugeVec(
 	},
 )
 
-func init() {
+type globalhubMetrics struct {
+	log logr.Logger
+}
+
+func NewGlobalHubMetrics() *globalhubMetrics {
+	return &globalhubMetrics{
+		log: ctrl.Log.WithName("global-hub-metrics"),
+	}
+}
+
+func (m *globalhubMetrics) Start(ctx context.Context) error {
+	m.log.Info("starting global hub metrics")
 	// Register custom metrics with the global prometheus registry
 	metrics.Registry.MustRegister(
 		GlobalHubCronJobGaugeVec,
 	)
+	return nil
 }
