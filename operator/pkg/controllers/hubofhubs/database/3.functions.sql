@@ -123,7 +123,7 @@ CREATE OR REPLACE FUNCTION public.set_cluster_id_to_local_compliance() RETURNS t
 BEGIN
   UPDATE local_status.compliance set cluster_id = (
       SELECT cluster_id FROM status.managed_clusters
-      WHERE payload -> 'metadata' ->> 'name' = NEW.cluster_name AND leaf_hub_name = NEW.leaf_hub_name
+      WHERE payload -> 'metadata' ->> 'name' = NEW.cluster_name AND leaf_hub_name = NEW.leaf_hub_name AND deleted_at IS NULL
       LIMIT 1
   )
   WHERE cluster_name = NEW.cluster_name AND leaf_hub_name = NEW.leaf_hub_name AND cluster_id IS NULL;

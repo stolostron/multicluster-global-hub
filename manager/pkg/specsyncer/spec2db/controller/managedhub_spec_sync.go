@@ -31,7 +31,7 @@ func AddManagedHubController(mgr ctrl.Manager) error {
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return !filterManagedHub(e.ObjectNew) &&
-				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+				e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion()
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return !filterManagedHub(e.Object)
@@ -54,6 +54,7 @@ type managedHubReconciler struct {
 
 func (r *managedHubReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("reconcile managed hub")
 
 	cluster := &clusterv1.ManagedCluster{}
 	err := r.client.Get(ctx, request.NamespacedName, cluster)
