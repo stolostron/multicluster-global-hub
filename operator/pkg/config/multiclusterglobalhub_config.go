@@ -68,6 +68,7 @@ var (
 	// We may expose these as CRD fields in the future
 	AggregationLevel    = "full"
 	EnableLocalPolicies = "true"
+	imagePullSecretName = ""
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -226,4 +227,14 @@ func GetPostgresStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string
 		return mgh.Spec.DataLayer.Postgres.StorageSize
 	}
 	return operatorconstants.GHDefaultStorageSize
+}
+
+func SetImagePullSecretName(mgh *globalhubv1alpha4.MulticlusterGlobalHub) {
+	if mgh.Spec.ImagePullSecret != imagePullSecretName {
+		imagePullSecretName = mgh.Spec.ImagePullSecret
+	}
+}
+
+func GetImagePullSecretName() string {
+	return imagePullSecretName
 }

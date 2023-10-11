@@ -356,14 +356,10 @@ var resPred = predicate.Funcs{
 
 var secretPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetName() == operatorconstants.GHStorageSecretName ||
-			e.Object.GetName() == operatorconstants.GHTransportSecretName ||
-			e.Object.GetName() == operatorconstants.CustomGrafanaIniName
+		return secretCond(e.Object)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetName() == operatorconstants.GHStorageSecretName ||
-			e.ObjectNew.GetName() == operatorconstants.GHTransportSecretName ||
-			e.ObjectNew.GetName() == operatorconstants.CustomGrafanaIniName
+		return secretCond(e.ObjectNew) && e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetName() == operatorconstants.CustomGrafanaIniName
@@ -463,6 +459,13 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 		}
 	},
 )
+
+func secretCond(obj client.Object) bool {
+	return obj.GetName() == operatorconstants.GHStorageSecretName ||
+		obj.GetName() == operatorconstants.GHTransportSecretName ||
+		obj.GetName() == operatorconstants.CustomGrafanaIniName ||
+		obj.GetName() == config.GetImagePullSecretName()
+}
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
