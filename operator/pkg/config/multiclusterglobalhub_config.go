@@ -49,7 +49,7 @@ const (
 	GlobalHubManagerImageKey = "multicluster_global_hub_manager"
 	OauthProxyImageKey       = "oauth_proxy"
 	GrafanaImageKey          = "grafana"
-	PostgresImageKey         = "postgres"
+	PostgresImageKey         = "postgresql"
 )
 
 var (
