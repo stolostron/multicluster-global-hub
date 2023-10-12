@@ -56,7 +56,8 @@ type KafkaConnection struct {
 
 // NewSubscription returns an CrunchyPostgres subscription with desired default values
 func NewSubscription(mcgh *globalhubv1alpha4.MulticlusterGlobalHub, cfg *subv1alpha1.SubscriptionConfig,
-	community bool) *subv1alpha1.Subscription {
+	community bool,
+) *subv1alpha1.Subscription {
 	chName, pkgName, catSourceName := channel, packageName, catalogSourceName
 	if community {
 		chName = communityChannel
@@ -93,7 +94,8 @@ func NewSubscription(mcgh *globalhubv1alpha4.MulticlusterGlobalHub, cfg *subv1al
 
 // RenderSubscription returns a subscription by modifying the spec of an existing subscription based on overrides
 func RenderSubscription(existingSubscription *subv1alpha1.Subscription, cfg *subv1alpha1.SubscriptionConfig,
-	community bool) *subv1alpha1.Subscription {
+	community bool,
+) *subv1alpha1.Subscription {
 	copy := existingSubscription.DeepCopy()
 	copy.ManagedFields = nil
 	copy.TypeMeta = metav1.TypeMeta{
@@ -159,6 +161,15 @@ func NewKafka(name, namespace string) *kafkav1beta2.Kafka {
 						},
 					},
 				},
+				Resources: &kafkav1beta2.KafkaSpecKafkaResources{
+					Requests: &apiextensions.JSON{Raw: []byte(`{
+						"memory": "1Gi",
+						"cpu": "100m"
+						}`)},
+					Limits: &apiextensions.JSON{Raw: []byte(`{
+						"memory": "4Gi",
+					}`)},
+				},
 				Replicas: 3,
 				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
@@ -179,6 +190,15 @@ func NewKafka(name, namespace string) *kafkav1beta2.Kafka {
 					Type:        kafkav1beta2.KafkaSpecZookeeperStorageTypePersistentClaim,
 					Size:        &kafkaStorageSize,
 					DeleteClaim: &kafkaStorageDeleteClaim,
+				},
+				Resources: &kafkav1beta2.KafkaSpecZookeeperResources{
+					Requests: &apiextensions.JSON{Raw: []byte(`{
+						"memory": "500Mi",
+						"cpu": "20m"
+						}`)},
+					Limits: &apiextensions.JSON{Raw: []byte(`{
+						"memory": "3Gi",
+					}`)},
 				},
 			},
 			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
