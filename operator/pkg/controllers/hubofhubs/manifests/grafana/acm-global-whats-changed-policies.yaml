@@ -27,6 +27,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
+      "id": 9,
       "links": [
         {
           "asDropdown": false,
@@ -45,6 +46,7 @@ data:
       "panels": [
         {
           "datasource": {
+            "type": "postgres",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -133,11 +135,12 @@ data:
               "datasource": {
                 "uid": "${datasource}"
               },
+              "editorMode": "code",
               "format": "time_series",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    CASE WHEN ch.compliance = 'non_compliant' THEN 2\n         WHEN ch.compliance = 'unknown' THEN 1\n         WHEN ch.compliance = 'compliant' THEN 0\n    END AS \"compliance\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  INNER JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    policy_name = '$policy'\n  AND \n    ch.leaf_hub_name = '$hub'\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    mc.cluster_name ${cluster_query:raw}\n),\norderclusters as (\n  SELECT\n    cluster_name,\n    ROW_NUMBER () OVER (ORDER BY SUM(compliance) DESC) as row_number\n  FROM\n    data\n  GROUP BY(cluster_name)\n)\nSELECT\n  time,\n  dc.cluster_name as \"metric\",\n  compliance as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.cluster_name = tc.cluster_name\nWHERE\n  tc.row_number >= $topleft AND tc.row_number <= $topright\nORDER BY (time)",
+              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    CASE WHEN ch.compliance = 'non_compliant' THEN 2\n         WHEN ch.compliance = 'unknown' THEN 1\n         WHEN ch.compliance = 'compliant' THEN 0\n    END AS \"compliance\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id AND p.leaf_hub_name = ch.leaf_hub_name\n  INNER JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id AND mc.leaf_hub_name = ch.leaf_hub_name\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    policy_name = '$policy'\n  AND \n    ch.leaf_hub_name = '$hub'\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    mc.cluster_name ${cluster_query:raw}\n),\norderclusters as (\n  SELECT\n    cluster_name,\n    ROW_NUMBER () OVER (ORDER BY SUM(compliance) DESC) as row_number\n  FROM\n    data\n  GROUP BY(cluster_name)\n)\nSELECT\n  time,\n  dc.cluster_name as \"metric\",\n  compliance as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.cluster_name = tc.cluster_name\nWHERE\n  tc.row_number >= $topleft AND tc.row_number <= $topright\nORDER BY (time)",
               "refId": "A",
               "select": [
                 [
@@ -149,6 +152,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -188,6 +208,7 @@ data:
         },
         {
           "datasource": {
+            "type": "postgres",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -302,11 +323,12 @@ data:
               "datasource": {
                 "uid": "${datasource}"
               },
+              "editorMode": "code",
               "format": "table",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id\nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  p.leaf_hub_name = '$hub'\nAND\n  policy_name = '$policy'\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND reverse(SUBSTRING(reverse(rp.message), 0, position('/' in reverse(rp.message)))) ${cluster_query:raw}\nORDER BY (rp.created_at) DESC",
+              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id AND rp.leaf_hub_name = p.leaf_hub_name\nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  p.leaf_hub_name = '$hub'\nAND\n  policy_name = '$policy'\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND reverse(SUBSTRING(reverse(rp.message), 0, position('/' in reverse(rp.message)))) ${cluster_query:raw}\nORDER BY (rp.created_at) DESC",
               "refId": "A",
               "select": [
                 [
@@ -318,6 +340,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -355,6 +394,7 @@ data:
         },
         {
           "datasource": {
+            "type": "postgres",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -545,11 +585,12 @@ data:
               "datasource": {
                 "uid": "${datasource}"
               },
+              "editorMode": "code",
               "format": "table",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.policy_name,\n  p.leaf_hub_name as \"hub\",\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  p.policy_name = '$policy'\nAND\n p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND\nmc.cluster_name ${cluster_query:raw}\nORDER BY (lp.created_at,lp.compliance) DESC",
+              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.policy_name,\n  p.leaf_hub_name as \"hub\",\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id AND lp.leaf_hub_name = p.leaf_hub_name\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id AND mc.leaf_hub_name = lp.leaf_hub_name\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  p.policy_name = '$policy'\nAND\n p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND\nmc.cluster_name ${cluster_query:raw}\nORDER BY (lp.created_at,lp.compliance) DESC",
               "refId": "A",
               "select": [
                 [
@@ -561,6 +602,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -874,6 +932,10 @@ data:
               "selected": false,
               "text": " is null ",
               "value": " is null "
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${cluster}$$)>0 then $$ in ($cluster) $$ else ' is null ' end",
             "hide": 2,

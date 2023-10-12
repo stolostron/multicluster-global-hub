@@ -5,7 +5,7 @@ data:
         "apiVersion": 1,
         "providers": [
             {
-                "folder": "Default",
+                "folder": "Policy",
                 "name": "0",
                 "options": {
                     "path": "/grafana-dashboards/0"
