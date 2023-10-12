@@ -54,7 +54,7 @@ type managedHubReconciler struct {
 
 func (r *managedHubReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("reconcile managed hub")
+	reqLogger.V(2).Info("reconcile managed hub")
 
 	cluster := &clusterv1.ManagedCluster{}
 	err := r.client.Get(ctx, request.NamespacedName, cluster)
@@ -95,7 +95,7 @@ func (r *managedHubReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 		if err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
-		reqLogger.Info("remove finalizer from the cluster")
+		reqLogger.V(2).Info("remove finalizer from the cluster")
 		if controllerutil.RemoveFinalizer(cluster, r.finalizerName) {
 			if err = r.client.Update(ctx, cluster); err != nil {
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
@@ -107,7 +107,7 @@ func (r *managedHubReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 	// if the managed hub is created/updated, then add the finalizer to it
 	add := controllerutil.AddFinalizer(cluster, r.finalizerName)
 	if add {
-		reqLogger.Info("add finalizer to the cluster")
+		reqLogger.V(2).Info("add finalizer to the cluster")
 		err = r.client.Update(ctx, cluster)
 		if err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
