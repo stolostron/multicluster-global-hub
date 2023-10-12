@@ -30,7 +30,7 @@ func NewGlobalHubMetrics() *globalhubMetrics {
 }
 
 func (m *globalhubMetrics) Start(ctx context.Context) error {
-	m.log.Info("starting global hub metrics")
+	m.log.V(2).Info("starting global hub metrics")
 	// Register custom metrics with the global prometheus registry
 	metrics.Registry.MustRegister(
 		GlobalHubCronJobGaugeVec,
