@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mohae/deepcopy"
@@ -64,7 +65,7 @@ const (
 
 var (
 	setupLog                     = ctrl.Log.WithName("setup")
-	watchNamespace               = constants.GHDefaultNamespace
+	managerNamespace             = constants.GHDefaultNamespace
 	scheme                       = runtime.NewScheme()
 	enableSimulation             = false
 	errFlagParameterEmpty        = errors.New("flag parameter empty")
@@ -101,7 +102,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", constants.GHDefaultNamespace,
 		"The manager running namespace, also used as leader election namespace.")
 	pflag.StringVar(&managerConfig.WatchNamespace, "watch-namespace", "",
-		"The watching namespace of the controller")
+		"The watching namespace of the controllers, multiple namespace must be splited by comma.")
 	pflag.StringVar(&managerConfig.SchedulerInterval, "scheduler-interval", "day",
 		"The job scheduler interval for moving policy compliance history, "+
 			"can be 'month', 'week', 'day', 'hour', 'minute' or 'second', default value is 'day'.")
@@ -172,7 +173,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 			enableSimulation = true
 		}
 	})
-	watchNamespace = managerConfig.WatchNamespace
+	managerNamespace = managerConfig.ManagerNamespace
 	return managerConfig
 }
 
@@ -199,6 +200,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(managerConfig.ElectionConfig.RetryPeriod) * time.Second
 	options := ctrl.Options{
+		Namespace:               managerConfig.WatchNamespace,
 		Scheme:                  scheme,
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
@@ -228,9 +230,9 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	// Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
 	// Also note that you may face performance issues when using this with a high number of namespaces.
 	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
-	// if strings.Contains(managerConfig.WatchNamespace, ",") {
-	// 	options.Cache.Namespaces = strings.Split(managerConfig.WatchNamespace, ",")
-	// }
+	if strings.Contains(managerConfig.WatchNamespace, ",") {
+		options.Cache.Namespaces = strings.Split(managerConfig.WatchNamespace, ",")
+	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {
@@ -332,10 +334,10 @@ func main() {
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		&corev1.Secret{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", watchNamespace),
+			Field: fields.OneTermEqualSelector("metadata.namespace", managerNamespace),
 		},
 		&corev1.ConfigMap{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", watchNamespace),
+			Field: fields.OneTermEqualSelector("metadata.namespace", managerNamespace),
 		},
 		&applicationv1beta1.Application{}:          {},
 		&channelv1.Channel{}:                       {},
