@@ -163,12 +163,12 @@ func NewKafka(name, namespace string) *kafkav1beta2.Kafka {
 				},
 				Resources: &kafkav1beta2.KafkaSpecKafkaResources{
 					Requests: &apiextensions.JSON{Raw: []byte(`{
-						"memory": "1Gi",
-						"cpu": "100m"
-						}`)},
+"memory": "1Gi",
+"cpu": "100m"
+}`)},
 					Limits: &apiextensions.JSON{Raw: []byte(`{
-						"memory": "4Gi",
-					}`)},
+"memory": "4Gi"
+}`)},
 				},
 				Replicas: 3,
 				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
@@ -193,12 +193,12 @@ func NewKafka(name, namespace string) *kafkav1beta2.Kafka {
 				},
 				Resources: &kafkav1beta2.KafkaSpecZookeeperResources{
 					Requests: &apiextensions.JSON{Raw: []byte(`{
-						"memory": "500Mi",
-						"cpu": "20m"
-						}`)},
+"memory": "500Mi",
+"cpu": "20m"
+}`)},
 					Limits: &apiextensions.JSON{Raw: []byte(`{
-						"memory": "3Gi",
-					}`)},
+"memory": "3Gi"
+}`)},
 				},
 			},
 			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
