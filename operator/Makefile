@@ -100,7 +100,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 fmt: ## Run go fmt against code.
 	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./main.go ./apis/ ./pkg/
 	@go fmt ./...
-	GOFUMPT_SPLIT_LONG_LINES=on gofumpt -w ./main.go ./apis/ ./pkg/
+	gofumpt -w ./main.go ./apis/ ./pkg/
 
 .PHONY: vet
 vet: ## Run go vet against code.

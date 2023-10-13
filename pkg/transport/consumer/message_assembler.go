@@ -11,8 +11,9 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
 	"github.com/go-logr/logr"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // messageChunk represents a chunk of a transport message.

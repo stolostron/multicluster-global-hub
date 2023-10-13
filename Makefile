@@ -93,7 +93,8 @@ e2e-prow-tests:
 fmt:
 	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
 	@go fmt ./agent/... ./manager/... ./operator/... ./pkg/... ./test/pkg/...
-	GOFUMPT_SPLIT_LONG_LINES=on gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
+	gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
+	git diff --exit-code
 
 install-kafka: # install kafka on the ocp
 	./operator/config/samples/transport/deploy_kafka.sh

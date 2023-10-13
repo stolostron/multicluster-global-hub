@@ -168,8 +168,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		// transport bundle
 		completeComplianceStatusBundle.BaseBundleVersion.Incr()
 		completeComplianceStatusBundle.BundleVersion.Incr()
-		policyCompleteComplianceTransportKey :=
-			fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
+		policyCompleteComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.PolicyCompleteComplianceMsgKey)
 		completePayloadBytes, err := json.Marshal(completeComplianceStatusBundle)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -409,8 +408,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		})
 		// transport bundle
 		minimalComplianceBundle.BundleVersion.Incr()
-		minimalPolicyComplianceTransportKey :=
-			fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
+		minimalPolicyComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.MinimalPolicyComplianceMsgKey)
 		payloadBytes, err := json.Marshal(minimalComplianceBundle)
 		Expect(err).ToNot(HaveOccurred())
 

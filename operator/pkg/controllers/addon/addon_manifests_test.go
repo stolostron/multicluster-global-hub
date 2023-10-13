@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
 func TestHohAgentAddon_getAgentRestConfig(t *testing.T) {

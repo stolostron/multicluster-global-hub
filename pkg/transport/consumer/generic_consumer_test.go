@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 

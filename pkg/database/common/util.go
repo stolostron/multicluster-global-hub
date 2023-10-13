@@ -3,8 +3,9 @@ package common
 import (
 	"log"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 func GetDatabaseCompliance(PolicyCompliance string) database.ComplianceStatus {

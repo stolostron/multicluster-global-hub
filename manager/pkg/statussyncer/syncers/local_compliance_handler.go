@@ -30,8 +30,7 @@ func (syncer *CompliancesDBSyncer) handleLocalClustersPerPolicyBundle(ctx contex
 			continue // do not handle objects other than PolicyGenericComplianceStatus
 		}
 
-		policyClusterSetFromDB, policyExistsInDB :=
-			allPolicyClusterSetsFromDB[clustersPerPolicyFromBundle.PolicyID]
+		policyClusterSetFromDB, policyExistsInDB := allPolicyClusterSetsFromDB[clustersPerPolicyFromBundle.PolicyID]
 		if !policyExistsInDB {
 			policyClusterSetFromDB = NewPolicyClusterSets()
 		}
@@ -160,8 +159,7 @@ func (syncer *CompliancesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx
 			continue // do not handle objects other than PolicyComplianceStatus
 		}
 		// nonCompliantClusters includes both non Compliant and Unknown clusters
-		nonComplianceClusterSetsFromDB, policyExistsInDB :=
-			allPolicyComplianceRowsFromDB[policyComplianceStatus.PolicyID]
+		nonComplianceClusterSetsFromDB, policyExistsInDB := allPolicyComplianceRowsFromDB[policyComplianceStatus.PolicyID]
 		if !policyExistsInDB {
 			nonComplianceClusterSetsFromDB = NewPolicyClusterSets()
 		}

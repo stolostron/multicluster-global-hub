@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 )
 
 func TestNewSubscription(t *testing.T) {

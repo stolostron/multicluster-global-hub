@@ -56,7 +56,8 @@ type KafkaConnection struct {
 
 // NewSubscription returns an CrunchyPostgres subscription with desired default values
 func NewSubscription(mcgh *globalhubv1alpha4.MulticlusterGlobalHub, cfg *subv1alpha1.SubscriptionConfig,
-	community bool) *subv1alpha1.Subscription {
+	community bool,
+) *subv1alpha1.Subscription {
 	chName, pkgName, catSourceName := channel, packageName, catalogSourceName
 	if community {
 		chName = communityChannel
@@ -93,7 +94,8 @@ func NewSubscription(mcgh *globalhubv1alpha4.MulticlusterGlobalHub, cfg *subv1al
 
 // RenderSubscription returns a subscription by modifying the spec of an existing subscription based on overrides
 func RenderSubscription(existingSubscription *subv1alpha1.Subscription, cfg *subv1alpha1.SubscriptionConfig,
-	community bool) *subv1alpha1.Subscription {
+	community bool,
+) *subv1alpha1.Subscription {
 	copy := existingSubscription.DeepCopy()
 	copy.ManagedFields = nil
 	copy.TypeMeta = metav1.TypeMeta{

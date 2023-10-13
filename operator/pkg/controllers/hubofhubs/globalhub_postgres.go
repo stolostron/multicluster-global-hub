@@ -24,7 +24,8 @@ const (
 
 // EnsureCrunchyPostgresSubscription verifies resources needed for Crunchy Postgres are created
 func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgresSubscription(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) error {
 	postgresSub, err := utils.GetSubscriptionByName(ctx, r.Client, postgres.SubscriptionName)
 	if err != nil {
 		return err
@@ -61,7 +62,6 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgresSubscription(ctx 
 
 // EnsureCrunchyPostgres verifies PostgresCluster operand is created
 func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgres(ctx context.Context) error {
-
 	postgresCluster := &postgresv1beta1.PostgresCluster{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      postgres.PostgresName,
@@ -82,8 +82,8 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgres(ctx context.Cont
 
 // WaitForPostgresReady waits for postgres to be ready and returns a postgres connection
 func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Context) (
-	*postgres.PostgresConnection, error) {
-
+	*postgres.PostgresConnection, error,
+) {
 	// wait for postgres guest user secret to be ready
 	guestPostgresSecret := &corev1.Secret{}
 	err := r.Client.Get(ctx, types.NamespacedName{
@@ -126,12 +126,12 @@ func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Conte
 		ReadonlyUserDatabaseURI: string(guestPostgresSecret.Data["uri"]) + postgres.PostgresURIWithSslmode,
 		CACert:                  postgresCertName.Data["ca.crt"],
 	}, nil
-
 }
 
 // GeneratePGConnectionFromGHStorageSecret returns a postgres connection from the GH storage secret
 func (r *MulticlusterGlobalHubReconciler) GeneratePGConnectionFromGHStorageSecret(ctx context.Context) (
-	*postgres.PostgresConnection, error) {
+	*postgres.PostgresConnection, error,
+) {
 	pgSecret := &corev1.Secret{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      constants.GHStorageSecretName,

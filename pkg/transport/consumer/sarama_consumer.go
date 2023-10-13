@@ -5,9 +5,10 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/go-logr/logr"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type SaramaConsumer interface {

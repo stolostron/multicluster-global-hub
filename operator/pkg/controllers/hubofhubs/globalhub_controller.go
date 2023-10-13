@@ -23,10 +23,9 @@ import (
 	"reflect"
 	"time"
 
-	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
-
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
+	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"

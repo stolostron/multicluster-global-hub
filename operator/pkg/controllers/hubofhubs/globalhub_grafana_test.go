@@ -6,11 +6,6 @@ import (
 
 	openshiftV1 "github.com/openshift/api/route/v1"
 	routefake "github.com/openshift/client-go/route/clientset/versioned/fake"
-
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +13,11 @@ import (
 	fakekube "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/pointer"
+
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
 func Test_mergeAlertConfigMap(t *testing.T) {
@@ -945,6 +945,6 @@ func sectionCount(a []byte) int {
 	if err != nil {
 		return -1
 	}
-	//By Default, There is a DEFAULT section, should not count it
+	// By Default, There is a DEFAULT section, should not count it
 	return len(cfg.Sections()) - 1
 }
