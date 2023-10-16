@@ -61,7 +61,8 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafkaSubscription(ctx context.Co
 
 // EnsureKafkaResources verifies resources needed for Kafka are created
 // including kafka/kafkatopic/kafkauser
-func (r *MulticlusterGlobalHubReconciler) EnsureKafkaResources(ctx context.Context) error {
+func (r *MulticlusterGlobalHubReconciler) EnsureKafkaResources(ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      kafka.KafkaClusterName,
@@ -69,7 +70,7 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafkaResources(ctx context.Conte
 	}, kafkaCluster)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			err = r.Client.Create(ctx, kafka.NewKafka(kafka.KafkaClusterName, config.GetDefaultNamespace()))
+			err = r.Client.Create(ctx, kafka.NewKafka(mgh, kafka.KafkaClusterName, config.GetDefaultNamespace()))
 			if err != nil && !errors.IsAlreadyExists(err) {
 				return err
 			}

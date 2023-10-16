@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -39,7 +40,6 @@ var (
 	kafkaVersion = "3.4.0"
 
 	// kafka storage
-	kafkaStorageSize              = "10Gi"
 	kafkaStorageIndentifier int32 = 0
 	kafkaStorageDeleteClaim       = false
 
@@ -128,7 +128,25 @@ func RenderSubscription(existingSubscription *subv1alpha1.Subscription, cfg *sub
 }
 
 // NewKafka creates kafka operand
-func NewKafka(name, namespace string) *kafkav1beta2.Kafka {
+func NewKafka(mgh *globalhubv1alpha4.MulticlusterGlobalHub, name, namespace string) *kafkav1beta2.Kafka {
+	kafkaSpecKafkaStorageVolumesElem := kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
+		Id:          &kafkaStorageIndentifier,
+		Size:        config.GetKafkaStorageSize(mgh),
+		Type:        kafkav1beta2.KafkaSpecKafkaStorageVolumesElemTypePersistentClaim,
+		DeleteClaim: &kafkaStorageDeleteClaim,
+	}
+
+	kafkaSpecZookeeperStorage := kafkav1beta2.KafkaSpecZookeeperStorage{
+		Type:        kafkav1beta2.KafkaSpecZookeeperStorageTypePersistentClaim,
+		Size:        config.GetKafkaStorageSize(mgh),
+		DeleteClaim: &kafkaStorageDeleteClaim,
+	}
+
+	if mgh.Spec.DataLayer.StorageClass != "" {
+		kafkaSpecKafkaStorageVolumesElem.Class = &mgh.Spec.DataLayer.StorageClass
+		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayer.StorageClass
+	}
+
 	return &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -174,23 +192,14 @@ func NewKafka(name, namespace string) *kafkav1beta2.Kafka {
 				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
 					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
-						{
-							Id:          &kafkaStorageIndentifier,
-							Size:        &kafkaStorageSize,
-							Type:        kafkav1beta2.KafkaSpecKafkaStorageVolumesElemTypePersistentClaim,
-							DeleteClaim: &kafkaStorageDeleteClaim,
-						},
+						kafkaSpecKafkaStorageVolumesElem,
 					},
 				},
 				Version: &kafkaVersion,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
 				Replicas: 3,
-				Storage: kafkav1beta2.KafkaSpecZookeeperStorage{
-					Type:        kafkav1beta2.KafkaSpecZookeeperStorageTypePersistentClaim,
-					Size:        &kafkaStorageSize,
-					DeleteClaim: &kafkaStorageDeleteClaim,
-				},
+				Storage:  kafkaSpecZookeeperStorage,
 				Resources: &kafkav1beta2.KafkaSpecZookeeperResources{
 					Requests: &apiextensions.JSON{Raw: []byte(`{
 "memory": "500Mi",

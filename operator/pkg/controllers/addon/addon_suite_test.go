@@ -53,6 +53,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
@@ -149,7 +150,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon controller to the manager")
-	middlewareCfg := &operatorconstants.MiddlewareConfig{
+	middlewareCfg := &hubofhubscontroller.MiddlewareConfig{
 		KafkaConnection: &kafka.KafkaConnection{
 			BootstrapServer: kafkaBootstrapServer,
 			CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCA)),

@@ -33,7 +33,6 @@ const (
 )
 
 // TransportFormatType specifies the type of data format based on kafka implementation.
-// +kubebuilder:validation:Enum:="message";"cloudEvents"
 type TransportFormatType string
 
 const (
@@ -59,8 +58,7 @@ type MulticlusterGlobalHub struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={dataLayer: {postgres: {retention: "18m"}, kafka: {transportFormat: cloudEvents}}}
-	// +kubebuilder:validation:Required
+	// +kubebuilder:default={dataLayer: {postgres: {retention: "18m"}}}
 	Spec   MulticlusterGlobalHubSpec   `json:"spec,omitempty"`
 	Status MulticlusterGlobalHubStatus `json:"status,omitempty"`
 }
@@ -83,17 +81,19 @@ type MulticlusterGlobalHubSpec struct {
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// DataLayer can be configured to use a different data layer.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:default={postgres: {retention: "18m"}, kafka: {transportFormat: cloudEvents}}
+	// +kubebuilder:default={postgres: {retention: "18m"}}
 	DataLayer DataLayerConfig `json:"dataLayer"`
 }
 
 // DataLayerConfig is a discriminated union of data layer specific configuration.
 type DataLayerConfig struct {
-	// +kubebuilder:default={transportFormat: cloudEvents}
+	// +optional
 	Kafka KafkaConfig `json:"kafka,omitempty"`
 	// +kubebuilder:default={retention: "18m"}
 	Postgres PostgresConfig `json:"postgres,omitempty"`
+	// Specify the storageClass for storage.
+	// +optional
+	StorageClass string `json:"storageClass,omitempty"`
 }
 
 // PostgresConfig defines the desired state of postgres
@@ -105,20 +105,16 @@ type PostgresConfig struct {
 	// +kubebuilder:default:="18m"
 	Retention string `json:"retention,omitempty"`
 
-	// Specify the size for postgres persistent volume claim.
+	// Specify the size for storage.
 	// +optional
 	StorageSize string `json:"storageSize,omitempty"`
-
-	// Specify the storageClass for postgres persistent volume claim.
-	// +optional
-	StorageClass string `json:"storageClass,omitempty"`
 }
 
 // KafkaConfig defines the desired state of kafka
 type KafkaConfig struct {
-	// TransportFormat defines the transport format for kafka, which is either cloudEvents or kafka message
-	// +kubebuilder:default:="cloudEvents"
-	TransportFormat TransportFormatType `json:"transportFormat,omitempty"`
+	// Specify the size for storage.
+	// +optional
+	StorageSize string `json:"storageSize,omitempty"`
 }
 
 // MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub

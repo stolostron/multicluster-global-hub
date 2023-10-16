@@ -170,7 +170,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	}
 
 	// middlewareCfg is shared between all controllers
-	middlewareCfg := &operatorconstants.MiddlewareConfig{}
+	middlewareCfg := &hubofhubscontrollers.MiddlewareConfig{}
 
 	// start addon controller
 	if err = (&hubofhubsaddon.HoHAddonInstallReconciler{

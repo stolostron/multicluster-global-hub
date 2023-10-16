@@ -21,6 +21,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	hubofhubs "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -45,14 +46,14 @@ type HoHAddonController struct {
 	leaderElection       *commonobjects.LeaderElectionConfig
 	log                  logr.Logger
 	addonManager         addonmanager.AddonManager
-	MiddlewareConfig     *operatorconstants.MiddlewareConfig
+	MiddlewareConfig     *hubofhubs.MiddlewareConfig
 	EnableGlobalResource bool
 	ControllerConfig     *corev1.ConfigMap
 	LogLevel             string
 }
 
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
-	leaderElection *commonobjects.LeaderElectionConfig, middlewareCfg *operatorconstants.MiddlewareConfig,
+	leaderElection *commonobjects.LeaderElectionConfig, middlewareCfg *hubofhubs.MiddlewareConfig,
 	enableGlobalResource bool, controllerConfig *corev1.ConfigMap, logLevel string,
 ) (*HoHAddonController, error) {
 	log := ctrl.Log.WithName("addon-controller")

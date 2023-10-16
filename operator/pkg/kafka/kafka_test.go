@@ -74,7 +74,13 @@ func TestRenderSubscription(t *testing.T) {
 }
 
 func TestNewKafka(t *testing.T) {
-	kafka := NewKafka("foo", "bar")
+	kafka := NewKafka(&globalhubv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+	}, "foo", "bar")
 	if kafka.Name != "foo" {
 		t.Errorf("Expected name foo, got %s", kafka.Name)
 	}
