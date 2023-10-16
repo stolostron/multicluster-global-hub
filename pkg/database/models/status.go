@@ -15,8 +15,8 @@ type ManagedCluster struct {
 	Payload     datatypes.JSON `gorm:"column:payload;type:jsonb"`
 	Error       string         `gorm:"column:error;not null"`
 	// ClusterName string         `gorm:"column:cluster_name"`
-	CreatedAt time.Time      `gorm:"column:created_at;default:(-)"` // https://gorm.io/docs/conventions.html#CreatedAt
-	UpdatedAt time.Time      `gorm:"column:updated_at;default:(-)"`
+	CreatedAt time.Time      `gorm:"column:created_at;autoCreateTime:true"`
+	UpdatedAt time.Time      `gorm:"column:updated_at;autoUpdateTime:true"`
 	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at"`
 }
 
@@ -29,8 +29,8 @@ type LeafHub struct {
 	Payload     datatypes.JSON `gorm:"column:payload;type:jsonb"`
 	ConsoleURL  string         `gorm:"column:console_url;default:(-)"`
 	GrafanaURL  string         `gorm:"column:grafana_url;default:(-)"`
-	CreatedAt   time.Time      `gorm:"column:created_at;default:(-)"` // https://gorm.io/docs/conventions.html#CreatedAt
-	UpdatedAt   time.Time      `gorm:"column:updated_at;default:(-)"`
+	CreatedAt   time.Time      `gorm:"column:created_at;autoCreateTime:true"`
+	UpdatedAt   time.Time      `gorm:"column:updated_at;autoUpdateTime:true"`
 	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at"`
 }
 
