@@ -50,7 +50,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
@@ -163,7 +162,7 @@ var _ = BeforeSuite(func() {
 		LeaderElection:       leaderElection,
 		Log:                  ctrl.Log.WithName("multicluster-global-hub-reconciler"),
 		LogLevel:             "info",
-		MiddlewareConfig:     &operatorconstants.MiddlewareConfig{},
+		MiddlewareConfig:     &hubofhubscontroller.MiddlewareConfig{},
 		EnableGlobalResource: true,
 	}
 	Expect(mghReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())

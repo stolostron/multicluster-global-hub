@@ -45,11 +45,12 @@ type ManifestImage struct {
 }
 
 const (
-	GlobalHubAgentImageKey   = "multicluster_global_hub_agent"
-	GlobalHubManagerImageKey = "multicluster_global_hub_manager"
-	OauthProxyImageKey       = "oauth_proxy"
-	GrafanaImageKey          = "grafana"
-	PostgresImageKey         = "postgresql"
+	GlobalHubAgentImageKey       = "multicluster_global_hub_agent"
+	GlobalHubManagerImageKey     = "multicluster_global_hub_manager"
+	OauthProxyImageKey           = "oauth_proxy"
+	GrafanaImageKey              = "grafana"
+	PostgresImageKey             = "postgresql"
+	GHPostgresDefaultStorageSize = "25Gi"
 )
 
 var (
@@ -69,6 +70,8 @@ var (
 	AggregationLevel    = "full"
 	EnableLocalPolicies = "true"
 	imagePullSecretName = ""
+
+	GHKafkaDefaultStorageSize = "10Gi"
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -226,7 +229,14 @@ func GetPostgresStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string
 	if mgh.Spec.DataLayer.Postgres.StorageSize != "" {
 		return mgh.Spec.DataLayer.Postgres.StorageSize
 	}
-	return operatorconstants.GHDefaultStorageSize
+	return GHPostgresDefaultStorageSize
+}
+
+func GetKafkaStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) *string {
+	if mgh.Spec.DataLayer.Kafka.StorageSize != "" {
+		return &mgh.Spec.DataLayer.Kafka.StorageSize
+	}
+	return &GHKafkaDefaultStorageSize
 }
 
 func SetImagePullSecretName(mgh *globalhubv1alpha4.MulticlusterGlobalHub) {

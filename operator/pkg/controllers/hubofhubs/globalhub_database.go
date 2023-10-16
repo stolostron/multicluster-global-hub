@@ -199,7 +199,7 @@ func (r *MulticlusterGlobalHubReconciler) createPostgres(ctx context.Context,
 				PostgresAdminUserPassword:    credential.postgresAdminUserPassword,
 				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
 				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
-				StorageClass:                 mgh.Spec.DataLayer.Postgres.StorageClass,
+				StorageClass:                 mgh.Spec.DataLayer.StorageClass,
 			}, nil
 		})
 	if err != nil {

@@ -53,6 +53,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -74,8 +76,14 @@ type MulticlusterGlobalHubReconciler struct {
 	LeaderElection       *commonobjects.LeaderElectionConfig
 	Log                  logr.Logger
 	LogLevel             string
-	MiddlewareConfig     *operatorconstants.MiddlewareConfig
+	MiddlewareConfig     *MiddlewareConfig
 	EnableGlobalResource bool
+}
+
+// MiddlewareConfig defines the configuration for middleware and shared in opearator
+type MiddlewareConfig struct {
+	PgConnection    *postgres.PostgresConnection
+	KafkaConnection *kafka.KafkaConnection
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -238,7 +246,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	}
 
 	if kafkaConnection == nil {
-		if err := r.EnsureKafkaResources(ctx); err != nil {
+		if err := r.EnsureKafkaResources(ctx, mgh); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 	}

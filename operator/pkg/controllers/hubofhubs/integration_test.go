@@ -191,9 +191,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			},
 			Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
 				DataLayer: globalhubv1alpha4.DataLayerConfig{
-					Kafka: globalhubv1alpha4.KafkaConfig{
-						TransportFormat: globalhubv1alpha4.CloudEvents,
-					},
+					Kafka: globalhubv1alpha4.KafkaConfig{},
 					Postgres: globalhubv1alpha4.PostgresConfig{
 						Retention: "1y",
 					},
@@ -354,7 +352,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaBootstrapServer:   kafkaBootstrapServer,
 					MessageCompressionType: string(operatorconstants.GzipCompressType),
 					TransportType:          string(transport.Kafka),
-					TransportFormat:        string(mgh.Spec.DataLayer.Kafka.TransportFormat),
+					TransportFormat:        string(globalhubv1alpha4.CloudEvents),
 					Namespace:              config.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",
@@ -921,7 +919,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 		It("Should create the kafka resources", func() {
 			Expect(mghReconciler.EnsureKafkaSubscription(ctx, mcgh)).Should(Succeed())
-			Expect(mghReconciler.EnsureKafkaResources(ctx)).Should(Succeed())
+			Expect(mghReconciler.EnsureKafkaResources(ctx, mcgh)).Should(Succeed())
 			_, err := mghReconciler.WaitForKafkaClusterReady(ctx)
 			// postgres cannot be ready in envtest
 			Expect(err).Should(HaveOccurred())

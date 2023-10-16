@@ -20,6 +20,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -72,7 +73,7 @@ type HohAgentAddon struct {
 	dynamicClient        dynamic.Interface
 	leaderElectionConfig *commonobjects.LeaderElectionConfig
 	log                  logr.Logger
-	MiddlewareConfig     *operatorconstants.MiddlewareConfig
+	MiddlewareConfig     *hubofhubscontroller.MiddlewareConfig
 	EnableGlobalResource bool
 	ControllerConfig     *corev1.ConfigMap
 	LogLevel             string
@@ -182,7 +183,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaClientKey:         a.MiddlewareConfig.KafkaConnection.ClientKey,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
-		TransportFormat:        string(mgh.Spec.DataLayer.Kafka.TransportFormat),
+		TransportFormat:        string(globalhubv1alpha4.CloudEvents),
 		LeaseDuration:          strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
 		RenewDeadline:          strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
 		RetryPeriod:            strconv.Itoa(a.leaderElectionConfig.RetryPeriod),
