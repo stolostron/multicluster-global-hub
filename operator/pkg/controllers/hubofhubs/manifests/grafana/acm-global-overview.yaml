@@ -248,17 +248,17 @@ data:
                           "compliant": {
                             "color": "green",
                             "index": 0,
-                            "text": "compliant"
+                            "text": "Compliant"
                           },
                           "non_compliant": {
                             "color": "red",
                             "index": 1,
-                            "text": "non_compliant"
+                            "text": "Not Compliant"
                           },
                           "unknown": {
                             "color": "yellow",
                             "index": 2,
-                            "text": "unknown"
+                            "text": "Unknown"
                           }
                         },
                         "type": "value"
@@ -283,7 +283,7 @@ data:
                   },
                   {
                     "id": "noValue",
-                    "value": "-"
+                    "value": "No Status"
                   }
                 ]
               }
@@ -555,17 +555,17 @@ data:
                           "compliant": {
                             "color": "green",
                             "index": 0,
-                            "text": "compliant"
+                            "text": "Compliant"
                           },
                           "non_compliant": {
                             "color": "red",
                             "index": 1,
-                            "text": "non_compliant"
+                            "text": "Not Compliant"
                           },
                           "unknown": {
                             "color": "yellow",
                             "index": 2,
-                            "text": "unknown"
+                            "text": "Unknown"
                           }
                         },
                         "type": "value"
@@ -590,7 +590,7 @@ data:
                   },
                   {
                     "id": "noValue",
-                    "value": "-"
+                    "value": "No Status"
                   }
                 ]
               }
