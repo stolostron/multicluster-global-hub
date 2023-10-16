@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/Shopify/sarama"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )

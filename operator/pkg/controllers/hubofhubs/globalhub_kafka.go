@@ -23,7 +23,8 @@ import (
 
 // EnsureKafkaSubscription verifies subscription needed for Kafka is created
 func (r *MulticlusterGlobalHubReconciler) EnsureKafkaSubscription(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) error {
 	kafkaSub, err := utils.GetSubscriptionByName(ctx, r.Client, kafka.SubscriptionName)
 	if err != nil {
 		return err
@@ -84,8 +85,10 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafkaResources(ctx context.Conte
 	if err != nil {
 		return err
 	}
-	for _, kafkaTopicName := range []string{kafka.KafkaSpecTopicName, kafka.KafkaStatusTopicName,
-		kafka.KafkaEventTopicName} {
+	for _, kafkaTopicName := range []string{
+		kafka.KafkaSpecTopicName, kafka.KafkaStatusTopicName,
+		kafka.KafkaEventTopicName,
+	} {
 		found := false
 		for _, topic := range kafkaTopics.Items {
 			if topic.Name == kafkaTopicName {
@@ -123,7 +126,8 @@ func (r *MulticlusterGlobalHubReconciler) EnsureKafkaResources(ctx context.Conte
 // WaitForKafkaClusterReady waits for kafka cluster to be ready
 // and returns a kafka connection object once ready
 func (r *MulticlusterGlobalHubReconciler) WaitForKafkaClusterReady(ctx context.Context) (
-	*kafka.KafkaConnection, error) {
+	*kafka.KafkaConnection, error,
+) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      kafka.KafkaClusterName,
@@ -165,8 +169,8 @@ func (r *MulticlusterGlobalHubReconciler) WaitForKafkaClusterReady(ctx context.C
 
 // GenerateKafkaConnectionFromGHTransportSecret returns a kafka connection object from the BYO kafka secret
 func (r *MulticlusterGlobalHubReconciler) GenerateKafkaConnectionFromGHTransportSecret(ctx context.Context) (
-	*kafka.KafkaConnection, error) {
-
+	*kafka.KafkaConnection, error,
+) {
 	kafkaSecret := &corev1.Secret{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      constants.GHTransportSecretName,

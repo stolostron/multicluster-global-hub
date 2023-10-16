@@ -58,8 +58,7 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 			Version:          10,
 			UpdateTimestamp:  time.Now(),
 		}
-		managedClusterLabelsSpecBundle.Objects =
-			append(managedClusterLabelsSpecBundle.Objects, bundleObj)
+		managedClusterLabelsSpecBundle.Objects = append(managedClusterLabelsSpecBundle.Objects, bundleObj)
 
 		By("Send ManagedClusterLabelBundle by transport")
 		payloadBytes, err := json.Marshal(managedClusterLabelsSpecBundle)

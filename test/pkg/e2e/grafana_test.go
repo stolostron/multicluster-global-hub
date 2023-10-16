@@ -7,11 +7,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
 const (
@@ -25,7 +26,6 @@ const (
 )
 
 var _ = Describe("The alert configmap should be created", Ordered, Label("e2e-tests-grafana"), func() {
-
 	It("Merged alert configmap should be same as default configmap", func() {
 		ctx := context.Background()
 		Eventually(func() error {
@@ -170,18 +170,14 @@ policies:
 
 			return fmt.Errorf("mergedAlert %v is not equal with default %v",
 				mergedAlertConfigMap.Data, defaultAlertConfigMap.Data[alertConfigMapKey])
-
 		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 
 		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, operatorconstants.CustomAlertName, metav1.DeleteOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
-
 	})
-
 })
 
 var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-tests-grafana"), func() {
-
 	It("Merged grafana.ini should be same as default configmap", func() {
 		ctx := context.Background()
 		Eventually(func() error {
@@ -196,7 +192,6 @@ var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-tests-
 			}
 			return nil
 		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
-
 	})
 
 	It("Merged grafana.ini should merged default and custom grafana.ini", func() {
@@ -252,9 +247,7 @@ var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-tests-
 			}
 			return nil
 		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
-
 	})
-
 })
 
 func sectionCount(a []byte) int {
@@ -262,6 +255,6 @@ func sectionCount(a []byte) int {
 	if err != nil {
 		return -1
 	}
-	//By Default, There is a DEFAULT section, should not count it
+	// By Default, There is a DEFAULT section, should not count it
 	return len(cfg.Sections()) - 1
 }

@@ -67,7 +67,6 @@ type MulticlusterGlobalHub struct {
 
 // MulticlusterGlobalHubSpec defines the desired state of MulticlusterGlobalHub
 type MulticlusterGlobalHubSpec struct {
-
 	// Specifies deployment replication for improved availability. Options are: Basic and High (default)
 	// +kubebuilder:default:="High"
 	AvailabilityConfig AvailabilityType `json:"availabilityConfig,omitempty"`

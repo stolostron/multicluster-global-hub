@@ -18,20 +18,17 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
-	"fmt"
-	"reflect"
-
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
-
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
@@ -93,13 +90,13 @@ func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.O
 
 // Finds subscription by name. Returns nil if none found.
 func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, name string) (
-	*subv1alpha1.Subscription, error) {
+	*subv1alpha1.Subscription, error,
+) {
 	found := &subv1alpha1.Subscription{}
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
 		Namespace: config.GetDefaultNamespace(),
 	}, found)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil

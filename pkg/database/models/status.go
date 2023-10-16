@@ -3,9 +3,10 @@ package models
 import (
 	"time"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 type ManagedCluster struct {

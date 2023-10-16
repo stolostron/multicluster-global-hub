@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/Shopify/sarama"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
-
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func TestConsumerGroup(t *testing.T) {

@@ -17,7 +17,7 @@ all: fmt lint build
 fmt:
 	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./cmd/ ./pkg/
 	@go fmt ./cmd/... ./pkg/...
-	GOFUMPT_SPLIT_LONG_LINES=on gofumpt -w ./cmd/ ./pkg/
+	gofumpt -w ./cmd/ ./pkg/
 
 CONTROLLER_GEN = controller-gen
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"

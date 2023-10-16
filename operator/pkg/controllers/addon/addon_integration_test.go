@@ -58,7 +58,6 @@ func prepareCluster(name string, labels, annotations map[string]string,
 			Name: name,
 		},
 	})).Should(Succeed())
-
 }
 
 var _ = Describe("addon integration", Ordered, func() {

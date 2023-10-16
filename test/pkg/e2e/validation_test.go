@@ -26,7 +26,6 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(string(healthy)).To(Equal("ok"))
 		})
-
 	})
 
 	Context("Check all the parameters for e2e-tests", func() {

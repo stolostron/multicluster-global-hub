@@ -12,6 +12,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/restmapper"
+
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -19,12 +26,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/restmapper"
 )
 
 var DatabaseReconcileCounter = 0
@@ -148,8 +149,8 @@ func generatePassword(length int) string {
 }
 
 func (r *MulticlusterGlobalHubReconciler) createPostgres(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub, log logr.Logger) error {
-
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub, log logr.Logger,
+) error {
 	// check if the customer provides the postgres
 	var err error
 	r.MiddlewareConfig.PgConnection, _ = r.GeneratePGConnectionFromGHStorageSecret(ctx)
@@ -231,7 +232,8 @@ func (r *MulticlusterGlobalHubReconciler) createPostgres(ctx context.Context,
 }
 
 func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-	r *MulticlusterGlobalHubReconciler) (*postgresCredential, error) {
+	r *MulticlusterGlobalHubReconciler,
+) (*postgresCredential, error) {
 	postgres := &corev1.Secret{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      "multicluster-global-hub-postgres",
@@ -255,7 +257,8 @@ func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.Multiclus
 }
 
 func getPostgresCA(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub, r *MulticlusterGlobalHubReconciler) (string, error) {
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub, r *MulticlusterGlobalHubReconciler,
+) (string, error) {
 	ca := &corev1.ConfigMap{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      postgresCA,

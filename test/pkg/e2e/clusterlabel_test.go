@@ -207,7 +207,6 @@ func updateClusterLabelByAPI(client *http.Client, patches []patch, managedCluste
 }
 
 func updateClusterLabel(managedClusterName, labelStr string) error {
-
 	leafhubName, _ := strings.CutSuffix(managedClusterName, "-cluster1")
 	_, err := testClients.Kubectl(leafhubName, "label", "managedcluster", managedClusterName, labelStr)
 	if err != nil {

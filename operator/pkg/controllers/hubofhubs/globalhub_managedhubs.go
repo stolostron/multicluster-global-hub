@@ -3,15 +3,15 @@ package hubofhubs
 import (
 	"context"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManagedHubs(ctx context.Context) error {
-
 	clusters := &clusterv1.ManagedClusterList{}
 	if err := r.List(ctx, clusters, &client.ListOptions{}); err != nil {
 		return err
@@ -28,7 +28,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManagedHubs(ctx context.Conte
 		annotations := make(map[string]string, len(orgAnnotations))
 		utils.CopyMap(annotations, managedHub.GetAnnotations())
 
-		//set the annotations for the managed hub
+		// set the annotations for the managed hub
 		orgAnnotations[constants.AnnotationONMulticlusterHub] = "true"
 		orgAnnotations[constants.AnnotationPolicyONMulticlusterHub] = "true"
 		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
@@ -39,11 +39,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManagedHubs(ctx context.Conte
 	}
 
 	return nil
-
 }
 
 func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) error {
-
 	clusters := &clusterv1.ManagedClusterList{}
 	if err := r.List(ctx, clusters, &client.ListOptions{}); err != nil {
 		return err
@@ -70,5 +68,4 @@ func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) 
 	}
 
 	return nil
-
 }

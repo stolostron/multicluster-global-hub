@@ -45,7 +45,7 @@ const (
 
 	grafanaDeploymentName = "multicluster-global-hub-grafana"
 
-	//Render can not parse the "{{ XXX }}" which is a keyword of alert, so need to replace it
+	// Render can not parse the "{{ XXX }}" which is a keyword of alert, so need to replace it
 	alertLeftWord  = "{{"
 	alertRightWord = "}}"
 
@@ -207,7 +207,7 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 		},
 	}
 
-	//Replace the grafana domain to grafana route url
+	// Replace the grafana domain to grafana route url
 	if r.RouteV1Client != nil {
 		grafanaRoute, err := r.RouteV1Client.RouteV1().
 			Routes(configNamespace).
@@ -273,7 +273,7 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 		return false, fmt.Errorf("failed to get default alert configmap: %w", err)
 	}
 
-	//replace the placeholder with original value word
+	// replace the placeholder with original value word
 	defaultAlertConfigMap.Data[alertConfigMapKey] = strings.ReplaceAll(
 		defaultAlertConfigMap.Data[alertConfigMapKey],
 		alertLeftPlaceHolder,
@@ -336,7 +336,7 @@ func mergeGrafanaIni(defaultIni, customIni []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	//delete sections from custom grafan.ini if the section exist in default grafana.ini
+	// delete sections from custom grafan.ini if the section exist in default grafana.ini
 	for _, v := range customCfg.Sections() {
 		if !defaultCfg.HasSection(v.Name()) {
 			continue
@@ -448,7 +448,6 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
-
 	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.PgConnection.ReadonlyUserDatabaseURI,
 		r.MiddlewareConfig.PgConnection.CACert)
 	if err != nil {
