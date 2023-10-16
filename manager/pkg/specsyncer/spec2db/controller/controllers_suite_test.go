@@ -25,7 +25,9 @@ import (
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
+	specctrl "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -67,6 +69,14 @@ var _ = BeforeSuite(func() {
 	By("Create test postgres")
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
+	err = testpostgres.InitDatabase(testPostgres.URI)
+	Expect(err).NotTo(HaveOccurred())
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:      testPostgres.URI,
+		Dialect:  database.PostgresDialect,
+		PoolSize: 2,
+	})
+	Expect(err).NotTo(HaveOccurred())
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -75,7 +85,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add to Scheme")
-	Expect(managerscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
+	managerscheme.AddToScheme(mgr.GetScheme())
 	Expect(mchv1.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
 
 	By("Get kubeClient")
@@ -93,6 +103,7 @@ var _ = BeforeSuite(func() {
 	Expect(postgresSQL).NotTo(BeNil())
 
 	By("Adding the controllers to the manager")
+	Expect(specctrl.AddManagedHubController(mgr)).Should(Succeed())
 	Expect(spec2db.AddSpec2DBControllers(mgr, postgresSQL)).Should(Succeed())
 	go func() {
 		defer GinkgoRecover()

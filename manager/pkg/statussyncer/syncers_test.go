@@ -89,9 +89,7 @@ func TestConsumer(t *testing.T) {
 		t.Errorf("failed to create runtime manager: %v", err)
 	}
 
-	if err := managerscheme.AddToScheme(mgr.GetScheme()); err != nil {
-		t.Errorf("failed to add scheme: %v", err)
-	}
+	managerscheme.AddToScheme(mgr.GetScheme())
 
 	managerConfig := &config.ManagerConfig{
 		DatabaseConfig: &config.DatabaseConfig{

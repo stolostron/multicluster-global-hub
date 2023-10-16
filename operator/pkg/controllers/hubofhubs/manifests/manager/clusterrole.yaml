@@ -92,6 +92,7 @@ rules:
   - managedclustersetbindings/finalizers
   - placements
   - placements/finalizers
+  - managedclusters
   verbs:
   - get
   - list

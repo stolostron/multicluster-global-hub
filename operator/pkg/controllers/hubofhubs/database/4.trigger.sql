@@ -8,7 +8,7 @@ CREATE TRIGGER update_compliance_table AFTER INSERT OR UPDATE ON local_status.co
 -- update the compliance cluster_id when insert record to managed clusters
 DROP TRIGGER IF EXISTS update_local_compliance_cluster_id_trigger ON status.managed_clusters;
 CREATE TRIGGER update_local_compliance_cluster_id_trigger
-AFTER INSERT ON status.managed_clusters
+AFTER INSERT OR UPDATE ON status.managed_clusters
 FOR EACH ROW
 EXECUTE FUNCTION public.update_local_compliance_cluster_id();
 
