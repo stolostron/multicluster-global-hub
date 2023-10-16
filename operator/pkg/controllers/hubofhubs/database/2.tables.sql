@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS status.managed_clusters (
     deleted_at timestamp without time zone
 );
 CREATE INDEX IF NOT EXISTS cluster_deleted_at_idx ON status.managed_clusters (deleted_at);
-CREATE UNIQUE INDEX IF NOT EXISTS leafhub_cluster_idx ON status.managed_clusters (leaf_hub_name, cluster_name);
+CREATE INDEX IF NOT EXISTS leafhub_cluster_idx ON status.managed_clusters (leaf_hub_name, cluster_name);
 
 CREATE TABLE IF NOT EXISTS status.leaf_hubs (
     leaf_hub_name character varying(254) NOT NULL PRIMARY KEY,
