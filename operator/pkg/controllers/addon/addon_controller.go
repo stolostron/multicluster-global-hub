@@ -2,6 +2,7 @@ package addon
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -18,6 +19,8 @@ import (
 	addonv1alpha1client "open-cluster-management.io/api/client/addon/clientset/versioned"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -111,7 +114,10 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		ControllerConfig:     a.ControllerConfig,
 		LogLevel:             a.LogLevel,
 	}
-
+	_, err = utils.WaitGlobalHubReady(ctx, a.client, 5*time.Second)
+	if err != nil {
+		return err
+	}
 	agentAddon, err := addonfactory.NewAgentAddonFactory(
 		operatorconstants.GHManagedClusterAddonName, FS, "manifests").
 		WithAgentHostedModeEnabledOption().

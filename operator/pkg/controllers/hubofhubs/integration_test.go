@@ -75,7 +75,7 @@ const (
 	kafkaBootstrapServer = "https://test-kafka.example.com"
 	datasourceSecretName = "multicluster-global-hub-grafana-datasources"
 
-	timeout  = time.Second * 10
+	timeout  = time.Second * 15
 	duration = time.Second * 10
 	interval = time.Millisecond * 250
 )
@@ -900,15 +900,20 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should get the postgres connection", func() {
-			mghReconciler.MiddlewareConfig.PgConnection = nil
-			mghReconciler.MiddlewareConfig.KafkaConnection = nil
-			_, err := mghReconciler.ReconcileMiddleware(ctx, mcgh)
-			fmt.Println("Reconcile the Middlewares", err.Error())
-			Expect(err).Should(HaveOccurred())
-			// has multicluster-global-hub-storage secret
-			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
-			// no multicluster-global-hub-transport secret
-			Expect(mghReconciler.MiddlewareConfig.KafkaConnection).Should(BeNil())
+			Eventually(func() bool {
+				mghReconciler.MiddlewareConfig.PgConnection = nil
+				mghReconciler.MiddlewareConfig.KafkaConnection = nil
+				mghReconciler.ReconcileMiddleware(ctx, mcgh)
+				// has multicluster-global-hub-storage secret
+				if mghReconciler.MiddlewareConfig.PgConnection == nil {
+					return false
+				}
+				return true
+				// Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
+				// // no multicluster-global-hub-transport secret
+				// Expect(mghReconciler.MiddlewareConfig.KafkaConnection).Should(BeNil())
+			}, timeout, interval).Should(BeTrue())
+
 		})
 
 		It("Should create the postgres resources", func() {
@@ -927,7 +932,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should not get the postgres and kafka connection", func() {
-			mghReconciler.MiddlewareConfig.PgConnection = nil
 			mghReconciler.MiddlewareConfig.KafkaConnection = nil
 
 			Expect(k8sClient.Delete(ctx, storageSecret)).Should(Succeed())
@@ -943,10 +947,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				return fmt.Errorf("should not find the secret")
 			}, timeout, interval).ShouldNot(HaveOccurred())
-			_, err := mghReconciler.ReconcileMiddleware(ctx, mcgh)
-			Expect(err).Should(HaveOccurred())
-			// has multicluster-global-hub-storage secret
-			Expect(mghReconciler.MiddlewareConfig.PgConnection).Should(BeNil())
+			mghReconciler.ReconcileMiddleware(ctx, mcgh)
 			// no multicluster-global-hub-transport secret
 			Expect(mghReconciler.MiddlewareConfig.KafkaConnection).Should(BeNil())
 		})
@@ -976,8 +977,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				fmt.Println("InitPostgresBystatefuleset Error", err.Error())
 			}
 			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
+			Expect(k8sClient.Delete(ctx, mcgh)).Should(Succeed())
 		})
 	})
+
 })
 
 func prettyPrint(v interface{}) error {

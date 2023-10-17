@@ -61,7 +61,6 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgresSubscription(ctx 
 		postgresSub = postgres.NewSubscription(mgh, subConfig, utils.IsCommunityMode())
 		createSub = true
 	}
-
 	// Apply Crunchy Postgres sub
 	calcSub := postgres.RenderSubscription(postgresSub, subConfig, utils.IsCommunityMode())
 	if createSub {
@@ -119,6 +118,7 @@ func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Conte
 		}
 		return nil, err
 	}
+
 	// wait for postgres cert secret to be ready
 	postgresCertName := &corev1.Secret{}
 	err = r.Client.Get(ctx, types.NamespacedName{
@@ -220,6 +220,7 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 	if err != nil {
 		return err
 	}
+
 	r.MiddlewareConfig.PgConnection = &postgres.PostgresConnection{
 		SuperuserDatabaseURI: "postgresql://" + credential.postgresAdminUsername + ":" +
 			credential.postgresAdminUserPassword + partialPostgresURI,

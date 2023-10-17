@@ -50,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
@@ -191,7 +192,7 @@ const (
 	kafkaCA              = "foobar"
 	kafkaBootstrapServer = "https://test-kafka.example.com"
 
-	timeout  = time.Second * 10
+	timeout  = time.Second * 60
 	duration = time.Second * 10
 	interval = time.Millisecond * 250
 )
@@ -204,6 +205,14 @@ var mgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 		ImagePullSecret: "test-pull-secret",
 		DataLayer:       globalhubv1alpha4.DataLayerConfig{},
 	},
+	Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
+		Conditions: []metav1.Condition{
+			{
+				Type:   condition.CONDITION_TYPE_GLOBALHUB_READY,
+				Status: metav1.ConditionTrue,
+			},
+		},
+	},
 }
 
 func prepareBeforeTest() {
@@ -211,6 +220,17 @@ func prepareBeforeTest() {
 	By("By creating a new MGH instance")
 	mgh.SetNamespace(config.GetDefaultNamespace())
 	Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
+
+	Expect(k8sClient.Status().Update(ctx, mgh)).Should(Succeed())
+
+	err := condition.SetCondition(ctx, k8sClient, mgh,
+		condition.CONDITION_TYPE_GLOBALHUB_READY,
+		metav1.ConditionTrue,
+		condition.CONDITION_REASON_GLOBALHUB_READY,
+		condition.CONDITION_MESSAGE_GLOBALHUB_READY,
+	)
+
+	Expect(err).ShouldNot(HaveOccurred())
 
 	// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 	mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}

@@ -22,18 +22,23 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
@@ -251,4 +256,40 @@ func CopyMap(newMap, originalMap map[string]string) {
 	for key, value := range originalMap {
 		newMap[key] = value
 	}
+}
+
+func WaitGlobalHubReady(ctx context.Context,
+	client client.Client,
+	interval time.Duration) (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
+	mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{}
+	klog.Info("Wait MulticlusterGlobalHub ready")
+
+	if err := wait.PollImmediate(interval, 10*time.Minute, func() (bool, error) {
+		mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
+		err := client.List(ctx, mghList)
+
+		if err != nil {
+			klog.Error(err, "Failed to list MulticlusterGlobalHub")
+			return false, nil
+		}
+		if len(mghList.Items) != 1 {
+			klog.V(2).Info("the count of the mgh instance is not 1 in the cluster.", "count", len(mghList.Items))
+			return false, nil
+		}
+		mghInstance = &mghList.Items[0]
+		if !mghList.Items[0].DeletionTimestamp.IsZero() {
+			klog.V(2).Info("MulticlusterGlobalHub is deleting")
+			return false, nil
+		}
+
+		if meta.IsStatusConditionTrue(mghInstance.Status.Conditions, condition.CONDITION_TYPE_GLOBALHUB_READY) {
+			klog.V(2).Info("MulticlusterGlobalHub ready condition is not true")
+			return true, nil
+		}
+		return false, nil
+	}); err != nil {
+		return mghInstance, err
+	}
+	klog.Info("MulticlusterGlobalHub is ready")
+	return mghInstance, nil
 }
