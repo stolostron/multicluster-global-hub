@@ -33,10 +33,17 @@ oc delete pod multicluster-global-hub-operator-xxx -n multicluster-global-hub
 
 2. Insert the simulated data into database:
 
+If you have crunchy operator installed, use the following commands to insert:
 ```bash
 kubectl cp create_local_policies.sql multicluster-global-hub/$(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}'):/tmp
 kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- ls -l /tmp/create_local_policies.sql
 kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- psql -U postgres -d hoh -f /tmp/create_local_policies.sql
+```
+If you have postgres statefulset installed, use the following commands to insert:
+```bash
+kubectl cp create_local_policies.sql multicluster-global-hub/multicluster-global-hub-postgres-0:/tmp
+kubectl exec -t multicluster-global-hub-postgres-0 -n multicluster-global-hub -- ls -l /tmp/create_local_policies.sql
+kubectl exec -t multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh -f /tmp/create_local_policies.sql
 ```
 
 3. Data Inserted into database
@@ -73,30 +80,23 @@ batchSize: 1000, insert: 1000, offset: 10000
  7942000
 (1 row)
 ```
+OR
+```bash
+# oc exec -it multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh -c "SELECT count(*) from history.local_compliance"
+ count
+--------
+ 7942000
+(1 row)
+```
 
 6. Check the PV usage of the postgres:
 
 ```bash
 # oc -n multicluster-global-hub exec -it hoh-pgha1-275z-0 -- df -h
-Defaulted container "database" out of: database, replication-cert-copy, pgbackrest, pgbackrest-config, postgres-startup (init), nss-wrapper-init (init)
-Filesystem      Size  Used Avail Use% Mounted on
-overlay         120G   30G   90G  26% /
-tmpfs            64M     0   64M   0% /dev
-tmpfs            31G     0   31G   0% /sys/fs/cgroup
-tmpfs            31G   84M   31G   1% /etc/passwd
-/dev/nvme0n1p4  120G   30G   90G  26% /tmp
-/dev/nvme4n1     20G  1.3G   20G   2% /pgdata
-tmpfs            61G   24K   61G   1% /pgconf/tls
-tmpfs            61G   24K   61G   1% /etc/database-containerinfo
-tmpfs            61G   16K   61G   1% /etc/patroni
-tmpfs            61G   28K   61G   1% /dev/shm
-tmpfs            61G   24K   61G   1% /etc/pgbackrest/conf.d
-tmpfs            61G   20K   61G   1% /run/secrets/kubernetes.io/serviceaccount
-tmpfs            31G     0   31G   0% /proc/acpi
-tmpfs            31G     0   31G   0% /proc/scsi
-tmpfs            31G     0   31G   0% /sys/firmware
+or
+oc -n multicluster-global-hub exec -it multicluster-global-hub-postgres-0 -- df -h
 ```
 
-As we can see from above output, `/pgdata` use about 3G space for `8 million` data.
+`/pgdata` uses about 3Gi space for `8 million` data.
 
 7. Check the Grafana dashbord for "Global Hub - Policy Group Compliancy Overview".
