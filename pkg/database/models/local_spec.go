@@ -15,8 +15,8 @@ type LocalSpecPolicy struct {
 	PolicyStandard string         `gorm:"column:policy_standard;default:(-)"`
 	PolicyCategory string         `gorm:"column:policy_category;default:(-)"`
 	PolicyControl  string         `gorm:"column:policy_control;default:(-)"`
-	CreatedAt      time.Time      `gorm:"column:created_at;default:(-)"`
-	UpdatedAt      time.Time      `gorm:"column:updated_at;default:(-)"`
+	CreatedAt      time.Time      `gorm:"column:created_at;autoCreateTime:true"`
+	UpdatedAt      time.Time      `gorm:"column:updated_at;autoUpdateTime:true"`
 	DeletedAt      gorm.DeletedAt `gorm:"column:deleted_at"`
 }
 
