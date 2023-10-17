@@ -67,6 +67,7 @@ var (
 	ctx           context.Context
 	cancel        context.CancelFunc
 	mghReconciler *hubofhubscontroller.MulticlusterGlobalHubReconciler
+	testNamespace = "default"
 )
 
 func TestControllers(t *testing.T) {
@@ -75,7 +76,7 @@ func TestControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	Expect(os.Setenv("POD_NAMESPACE", "default")).To(Succeed())
+	Expect(os.Setenv("POD_NAMESPACE", testNamespace)).To(Succeed())
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancel = context.WithCancel(context.TODO())
@@ -136,7 +137,7 @@ var _ = BeforeSuite(func() {
 		MetricsBindAddress:      "0", // disable the metrics serving
 		Scheme:                  scheme.Scheme,
 		LeaderElection:          true,
-		LeaderElectionNamespace: "default",
+		LeaderElectionNamespace: testNamespace,
 		LeaderElectionID:        "549a8919.open-cluster-management.io",
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
@@ -171,6 +172,8 @@ var _ = BeforeSuite(func() {
 		Client: k8sManager.GetClient(),
 		Log:    ctrl.Log.WithName("status-condition-reconciler"),
 	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+	err = UpdateReadyPostgresCluster(mghReconciler.Client, testNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {

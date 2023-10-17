@@ -22,9 +22,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -34,18 +34,12 @@ type HoHAddonInstallReconciler struct {
 }
 
 func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
-	if err := r.List(ctx, mghList); err != nil {
+	mghInstance, err := utils.WaitGlobalHubReady(ctx, r, 5*time.Second)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if len(mghList.Items) == 0 {
-		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-	}
-	if !mghList.Items[0].DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
-	}
 
-	if config.IsPaused(&mghList.Items[0]) {
+	if config.IsPaused(mghInstance) {
 		r.Log.Info("multiclusterglobalhub addon reconciliation is paused, nothing more to do")
 		return ctrl.Result{}, nil
 	}
@@ -57,7 +51,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
-	err := r.Get(ctx, types.NamespacedName{
+	err = r.Get(ctx, types.NamespacedName{
 		Name: operatorconstants.GHClusterManagementAddonName,
 	}, clusterManagementAddOn)
 	if err != nil {

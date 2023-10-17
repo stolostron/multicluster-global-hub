@@ -24,9 +24,12 @@ import (
 	"fmt"
 	"time"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"gopkg.in/yaml.v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -37,6 +40,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
@@ -64,6 +69,79 @@ import (
 //go:embed manifests
 var testFS embed.FS
 
+var (
+	readyCondition = "Ready"
+	trueCondition  = "True"
+	bootServer     = "kafka-kafka-bootstrap.multicluster-global-hub.svc:9092"
+)
+
+var kafkaCluster = &kafkav1beta2.Kafka{
+	ObjectMeta: metav1.ObjectMeta{
+		Namespace: config.GetDefaultNamespace(),
+		Name:      kafka.KafkaClusterName,
+	},
+	Status: &kafkav1beta2.KafkaStatus{
+		Listeners: []kafkav1beta2.KafkaStatusListenersElem{
+			{
+				BootstrapServers: &bootServer,
+			},
+			{
+				BootstrapServers: &bootServer,
+				Certificates: []string{
+					"cert",
+				},
+			},
+		},
+		Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
+			{
+				Type:   &readyCondition,
+				Status: &trueCondition,
+			},
+		},
+	},
+}
+
+var kafkaSecret = &corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Namespace: config.GetDefaultNamespace(),
+		Name:      kafka.KafkaUserName,
+	},
+	Data: map[string][]byte{
+		"user.crt": []byte("usercrt"),
+		"user.key": []byte("userkey"),
+	},
+}
+
+var guestPostgresSecret = &corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Namespace: config.GetDefaultNamespace(),
+		Name:      postgres.PostgresGuestUserSecretName,
+	},
+	Data: map[string][]byte{
+		"uri": []byte("usercrt"),
+	},
+}
+
+var superuserPostgresSecret = &corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Namespace: config.GetDefaultNamespace(),
+		Name:      postgres.PostgresSuperUserSecretName,
+	},
+	Data: map[string][]byte{
+		"uri": []byte("usercrt"),
+	},
+}
+
+var postgresCertSecret = &corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Namespace: config.GetDefaultNamespace(),
+		Name:      postgres.PostgresCertName,
+	},
+	Data: map[string][]byte{
+		"ca.crt": []byte("cacrt"),
+	},
+}
+
 // Define utility constants for object names and testing timeouts/durations and intervals.
 const (
 	MGHName              = "test-mgh"
@@ -75,7 +153,7 @@ const (
 	kafkaBootstrapServer = "https://test-kafka.example.com"
 	datasourceSecretName = "multicluster-global-hub-grafana-datasources"
 
-	timeout  = time.Second * 10
+	timeout  = time.Second * 15
 	duration = time.Second * 10
 	interval = time.Millisecond * 250
 )
@@ -628,6 +706,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should remove finalizer added to MGH consumer resources", func() {
+			err := UpdateReadyKafkaCluster(mghReconciler.Client, "default")
+			Expect(err).NotTo(HaveOccurred())
+
 			By("By creating a finalizer placement")
 			testPlacement := &clusterv1beta1.Placement{
 				ObjectMeta: metav1.ObjectMeta{
@@ -917,19 +998,18 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(mghReconciler.EnsureCrunchyPostgresSubscription(ctx, mcgh)).Should(Succeed())
 			Expect(mghReconciler.EnsureCrunchyPostgres(ctx)).Should(Succeed())
 			_, err := mghReconciler.WaitForPostgresReady(ctx)
-			// postgres cannot be ready in envtest
-			Expect(err).Should(HaveOccurred())
+			// postgres should be ready in envtest
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("Should create the kafka resources", func() {
 			Expect(mghReconciler.EnsureKafkaSubscription(ctx, mcgh)).Should(Succeed())
 			Expect(mghReconciler.EnsureKafkaResources(ctx, mcgh)).Should(Succeed())
 			_, err := mghReconciler.WaitForKafkaClusterReady(ctx)
-			// postgres cannot be ready in envtest
-			Expect(err).Should(HaveOccurred())
+			// kafka should be ready in envtest
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 
-		It("Should not get the postgres and kafka connection", func() {
-
+		It("Should get the postgres and kafka connection", func() {
 			Expect(k8sClient.Delete(ctx, storageSecret)).Should(Succeed())
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, types.NamespacedName{
@@ -948,10 +1028,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				mghReconciler.MiddlewareConfig.KafkaConnection = nil
 
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
-				if mghReconciler.MiddlewareConfig.PgConnection != nil {
+				if mghReconciler.MiddlewareConfig.PgConnection == nil {
 					return fmt.Errorf("mghReconciler.MiddlewareConfig.PgConnection should be nil")
 				}
-				if mghReconciler.MiddlewareConfig.KafkaConnection != nil {
+				if mghReconciler.MiddlewareConfig.KafkaConnection == nil {
 					return fmt.Errorf("mghReconciler.MiddlewareConfig.KafkaConnection should be nil")
 				}
 				return nil
@@ -991,6 +1071,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 		})
 	})
+
 })
 
 func prettyPrint(v interface{}) error {
@@ -1032,5 +1113,85 @@ func checkResourceExistence(ctx context.Context, k8sClient client.Client, desire
 			gvk, objLookupKey, diff.Diff(string(desiredObjYaml), string(foundObjYaml)), string(desiredObjYaml))
 	}
 
+	return nil
+}
+
+func UpdateReadyKafkaCluster(client client.Client, ns string) error {
+	err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
+		existkafkaCluster := &kafkav1beta2.Kafka{}
+		err := client.Get(context.Background(), types.NamespacedName{
+			Name:      kafka.KafkaClusterName,
+			Namespace: ns,
+		}, existkafkaCluster)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				kafkaCluster.Namespace = ns
+				err = client.Create(context.Background(), kafkaCluster)
+				if err != nil {
+					klog.Errorf("Failed to create kafka cluster, error:%v", err)
+					return false, nil
+				}
+			}
+			klog.Errorf("Failed to get Kafka cluster, error:%v", err)
+			return false, nil
+		}
+		existkafkaCluster.Status = &kafkav1beta2.KafkaStatus{
+			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
+				{
+					BootstrapServers: &bootServer,
+				},
+				{
+					BootstrapServers: &bootServer,
+					Certificates: []string{
+						"cert",
+					},
+				},
+			},
+			Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
+				{
+					Type:   &readyCondition,
+					Status: &trueCondition,
+				},
+			},
+		}
+		err = client.Status().Update(context.Background(), existkafkaCluster)
+		if err != nil {
+			klog.Errorf("Failed to update Kafka cluster, error:%v", err)
+			return false, nil
+		}
+
+		kafkaSecret.Namespace = ns
+		err = client.Create(context.Background(), kafkaSecret)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			klog.Errorf("Failed to create Kafka secret, error:%v", err)
+			return false, nil
+		}
+		return true, nil
+	})
+
+	return err
+}
+
+func UpdateReadyPostgresCluster(client client.Client, ns string) error {
+	guestPostgresSecret.Namespace = ns
+	err := client.Create(context.Background(), guestPostgresSecret)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		klog.Errorf("Failed to create guestPostgresSecret secret, error:%v", err)
+		return err
+	}
+
+	superuserPostgresSecret.Namespace = ns
+	err = client.Create(context.Background(), superuserPostgresSecret)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		klog.Errorf("Failed to create superuserPostgresSecret secret, error:%v", err)
+		return err
+	}
+
+	postgresCertSecret.Namespace = ns
+	err = client.Create(context.Background(), postgresCertSecret)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		klog.Errorf("Failed to create postgresCertSecret secret, error:%v", err)
+		return err
+	}
 	return nil
 }
