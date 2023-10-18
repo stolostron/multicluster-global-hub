@@ -242,8 +242,9 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 			WITH compliance_aggregate AS (
 					SELECT cluster_id, policy_id, leaf_hub_name,
 							CASE
-									WHEN bool_and(compliance = 'compliant') THEN 'compliant'
-									ELSE 'non_compliant'
+									WHEN bool_or(compliance = 'non_compliant') THEN 'non_compliant'
+									WHEN bool_or(compliance = 'unknown') THEN 'unknown'
+									ELSE 'compliant'
 							END::local_status.compliance_type AS aggregated_compliance
 					FROM event.local_policies
 					WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
