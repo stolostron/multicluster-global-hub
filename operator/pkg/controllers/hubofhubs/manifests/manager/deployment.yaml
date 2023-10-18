@@ -36,10 +36,10 @@ spec:
             - --kafka-ca-cert-path=/kafka-certs/ca.crt
             - --kafka-client-cert-path=/kafka-certs/client.crt
             - --kafka-client-key-path=/kafka-certs/client.key
-            - --postgres-ca-path=/postgres-ca/ca.crt
+            - --postgres-ca-path=/postgres-credential/ca.crt
             - --transport-message-compression-type={{.MessageCompressionType}}
-            - --process-database-url=$(DATABASE_URL)
-            - --transport-bridge-database-url=$(DATABASE_URL)
+            - --process-database-url=/postgres-credential/database-url
+            - --transport-bridge-database-url=/postgres-credential/database-url
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
@@ -59,8 +59,6 @@ spec:
                   apiVersion: v1
                   fieldPath: metadata.namespace
             - name: WATCH_NAMESPACE
-            - name: DATABASE_URL
-              value: {{.DatabaseURL}}
             {{- if .LaunchJobNames}}
             - name: LAUNCH_JOB_NAMES
               value: {{.LaunchJobNames}}
@@ -84,8 +82,8 @@ spec:
           - mountPath: /kafka-certs
             name: kafka-certs
             readOnly: true
-          - mountPath: /postgres-ca
-            name: postgres-ca
+          - mountPath: /postgres-credential
+            name: postgres-credential
             readOnly: true
         {{ if .EnableGlobalResource }}
         - name: oauth-proxy
@@ -155,9 +153,9 @@ spec:
       - name: kafka-certs
         secret:
           secretName: kafka-certs-secret
-      - name: postgres-ca
+      - name: postgres-credential
         secret:
-          secretName: postgres-certs-secret
+          secretName: postgres-credential-secret
       {{ if .EnableGlobalResource }}
       - name: apiserver-certs
         secret:
