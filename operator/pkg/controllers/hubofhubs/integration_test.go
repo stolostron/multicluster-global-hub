@@ -344,7 +344,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ImagePullPolicy:        string(imagePullPolicy),
 					ImagePullSecret:        mgh.Spec.ImagePullSecret,
 					ProxySessionSecret:     "testing",
-					DatabaseURL:            testPostgres.URI,
+					DatabaseURL:            base64.StdEncoding.EncodeToString([]byte(testPostgres.URI)),
 					PostgresCACert:         base64.StdEncoding.EncodeToString([]byte("")),
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
 					KafkaClientCert:        base64.RawStdEncoding.EncodeToString([]byte(kafkaClientCert)),

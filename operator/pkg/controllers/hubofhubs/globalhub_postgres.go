@@ -88,10 +88,7 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgres(ctx context.Cont
 		Namespace: config.GetDefaultNamespace(),
 	}, postgresCluster)
 	if err != nil && errors.IsNotFound(err) {
-		e := r.Client.Create(ctx, postgres.NewPostgres(postgres.PostgresName, config.GetDefaultNamespace()))
-		if e != nil {
-			return e
-		}
+		return r.Client.Create(ctx, postgres.NewPostgres(postgres.PostgresName, config.GetDefaultNamespace()))
 	}
 	return err
 }
@@ -171,6 +168,10 @@ func (r *MulticlusterGlobalHubReconciler) initPostgresByStatefulset(ctx context.
 	if err != nil {
 		return err
 	}
+	ca, err := getPostgresCA(ctx, mgh, r)
+	if err != nil {
+		return err
+	}
 	imagePullPolicy := corev1.PullAlways
 	if mgh.Spec.ImagePullPolicy != "" {
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
@@ -204,7 +205,7 @@ func (r *MulticlusterGlobalHubReconciler) initPostgresByStatefulset(ctx context.
 				PostgresAdminUserPassword:    credential.postgresAdminUserPassword,
 				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
 				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
-				PostgresCACert:               base64.StdEncoding.EncodeToString(r.MiddlewareConfig.PgConnection.CACert),
+				PostgresCACert:               base64.StdEncoding.EncodeToString([]byte(ca)),
 				StorageClass:                 mgh.Spec.DataLayer.StorageClass,
 			}, nil
 		})
@@ -223,10 +224,6 @@ func (r *MulticlusterGlobalHubReconciler) initPostgresByStatefulset(ctx context.
 		return fmt.Errorf("failed to create/update postgres objects: %w", err)
 	}
 
-	ca, err := getPostgresCA(ctx, mgh, r)
-	if err != nil {
-		return err
-	}
 	r.MiddlewareConfig.PgConnection = &postgres.PostgresConnection{
 		SuperuserDatabaseURI: "postgresql://" + credential.postgresAdminUsername + ":" +
 			credential.postgresAdminUserPassword + partialPostgresURI,
