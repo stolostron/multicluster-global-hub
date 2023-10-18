@@ -85,7 +85,7 @@ data:
               ],
               "mappings": [],
               "max": 1,
-              "noValue": "No data until tomorrow morning",
+              "noValue": "Initial data load occurs after 0:00Z",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
