@@ -903,6 +903,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mghReconciler.MiddlewareConfig.PgConnection = nil
 			mghReconciler.MiddlewareConfig.KafkaConnection = nil
 			_, err := mghReconciler.ReconcileMiddleware(ctx, mcgh)
+			fmt.Println("Reconcile the Middlewares", err.Error())
 			Expect(err).Should(HaveOccurred())
 			// has multicluster-global-hub-storage secret
 			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
@@ -970,7 +971,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 		It("Should get the postgres connection", func() {
 			mghReconciler.MiddlewareConfig.PgConnection = nil
-			mghReconciler.ReconcileDatabase(ctx, mcgh)
+			mghReconciler.ReconcileMiddleware(ctx, mcgh)
 			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
 		})
 	})

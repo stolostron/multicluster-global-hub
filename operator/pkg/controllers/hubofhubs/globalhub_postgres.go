@@ -2,7 +2,6 @@ package hubofhubs
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
@@ -168,10 +167,6 @@ func (r *MulticlusterGlobalHubReconciler) initPostgresByStatefulset(ctx context.
 	if err != nil {
 		return err
 	}
-	ca, err := getPostgresCA(ctx, mgh, r)
-	if err != nil {
-		return err
-	}
 	imagePullPolicy := corev1.PullAlways
 	if mgh.Spec.ImagePullPolicy != "" {
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
@@ -205,7 +200,6 @@ func (r *MulticlusterGlobalHubReconciler) initPostgresByStatefulset(ctx context.
 				PostgresAdminUserPassword:    credential.postgresAdminUserPassword,
 				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
 				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
-				PostgresCACert:               base64.StdEncoding.EncodeToString([]byte(ca)),
 				StorageClass:                 mgh.Spec.DataLayer.StorageClass,
 			}, nil
 		})
@@ -224,6 +218,10 @@ func (r *MulticlusterGlobalHubReconciler) initPostgresByStatefulset(ctx context.
 		return fmt.Errorf("failed to create/update postgres objects: %w", err)
 	}
 
+	ca, err := getPostgresCA(ctx, mgh, r)
+	if err != nil {
+		return err
+	}
 	r.MiddlewareConfig.PgConnection = &postgres.PostgresConnection{
 		SuperuserDatabaseURI: "postgresql://" + credential.postgresAdminUsername + ":" +
 			credential.postgresAdminUserPassword + partialPostgresURI,
