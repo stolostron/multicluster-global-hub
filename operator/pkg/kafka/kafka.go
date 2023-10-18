@@ -18,14 +18,14 @@ var (
 	SubscriptionName = "strimzi-kafka-operator"
 
 	// prod postgres variables
-	channel                = "stable"
+	channel                = "amq-streams-2.5.x"
 	installPlanApproval    = subv1alpha1.ApprovalAutomatic
 	packageName            = "amq-streams"
 	catalogSourceName      = "redhat-operators"
 	catalogSourceNamespace = "openshift-marketplace"
 
 	// community postgres variables
-	communityChannel           = "stable"
+	communityChannel           = "strimzi-0.36.x"
 	communityPackageName       = "strimzi-kafka-operator"
 	communityCatalogSourceName = "community-operators"
 
@@ -37,7 +37,7 @@ var (
 	KafkaUserName        = "global-hub-kafka-user"
 
 	// kafka version
-	kafkaVersion = "3.4.0"
+	kafkaVersion = "3.5.0"
 
 	// kafka storage
 	kafkaStorageIndentifier int32 = 0
@@ -156,7 +156,7 @@ func NewKafka(mgh *globalhubv1alpha4.MulticlusterGlobalHub, name, namespace stri
 			Kafka: kafkav1beta2.KafkaSpecKafka{
 				Config: &apiextensions.JSON{Raw: []byte(`{
 "default.replication.factor": 3,
-"inter.broker.protocol.version": "3.4",
+"inter.broker.protocol.version": "3.5",
 "min.insync.replicas": 2,
 "offsets.topic.replication.factor": 3,
 "transaction.state.log.min.isr": 2,
