@@ -173,7 +173,9 @@ func (c *genericStatusSyncController) syncBundles() {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer c.lock.Unlock()
 
-	for _, entry := range c.orderedBundleCollection {
+	for i := range c.orderedBundleCollection {
+		entry := c.orderedBundleCollection[i]
+
 		if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true.
 			continue
 		}
