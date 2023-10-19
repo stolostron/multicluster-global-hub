@@ -172,7 +172,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View Grafana Observability dashboard of hub ${__data.fields.leaf_hub_name} ",
-                        "url": "${__data.fields.grafana_url}"
+                        "url": "${__data.fields.grafana_url}/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=${__data.fields.cluster_name}"
                       }
                     ]
                   }
