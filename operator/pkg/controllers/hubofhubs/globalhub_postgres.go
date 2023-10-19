@@ -159,7 +159,7 @@ func (r *MulticlusterGlobalHubReconciler) GeneratePGConnectionFromGHStorageSecre
 	}, nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) initPostgresByStatefulset(ctx context.Context,
+func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	// install the postgres statefulset only

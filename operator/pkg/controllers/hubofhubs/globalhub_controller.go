@@ -232,7 +232,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 			}
 		} else {
 			// create the statefulset postgres and initialize the r.MiddlewareConfig.PgConnection
-			if e := r.initPostgresByStatefulset(ctx, mgh); e != nil {
+			if e := r.InitPostgresByStatefulset(ctx, mgh); e != nil {
 				return ctrl.Result{}, e
 			}
 		}
