@@ -956,7 +956,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 	})
 
-	Context("Reconcile the Postgres database", func() {
+	Context("Reconcile the Postgres database", Ordered, func() {
 		mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 		It("Should create the MGH instance", func() {
 			mcgh = &globalhubv1alpha4.MulticlusterGlobalHub{
@@ -971,7 +971,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 		It("Should get the postgres connection", func() {
 			mghReconciler.MiddlewareConfig.PgConnection = nil
-			mghReconciler.InitPostgresByStatefulset(ctx, mcgh)
+			err := mghReconciler.InitPostgresByStatefulset(ctx, mcgh)
+			if err != nil {
+				fmt.Println("InitPostgresBystatefuleset Error", err.Error())
+			}
 			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
 		})
 	})

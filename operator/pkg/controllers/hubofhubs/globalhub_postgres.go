@@ -187,7 +187,6 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 				PostgresAdminUserPassword    string
 				PostgresReadonlyUsername     string
 				PostgresReadonlyUserPassword string
-				PostgresCACert               string
 				StorageClass                 string
 			}{
 				Namespace:                    config.GetDefaultNamespace(),

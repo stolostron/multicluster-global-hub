@@ -38,8 +38,8 @@ spec:
             - --kafka-client-key-path=/kafka-certs/client.key
             - --postgres-ca-path=/postgres-credential/ca.crt
             - --transport-message-compression-type={{.MessageCompressionType}}
-            - --process-database-url=/postgres-credential/database-url
-            - --transport-bridge-database-url=/postgres-credential/database-url
+            - --process-database-url=$(DATABASE_URL)
+            - --transport-bridge-database-url=$(DATABASE_URL)
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
@@ -58,6 +58,11 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credential-secret
+                  key: database-url
             - name: WATCH_NAMESPACE
             {{- if .LaunchJobNames}}
             - name: LAUNCH_JOB_NAMES
