@@ -971,7 +971,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 		It("Should get the postgres connection", func() {
 			mghReconciler.MiddlewareConfig.PgConnection = nil
-			mghReconciler.ReconcileMiddleware(ctx, mcgh)
+			_, err := mghReconciler.ReconcileMiddleware(ctx, mcgh)
+			if !errors.IsAlreadyExists(err) {
+				Expect(err).Should(Succeed())
+			}
 			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
 		})
 	})
