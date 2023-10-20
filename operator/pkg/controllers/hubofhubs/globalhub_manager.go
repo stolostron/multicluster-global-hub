@@ -109,13 +109,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			EnableGlobalResource   bool
 			LogLevel               string
 		}{
-			Image:                  config.GetImage(config.GlobalHubManagerImageKey),
-			Replicas:               replicas,
-			ProxyImage:             config.GetImage(config.OauthProxyImageKey),
-			ImagePullSecret:        mgh.Spec.ImagePullSecret,
-			ImagePullPolicy:        string(imagePullPolicy),
-			ProxySessionSecret:     proxySessionSecret,
-			DatabaseURL:            r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI,
+			Image:              config.GetImage(config.GlobalHubManagerImageKey),
+			Replicas:           replicas,
+			ProxyImage:         config.GetImage(config.OauthProxyImageKey),
+			ImagePullSecret:    mgh.Spec.ImagePullSecret,
+			ImagePullPolicy:    string(imagePullPolicy),
+			ProxySessionSecret: proxySessionSecret,
+			DatabaseURL: base64.StdEncoding.EncodeToString(
+				[]byte(r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI)),
 			PostgresCACert:         base64.StdEncoding.EncodeToString(r.MiddlewareConfig.PgConnection.CACert),
 			KafkaCACert:            r.MiddlewareConfig.KafkaConnection.CACert,
 			KafkaClientCert:        r.MiddlewareConfig.KafkaConnection.ClientCert,

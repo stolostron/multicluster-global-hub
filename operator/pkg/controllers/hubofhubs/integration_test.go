@@ -344,7 +344,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ImagePullPolicy:        string(imagePullPolicy),
 					ImagePullSecret:        mgh.Spec.ImagePullSecret,
 					ProxySessionSecret:     "testing",
-					DatabaseURL:            testPostgres.URI,
+					DatabaseURL:            base64.StdEncoding.EncodeToString([]byte(testPostgres.URI)),
 					PostgresCACert:         base64.StdEncoding.EncodeToString([]byte("")),
 					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
 					KafkaClientCert:        base64.RawStdEncoding.EncodeToString([]byte(kafkaClientCert)),
@@ -903,6 +903,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mghReconciler.MiddlewareConfig.PgConnection = nil
 			mghReconciler.MiddlewareConfig.KafkaConnection = nil
 			_, err := mghReconciler.ReconcileMiddleware(ctx, mcgh)
+			fmt.Println("Reconcile the Middlewares", err.Error())
 			Expect(err).Should(HaveOccurred())
 			// has multicluster-global-hub-storage secret
 			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
@@ -955,7 +956,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 	})
 
-	Context("Reconcile the Postgres database", func() {
+	Context("Reconcile the Postgres database", Ordered, func() {
 		mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 		It("Should create the MGH instance", func() {
 			mcgh = &globalhubv1alpha4.MulticlusterGlobalHub{
@@ -970,7 +971,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 		It("Should get the postgres connection", func() {
 			mghReconciler.MiddlewareConfig.PgConnection = nil
-			mghReconciler.ReconcileDatabase(ctx, mcgh)
+			err := mghReconciler.InitPostgresByStatefulset(ctx, mcgh)
+			if err != nil {
+				fmt.Println("InitPostgresBystatefuleset Error", err.Error())
+			}
 			Expect(mghReconciler.MiddlewareConfig.PgConnection).ShouldNot(BeNil())
 		})
 	})

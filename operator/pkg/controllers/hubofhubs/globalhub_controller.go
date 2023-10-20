@@ -211,12 +211,10 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	kafkaConnection, err := r.GenerateKafkaConnectionFromGHTransportSecret(ctx)
 	if err != nil && !errors.IsNotFound(err) {
 		return ctrl.Result{}, err
-	}
-
-	if kafkaConnection == nil {
-		// reconcile kafka
-		if err := r.EnsureKafkaSubscription(ctx, mgh); err != nil {
-			return ctrl.Result{}, err
+	} else if errors.IsNotFound(err) {
+		// create kafka operator by subscription
+		if e := r.EnsureKafkaSubscription(ctx, mgh); e != nil {
+			return ctrl.Result{}, e
 		}
 	} else {
 		r.MiddlewareConfig.KafkaConnection = kafkaConnection
@@ -226,13 +224,16 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	pgConnection, err := r.GeneratePGConnectionFromGHStorageSecret(ctx)
 	if err != nil && !errors.IsNotFound(err) {
 		return ctrl.Result{}, err
-	}
-	// if not-provided postgres secret, create crunchy postgres in the global hub namespace
-	if pgConnection == nil {
-		// reconcile crunchy postgres
+	} else if errors.IsNotFound(err) {
+		// if not-provided postgres secret, create crunchy postgres operator by subscription
 		if config.GetInstallCrunchyOperator(mgh) {
-			if err := r.EnsureCrunchyPostgresSubscription(ctx, mgh); err != nil {
-				return ctrl.Result{}, err
+			if e := r.EnsureCrunchyPostgresSubscription(ctx, mgh); e != nil {
+				return ctrl.Result{}, e
+			}
+		} else {
+			// create the statefulset postgres and initialize the r.MiddlewareConfig.PgConnection
+			if e := r.InitPostgresByStatefulset(ctx, mgh); e != nil {
+				return ctrl.Result{}, e
 			}
 		}
 	} else {
@@ -255,6 +256,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		if kafkaConnection, err = r.WaitForKafkaClusterReady(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
+		r.MiddlewareConfig.KafkaConnection = kafkaConnection
 	}
 
 	if pgConnection == nil && config.GetInstallCrunchyOperator(mgh) {
@@ -262,9 +264,8 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		if pgConnection, err = r.WaitForPostgresReady(ctx); err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
+		r.MiddlewareConfig.PgConnection = pgConnection
 	}
-	r.MiddlewareConfig.KafkaConnection = kafkaConnection
-	r.MiddlewareConfig.PgConnection = pgConnection
 
 	return ctrl.Result{}, nil
 }
@@ -469,8 +470,9 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 )
 
 func secretCond(obj client.Object) bool {
-	return obj.GetName() == operatorconstants.GHStorageSecretName ||
-		obj.GetName() == operatorconstants.GHTransportSecretName ||
+	return obj.GetName() == operatorconstants.GHTransportSecretName ||
+		obj.GetName() == operatorconstants.GHStorageSecretName ||
+		obj.GetName() == operatorconstants.GHBuiltInStorageSecretName ||
 		obj.GetName() == operatorconstants.CustomGrafanaIniName ||
 		obj.GetName() == config.GetImagePullSecretName()
 }

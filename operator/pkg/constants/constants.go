@@ -87,9 +87,10 @@ const (
 
 // global hub transport and storage secret names
 const (
-	GHTransportSecretName     = "multicluster-global-hub-transport" // #nosec G101
-	GHStorageSecretName       = "multicluster-global-hub-storage"   // #nosec G101
-	GHDefaultStorageRetention = "18m"                               // 18 months
+	GHTransportSecretName      = "multicluster-global-hub-transport" // #nosec G101
+	GHStorageSecretName        = "multicluster-global-hub-storage"   // #nosec G101
+	GHBuiltInStorageSecretName = "multicluster-global-hub-postgres"  // #nosec G101
+	GHDefaultStorageRetention  = "18m"                               // 18 months
 )
 
 const (
