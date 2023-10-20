@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -24,7 +23,6 @@ var (
 	ctx     context.Context
 	cancel  context.CancelFunc
 	mgr     ctrl.Manager
-	pool    *pgxpool.Pool
 )
 
 func TestScheduler(t *testing.T) {
