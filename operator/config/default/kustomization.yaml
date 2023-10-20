@@ -72,3 +72,17 @@ vars:
 #    kind: Service
 #    version: v1
 #    name: webhook-service
+
+replacements:
+- source:
+    fieldPath: metadata.namespace
+    kind: Deployment
+    name: multicluster-global-hub-operator
+  targets:
+  - fieldPaths:
+    - spec.targetNamespaces.0
+    select:
+      group: operators.coreos.com
+      kind: OperatorGroup
+      name: default
+      version: v1
