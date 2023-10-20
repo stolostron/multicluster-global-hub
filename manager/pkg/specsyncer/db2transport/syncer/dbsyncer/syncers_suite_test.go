@@ -23,7 +23,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -34,15 +33,14 @@ import (
 )
 
 var (
-	testenv             *envtest.Environment
-	cfg                 *rest.Config
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	mgr                 ctrl.Manager
-	kubeClient          client.Client
-	testPostgres        *testpostgres.TestPostgres
-	transportPostgreSQL *postgresql.PostgreSQL
-	genericConsumer     *consumer.GenericConsumer
+	testenv         *envtest.Environment
+	cfg             *rest.Config
+	ctx             context.Context
+	cancel          context.CancelFunc
+	mgr             ctrl.Manager
+	kubeClient      client.Client
+	testPostgres    *testpostgres.TestPostgres
+	genericConsumer *consumer.GenericConsumer
 )
 
 func TestSpecSyncer(t *testing.T) {
@@ -77,6 +75,9 @@ var _ = BeforeSuite(func() {
 		CaCertPath: "ca-cert-path",
 		PoolSize:   5,
 	})
+	Expect(err).NotTo(HaveOccurred())
+
+	err = testpostgres.InitDatabase(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{

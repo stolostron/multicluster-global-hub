@@ -65,11 +65,11 @@ func TestScheduler(t *testing.T) {
 
 	scheduler := gocron.NewScheduler(time.Local)
 	_, err = scheduler.Every(1).Day().At("00:00").Tag(task.LocalComplianceTaskName).DoWithJobDetails(
-		task.SyncLocalCompliance, ctx, pool, false)
+		task.SyncLocalCompliance, ctx, false)
 	assert.Nil(t, err)
 
 	_, err = scheduler.Every(1).Month(1, 15, 28).At("00:00").Tag(task.RetentionTaskName).
-		DoWithJobDetails(task.DataRetention, ctx, pool, managerConfig.DatabaseConfig.DataRetention)
+		DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
 	assert.Nil(t, err)
 
 	globalScheduler := &GlobalHubJobScheduler{

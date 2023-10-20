@@ -9,172 +9,25 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var _ = Describe("Database to Transport Syncer", Ordered, func() {
-	BeforeAll(func() {
-		By("Create config table in spec schema")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS spec;
-
-			CREATE TABLE IF NOT EXISTS  spec.configs (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create mangedcluster_label table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.managed_clusters_labels (
-				id uuid NOT NULL,
-				leaf_hub_name character varying(63) DEFAULT ''::character varying NOT NULL,
-				managed_cluster_name character varying(63) NOT NULL,
-				labels jsonb DEFAULT '{}'::jsonb NOT NULL,
-				deleted_label_keys jsonb DEFAULT '[]'::jsonb NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				version bigint DEFAULT 0 NOT NULL,
-				CONSTRAINT managed_clusters_labels_version_check CHECK ((version >= 0))
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create managedclusterset table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.managedclustersets (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create managedclustersetbinding table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.managedclustersetbindings (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create policy table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.policies (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create policy table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.policies (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create placementrule table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.placementrules (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create placementbinding table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.placementbindings (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create placement table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.placements (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create application table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.applications (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create channel table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.channels (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Create subscription table in spec schema")
-		_, err = transportPostgreSQL.GetConn().Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS  spec.subscriptions (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
+	var db *gorm.DB
 	BeforeEach(func() {
-		_, err := transportPostgreSQL.GetConn().Exec(ctx, "SELECT 1")
+		db = database.GetGorm()
+		err := db.Exec("SELECT 1").Error
 		fmt.Println("checking postgres...")
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	// It("Test config can be synced through transport", func() {
 	// 	By("create a config")
-	// 	_, err := transportPostgreSQL.GetConn().Exec(ctx,
-	// 		"INSERT INTO spec.configs (id,payload) VALUES($1, $2)",
+	// 	db.Exec(
+	// 		"INSERT INTO spec.configs (id,payload) VALUES(?, ?)",
 	// 		configUID, &configJSONBytes)
 	// 	Expect(err).ToNot(HaveOccurred())
 
@@ -185,10 +38,10 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test managedcluster labels can be synced through transport", func() {
 		By("insert managed cluster labels to database")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
+		err := db.Exec(
 			`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, managed_cluster_name, labels,
-			deleted_label_keys, version, updated_at) values($1, $2, $3, $4::jsonb, $5::jsonb, 0, now())`,
-			managedclusterUID, leafhubName, managedclusterName, labelsToAdd, labelKeysToRemove)
+			deleted_label_keys, version, updated_at) values(?, ?, ?, ?::jsonb, ?::jsonb, 0, now())`,
+			managedclusterUID, leafhubName, managedclusterName, labelsToAdd, labelKeysToRemove).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -198,9 +51,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test managedclusterset can be synced through transport", func() {
 		By("create a managedclusterset")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.managedclustersets (id,payload) VALUES($1, $2)",
-			managedclustersetUID, &managedclustersetJSONBytes)
+		err := db.Exec(
+			"INSERT INTO spec.managedclustersets (id,payload) VALUES(?, ?)",
+			managedclustersetUID, &managedclustersetJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -211,9 +64,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test managedclustersetbinding can be synced through transport", func() {
 		By("create a managedclustersetbinding")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.managedclustersetbindings (id,payload) VALUES($1, $2)",
-			managedclustersetbindingUID, &managedclustersetbindingJSONBytes)
+		err := db.Exec(
+			"INSERT INTO spec.managedclustersetbindings (id,payload) VALUES(?, ?)",
+			managedclustersetbindingUID, &managedclustersetbindingJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -224,9 +77,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test policy can be synced through transport", func() {
 		By("create a policy")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.policies (id,payload) VALUES($1, $2)",
-			policyUID, &policyJSONBytes)
+		err := db.Exec(
+			"INSERT INTO spec.policies (id,payload) VALUES(?, ?)",
+			policyUID, &policyJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -237,9 +90,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test placementrule can be synced through transport", func() {
 		By("create a placementrule")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.placementrules (id,payload) VALUES($1, $2)",
-			placementruleUID, &placementruleJSONBytes)
+		err := db.Exec(
+			"INSERT INTO spec.placementrules (id,payload) VALUES(?, ?)",
+			placementruleUID, &placementruleJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -249,9 +102,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test placementbinding can be synced through transport", func() {
 		By("create a placementbinding")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.placementbindings (id,payload) VALUES($1, $2)",
-			placementbindingUID, &placementbindingJSONBytes)
+		err := db.Exec(
+			"INSERT INTO spec.placementbindings (id,payload) VALUES(?, ?)",
+			placementbindingUID, &placementbindingJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -261,9 +114,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test placement can be synced through transport", func() {
 		By("create a placement")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.placements (id,payload) VALUES($1, $2)",
-			placementUID, &placementJSONBytes)
+		err := db.Exec(
+			"INSERT INTO spec.placements (id,payload) VALUES(?, ?)",
+			placementUID, &placementJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -273,9 +126,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test application can be synced through transport", func() {
 		By("create a application")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.applications (id,payload) VALUES($1, $2)",
-			applicationUID, &applicationJSONBytes)
+		err := db.Exec(
+			"INSERT INTO spec.applications (id,payload) VALUES(?, ?)",
+			applicationUID, &applicationJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -285,9 +138,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test subscription can be synced through transport", func() {
 		By("create a subscription")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.subscriptions (id,payload) VALUES($1, $2)",
-			subscriptionUID, &subscriptionJSONBytes)
+		err := db.Exec(
+			"INSERT INTO spec.subscriptions (id,payload) VALUES(?, ?)",
+			subscriptionUID, &subscriptionJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -297,9 +150,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test channel can be synced through transport", func() {
 		By("create a channel")
-		_, err := transportPostgreSQL.GetConn().Exec(ctx,
-			"INSERT INTO spec.channels (id,payload) VALUES($1, $2)",
-			channelUID, &channelJSONBytes)
+		err := db.Exec(
+			"INSERT INTO spec.channels (id,payload) VALUES(?, ?)",
+			channelUID, &channelJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())

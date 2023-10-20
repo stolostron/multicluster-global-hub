@@ -41,7 +41,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -281,15 +280,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 1
 	}
 	utils.PrintVersion(setupLog)
-
-	processPostgreSQL, err := postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize process PostgreSQL")
-		return 1
-	}
-	defer processPostgreSQL.Stop()
-
-	err = database.InitGormInstance(&database.DatabaseConfig{
+	err := database.InitGormInstance(&database.DatabaseConfig{
 		URL:        managerConfig.DatabaseConfig.ProcessDatabaseURL,
 		Dialect:    database.PostgresDialect,
 		CaCertPath: managerConfig.DatabaseConfig.CACertPath,
