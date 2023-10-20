@@ -15,31 +15,26 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 	const targetTable = "history.local_compliance"
 
 	BeforeAll(func() {
-		By("Creating test table in the database")
-		conn, err := pool.Acquire(ctx)
-		Expect(err).ToNot(HaveOccurred())
-		defer conn.Release()
+		type Table struct {
+			Schemaname string
+			Tablename  string
+		}
 
 		By("Check whether the tables are created")
 		Eventually(func() error {
-			rows, err := conn.Query(ctx, "SELECT schemaname, tablename FROM pg_tables")
+			var tables []Table
+			err := db.Raw("SELECT schemaname, tablename FROM pg_tables").Scan(&tables).Error
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
 			expectedTableSet := map[string]bool{
 				localStatusComplianceTable: true,
 				localPolicyEventTable:      true,
 				targetTable:                true,
 			}
 
-			for rows.Next() {
-				var schema, table string
-				if err := rows.Scan(&schema, &table); err != nil {
-					return err
-				}
-
-				gotTable := fmt.Sprintf("%s.%s", schema, table)
+			for _, t := range tables {
+				gotTable := fmt.Sprintf("%s.%s", t.Schemaname, t.Tablename)
 				delete(expectedTableSet, gotTable)
 			}
 			if len(expectedTableSet) > 0 {
@@ -52,14 +47,14 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 	It("sync the data from the event.local_policies to the history.local_compliance", func() {
 		By("Create the sync job")
 		s := gocron.NewScheduler(time.UTC)
-		complianceJob, err := s.Every(1).Day().DoWithJobDetails(SyncLocalCompliance, ctx, pool, false)
+		complianceJob, err := s.Every(1).Day().DoWithJobDetails(SyncLocalCompliance, ctx, false)
 		Expect(err).ToNot(HaveOccurred())
 		fmt.Println("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 		s.StartAsync()
 		defer s.Clear()
 
 		By("Create the data to the source table")
-		_, err = pool.Exec(ctx, `
+		err = db.Exec(`
 		INSERT INTO "event"."local_policies" ("event_name", "policy_id", "cluster_id", "leaf_hub_name", "message", 
 		"reason", "source", "created_at", "compliance")
 		VALUES
@@ -69,14 +64,14 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 			'Sample reason 1', '{"key": "value"}', (CURRENT_DATE - INTERVAL '1 day') + '01:53:13', 'non_compliant'),
 		('3', 'f4f888bb-9c87-4db9-aacf-231d550315e1', 'a71a6b5c-8361-4f50-9890-3de9e2df0b1c', 'hub1', 'Sample message 1', 
 			'Sample reason 1', '{"key": "value"}', (CURRENT_DATE - INTERVAL '1 day') + '01:54:13', 'compliant');
-		`)
+		`).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check whether the data is copied to the target table")
 		Eventually(func() error {
-			rows, err := pool.Query(ctx, `
+			rows, err := db.Raw(`
 			SELECT policy_id, cluster_id, compliance, compliance_date, compliance_changed_frequency
-			FROM history.local_compliance`)
+			FROM history.local_compliance`).Rows()
 			if err != nil {
 				return err
 			}
@@ -111,8 +106,8 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 
 		By("Check whether the job log is created")
 		Eventually(func() error {
-			rows, err := pool.Query(ctx, `SELECT start_at, end_at, name, total, inserted, offsets, error FROM 
-			history.local_compliance_job_log`)
+			rows, err := db.Raw(`SELECT start_at, end_at, name, total, inserted, offsets, error FROM 
+			history.local_compliance_job_log`).Rows()
 			if err != nil {
 				return err
 			}
@@ -144,13 +139,13 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 		By("Create the sync job")
 		s := gocron.NewScheduler(time.UTC)
 		complianceJob, err := s.Every(1).Second().Tag("LocalCompliance").DoWithJobDetails(
-			SyncLocalCompliance, ctx, pool, true)
+			SyncLocalCompliance, ctx, true)
 		Expect(err).ToNot(HaveOccurred())
 		fmt.Println("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 		s.StartAsync()
 		defer s.Clear()
 		By("Create the data to the source table")
-		_, err = pool.Exec(ctx, `
+		err = db.Exec(`
 					INSERT INTO local_status.compliance (policy_id, cluster_name, leaf_hub_name, error, compliance, cluster_id) VALUES
 					('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster1', 'leaf1', 'none', 'compliant',
 					'0cd723ab-4649-42e8-b8aa-aa094ccf06b4'),
@@ -158,14 +153,14 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 					'0cd723ab-4649-42e8-b8aa-aa094ccf06b4'),
 					('f8c4479f-fec5-44d8-8060-da9a92d5e137', 'local_cluster3', 'leaf3', 'none', 'compliant',
 					'0cd723ab-4649-42e8-b8aa-aa094ccf06b4');
-				`)
+				`).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check whether the data is copied to the target table")
 		Eventually(func() error {
-			rows, err := pool.Query(ctx, `
+			rows, err := db.Raw(`
 					SELECT policy_id, cluster_id,compliance_changed_frequency
-					FROM history.local_compliance`)
+					FROM history.local_compliance`).Rows()
 			if err != nil {
 				return err
 			}

@@ -4,14 +4,13 @@
 package managedclusters
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 var (
@@ -42,16 +41,16 @@ type patch struct {
 // @failure      503
 // @security     ApiKeyAuth
 // @router /managedcluster/{clusterID} [patch]
-func PatchManagedCluster(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
+func PatchManagedCluster() gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		clusterID := ginCtx.Param("clusterID")
 
 		fmt.Fprintf(gin.DefaultWriter, "patch for cluster with ID: %s\n", clusterID)
 
+		db := database.GetGorm()
 		var leafHubName, managedClusterName string
-		if err := dbConnectionPool.QueryRow(context.TODO(), `SELECT leaf_hub_name, payload->'metadata'->>'name'
-			FROM status.managed_clusters WHERE cluster_id=$1`, clusterID).
-			Scan(&leafHubName, &managedClusterName); err != nil {
+		if err := db.Raw(`SELECT leaf_hub_name, payload->'metadata'->>'name' FROM status.managed_clusters 
+			WHERE cluster_id = ?`, clusterID).Row().Scan(&leafHubName, &managedClusterName); err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "failed to get leaf hub and manged cluster name: %s\n", err.Error())
 			return
 		}
@@ -80,7 +79,7 @@ func PatchManagedCluster(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 
 		for retryAttempts > 0 {
 			err = updateLabels(clusterID, leafHubName, managedClusterName, labelsToAdd,
-				labelsToRemove, dbConnectionPool)
+				labelsToRemove)
 			if err == nil {
 				break
 			}
@@ -98,24 +97,23 @@ func PatchManagedCluster(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 }
 
 func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd map[string]string,
-	labelsToRemove map[string]struct{}, dbConnectionPool *pgxpool.Pool,
+	labelsToRemove map[string]struct{},
 ) error {
 	if len(labelsToAdd) == 0 && len(labelsToRemove) == 0 {
 		return nil
 	}
-
-	rows, err := dbConnectionPool.Query(context.TODO(),
-		"SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE id = $1", clusterID)
+	db := database.GetGorm()
+	rows, err := db.Raw("SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE id = ?",
+		clusterID).Rows()
 	if err != nil {
 		return fmt.Errorf("failed to read from managed_clusters_labels: %w", err)
 	}
 	defer rows.Close()
 
 	if !rows.Next() { // insert the labels
-		_, err := dbConnectionPool.Exec(context.TODO(),
-			`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, managed_cluster_name, labels,
-			deleted_label_keys, version, updated_at) values($1, $2, $3, $4::jsonb, $5::jsonb, 0, now())`,
-			clusterID, leafHubName, managedClusterName, labelsToAdd, getKeys(labelsToRemove))
+		err := db.Exec(`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, managed_cluster_name, labels,
+			deleted_label_keys, version, updated_at) values(?, ?, ?, ?, ?, 0, now())`,
+			clusterID, leafHubName, managedClusterName, labelsToAdd, getKeys(labelsToRemove)).Error
 		if err != nil {
 			return fmt.Errorf("failed to insert into the managed_clusters_labels table: %w", err)
 		}
@@ -135,7 +133,7 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 	}
 
 	err = updateRow(clusterID, labelsToAdd, currentLabelsToAdd, labelsToRemove,
-		getMap(currentLabelsToRemoveSlice), version, dbConnectionPool)
+		getMap(currentLabelsToRemoveSlice), version)
 	if err != nil {
 		return fmt.Errorf("failed to update managed_clusters_labels table: %w", err)
 	}
@@ -149,8 +147,7 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 }
 
 func updateRow(clusterID string, labelsToAdd, currentLabelsToAdd map[string]string,
-	labelsToRemove, currentLabelsToRemove map[string]struct{},
-	version int64, dbConnectionPool *pgxpool.Pool,
+	labelsToRemove, currentLabelsToRemove map[string]struct{}, version int64,
 ) error {
 	newLabelsToAdd := make(map[string]string)
 	newLabelsToRemove := make(map[string]struct{})
@@ -174,23 +171,21 @@ func updateRow(clusterID string, labelsToAdd, currentLabelsToAdd map[string]stri
 	for key, value := range labelsToAdd {
 		newLabelsToAdd[key] = value
 	}
-
-	commandTag, err := dbConnectionPool.Exec(context.TODO(),
-		`UPDATE spec.managed_clusters_labels SET
-		labels = $1::jsonb,
-		deleted_label_keys = $2::jsonb,
+	db := database.GetGorm()
+	result := db.Exec(`UPDATE spec.managed_clusters_labels SET
+		labels = ?,
+		deleted_label_keys = ?,
 		version = version + 1,
 		updated_at = now()
-		WHERE id=$3 AND version=$4`,
+		WHERE id= ? AND version= ?`,
 		newLabelsToAdd, getKeys(newLabelsToRemove), clusterID, version)
-	if err != nil {
-		return fmt.Errorf("failed to update a row: %w", err)
+	if result.Error != nil {
+		return fmt.Errorf("failed to update a row: %w", result.Error)
 	}
 
-	if commandTag.RowsAffected() == 0 {
+	if result.RowsAffected == 0 {
 		return fmt.Errorf("failed to update a row: %w", errOptimisticConcurrencyWriteFailed)
 	}
-
 	return nil
 }
 

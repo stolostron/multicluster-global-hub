@@ -51,17 +51,17 @@ func TestScheduler(t *testing.T) {
 		},
 	}
 	managerConfig.SchedulerInterval = "month"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "week"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "day"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "hour"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "minute"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "second"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 
 	scheduler := gocron.NewScheduler(time.Local)
 	_, err = scheduler.Every(1).Day().At("00:00").Tag(task.LocalComplianceTaskName).DoWithJobDetails(

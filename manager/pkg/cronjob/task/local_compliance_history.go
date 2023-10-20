@@ -8,8 +8,6 @@ import (
 
 	"github.com/go-co-op/gocron"
 	"github.com/go-logr/logr"
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -41,7 +39,7 @@ func init() {
 	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(LocalComplianceTaskName).Set(0)
 }
 
-func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulation bool, job gocron.Job) {
+func SyncLocalCompliance(ctx context.Context, enableSimulation bool, job gocron.Job) {
 	startTime = time.Now()
 
 	interval := dateInterval
@@ -71,7 +69,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 
 	// insert or update with local_status.compliance
 	var statusTotal, statusInsert int64
-	statusTotal, statusInsert, err = syncToLocalComplianceHistoryByLocalStatus(ctx, pool, batchSize, interval,
+	statusTotal, statusInsert, err = syncToLocalComplianceHistoryByLocalStatus(ctx, batchSize, interval,
 		enableSimulation)
 	if err != nil {
 		log.Error(err, "sync from local_status.compliance to history.local_compliance failed")
@@ -85,7 +83,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 
 	// insert or update with event.local_policies
 	var eventTotal, eventInsert int64
-	eventTotal, eventInsert, err = syncToLocalComplianceHistoryByPolicyEvent(ctx, pool, batchSize)
+	eventTotal, eventInsert, err = syncToLocalComplianceHistoryByPolicyEvent(ctx, batchSize)
 	if err != nil {
 		log.Error(err, "sync from history.local_policies to history.local_compliance failed")
 		return
@@ -95,7 +93,7 @@ func SyncLocalCompliance(ctx context.Context, pool *pgxpool.Pool, enableSimulati
 	log.V(2).Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
 }
 
-func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpool.Pool, batchSize int64, interval int,
+func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, batchSize int64, interval int,
 	enableSimulation bool) (totalCount int64, insertedCount int64, err error,
 ) {
 	viewSchema := "history"
@@ -109,18 +107,20 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpoo
 		WITH DATA;
 		CREATE INDEX IF NOT EXISTS idx_local_compliance_view ON %s (policy_id, cluster_id);
 	`
-	_, err = pool.Exec(ctx, fmt.Sprintf(createViewTemplate, viewName, viewName))
+
+	db := database.GetGorm()
+	err = db.Exec(fmt.Sprintf(createViewTemplate, viewName, viewName)).Error
 	if err != nil {
 		return totalCount, insertedCount, err
 	}
 
-	err = pool.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", viewName)).Scan(&totalCount)
+	err = db.Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s", viewName)).Scan(&totalCount).Error
 	if err != nil {
 		return totalCount, insertedCount, err
 	}
 
 	for offset := int64(0); offset < totalCount; offset += batchSize {
-		count, err := insertToLocalComplianceHistoryByLocalStatus(ctx, viewName, interval, pool, totalCount,
+		count, err := insertToLocalComplianceHistoryByLocalStatus(ctx, viewName, interval, totalCount,
 			batchSize, offset, enableSimulation)
 		if err != nil {
 			return totalCount, insertedCount, err
@@ -129,7 +129,7 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpoo
 	}
 
 	// success, drop the materialized view if exists
-	_, err = pool.Exec(ctx, fmt.Sprintf("DROP MATERIALIZED VIEW IF EXISTS %s", viewName))
+	err = db.Exec(fmt.Sprintf("DROP MATERIALIZED VIEW IF EXISTS %s", viewName)).Error
 	if err != nil {
 		return totalCount, insertedCount, err
 	}
@@ -138,7 +138,7 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, pool *pgxpoo
 }
 
 func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName string, interval int,
-	pool *pgxpool.Pool, totalCount, batchSize, offset int64, enableSimulation bool,
+	totalCount, batchSize, offset int64, enableSimulation bool,
 ) (int64, error) {
 	insertCount := int64(0)
 	var err error
@@ -183,20 +183,21 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 				$$;
 			`
 			}
+			db := database.GetGorm()
 			selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, interval, tableName, batchSize, offset)
-			result, err := pool.Exec(ctx, selectInsertSQL)
-			if err != nil {
-				log.Info("exec failed, retrying", "error", err)
+			result := db.Exec(selectInsertSQL)
+			if result.Error != nil {
+				log.Info("exec failed, retrying", "error", result.Error)
 				return false, nil
 			}
-			insertCount = result.RowsAffected()
+			insertCount = result.RowsAffected
 			log.V(2).Info("from local_status.compliance", "batch", batchSize, "insert", insertCount, "offset", offset)
 			return true, nil
 		})
 	return insertCount, err
 }
 
-func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpool.Pool, batchSize int64) (
+func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, batchSize int64) (
 	totalCount int64, insertedCount int64, err error,
 ) {
 	totalCountSQLTemplate := `
@@ -207,12 +208,13 @@ func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpoo
 	`
 	totalCountStatement := fmt.Sprintf(totalCountSQLTemplate, dateInterval, dateInterval-1)
 
-	if err := pool.QueryRow(ctx, totalCountStatement).Scan(&totalCount); err != nil {
+	db := database.GetGorm()
+	if err := db.Raw(totalCountStatement).Scan(&totalCount).Error; err != nil {
 		return totalCount, insertedCount, err
 	}
 
 	for offset := int64(0); offset < totalCount; offset += batchSize {
-		count, err := insertToLocalComplianceHistoryByPolicyEvent(ctx, pool, totalCount, batchSize, offset)
+		count, err := insertToLocalComplianceHistoryByPolicyEvent(ctx, totalCount, batchSize, offset)
 		if err != nil {
 			return totalCount, insertedCount, err
 		}
@@ -222,8 +224,7 @@ func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpoo
 	return totalCount, insertedCount, nil
 }
 
-func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxpool.Pool,
-	totalCount, batchSize, offset int64,
+func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, totalCount, batchSize, offset int64,
 ) (int64, error) {
 	insertCount := int64(0)
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Minute, true,
@@ -271,13 +272,14 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, pool *pgxp
 			selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, dateInterval, dateInterval-1,
 				dateInterval, dateInterval, dateInterval-1)
 
-			var result pgconn.CommandTag
-			result, insertError = pool.Exec(ctx, selectInsertStatement, batchSize, offset)
+			db := database.GetGorm()
+			result := db.Exec(selectInsertStatement, batchSize, offset)
+			insertError = result.Error
 			if insertError != nil {
 				log.Info("insert failed, retrying", "error", insertError)
 				return false, nil
 			}
-			insertCount = result.RowsAffected()
+			insertCount = result.RowsAffected
 			log.V(2).Info("from event.local_policies", "batch", batchSize, "insert", insertCount, "offset", offset)
 			return true, nil
 		})

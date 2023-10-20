@@ -9,6 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/gorm"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
 )
 
@@ -19,13 +20,11 @@ const (
 )
 
 // AddManagedClusterLabelsStatusWatcher adds managedClusterLabelsStatusWatcher to the manager.
-func AddManagedClusterLabelsStatusWatcher(mgr ctrl.Manager, specDB db.SpecDB, statusDB db.StatusDB,
-	deletedLabelsTrimmingInterval time.Duration,
-) error {
+func AddManagedClusterLabelsStatusWatcher(mgr ctrl.Manager, deletedLabelsTrimmingInterval time.Duration) error {
 	if err := mgr.Add(&managedClusterLabelsStatusWatcher{
 		log:                   ctrl.Log.WithName("managed-cluster-labels-status-watcher"),
-		specDB:                specDB,
-		statusDB:              statusDB,
+		specDB:                gorm.NewGormSpecDB(),
+		statusDB:              gorm.NewGormSpecDB(),
 		labelsSpecTableName:   managedClusterLabelsSpecDBTableName,
 		labelsStatusTableName: managedClusterLabelsStatusDBTableName,
 		intervalPolicy:        intervalpolicy.NewExponentialBackoffPolicy(deletedLabelsTrimmingInterval),

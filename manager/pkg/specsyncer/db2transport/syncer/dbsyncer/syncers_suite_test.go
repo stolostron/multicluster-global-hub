@@ -25,6 +25,7 @@ import (
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -70,12 +71,12 @@ var _ = BeforeSuite(func() {
 	By("Create test postgres")
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
-	dataConfig := &config.DatabaseConfig{
-		ProcessDatabaseURL:         testPostgres.URI,
-		CACertPath:                 "ca-cert-path",
-		TransportBridgeDatabaseURL: testPostgres.URI,
-	}
-	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, dataConfig)
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:        testPostgres.URI,
+		Dialect:    database.PostgresDialect,
+		CaCertPath: "ca-cert-path",
+		PoolSize:   5,
+	})
 	Expect(err).NotTo(HaveOccurred())
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
@@ -96,7 +97,6 @@ var _ = BeforeSuite(func() {
 		SyncerConfig: &config.SyncerConfig{
 			SpecSyncInterval: 1 * time.Second,
 		},
-		DatabaseConfig: dataConfig,
 		TransportConfig: &transport.TransportConfig{
 			TransportType:     string(transport.Chan),
 			CommitterInterval: 10 * time.Second,
@@ -106,7 +106,7 @@ var _ = BeforeSuite(func() {
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
 
-	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, managerConfig)).Should(Succeed())
+	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig)).Should(Succeed())
 
 	// mock consume message from agent
 	By("Create kafka consumer")

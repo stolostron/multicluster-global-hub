@@ -15,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
@@ -26,6 +25,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
@@ -55,7 +55,7 @@ const (
 // @failure      503
 // @security     ApiKeyAuth
 // @router /managedclusters [get]
-func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
+func ListManagedClusters() gin.HandlerFunc {
 	customResourceColumnDefinitions := util.GetCustomResourceColumnDefinitions(crdName,
 		clusterv1.GroupVersion.Version)
 
@@ -121,7 +121,7 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		fmt.Fprintf(gin.DefaultWriter, "managedcluster list query: %v\n", managedClusterListQuery)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
-			handleRowsForWatch(ginCtx, managedClusterListQuery, dbConnectionPool)
+			handleRowsForWatch(ginCtx, managedClusterListQuery)
 			return
 		}
 
@@ -129,12 +129,12 @@ func ListManagedClusters(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		lastManagedClusterQuery := "SELECT payload FROM status.managed_clusters WHERE deleted_at is NULL " +
 			"ORDER BY (payload -> 'metadata' ->> 'name', cluster_id) DESC LIMIT 1"
 
-		handleRows(ginCtx, managedClusterListQuery, lastManagedClusterQuery, dbConnectionPool,
+		handleRows(ginCtx, managedClusterListQuery, lastManagedClusterQuery,
 			customResourceColumnDefinitions)
 	}
 }
 
-func handleRowsForWatch(ginCtx *gin.Context, managedClusterListQuery string, dbConnectionPool *pgxpool.Pool) {
+func handleRowsForWatch(ginCtx *gin.Context, managedClusterListQuery string) {
 	writer := ginCtx.Writer
 	header := writer.Header()
 	header.Set("Transfer-Encoding", "chunked")
@@ -166,15 +166,16 @@ func handleRowsForWatch(ginCtx *gin.Context, managedClusterListQuery string, dbC
 				return
 			}
 
-			doHandleRowsForWatch(ctx, writer, managedClusterListQuery, dbConnectionPool, preAddedManagedClusterNames)
+			doHandleRowsForWatch(ctx, writer, managedClusterListQuery, preAddedManagedClusterNames)
 		}
 	}
 }
 
 func doHandleRowsForWatch(ctx context.Context, writer io.Writer, managedClusterListQuery string,
-	dbConnectionPool *pgxpool.Pool, preAddedManagedClusterNames set.Set,
+	preAddedManagedClusterNames set.Set,
 ) {
-	rows, err := dbConnectionPool.Query(ctx, managedClusterListQuery)
+	db := database.GetGorm()
+	rows, err := db.Raw(managedClusterListQuery).Rows()
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, "error in quering managed cluster list: %v\n", err)
 	}
@@ -240,17 +241,18 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, managedClusterL
 }
 
 func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedClusterQuery string,
-	dbConnectionPool *pgxpool.Pool, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
+	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
+	db := database.GetGorm()
 	lastManagedCluster := &clusterv1.ManagedCluster{}
-	err := dbConnectionPool.QueryRow(context.TODO(), lastManagedClusterQuery).Scan(lastManagedCluster)
+	err := db.Raw(lastManagedClusterQuery).Row().Scan(lastManagedCluster)
 	if err != nil && err != pgx.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in quering last managed cluster: %v\n", err)
 		return
 	}
 
-	rows, err := dbConnectionPool.Query(context.TODO(), managedClusterListQuery)
+	rows, err := db.Raw(managedClusterListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in quering managed clusters: %v\n", err)

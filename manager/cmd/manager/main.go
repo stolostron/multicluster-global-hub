@@ -194,7 +194,6 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 }
 
 func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
-	processPostgreSQL *postgresql.PostgreSQL,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
@@ -239,13 +238,12 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 
-	if err := nonk8sapi.AddNonK8sApiServer(mgr, processPostgreSQL,
-		managerConfig.NonK8sAPIServerConfig); err != nil {
+	if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
 	if managerConfig.EnableGlobalResource {
-		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, processPostgreSQL); err != nil {
+		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig); err != nil {
 			return nil, fmt.Errorf("failed to add global resource spec syncers: %w", err)
 		}
 	}
@@ -258,8 +256,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
-	if err := cronjob.AddSchedulerToManager(ctx, mgr, processPostgreSQL.GetConn(),
-		managerConfig, enableSimulation); err != nil {
+	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
 
@@ -304,7 +301,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	}
 	defer database.CloseGorm()
 
-	mgr, err := createManager(ctx, restConfig, managerConfig, processPostgreSQL)
+	mgr, err := createManager(ctx, restConfig, managerConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to create manager")
 		return 1

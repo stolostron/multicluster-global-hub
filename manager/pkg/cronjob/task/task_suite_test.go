@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +26,6 @@ var (
 	ctx          context.Context
 	cancel       context.CancelFunc
 	testPostgres *testpostgres.TestPostgres
-	pool         *pgxpool.Pool
 	db           *gorm.DB
 )
 
@@ -61,8 +59,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Connect to the database")
-	pool, err = database.PostgresConnPool(ctx, testPostgres.URI, "ca-cert-path", 2)
-	Expect(err).NotTo(HaveOccurred())
 	err = database.InitGormInstance(&database.DatabaseConfig{
 		URL:      testPostgres.URI,
 		Dialect:  database.PostgresDialect,
@@ -80,9 +76,6 @@ var _ = AfterSuite(func() {
 	if err != nil {
 		time.Sleep(4 * time.Second)
 		Expect(testenv.Stop()).NotTo(HaveOccurred())
-	}
-	if pool != nil {
-		pool.Close()
 	}
 	database.CloseGorm()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())

@@ -15,11 +15,11 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 type TestResponseRecorder struct {
@@ -43,7 +43,7 @@ func CreateTestResponseRecorder() *TestResponseRecorder {
 }
 
 var _ = Describe("Nonk8s API Server", Ordered, func() {
-	var postgresSQL *postgresql.PostgreSQL
+	var db *gorm.DB
 	var router *gin.Engine
 	var plc1ID string
 	var sub1ID string
@@ -53,15 +53,17 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		var err error
 
 		By("Create connection to the database")
-		postgresSQL, err = postgresql.NewSpecPostgreSQL(ctx, &config.DatabaseConfig{
-			ProcessDatabaseURL: testPostgres.URI,
-			CACertPath:         "ca-cert-path",
+		err = database.InitGormInstance(&database.DatabaseConfig{
+			URL:        testPostgres.URI,
+			Dialect:    database.PostgresDialect,
+			CaCertPath: "ca-cert-path",
+			PoolSize:   2,
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(postgresSQL).NotTo(BeNil())
+		db = database.GetGorm()
 
 		By("Set up nonk8s-api server router")
-		router, err = nonk8sapi.SetupRouter(postgresSQL, &nonk8sapi.NonK8sAPIServerConfig{
+		router, err = nonk8sapi.SetupRouter(&nonk8sapi.NonK8sAPIServerConfig{
 			ServerBasePath: "/global-hub-api/v1",
 			ClusterAPIURL:  testAuthServer.URL,
 		})
@@ -141,17 +143,12 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w0.Body.String()).Should(MatchJSON(managedClusterListFormatStr))
 
 		By("Insert testing managed clusters")
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.managed_clusters (cluster_id,leaf_hub_name,payload,error) VALUES ($1, $2, $3, 'none');`,
-			mc1Id,
-			hub1,
-			mc1)
+		err = db.Exec(`INSERT INTO status.managed_clusters (cluster_id,leaf_hub_name,payload,error) 
+			VALUES (?, ?, ?, 'none');`, mc1Id, hub1, mc1).Error
 		Expect(err).ToNot(HaveOccurred())
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.managed_clusters (cluster_id,leaf_hub_name,payload,error) VALUES ($1, $2, $3, 'none');`,
-			mc2Id,
-			hub1,
-			mc2)
+		err = db.Exec(
+			`INSERT INTO status.managed_clusters (cluster_id,leaf_hub_name,payload,error) VALUES (?, ?, ?, 'none');`,
+			mc2Id, hub1, mc2).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check the managedcclusters can be listed without parameters")
@@ -339,9 +336,9 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		By("Check the label for the managed cluster is patched")
 		Eventually(func() bool {
 			var labels map[string]string
-			err = postgresSQL.GetConn().QueryRow(ctx,
+			err = db.Raw(
 				"SELECT labels from spec.managed_clusters_labels "+
-					"WHERE id = $1;", "2aa5547c-c172-47ed-b70b-db468c84d327").Scan(&labels)
+					"WHERE id = ?;", "2aa5547c-c172-47ed-b70b-db468c84d327").Row().Scan(&labels)
 			return err == nil && labels["foo"] == "bar"
 		}, 10*time.Second, 2*time.Second).Should(BeTrue())
 	})
@@ -570,31 +567,24 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w0.Body.String()).Should(MatchJSON(policyListFormatStr))
 
 		By("Insert testing policy")
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO spec.policies (id,payload) VALUES($1, $2);`, plc1ID, policy1)
+		err = db.Exec(`INSERT INTO spec.policies (id,payload) VALUES(?, ?);`, plc1ID, policy1).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Insert testing placementrule")
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO spec.placementrules (id,payload) VALUES($1, $2);`, pr1ID, placementrule1)
+		err = db.Exec(`INSERT INTO spec.placementrules (id,payload) VALUES(?, ?);`, pr1ID, placementrule1).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Insert testing placementbinding")
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO spec.placementbindings (id,payload) VALUES($1, $2);`, pb1ID, placementbinding1)
+		err = db.Exec(`INSERT INTO spec.placementbindings (id,payload) VALUES(?, ?);`, pb1ID, placementbinding1).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Insert testing compliances")
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.compliance (policy_id,cluster_name,leaf_hub_name,error,compliance)
-			VALUES($1,'mc1','hub1','none','non_compliant');`,
-			plc1ID)
+		err = db.Exec(`INSERT INTO status.compliance (policy_id,cluster_name,leaf_hub_name,error,compliance)
+			VALUES(?,'mc1','hub1','none','non_compliant');`, plc1ID).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.compliance (policy_id,cluster_name,leaf_hub_name,error,compliance)
-			VALUES($1,'mc2','hub1','none','compliant');`,
-			plc1ID)
+		err = db.Exec(`INSERT INTO status.compliance (policy_id,cluster_name,leaf_hub_name,error,compliance)
+			VALUES(?,'mc2','hub1','none','compliant');`, plc1ID).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check the policies can be listed without parameters")
@@ -1027,11 +1017,9 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w0.Body.String()).Should(MatchJSON(subscriptionListFormatStr))
 
 		By("Insert testing subscriptions")
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO spec.subscriptions (id,payload) VALUES($1, $2);`, sub1ID, subscription1)
+		err = db.Exec(`INSERT INTO spec.subscriptions (id,payload) VALUES(?, ?);`, sub1ID, subscription1).Error
 		Expect(err).ToNot(HaveOccurred())
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO spec.subscriptions (id,payload) VALUES($1, $2);`, sub2ID, subscription2)
+		err = db.Exec(`INSERT INTO spec.subscriptions (id,payload) VALUES(?, ?);`, sub2ID, subscription2).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check the subscriptions can be listed without parameters")
@@ -1313,13 +1301,11 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 }`
 
 		By("Insert testing subscription report for leaf hub")
-		_, err := postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.subscription_reports (id,leaf_hub_name,payload) VALUES($1, $2, $3);`,
-			subReportHub1ID, leafhub1, subReportHub1)
+		err := db.Exec(`INSERT INTO status.subscription_reports (id,leaf_hub_name,payload) VALUES(?, ?, ?);`,
+			subReportHub1ID, leafhub1, subReportHub1).Error
 		Expect(err).ToNot(HaveOccurred())
-		_, err = postgresSQL.GetConn().Exec(ctx,
-			`INSERT INTO status.subscription_reports (id,leaf_hub_name,payload) VALUES($1, $2, $3);`,
-			subReportHub2ID, leafhub2, subReportHub2)
+		err = db.Exec(`INSERT INTO status.subscription_reports (id,leaf_hub_name,payload) VALUES(?, ?, ?);`,
+			subReportHub2ID, leafhub2, subReportHub2).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check the subscriptionreport can be retrieved")
@@ -1392,6 +1378,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		postgresSQL.Stop()
+		database.CloseGorm()
 	})
 })
