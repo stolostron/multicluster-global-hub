@@ -24,7 +24,7 @@ func AddManagedClusterLabelsStatusWatcher(mgr ctrl.Manager, deletedLabelsTrimmin
 	if err := mgr.Add(&managedClusterLabelsStatusWatcher{
 		log:                   ctrl.Log.WithName("managed-cluster-labels-status-watcher"),
 		specDB:                gorm.NewGormSpecDB(),
-		statusDB:              gorm.NewGormSpecDB(),
+		statusDB:              gorm.NewGormStausDB(),
 		labelsSpecTableName:   managedClusterLabelsSpecDBTableName,
 		labelsStatusTableName: managedClusterLabelsStatusDBTableName,
 		intervalPolicy:        intervalpolicy.NewExponentialBackoffPolicy(deletedLabelsTrimmingInterval),
