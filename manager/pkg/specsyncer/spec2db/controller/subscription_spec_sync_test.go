@@ -19,19 +19,6 @@ var _ = Describe("subscriptions to database controller", func() {
 	const testTable = "subscriptions"
 
 	BeforeEach(func() {
-		By("Creating test table in the database")
-		_, err := postgresSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS spec;
-			CREATE TABLE IF NOT EXISTS  spec.subscriptions (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-
 		By("Check whether the table is created")
 		Eventually(func() error {
 			rows, err := postgresSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")

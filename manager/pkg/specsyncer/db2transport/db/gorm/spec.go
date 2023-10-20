@@ -14,7 +14,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var errOptimisticConcurrencyUpdateFailed = errors.New("zero rows were affected by an optimistic concurrency update")
+var (
+	errOptimisticConcurrencyUpdateFailed = errors.New("zero rows were affected by an optimistic concurrency update")
+	errQueryTableFailedTemplate          = "failed to query table spec.%s - %w"
+)
 
 type gormSpecDB struct{}
 
@@ -23,7 +26,9 @@ func NewGormSpecDB() *gormSpecDB {
 }
 
 // GetLastUpdateTimestamp returns the last update timestamp of a specific table.
-func (p *gormSpecDB) GetLastUpdateTimestamp(ctx context.Context, tableName string, filterLocalResources bool) (*time.Time, error) {
+func (p *gormSpecDB) GetLastUpdateTimestamp(ctx context.Context, tableName string,
+	filterLocalResources bool,
+) (*time.Time, error) {
 	db := database.GetGorm()
 
 	var lastTimestamp time.Time
@@ -98,7 +103,7 @@ func (p *gormSpecDB) GetObjectsBundle(ctx context.Context, tableName string, cre
 		payload->'metadata'->'labels'->'global-hub.open-cluster-management.io/global-resource' IS NOT NULL`,
 		tableName)).Rows()
 	if err != nil {
-		return nil, fmt.Errorf("failed to query table spec.%s - %w", tableName, err)
+		return nil, fmt.Errorf(errQueryTableFailedTemplate, tableName, err)
 	}
 
 	defer rows.Close()
@@ -137,7 +142,7 @@ func (p *gormSpecDB) GetUpdatedManagedClusterLabelsBundles(ctx context.Context, 
 		from spec.%[1]s WHERE updated_at::timestamp > timestamp '%[2]s') AND leaf_hub_name <> ''`, tableName,
 		timestamp.Format(time.RFC3339Nano))).Rows()
 	if err != nil {
-		return nil, fmt.Errorf("failed to query table spec.%s - %w", tableName, err)
+		return nil, fmt.Errorf(errQueryTableFailedTemplate, tableName, err)
 	}
 
 	defer rows.Close()
@@ -185,7 +190,7 @@ func (p *gormSpecDB) GetEntriesWithDeletedLabels(ctx context.Context,
 	rows, err := db.Raw(fmt.Sprintf(`SELECT leaf_hub_name,managed_cluster_name,deleted_label_keys,version 
 		FROM spec.%s WHERE deleted_label_keys != '[]' AND leaf_hub_name <> ''`, tableName)).Rows()
 	if err != nil {
-		return nil, fmt.Errorf("failed to query table spec.%s - %w", tableName, err)
+		return nil, fmt.Errorf(errQueryTableFailedTemplate, tableName, err)
 	}
 
 	defer rows.Close()

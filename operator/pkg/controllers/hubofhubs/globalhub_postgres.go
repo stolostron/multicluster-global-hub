@@ -188,7 +188,7 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 				PostgresReadonlyUserPassword string
 				StorageClass                 string
 			}{
-				Namespace:                    config.GetDefaultNamespace(),
+				Namespace:                    mgh.GetNamespace(),
 				PostgresImage:                config.GetImage(config.PostgresImageKey),
 				ImagePullSecret:              mgh.Spec.ImagePullSecret,
 				ImagePullPolicy:              string(imagePullPolicy),

@@ -40,7 +40,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		By("insert managed cluster labels to database")
 		err := db.Exec(
 			`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, managed_cluster_name, labels,
-			deleted_label_keys, version, updated_at) values(?, ?, ?, ?::jsonb, ?::jsonb, 0, now())`,
+			deleted_label_keys, version, updated_at) values(?, ?, ?, ?, ?, 0, now())`,
 			managedclusterUID, leafhubName, managedclusterName, labelsToAdd, labelKeysToRemove).Error
 		Expect(err).ToNot(HaveOccurred())
 
