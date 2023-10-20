@@ -318,3 +318,5 @@ For common Troubleshooting issues, see [Troubleshooting](troubleshooting.md).
 ## Known issues
 
 1. A managed cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster) is not counted in global hub policy compliance dashboards, but shows in the Red Hat Advanced Cluster Management policy console.
+2. If the Globalhub Operator installed in OCP 4.13, all hyperlink which link to RHACM ManagedClusters list/detail pages in dashboards may redirect to the RHACM home page. It is caused by [issue](https://issues.redhat.com/browse/OCPBUGS-19048)
+3. In `Global Hub - Policy Group Compliancy Overview` dashboards, we can check one data point by click the link of `View Offending Policies` for standard group: xxx, but after we click this link to go to the offending page, the standard group filter can not pass to the new page. The `Global Hub - Cluster Group Compliancy Overview` has the same issue.
