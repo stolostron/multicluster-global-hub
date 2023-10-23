@@ -956,7 +956,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 	})
 
-	Context("Reconcile the Postgres database", Ordered, Skip, func() {
+	Context("Reconcile the Postgres database", Ordered, func() {
 		mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 		It("Should create the MGH instance", func() {
 			mcgh = &globalhubv1alpha4.MulticlusterGlobalHub{
