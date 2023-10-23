@@ -17,7 +17,6 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -236,7 +235,7 @@ func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.Multiclus
 ) (*postgresCredential, error) {
 	postgres := &corev1.Secret{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      operatorconstants.GHBuiltInStorageSecretName,
+		Name:      constants.GHBuiltInStorageSecretName,
 		Namespace: mgh.Namespace,
 	}, postgres); err != nil && errors.IsNotFound(err) {
 		return &postgresCredential{
