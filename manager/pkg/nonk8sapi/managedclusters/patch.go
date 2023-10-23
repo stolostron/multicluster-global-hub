@@ -4,14 +4,17 @@
 package managedclusters
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 var (
@@ -104,6 +107,24 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 		return nil
 	}
 	db := database.GetGorm()
+
+	labelToLoadPayload, err := json.Marshal(labelsToAdd)
+	if err != nil {
+		return err
+	}
+	keysToRemovePayload, err := json.Marshal(getKeys(labelsToRemove))
+	if err != nil {
+		return err
+	}
+
+	managedClusterLabel := models.ManagedClusterLabel{
+		ID:                 clusterID,
+		LeafHubName:        leafHubName,
+		ManagedClusterName: managedClusterName,
+		Labels:             labelToLoadPayload,
+		DeletedLabelKeys:   keysToRemovePayload,
+		Version:            time.Now().Second(),
+	}
 	rows, err := db.Raw("SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE id = ?",
 		clusterID).Rows()
 	if err != nil {
@@ -112,9 +133,8 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 	defer rows.Close()
 
 	if !rows.Next() { // insert the labels
-		err := db.Exec(`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, managed_cluster_name, labels,
-			deleted_label_keys, version, updated_at) values(?, ?, ?, ?, ?, 0, now())`,
-			clusterID, leafHubName, managedClusterName, labelsToAdd, getKeys(labelsToRemove)).Error
+		err := db.Exec(`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, 
+			managed_cluster_name, labels, deleted_label_keys, version, updated_at) values(?, ?, ?, ?::jsonb, ?::jsonb, 0, now()`, clusterID, leafHubName, managedClusterName, labelsToAdd, getKeys(labelsToRemove)).Error
 		if err != nil {
 			return fmt.Errorf("failed to insert into the managed_clusters_labels table: %w", err)
 		}

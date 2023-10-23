@@ -14,7 +14,7 @@ import (
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v4"
+	"gorm.io/gorm"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
@@ -181,7 +181,6 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, managedClusterL
 	}
 
 	addedManagedClusterNames := set.NewSet()
-
 	for rows.Next() {
 		managedCluster := &clusterv1.ManagedCluster{}
 
@@ -244,19 +243,35 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	db := database.GetGorm()
+
+	// load the lastManaged cluster
 	lastManagedCluster := &clusterv1.ManagedCluster{}
-	err := db.Raw(lastManagedClusterQuery).Row().Scan(lastManagedCluster)
-	if err != nil && err != pgx.ErrNoRows {
+
+	var rowMap map[string]interface{}
+	ret := db.Raw(lastManagedClusterQuery).First(&rowMap)
+	if ret.Error != nil && ret.Error != gorm.ErrRecordNotFound {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in quering last managed cluster: %v\n", err)
+		fmt.Fprintf(gin.DefaultWriter, "error in querying row: %v\n", ret.Error)
 		return
 	}
+	rowCluster, ok := rowMap["payload"]
 
+	if ok {
+		err := json.Unmarshal(rowCluster.([]byte), lastManagedCluster)
+		if err != nil {
+			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
+			fmt.Fprintf(gin.DefaultWriter, "error to unmarshal payload to lastManagedCluster: %v\n", err)
+			return
+		}
+	}
+
+	// get hte managed cluster list
 	rows, err := db.Raw(managedClusterListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in quering managed clusters: %v\n", err)
+		fmt.Fprintf(gin.DefaultWriter, "error in querying managed clusters: %v\n", err)
 	}
+	defer rows.Close()
 
 	managedClusterList := &clusterv1.ManagedClusterList{
 		TypeMeta: metav1.TypeMeta{
@@ -268,10 +283,18 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	lastManagedClusterName, lastManagedClusterUID := "", ""
 	for rows.Next() {
 		managedCluster := clusterv1.ManagedCluster{}
-		err := rows.Scan(&managedCluster)
+
+		var payloadCluster []byte
+		err := rows.Scan(&payloadCluster)
 		if err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in scanning a managed cluster: %v\n", err)
 			continue
+		}
+		err = json.Unmarshal(payloadCluster, &managedCluster)
+		if err != nil {
+			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
+			fmt.Fprintf(gin.DefaultWriter, "error to unmarshal payload to managedCluster: %v\n", err)
+			return
 		}
 
 		managedClusterList.Items = append(managedClusterList.Items, managedCluster)
