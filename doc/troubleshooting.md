@@ -6,55 +6,93 @@ You can run troubleshooting steps to determine issues on your Multicluster Globa
 
 Depending on the type of service, there are three ways to access the [provisioned postgres database](../operator/config/samples/storage/deploy_postgres.sh) database.
 
-* `ClusterIP` service
-    1. Run the following command to determine your postgres connection URI:
-        ```
-        kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "uri" | base64decode}}'
-        ```
-    2. Run the following command to access the database:
-        ```
+* `ClusterIP`
+    1. Access the database created by [CrunchyData/postgres-operator](https://github.com/CrunchyData/postgres-operator)
+        ```bash
         kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- psql -U postgres -d hoh -c "SELECT 1"
         ```
+    2. Access the database created by the built-in statefulset
+        ```bash
+        kubectl exec -it multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh -c "SELECT 1"
+        ```
 
-* `NodePort` service
-    1. Run the following command to modify the service to NodePort, set the host to be the node IP, and set the port to 32432: 
-        ```
+* `NodePort`
+    
+    Add or Modify the service with `NodePort` type and expose the host port with `32432`.
+
+    1. Expose the database created by [CrunchyData/postgres-operator](https://github.com/CrunchyData/postgres-operator)
+        ```bash
         kubectl patch postgrescluster postgres -n multicluster-global-hub -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
-        ```
-    2. Run the following command to add your username: 
-        ```
+
+        # get the username
         kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
-        ```
-    3. Run the following command to add your password: 
-        ```
+
+        # get the password
         kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
-        ```
-    4. Run the following command to add your database name: 
-        ```
+
+        # get the database name
         kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
+        ```
+    2. Expose the database initialized by built-in statefulset
+        ```bash
+        cat <<EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: multicluster-global-hub-postgres-nodeport
+          namespace: multicluster-global-hub
+        spec:
+          ports:
+          - name: postgres
+            nodePort: 32432
+            protocol: TCP
+            targetPort: 5432
+          selector:
+            name: multicluster-global-hub-postgres
+          type: NodePort
+        EOF
+
+        # get the postgres password
+        kubectl get secret multicluster-global-hub-postgres  -ojsonpath='{.data.database-admin-password}' | base64 -d
         ```
 
 * `LoadBalancer`
-    1. Set the service type to `LoadBalancer` by running the following command:
-        ```
+
+    1. Expose the database created by [CrunchyData/postgres-operator](https://github.com/CrunchyData/postgres-operator):
+        ```bash
+        # the default port is 5432
         kubectl patch postgrescluster postgres -n multicluster-global-hub -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
-        ```
-        The default port is 5432
-    2. Run the following command to set your hostname:
-        ```
+
+        # get postgres credentials
         kubectl get svc -n multicluster-global-hub postgres-ha -ojsonpath='{.status.loadBalancer.ingress[0].hostname}'
-        ```
-    4. Run the following command to add your username: 
-        ```
+
         kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "user" | base64decode}}'
-        ```
-    3. Run the following command to add your password: 
-        ```
+
         kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "password" | base64decode}}'
-        ```
-    4. Run the following command to add your database name: 
-        ```
+
         kubectl get secrets -n multicluster-global-hub postgres-pguser-postgres -o go-template='{{index (.data) "dbname" | base64decode}}'
+        ```
+    2. Expose the database initialized by built-in statefulset
+        ```bash
+        cat <<EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: multicluster-global-hub-postgres-lb
+          namespace: multicluster-global-hub
+        spec:
+          ports:
+          - name: postgres
+            port: 5432
+            protocol: TCP
+            targetPort: 5432
+          selector:
+            name: multicluster-global-hub-postgres
+          type: LoadBalancer
+        EOF
+
+        # get hostname
+        kubectl get svc multicluster-global-hub-postgres-lb -ojsonpath='{.status.loadBalancer.ingress[0].hostname}'
         ```
 
 ## Running the must-gather command for troubleshooting
@@ -156,6 +194,9 @@ There are two goals for this job. One is create the partation tables for the fur
   - Connect to the database 
     ```bash
     kubectl exec -it $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- psql -U postgres -d hoh
+
+    # or
+    kubectl exec -it multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh
     ```
 
   - Create the partition table for the next month
