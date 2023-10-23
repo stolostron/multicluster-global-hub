@@ -161,6 +161,12 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	// reconcile config: need to be done before the reconcilers start
+	// global image: annotation -> env -> default
+	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+
 	if result, err := r.ReconcileMiddleware(ctx, mgh); err != nil {
 		return result, err
 	}
@@ -276,11 +282,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	// add addon.open-cluster-management.io/on-multicluster-hub annotation to the managed hub
 	// clusters indicate the addons are running on a hub cluster
 	if err := r.reconcileManagedHubs(ctx); err != nil {
-		return err
-	}
-	// reconcile config: need to be done before reconciling manager and grafana
-	// 1. global image: annotation -> env -> default
-	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
 		return err
 	}
 
