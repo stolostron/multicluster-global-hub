@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 var (
@@ -53,25 +54,35 @@ func (p *gormSpecDB) GetLastUpdateTimestamp(ctx context.Context, tableName strin
 // QuerySpecObject gets object from given table with object UID
 func (p *gormSpecDB) QuerySpecObject(ctx context.Context, tableName, objUID string, object *client.Object) error {
 	db := database.GetGorm()
-
+	var payload []byte
 	query := fmt.Sprintf("SELECT payload FROM spec.%s WHERE id = ?", tableName)
-	return db.Raw(query, objUID).Row().Scan(&object)
+	err := db.Raw(query, objUID).Row().Scan(&payload)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(payload, &object)
 }
 
 // InsertSpecObject insets new object to given table with object UID and payload
 func (p *gormSpecDB) InsertSpecObject(ctx context.Context, tableName, objUID string, object *client.Object) error {
 	db := database.GetGorm()
-
-	query := fmt.Sprintf("INSERT INTO spec.%s (id,payload) values(?, ?)", tableName)
-	return db.Exec(query, objUID, object).Error
+	query := fmt.Sprintf("INSERT INTO spec.%s (id, payload) values(?, ?)", tableName)
+	payload, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+	return db.Exec(query, objUID, payload).Error
 }
 
 // UpdateSpecObject updates object payload in given table with object UID
 func (p *gormSpecDB) UpdateSpecObject(ctx context.Context, tableName, objUID string, object *client.Object) error {
 	db := database.GetGorm()
-
+	payload, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
 	query := fmt.Sprintf("UPDATE spec.%s SET payload = ? WHERE id = ?", tableName)
-	return db.Exec(query, object, objUID).Error
+	return db.Exec(query, payload, objUID).Error
 }
 
 // DeleteSpecObject deletes object with name and namespace from given table
@@ -114,10 +125,14 @@ func (p *gormSpecDB) GetObjectsBundle(ctx context.Context, tableName string, cre
 			objID   string
 			deleted bool
 		)
-
 		object := createObjFunc()
-		if err := rows.Scan(&objID, &object, &deleted); err != nil {
+
+		var payload []byte
+		if err := rows.Scan(&objID, &payload, &deleted); err != nil {
 			return nil, fmt.Errorf("error reading from table spec.%s - %w", tableName, err)
+		}
+		if err := json.Unmarshal(payload, &object); err != nil {
+			return nil, fmt.Errorf("error reading unmarshal payload from table spec.%s - %w", tableName, err)
 		}
 
 		if deleted {
@@ -138,45 +153,54 @@ func (p *gormSpecDB) GetUpdatedManagedClusterLabelsBundles(ctx context.Context, 
 ) (map[string]*spec.ManagedClusterLabelsSpecBundle, error) {
 	db := database.GetGorm()
 	// select ManagedClusterLabelsSpec entries information from DB
-	rows, err := db.Raw(fmt.Sprintf(`SELECT leaf_hub_name,managed_cluster_name,labels,
-		deleted_label_keys,updated_at,version FROM spec.%[1]s WHERE leaf_hub_name IN (SELECT DISTINCT(leaf_hub_name) 
+	rows, err := db.Raw(fmt.Sprintf(`SELECT * FROM spec.%[1]s WHERE leaf_hub_name IN (SELECT DISTINCT(leaf_hub_name) 
 		from spec.%[1]s WHERE updated_at::timestamp > timestamp '%[2]s') AND leaf_hub_name <> ''`, tableName,
 		timestamp.Format(time.RFC3339Nano))).Rows()
 	if err != nil {
 		return nil, fmt.Errorf(errQueryTableFailedTemplate, tableName, err)
 	}
-
 	defer rows.Close()
 
 	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
 
 	for rows.Next() {
-		var (
-			leafHubName              string
-			managedClusterLabelsSpec spec.ManagedClusterLabelsSpec
-		)
-
-		if err := rows.Scan(&leafHubName, &managedClusterLabelsSpec.ClusterName, &managedClusterLabelsSpec.Labels,
-			&managedClusterLabelsSpec.DeletedLabelKeys,
-			&managedClusterLabelsSpec.UpdateTimestamp,
-			&managedClusterLabelsSpec.Version); err != nil {
-			return nil, fmt.Errorf("error reading from table - %w", err)
+		// var leafHubName string // managedClusterLabelsSpec spec.ManagedClusterLabelsSpec
+		var managedClusterLabel models.ManagedClusterLabel
+		if err := db.ScanRows(rows, &managedClusterLabel); err != nil {
+			return nil, fmt.Errorf("error reading managed cluster label from table - %w", err)
 		}
 
 		// create ManagedClusterLabelsSpecBundle if not mapped for leafHub
-		managedClusterLabelsSpecBundle, found := leafHubToLabelsSpecBundleMap[leafHubName]
+		managedClusterLabelsSpecBundle, found := leafHubToLabelsSpecBundleMap[managedClusterLabel.LeafHubName]
 		if !found {
 			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecBundle{
 				Objects:     []*spec.ManagedClusterLabelsSpec{},
-				LeafHubName: leafHubName,
+				LeafHubName: managedClusterLabel.LeafHubName,
 			}
+			leafHubToLabelsSpecBundleMap[managedClusterLabel.LeafHubName] = managedClusterLabelsSpecBundle
+		}
 
-			leafHubToLabelsSpecBundleMap[leafHubName] = managedClusterLabelsSpecBundle
+		labels := map[string]string{}
+		err := json.Unmarshal(managedClusterLabel.Labels, &labels)
+		if err != nil {
+			return nil, fmt.Errorf("error to unmarshal labels - %w", err)
+		}
+
+		deletedKeys := []string{}
+		err = json.Unmarshal(managedClusterLabel.DeletedLabelKeys, &deletedKeys)
+		if err != nil {
+			return nil, fmt.Errorf("error to unmarshal deletedKeys - %w", err)
 		}
 
 		// append entry to bundle
 		managedClusterLabelsSpecBundle.Objects = append(managedClusterLabelsSpecBundle.Objects,
-			&managedClusterLabelsSpec)
+			&spec.ManagedClusterLabelsSpec{
+				ClusterName:      managedClusterLabel.ManagedClusterName,
+				Version:          int64(managedClusterLabel.Version),
+				UpdateTimestamp:  managedClusterLabel.UpdatedAt,
+				Labels:           labels,
+				DeletedLabelKeys: deletedKeys,
+			})
 	}
 
 	return leafHubToLabelsSpecBundleMap, nil

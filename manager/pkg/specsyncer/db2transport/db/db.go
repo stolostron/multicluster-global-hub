@@ -7,29 +7,16 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 )
 
-// DB is the needed interface for the spec/status syncer and spec/status transport
-type DB interface {
-	// GetConn returns the database connction
-	// TODO(morvencao): should not return concrete DB connection type here,
-	// maybe should return a warpe type for DB connection
-	GetConn() *pgxpool.Pool
-
-	SpecDB
-	StatusDB
-}
-
 // SpecDB is the needed interface for the spec syncer and spec transport
 type SpecDB interface {
 	// GetLastUpdateTimestamp returns the last update timestamp of a specific table.
 	GetLastUpdateTimestamp(ctx context.Context, tableName string, filterLocalResources bool) (*time.Time, error)
-
 	ObjectsSpecDB
 	ManagedClusterLabelsSpecDB
 }

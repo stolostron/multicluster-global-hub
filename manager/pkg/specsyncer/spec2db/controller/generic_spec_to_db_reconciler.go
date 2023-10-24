@@ -5,12 +5,12 @@ package controller
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
-	pgx "github.com/jackc/pgx/v4"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -153,7 +153,7 @@ func (r *genericSpecToDBReconciler) processInstanceInTheDatabase(ctx context.Con
 	instanceInTheDatabase := r.createInstance()
 	err := r.specDB.QuerySpecObject(ctx, r.tableName, instanceUID, &instanceInTheDatabase)
 
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		log.V(2).Info("The instance with the current UID does not exist in the database, inserting...")
 
 		if err := r.specDB.InsertSpecObject(ctx, r.tableName, instanceUID, &instance); err != nil {

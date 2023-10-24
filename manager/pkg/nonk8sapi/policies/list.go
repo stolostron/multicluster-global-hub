@@ -451,21 +451,20 @@ func getComplianceStatus(policyComplianceQuery, policyID string,
 	}).Order("leaf_hub_name asc").Order("cluster_name").Find(&statusCompliances).Error
 	if err != nil {
 		return compliancePerClusterStatuses, hasNonCompliantClusters,
-			fmt.Errorf("error in querying policy compliance: - %w", err)
+			fmt.Errorf("error in querying policy  status compliance: - %w", err)
 	}
 
 	policyComplianceRows, err := db.Raw(policyComplianceQuery, policyID).Rows()
 	if err != nil {
 		return compliancePerClusterStatuses, hasNonCompliantClusters,
-			fmt.Errorf("error in querying policy compliance: - %w", err)
+			fmt.Errorf("error in querying policy compliances: - %w", err)
 	}
 	defer policyComplianceRows.Close()
 
 	for policyComplianceRows.Next() {
 		var clusterName, leafHubName, complianceInDB string
 		if err := policyComplianceRows.Scan(&clusterName, &leafHubName, &complianceInDB); err != nil {
-			return []*policyv1.CompliancePerClusterStatus{}, false,
-				fmt.Errorf("error in querying policy compliance: - %w", err)
+			return []*policyv1.CompliancePerClusterStatus{}, false, err
 		}
 
 		compliance := dbEnumToPolicyComplianceStateMap[complianceInDB]

@@ -4,6 +4,7 @@
 package dbsyncer_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -38,10 +40,25 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test managedcluster labels can be synced through transport", func() {
 		By("insert managed cluster labels to database")
-		err := db.Exec(
-			`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, managed_cluster_name, labels,
-			deleted_label_keys, version, updated_at) values(?, ?, ?, ?, ?, 0, now())`,
-			managedclusterUID, leafhubName, managedclusterName, labelsToAdd, labelKeysToRemove).Error
+
+		labelPayload, err := json.Marshal(labelsToAdd)
+		Expect(err).Should(Succeed())
+
+		labelKeysToRemovePayload, err := json.Marshal(labelKeysToRemove)
+		Expect(err).Should(Succeed())
+
+		err = db.Create(&models.ManagedClusterLabel{
+			ID:                 managedclusterUID,
+			LeafHubName:        leafhubName,
+			ManagedClusterName: managedclusterName,
+			Labels:             labelPayload,
+			DeletedLabelKeys:   labelKeysToRemovePayload,
+			Version:            0,
+		}).Error
+		// err := db.Exec(
+		// 	`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, managed_cluster_name, labels,
+		// 	deleted_label_keys, version, updated_at) values(?, ?, ?, ?, ?, 0, now())`,
+		// 	managedclusterUID, leafhubName, managedclusterName, labelsToAdd, labelKeysToRemove).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
@@ -52,8 +69,8 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 	It("Test managedclusterset can be synced through transport", func() {
 		By("create a managedclusterset")
 		err := db.Exec(
-			"INSERT INTO spec.managedclustersets (id,payload) VALUES(?, ?)",
-			managedclustersetUID, &managedclustersetJSONBytes).Error
+			"INSERT INTO spec.managedclustersets (id, payload) VALUES(?, ?)",
+			managedclustersetUID, managedclustersetJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())
