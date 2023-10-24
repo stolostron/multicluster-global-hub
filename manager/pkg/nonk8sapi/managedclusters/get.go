@@ -25,10 +25,15 @@ func GetManagedCluster(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		managedCluster := &clusterv1.ManagedCluster{}
 		err := dbConnectionPool.QueryRow(context.TODO(), `SELECT payload
 		FROM status.managed_clusters WHERE cluster_id=$1`, clusterID).Scan(managedCluster)
-		if err != nil && err != pgx.ErrNoRows {
-			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-			fmt.Fprintf(gin.DefaultWriter, "error in quering the managed cluster: %v\n", err)
-			return
+		if err != nil {
+			if err != pgx.ErrNoRows {
+				ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
+				fmt.Fprintf(gin.DefaultWriter, "error in quering the managed cluster: %v\n", err)
+				return
+			} else {
+				ginCtx.JSON(http.StatusOK, err)
+				return
+			}
 		}
 
 		if util.ShouldReturnAsTable(ginCtx) {
