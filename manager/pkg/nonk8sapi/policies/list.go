@@ -5,6 +5,7 @@ package policies
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +15,6 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
@@ -26,6 +26,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 var dbEnumToPolicyComplianceStateMap = map[string]policyv1.ComplianceState{
@@ -291,12 +292,21 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	db := database.GetGorm()
-	lastPolicyID, lastPolicy := "", &policyv1.Policy{}
-	err := db.Raw(lastPolicyQuery).Row().Scan(&lastPolicyID, lastPolicy)
-	if err != nil && err != pgx.ErrNoRows {
+	lastPolicy := &policyv1.Policy{}
+	lastPolicyID := ""
+	lastSpecPolicy := models.SpecPolicy{}
+	err := db.Raw(lastPolicyQuery).Row().Scan(&lastSpecPolicy)
+	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in quering last policy: %v\n", err)
+		fmt.Fprintf(gin.DefaultWriter, "error in querying last policy: %v\n", err)
 		return
+	}
+
+	if err == nil {
+		if e := json.Unmarshal(lastSpecPolicy.Payload, lastPolicy); e != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in querying last policy payload: %v\n", e)
+			return
+		}
 	}
 
 	policyMatches, err = getPolicyMatches(policyMappingQuery)
@@ -393,6 +403,8 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 
 // getPolicyMatches returns array of policy & placementbinding & placementrule mapping and error.
 func getPolicyMatches(policyMappingQuery string) ([]*policyMatch, error) {
+	fmt.Println("getPolicyMatches ==========0")
+
 	policyMatches := []*policyMatch{}
 
 	db := database.GetGorm()
@@ -411,6 +423,8 @@ func getPolicyMatches(policyMappingQuery string) ([]*policyMatch, error) {
 				"error in reading policy & placementbinding & placementrule match table rows: %v\n", err)
 			continue
 		}
+
+		fmt.Println("getPolicyMatches ==========", policyName, placementbindingName, placementruleName)
 
 		policyMatches = append(policyMatches, &policyMatch{policyName, placementruleName, placementbindingName})
 	}

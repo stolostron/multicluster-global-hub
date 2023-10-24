@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -108,72 +108,95 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 	}
 	db := database.GetGorm()
 
-	labelToLoadPayload, err := json.Marshal(labelsToAdd)
-	if err != nil {
-		return err
-	}
-	keysToRemovePayload, err := json.Marshal(getKeys(labelsToRemove))
-	if err != nil {
-		return err
-	}
+	// labelToLoadPayload, err := json.Marshal(labelsToAdd)
+	// if err != nil {
+	// 	return err
+	// }
+	// keysToRemovePayload, err := json.Marshal(getKeys(labelsToRemove))
+	// if err != nil {
+	// 	return err
+	// }
 
-	managedClusterLabel := models.ManagedClusterLabel{
-		ID:                 clusterID,
-		LeafHubName:        leafHubName,
-		ManagedClusterName: managedClusterName,
-		Labels:             labelToLoadPayload,
-		DeletedLabelKeys:   keysToRemovePayload,
-		Version:            time.Now().Second(),
-	}
-	rows, err := db.Raw("SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE id = ?",
-		clusterID).Rows()
-	if err != nil {
+	// managedClusterLabel := models.ManagedClusterLabel{
+	// 	ID:                 clusterID,
+	// 	LeafHubName:        leafHubName,
+	// 	ManagedClusterName: managedClusterName,
+	// 	Labels:             labelToLoadPayload,
+	// 	DeletedLabelKeys:   keysToRemovePayload,
+	// 	Version:            time.Now().Second(),
+	// }
+	// ret := db.Save(managedClusterLabel)
+	// if ret.Error != nil {
+	// 	return fmt.Errorf("failed to update managed_clusters_labels: %w", err)
+	// }
+
+	// rows, err := db.Raw("SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE id = ?",
+	// 	clusterID).Rows()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to read from managed_clusters_labels: %w", err)
+	// }
+	// defer rows.Close()
+
+	managedClusterLabels := []models.ManagedClusterLabel{}
+	err := db.Where(models.ManagedClusterLabel{ID: clusterID}).Find(&managedClusterLabels).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return fmt.Errorf("failed to read from managed_clusters_labels: %w", err)
 	}
-	defer rows.Close()
 
-	if !rows.Next() { // insert the labels
-		err := db.Exec(`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, 
-			managed_cluster_name, labels, deleted_label_keys, version, updated_at) values(?, ?, ?, ?::jsonb, ?::jsonb, 0, now()`, clusterID, leafHubName, managedClusterName, labelsToAdd, getKeys(labelsToRemove)).Error
+	if err == gorm.ErrRecordNotFound || len(managedClusterLabels) == 0 {
+		labelToLoadPayload, err := json.Marshal(labelsToAdd)
 		if err != nil {
-			return fmt.Errorf("failed to insert into the managed_clusters_labels table: %w", err)
+			return err
 		}
-
-		return nil
+		keysToRemovePayload, err := json.Marshal(getKeys(labelsToRemove))
+		if err != nil {
+			return err
+		}
+		return db.Create(&models.ManagedClusterLabel{
+			ID:                 clusterID,
+			LeafHubName:        leafHubName,
+			ManagedClusterName: managedClusterName,
+			Labels:             labelToLoadPayload,
+			DeletedLabelKeys:   keysToRemovePayload,
+			Version:            0,
+		}).Error
 	}
 
 	var (
-		currentLabelsToAdd         map[string]string
-		currentLabelsToRemoveSlice []string
-		version                    int64
+		existLabels              map[string]string
+		existLabelsToRemoveSlice []string
 	)
 
-	err = rows.Scan(&currentLabelsToAdd, &currentLabelsToRemoveSlice, &version)
-	if err != nil {
-		return fmt.Errorf("failed to scan a row: %w", err)
+	// update the labels and version
+	if err := json.Unmarshal(managedClusterLabels[0].Labels, &existLabels); err != nil {
+		return fmt.Errorf("failed to unmarshal currentLabels: %w", err)
 	}
+	if err := json.Unmarshal(managedClusterLabels[0].DeletedLabelKeys, &existLabelsToRemoveSlice); err != nil {
+		return fmt.Errorf("failed to unmarshal currentLabelToRemoveSlice: %w", err)
+	}
+	existVersion := managedClusterLabels[0].Version
 
-	err = updateRow(clusterID, labelsToAdd, currentLabelsToAdd, labelsToRemove,
-		getMap(currentLabelsToRemoveSlice), version)
+	err = updateRow(clusterID, labelsToAdd, existLabels, labelsToRemove,
+		getMap(existLabelsToRemoveSlice), existVersion)
 	if err != nil {
 		return fmt.Errorf("failed to update managed_clusters_labels table: %w", err)
 	}
 
-	// assumimg there is a single row
-	if rows.Next() {
+	// assuming there is a single row
+	if len(managedClusterLabels) > 1 {
 		fmt.Fprintf(gin.DefaultWriter, "Warning: more than one row for cluster with ID %s\n", clusterID)
 	}
 
 	return nil
 }
 
-func updateRow(clusterID string, labelsToAdd, currentLabelsToAdd map[string]string,
-	labelsToRemove, currentLabelsToRemove map[string]struct{}, version int64,
+func updateRow(clusterID string, labelsToAdd, existLabelsToAdd map[string]string,
+	labelsToRemove, existLabelsToRemove map[string]struct{}, existVersion int,
 ) error {
 	newLabelsToAdd := make(map[string]string)
 	newLabelsToRemove := make(map[string]struct{})
 
-	for key := range currentLabelsToRemove {
+	for key := range existLabelsToRemove {
 		if _, keyToBeAdded := labelsToAdd[key]; !keyToBeAdded {
 			newLabelsToRemove[key] = struct{}{}
 		}
@@ -183,7 +206,7 @@ func updateRow(clusterID string, labelsToAdd, currentLabelsToAdd map[string]stri
 		newLabelsToRemove[key] = struct{}{}
 	}
 
-	for key, value := range currentLabelsToAdd {
+	for key, value := range existLabelsToAdd {
 		if _, keyToBeRemoved := labelsToRemove[key]; !keyToBeRemoved {
 			newLabelsToAdd[key] = value
 		}
@@ -192,19 +215,30 @@ func updateRow(clusterID string, labelsToAdd, currentLabelsToAdd map[string]stri
 	for key, value := range labelsToAdd {
 		newLabelsToAdd[key] = value
 	}
-	db := database.GetGorm()
-	result := db.Exec(`UPDATE spec.managed_clusters_labels SET
-		labels = ?,
-		deleted_label_keys = ?,
-		version = version + 1,
-		updated_at = now()
-		WHERE id= ? AND version= ?`,
-		newLabelsToAdd, getKeys(newLabelsToRemove), clusterID, version)
-	if result.Error != nil {
-		return fmt.Errorf("failed to update a row: %w", result.Error)
-	}
 
-	if result.RowsAffected == 0 {
+	db := database.GetGorm()
+	newLabelsToAddPayload, err := json.Marshal(newLabelsToAdd)
+	if err != nil {
+		return err
+	}
+	newKeysToRemovePayload, err := json.Marshal(getKeys(newLabelsToRemove))
+	if err != nil {
+		return err
+	}
+	ret := db.Model(&models.ManagedClusterLabel{}).Where(&models.ManagedClusterLabel{
+		ID:      clusterID,
+		Version: int(existVersion),
+	}).Updates(&models.ManagedClusterLabel{
+		ID:               clusterID,
+		Labels:           newLabelsToAddPayload,
+		DeletedLabelKeys: newKeysToRemovePayload,
+		Version:          int(existVersion) + 1,
+	})
+
+	if ret.Error != nil {
+		return fmt.Errorf("failed to update a row: %w", ret.Error)
+	}
+	if ret.RowsAffected == 0 {
 		return fmt.Errorf("failed to update a row: %w", errOptimisticConcurrencyWriteFailed)
 	}
 	return nil

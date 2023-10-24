@@ -6,6 +6,7 @@ package nonk8sapi_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 type TestResponseRecorder struct {
@@ -334,13 +336,28 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w.Code).To(Equal(200))
 
 		By("Check the label for the managed cluster is patched")
-		Eventually(func() bool {
+		Eventually(func() error {
 			var labels map[string]string
-			err = db.Raw(
-				"SELECT labels from spec.managed_clusters_labels "+
-					"WHERE id = ?;", "2aa5547c-c172-47ed-b70b-db468c84d327").Row().Scan(&labels)
-			return err == nil && labels["foo"] == "bar"
-		}, 10*time.Second, 2*time.Second).Should(BeTrue())
+			managedClusterLabel := models.ManagedClusterLabel{}
+			err := db.Where(&models.ManagedClusterLabel{
+				ID: "2aa5547c-c172-47ed-b70b-db468c84d327",
+			}).First(&managedClusterLabel).Error
+			if err != nil {
+				return err
+			}
+
+			labelsPayload := managedClusterLabel.Labels
+			err = json.Unmarshal(labelsPayload, &labels)
+			if err != nil {
+				return err
+			}
+
+			if labels["foo"] != "bar" {
+				return fmt.Errorf("can't find the foo=bar label on the label table")
+			}
+
+			return nil
+		}, 10*time.Second, 2*time.Second).Should(Succeed())
 	})
 
 	It("Should be able to list policies", func() {
