@@ -108,35 +108,6 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 	}
 	db := database.GetGorm()
 
-	// labelToLoadPayload, err := json.Marshal(labelsToAdd)
-	// if err != nil {
-	// 	return err
-	// }
-	// keysToRemovePayload, err := json.Marshal(getKeys(labelsToRemove))
-	// if err != nil {
-	// 	return err
-	// }
-
-	// managedClusterLabel := models.ManagedClusterLabel{
-	// 	ID:                 clusterID,
-	// 	LeafHubName:        leafHubName,
-	// 	ManagedClusterName: managedClusterName,
-	// 	Labels:             labelToLoadPayload,
-	// 	DeletedLabelKeys:   keysToRemovePayload,
-	// 	Version:            time.Now().Second(),
-	// }
-	// ret := db.Save(managedClusterLabel)
-	// if ret.Error != nil {
-	// 	return fmt.Errorf("failed to update managed_clusters_labels: %w", err)
-	// }
-
-	// rows, err := db.Raw("SELECT labels, deleted_label_keys, version from spec.managed_clusters_labels WHERE id = ?",
-	// 	clusterID).Rows()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to read from managed_clusters_labels: %w", err)
-	// }
-	// defer rows.Close()
-
 	managedClusterLabels := []models.ManagedClusterLabel{}
 	err := db.Where(models.ManagedClusterLabel{ID: clusterID}).Find(&managedClusterLabels).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
