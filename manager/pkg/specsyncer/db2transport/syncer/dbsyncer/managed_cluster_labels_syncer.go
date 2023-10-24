@@ -1,4 +1,4 @@
-package statuswatcher
+package dbsyncer
 
 import (
 	"context"
@@ -23,8 +23,8 @@ const (
 	tempLeafHubNameFillInterval = 10 * time.Second
 )
 
-// AddManagedClusterLabelsStatusWatcher adds managedClusterLabelsStatusWatcher to the manager.
-func AddManagedClusterLabelsStatusWatcher(mgr ctrl.Manager, deletedLabelsTrimmingInterval time.Duration) error {
+// AddManagedClusterLabelsSyncer adds managedClusterLabelsStatusWatcher to the manager.
+func AddManagedClusterLabelsSyncer(mgr ctrl.Manager, deletedLabelsTrimmingInterval time.Duration) error {
 	if err := mgr.Add(&managedClusterLabelsStatusWatcher{
 		log:            ctrl.Log.WithName("managed-cluster-labels-status-watcher"),
 		specDB:         gorm.NewGormSpecDB(),

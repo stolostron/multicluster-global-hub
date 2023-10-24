@@ -96,7 +96,8 @@ var _ = BeforeSuite(func() {
 
 	managerConfig := &config.ManagerConfig{
 		SyncerConfig: &config.SyncerConfig{
-			SpecSyncInterval: 1 * time.Second,
+			SpecSyncInterval:              1 * time.Second,
+			DeletedLabelsTrimmingInterval: 2 * time.Second,
 		},
 		TransportConfig: &transport.TransportConfig{
 			TransportType:     string(transport.Chan),
@@ -108,6 +109,8 @@ var _ = BeforeSuite(func() {
 	}
 
 	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig)).Should(Succeed())
+	Expect(specsycner.AddManagedClusterLabelSyncer(mgr,
+		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval)).Should(Succeed())
 
 	// mock consume message from agent
 	By("Create kafka consumer")

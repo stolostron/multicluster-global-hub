@@ -10,7 +10,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/gorm"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer/dbsyncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer/statuswatcher"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
@@ -46,11 +45,10 @@ func AddDB2TransportSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 	return nil
 }
 
-// AddStatusDBWatchers adds the controllers that watch the status DB to update the spec DB to the Manager.
-func AddStatusDBWatchers(mgr ctrl.Manager, deletedLabelsTrimmingInterval time.Duration) error {
-	if err := statuswatcher.AddManagedClusterLabelsStatusWatcher(mgr, deletedLabelsTrimmingInterval); err != nil {
+// AddManagedClusterLabelSyncer update the label table by the managed cluster table
+func AddManagedClusterLabelSyncer(mgr ctrl.Manager, deletedLabelsTrimmingInterval time.Duration) error {
+	if err := dbsyncer.AddManagedClusterLabelsSyncer(mgr, deletedLabelsTrimmingInterval); err != nil {
 		return fmt.Errorf("failed to add status watcher: %w", err)
 	}
-
 	return nil
 }
