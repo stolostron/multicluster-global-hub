@@ -2,6 +2,7 @@ package dbsyncer
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 const (
@@ -104,13 +104,12 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodicall
 }
 
 func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCluster(ctx context.Context) bool {
-	leafHubToLabelsSpecBundleMap, err := getManagedClusterLabelsWithDeletedKey(ctx)
+	leafHubToLabelsSpecBundleMap, err := getLabelBundleWithDeletedKey(ctx)
 	if err != nil {
-		fmt.Println("====================1", err.Error())
 		watcher.log.Error(err, "trimming cycle skipped")
 		return false
 	}
-	fmt.Println("====================2", err.Error())
+
 	result := true
 	// iterate over entries
 	for _, managedClusterLabelsSpecBundle := range leafHubToLabelsSpecBundleMap {
@@ -184,53 +183,18 @@ func (watcher *managedClusterLabelsStatusWatcher) fillMissingLeafHubNames(ctx co
 
 // returns a map of leaf-hub -> ManagedClusterLabelsSpecBundle of objects that have a
 // none-empty deleted-label-keys column.
-func getManagedClusterLabelsWithDeletedKey(ctx context.Context) (
+func getLabelBundleWithDeletedKey(ctx context.Context) (
 	map[string]*spec.ManagedClusterLabelsSpecBundle, error,
 ) {
 	db := database.GetGorm()
-	var managedClusterLabels []models.ManagedClusterLabel
-	deleted_key := []string{}
-	payload, err := json.Marshal(deleted_key)
+	rows, err := db.Raw(`SELECT * FROM spec.managed_clusters_labels WHERE deleted_label_keys <> ? AND leaf_hub_name <> ?`,
+		[]byte("[]"), "").Rows()
 	if err != nil {
 		return nil, err
 	}
-	err = db.Where("deleted_label_keys <> ? AND leaf_hub_name <> ?", payload, "").Find(&managedClusterLabels).Error
-	if err != nil {
-		return nil, err
-	}
+	defer rows.Close()
 
-	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
-
-	for _, managedClusterLabel := range managedClusterLabels {
-		labels := map[string]string{}
-		fmt.Println("managedClusterLabel", managedClusterLabel)
-		if err := json.Unmarshal(managedClusterLabel.Labels, labels); err != nil {
-			return nil, err
-		}
-		deletedKeys := []string{}
-		if err := json.Unmarshal(managedClusterLabel.DeletedLabelKeys, deletedKeys); err != nil {
-			return nil, err
-		}
-		managedClusterLabelsSpecBundle, found := leafHubToLabelsSpecBundleMap[managedClusterLabel.LeafHubName]
-		if !found {
-			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecBundle{
-				Objects:     []*spec.ManagedClusterLabelsSpec{},
-				LeafHubName: managedClusterLabel.LeafHubName,
-			}
-			leafHubToLabelsSpecBundleMap[managedClusterLabel.LeafHubName] = managedClusterLabelsSpecBundle
-		}
-		// append entry to bundle
-		managedClusterLabelsSpecBundle.Objects = append(managedClusterLabelsSpecBundle.Objects,
-			&spec.ManagedClusterLabelsSpec{
-				ClusterName:      managedClusterLabel.ManagedClusterName,
-				DeletedLabelKeys: deletedKeys,
-				Labels:           labels,
-				Version:          int64(managedClusterLabel.Version),
-				UpdateTimestamp:  managedClusterLabel.UpdatedAt,
-			})
-
-	}
-	return leafHubToLabelsSpecBundleMap, nil
+	return getManagedClusterLabelBundleByRows(db, rows)
 }
 
 // Return the labels present in managed-cluster CR metadata from a specific table.
@@ -239,16 +203,18 @@ func getLabelsFromManagedCluster(ctx context.Context, leafHubName string, manage
 	db := database.GetGorm()
 
 	var labelsPayload []byte
-	if err := db.Raw(fmt.Sprintf(`SELECT payload->'metadata'->'labels' FROM status.%s WHERE 
+	err := db.Raw(fmt.Sprintf(`SELECT payload->'metadata'->'labels' FROM status.%s WHERE 
 		leaf_hub_name=? AND payload->'metadata'->>'name'=?`, clusterTableName), leafHubName,
-		managedClusterName).Row().Scan(&labelsPayload); err != nil {
+		managedClusterName).Row().Scan(&labelsPayload)
+	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("error reading from table status.%s - %w", clusterTableName, err)
 	}
 
 	labels := make(map[string]string)
-	err := json.Unmarshal(labelsPayload, &labels)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		if e := json.Unmarshal(labelsPayload, &labels); e != nil {
+			return nil, e
+		}
 	}
 	return labels, nil
 }

@@ -26,21 +26,8 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	// It("Test config can be synced through transport", func() {
-	// 	By("create a config")
-	// 	db.Exec(
-	// 		"INSERT INTO spec.configs (id,payload) VALUES(?, ?)",
-	// 		configUID, &configJSONBytes)
-	// 	Expect(err).ToNot(HaveOccurred())
-
-	// 	message := waitForChannel(genericConsumer.MessageChan())
-	// 	Expect(message.ID).Should(Equal("Config"))
-	// 	Expect(message.Payload).Should(ContainSubstring(configUID))
-	// })
-
 	It("Test managedcluster labels can be synced through transport", func() {
 		By("insert managed cluster labels to database")
-
 		labelPayload, err := json.Marshal(labelsToAdd)
 		Expect(err).Should(Succeed())
 
@@ -77,8 +64,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("Test managedclustersetbinding can be synced through transport", func() {
 		By("create a managedclustersetbinding")
-		err := db.Exec(
-			"INSERT INTO spec.managedclustersetbindings (id,payload) VALUES(?, ?)",
+		err := db.Exec("INSERT INTO spec.managedclustersetbindings (id,payload) VALUES(?, ?)",
 			managedclustersetbindingUID, &managedclustersetbindingJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
@@ -172,6 +158,43 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		fmt.Printf("========== received channel: %s\n", message)
 		Expect(message.Payload).Should(ContainSubstring(channelUID))
 	})
+
+	// It("Test managed cluster labels syncer", func() {
+	// 	Eventually(func() error {
+	// 		var managedClusterLabel models.ManagedClusterLabel
+	// 		err := db.First(&managedClusterLabel).Error
+	// 		if err != nil {
+	// 			return err
+	// 		}
+
+	// 		deletedKeys := []string{}
+	// 		err = json.Unmarshal(managedClusterLabel.DeletedLabelKeys, deletedKeys)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		if len(deletedKeys) > 0 {
+	// 			fmt.Println("deletedKeys", deletedKeys)
+	// 			return nil
+	// 		}
+	// 		return fmt.Errorf("the labels haven't been synced")
+	// 	}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	// })
+
+	// 		By("Sync managed cluster labels")
+	// 		Eventually(func() error {
+	// 			var managedClusterLabels []models.ManagedClusterLabel
+	// 			err := db.Where(&models.ManagedClusterLabel{
+	// 				LeafHubName: leafHubName,
+	// 			}).Find(&managedClusterLabels).Error
+	// 			if err != nil {
+	// 				return err
+	// 			}
+	// 			fmt.Println("managedClusterLabels------------", managedClusterLabels)
+	// 			if len(managedClusterLabels) == 3 {
+	// 				return nil
+	// 			}
+	// 			return fmt.Errorf("the labels haven't been synced")
+	// 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 })
 
 // waitForChannel genericConsumer.MessageChan() with timeout

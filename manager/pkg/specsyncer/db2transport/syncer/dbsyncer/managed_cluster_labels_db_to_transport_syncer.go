@@ -2,10 +2,12 @@ package dbsyncer
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"gorm.io/gorm"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
@@ -99,11 +101,15 @@ func getUpdatedManagedClusterLabelsBundles(timestamp *time.Time,
 	}
 	defer rows.Close()
 
-	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
+	return getManagedClusterLabelBundleByRows(db, rows)
+}
 
+func getManagedClusterLabelBundleByRows(db *gorm.DB, rows *sql.Rows) (
+	map[string]*spec.ManagedClusterLabelsSpecBundle, error,
+) {
+	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
 	for rows.Next() {
-		// var leafHubName string // managedClusterLabelsSpec spec.ManagedClusterLabelsSpec
-		var managedClusterLabel models.ManagedClusterLabel
+		managedClusterLabel := models.ManagedClusterLabel{}
 		if err := db.ScanRows(rows, &managedClusterLabel); err != nil {
 			return nil, fmt.Errorf("error reading managed cluster label from table - %w", err)
 		}
@@ -130,7 +136,6 @@ func getUpdatedManagedClusterLabelsBundles(timestamp *time.Time,
 			return nil, fmt.Errorf("error to unmarshal deletedKeys - %w", err)
 		}
 
-		// append entry to bundle
 		managedClusterLabelsSpecBundle.Objects = append(managedClusterLabelsSpecBundle.Objects,
 			&spec.ManagedClusterLabelsSpec{
 				ClusterName:      managedClusterLabel.ManagedClusterName,
