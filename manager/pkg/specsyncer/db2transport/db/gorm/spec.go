@@ -88,16 +88,13 @@ func (p *gormSpecDB) UpdateSpecObject(ctx context.Context, tableName, objUID str
 // DeleteSpecObject deletes object with name and namespace from given table
 func (p *gormSpecDB) DeleteSpecObject(ctx context.Context, tableName, name, namespace string) error {
 	db := database.GetGorm()
-
+	updateTemplate := fmt.Sprintf(`UPDATE spec.%s SET deleted = true WHERE payload -> 'metadata' ->> 'name' = '%s' AND
+	deleted = false`, tableName, name)
+	namespaceCondition := " AND payload -> 'metadata' ->> 'namespace' IS NULL"
 	if namespace != "" {
-		query := fmt.Sprintf(`UPDATE spec.%s SET deleted = true WHERE payload -> 'metadata' ->> 'name' = ? AND
-			payload -> 'metadata' ->> 'namespace' = ? AND deleted = false`, tableName)
-		return db.Exec(query, name, namespace).Error
-	} else {
-		query := fmt.Sprintf(`UPDATE spec.%s SET deleted = true WHERE payload -> 'metadata' ->> 'name' = ? AND
-			payload -> 'metadata' ->> 'namespace' IS NULL AND deleted = false`, tableName)
-		return db.Exec(query, name).Error
+		namespaceCondition = fmt.Sprintf(` AND payload -> 'metadata' ->> 'namespace' = '%s'`, namespace)
 	}
+	return db.Exec(updateTemplate + namespaceCondition).Error
 }
 
 // GetObjectsBundle returns a bundle of objects from a specific table.
@@ -217,7 +214,6 @@ func (p *gormSpecDB) GetEntriesWithDeletedLabels(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf(errQueryTableFailedTemplate, tableName, err)
 	}
-
 	defer rows.Close()
 
 	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
