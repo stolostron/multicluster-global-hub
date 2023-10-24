@@ -5,6 +5,7 @@ package managedclusters
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +15,6 @@ import (
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
@@ -247,18 +247,15 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	// load the lastManaged cluster
 	lastManagedCluster := &clusterv1.ManagedCluster{}
 
-	var rowMap map[string]interface{}
-	ret := db.Raw(lastManagedClusterQuery).First(&rowMap)
-	if ret.Error != nil && ret.Error != gorm.ErrRecordNotFound {
+	var payload []byte
+	err := db.Raw(lastManagedClusterQuery).Row().Scan(&payload)
+	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in querying row: %v\n", ret.Error)
+		fmt.Fprintf(gin.DefaultWriter, "error in querying row: %v\n", err)
 		return
 	}
-	rowCluster, ok := rowMap["payload"]
-
-	if ok {
-		err := json.Unmarshal(rowCluster.([]byte), lastManagedCluster)
-		if err != nil {
+	if err == nil {
+		if err := json.Unmarshal(payload, lastManagedCluster); err != nil {
 			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 			fmt.Fprintf(gin.DefaultWriter, "error to unmarshal payload to lastManagedCluster: %v\n", err)
 			return
