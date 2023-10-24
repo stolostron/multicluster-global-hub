@@ -55,10 +55,6 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			DeletedLabelKeys:   labelKeysToRemovePayload,
 			Version:            0,
 		}).Error
-		// err := db.Exec(
-		// 	`INSERT INTO spec.managed_clusters_labels (id, leaf_hub_name, managed_cluster_name, labels,
-		// 	deleted_label_keys, version, updated_at) values(?, ?, ?, ?, ?, 0, now())`,
-		// 	managedclusterUID, leafhubName, managedclusterName, labelsToAdd, labelKeysToRemove).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		message := waitForChannel(genericConsumer.MessageChan())

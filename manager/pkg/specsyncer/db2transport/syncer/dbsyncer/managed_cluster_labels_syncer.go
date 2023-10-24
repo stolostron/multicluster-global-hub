@@ -26,7 +26,7 @@ const (
 // AddManagedClusterLabelsSyncer adds managedClusterLabelsStatusWatcher to the manager.
 func AddManagedClusterLabelsSyncer(mgr ctrl.Manager, deletedLabelsTrimmingInterval time.Duration) error {
 	if err := mgr.Add(&managedClusterLabelsStatusWatcher{
-		log:            ctrl.Log.WithName("managed-cluster-labels-status-watcher"),
+		log:            ctrl.Log.WithName("managed-cluster-labels-syncer"),
 		specDB:         gorm.NewGormSpecDB(),
 		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(deletedLabelsTrimmingInterval),
 	}); err != nil {
@@ -53,7 +53,7 @@ func (watcher *managedClusterLabelsStatusWatcher) Start(ctx context.Context) err
 }
 
 func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodically(ctx context.Context) {
-	hubNameFillTicker := time.NewTicker(tempLeafHubNameFillInterval) // TODO: delete when nonk8s-api exposes name.
+	hubNameFillTicker := time.NewTicker(tempLeafHubNameFillInterval)
 	labelsTrimmerTicker := time.NewTicker(watcher.intervalPolicy.GetInterval())
 
 	for {
@@ -92,7 +92,7 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodicall
 				watcher.log.Info(fmt.Sprintf("trimming interval has been reset to %s", reevaluatedInterval.String()))
 			}
 
-		case <-hubNameFillTicker.C: // TODO: delete when nonk8s-api exposes name.
+		case <-hubNameFillTicker.C:
 			// define timeout of max execution interval on the update function
 			ctxWithTimeout, cancelFunc := context.WithTimeout(ctx,
 				watcher.intervalPolicy.GetMaxInterval())
@@ -104,11 +104,13 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodicall
 }
 
 func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCluster(ctx context.Context) bool {
-	leafHubToLabelsSpecBundleMap, err := getEntriesWithDeletedLabels(ctx)
+	leafHubToLabelsSpecBundleMap, err := getManagedClusterLabelsWithDeletedKey(ctx)
 	if err != nil {
+		fmt.Println("====================1", err.Error())
 		watcher.log.Error(err, "trimming cycle skipped")
 		return false
 	}
+	fmt.Println("====================2", err.Error())
 	result := true
 	// iterate over entries
 	for _, managedClusterLabelsSpecBundle := range leafHubToLabelsSpecBundleMap {
@@ -154,7 +156,6 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCl
 	return result
 }
 
-// TODO: once non-k8s-restapi exposes hub names, remove line.
 func (watcher *managedClusterLabelsStatusWatcher) fillMissingLeafHubNames(ctx context.Context) {
 	entities, err := getLabelsWithoutLeafHubName(ctx)
 	if err != nil {
@@ -183,41 +184,49 @@ func (watcher *managedClusterLabelsStatusWatcher) fillMissingLeafHubNames(ctx co
 
 // returns a map of leaf-hub -> ManagedClusterLabelsSpecBundle of objects that have a
 // none-empty deleted-label-keys column.
-func getEntriesWithDeletedLabels(ctx context.Context) (map[string]*spec.ManagedClusterLabelsSpecBundle, error) {
+func getManagedClusterLabelsWithDeletedKey(ctx context.Context) (
+	map[string]*spec.ManagedClusterLabelsSpecBundle, error,
+) {
 	db := database.GetGorm()
 	var managedClusterLabels []models.ManagedClusterLabel
-	err := db.Where(`deleted_label_keys != ? AND leaf_hub_name <> ?`, []byte("[]"), "").Find(&managedClusterLabels).Error
+	deleted_key := []string{}
+	payload, err := json.Marshal(deleted_key)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Where("deleted_label_keys <> ? AND leaf_hub_name <> ?", payload, "").Find(&managedClusterLabels).Error
 	if err != nil {
 		return nil, err
 	}
 
 	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
 
-	for _, l := range managedClusterLabels {
+	for _, managedClusterLabel := range managedClusterLabels {
 		labels := map[string]string{}
-		if err := json.Unmarshal(l.Labels, labels); err != nil {
+		fmt.Println("managedClusterLabel", managedClusterLabel)
+		if err := json.Unmarshal(managedClusterLabel.Labels, labels); err != nil {
 			return nil, err
 		}
 		deletedKeys := []string{}
-		if err := json.Unmarshal(l.DeletedLabelKeys, deletedKeys); err != nil {
+		if err := json.Unmarshal(managedClusterLabel.DeletedLabelKeys, deletedKeys); err != nil {
 			return nil, err
 		}
-		managedClusterLabelsSpecBundle, found := leafHubToLabelsSpecBundleMap[l.LeafHubName]
+		managedClusterLabelsSpecBundle, found := leafHubToLabelsSpecBundleMap[managedClusterLabel.LeafHubName]
 		if !found {
 			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecBundle{
 				Objects:     []*spec.ManagedClusterLabelsSpec{},
-				LeafHubName: l.LeafHubName,
+				LeafHubName: managedClusterLabel.LeafHubName,
 			}
-			leafHubToLabelsSpecBundleMap[l.LeafHubName] = managedClusterLabelsSpecBundle
+			leafHubToLabelsSpecBundleMap[managedClusterLabel.LeafHubName] = managedClusterLabelsSpecBundle
 		}
 		// append entry to bundle
 		managedClusterLabelsSpecBundle.Objects = append(managedClusterLabelsSpecBundle.Objects,
 			&spec.ManagedClusterLabelsSpec{
-				ClusterName:      l.ManagedClusterName,
+				ClusterName:      managedClusterLabel.ManagedClusterName,
 				DeletedLabelKeys: deletedKeys,
 				Labels:           labels,
-				Version:          int64(l.Version),
-				UpdateTimestamp:  l.UpdatedAt,
+				Version:          int64(managedClusterLabel.Version),
+				UpdateTimestamp:  managedClusterLabel.UpdatedAt,
 			})
 
 	}

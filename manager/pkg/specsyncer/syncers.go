@@ -20,7 +20,8 @@ func AddGlobalResourceSpecSyncers(mgr ctrl.Manager, managerConfig *config.Manage
 		return fmt.Errorf("failed to add db-to-transport syncers: %w", err)
 	}
 
-	if err := specsyncer.AddManagedClusterLabelSyncer(mgr, managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval); err != nil {
+	if err := specsyncer.AddManagedClusterLabelSyncer(mgr,
+		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval); err != nil {
 		return fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 	return nil
