@@ -35,9 +35,33 @@ type SpecPolicy struct {
 	Payload   datatypes.JSON `gorm:"column:payload;type:jsonb"`
 	CreatedAt time.Time      `gorm:"column:created_at;autoCreateTime:true"`
 	UpdatedAt time.Time      `gorm:"column:updated_at;autoUpdateTime:true"`
-	Deleted   bool           `gorm:"column:deleted_at"`
+	Deleted   bool           `gorm:"column:deleted"`
 }
 
 func (SpecPolicy) TableName() string {
 	return "spec.policies"
+}
+
+type SpecPlacementRule struct {
+	ID        string         `gorm:"column:id;primaryKey"`
+	Payload   datatypes.JSON `gorm:"column:payload;type:jsonb"`
+	CreatedAt time.Time      `gorm:"column:created_at;autoCreateTime:true"`
+	UpdatedAt time.Time      `gorm:"column:updated_at;autoUpdateTime:true"`
+	Deleted   bool           `gorm:"column:deleted"`
+}
+
+func (SpecPlacementRule) TableName() string {
+	return "spec.placementrules"
+}
+
+type SpecPlacementBinding struct {
+	ID        string         `gorm:"column:id;primaryKey"`
+	Payload   datatypes.JSON `gorm:"column:payload;type:jsonb"`
+	CreatedAt time.Time      `gorm:"column:created_at;autoCreateTime:true"`
+	UpdatedAt time.Time      `gorm:"column:updated_at;autoUpdateTime:true"`
+	Deleted   bool           `gorm:"column:deleted"`
+}
+
+func (SpecPlacementBinding) TableName() string {
+	return "spec.placementbindings"
 }

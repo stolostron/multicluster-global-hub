@@ -5,6 +5,7 @@ package subscriptions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +14,6 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
@@ -231,17 +231,27 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 ) {
 	db := database.GetGorm()
 	lastSubscription := &appsv1.Subscription{}
-	err := db.Raw(lastSubscriptionQuery).Row().Scan(lastSubscription)
-	if err != nil && err != pgx.ErrNoRows {
+	var payload []byte
+	err := db.Raw(lastSubscriptionQuery).Row().Scan(&payload)
+	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in quering last subscription: %v\n", err)
+		fmt.Fprintf(gin.DefaultWriter, "error in querying last subscription: %v\n", err)
 		return
+	}
+
+	if err == nil {
+		err = json.Unmarshal(payload, lastSubscription)
+		if err != nil {
+			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
+			fmt.Fprintf(gin.DefaultWriter, "error in querying last subscription payload: %v\n", err)
+			return
+		}
 	}
 
 	rows, err := db.Raw(subscriptionListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in quering subscriptions: %v\n", err)
+		fmt.Fprintf(gin.DefaultWriter, "error in querying subscriptions: %v\n", err)
 	}
 
 	subscriptionList := &appsv1.SubscriptionList{
@@ -254,12 +264,17 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 	lastSubscriptionName, lastSubscriptionUID := "", ""
 	for rows.Next() {
 		subscription := appsv1.Subscription{}
-		err := rows.Scan(&subscription)
+		var payload []byte
+		err := rows.Scan(&payload)
 		if err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in scanning a subscription: %v\n", err)
 			continue
 		}
-
+		err = json.Unmarshal(payload, &subscription)
+		if err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in scanning a subscription payload: %v\n", err)
+			continue
+		}
 		subscriptionList.Items = append(subscriptionList.Items, subscription)
 		lastSubscriptionName = subscription.GetName()
 		lastSubscriptionUID = string(subscription.GetUID())

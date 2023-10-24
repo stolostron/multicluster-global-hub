@@ -197,9 +197,14 @@ func doHandlePoliciesForWatch(ctx context.Context, writer gin.ResponseWriter,
 	addedPolicies := set.NewSet()
 	for policyRows.Next() {
 		policyID, policy := "", &policyv1.Policy{}
-
-		if err := policyRows.Scan(&policyID, policy); err != nil {
+		var payload []byte
+		if err := policyRows.Scan(&policyID, &payload); err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in scanning a policy: %v\n", err)
+			continue
+		}
+
+		if err := json.Unmarshal(payload, policy); err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in scanning a policyPayload: %v\n", err)
 			continue
 		}
 
@@ -294,8 +299,8 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 	db := database.GetGorm()
 	lastPolicy := &policyv1.Policy{}
 	lastPolicyID := ""
-	lastSpecPolicy := models.SpecPolicy{}
-	err := db.Raw(lastPolicyQuery).Row().Scan(&lastSpecPolicy)
+	var lastPolicyPayload []byte
+	err := db.Raw(lastPolicyQuery).Row().Scan(&lastPolicyID, &lastPolicyPayload)
 	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, "error in querying last policy: %v\n", err)
@@ -303,7 +308,7 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 	}
 
 	if err == nil {
-		if e := json.Unmarshal(lastSpecPolicy.Payload, lastPolicy); e != nil {
+		if e := json.Unmarshal(lastPolicyPayload, lastPolicy); e != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in querying last policy payload: %v\n", e)
 			return
 		}
@@ -320,7 +325,6 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 		fmt.Fprintf(gin.DefaultWriter, QueryPoliciesFailureFormatMsg, err)
 	}
-
 	defer policyRows.Close()
 
 	unstrPolicyList := &unstructured.UnstructuredList{
@@ -332,9 +336,14 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 	}
 	policyName, policyUID := "", ""
 	for policyRows.Next() {
-		policy := &policyv1.Policy{}
-		if err := policyRows.Scan(&policyUID, policy); err != nil {
+		var policyPayload []byte
+		if err := policyRows.Scan(&policyUID, &policyPayload); err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in scanning a policy: %v\n", err)
+			continue
+		}
+		policy := &policyv1.Policy{}
+		if err := json.Unmarshal(policyPayload, policy); err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in Unmarshal a policyPayload : %v\n", err)
 			continue
 		}
 
@@ -403,8 +412,6 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 
 // getPolicyMatches returns array of policy & placementbinding & placementrule mapping and error.
 func getPolicyMatches(policyMappingQuery string) ([]*policyMatch, error) {
-	fmt.Println("getPolicyMatches ==========0")
-
 	policyMatches := []*policyMatch{}
 
 	db := database.GetGorm()
@@ -424,8 +431,6 @@ func getPolicyMatches(policyMappingQuery string) ([]*policyMatch, error) {
 			continue
 		}
 
-		fmt.Println("getPolicyMatches ==========", policyName, placementbindingName, placementruleName)
-
 		policyMatches = append(policyMatches, &policyMatch{policyName, placementruleName, placementbindingName})
 	}
 
@@ -440,12 +445,20 @@ func getComplianceStatus(policyComplianceQuery, policyID string,
 	hasNonCompliantClusters := false
 
 	db := database.GetGorm()
-	policyComplianceRows, err := db.Raw(policyComplianceQuery, policyID).Rows()
+	var statusCompliances []models.StatusCompliance
+	err := db.Where(&models.StatusCompliance{
+		PolicyID: policyID,
+	}).Order("leaf_hub_name asc").Order("cluster_name").Find(&statusCompliances).Error
 	if err != nil {
 		return compliancePerClusterStatuses, hasNonCompliantClusters,
 			fmt.Errorf("error in querying policy compliance: - %w", err)
 	}
 
+	policyComplianceRows, err := db.Raw(policyComplianceQuery, policyID).Rows()
+	if err != nil {
+		return compliancePerClusterStatuses, hasNonCompliantClusters,
+			fmt.Errorf("error in querying policy compliance: - %w", err)
+	}
 	defer policyComplianceRows.Close()
 
 	for policyComplianceRows.Next() {

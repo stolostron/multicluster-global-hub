@@ -584,31 +584,58 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(w0.Body.String()).Should(MatchJSON(policyListFormatStr))
 
 		By("Insert testing policy")
-		err = db.Exec(`INSERT INTO spec.policies (id,payload) VALUES(?, ?);`, plc1ID, policy1).Error
+		fmt.Println("=======================1")
+		// payload, err := json.Marshal(policy1)
+		// Expect(err).ToNot(HaveOccurred())
+
+		err = db.Create(&models.SpecPolicy{
+			ID:      plc1ID,
+			Payload: []byte(policy1),
+		}).Error
+		// err = db.Exec(`INSERT INTO spec.policies (id, payload) VALUES(?, ?);`, plc1ID, []byte(policy1)).Error
 		Expect(err).ToNot(HaveOccurred())
+		// fmt.Println("=======================2", []byte(policy1))
 
 		By("Insert testing placementrule")
-		err = db.Exec(`INSERT INTO spec.placementrules (id,payload) VALUES(?, ?);`, pr1ID, placementrule1).Error
+		// payload, err = json.Marshal(placementrule1)
+		// Expect(err).ToNot(HaveOccurred())
+		err = db.Create(&models.SpecPlacementRule{
+			ID:      pr1ID,
+			Payload: []byte(placementrule1),
+		}).Error
+		// err = db.Exec(`INSERT INTO spec.placementrules (id,payload) VALUES(?, ?);`, pr1ID, []byte(placementrule1)).Error
 		Expect(err).ToNot(HaveOccurred())
+		fmt.Println("=======================3")
 
 		By("Insert testing placementbinding")
-		err = db.Exec(`INSERT INTO spec.placementbindings (id,payload) VALUES(?, ?);`, pb1ID, placementbinding1).Error
+		// payload, err = json.Marshal(placementbinding1)
+		// Expect(err).ToNot(HaveOccurred())
+		// err = db.Exec(`INSERT INTO spec.placementbindings (id,payload) VALUES(?, ?);`, pb1ID, []byte(placementbinding1)).Error
+		err = db.Create(&models.SpecPlacementBinding{
+			ID:      pb1ID,
+			Payload: []byte(placementbinding1),
+		}).Error
 		Expect(err).ToNot(HaveOccurred())
+		fmt.Println("=======================4")
 
 		By("Insert testing compliances")
 		err = db.Exec(`INSERT INTO status.compliance (policy_id,cluster_name,leaf_hub_name,error,compliance)
 			VALUES(?,'mc1','hub1','none','non_compliant');`, plc1ID).Error
 		Expect(err).ToNot(HaveOccurred())
+		fmt.Println("=======================5")
 
 		err = db.Exec(`INSERT INTO status.compliance (policy_id,cluster_name,leaf_hub_name,error,compliance)
 			VALUES(?,'mc2','hub1','none','compliant');`, plc1ID).Error
 		Expect(err).ToNot(HaveOccurred())
+		fmt.Println("=======================6")
 
 		By("Check the policies can be listed without parameters")
 		w1 := httptest.NewRecorder()
 		req1, err := http.NewRequest("GET", "/global-hub-api/v1/policies", nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
+		fmt.Println("=======================7")
+
 		Expect(w1.Code).To(Equal(200))
 		policyListFormatStr = `
 {

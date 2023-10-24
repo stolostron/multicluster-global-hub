@@ -5,6 +5,7 @@ package subscriptions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -113,12 +114,16 @@ func getAggregatedSubscriptionReport(subscriptionID, subscriptionQuery,
 		return nil, fmt.Errorf("error in querying subscription-report for subscription(%s/%s): %v\n",
 			subNamespace, subName, err)
 	}
-
 	defer rows.Close()
 
 	for rows.Next() {
-		var leafHubSubscriptionReport appsv1alpha1.SubscriptionReport
-		if err := rows.Scan(&leafHubSubscriptionReport); err != nil {
+		leafHubSubscriptionReport := appsv1alpha1.SubscriptionReport{}
+		var payload []byte
+		if err := rows.Scan(&payload); err != nil {
+			return nil, fmt.Errorf("error getting subscription report payload for leaf hub: %v\n", err)
+		}
+
+		if err = json.Unmarshal(payload, &leafHubSubscriptionReport); err != nil {
 			return nil, fmt.Errorf("error getting subscription report for leaf hub: %v\n", err)
 		}
 

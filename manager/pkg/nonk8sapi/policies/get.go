@@ -5,6 +5,7 @@ package policies
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -184,9 +185,14 @@ func queryPolicyStatus(policyID, policyQuery, policyMappingQuery,
 	}
 
 	db := database.GetGorm()
-	err = db.Raw(policyQuery, policyID).Row().Scan(policy)
+	var payload []byte
+	err = db.Raw(policyQuery, policyID).Row().Scan(&payload)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyFailureFormatMsg, err)
+		return &unstructured.Unstructured{}, err
+	}
+	err = json.Unmarshal(payload, policy)
+	if err != nil {
 		return &unstructured.Unstructured{}, err
 	}
 
