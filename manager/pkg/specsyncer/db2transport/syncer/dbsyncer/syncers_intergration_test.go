@@ -6,6 +6,7 @@ package dbsyncer_test
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,8 +27,12 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("Test managedcluster labels can be synced through transport", func() {
-		By("insert managed cluster labels to database")
+	It("test resources can be synced through transport", func() {
+		ExpectedMessageIDs := make(map[string]string)
+
+		By("ManagedClusterLabels")
+		ExpectedMessageIDs["ManagedClustersLabels"] = ""
+
 		labelPayload, err := json.Marshal(labelsToAdd)
 		Expect(err).Should(Succeed())
 
@@ -44,119 +49,72 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		}).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received ManagedClustersLabels: %s\n", message)
-		Expect(message.ID).Should(Equal("ManagedClustersLabels"))
-	})
-
-	It("Test managedclusterset can be synced through transport", func() {
-		By("create a managedclusterset")
-		err := db.Exec(
-			"INSERT INTO spec.managedclustersets (id, payload) VALUES(?, ?)",
+		By("ManagedClusterSet")
+		ExpectedMessageIDs["ManagedClusterSets"] = managedclustersetUID
+		err = db.Exec("INSERT INTO spec.managedclustersets (id, payload) VALUES(?, ?)",
 			managedclustersetUID, managedclustersetJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received ManagedClusterSets: %s\n", message)
-		Expect(message.ID).Should(Equal("ManagedClusterSets"))
-		Expect(message.Payload).Should(ContainSubstring(managedclustersetUID))
-	})
-
-	It("Test managedclustersetbinding can be synced through transport", func() {
-		By("create a managedclustersetbinding")
-		err := db.Exec("INSERT INTO spec.managedclustersetbindings (id,payload) VALUES(?, ?)",
-			managedclustersetbindingUID, &managedclustersetbindingJSONBytes).Error
+		By("ManagedClustersetBinding")
+		ExpectedMessageIDs["ManagedClusterSetBindings"] = managedclustersetbindingUID
+		err = db.Exec("INSERT INTO spec.managedclustersetbindings (id,payload) VALUES(?, ?)", managedclustersetbindingUID,
+			&managedclustersetbindingJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received ManagedClusterSetBindings: %s\n", message)
-		Expect(message.ID).Should(Equal("ManagedClusterSetBindings"))
-		Expect(message.Payload).Should(ContainSubstring(managedclustersetbindingUID))
-	})
-
-	It("Test policy can be synced through transport", func() {
-		By("create a policy")
-		err := db.Exec(
-			"INSERT INTO spec.policies (id,payload) VALUES(?, ?)",
-			policyUID, &policyJSONBytes).Error
+		By("Policy")
+		ExpectedMessageIDs["Policies"] = policyUID
+		err = db.Exec("INSERT INTO spec.policies (id,payload) VALUES(?, ?)", policyUID, &policyJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received policy: %s\n", message)
-		Expect(message.ID).Should(Equal("Policies"))
-		Expect(message.Payload).Should(ContainSubstring(policyUID))
-	})
-
-	It("Test placementrule can be synced through transport", func() {
-		By("create a placementrule")
-		err := db.Exec(
-			"INSERT INTO spec.placementrules (id,payload) VALUES(?, ?)",
-			placementruleUID, &placementruleJSONBytes).Error
+		By("Placementrule")
+		ExpectedMessageIDs["PlacementRules"] = placementruleUID
+		err = db.Exec("INSERT INTO spec.placementrules (id,payload) VALUES(?, ?)", placementruleUID,
+			&placementruleJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received placementrule: %s\n", message)
-		Expect(message.Payload).Should(ContainSubstring(placementruleUID))
-	})
-
-	It("Test placementbinding can be synced through transport", func() {
-		By("create a placementbinding")
-		err := db.Exec(
-			"INSERT INTO spec.placementbindings (id,payload) VALUES(?, ?)",
-			placementbindingUID, &placementbindingJSONBytes).Error
+		By("Placementbinding")
+		ExpectedMessageIDs["PlacementBindings"] = placementbindingUID
+		err = db.Exec("INSERT INTO spec.placementbindings (id,payload) VALUES(?, ?)", placementbindingUID,
+			&placementbindingJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received placementbinding: %s\n", message)
-		Expect(message.Payload).Should(ContainSubstring(placementbindingUID))
-	})
-
-	It("Test placement can be synced through transport", func() {
-		By("create a placement")
-		err := db.Exec(
-			"INSERT INTO spec.placements (id,payload) VALUES(?, ?)",
-			placementUID, &placementJSONBytes).Error
+		By("Placement")
+		ExpectedMessageIDs["Placements"] = placementUID
+		err = db.Exec(
+			"INSERT INTO spec.placements (id,payload) VALUES(?, ?)", placementUID, &placementJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received placement: %s\n", message)
-		Expect(message.Payload).Should(ContainSubstring(placementUID))
-	})
-
-	It("Test application can be synced through transport", func() {
-		By("create a application")
-		err := db.Exec(
-			"INSERT INTO spec.applications (id,payload) VALUES(?, ?)",
-			applicationUID, &applicationJSONBytes).Error
+		By("Application")
+		ExpectedMessageIDs["Applications"] = applicationUID
+		err = db.Exec(
+			"INSERT INTO spec.applications (id,payload) VALUES(?, ?)", applicationUID, &applicationJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received application: %s\n", message)
-		Expect(message.Payload).Should(ContainSubstring(applicationUID))
-	})
-
-	It("Test subscription can be synced through transport", func() {
-		By("create a subscription")
-		err := db.Exec(
-			"INSERT INTO spec.subscriptions (id,payload) VALUES(?, ?)",
-			subscriptionUID, &subscriptionJSONBytes).Error
+		By("Subscription")
+		ExpectedMessageIDs["Subscriptions"] = subscriptionUID
+		err = db.Exec("INSERT INTO spec.subscriptions (id,payload) VALUES(?, ?)", subscriptionUID,
+			&subscriptionJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received subscription: %s\n", message)
-		Expect(message.Payload).Should(ContainSubstring(subscriptionUID))
-	})
-
-	It("Test channel can be synced through transport", func() {
-		By("create a channel")
-		err := db.Exec(
-			"INSERT INTO spec.channels (id,payload) VALUES(?, ?)",
-			channelUID, &channelJSONBytes).Error
+		By("Channel")
+		ExpectedMessageIDs["Channels"] = channelUID
+		err = db.Exec("INSERT INTO spec.channels (id,payload) VALUES(?, ?)", channelUID, &channelJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		message := waitForChannel(genericConsumer.MessageChan())
-		fmt.Printf("========== received channel: %s\n", message)
-		Expect(message.Payload).Should(ContainSubstring(channelUID))
+		By("verify the result from transport")
+		Eventually(func() error {
+			message := waitForChannel(genericConsumer.MessageChan())
+			if val, ok := ExpectedMessageIDs[message.ID]; ok && strings.Contains(string(message.Payload), val) {
+				fmt.Println("receive the expected message", message.ID)
+				delete(ExpectedMessageIDs, message.ID)
+			} else if !ok {
+				fmt.Printf("get an unexpected message %s: %v \n", message.ID, message)
+			}
+			if len(ExpectedMessageIDs) > 0 {
+				return fmt.Errorf("missing the message: %s", ExpectedMessageIDs)
+			}
+			return nil
+		}, 10*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	// It("Test managed cluster labels syncer", func() {
@@ -179,30 +137,16 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 	// 		return fmt.Errorf("the labels haven't been synced")
 	// 	}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	// })
-
-	// 		By("Sync managed cluster labels")
-	// 		Eventually(func() error {
-	// 			var managedClusterLabels []models.ManagedClusterLabel
-	// 			err := db.Where(&models.ManagedClusterLabel{
-	// 				LeafHubName: leafHubName,
-	// 			}).Find(&managedClusterLabels).Error
-	// 			if err != nil {
-	// 				return err
-	// 			}
-	// 			fmt.Println("managedClusterLabels------------", managedClusterLabels)
-	// 			if len(managedClusterLabels) == 3 {
-	// 				return nil
-	// 			}
-	// 			return fmt.Errorf("the labels haven't been synced")
-	// 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 })
 
 // waitForChannel genericConsumer.MessageChan() with timeout
 func waitForChannel(ch chan *transport.Message) *transport.Message {
+	timer := time.NewTimer(10 * time.Second)
+	defer timer.Stop()
 	select {
 	case msg := <-ch:
 		return msg
-	case <-time.After(10 * time.Second):
+	case <-timer.C:
 		fmt.Println("timeout waiting for message from  transport consumer channel")
 		return nil
 	}
