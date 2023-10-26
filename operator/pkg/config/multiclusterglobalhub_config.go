@@ -83,11 +83,11 @@ func GetDefaultNamespace() string {
 	return defaultNamespace
 }
 
-func SetHoHMGHNamespacedName(namespacedName types.NamespacedName) {
+func SetMGHNamespacedName(namespacedName types.NamespacedName) {
 	hohMGHNamespacedName = namespacedName
 }
 
-func GetHoHMGHNamespacedName() types.NamespacedName {
+func GetMGHNamespacedName() types.NamespacedName {
 	return hohMGHNamespacedName
 }
 

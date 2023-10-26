@@ -139,7 +139,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon install reconciler to the manager")
-	err = (&addon.HoHAddonInstallReconciler{
+	err = (&addon.HoHAddonInstaller{
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("addon install controller"),
 	}).SetupWithManager(ctx, k8sManager)
@@ -234,7 +234,7 @@ func prepareBeforeTest() {
 
 	// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 	mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
-	config.SetHoHMGHNamespacedName(mghLookupKey)
+	config.SetMGHNamespacedName(mghLookupKey)
 	createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 
 	// get this newly created MGH instance, given that creation may not immediately happen.

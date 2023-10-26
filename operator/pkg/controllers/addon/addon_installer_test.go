@@ -249,11 +249,11 @@ func TestHoHAddonReconciler(t *testing.T) {
 			}
 			if tc.mgh != nil {
 				objects = append(objects, tc.mgh)
-				config.SetHoHMGHNamespacedName(types.NamespacedName{
+				config.SetMGHNamespacedName(types.NamespacedName{
 					Namespace: tc.mgh.Namespace, Name: tc.mgh.Name,
 				})
 			} else {
-				config.SetHoHMGHNamespacedName(types.NamespacedName{Namespace: "", Name: ""})
+				config.SetMGHNamespacedName(types.NamespacedName{Namespace: "", Name: ""})
 			}
 			mgr, err := ctrl.NewManager(kubeCfg, ctrl.Options{
 				MetricsBindAddress: "0", // disable the metrics serving
@@ -261,7 +261,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to create manager: %v", err)
 			}
-			r := &hubofhubsaddon.HoHAddonInstallReconciler{
+			r := &hubofhubsaddon.HoHAddonInstaller{
 				Client: fake.NewClientBuilder().WithScheme(addonTestScheme).WithObjects(objects...).Build(),
 				Log:    ctrl.Log.WithName("test"),
 			}
