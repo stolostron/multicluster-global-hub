@@ -962,7 +962,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mcgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: "default",
 				},
 				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 			}

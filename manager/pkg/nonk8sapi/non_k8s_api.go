@@ -19,7 +19,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/managedclusters"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/policies"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/subscriptions"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 )
 
 const secondsToFinishOnShutdown = 5
@@ -60,8 +59,8 @@ func readCertificateAuthority(nonK8sAPIServerConfig *NonK8sAPIServerConfig) ([]b
 }
 
 // AddNonK8sApiServer adds the non-k8s-api-server to the Manager.
-func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) error {
-	router, err := SetupRouter(database, nonK8sAPIServerConfig)
+func AddNonK8sApiServer(mgr ctrl.Manager, nonK8sAPIServerConfig *NonK8sAPIServerConfig) error {
+	router, err := SetupRouter(nonK8sAPIServerConfig)
 	if err != nil {
 		return err
 	}
@@ -98,7 +97,7 @@ func AddNonK8sApiServer(mgr ctrl.Manager, database db.DB, nonK8sAPIServerConfig 
 // @in                          header
 // @name                        Authorization
 // @description					Authorization with user access token
-func SetupRouter(database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) (*gin.Engine, error) {
+func SetupRouter(nonK8sAPIServerConfig *NonK8sAPIServerConfig) (*gin.Engine, error) {
 	router := gin.Default()
 	// add aythentication eith openshift oauth
 	// skip authentication middleware if ClusterAPIURL is empty for testing
@@ -111,14 +110,13 @@ func SetupRouter(database db.DB, nonK8sAPIServerConfig *NonK8sAPIServerConfig) (
 	}
 
 	routerGroup := router.Group(nonK8sAPIServerConfig.ServerBasePath)
-	routerGroup.GET("/managedclusters", managedclusters.ListManagedClusters(database.GetConn()))
+	routerGroup.GET("/managedclusters", managedclusters.ListManagedClusters())
 	routerGroup.PATCH("/managedcluster/:clusterID",
-		managedclusters.PatchManagedCluster(database.GetConn()))
-	routerGroup.GET("/policies", policies.ListPolicies(database.GetConn()))
-	routerGroup.GET("/policy/:policyID/status", policies.GetPolicyStatus(database.GetConn()))
-	routerGroup.GET("/subscriptions", subscriptions.ListSubscriptions(database.GetConn()))
-	routerGroup.GET("/subscriptionreport/:subscriptionID",
-		subscriptions.GetSubscriptionReport(database.GetConn()))
+		managedclusters.PatchManagedCluster())
+	routerGroup.GET("/policies", policies.ListPolicies())
+	routerGroup.GET("/policy/:policyID/status", policies.GetPolicyStatus())
+	routerGroup.GET("/subscriptions", subscriptions.ListSubscriptions())
+	routerGroup.GET("/subscriptionreport/:subscriptionID", subscriptions.GetSubscriptionReport())
 
 	return router, nil
 }

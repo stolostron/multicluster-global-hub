@@ -5,12 +5,12 @@ package policies
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4/pgxpool"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -20,6 +20,7 @@ import (
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 // GetPolicyStatus godoc
@@ -37,7 +38,7 @@ import (
 // @failure      503
 // @security     ApiKeyAuth
 // @router /policy/{policyID}/status [get]
-func GetPolicyStatus(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
+func GetPolicyStatus() gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		policyID := ginCtx.Param("policyID")
 		fmt.Fprintf(gin.DefaultWriter, "getting status for policy: %s\n", policyID)
@@ -46,18 +47,17 @@ func GetPolicyStatus(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		fmt.Fprintf(gin.DefaultWriter, "policy&placementbinding&placementrule mapping query: %v\n", policyMappingQuery)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
-			handlePolicyForWatch(ginCtx, dbConnectionPool, policyID, policyQuery,
+			handlePolicyForWatch(ginCtx, policyID, policyQuery,
 				policyMappingQuery, policyComplianceQuery)
 			return
 		}
 
-		handlePolicy(ginCtx, dbConnectionPool, policyID, policyQuery, policyMappingQuery, policyComplianceQuery,
+		handlePolicy(ginCtx, policyID, policyQuery, policyMappingQuery, policyComplianceQuery,
 			customResourceColumnDefinitions)
 	}
 }
 
-func handlePolicyForWatch(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyID,
-	policyQuery, policyMappingQuery, policyComplianceQuery string,
+func handlePolicyForWatch(ginCtx *gin.Context, policyID, policyQuery, policyMappingQuery, policyComplianceQuery string,
 ) {
 	writer := ginCtx.Writer
 	header := writer.Header()
@@ -70,8 +70,7 @@ func handlePolicyForWatch(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, p
 	ctx, cancelContext := context.WithCancel(context.Background())
 	defer cancelContext()
 
-	preUnstrPolicy, err := queryPolicyStatus(dbConnectionPool, policyID,
-		policyQuery, policyMappingQuery, policyComplianceQuery)
+	preUnstrPolicy, err := queryPolicyStatus(policyID, policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 	}
@@ -102,17 +101,16 @@ func handlePolicyForWatch(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, p
 				return
 			}
 
-			doHandlePolicyForWatch(ctx, writer, dbConnectionPool, policyID, policyQuery, policyMappingQuery,
+			doHandlePolicyForWatch(ctx, writer, policyID, policyQuery, policyMappingQuery,
 				policyComplianceQuery, preUnstrPolicy)
 		}
 	}
 }
 
-func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, dbConnectionPool *pgxpool.Pool, policyID,
+func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, policyID,
 	policyQuery, policyMappingQuery, policyComplianceQuery string, preUnstrPolicy *unstructured.Unstructured,
 ) {
-	curUnstrPolicy, err := queryPolicyStatus(dbConnectionPool, policyID,
-		policyQuery, policyMappingQuery, policyComplianceQuery)
+	curUnstrPolicy, err := queryPolicyStatus(policyID, policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, "error in getting policy status with policy ID(%s): %v", policyID, err)
 	}
@@ -137,10 +135,10 @@ func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, dbCo
 	writer.(http.Flusher).Flush()
 }
 
-func handlePolicy(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyID, policyQuery, policyMappingQuery,
+func handlePolicy(ginCtx *gin.Context, policyID, policyQuery, policyMappingQuery,
 	policyComplianceQuery string, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
-	unstrPolicy, err := queryPolicyStatus(dbConnectionPool, policyID,
+	unstrPolicy, err := queryPolicyStatus(policyID,
 		policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
@@ -174,25 +172,31 @@ func handlePolicy(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, policyID,
 	ginCtx.JSON(http.StatusOK, unstrPolicy)
 }
 
-func queryPolicyStatus(dbConnectionPool *pgxpool.Pool, policyID, policyQuery, policyMappingQuery,
+func queryPolicyStatus(policyID, policyQuery, policyMappingQuery,
 	policyComplianceQuery string,
 ) (*unstructured.Unstructured, error) {
 	var err error
 	policy := &policyv1.Policy{}
 
-	policyMatches, err = getPolicyMatches(dbConnectionPool, policyMappingQuery)
+	policyMatches, err = getPolicyMatches(policyMappingQuery)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
 		return &unstructured.Unstructured{}, err
 	}
 
-	err = dbConnectionPool.QueryRow(context.TODO(), policyQuery, policyID).Scan(policy)
+	db := database.GetGorm()
+	var payload []byte
+	err = db.Raw(policyQuery, policyID).Row().Scan(&payload)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyFailureFormatMsg, err)
 		return &unstructured.Unstructured{}, err
 	}
+	err = json.Unmarshal(payload, policy)
+	if err != nil {
+		return &unstructured.Unstructured{}, err
+	}
 
-	compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(dbConnectionPool,
+	compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(
 		policyComplianceQuery, policyID)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)

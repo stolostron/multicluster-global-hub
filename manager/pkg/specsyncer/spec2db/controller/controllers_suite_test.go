@@ -104,7 +104,7 @@ var _ = BeforeSuite(func() {
 
 	By("Adding the controllers to the manager")
 	Expect(specctrl.AddManagedHubController(mgr)).Should(Succeed())
-	Expect(spec2db.AddSpec2DBControllers(mgr, postgresSQL)).Should(Succeed())
+	Expect(spec2db.AddSpec2DBControllers(mgr)).Should(Succeed())
 	go func() {
 		defer GinkgoRecover()
 		err = mgr.Start(ctx)

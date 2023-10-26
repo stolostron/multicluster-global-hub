@@ -18,20 +18,6 @@ import (
 )
 
 var _ = Describe("placementrules controller", Ordered, func() {
-	It("create the spec.placementrules table in database", func() {
-		_, err := postgresSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS spec;
-			CREATE TABLE IF NOT EXISTS spec.placementrules (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
 	It("create the placementrule in kubernetes", func() {
 		testPlacementrule := &placementrulev1.PlacementRule{
 			ObjectMeta: metav1.ObjectMeta{

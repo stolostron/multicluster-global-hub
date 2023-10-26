@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
-	"github.com/jackc/pgx/v4/pgxpool"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/metrics"
@@ -47,7 +46,7 @@ func init() {
 	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(0)
 }
 
-func DataRetention(ctx context.Context, pool *pgxpool.Pool, retentionMonth int, job gocron.Job) {
+func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 	currentTime := time.Now()
 
 	var err error

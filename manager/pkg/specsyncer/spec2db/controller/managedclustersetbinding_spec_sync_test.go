@@ -18,20 +18,6 @@ import (
 )
 
 var _ = Describe("managedclustersetbinding controller", Ordered, func() {
-	It("create the spec.managedclustersetbinding table in database", func() {
-		_, err := postgresSQL.GetConn().Exec(ctx, `
-			CREATE SCHEMA IF NOT EXISTS spec;
-			CREATE TABLE IF NOT EXISTS  spec.managedclustersetbindings (
-				id uuid NOT NULL,
-				payload jsonb NOT NULL,
-				created_at timestamp without time zone DEFAULT now() NOT NULL,
-				updated_at timestamp without time zone DEFAULT now() NOT NULL,
-				deleted boolean DEFAULT false NOT NULL
-			);
-		`)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
 	It("create the managedclustersetbinding in kubernetes", func() {
 		testManagedClusterSetBinding := &clusterv1beta2.ManagedClusterSetBinding{
 			ObjectMeta: metav1.ObjectMeta{

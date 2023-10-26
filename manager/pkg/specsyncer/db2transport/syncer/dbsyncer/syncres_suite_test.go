@@ -23,8 +23,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -33,15 +33,14 @@ import (
 )
 
 var (
-	testenv             *envtest.Environment
-	cfg                 *rest.Config
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	mgr                 ctrl.Manager
-	kubeClient          client.Client
-	testPostgres        *testpostgres.TestPostgres
-	transportPostgreSQL *postgresql.PostgreSQL
-	genericConsumer     *consumer.GenericConsumer
+	testenv         *envtest.Environment
+	cfg             *rest.Config
+	ctx             context.Context
+	cancel          context.CancelFunc
+	mgr             ctrl.Manager
+	kubeClient      client.Client
+	testPostgres    *testpostgres.TestPostgres
+	genericConsumer *consumer.GenericConsumer
 )
 
 func TestSpecSyncer(t *testing.T) {
@@ -70,12 +69,15 @@ var _ = BeforeSuite(func() {
 	By("Create test postgres")
 	testPostgres, err = testpostgres.NewTestPostgres()
 	Expect(err).NotTo(HaveOccurred())
-	dataConfig := &config.DatabaseConfig{
-		ProcessDatabaseURL:         testPostgres.URI,
-		CACertPath:                 "ca-cert-path",
-		TransportBridgeDatabaseURL: testPostgres.URI,
-	}
-	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, dataConfig)
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:        testPostgres.URI,
+		Dialect:    database.PostgresDialect,
+		CaCertPath: "ca-cert-path",
+		PoolSize:   5,
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	err = testpostgres.InitDatabase(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
@@ -94,9 +96,9 @@ var _ = BeforeSuite(func() {
 
 	managerConfig := &config.ManagerConfig{
 		SyncerConfig: &config.SyncerConfig{
-			SpecSyncInterval: 1 * time.Second,
+			SpecSyncInterval:              1 * time.Second,
+			DeletedLabelsTrimmingInterval: 2 * time.Second,
 		},
-		DatabaseConfig: dataConfig,
 		TransportConfig: &transport.TransportConfig{
 			TransportType:     string(transport.Chan),
 			CommitterInterval: 10 * time.Second,
@@ -106,7 +108,9 @@ var _ = BeforeSuite(func() {
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
 
-	Expect(specsycner.AddDB2TransportSyncers(mgr, transportPostgreSQL, managerConfig)).Should(Succeed())
+	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig)).Should(Succeed())
+	Expect(specsycner.AddManagedClusterLabelSyncer(mgr,
+		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval)).Should(Succeed())
 
 	// mock consume message from agent
 	By("Create kafka consumer")

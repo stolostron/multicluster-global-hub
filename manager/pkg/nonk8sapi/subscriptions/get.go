@@ -5,12 +5,12 @@ package subscriptions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4/pgxpool"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,15 +18,16 @@ import (
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
 	subscriptionRepostCRDName = "subscriptionreports.apps.open-cluster-management.io"
 	subscriptionStatusCRDName = "subscriptionstatuses.apps.open-cluster-management.io"
 	subscriptionQuery         = `SELECT payload->'metadata'->>'name', payload->'metadata'->>'namespace' 
-		FROM spec.subscriptions WHERE deleted = FALSE AND id=$1`
+		FROM spec.subscriptions WHERE deleted = FALSE AND id = ?`
 	subscriptionReportQuery = `SELECT payload FROM status.subscription_reports
-		WHERE payload->'metadata'->>'name'=$1 AND payload->'metadata'->>'namespace'=$2`
+		WHERE payload->'metadata'->>'name'= ? AND payload->'metadata'->>'namespace' = ?`
 )
 
 var subReportCustomResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(subscriptionRepostCRDName,
@@ -47,7 +48,7 @@ var subReportCustomResourceColumnDefinitions = util.GetCustomResourceColumnDefin
 // @failure      503
 // @security     ApiKeyAuth
 // @router /subscriptionreport/{subscriptionID} [get]
-func GetSubscriptionReport(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
+func GetSubscriptionReport() gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		subscriptionID := ginCtx.Param("subscriptionID")
 		fmt.Fprintf(gin.DefaultWriter, "getting subscription report for subscription: %s\n", subscriptionID)
@@ -55,16 +56,16 @@ func GetSubscriptionReport(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		fmt.Fprintf(gin.DefaultWriter, "subscription report query with subscription name and namespace: %v\n",
 			subscriptionReportQuery)
 
-		handleSubscriptionReport(ginCtx, dbConnectionPool, subscriptionID,
+		handleSubscriptionReport(ginCtx, subscriptionID,
 			subscriptionQuery, subscriptionReportQuery,
 			subReportCustomResourceColumnDefinitions)
 	}
 }
 
-func handleSubscriptionReport(ginCtx *gin.Context, dbConnectionPool *pgxpool.Pool, subscriptionID, subscriptionQuery,
+func handleSubscriptionReport(ginCtx *gin.Context, subscriptionID, subscriptionQuery,
 	subscriptionReportQuery string, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
-	subscriptionReport, err := getAggregatedSubscriptionReport(dbConnectionPool, subscriptionID,
+	subscriptionReport, err := getAggregatedSubscriptionReport(subscriptionID,
 		subscriptionQuery, subscriptionReportQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
@@ -96,28 +97,33 @@ func handleSubscriptionReport(ginCtx *gin.Context, dbConnectionPool *pgxpool.Poo
 }
 
 // returns aggregated SubscriptionReport and error.
-func getAggregatedSubscriptionReport(dbConnectionPool *pgxpool.Pool, subscriptionID, subscriptionQuery,
+func getAggregatedSubscriptionReport(subscriptionID, subscriptionQuery,
 	subscriptionReportQuery string,
 ) (*appsv1alpha1.SubscriptionReport, error) {
 	var subscriptionReport *appsv1alpha1.SubscriptionReport
 	var subName, subNamespace string
-	err := dbConnectionPool.QueryRow(context.TODO(), subscriptionQuery, subscriptionID).Scan(&subName, &subNamespace)
+	db := database.GetGorm()
+	err := db.Raw(subscriptionQuery, subscriptionID).Row().Scan(&subName, &subNamespace)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, "error in querying subscription with subscription ID(%s): %v\n", subscriptionID, err)
 		return nil, err
 	}
 
-	rows, err := dbConnectionPool.Query(context.TODO(), subscriptionReportQuery, subName, subNamespace)
+	rows, err := db.Raw(subscriptionReportQuery, subName, subNamespace).Rows()
 	if err != nil {
 		return nil, fmt.Errorf("error in querying subscription-report for subscription(%s/%s): %v\n",
 			subNamespace, subName, err)
 	}
-
 	defer rows.Close()
 
 	for rows.Next() {
-		var leafHubSubscriptionReport appsv1alpha1.SubscriptionReport
-		if err := rows.Scan(&leafHubSubscriptionReport); err != nil {
+		leafHubSubscriptionReport := appsv1alpha1.SubscriptionReport{}
+		var payload []byte
+		if err := rows.Scan(&payload); err != nil {
+			return nil, fmt.Errorf("error getting subscription report payload for leaf hub: %v\n", err)
+		}
+
+		if err = json.Unmarshal(payload, &leafHubSubscriptionReport); err != nil {
 			return nil, fmt.Errorf("error getting subscription report for leaf hub: %v\n", err)
 		}
 

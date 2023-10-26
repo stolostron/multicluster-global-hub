@@ -94,7 +94,7 @@ var _ = Describe("data retention job", Ordered, func() {
 	It("the data retention job should work", func() {
 		By("Create the data retention job")
 		s := gocron.NewScheduler(time.UTC)
-		_, err := s.Every(1).Week().DoWithJobDetails(DataRetention, ctx, pool, retentionMonth)
+		_, err := s.Every(1).Week().DoWithJobDetails(DataRetention, ctx, retentionMonth)
 		Expect(err).ToNot(HaveOccurred())
 		s.StartAsync()
 		defer s.Clear()

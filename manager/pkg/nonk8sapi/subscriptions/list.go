@@ -5,6 +5,7 @@ package subscriptions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,8 +14,6 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
@@ -25,6 +24,7 @@ import (
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
@@ -53,7 +53,7 @@ var customResourceColumnDefinitions = util.GetCustomResourceColumnDefinitions(cr
 // @failure      503
 // @security     ApiKeyAuth
 // @router /subscriptions [get]
-func ListSubscriptions(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
+func ListSubscriptions() gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		labelSelector := ginCtx.Query("labelSelector")
 
@@ -116,18 +116,15 @@ func ListSubscriptions(dbConnectionPool *pgxpool.Pool) gin.HandlerFunc {
 		fmt.Fprintf(gin.DefaultWriter, "subscription list query: %v\n", subscriptionListQuery)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
-			handleSubscriptionListForWatch(ginCtx, subscriptionListQuery, dbConnectionPool)
+			handleSubscriptionListForWatch(ginCtx, subscriptionListQuery)
 			return
 		}
 
-		handleRows(ginCtx, subscriptionListQuery, lastSubscriptionQuery, dbConnectionPool,
-			customResourceColumnDefinitions)
+		handleRows(ginCtx, subscriptionListQuery, lastSubscriptionQuery, customResourceColumnDefinitions)
 	}
 }
 
-func handleSubscriptionListForWatch(ginCtx *gin.Context, subscriptionListQuery string,
-	dbConnectionPool *pgxpool.Pool,
-) {
+func handleSubscriptionListForWatch(ginCtx *gin.Context, subscriptionListQuery string) {
 	writer := ginCtx.Writer
 	header := writer.Header()
 
@@ -157,15 +154,16 @@ func handleSubscriptionListForWatch(ginCtx *gin.Context, subscriptionListQuery s
 				return
 			}
 
-			doHandleRowsForWatch(ctx, writer, subscriptionListQuery, dbConnectionPool, preAddedSubscriptions)
+			doHandleRowsForWatch(ctx, writer, subscriptionListQuery, preAddedSubscriptions)
 		}
 	}
 }
 
 func doHandleRowsForWatch(ctx context.Context, writer io.Writer, subscriptionListQuery string,
-	dbConnectionPool *pgxpool.Pool, preAddedSubscriptions set.Set,
+	preAddedSubscriptions set.Set,
 ) {
-	rows, err := dbConnectionPool.Query(ctx, subscriptionListQuery)
+	db := database.GetGorm()
+	rows, err := db.Raw(subscriptionListQuery).Rows()
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, "error in quering subscription list: %v\n", err)
 	}
@@ -229,20 +227,31 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, subscriptionLis
 }
 
 func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuery string,
-	dbConnectionPool *pgxpool.Pool, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
+	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
+	db := database.GetGorm()
 	lastSubscription := &appsv1.Subscription{}
-	err := dbConnectionPool.QueryRow(context.TODO(), lastSubscriptionQuery).Scan(lastSubscription)
-	if err != nil && err != pgx.ErrNoRows {
+	var payload []byte
+	err := db.Raw(lastSubscriptionQuery).Row().Scan(&payload)
+	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in quering last subscription: %v\n", err)
+		fmt.Fprintf(gin.DefaultWriter, "error in querying last subscription: %v\n", err)
 		return
 	}
 
-	rows, err := dbConnectionPool.Query(context.TODO(), subscriptionListQuery)
+	if err == nil {
+		err = json.Unmarshal(payload, lastSubscription)
+		if err != nil {
+			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
+			fmt.Fprintf(gin.DefaultWriter, "error in querying last subscription payload: %v\n", err)
+			return
+		}
+	}
+
+	rows, err := db.Raw(subscriptionListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in quering subscriptions: %v\n", err)
+		fmt.Fprintf(gin.DefaultWriter, "error in querying subscriptions: %v\n", err)
 	}
 
 	subscriptionList := &appsv1.SubscriptionList{
@@ -255,12 +264,17 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 	lastSubscriptionName, lastSubscriptionUID := "", ""
 	for rows.Next() {
 		subscription := appsv1.Subscription{}
-		err := rows.Scan(&subscription)
+		var payload []byte
+		err := rows.Scan(&payload)
 		if err != nil {
 			fmt.Fprintf(gin.DefaultWriter, "error in scanning a subscription: %v\n", err)
 			continue
 		}
-
+		err = json.Unmarshal(payload, &subscription)
+		if err != nil {
+			fmt.Fprintf(gin.DefaultWriter, "error in scanning a subscription payload: %v\n", err)
+			continue
+		}
 		subscriptionList.Items = append(subscriptionList.Items, subscription)
 		lastSubscriptionName = subscription.GetName()
 		lastSubscriptionUID = string(subscription.GetUID())

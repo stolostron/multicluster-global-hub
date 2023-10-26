@@ -9,11 +9,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/gorm"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
 )
 
 // AddSpec2DBControllers adds all the spec-to-db controllers to the Manager.
-func AddSpec2DBControllers(mgr ctrl.Manager, specDB db.SpecDB) error {
+func AddSpec2DBControllers(mgr ctrl.Manager) error {
 	addControllerFunctions := []func(ctrl.Manager, db.SpecDB) error{
 		controller.AddPolicyController,
 		controller.AddPlacementRuleController,
@@ -25,7 +26,7 @@ func AddSpec2DBControllers(mgr ctrl.Manager, specDB db.SpecDB) error {
 		controller.AddManagedClusterSetBindingController,
 		controller.AddPlacementController,
 	}
-
+	specDB := gorm.NewGormSpecDB()
 	for _, addControllerFunction := range addControllerFunctions {
 		if err := addControllerFunction(mgr, specDB); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)

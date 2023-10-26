@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-co-op/gocron"
 	"github.com/go-logr/logr"
-	"github.com/jackc/pgx/v4/pgxpool"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
@@ -29,7 +28,7 @@ type GlobalHubJobScheduler struct {
 	launchImmediatelyJobs []string
 }
 
-func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.Pool,
+func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	managerConfig *config.ManagerConfig, enableSimulation bool,
 ) error {
 	log := ctrl.Log.WithName("cronjob-scheduler")
@@ -52,14 +51,14 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager, pool *pgxpool.
 		scheduler = scheduler.Every(1).Day().At("00:00")
 	}
 	complianceJob, err := scheduler.Tag(task.LocalComplianceTaskName).DoWithJobDetails(
-		task.SyncLocalCompliance, ctx, pool, enableSimulation)
+		task.SyncLocalCompliance, ctx, enableSimulation)
 	if err != nil {
 		return err
 	}
 	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 
 	dataRetentionJob, err := scheduler.Every(1).Month(1, 15, 28).At("00:00").Tag(task.RetentionTaskName).
-		DoWithJobDetails(task.DataRetention, ctx, pool, managerConfig.DatabaseConfig.DataRetention)
+		DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -24,7 +23,6 @@ var (
 	ctx     context.Context
 	cancel  context.CancelFunc
 	mgr     ctrl.Manager
-	pool    *pgxpool.Pool
 )
 
 func TestScheduler(t *testing.T) {
@@ -51,25 +49,25 @@ func TestScheduler(t *testing.T) {
 		},
 	}
 	managerConfig.SchedulerInterval = "month"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "week"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "day"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "hour"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "minute"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 	managerConfig.SchedulerInterval = "second"
-	assert.Nil(t, AddSchedulerToManager(ctx, mgr, pool, managerConfig, false))
+	assert.Nil(t, AddSchedulerToManager(ctx, mgr, managerConfig, false))
 
 	scheduler := gocron.NewScheduler(time.Local)
 	_, err = scheduler.Every(1).Day().At("00:00").Tag(task.LocalComplianceTaskName).DoWithJobDetails(
-		task.SyncLocalCompliance, ctx, pool, false)
+		task.SyncLocalCompliance, ctx, false)
 	assert.Nil(t, err)
 
 	_, err = scheduler.Every(1).Month(1, 15, 28).At("00:00").Tag(task.RetentionTaskName).
-		DoWithJobDetails(task.DataRetention, ctx, pool, managerConfig.DatabaseConfig.DataRetention)
+		DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
 	assert.Nil(t, err)
 
 	globalScheduler := &GlobalHubJobScheduler{

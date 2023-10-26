@@ -2,15 +2,20 @@ package dbsyncer
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"gorm.io/gorm"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -53,8 +58,7 @@ func syncManagedClusterLabelsBundles(ctx context.Context, producer transport.Pro
 
 	// if we got here, then the last update timestamp from db is after what we have in memory.
 	// this means something has changed in db, syncing to transport.
-	leafHubToLabelsSpecBundleMap,
-		err := specDB.GetUpdatedManagedClusterLabelsBundles(ctx, dbTableName, lastSyncTimestampPtr)
+	leafHubToLabelsSpecBundleMap, err := getUpdatedManagedClusterLabelsBundles(lastSyncTimestampPtr)
 	if err != nil {
 		return false, fmt.Errorf("unable to sync bundle - %w", err)
 	}
@@ -81,4 +85,66 @@ func syncManagedClusterLabelsBundles(ctx context.Context, producer transport.Pro
 	*lastSyncTimestampPtr = *lastUpdateTimestamp
 
 	return true, nil
+}
+
+// getUpdatedManagedClusterLabelsBundles returns a map of leaf-hub -> ManagedClusterLabelsSpecBundle of objects
+// belonging to a leaf-hub that had at least once update since the given timestamp, from a specific table.
+func getUpdatedManagedClusterLabelsBundles(timestamp *time.Time,
+) (map[string]*spec.ManagedClusterLabelsSpecBundle, error) {
+	db := database.GetGorm()
+	// select ManagedClusterLabelsSpec entries information from DB
+	rows, err := db.Raw(fmt.Sprintf(`SELECT * FROM spec.%[1]s WHERE leaf_hub_name IN (SELECT DISTINCT(leaf_hub_name) 
+		from spec.%[1]s WHERE updated_at::timestamp > timestamp '%[2]s') AND leaf_hub_name <> ''`,
+		managedClusterLabelsDBTableName, timestamp.Format(time.RFC3339Nano))).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return getManagedClusterLabelBundleByRows(db, rows)
+}
+
+func getManagedClusterLabelBundleByRows(db *gorm.DB, rows *sql.Rows) (
+	map[string]*spec.ManagedClusterLabelsSpecBundle, error,
+) {
+	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
+	for rows.Next() {
+		managedClusterLabel := models.ManagedClusterLabel{}
+		if err := db.ScanRows(rows, &managedClusterLabel); err != nil {
+			return nil, fmt.Errorf("error reading managed cluster label from table - %w", err)
+		}
+
+		// create ManagedClusterLabelsSpecBundle if not mapped for leafHub
+		managedClusterLabelsSpecBundle, found := leafHubToLabelsSpecBundleMap[managedClusterLabel.LeafHubName]
+		if !found {
+			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecBundle{
+				Objects:     []*spec.ManagedClusterLabelsSpec{},
+				LeafHubName: managedClusterLabel.LeafHubName,
+			}
+			leafHubToLabelsSpecBundleMap[managedClusterLabel.LeafHubName] = managedClusterLabelsSpecBundle
+		}
+
+		labels := map[string]string{}
+		err := json.Unmarshal(managedClusterLabel.Labels, &labels)
+		if err != nil {
+			return nil, fmt.Errorf("error to unmarshal labels - %w", err)
+		}
+
+		deletedKeys := []string{}
+		err = json.Unmarshal(managedClusterLabel.DeletedLabelKeys, &deletedKeys)
+		if err != nil {
+			return nil, fmt.Errorf("error to unmarshal deletedKeys - %w", err)
+		}
+
+		managedClusterLabelsSpecBundle.Objects = append(managedClusterLabelsSpecBundle.Objects,
+			&spec.ManagedClusterLabelsSpec{
+				ClusterName:      managedClusterLabel.ManagedClusterName,
+				Version:          int64(managedClusterLabel.Version),
+				UpdateTimestamp:  managedClusterLabel.UpdatedAt,
+				Labels:           labels,
+				DeletedLabelKeys: deletedKeys,
+			})
+	}
+
+	return leafHubToLabelsSpecBundleMap, nil
 }
