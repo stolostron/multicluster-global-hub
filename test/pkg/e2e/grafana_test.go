@@ -8,9 +8,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/ini.v1"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
@@ -23,6 +26,8 @@ const (
 	mergedGrafanaIniName  = "multicluster-global-hub-grafana-config"
 	defaultGrafanaIniName = "multicluster-global-hub-default-grafana-config"
 	grafanaIniKey         = "grafana.ini"
+
+	grafanaDeploymentName = "multicluster-global-hub-grafana"
 )
 
 var _ = Describe("The alert configmap should be created", Ordered, Label("e2e-tests-grafana"), func() {
@@ -44,7 +49,7 @@ var _ = Describe("The alert configmap should be created", Ordered, Label("e2e-te
 					mergedAlertConfigMap.Data, defaultAlertConfigMap.Data[alertConfigMapKey])
 			}
 			return nil
-		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("Merged alert configmap should merged default and custom configmap", func() {
@@ -107,7 +112,7 @@ policies:
 			}
 			return fmt.Errorf("mergedAlert is not equal with default and custom. default: %v, custom: %v, merged: %v",
 				defaultAlertConfigMap.Data[alertConfigMapKey], customAlertConfigMap.Data, mergedAlertConfigMap.Data)
-		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, operatorconstants.CustomAlertName, metav1.DeleteOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
@@ -129,7 +134,7 @@ policies:
 
 			return fmt.Errorf("mergedAlert %v is not equal with default %v.",
 				mergedAlertConfigMap.Data, defaultAlertConfigMap.Data)
-		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("Merged alert configmap should be same as default when custom alert is invalid", func() {
@@ -170,7 +175,7 @@ policies:
 
 			return fmt.Errorf("mergedAlert %v is not equal with default %v",
 				mergedAlertConfigMap.Data, defaultAlertConfigMap.Data[alertConfigMapKey])
-		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, operatorconstants.CustomAlertName, metav1.DeleteOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
@@ -191,7 +196,7 @@ var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-tests-
 					sectionCount(defaultGrafanaIniSecret.Data[grafanaIniKey]), sectionCount(mergedGrafanaIniSecret.Data[grafanaIniKey]))
 			}
 			return nil
-		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("Merged grafana.ini should merged default and custom grafana.ini", func() {
@@ -229,7 +234,7 @@ var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-tests-
 					sectionCount(defaultGrafanaIniSecret.Data[grafanaIniKey]), sectionCount(customSecret.Data[grafanaIniKey]), sectionCount(mergedGrafanaIniSecret.Data[grafanaIniKey]))
 			}
 			return nil
-		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		err = testClients.KubeClient().CoreV1().Secrets(Namespace).Delete(ctx, operatorconstants.CustomGrafanaIniName, metav1.DeleteOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
@@ -246,7 +251,7 @@ var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-tests-
 					sectionCount(defaultGrafanaIniSecret.Data[grafanaIniKey]), sectionCount(mergedGrafanaIniSecret.Data[grafanaIniKey]))
 			}
 			return nil
-		}, 2*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 })
 
@@ -257,4 +262,102 @@ func sectionCount(a []byte) int {
 	}
 	// By Default, There is a DEFAULT section, should not count it
 	return len(cfg.Sections()) - 1
+}
+
+var _ = Describe("The grafana resources counts should be right", Ordered, Label("e2e-tests-grafana"), func() {
+	It("The grafana default alert rules count should be ok", func() {
+		ctx := context.Background()
+		Eventually(func() error {
+			alertCount, err := getGrafanaResource(ctx, "v1/provisioning/alert-rules")
+			if err != nil {
+				klog.Errorf("Get grafana resource error:%v", err)
+				return err
+			}
+			if alertCount != 5 {
+				klog.Errorf("get alert count:%v", alertCount)
+				return fmt.Errorf("Expect alert count is 5, bug got:%v", alertCount)
+			}
+			return nil
+		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+	})
+
+	It("The grafana dashboard should be exist", func() {
+		ctx := context.Background()
+		dashboardUids := []string{
+			"pAqtIGj4k",                            //adhoc investigation
+			"868845a4d1334958bd62303c5ccb4c19",     //clustergroup compliance overview
+			"0e0ddb7f16b946f99d96a483a4a3f95f",     //offending clusters
+			"b67e0727891f4121ae2dde09671520ae",     //offending policies
+			"fbf66c88-ba14-4553-90b7-55ea5870faab", //overview
+			"9bb3bee6a17e47f9a231f6d77f2408fa",     //policy group compliance overview
+			"5a3a577af7894943aa6e7ca8408502fb",     //what's changed cluster
+			"5a3a577af7894943aa6e7ca8408502fa",     //what's changed policies
+		}
+		for _, uid := range dashboardUids {
+			Eventually(func() error {
+				_, err := getGrafanaResource(ctx, "dashboards/uid/"+uid)
+				return err
+			}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+		}
+	})
+})
+
+// getGrafanaResource return the resource number and error
+func getGrafanaResource(ctx context.Context, path string) (int, error) {
+	configNamespace := config.GetDefaultNamespace()
+
+	labelSelector := fmt.Sprintf("name=%s", grafanaDeploymentName)
+
+	poList, err := testClients.KubeClient().CoreV1().Pods(configNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		return 0, err
+	}
+	klog.Infof("Get grafana path:%v", path)
+	if len(poList.Items) == 0 {
+		return 0, fmt.Errorf("Can not get grafana pod")
+	}
+
+	url := "http://" + poList.Items[0].Status.PodIP + ":3001/api/" + path
+	klog.Infof("Sending request: %v", url)
+
+	responseBody, err := testClients.Kubectl(testOptions.GlobalHub.Name,
+		"exec",
+		"-it",
+		poList.Items[0].Name,
+		"-n",
+		configNamespace,
+		"--",
+		"/usr/bin/curl",
+		"-H",
+		"Content-Type: application/json",
+		"-H",
+		"X-Forwarded-User: WHAT_YOU_ARE_DOING_IS_VOIDING_SUPPORT_0000000000000000000000000000000000000000000000000000000000000000",
+		url)
+	if err != nil {
+		klog.Errorf("responseBody: %v, err: %v", string(responseBody), err)
+		return 0, err
+	}
+
+	var mapObj map[string]interface{}
+	var arrayObj []interface{}
+
+	if len(responseBody) == 0 {
+		return 0, nil
+	}
+
+	klog.Infof("Response:%v", string(responseBody))
+
+	err = yaml.Unmarshal([]byte(responseBody), &mapObj)
+	if err == nil {
+		return 1, nil
+	}
+
+	err = yaml.Unmarshal([]byte(responseBody), &arrayObj)
+	if err == nil {
+		return len(arrayObj), nil
+	}
+
+	return 0, err
 }
