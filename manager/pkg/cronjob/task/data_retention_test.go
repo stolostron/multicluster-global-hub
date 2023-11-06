@@ -202,8 +202,8 @@ func createRetentionData(tableName string, date time.Time) error {
 
 	case "status.leaf_hubs":
 		result = db.Exec(
-			fmt.Sprintf(`INSERT INTO status.leaf_hubs (leaf_hub_name, payload, created_at, updated_at, deleted_at) 
-			VALUES ('leafhub1', '{"consoleURL": "https://leafhub1.com", "leafHubName": "leafhub1"}', '%s', '%s', '%s')`,
+			fmt.Sprintf(`INSERT INTO status.leaf_hubs (leaf_hub_name, cluster_id, payload, created_at, updated_at, deleted_at) 
+			VALUES ('leafhub1','a71a6b5c-8361-4f50-9890-3de9e2df0b1c', '{"consoleURL": "https://leafhub1.com", "leafHubName": "leafhub1"}', '%s', '%s', '%s')`,
 				date.Format(timeFormat), date.Format(timeFormat), date.Format(timeFormat)))
 
 	case "local_spec.policies":

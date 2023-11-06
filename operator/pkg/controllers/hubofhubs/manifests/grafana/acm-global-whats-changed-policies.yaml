@@ -140,7 +140,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    CASE WHEN ch.compliance = 'non_compliant' THEN 2\n         WHEN ch.compliance = 'unknown' THEN 1\n         WHEN ch.compliance = 'compliant' THEN 0\n    END AS \"compliance\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id AND p.leaf_hub_name = ch.leaf_hub_name\n  INNER JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id AND mc.leaf_hub_name = ch.leaf_hub_name\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    policy_name = '$policy'\n  AND \n    ch.leaf_hub_name = '$hub'\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    mc.cluster_name ${cluster_query:raw}\n),\norderclusters as (\n  SELECT\n    cluster_name,\n    ROW_NUMBER () OVER (ORDER BY SUM(compliance) DESC) as row_number\n  FROM\n    data\n  GROUP BY(cluster_name)\n)\nSELECT\n  time,\n  dc.cluster_name as \"metric\",\n  compliance as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.cluster_name = tc.cluster_name\nWHERE\n  tc.row_number >= $topleft AND tc.row_number <= $topright\nORDER BY (time)",
+              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    CASE WHEN ch.compliance = 'non_compliant' THEN 2\n         WHEN ch.compliance = 'unknown' THEN 1\n         WHEN ch.compliance = 'compliant' THEN 0\n    END AS \"compliance\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id AND p.leaf_hub_name = ch.leaf_hub_name\n  INNER JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id AND mc.leaf_hub_name = ch.leaf_hub_name\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    policy_name = '$policy'\n  AND \n    ch.leaf_hub_name IN ( $all_hubs ) \n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    mc.cluster_name ${cluster_query:raw}\n),\norderclusters as (\n  SELECT\n    cluster_name,\n    ROW_NUMBER () OVER (ORDER BY SUM(compliance) DESC) as row_number\n  FROM\n    data\n  GROUP BY(cluster_name)\n)\nSELECT\n  time,\n  dc.cluster_name as \"metric\",\n  compliance as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.cluster_name = tc.cluster_name\nWHERE\n  tc.row_number >= $topleft AND tc.row_number <= $topright\nORDER BY (time)",
               "refId": "A",
               "select": [
                 [
@@ -328,7 +328,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id AND rp.leaf_hub_name = p.leaf_hub_name\nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  p.leaf_hub_name = '$hub'\nAND\n  policy_name = '$policy'\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND reverse(SUBSTRING(reverse(rp.message), 0, position('/' in reverse(rp.message)))) ${cluster_query:raw}\nORDER BY (rp.created_at) DESC",
+              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id AND rp.leaf_hub_name = p.leaf_hub_name\nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  p.leaf_hub_name IN ( $all_hubs )\nAND\n  policy_name = '$policy'\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND reverse(SUBSTRING(reverse(rp.message), 0, position('/' in reverse(rp.message)))) ${cluster_query:raw}\nORDER BY (rp.created_at) DESC",
               "refId": "A",
               "select": [
                 [
@@ -590,7 +590,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.policy_name,\n  p.leaf_hub_name as \"hub\",\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id AND lp.leaf_hub_name = p.leaf_hub_name\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id AND mc.leaf_hub_name = lp.leaf_hub_name\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name = '$hub'\nAND\n  p.policy_name = '$policy'\nAND\n p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND\nmc.cluster_name ${cluster_query:raw}\nORDER BY (lp.created_at,lp.compliance) DESC",
+              "rawSql": "SELECT\n  lp.created_at as \"time\",\n  p.payload -> 'metadata' ->> 'namespace' as namespace,\n  p.policy_name,\n  p.leaf_hub_name as \"hub\",\n  mc.cluster_name,\n  lp.message,\n  lp.reason,\n  lp.compliance\nFROM\n  event.local_policies lp\nINNER JOIN\n  local_spec.policies p ON lp.policy_id = p.policy_id AND lp.leaf_hub_name = p.leaf_hub_name\nINNER JOIN\n  status.managed_clusters mc ON lp.cluster_id = mc.cluster_id AND mc.leaf_hub_name = lp.leaf_hub_name\nWHERE\n  $__timeFilter(lp.created_at)\nAND\n  mc.leaf_hub_name IN ( $all_hubs ) \nAND\n  p.policy_name = '$policy'\nAND\n p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND\nmc.cluster_name ${cluster_query:raw}\nORDER BY (lp.created_at,lp.compliance) DESC",
               "refId": "A",
               "select": [
                 [
@@ -712,6 +712,34 @@ data:
           },
           {
             "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "SELECT leaf_hub_name\nFROM status.leaf_hubs\nWHERE cluster_id IN (SELECT cluster_id FROM status.leaf_hubs  WHERE leaf_hub_name = '$hub'  AND cluster_id!='00000000-0000-0000-0000-000000000000')\nUNION\nSELECT '$hub' leaf_hub_name;",
+            "hide": 2,
+            "includeAll": true,
+            "label": "all_hubs",
+            "multi": true,
+            "name": "all_hubs",
+            "options": [],
+            "query": "SELECT leaf_hub_name\nFROM status.leaf_hubs\nWHERE cluster_id IN (SELECT cluster_id FROM status.leaf_hubs  WHERE leaf_hub_name = '$hub'  AND cluster_id!='00000000-0000-0000-0000-000000000000')\nUNION\nSELECT '$hub' leaf_hub_name;",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
               "selected": false,
               "text": "open-cluster-management-global-set",
               "value": "open-cluster-management-global-set"
@@ -720,7 +748,7 @@ data:
               "type": "postgres",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n  AND\n  lc.cluster_id IS NOT NULL\n)\nSELECT\n  p.payload -> 'metadata' ->> 'namespace'\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id",
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name  IN ( $all_hubs )\n  AND\n  lc.cluster_id IS NOT NULL\n)\nSELECT\n  p.payload -> 'metadata' ->> 'namespace'\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id",
             "description": "policy namespace ",
             "hide": 0,
             "includeAll": false,
@@ -728,7 +756,7 @@ data:
             "multi": false,
             "name": "namespace",
             "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n  AND\n  lc.cluster_id IS NOT NULL\n)\nSELECT\n  p.payload -> 'metadata' ->> 'namespace'\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id",
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name  IN ( $all_hubs )\n  AND\n  lc.cluster_id IS NOT NULL\n)\nSELECT\n  p.payload -> 'metadata' ->> 'namespace'\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -745,14 +773,14 @@ data:
               "type": "postgres",
               "uid": "${datasource}"
             },
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'",
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'",
             "hide": 0,
             "includeAll": false,
             "label": "Policy",
             "multi": false,
             "name": "policy",
             "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'",
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
@@ -840,13 +868,13 @@ data:
               "type": "postgres",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name = '$hub'\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT mc.cluster_name\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi ON pi.policy_id = lc.policy_id\n JOIN\n    status.managed_clusters mc ON lc.cluster_id = mc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
+            "definition": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name IN ( $all_hubs )\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT mc.cluster_name\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi ON pi.policy_id = lc.policy_id\n JOIN\n    status.managed_clusters mc ON lc.cluster_id = mc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
             "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "maxtop",
             "options": [],
-            "query": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name = '$hub'\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT mc.cluster_name\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi ON pi.policy_id = lc.policy_id\n JOIN\n    status.managed_clusters mc ON lc.cluster_id = mc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
+            "query": "WITH policyid as(\nSELECT\n  DISTINCT policy_id\nFROM\n   local_spec.policies\nWHERE\n leaf_hub_name IN ( $all_hubs )\nAND\n policy_name = '$policy'\n),\ncompcluster as(\n  SELECT DISTINCT mc.cluster_name\n  FROM\n    history.local_compliance lc\n JOIN\n    policyid pi ON pi.policy_id = lc.policy_id\n JOIN\n    status.managed_clusters mc ON lc.cluster_id = mc.cluster_id\n WHERE\n  $__timeFilter(compliance_date)\n)\nSELECT COUNT(*)\nFROM \ncompcluster;",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
@@ -886,13 +914,13 @@ data:
               "type": "postgres",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "SELECT\n  console_url\nFROM\n  status.leaf_hubs\nwhere\n  leaf_hub_name = '$hub'",
+            "definition": "SELECT\n  console_url\nFROM\n  status.leaf_hubs\nWHERE\n  leaf_hub_name = '$hub' AND deleted_at IS NULL",
             "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "hubConsoleURL",
             "options": [],
-            "query": "SELECT\n  console_url\nFROM\n  status.leaf_hubs\nwhere\n  leaf_hub_name = '$hub'",
+            "query": "SELECT\n  console_url\nFROM\n  status.leaf_hubs\nWHERE\n  leaf_hub_name = '$hub' AND deleted_at IS NULL",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
@@ -913,14 +941,14 @@ data:
               "type": "postgres",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance\n  WHERE\n  $__timeFilter(compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance\n  WHERE\n  $__timeFilter(compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
             "hide": 0,
             "includeAll": true,
             "label": "Cluster",
             "multi": true,
             "name": "cluster",
             "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance\n  WHERE\n  $__timeFilter(compliance_date)\n  AND\n  leaf_hub_name = '$hub'\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
+            "query": "WITH compcluster as(\n  SELECT DISTINCT cluster_id\n  FROM\n  history.local_compliance\n  WHERE\n  $__timeFilter(compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  cluster_name\nFROM\n  status.managed_clusters mc\nINNER JOIN\n  compcluster ch ON mc.cluster_id = ch.cluster_id",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,

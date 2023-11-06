@@ -3,10 +3,8 @@ package dbsyncer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/go-logr/logr"
-	"gorm.io/gorm/clause"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
@@ -74,20 +72,29 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	leafHub := &models.LeafHub{}
+	existingObjs := []models.LeafHub{}
 	db := database.GetGorm()
+
+	//We use gorm soft delete: https://gorm.io/gen/delete.html#Soft-Delete
+	//So, the db query will not get deleted leafhubs, then we could use leafhub name to identy the unique leafhub
 	err := db.Where(&models.LeafHub{
 		LeafHubName: leafHubName,
-	}).Find(leafHub).Error
+	}).Find(&existingObjs).Error
 	if err != nil {
-		return fmt.Errorf("failed fetching leaf hub '%s' from db - %w", leafHub.TableName(), err)
+		return err
 	}
 
-	batchLeafHub := []models.LeafHub{}
+	//It should only have one item in the objects
 	for _, object := range bundle.GetObjects() {
 		specificObj, ok := object.(*base.HubClusterInfo)
 		if !ok {
 			continue
+		}
+
+		//Handle agent version is 1.0 and manager version is 1.1 or bigger
+		clusterId := constants.DefaultClusterId
+		if len(specificObj.ClusterId) != 0 {
+			clusterId = specificObj.ClusterId
 		}
 
 		payload, err := json.Marshal(specificObj)
@@ -95,17 +102,28 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 			return err
 		}
 
-		batchLeafHub = append(batchLeafHub, models.LeafHub{
-			LeafHubName: leafHubName,
-			Payload:     payload,
-		})
-	}
-
-	err = db.Clauses(clause.OnConflict{
-		UpdateAll: true,
-	}).CreateInBatches(batchLeafHub, 100).Error
-	if err != nil {
-		return err
+		syncer.log.V(2).Info("Existing objs", "existingObjs", existingObjs)
+		if len(existingObjs) == 0 {
+			syncer.log.Info("Create LeafHub", "leaf_hub_name", leafHubName, "cluster_id", specificObj.ClusterId)
+			err := db.Create(&models.LeafHub{
+				LeafHubName: leafHubName,
+				ClusterID:   clusterId,
+				Payload:     payload,
+			}).Error
+			return err
+		}
+		err = db.Model(&models.LeafHub{}).
+			Where(&models.LeafHub{
+				LeafHubName: leafHubName,
+			}).
+			Updates(&models.LeafHub{
+				LeafHubName: leafHubName,
+				ClusterID:   clusterId,
+				Payload:     payload,
+			}).Error
+		if err != nil {
+			return err
+		}
 	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)

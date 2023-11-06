@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"reflect"
 	"sync"
 
 	routev1 "github.com/openshift/api/route/v1"
@@ -9,6 +10,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 )
 
 var (
@@ -63,28 +65,43 @@ func (baseBundle *HubClusterInfoBundle) SetVersion(version *metadata.BundleVersi
 func (bundle *HubClusterInfoBundle) UpdateObject(object bundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
-
 	if len(bundle.Objects) == 0 {
 		bundle.Objects = []*base.HubClusterInfo{
 			{
 				ConsoleURL: "",
 				GrafanaURL: "",
+				ClusterId:  "",
 			},
 		}
 	}
 
-	var routeURL string
-	route := object.(*routev1.Route)
-	if len(route.Spec.Host) != 0 {
-		routeURL = "https://" + route.Spec.Host
+	oldObj := *bundle.Objects[0]
+
+	clusterClaim, ok := object.(*clustersv1alpha1.ClusterClaim)
+	if ok && clusterClaim.Name == "id.k8s.io" {
+		bundle.Objects[0].ClusterId = clusterClaim.Spec.Value
 	}
 
-	if route.GetName() == constants.OpenShiftConsoleRouteName && bundle.Objects[0].ConsoleURL != routeURL {
-		bundle.Objects[0].ConsoleURL = routeURL
-		bundle.BundleVersion.Incr()
+	var routeURL string
+	route, ok := object.(*routev1.Route)
+	if ok {
+		if len(route.Spec.Host) != 0 {
+			routeURL = "https://" + route.Spec.Host
+		}
+		if route.GetName() == constants.OpenShiftConsoleRouteName && bundle.Objects[0].ConsoleURL != routeURL {
+			bundle.Objects[0].ConsoleURL = routeURL
+		}
+		if route.GetName() == constants.ObservabilityGrafanaRouteName && bundle.Objects[0].GrafanaURL != routeURL {
+			bundle.Objects[0].GrafanaURL = routeURL
+		}
 	}
-	if route.GetName() == constants.ObservabilityGrafanaRouteName && bundle.Objects[0].GrafanaURL != routeURL {
-		bundle.Objects[0].GrafanaURL = routeURL
+
+	//If no clusterid, do not send the bundle
+	if bundle.Objects[0].ClusterId == "" {
+		return
+	}
+
+	if !reflect.DeepEqual(oldObj, *bundle.Objects[0]) {
 		bundle.BundleVersion.Incr()
 	}
 }

@@ -44,13 +44,15 @@ CREATE INDEX IF NOT EXISTS cluster_deleted_at_idx ON status.managed_clusters (de
 CREATE INDEX IF NOT EXISTS leafhub_cluster_idx ON status.managed_clusters (leaf_hub_name, cluster_name);
 
 CREATE TABLE IF NOT EXISTS status.leaf_hubs (
-    leaf_hub_name character varying(254) NOT NULL PRIMARY KEY,
+    leaf_hub_name character varying(254) NOT NULL,
+    cluster_id uuid NOT NULL,
     payload jsonb NOT NULL,
     console_url text generated always as (payload ->> 'consoleURL') stored,
     grafana_url text generated always as (payload ->> 'grafanaURL') stored,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    deleted_at timestamp without time zone
+    deleted_at timestamp without time zone,
+    PRIMARY KEY (cluster_id, leaf_hub_name)
 );
 CREATE INDEX IF NOT EXISTS leafhub_deleted_at_idx ON status.leaf_hubs (deleted_at);
 
