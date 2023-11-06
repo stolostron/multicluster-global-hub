@@ -55,7 +55,6 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 		conflationReadyQueue, dbWorkerPool)); err != nil {
 		return nil, fmt.Errorf("failed to add conflation dispatcher to runtime manager: %w", err)
 	}
-
 	// register db syncers create bundle functions within transport and handler functions within dispatcher
 	dbSyncers := []dbsyncer.Syncer{
 		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-info-syncer")),

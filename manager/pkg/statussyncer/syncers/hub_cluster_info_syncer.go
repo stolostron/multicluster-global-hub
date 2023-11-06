@@ -90,6 +90,11 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 			continue
 		}
 
+		clusterId := constants.DefaultClusterId
+		if len(specificObj.ClusterId) != 0 {
+			clusterId = specificObj.ClusterId
+		}
+
 		payload, err := json.Marshal(specificObj)
 		if err != nil {
 			return err
@@ -98,6 +103,7 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 		batchLeafHub = append(batchLeafHub, models.LeafHub{
 			LeafHubName: leafHubName,
 			Payload:     payload,
+			ClusterID:   clusterId,
 		})
 	}
 

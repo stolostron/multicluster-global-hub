@@ -16,6 +16,7 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -250,6 +251,32 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 					Kind: "Service",
 					Name: constants.ObservabilityGrafanaRouteName,
 				},
+			},
+		})).Should(Succeed())
+
+		By("Check the hub cluster info bundle can be read from cloudevents consumer")
+		Eventually(func() error {
+			message := <-consumer.MessageChan()
+
+			statusBundle, err := getStatusBundle(message, constants.HubClusterInfoMsgKey)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			printBundle(statusBundle)
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+	})
+
+	It("should be able to sync hub cluster info with cluster id", func() {
+		By("Create clusterclaim with name <id.k8s.io> in the managed hub cluster")
+
+		Expect(kubeClient.Create(ctx, &clustersv1alpha1.ClusterClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "id.k8s.io",
+			},
+			Spec: clustersv1alpha1.ClusterClaimSpec{
+				Value: "00000000-0000-0000-0000-000000000001",
 			},
 		})).Should(Succeed())
 

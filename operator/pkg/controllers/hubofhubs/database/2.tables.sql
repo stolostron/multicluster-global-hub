@@ -45,6 +45,7 @@ CREATE INDEX IF NOT EXISTS leafhub_cluster_idx ON status.managed_clusters (leaf_
 
 CREATE TABLE IF NOT EXISTS status.leaf_hubs (
     leaf_hub_name character varying(254) NOT NULL PRIMARY KEY,
+    cluster_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
     payload jsonb NOT NULL,
     console_url text generated always as (payload ->> 'consoleURL') stored,
     grafana_url text generated always as (payload ->> 'grafanaURL') stored,

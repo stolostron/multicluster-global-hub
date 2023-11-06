@@ -9,6 +9,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 )
 
 var (
@@ -63,7 +64,6 @@ func (baseBundle *HubClusterInfoBundle) SetVersion(version *metadata.BundleVersi
 func (bundle *HubClusterInfoBundle) UpdateObject(object bundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
-
 	if len(bundle.Objects) == 0 {
 		bundle.Objects = []*base.HubClusterInfo{
 			{
@@ -74,32 +74,54 @@ func (bundle *HubClusterInfoBundle) UpdateObject(object bundle.Object) {
 	}
 
 	var routeURL string
-	route := object.(*routev1.Route)
-	if len(route.Spec.Host) != 0 {
-		routeURL = "https://" + route.Spec.Host
+	route, ok := object.(*routev1.Route)
+	if ok {
+		if len(route.Spec.Host) != 0 {
+			routeURL = "https://" + route.Spec.Host
+		}
+		if route.GetName() == constants.OpenShiftConsoleRouteName && bundle.Objects[0].ConsoleURL != routeURL {
+			bundle.Objects[0].ConsoleURL = routeURL
+			bundle.BundleVersion.Incr()
+		}
+		if route.GetName() == constants.ObservabilityGrafanaRouteName && bundle.Objects[0].GrafanaURL != routeURL {
+			bundle.Objects[0].GrafanaURL = routeURL
+			bundle.BundleVersion.Incr()
+		}
 	}
 
-	if route.GetName() == constants.OpenShiftConsoleRouteName && bundle.Objects[0].ConsoleURL != routeURL {
-		bundle.Objects[0].ConsoleURL = routeURL
+	clusterClaim, ok := object.(*clustersv1alpha1.ClusterClaim)
+	if ok && clusterClaim.Name == "id.k8s.io" {
+		bundle.Objects[0].ClusterId = clusterClaim.Spec.Value
 		bundle.BundleVersion.Incr()
 	}
-	if route.GetName() == constants.ObservabilityGrafanaRouteName && bundle.Objects[0].GrafanaURL != routeURL {
-		bundle.Objects[0].GrafanaURL = routeURL
-		bundle.BundleVersion.Incr()
-	}
+
 }
 
 // DeleteObject function to delete a single object inside a bundle.
 func (bundle *HubClusterInfoBundle) DeleteObject(object bundle.Object) {
 	if len(bundle.Objects) == 0 {
-		return
+		bundle.Objects = []*base.HubClusterInfo{
+			{
+				ConsoleURL: "",
+				GrafanaURL: "",
+			},
+		}
 	}
-	if object.GetName() == constants.OpenShiftConsoleRouteName && bundle.Objects[0].ConsoleURL != "" {
-		bundle.Objects[0].ConsoleURL = ""
-		bundle.BundleVersion.Incr()
+	_, ok := object.(*routev1.Route)
+	if ok {
+		if object.GetName() == constants.OpenShiftConsoleRouteName && bundle.Objects[0].ConsoleURL != "" {
+			bundle.Objects[0].ConsoleURL = ""
+			bundle.BundleVersion.Incr()
+		}
+		if object.GetName() == constants.ObservabilityGrafanaRouteName && bundle.Objects[0].GrafanaURL != "" {
+			bundle.Objects[0].GrafanaURL = ""
+			bundle.BundleVersion.Incr()
+		}
 	}
-	if object.GetName() == constants.ObservabilityGrafanaRouteName && bundle.Objects[0].GrafanaURL != "" {
-		bundle.Objects[0].GrafanaURL = ""
+
+	clusterClaim, ok := object.(*clustersv1alpha1.ClusterClaim)
+	if ok && clusterClaim.Name == "id.k8s.io" {
+		bundle.Objects[0].ClusterId = constants.DefaultClusterId
 		bundle.BundleVersion.Incr()
 	}
 }

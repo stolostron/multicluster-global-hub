@@ -22,6 +22,8 @@ const (
 
 	DefaultAgentQPS   = float32(150)
 	DefaultAgentBurst = 300
+
+	DefaultClusterId = "00000000-0000-0000-0000-000000000000"
 )
 
 const (
