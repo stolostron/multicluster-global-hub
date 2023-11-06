@@ -33,9 +33,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -131,8 +134,10 @@ type MiddlewareConfig struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if len(req.Namespace) == 0 || len(req.Name) == 0 {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
 	r.Log.Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
-
 	// Fetch the multiclusterglobalhub instance
 	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 	if err := r.Get(ctx, req.NamespacedName, mgh); err != nil {
@@ -140,14 +145,13 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			r.Log.Info("mgh instance not found. Ignoring since object must be deleted")
+			r.Log.Info("mgh instance not found.")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		r.Log.Error(err, "Failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
-
 	if config.IsPaused(mgh) {
 		r.Log.Info("mgh reconciliation is paused, nothing more to do")
 		return ctrl.Result{}, nil
@@ -156,6 +160,10 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	// Deleting the multiclusterglobalhub instance
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
 		if err := r.pruneGlobalHubResources(ctx, mgh); err != nil {
+			conditionErr := AddFailedCondition(ctx, r.Client, mgh, err.Error())
+			if conditionErr != nil {
+				return ctrl.Result{}, conditionErr
+			}
 			return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
 		}
 		return ctrl.Result{}, nil
@@ -167,12 +175,23 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	if result, err := r.ReconcileMiddleware(ctx, mgh); err != nil {
+	result, err := r.ReconcileMiddleware(ctx, mgh)
+	if err != nil {
+		r.Log.V(2).Info("ReconcileMiddleware error", "error", err)
+		conditionErr := AddFailedCondition(ctx, r.Client, mgh, err.Error())
+		if conditionErr != nil {
+			return ctrl.Result{}, conditionErr
+		}
 		return result, err
 	}
 
-	if err := r.reconcileGlobalHub(ctx, mgh); err != nil {
-		return ctrl.Result{Requeue: true}, err
+	err = r.reconcileGlobalHub(ctx, mgh)
+	if err != nil {
+		conditionErr := AddFailedCondition(ctx, r.Client, mgh, err.Error())
+		if conditionErr != nil {
+			return ctrl.Result{}, conditionErr
+		}
+		return ctrl.Result{}, err
 	}
 
 	// Make sure the reconcile work properly, and then add finalizer to the multiclusterglobalhub instance
@@ -185,25 +204,37 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 				return ctrl.Result{Requeue: true}, nil
 			} else if err != nil {
 				r.Log.Error(err, "failed to add finalizer to mgh instance")
+				conditionErr := AddFailedCondition(ctx, r.Client, mgh, err.Error())
+				if conditionErr != nil {
+					return ctrl.Result{}, conditionErr
+				}
 				return ctrl.Result{}, err
 			}
 		}
 	}
-
-	// // try to start packagemanifest controller if it is not running
-	// if !isPackageManifestControllerRunnning {
-	// 	if err := (&pmcontroller.PackageManifestReconciler{
-	// 		Client: r.Client,
-	// 		Scheme: r.Scheme,
-	// 	}).SetupWithManager(r.Manager); err != nil {
-	// 		log.Error(err, "unable to create controller", "controller", "PackageManifest")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// 	log.Info("packagemanifest controller is started")
-	// 	isPackageManifestControllerRunnning = true
-	// }
-
+	if err := condition.SetCondition(ctx, r.Client, mgh,
+		condition.CONDITION_TYPE_GLOBALHUB_READY,
+		metav1.ConditionTrue,
+		condition.CONDITION_REASON_GLOBALHUB_READY,
+		condition.CONDITION_MESSAGE_GLOBALHUB_READY,
+	); err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
+}
+
+func AddFailedCondition(ctx context.Context, client client.Client,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub, msg string) error {
+	if err := condition.SetCondition(ctx, client, mgh,
+		condition.CONDITION_TYPE_GLOBALHUB_READY,
+		metav1.ConditionFalse,
+		condition.CONDITION_REASON_GLOBALHUB_FAILED,
+		msg,
+	); err != nil {
+		klog.Errorf("Failed to add Failed condition to MulticlusterGlobalHub instance: %v", err)
+		return err
+	}
+	return nil
 }
 
 // ReconcileMiddleware creates the kafka and postgres if needed.
@@ -259,16 +290,37 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	}
 
 	if kafkaConnection == nil {
-		if kafkaConnection, err = r.WaitForKafkaClusterReady(ctx); err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+		r.Log.Info("Wait kafka cluster ready")
+		err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
+			kafkaConnection, err = r.WaitForKafkaClusterReady(ctx)
+			if err != nil {
+				r.Log.V(2).Info("Wait kafka cluster ready.", "error", err)
+				return false, nil
+			}
+			return true, nil
+		})
+		if err != nil {
+			return ctrl.Result{RequeueAfter: 5 * time.Second},
+				fmt.Errorf("Kafaka cluster is not ready in 10 minutes, Error: %v", err)
 		}
+		r.Log.Info("Kafka cluster is ready")
+
 		r.MiddlewareConfig.KafkaConnection = kafkaConnection
 	}
 
 	if pgConnection == nil && config.GetInstallCrunchyOperator(mgh) {
 		// store crunchy postgres connection
-		if pgConnection, err = r.WaitForPostgresReady(ctx); err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+		err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
+			pgConnection, err = r.WaitForPostgresReady(ctx)
+			if err != nil {
+				r.Log.V(2).Info("Wait postgres ready.", "error", err)
+				return false, nil
+			}
+			return true, nil
+		})
+		if err != nil {
+			return ctrl.Result{RequeueAfter: 5 * time.Second},
+				fmt.Errorf("Postgres is not ready in 10 minutes, Error: %v", err)
 		}
 		r.MiddlewareConfig.PgConnection = pgConnection
 	}

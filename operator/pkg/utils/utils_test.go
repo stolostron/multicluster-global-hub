@@ -17,7 +17,24 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"testing"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+)
+
+var (
+	cfg           *rest.Config
+	runtimeClient client.Client
+	ctx           context.Context
 )
 
 func Test_getAlertGPCcount(t *testing.T) {
@@ -249,6 +266,91 @@ groups:
 			}
 			if got != tt.want {
 				t.Errorf("isAlertCountEqual() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWaitGlobalHubReady(t *testing.T) {
+	now := metav1.Now()
+	tests := []struct {
+		name     string
+		mgh      []runtime.Object
+		wantErr  bool
+		returned bool
+	}{
+		{
+			name: "no mgh status",
+			mgh: []runtime.Object{
+				&globalhubv1alpha4.MulticlusterGlobalHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test",
+						Namespace: "default",
+					},
+					Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+				},
+			},
+			returned: false,
+		},
+		{
+			name: "no mgh instance",
+			mgh:  []runtime.Object{},
+
+			returned: false,
+		},
+		{
+			name: "mgh is deleting",
+			mgh: []runtime.Object{
+				&globalhubv1alpha4.MulticlusterGlobalHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "test",
+						Namespace:         "default",
+						DeletionTimestamp: &now,
+						Finalizers: []string{
+							"test",
+						},
+					},
+					Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+				},
+			},
+			returned: false,
+		},
+		{
+			name: "ready mgh",
+			mgh: []runtime.Object{
+				&globalhubv1alpha4.MulticlusterGlobalHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test",
+						Namespace: "default",
+					},
+					Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+					Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   condition.CONDITION_TYPE_GLOBALHUB_READY,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			returned: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := runtime.NewScheme()
+			globalhubv1alpha4.AddToScheme(s)
+
+			runtimeClient := fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(tt.mgh...).Build()
+			returned := false
+			go func() {
+				WaitGlobalHubReady(context.Background(), runtimeClient, 1*time.Second)
+				returned = true
+			}()
+			time.Sleep(time.Second * 2)
+			if returned != tt.returned {
+				t.Errorf("name:%v, expect returned:%v, actual returned: %v", tt.name, tt.returned, returned)
 			}
 		})
 	}

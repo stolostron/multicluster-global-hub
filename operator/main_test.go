@@ -7,12 +7,16 @@ import (
 	"context"
 	"flag"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -26,15 +30,47 @@ var (
 	kubeClient kubernetes.Interface
 )
 
+var mghJson = `
+	{
+		"apiVersion": "operator.open-cluster-management.io/v1alpha4",
+		"kind":       "MulticlusterGlobalHub",
+		"metadata": {
+			"name":      "testmgh",
+			"namespace": "default"
+		},
+		"status": {
+			"conditions": [
+				{
+					"lastTransitionTime": "2023-10-18T00:33:39Z",
+					"message": "ready",
+					"reason": "ready",
+					"status": "True",
+					"type": "Ready"
+				}
+			]
+		}
+	}
+`
+
+var resource = schema.GroupVersionResource{
+	Group:    "operator.open-cluster-management.io",
+	Version:  "v1alpha4",
+	Resource: "multiclusterglobalhubs",
+}
+
 func TestMain(m *testing.M) {
 	// start testEnv
-	testEnv := &envtest.Environment{}
+	testEnv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
 	var err error
 	err = os.Setenv("POD_NAMESPACE", "default")
 	if err != nil {
 		panic(err)
 	}
-
 	cfg, err = testEnv.Start()
 	if err != nil {
 		panic(err)
@@ -44,7 +80,28 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
 
+	obj := unstructured.Unstructured{}
+	err = obj.UnmarshalJSON([]byte(mghJson))
+	if err != nil {
+		panic(err)
+	}
+	createdMgh, err := dynamicClient.Resource(resource).Namespace("default").
+		Create(context.TODO(), &obj, metav1.CreateOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	obj.SetResourceVersion(createdMgh.GetResourceVersion())
+
+	_, err = dynamicClient.Resource(resource).Namespace("default").UpdateStatus(context.Background(), &obj, metav1.UpdateOptions{})
+	if err != nil {
+		panic(err)
+	}
 	// run testings
 	code := m.Run()
 
@@ -104,7 +161,7 @@ func TestOperator(t *testing.T) {
 		pflag.CommandLine = pflag.NewFlagSet(tc.name, pflag.ExitOnError)
 		// we need a value to set Args[0] to cause flag begins parsing at Args[1]
 		os.Args = append([]string{tc.name}, tc.args...)
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 		if tc.leaderElectionConfig != nil {
 			if _, err := kubeClient.CoreV1().ConfigMaps(
@@ -114,6 +171,7 @@ func TestOperator(t *testing.T) {
 			}
 		}
 		actualExit := doMain(ctx, cfg)
+
 		if tc.expectedExit != actualExit {
 			t.Errorf("unexpected exit code for args: %v, expected: %v, got: %v",
 				tc.args, tc.expectedExit, actualExit)

@@ -74,6 +74,14 @@ const (
 	CONDITION_MESSAGE_LEAFHUB_DEPLOY_FAILED = "Leaf Hub Deployed FAILED"
 )
 
+const (
+	CONDITION_TYPE_GLOBALHUB_READY    = "Ready"
+	CONDITION_REASON_GLOBALHUB_READY  = "MulticlusterGlobalHubReady"
+	CONDITION_MESSAGE_GLOBALHUB_READY = "Multicluster Global Hub is ready"
+	CONDITION_REASON_GLOBALHUB_FAILED = "MulticlusterGlobalHubFailed"
+	CONDITION_REASON_GLOBALHUB_PAUSED = "MulticlusterGlobalHubPaused"
+)
+
 // SetConditionFunc is function type that receives the concrete condition method
 type SetConditionFunc func(ctx context.Context, c client.Client,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,

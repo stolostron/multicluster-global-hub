@@ -19,7 +19,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
@@ -89,6 +91,14 @@ func fakeMGH(name, namespace string) *operatorv1alpha4.MulticlusterGlobalHub {
 			Name:      name,
 			Namespace: namespace,
 		},
+		Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
+			Conditions: []metav1.Condition{
+				{
+					Type:   condition.CONDITION_TYPE_GLOBALHUB_READY,
+					Status: metav1.ConditionTrue,
+				},
+			},
+		},
 	}
 }
 
@@ -124,21 +134,6 @@ func TestHoHAddonReconciler(t *testing.T) {
 		req             reconcile.Request
 		validateFunc    func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error)
 	}{
-		{
-			name:            "mgh not ready",
-			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
-			managementAddon: nil,
-			mgh:             nil,
-			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
-			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
-				if !errors.IsNotFound(err) {
-					t.Errorf("expected not found addon, but got err %v", err)
-				}
-				if addon != nil {
-					t.Errorf("expected nil addon, but got %v", addon)
-				}
-			},
-		},
 		{
 			name:            "clustermanagementaddon not ready",
 			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
