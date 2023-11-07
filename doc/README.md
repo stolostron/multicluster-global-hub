@@ -41,7 +41,7 @@ You can read about the use cases for multicluster global hub in [Use Cases](./gl
 
 ### Multicluster Global Hub Operator
 
-The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager` and `multicluster-global-hub-grafana` in the global hub cluster and `multicluster-global-hub-agent` in the managed hub clusters.
+The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager`, `multicluster-global-hub-grafana` and built-in `kafka` and `postgres` in the global hub cluster and `multicluster-global-hub-agent` in the managed hub clusters.
 
 The Operator also leverages the `manifestwork` custom resource to deploy the Red Hat Advanced Cluster Management for Kubernetes Operator on the managed cluster. After the Red Hat Advanced Cluster Management Operator is deployed on the managed cluster, the managed cluster becomes a standard Red Hat Advanced Cluster Management Hub cluster. This hub cluster is now a managed hub cluster.
 
@@ -51,7 +51,7 @@ The Multicluster Global Hub Manager is used to persist the data into the `postgr
 
 ### Multicluster Global Hub Agent
 
-The Multicluster Global Hub Agent runs on the managed hub clusters. It synchronizes the data between the global hub cluster and the managed hub clusters. For example, the agent synchronizes the information of the managed clusters from the managed hub clusters with the global hub cluster and synchronizes the policy or application from the global hub cluster and the managed hub clusters.
+The Multicluster Global Hub Agent runs on the managed hub clusters. It synchronizes the data between the global hub cluster and the managed hub clusters. For example, the agent synchronizes the information of the managed clusters from the managed hub clusters to the global hub cluster and synchronizes the policy or application from the global hub cluster to the managed hub clusters.
 
 ### Multicluster Global Hub Observability
 
@@ -312,7 +312,7 @@ After installing the global hub operand, the global hub manager starts running a
 
 #### Local compliance status sync job
 
-  At 0 o'clock every day, based on the policy status and events collected by the manager on the previous day. Running the job to summarize the compliance status and change frequency of the policy on the cluster, and store them to the `history.local_compliance` table as the data source of grafana dashboards. Even if the job runs once a day, it can also run multiple times within the day without changing the result. Please refer to [here](./how_global_hub_works.md) for more details.
+  At 0 o'clock every day, based on the policy status and events collected by the manager on the previous day. Running the job to summarize the compliance status and change frequency of the policy on the cluster, and store them to the `history.local_compliance` table as the data source of grafana dashboards. Please refer to [here](./how_global_hub_works.md) for more details.
 
 #### Data retention job
 
@@ -322,9 +322,9 @@ After installing the global hub operand, the global hub manager starts running a
 
   2. Partitioning on the large table to execute queries/deletions on a large table faster
 
-  Specifically, We run a cronjob process to implement the above procedure. For the event tables, like the `event.local_policies` and `history.local_compliance` growing every day, we use range partitioning to break down the large tables into small partitions. Furthermore, it's important to note that this process also creates the partition tables for the next month each time it is executed. And For the policy and cluster tables, like `local_spec.policies` and `status.managed_clusters`, we add `deletedAt` indexes on these tables to obtain better performance for hard deleting.
+  Specifically, We run a cronjob process to implement the above procedure. For the event tables, like the `event.local_policies` and `history.local_compliance` growing every day, we use range partitioning to break down the large tables into small partitions. Furthermore, it's important to note that this process also creates the partition tables for the next month each time it is executed. And For the policy and cluster tables, like `local_spec.policies` and `status.managed_clusters`, we add `deleted_at` indexes on these tables to obtain better performance for hard deleting.
   
-  How long the job should keep the data can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/main/operator/apis/v1alpha4/multiclusterglobalhub_types.go#L90) on the global hub operand. it's recommended minimum value is `1` month, default value is `18` months. Therefore, the execution interval of this job should be less than one month.
+  It's also worth noting that the time for which the data is retained can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/main/operator/apis/v1alpha4/multiclusterglobalhub_types.go#L90) on the global hub operand. it's recommended minimum value is `1` month, default value is `18` months. Therefore, the execution interval of this job should be less than one month.
 
 #### The status of the cronjobs
 
