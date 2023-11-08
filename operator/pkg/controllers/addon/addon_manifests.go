@@ -223,7 +223,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 // getAgentRestConfig return the agent qps and burst, if not set, use default QPS and Burst
 func (a *HohAgentAddon) getAgentRestConfig(configMap *corev1.ConfigMap) (float32, int) {
 	if configMap == nil {
-		a.log.V(4).Info("controller configmap is nil, Use default agentQPS: %v, agentBurst: %v", constants.DefaultAgentQPS, constants.DefaultAgentBurst)
+		a.log.V(4).Info("controller configmap is nil, Use default agentQPS", fmt.Sprintf("%f", constants.DefaultAgentQPS), "AgentBurst:", fmt.Sprintf("%v", constants.DefaultAgentBurst))
 		return constants.DefaultAgentQPS, constants.DefaultAgentBurst
 	}
 	agentQPS := constants.DefaultAgentQPS
@@ -243,8 +243,7 @@ func (a *HohAgentAddon) getAgentRestConfig(configMap *corev1.ConfigMap) (float32
 			agentBurst = agentBurstAtoi
 		}
 	}
-
-	a.log.V(4).Info("AgentQPS: %v, AgentBurst: %v", agentQPS, agentBurst)
+	a.log.V(4).Info("AgentQPS:", fmt.Sprintf("%f", agentQPS), "AgentBurst:", fmt.Sprintf("%v", agentBurst))
 
 	return agentQPS, agentBurst
 }
