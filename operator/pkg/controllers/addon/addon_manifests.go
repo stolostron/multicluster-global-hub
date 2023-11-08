@@ -22,7 +22,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -178,7 +177,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	kafkaClusterCertSecret := &corev1.Secret{}
 	err = a.client.Get(a.ctx, types.NamespacedName{
 		Namespace: config.GetMGHNamespacedName().Namespace,
-		Name:      fmt.Sprintf("%s-cluster-ca-cert", kafka.KafkaClusterName),
+		Name:      getKafkaUserName(cluster.Name),
 	}, kafkaClusterCertSecret)
 	if err != nil {
 		return nil, err
@@ -187,7 +186,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	kafkaUserSecret := &corev1.Secret{}
 	err = a.client.Get(a.ctx, types.NamespacedName{
 		Namespace: config.GetMGHNamespacedName().Namespace,
-		Name:      cluster.Name,
+		Name:      getKafkaUserName(cluster.Name),
 	}, kafkaUserSecret)
 	if err != nil {
 		return nil, err

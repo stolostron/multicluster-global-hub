@@ -2,9 +2,12 @@ package addon_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -19,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -85,13 +87,13 @@ func fakeHoHManagementAddon() *v1alpha1.ClusterManagementAddOn {
 	}
 }
 
-func fakeMGH(name, namespace string) *operatorv1alpha4.MulticlusterGlobalHub {
+func fakeMGH(namespace, name string) *operatorv1alpha4.MulticlusterGlobalHub {
 	return &operatorv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
+		Status: operatorv1alpha4.MulticlusterGlobalHubStatus{
 			Conditions: []metav1.Condition{
 				{
 					Type:   condition.CONDITION_TYPE_GLOBALHUB_READY,
@@ -124,6 +126,15 @@ func TestHoHAddonReconciler(t *testing.T) {
 	addonTestScheme := scheme.Scheme
 	utilruntime.Must(v1.AddToScheme(addonTestScheme))
 	utilruntime.Must(v1alpha1.AddToScheme(addonTestScheme))
+	utilruntime.Must(operatorv1alpha4.AddToScheme(addonTestScheme))
+	utilruntime.Must(kafkav1beta2.AddToScheme(addonTestScheme))
+
+	namespace := "default"
+	name := "test"
+	config.SetMGHNamespacedName(types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	})
 
 	cases := []struct {
 		name            string
@@ -136,9 +147,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 	}{
 		{
 			name:            "clustermanagementaddon not ready",
+			mgh:             fakeMGH(namespace, name),
 			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
 			managementAddon: nil,
-			mgh:             fakeMGH("test", "test"),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if !errors.IsNotFound(err) {
@@ -151,9 +162,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 		},
 		{
 			name:            "req not found",
+			mgh:             fakeMGH(namespace, name),
 			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
 			managementAddon: fakeHoHManagementAddon(),
-			mgh:             fakeMGH("test", "test"),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster2"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if !errors.IsNotFound(err) {
@@ -166,9 +177,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 		},
 		{
 			name:            "do not create addon",
+			mgh:             fakeMGH(namespace, name),
 			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeNone),
 			managementAddon: fakeHoHManagementAddon(),
-			mgh:             fakeMGH("test", "test"),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if !errors.IsNotFound(err) {
@@ -181,16 +192,16 @@ func TestHoHAddonReconciler(t *testing.T) {
 		},
 		{
 			name:            "create addon in default mode",
+			mgh:             fakeMGH(namespace, name),
 			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
 			managementAddon: fakeHoHManagementAddon(),
-			mgh:             fakeMGH("test", "test"),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if err != nil {
 					t.Errorf("failed to reconcile .%v", err)
 				}
 				if addon.Spec.InstallNamespace != constants.GHAgentNamespace {
-					t.Errorf("expected installname %s, but got %s",
+					t.Errorf("expected install name %s, but got %s",
 						operatorconstants.GHAgentInstallNamespace, addon.Spec.InstallNamespace)
 				}
 			},
@@ -200,7 +211,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 			cluster: fakeCluster("cluster1", "cluster2",
 				operatorconstants.GHAgentDeployModeHosted),
 			managementAddon: fakeHoHManagementAddon(),
-			mgh:             fakeMGH("test", "test"),
+			mgh:             fakeMGH(namespace, name),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
 				if err != nil {
@@ -220,7 +231,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 			cluster: fakeCluster("cluster1", "cluster2",
 				operatorconstants.GHAgentDeployModeHosted),
 			managementAddon: fakeHoHManagementAddon(),
-			mgh:             fakeMGH("test", "test"),
+			mgh:             fakeMGH(namespace, name),
 			addon:           fakeHoHAddon("cluster1", "test", ""),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
@@ -261,6 +272,16 @@ func TestHoHAddonReconciler(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to create manager: %v", err)
 			}
+			objects = append(objects, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-kafka-user", tc.cluster.Name),
+					Namespace: tc.mgh.Namespace,
+					Labels: map[string]string{
+						constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
+					},
+				},
+			})
+
 			r := &hubofhubsaddon.HoHAddonInstaller{
 				Client: fake.NewClientBuilder().WithScheme(addonTestScheme).WithObjects(objects...).Build(),
 				Log:    ctrl.Log.WithName("test"),

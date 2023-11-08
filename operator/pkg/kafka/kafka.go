@@ -249,7 +249,8 @@ func NewKafkaUser(username, namespace string) *kafkav1beta2.KafkaUser {
 			Namespace: namespace,
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the user will not be ready
-				"strimzi.io/cluster": KafkaClusterName,
+				"strimzi.io/cluster":             KafkaClusterName,
+				constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
 			},
 		},
 		Spec: &kafkav1beta2.KafkaUserSpec{

@@ -188,7 +188,6 @@ var _ = AfterSuite(func() {
 const (
 	MGHName              = "test-mgh"
 	StorageSecretName    = operatorconstants.GHStorageSecretName
-	TransportSecretName  = operatorconstants.GHTransportSecretName
 	kafkaCA              = "foobar"
 	kafkaBootstrapServer = "https://test-kafka.example.com"
 
@@ -220,6 +219,10 @@ func prepareBeforeTest() {
 	By("By creating a new MGH instance")
 	mgh.SetNamespace(config.GetDefaultNamespace())
 	Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
+	config.SetMGHNamespacedName(types.NamespacedName{
+		Namespace: mgh.Namespace,
+		Name:      mgh.Name,
+	})
 
 	Expect(k8sClient.Status().Update(ctx, mgh)).Should(Succeed())
 

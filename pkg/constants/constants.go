@@ -26,10 +26,11 @@ const (
 
 const (
 	// identify the resource is managed by
-	GlobalHubOwnerLabelKey  = "global-hub.open-cluster-management.io/managed-by"
-	GlobalHubOwnerLabelVal  = "global-hub"
-	GHAgentOwnerLabelValue  = "global-hub-agent"
-	GHOperatorOwnerLabelVal = "global-hub-operator"
+	GlobalHubOwnerLabelKey      = "global-hub.open-cluster-management.io/managed-by"
+	GlobalHubOwnerLabelVal      = "global-hub"
+	GlobalHubAddonOwnerLabelVal = "global-hub-addon"
+	GHAgentOwnerLabelValue      = "global-hub-agent"
+	GHOperatorOwnerLabelVal     = "global-hub-operator"
 	// Deprecated identify the resource is a local-resource
 	// GlobalHubLocalResource = "global-hub.open-cluster-management.io/local-resource"
 	// if the resource with this label, it will be synced to database and then propagated to managed hub
