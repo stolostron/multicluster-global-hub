@@ -31,6 +31,7 @@ import (
 	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -257,12 +258,11 @@ func parseFlags() *operatorConfig {
 		"Enable the global resource. It is expermental feature. Do not support upgrade.")
 	pflag.Parse()
 
-	logLevel := "info"
-	logflag := defaultFlags.Lookup("zap-log-level")
-	if len(logflag.Value.String()) != 0 {
-		logLevel = logflag.Value.String()
+	config.LogLevel = "info"
+	if logflag := defaultFlags.Lookup("zap-log-level"); len(logflag.Value.String()) != 0 {
+		config.LogLevel = logflag.Value.String()
 	}
-	config.LogLevel = logLevel
+
 	// set zap logger
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	return config
@@ -288,6 +288,7 @@ func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderEle
 		RetryPeriod:             &retryPeriod,
 		NewCache:                initCache,
 	})
+
 	return mgr, err
 }
 

@@ -28,8 +28,6 @@ import (
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"gopkg.in/yaml.v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -56,6 +54,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -991,7 +991,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				return nil
 			}, timeout, interval).ShouldNot(HaveOccurred())
-
 		})
 
 		It("Should create the postgres resources", func() {
@@ -1036,7 +1035,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				return nil
 			}, timeout, interval).ShouldNot(HaveOccurred())
-
 		})
 
 		It("Should delete the MGH instance", func() {
@@ -1071,7 +1069,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 		})
 	})
-
 })
 
 func prettyPrint(v interface{}) error {

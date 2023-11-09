@@ -14,10 +14,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
-var (
-	errOptimisticConcurrencyUpdateFailed = errors.New("zero rows were affected by an optimistic concurrency update")
-	errQueryTableFailedTemplate          = "failed to query table spec.%s - %w"
-)
+var errQueryTableFailedTemplate = "failed to query table spec.%s - %w"
 
 type gormSpecDB struct{}
 

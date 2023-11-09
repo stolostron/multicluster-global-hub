@@ -6,10 +6,10 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
-	"go.uber.org/zap/zapcore"
+	uberzap "go.uber.org/zap"
+	uberzapcore "go.uber.org/zap/zapcore"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -19,11 +19,15 @@ func PrintVersion(log logr.Logger) {
 }
 
 func CtrlZapOptions() zap.Options {
+	encoderConfig := uberzap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = uberzapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeLevel = uberzapcore.CapitalColorLevelEncoder
 	opts := zap.Options{
-		Development: true,
-		TimeEncoder: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-			enc.AppendString(t.Format("2006-01-02 15:04:05 MST"))
-		},
+		Encoder: uberzapcore.NewConsoleEncoder(encoderConfig),
+		// for development
+		// ZapOpts: []uberzap.Option{
+		// 	uberzap.AddCaller(),
+		// },
 	}
 	return opts
 }
