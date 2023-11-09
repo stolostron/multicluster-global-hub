@@ -24,7 +24,7 @@ echo "Kafka operator is ready"
 
 # deploy kafka cluster
 kubectl --context $CTX_HUB apply -k ${currentDir}/kafka-cluster -n $targetNamespace
-waitAppear "kubectl --context $CTX_HUB -n $targetNamespace get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found" 1200
+waitAppear "kubectl --context $CTX_HUB -n $targetNamespace get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found" 1200
 echo "Kafka cluster is ready"
 
 waitAppear "kubectl --context $CTX_HUB get kafkatopic spec -n $targetNamespace --ignore-not-found | grep spec || true"
@@ -36,8 +36,8 @@ echo "Kafka topics spec and status are ready!"
 # echo "Kafka user ${kafkaUser} is ready!"
 
 # generate transport secret
-bootstrapServers=$(kubectl --context $CTX_HUB get kafka kafka-brokers-cluster -n $targetNamespace -o jsonpath='{.status.listeners[1].bootstrapServers}')
-kubectl --context $CTX_HUB get kafka kafka-brokers-cluster -n $targetNamespace -o jsonpath='{.status.listeners[1].certificates[0]}' > $setupDir/config/kafka-ca-cert.pem
+bootstrapServers=$(kubectl --context $CTX_HUB get kafka kafka -n $targetNamespace -o jsonpath='{.status.listeners[1].bootstrapServers}')
+kubectl --context $CTX_HUB get kafka kafka -n $targetNamespace -o jsonpath='{.status.listeners[1].certificates[0]}' > $setupDir/config/kafka-ca-cert.pem
 # kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.crt}' | base64 -d > $setupDir/config/kafka-client-cert.pem
 # kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.key}' | base64 -d > $setupDir/config/kafka-client-key.pem
 

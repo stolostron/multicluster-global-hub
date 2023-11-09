@@ -3,7 +3,7 @@ kind: KafkaTopic
 metadata:
   name: spec
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   partitions: 1
   replicas: 1
@@ -15,7 +15,7 @@ kind: KafkaTopic
 metadata:
   name: status
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   partitions: 1
   replicas: 1
@@ -27,7 +27,7 @@ kind: KafkaTopic
 metadata:
   name: event
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   partitions: 1
   replicas: 1

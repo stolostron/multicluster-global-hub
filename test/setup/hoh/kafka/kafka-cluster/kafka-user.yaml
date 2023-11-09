@@ -3,7 +3,7 @@ kind: KafkaUser
 metadata:
   name: global-hub-kafka-user
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
 spec:
   authentication:
     type: tls

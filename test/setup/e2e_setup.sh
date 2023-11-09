@@ -71,7 +71,7 @@ startTime_s=`date +%s`
 kubectl config use-context $CTX_HUB >> $LOG
 # wait kafka to be ready
 waitAppear "kubectl get pods -n multicluster-global-hub -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
-waitAppear "kubectl get kafka kafka-brokers-cluster -n multicluster-global-hub -o jsonpath='{.status.listeners[1].certificates[0]}' --ignore-not-found=true" 1200
+waitAppear "kubectl get kafka kafka -n multicluster-global-hub -o jsonpath='{.status.listeners[1].certificates[0]}' --ignore-not-found=true" 1200
 
 # wait postgres to be ready
 waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
