@@ -9,7 +9,6 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: strimzi-cluster-operator
-    namespace: kafka
 roleRef:
   kind: ClusterRole
   name: strimzi-entity-operator

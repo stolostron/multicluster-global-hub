@@ -42,7 +42,7 @@ kubectl --context $CTX_HUB get kafka kafka-brokers-cluster -n $targetNamespace -
 # kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.key}' | base64 -d > $setupDir/config/kafka-client-key.pem
 
 # create target namespace
-kubectl --context $CTX_HUB create namespace $targetNamespace || true
+kubectl --context $CTX_HUB create namespace $targetNamespace --dry-run=client -o yaml | kubectl apply -f -
 kubectl --context $CTX_HUB create secret generic $transportSecret -n $targetNamespace \
     --from-literal=bootstrap_server=$bootstrapServers \
     --from-file=ca.crt=$setupDir/config/kafka-ca-cert.pem

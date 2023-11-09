@@ -1,5 +1,35 @@
 # it is from https://github.com/strimzi/strimzi-kafka-operator/tree/0.33.2/packaging/install/cluster-operator
-bases:
+namespace: multicluster-global-hub
+
+resources:
 - crds
 - manager
 - rbac
+
+replacements:
+- source:
+    fieldPath: metadata.namespace
+    kind: ServiceAccount
+    name: strimzi-cluster-operator
+  targets:
+  - fieldPaths:
+    - subjects.[name=strimzi-cluster-operator].namespace
+    select:
+      group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+      version: v1
+      name: strimzi-cluster-operator
+  - fieldPaths:
+    - subjects.[name=strimzi-cluster-operator].namespace
+    select:
+      group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+      version: v1
+      name: strimzi-cluster-operator-kafka-broker-delegation
+  - fieldPaths:
+    - subjects.[name=strimzi-cluster-operator].namespace
+    select:
+      group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+      version: v1
+      name: strimzi-cluster-operator-kafka-client-delegation
