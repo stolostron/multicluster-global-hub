@@ -2,7 +2,6 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: spec
-  namespace: kafka
   labels:
     strimzi.io/cluster: kafka-brokers-cluster
 spec:
@@ -15,7 +14,6 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: status
-  namespace: kafka
   labels:
     strimzi.io/cluster: kafka-brokers-cluster
 spec:
@@ -28,7 +26,6 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: event
-  namespace: kafka
   labels:
     strimzi.io/cluster: kafka-brokers-cluster
 spec:

@@ -2,7 +2,6 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
   name: global-hub-kafka-user
-  namespace: kafka
   labels:
     strimzi.io/cluster: kafka-brokers-cluster
 spec:

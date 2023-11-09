@@ -19,7 +19,7 @@ fi
 
 # deploy kafka operator
 kubectl --context $CTX_HUB apply -k ${currentDir}/kafka-operator -n $targetNamespace
-waitAppear "kubectl --context $CTX_HUB get pods -n kafka -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
+waitAppear "kubectl --context $CTX_HUB get pods -n $targetNamespace -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
 echo "Kafka operator is ready"
 
 # deploy kafka cluster
