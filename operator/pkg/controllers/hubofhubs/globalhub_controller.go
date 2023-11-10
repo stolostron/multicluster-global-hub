@@ -245,7 +245,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (ctrl.Result, error) {
 	// support BYO kafka
-	kafkaConnection, err := r.GenerateKafkaConnectionFromGHTransportSecret(ctx)
+	kafkaConnection, err := kafka.GenerateKafkaConnectionFromGHTransportSecret(ctx, r.Client)
 	if err != nil && !errors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	} else if errors.IsNotFound(err) {

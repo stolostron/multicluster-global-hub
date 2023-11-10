@@ -676,7 +676,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By checking the kafkaBootstrapServer")
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
-			kafkaConnection, err := mghReconciler.GenerateKafkaConnectionFromGHTransportSecret(ctx)
+			kafkaConnection, err := kafka.GenerateKafkaConnectionFromGHTransportSecret(ctx, mghReconciler.Client)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kafkaConnection.BootstrapServer).To(Equal(kafkaBootstrapServer))
 
@@ -700,7 +700,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return fmt.Errorf("should not find the secret")
 			}, timeout, interval).ShouldNot(HaveOccurred())
 			Eventually(func() error {
-				_, err = mghReconciler.GenerateKafkaConnectionFromGHTransportSecret(ctx)
+				_, err = kafka.GenerateKafkaConnectionFromGHTransportSecret(ctx, mghReconciler.Client)
 				return err
 			}, timeout, interval).Should(HaveOccurred())
 		})
@@ -991,7 +991,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				return nil
 			}, timeout, interval).ShouldNot(HaveOccurred())
-
 		})
 
 		It("Should create the postgres resources", func() {
@@ -1036,7 +1035,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				}
 				return nil
 			}, timeout, interval).ShouldNot(HaveOccurred())
-
 		})
 
 		It("Should delete the MGH instance", func() {
@@ -1071,7 +1069,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 		})
 	})
-
 })
 
 func prettyPrint(v interface{}) error {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"path/filepath"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -16,7 +15,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
@@ -166,25 +164,4 @@ func (r *MulticlusterGlobalHubReconciler) WaitForKafkaClusterReady(ctx context.C
 		}
 	}
 	return nil, fmt.Errorf("kafka cluster %s is not ready", kafkaCluster.Name)
-}
-
-// GenerateKafkaConnectionFromGHTransportSecret returns a kafka connection object from the BYO kafka secret
-func (r *MulticlusterGlobalHubReconciler) GenerateKafkaConnectionFromGHTransportSecret(ctx context.Context) (
-	*kafka.KafkaConnection, error,
-) {
-	kafkaSecret := &corev1.Secret{}
-	err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      constants.GHTransportSecretName,
-		Namespace: config.GetDefaultNamespace(),
-	}, kafkaSecret)
-	if err != nil {
-		return nil, err
-	}
-
-	return &kafka.KafkaConnection{
-		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
-		CACert:          base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
-		ClientCert:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
-		ClientKey:       base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
-	}, nil
 }
