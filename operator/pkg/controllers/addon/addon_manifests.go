@@ -243,7 +243,7 @@ func (a *HohAgentAddon) getKakaConnection(cluster *clusterv1.ManagedCluster) (*k
 	kafkaUserSecret := &corev1.Secret{}
 	err = a.client.Get(a.ctx, types.NamespacedName{
 		Namespace: config.GetMGHNamespacedName().Namespace,
-		Name:      getKafkaUserName(cluster.Name),
+		Name:      getKafkaUser(cluster.Name).Name,
 	}, kafkaUserSecret)
 	if err != nil {
 		return nil, err
