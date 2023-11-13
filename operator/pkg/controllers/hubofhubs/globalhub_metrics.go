@@ -67,7 +67,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 				{
 					Port:     "metrics",
 					Path:     "/metrics",
-					Interval: promv1.Duration(config.GetStatisticLogInterval()),
+					Interval: promv1.Duration("12h"),
 				},
 			},
 		},
