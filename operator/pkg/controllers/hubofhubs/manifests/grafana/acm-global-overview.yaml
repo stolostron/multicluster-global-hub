@@ -172,7 +172,7 @@ data:
                       {
                         "targetBlank": true,
                         "title": "View Grafana Observability dashboard of hub ${__data.fields.leaf_hub_name} ",
-                        "url": "${__data.fields.grafana_url}/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=${__data.fields.cluster_name}"
+                        "url": "${__data.fields.hub_obs_url}"
                       }
                     ]
                   }
@@ -215,7 +215,7 @@ data:
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "grafana_url"
+                  "options": "hub_obs_url"
                 },
                 "properties": [
                   {
@@ -325,7 +325,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\nSELECT\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (cluster_id)\n),\ncompliance_data AS(\nSELECT cluster_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \nmc.leaf_hub_name,\nconsole_url as \"hub_console_url\",\ngrafana_url,\ncluster_name,\ncd.compliance\nFROM status.managed_clusters mc\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON mc.cluster_id = cd.cluster_id\nWHERE mc.deleted_at IS NULL",
+              "rawSql": "WITH data AS (\nSELECT\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (cluster_id)\n),\ncompliance_data AS(\nSELECT cluster_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \nmc.leaf_hub_name,\nconsole_url as \"hub_console_url\",\nCASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || cluster_name\nEND AS hub_obs_url,\ncluster_name,\ncd.compliance\nFROM status.managed_clusters mc\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON mc.cluster_id = cd.cluster_id\nWHERE mc.deleted_at IS NULL",
               "refId": "A",
               "sql": {
                 "columns": [

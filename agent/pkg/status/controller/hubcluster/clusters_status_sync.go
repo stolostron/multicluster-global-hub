@@ -66,6 +66,9 @@ func (c *hubClusterController) Reconcile(ctx context.Context, request ctrl.Reque
 	consoleRoute := &routev1.Route{}
 
 	if err := c.client.Get(ctx, request.NamespacedName, consoleRoute); apiErrors.IsNotFound(err) {
+		consoleRoute.Name = request.Name
+		consoleRoute.Namespace = request.Namespace
+		c.syncBundle(ctx, consoleRoute)
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		reqLogger.Info(fmt.Sprintf("Reconciliation failed: %s", err))
