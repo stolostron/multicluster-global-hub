@@ -33,8 +33,11 @@ func (bundle *LeafHubClusterInfoStatusBundle) UpdateObject(object agentbundle.Ob
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
+	var routeURL string
 	route := object.(*routev1.Route)
-	routeURL := "https://" + route.Spec.Host
+	if len(route.Spec.Host) != 0 {
+		routeURL = "https://" + route.Spec.Host
+	}
 
 	if len(bundle.Objects) == 0 {
 		if route.GetName() == constants.OpenShiftConsoleRouteName {
