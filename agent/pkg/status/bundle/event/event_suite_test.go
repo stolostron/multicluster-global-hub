@@ -1,4 +1,4 @@
-package grc
+package event
 
 import (
 	"context"
@@ -26,7 +26,7 @@ var (
 	runtimeClient client.Client
 )
 
-func TestGrc(t *testing.T) {
+func TestBundle(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Grc Bundle Integration Suite")
 }

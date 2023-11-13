@@ -1,4 +1,4 @@
-package bundle
+package utils
 
 import set "github.com/deckarep/golang-set"
 

@@ -1,4 +1,4 @@
-package grc
+package event
 
 import (
 	"context"

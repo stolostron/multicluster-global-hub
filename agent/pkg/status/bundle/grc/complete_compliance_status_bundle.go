@@ -8,6 +8,7 @@ import (
 
 	agentbundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	utils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // NewCompleteComplianceStatusBundle creates a new instance of ComplianceStatusBundle.
@@ -170,7 +171,7 @@ func (bundle *ComplianceStatusBundle) clusterListsEqual(oldClusters []string, ne
 	}
 
 	for _, newClusterName := range newClusters {
-		if !agentbundle.ContainsString(oldClusters, newClusterName) {
+		if !utils.ContainsString(oldClusters, newClusterName) {
 			return false
 		}
 	}

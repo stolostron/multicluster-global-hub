@@ -1,6 +1,7 @@
 package localpolicies
 
 import (
+	"context"
 	"fmt"
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -24,10 +24,11 @@ func AddLocalReplicatedPolicySyncer(mgr ctrl.Manager, producer transport.Produce
 
 	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.LocalClusterPolicyStatusEventMsgKey)
-	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(leafHubName, mgr.GetClient())
+	localPolicyHistoryEventBundle := grc.NewAgentLocalPolicyHistoryEventBundle(context.TODO(),
+		leafHubName, mgr.GetClient())
 
 	localClusterPolicyBundleEntryCollection := []*generic.BundleCollectionEntry{
-		generic.NewBundleCollectionEntry(localClusterPolicyHistoryEventTransportKey, clusterPolicyHistoryEventBundle,
+		generic.NewBundleCollectionEntry(localClusterPolicyHistoryEventTransportKey, localPolicyHistoryEventBundle,
 			func() bool { return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue }),
 	}
 

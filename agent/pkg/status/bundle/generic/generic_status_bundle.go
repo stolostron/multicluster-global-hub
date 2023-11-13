@@ -1,23 +1,24 @@
-package bundle
+package generic
 
 import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 )
 
 // NewGenericStatusBundle creates a new instance of GenericStatusBundle.
-func NewGenericStatusBundle(leafHubName string, manipulateObjFunc func(obj Object)) Bundle {
+func NewGenericStatusBundle(leafHubName string, manipulateObjFunc func(obj bundle.Object)) bundle.Bundle {
 	if manipulateObjFunc == nil {
-		manipulateObjFunc = func(object Object) {
+		manipulateObjFunc = func(object bundle.Object) {
 			// do nothing
 		}
 	}
 
 	return &GenericStatusBundle{
-		Objects:           make([]Object, 0),
+		Objects:           make([]bundle.Object, 0),
 		LeafHubName:       leafHubName,
 		BundleVersion:     status.NewBundleVersion(),
 		manipulateObjFunc: manipulateObjFunc,
@@ -29,47 +30,47 @@ func NewGenericStatusBundle(leafHubName string, manipulateObjFunc func(obj Objec
 // except for fields that are not relevant in the hub of hubs like finalizers, etc.
 // for bundles that require more specific behavior, it's required to implement your own status bundle struct.
 type GenericStatusBundle struct {
-	Objects           []Object              `json:"objects"`
+	Objects           []bundle.Object       `json:"objects"`
 	LeafHubName       string                `json:"leafHubName"`
 	BundleVersion     *status.BundleVersion `json:"bundleVersion"`
-	manipulateObjFunc func(obj Object)
+	manipulateObjFunc func(obj bundle.Object)
 	lock              sync.Mutex
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (bundle *GenericStatusBundle) UpdateObject(object Object) {
-	bundle.lock.Lock()
-	defer bundle.lock.Unlock()
+func (genericBundle *GenericStatusBundle) UpdateObject(object bundle.Object) {
+	genericBundle.lock.Lock()
+	defer genericBundle.lock.Unlock()
 
-	bundle.manipulateObjFunc(object)
+	genericBundle.manipulateObjFunc(object)
 
-	index, err := bundle.getObjectIndexByUID(object.GetUID())
+	index, err := genericBundle.getObjectIndexByUID(object.GetUID())
 	if err != nil { // object not found, need to add it to the bundle
-		bundle.Objects = append(bundle.Objects, object)
-		bundle.BundleVersion.Incr()
+		genericBundle.Objects = append(genericBundle.Objects, object)
+		genericBundle.BundleVersion.Incr()
 		return
 	}
 
 	// if we reached here, object already exists in the bundle. check if we need to update the object
-	if object.GetResourceVersion() == bundle.Objects[index].GetResourceVersion() {
+	if object.GetResourceVersion() == genericBundle.Objects[index].GetResourceVersion() {
 		return // update in bundle only if object changed. check for changes using resourceVersion field
 	}
 
-	bundle.Objects[index] = object
-	bundle.BundleVersion.Incr()
+	genericBundle.Objects[index] = object
+	genericBundle.BundleVersion.Incr()
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (bundle *GenericStatusBundle) DeleteObject(object Object) {
-	bundle.lock.Lock()
-	defer bundle.lock.Unlock()
+func (generic *GenericStatusBundle) DeleteObject(object bundle.Object) {
+	generic.lock.Lock()
+	defer generic.lock.Unlock()
 
-	index, err := bundle.getObjectIndexByObj(object)
+	index, err := generic.getObjectIndexByObj(object)
 	if err != nil { // trying to delete object which doesn't exist - return with no error
 		return
 	}
-	bundle.Objects = append(bundle.Objects[:index], bundle.Objects[index+1:]...) // remove from objects
-	bundle.BundleVersion.Incr()
+	generic.Objects = append(generic.Objects[:index], generic.Objects[index+1:]...) // remove from objects
+	generic.BundleVersion.Incr()
 }
 
 // GetBundleVersion function to get bundle version.
@@ -80,29 +81,29 @@ func (bundle *GenericStatusBundle) GetBundleVersion() *status.BundleVersion {
 	return bundle.BundleVersion
 }
 
-func (bundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
-	for i, object := range bundle.Objects {
+func (genericbundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
+	for i, object := range genericbundle.Objects {
 		if object.GetUID() == uid {
 			return i, nil
 		}
 	}
 
-	return -1, ErrObjectNotFound
+	return -1, bundle.ErrObjectNotFound
 }
 
-func (bundle *GenericStatusBundle) getObjectIndexByObj(obj Object) (int, error) {
+func (genericBundle *GenericStatusBundle) getObjectIndexByObj(obj bundle.Object) (int, error) {
 	if len(obj.GetUID()) > 0 {
-		for i, object := range bundle.Objects {
+		for i, object := range genericBundle.Objects {
 			if object.GetUID() == obj.GetUID() {
 				return i, nil
 			}
 		}
 	} else {
-		for i, object := range bundle.Objects {
+		for i, object := range genericBundle.Objects {
 			if object.GetNamespace() == obj.GetNamespace() && object.GetName() == obj.GetName() {
 				return i, nil
 			}
 		}
 	}
-	return -1, ErrObjectNotFound
+	return -1, bundle.ErrObjectNotFound
 }

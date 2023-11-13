@@ -1,4 +1,4 @@
-package grc
+package event
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	bundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )

@@ -7,17 +7,18 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	agentbundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	utils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
 func NewClustersPerPolicyBundle(leafHubName string, extractObjIDFunc agentbundle.ExtractObjIDFunc,
 ) agentbundle.Bundle {
 	return &ClustersPerPolicyBundle{
-		BaseClustersPerPolicyBundle: statusbundle.BaseClustersPerPolicyBundle{
-			Objects:       make([]*statusbundle.PolicyGenericComplianceStatus, 0),
+		BaseClustersPerPolicyBundle: status.BaseClustersPerPolicyBundle{
+			Objects:       make([]*status.PolicyGenericComplianceStatus, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: statusbundle.NewBundleVersion(),
+			BundleVersion: status.NewBundleVersion(),
 		},
 		extractObjIDFunc: extractObjIDFunc,
 		lock:             sync.Mutex{},
@@ -26,7 +27,7 @@ func NewClustersPerPolicyBundle(leafHubName string, extractObjIDFunc agentbundle
 
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
-	statusbundle.BaseClustersPerPolicyBundle
+	status.BaseClustersPerPolicyBundle
 	extractObjIDFunc agentbundle.ExtractObjIDFunc
 	lock             sync.Mutex
 }
@@ -85,7 +86,7 @@ func (bundle *ClustersPerPolicyBundle) DeleteObject(object agentbundle.Object) {
 }
 
 // GetBundleVersion function to get bundle version.
-func (bundle *ClustersPerPolicyBundle) GetBundleVersion() *statusbundle.BundleVersion {
+func (bundle *ClustersPerPolicyBundle) GetBundleVersion() *status.BundleVersion {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -136,10 +137,10 @@ func (bundle *ClustersPerPolicyBundle) getClusterStatuses(policy *policiesv1.Pol
 
 func (bundle *ClustersPerPolicyBundle) getClustersPerPolicy(originPolicyID string,
 	policy *policiesv1.Policy,
-) *statusbundle.PolicyGenericComplianceStatus {
+) *status.PolicyGenericComplianceStatus {
 	compliantClusters, nonCompliantClusters, unknownComplianceClusters, _ := bundle.getClusterStatuses(policy)
 
-	return &statusbundle.PolicyGenericComplianceStatus{
+	return &status.PolicyGenericComplianceStatus{
 		PolicyID:                  originPolicyID,
 		NamespacedName:            fmt.Sprintf("%s/%s", policy.GetNamespace(), policy.GetName()),
 		CompliantClusters:         compliantClusters,
@@ -173,7 +174,7 @@ func (bundle *ClustersPerPolicyBundle) updateObjectIfChanged(objectIndex int, po
 
 func (bundle *ClustersPerPolicyBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
 	for _, clusterName := range subsetClusters {
-		if !agentbundle.ContainsString(allClusters, clusterName) {
+		if !utils.ContainsString(allClusters, clusterName) {
 			return false
 		}
 	}

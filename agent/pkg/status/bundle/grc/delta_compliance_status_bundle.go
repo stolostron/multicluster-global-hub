@@ -10,6 +10,7 @@ import (
 
 	agentbundle "github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	utils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const unknownComplianceStatus = "unknown"
@@ -323,9 +324,9 @@ func (bundle *DeltaComplianceStatusBundle) getExistingPolicyState(policyIndex in
 
 func (bundle *DeltaComplianceStatusBundle) syncGenericStatus(status *statusbundle.PolicyGenericComplianceStatus) {
 	bundle.complianceRecordsCache[status.PolicyID] = &policyComplianceStatus{
-		compliantClustersSet:    agentbundle.CreateSetFromSlice(status.CompliantClusters),
-		nonCompliantClustersSet: agentbundle.CreateSetFromSlice(status.NonCompliantClusters),
-		unknownClustersSet:      agentbundle.CreateSetFromSlice(status.UnknownComplianceClusters),
+		compliantClustersSet:    utils.CreateSetFromSlice(status.CompliantClusters),
+		nonCompliantClustersSet: utils.CreateSetFromSlice(status.NonCompliantClusters),
+		unknownClustersSet:      utils.CreateSetFromSlice(status.UnknownComplianceClusters),
 	}
 }
 
