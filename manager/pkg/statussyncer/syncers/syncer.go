@@ -1,8 +1,8 @@
 package dbsyncer
 
 import (
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
 
 type BundleRegisterable interface {

@@ -8,10 +8,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -20,7 +20,7 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 		testSchema                     = database.EventSchema
 		testEventTable                 = database.LocalPolicyEventTableName
 		leafHubName                    = "hub1"
-		localPoliciesStatusEventMsgKey = constants.LocalClusterPolicyStatusEventMsgKey
+		localPoliciesStatusEventMsgKey = constants.LocalPolicyHistoryEventMsgKey
 	)
 
 	BeforeAll(func() {
@@ -45,27 +45,26 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 
 	It("sync ClusterPolicyStatusEventBundle to database", func() {
 		By("Create ClusterPolicyStatusEventBundle")
-		version := status.NewBundleVersion()
+		version := metadata.NewBundleVersion()
 		version.Incr()
-		baseClusterPolicyStatusEventBundle := status.ClusterPolicyEventBundle{
-			PolicyStatusEvents: make(map[string][]*models.LocalClusterPolicyEvent),
-			LeafHubName:        leafHubName,
-			BundleVersion:      version,
+		baseClusterPolicyStatusEventBundle := base.BasePolicyHistoryEventBundle{
+			ReplicasPolicyEvents: make(map[string][]*base.PolicyHistoryEvent),
+			LeafHubName:          leafHubName,
+			BundleVersion:        version,
 		}
 		lastTimestamp := time.Now()
-		policyEvent := &models.LocalClusterPolicyEvent{
-			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
-				EventName:  "local-placement.policy-limitrange.176ccd711606e273",
-				PolicyID:   "f99c4252-bdde-43e9-9d3f-9bf0a5583543",
-				Compliance: "Compliant",
-				CreatedAt:  lastTimestamp,
-				Message:    `Compliant; notification - limitranges [container-mem-limit-range] in namespace default found as specified, therefore this Object template is compliant`,
-			},
-			ClusterID: "69369013-3e0e-4a9c-b38c-7efbe7770b61",
+
+		basePolicyEvent := &base.PolicyHistoryEvent{
+			ClusterID:  "69369013-3e0e-4a9c-b38c-7efbe7770b61",
+			PolicyID:   "f99c4252-bdde-43e9-9d3f-9bf0a5583543",
+			Compliance: "Compliant",
+			EventName:  "local-placement.policy-limitrange.176ccd711606e273",
+			Message:    `Compliant; notification - limitranges [container-mem-limit-range] in namespace default found as specified, therefore this Object template is compliant`,
+			CreatedAt:  lastTimestamp,
 		}
 
-		events := make([]*models.LocalClusterPolicyEvent, 0)
-		baseClusterPolicyStatusEventBundle.PolicyStatusEvents["clusterPolicyId"] = append(events, policyEvent)
+		events := make([]*base.PolicyHistoryEvent, 0)
+		baseClusterPolicyStatusEventBundle.ReplicasPolicyEvents["clusterPolicyId"] = append(events, basePolicyEvent)
 
 		By("Create transport message")
 		payloadBytes, err := json.Marshal(baseClusterPolicyStatusEventBundle)
@@ -97,7 +96,7 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 				if err := rows.Scan(&eventName); err != nil {
 					return err
 				}
-				if eventName == policyEvent.EventName {
+				if eventName == basePolicyEvent.EventName {
 					return nil
 				}
 			}

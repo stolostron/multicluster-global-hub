@@ -9,16 +9,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/dao"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
+)
+
+const (
+	startBundleHandlingMessage  = "started handling bundle"
+	finishBundleHandlingMessage = "finished handling bundle"
 )
 
 // genericStatusSyncer implements generic status resource db sync business logic.
+// only for the table with: id, leaf_hub_name and payload
 type genericStatusSyncer struct {
 	log             logr.Logger
 	transportMsgKey string
@@ -26,9 +31,9 @@ type genericStatusSyncer struct {
 	dbSchema    string
 	dbTableName string
 
-	createBundleFunc func() status.Bundle
+	createBundleFunc func() bundle.ManagerBundle
 	bundlePriority   conflator.ConflationPriority
-	bundleSyncMode   bundle.BundleSyncMode
+	bundleSyncMode   metadata.BundleSyncMode
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -51,14 +56,14 @@ func (syncer *genericStatusSyncer) RegisterBundleHandlerFunctions(conflationMana
 	conflationManager.Register(conflator.NewConflationRegistration(
 		syncer.bundlePriority,
 		syncer.bundleSyncMode,
-		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle) error {
+		bundle.GetBundleType(syncer.createBundleFunc()),
+		func(ctx context.Context, bundle bundle.ManagerBundle) error {
 			return syncer.handleResourcesBundle(ctx, bundle)
 		},
 	))
 }
 
-func (syncer *genericStatusSyncer) handleResourcesBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *genericStatusSyncer) handleResourcesBundle(ctx context.Context, bundle bundle.ManagerBundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
@@ -123,4 +128,9 @@ func getGenericResourceUID(resourceObject metav1.Object) string {
 	}
 
 	return string(resourceObject.GetUID())
+}
+
+func logBundleHandlingMessage(log logr.Logger, b bundle.ManagerBundle, message string) {
+	log.V(2).Info(message, "BundleType", bundle.GetBundleType(b), "LeafHubName", b.GetLeafHubName(),
+		"Version", b.GetVersion().String())
 }

@@ -8,12 +8,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -23,24 +24,20 @@ const (
 // AddPlacementsController adds placement controller to the manager.
 func AddPlacementsController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunction := func() bundle.Object { return &clustersv1beta1.Placement{} }
-	leafHubName := agentstatusconfig.GetLeafHubName()
+	leafHubName := config.GetLeafHubName()
 
-	bundleCollection := []*generic.BundleCollectionEntry{
-		generic.NewBundleCollectionEntry(fmt.Sprintf("%s.%s", leafHubName, constants.PlacementMsgKey),
-			bundle.NewGenericStatusBundle(leafHubName, cleanPlacement),
+	bundleCollection := []*generic.BundleEntry{
+		generic.NewBundleEntry(fmt.Sprintf("%s.%s", leafHubName, constants.PlacementMsgKey),
+			genericbundle.NewStatusGenericBundle(leafHubName, cleanPlacement),
 			func() bool { return true }),
 	} // bundle predicate - always send placements.
 
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
+		return utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, placementSyncLog, producer, bundleCollection,
-		createObjFunction, ownerRefAnnotationPredicate, agentstatusconfig.GetPolicyDuration); err != nil {
-		return fmt.Errorf("failed to add placements controller to the manager - %w", err)
-	}
-
-	return nil
+	return generic.NewStatusGenericSyncer(mgr, placementSyncLog, producer, bundleCollection,
+		createObjFunction, ownerRefAnnotationPredicate, config.GetPolicyDuration)
 }
 
 func cleanPlacement(object bundle.Object) {

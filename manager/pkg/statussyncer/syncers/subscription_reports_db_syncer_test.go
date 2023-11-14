@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -59,7 +59,7 @@ var _ = Describe("SubscriptionReportsDbSyncer", Ordered, func() {
 		statusBundle := &GenericStatusBundle{
 			Objects:           make([]Object, 0),
 			LeafHubName:       leafHubName,
-			BundleVersion:     status.NewBundleVersion(),
+			BundleVersion:     metadata.NewBundleVersion(),
 			manipulateObjFunc: nil,
 			lock:              sync.Mutex{},
 		}

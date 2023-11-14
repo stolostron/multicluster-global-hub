@@ -10,8 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 )
 
 type StatisticsConfig struct {
@@ -46,8 +45,8 @@ type Statistics struct {
 
 // IncrementNumberOfReceivedBundles increments total number of received bundles of the specific type via transport.
 // if bundle type is not registered, do nothing
-func (s *Statistics) IncrementNumberOfReceivedBundles(bundle status.Bundle) {
-	bundleMetrics, ok := s.bundleMetrics[helpers.GetBundleType(bundle)]
+func (s *Statistics) IncrementNumberOfReceivedBundles(b bundle.ManagerBundle) {
+	bundleMetrics, ok := s.bundleMetrics[bundle.GetBundleType(b)]
 	if !ok {
 		return
 	}
@@ -65,21 +64,21 @@ func (s *Statistics) SetConflationReadyQueueSize(size int) {
 }
 
 // StartConflationUnitMetrics starts conflation unit metrics of the specific bundle type.
-func (s *Statistics) StartConflationUnitMetrics(bundle status.Bundle) {
-	bundleMetrics, ok := s.bundleMetrics[helpers.GetBundleType(bundle)]
+func (s *Statistics) StartConflationUnitMetrics(b bundle.ManagerBundle) {
+	bundleMetrics, ok := s.bundleMetrics[bundle.GetBundleType(b)]
 	if !ok {
 		return
 	}
-	bundleMetrics.conflationUnit.start(bundle.GetLeafHubName())
+	bundleMetrics.conflationUnit.start(b.GetLeafHubName())
 }
 
 // StopConflationUnitMetrics stops conflation unit metrics of the specific bundle type.
-func (s *Statistics) StopConflationUnitMetrics(bundle status.Bundle, err error) {
-	bundleMetrics, ok := s.bundleMetrics[helpers.GetBundleType(bundle)]
+func (s *Statistics) StopConflationUnitMetrics(b bundle.ManagerBundle, err error) {
+	bundleMetrics, ok := s.bundleMetrics[bundle.GetBundleType(b)]
 	if !ok {
 		return
 	}
-	bundleMetrics.conflationUnit.stop(bundle.GetLeafHubName(), err)
+	bundleMetrics.conflationUnit.stop(b.GetLeafHubName(), err)
 }
 
 // IncrementNumberOfConflations increments number of conflations
@@ -90,8 +89,8 @@ func (s *Statistics) IncrementNumberOfConflations() {
 }
 
 // AddDatabaseMetrics adds database metrics of the specific bundle type.
-func (s *Statistics) AddDatabaseMetrics(bundle status.Bundle, duration time.Duration, err error) {
-	bundleMetrics, ok := s.bundleMetrics[helpers.GetBundleType(bundle)]
+func (s *Statistics) AddDatabaseMetrics(b bundle.ManagerBundle, duration time.Duration, err error) {
+	bundleMetrics, ok := s.bundleMetrics[bundle.GetBundleType(b)]
 	if !ok {
 		return
 	}

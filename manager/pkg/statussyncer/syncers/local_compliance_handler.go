@@ -8,12 +8,13 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
-func (syncer *CompliancesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleLocalComplianceBundle(ctx context.Context, bundle bundle.ManagerBundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	db := database.GetGorm()
@@ -25,7 +26,7 @@ func (syncer *CompliancesDBSyncer) handleLocalClustersPerPolicyBundle(ctx contex
 	}
 
 	for _, object := range bundle.GetObjects() { // every object is clusters list per policy with full state
-		clustersPerPolicyFromBundle, ok := object.(*status.PolicyGenericComplianceStatus)
+		clustersPerPolicyFromBundle, ok := object.(*base.GenericCompliance)
 		if !ok {
 			continue // do not handle objects other than PolicyGenericComplianceStatus
 		}
@@ -138,8 +139,8 @@ func addClustersForLocalPolicies(leafHub, policyID string, bundleClusters []stri
 	return allClusterFromDB, allCompliances
 }
 
-func (syncer *CompliancesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx context.Context,
-	bundle status.Bundle,
+func (syncer *CompliancesDBSyncer) handleLocalCompleteComplianceBundle(ctx context.Context,
+	bundle bundle.ManagerBundle,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
@@ -154,7 +155,7 @@ func (syncer *CompliancesDBSyncer) handleCompleteLocalStatusComplianceBundle(ctx
 	}
 
 	for _, object := range bundle.GetObjects() { // every object in bundle is policy compliance status
-		policyComplianceStatus, ok := object.(*status.PolicyCompleteComplianceStatus)
+		policyComplianceStatus, ok := object.(*base.GenericCompleteCompliance)
 		if !ok {
 			continue // do not handle objects other than PolicyComplianceStatus
 		}

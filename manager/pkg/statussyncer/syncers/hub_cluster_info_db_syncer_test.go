@@ -11,7 +11,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/hubcluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -57,7 +57,8 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 				Host: routeHost,
 			},
 		}
-		statusBundle := hubcluster.NewLeafHubClusterInfoStatusBundle(leafHubName)
+
+		statusBundle := cluster.NewAgentHubClusterInfoBundle(leafHubName)
 		statusBundle.UpdateObject(obj)
 		By("Create transport message")
 		// increment the version
@@ -69,7 +70,7 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 			Key:     transportMessageKey,
 			ID:      transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.GetBundleVersion().String(),
+			Version: statusBundle.GetVersion().String(),
 			Payload: payloadBytes,
 		}
 

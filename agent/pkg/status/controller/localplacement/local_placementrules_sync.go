@@ -8,13 +8,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
-	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -24,24 +24,24 @@ const (
 // AddLocalPlacementRulesController adds a new local placement rules controller.
 func AddLocalPlacementRulesController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunc := func() bundle.Object { return &placementrulesv1.PlacementRule{} }
-	leafHubName := agentstatusconfig.GetLeafHubName()
+	leafHubName := config.GetLeafHubName()
 
 	localPlacementRuleTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPlacementRulesMsgKey)
 
-	bundleCollection := []*generic.BundleCollectionEntry{
-		generic.NewBundleCollectionEntry(localPlacementRuleTransportKey,
-			bundle.NewGenericStatusBundle(leafHubName, cleanPlacementRule),
+	bundleCollection := []*generic.BundleEntry{
+		generic.NewBundleEntry(localPlacementRuleTransportKey,
+			genericbundle.NewStatusGenericBundle(leafHubName, cleanPlacementRule),
 			func() bool { // bundle predicate
 				return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue
 			}),
 	}
 	// controller predicate
 	localPlacementRulePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return !helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
+		return !utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewGenericStatusSyncController(mgr, localPlacementRuleStatusSyncLog, producer, bundleCollection,
-		createObjFunc, localPlacementRulePredicate, agentstatusconfig.GetPolicyDuration); err != nil {
+	if err := generic.NewStatusGenericSyncer(mgr, localPlacementRuleStatusSyncLog, producer, bundleCollection,
+		createObjFunc, localPlacementRulePredicate, config.GetPolicyDuration); err != nil {
 		return fmt.Errorf("failed to add local placement rules controller to the manager - %w", err)
 	}
 

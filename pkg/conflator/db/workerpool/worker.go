@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -63,12 +63,12 @@ func (worker *Worker) start(ctx context.Context) {
 			if err != nil {
 				worker.log.Error(err, "worker fails to process the DB job", "LeafHubName", job.bundle.GetLeafHubName(),
 					"WorkerID", worker.workerID,
-					"BundleType", helpers.GetBundleType(job.bundle),
+					"BundleType", bundle.GetBundleType(job.bundle),
 					"Version", job.bundle.GetVersion().String())
 			} else {
 				worker.log.V(2).Info("worker processes the DB job successfully", "LeafHubName", job.bundle.GetLeafHubName(),
 					"WorkerID", worker.workerID,
-					"BundleType", helpers.GetBundleType(job.bundle),
+					"BundleType", bundle.GetBundleType(job.bundle),
 					"Version", job.bundle.GetVersion().String())
 			}
 		}

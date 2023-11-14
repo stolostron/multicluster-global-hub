@@ -48,11 +48,11 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	// }
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Producer) error{
-		managedclusters.AddClustersStatusController,
+		managedclusters.AddMangedClusterSyncer,
 		// apps.AddSubscriptionStatusesController,
 		localpolicies.AddLocalRootPolicySyncer,
 		localpolicies.AddLocalReplicatedPolicySyncer,
-		hubcluster.AddHubClusterController,
+		hubcluster.AddHubClusterInfoSyncer,
 	}
 
 	if agentConfig.EnableGlobalResource {
@@ -60,7 +60,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 			placement.AddPlacementRulesController,
 			placement.AddPlacementsController,
 			placement.AddPlacementDecisionsController,
-			apps.AddSubscriptionReportsController,
+			apps.AddSubscriptionReportsSyncer,
 			localplacement.AddLocalPlacementRulesController,
 		)
 	}

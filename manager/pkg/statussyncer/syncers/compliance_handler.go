@@ -8,7 +8,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -19,7 +20,9 @@ import (
 // this bundle is triggered only when policy was added/removed or when placement rule has changed which caused list of
 // clusters (of at least one policy) to change.
 // in other cases where only compliance status change, only compliance bundle is received.
-func (syncer *CompliancesDBSyncer) handleClustersPerPolicyBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleComplianceBundle(ctx context.Context,
+	bundle bundle.ManagerBundle,
+) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	db := database.GetGorm()
@@ -36,7 +39,7 @@ func (syncer *CompliancesDBSyncer) handleClustersPerPolicyBundle(ctx context.Con
 
 	err = db.Transaction(func(tx *gorm.DB) error {
 		for _, object := range bundle.GetObjects() { // every object is clusters list per policy with full state
-			clustersPerPolicyFromBundle, ok := object.(*status.PolicyGenericComplianceStatus)
+			clustersPerPolicyFromBundle, ok := object.(*base.GenericCompliance)
 			if !ok {
 				continue // do not handle objects other than PolicyGenericComplianceStatus
 			}
@@ -161,7 +164,9 @@ func handleClustersPerPolicyWithTx(tx *gorm.DB, leafHub, policyID string, bundle
 // was already handled and base bundle was already handled successfully)
 // we assume that 'ClustersPerPolicy' handler function handles the addition or removal of clusters rows.
 // in this handler function, we handle only the existing clusters rows.
-func (syncer *CompliancesDBSyncer) handleCompleteStatusComplianceBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleCompleteComplianceBundle(ctx context.Context,
+	bundle bundle.ManagerBundle,
+) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	db := database.GetGorm()
@@ -177,7 +182,7 @@ func (syncer *CompliancesDBSyncer) handleCompleteStatusComplianceBundle(ctx cont
 
 	err = db.Transaction(func(tx *gorm.DB) error {
 		for _, object := range bundle.GetObjects() { // every object in bundle is policy compliance status
-			policyComplianceStatus, ok := object.(*status.PolicyCompleteComplianceStatus)
+			policyComplianceStatus, ok := object.(*base.GenericCompleteCompliance)
 			if !ok {
 				continue // do not handle objects other than PolicyComplianceStatus
 			}
@@ -263,14 +268,14 @@ func updateStatusCompliance(tx *gorm.DB, policyID string, leafHubName string, cl
 }
 
 // if we got to the handler function, then the bundle pre-conditions were satisfied.
-func (syncer *CompliancesDBSyncer) handleDeltaComplianceBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleDeltaComplianceBundle(ctx context.Context, bundle bundle.ManagerBundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	db := database.GetGorm()
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		for _, object := range bundle.GetObjects() { // every object in bundle is policy generic compliance status
-			policyGenericComplianceStatus, ok := object.(*status.PolicyGenericComplianceStatus)
+			policyGenericComplianceStatus, ok := object.(*base.GenericCompliance)
 			if !ok {
 				continue // do not handle objects other than PolicyComplianceStatus
 			}
@@ -312,7 +317,9 @@ func (syncer *CompliancesDBSyncer) handleDeltaComplianceBundle(ctx context.Conte
 }
 
 // if we got to the handler function, then the bundle pre-conditions are satisfied.
-func (syncer *CompliancesDBSyncer) handleMinimalComplianceBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *CompliancesDBSyncer) handleMinimalComplianceBundle(ctx context.Context,
+	bundle bundle.ManagerBundle,
+) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 	schemaTable := database.StatusSchema + "." + database.MinimalComplianceTable
@@ -337,7 +344,7 @@ func (syncer *CompliancesDBSyncer) handleMinimalComplianceBundle(ctx context.Con
 	}
 
 	for _, object := range bundle.GetObjects() { // every object in bundle is minimal policy compliance status.
-		minPolicyCompliance, ok := object.(*status.MinimalPolicyComplianceStatus)
+		minPolicyCompliance, ok := object.(*base.MinimalCompliance)
 		if !ok {
 			continue // do not handle objects other than MinimalPolicyComplianceStatus.
 		}

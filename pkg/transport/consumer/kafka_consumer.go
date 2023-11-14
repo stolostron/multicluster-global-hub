@@ -15,13 +15,13 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
 
 const pollTimeoutMs = 100
@@ -49,7 +49,7 @@ type KafkaConsumer struct {
 
 	// Used by agent
 	leafHubName                     string
-	genericBundlesChan              chan *bundle.GenericBundle
+	genericBundlesChan              chan *base.SpecGenericBundle
 	customBundleIDToRegistrationMap map[string]*registration.CustomBundleRegistration
 	stopChan                        chan struct{}
 	partitionToOffsetToCommitMap    map[int32]kafka.Offset // size limited at all times (low)
@@ -91,7 +91,7 @@ func NewKafkaConsumer(kafkaConfig *transport.KafkaConfig, log logr.Logger,
 		topic:            kafkaConfig.ConsumerConfig.ConsumerTopic,
 		messageChan:      messageChan,
 
-		genericBundlesChan:         make(chan *bundle.GenericBundle),
+		genericBundlesChan:         make(chan *base.SpecGenericBundle),
 		messageIDToRegistrationMap: make(map[string]*registration.BundleRegistration),
 
 		customBundleIDToRegistrationMap: make(map[string]*registration.CustomBundleRegistration),
@@ -268,7 +268,7 @@ func (c *KafkaConsumer) processMessage(message *kafka.Message) {
 }
 
 func (c *KafkaConsumer) syncGenericBundle(payload []byte) error {
-	receivedBundle := bundle.NewGenericBundle()
+	receivedBundle := base.NewSpecGenericBundle()
 	if err := json.Unmarshal(payload, receivedBundle); err != nil {
 		return fmt.Errorf("failed to parse bundle - %w", err)
 	}
@@ -321,7 +321,7 @@ func (c *KafkaConsumer) lookupHeaderValue(message *kafka.Message, headerKey stri
 	return nil, false
 }
 
-func (c *KafkaConsumer) GetGenericBundleChan() chan *bundle.GenericBundle {
+func (c *KafkaConsumer) GetGenericBundleChan() chan *base.SpecGenericBundle {
 	return c.genericBundlesChan
 }
 

@@ -6,8 +6,8 @@ package consumer
 import (
 	"context"
 
-	bundle "github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
 
 // Transport is an interface for transport layer.
@@ -22,5 +22,5 @@ type Consumer interface {
 	BundleRegister(registration *registration.BundleRegistration)
 
 	// provide the generic bundle for message producer
-	GetGenericBundleChan() chan *bundle.GenericBundle
+	GetGenericBundleChan() chan *base.SpecGenericBundle
 }

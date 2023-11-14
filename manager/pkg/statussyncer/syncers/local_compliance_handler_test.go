@@ -8,7 +8,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -52,22 +53,22 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 
 		By("Build a new policy bundle in the managed hub")
-		version := status.NewBundleVersion()
+		version := metadata.NewBundleVersion()
 		version.Incr()
 		// policy bundle
-		clusterPerPolicyBundle := status.BaseClustersPerPolicyBundle{
-			Objects:       make([]*status.PolicyGenericComplianceStatus, 0),
+		clusterPerPolicyBundle := base.BaseComplianceBundle{
+			Objects:       make([]*base.GenericCompliance, 0),
 			LeafHubName:   leafHubName,
 			BundleVersion: version,
 		}
-		clusterPerPolicyBundle.Objects = append(clusterPerPolicyBundle.Objects, &status.PolicyGenericComplianceStatus{
+		clusterPerPolicyBundle.Objects = append(clusterPerPolicyBundle.Objects, &base.GenericCompliance{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"},
 			NonCompliantClusters:      []string{"cluster2"},
 			UnknownComplianceClusters: make([]string, 0),
 		})
 		// transport bundle
-		clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalClustersPerPolicyMsgKey)
+		clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalComplianceMsgKey)
 		payloadBytes, err := json.Marshal(clusterPerPolicyBundle)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -112,10 +113,10 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 	It("LocalCompleteComplianceStatusBundle pass", func() {
 		db := database.GetGorm()
 		By("Create a complete compliance bundle")
-		version := status.NewBundleVersion()
+		version := metadata.NewBundleVersion()
 		version.Incr()
-		completeComplianceStatusBundle := status.BaseCompleteComplianceStatusBundle{
-			Objects:           make([]*status.PolicyCompleteComplianceStatus, 0),
+		completeComplianceStatusBundle := base.BaseCompleteComplianceBundle{
+			Objects:           make([]*base.GenericCompleteCompliance, 0),
 			LeafHubName:       leafHubName,
 			BundleVersion:     version,
 			BaseBundleVersion: version,
@@ -123,14 +124,14 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
 		// hub1-cluster2 non_compliant => hub1-cluster2 compliant
 		completeComplianceStatusBundle.Objects = append(
-			completeComplianceStatusBundle.Objects, &status.PolicyCompleteComplianceStatus{
+			completeComplianceStatusBundle.Objects, &base.GenericCompleteCompliance{
 				PolicyID:                  createdPolicyId,
 				NonCompliantClusters:      []string{"cluster1"},
 				UnknownComplianceClusters: []string{"cluster3"},
 			})
 		// transport bundle
 		policyCompleteComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-			constants.LocalPolicyCompleteComplianceMsgKey)
+			constants.LocalCompleteComplianceMsgKey)
 		completePayloadBytes, err := json.Marshal(completeComplianceStatusBundle)
 		Expect(err).ToNot(HaveOccurred())
 

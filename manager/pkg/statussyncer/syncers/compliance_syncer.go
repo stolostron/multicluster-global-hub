@@ -6,45 +6,47 @@ import (
 	set "github.com/deckarep/golang-set"
 	"github.com/go-logr/logr"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
 
 const failedBatchFormat = "failed to perform batch - %w"
 
+// CreateBundleFunction function that specifies how to create a bundle.
+type CreateBundleFunction func() bundle.ManagerBundle
+
+// CompliancesDBSyncer implements policies db sync business logic.
+type CompliancesDBSyncer struct {
+	log                                     logr.Logger
+	createComplianceBundleFunc              CreateBundleFunction
+	createCompleteComplianceBundleFunc      CreateBundleFunction
+	createDeltaComplianceFunc               CreateBundleFunction
+	createMinimalComplianceBundleFunc       CreateBundleFunction
+	createLocalComplianceBundleFunc         CreateBundleFunction
+	createLocalCompleteComplianceBundleFunc CreateBundleFunction
+}
+
 // NewCompliancesDBSyncer creates a new instance of PoliciesDBSyncer.
 func NewCompliancesDBSyncer(log logr.Logger) Syncer {
 	dbSyncer := &CompliancesDBSyncer{
-		log:                                           log,
-		createClustersPerPolicyBundleFunc:             statusbundle.NewClustersPerPolicyBundle,
-		createCompleteComplianceStatusBundleFunc:      statusbundle.NewCompleteComplianceStatusBundle,
-		createDeltaComplianceStatusBundleFunc:         statusbundle.NewDeltaComplianceStatusBundle,
-		createMinimalComplianceStatusBundleFunc:       statusbundle.NewMinimalComplianceStatusBundle,
-		createLocalClustersPerPolicyBundleFunc:        statusbundle.NewLocalClustersPerPolicyBundle,
-		createLocalCompleteComplianceStatusBundleFunc: statusbundle.NewLocalCompleteComplianceStatusBundle,
+		log:                                     log,
+		createComplianceBundleFunc:              grc.NewManagerComplianceBundle,
+		createCompleteComplianceBundleFunc:      grc.NewManagerCompleteComplianceBundle,
+		createDeltaComplianceFunc:               grc.NewManagerDeltaComplianceBundle,
+		createMinimalComplianceBundleFunc:       grc.NewManagerMinimalComplianceBundle,
+		createLocalComplianceBundleFunc:         grc.NewManagerLocalComplianceBundle,
+		createLocalCompleteComplianceBundleFunc: grc.NewManagerLocalCompleteComplianceBundle,
 	}
 
 	log.Info("initialized policies db syncer")
 
 	return dbSyncer
-}
-
-// CompliancesDBSyncer implements policies db sync business logic.
-type CompliancesDBSyncer struct {
-	log                                           logr.Logger
-	createClustersPerPolicyBundleFunc             status.CreateBundleFunction
-	createCompleteComplianceStatusBundleFunc      status.CreateBundleFunction
-	createDeltaComplianceStatusBundleFunc         status.CreateBundleFunction
-	createMinimalComplianceStatusBundleFunc       status.CreateBundleFunction
-	createLocalClustersPerPolicyBundleFunc        status.CreateBundleFunction
-	createLocalCompleteComplianceStatusBundleFunc status.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -58,38 +60,38 @@ func (syncer *CompliancesDBSyncer) RegisterCreateBundleFunctions(transportDispat
 	}
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.ClustersPerPolicyMsgKey,
-		CreateBundleFunc: syncer.createClustersPerPolicyBundleFunc,
+		MsgID:            constants.ComplianceMsgKey,
+		CreateBundleFunc: syncer.createComplianceBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.PolicyCompleteComplianceMsgKey,
-		CreateBundleFunc: syncer.createCompleteComplianceStatusBundleFunc,
+		MsgID:            constants.CompleteComplianceMsgKey,
+		CreateBundleFunc: syncer.createCompleteComplianceBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.PolicyDeltaComplianceMsgKey,
-		CreateBundleFunc: syncer.createDeltaComplianceStatusBundleFunc,
+		MsgID:            constants.DeltaComplianceMsgKey,
+		CreateBundleFunc: syncer.createDeltaComplianceFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.MinimalPolicyComplianceMsgKey,
-		CreateBundleFunc: syncer.createMinimalComplianceStatusBundleFunc,
+		MsgID:            constants.MinimalComplianceMsgKey,
+		CreateBundleFunc: syncer.createMinimalComplianceBundleFunc,
 		Predicate:        minimalStatusPredicate,
 	})
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.LocalClustersPerPolicyMsgKey,
-		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundleFunc,
+		MsgID:            constants.LocalComplianceMsgKey,
+		CreateBundleFunc: syncer.createLocalComplianceBundleFunc,
 		Predicate:        localPredicate,
 	})
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.LocalPolicyCompleteComplianceMsgKey,
-		CreateBundleFunc: syncer.createLocalCompleteComplianceStatusBundleFunc,
+		MsgID:            constants.LocalCompleteComplianceMsgKey,
+		CreateBundleFunc: syncer.createLocalCompleteComplianceBundleFunc,
 		Predicate:        localPredicate,
 	})
 }
@@ -102,56 +104,66 @@ func (syncer *CompliancesDBSyncer) RegisterCreateBundleFunctions(transportDispat
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *CompliancesDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
-	clustersPerPolicyBundleType := helpers.GetBundleType(
-		syncer.createClustersPerPolicyBundleFunc())
-	completeComplianceStatusBundleType := helpers.GetBundleType(
-		syncer.createCompleteComplianceStatusBundleFunc())
-	localClustersPerPolicyBundleType := helpers.GetBundleType(
-		syncer.createLocalClustersPerPolicyBundleFunc())
+	complianceBundleType := bundle.GetBundleType(syncer.createComplianceBundleFunc())
+	completeComplianceBundleType := bundle.GetBundleType(syncer.createCompleteComplianceBundleFunc())
+	localComplianceBundleType := bundle.GetBundleType(syncer.createLocalComplianceBundleFunc())
 
+	// handle compliance bundle
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.ClustersPerPolicyPriority, bundle.CompleteStateMode, clustersPerPolicyBundleType,
-		func(ctx context.Context, bundle status.Bundle) error {
-			return syncer.handleClustersPerPolicyBundle(ctx, bundle)
+		conflator.CompliancePriority,
+		metadata.CompleteStateMode,
+		complianceBundleType,
+		func(ctx context.Context, b bundle.ManagerBundle) error {
+			return syncer.handleComplianceBundle(ctx, b)
 		},
 	))
 
+	// handle complete compliance bundle
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.CompleteComplianceStatusPriority, bundle.CompleteStateMode, completeComplianceStatusBundleType,
-		func(ctx context.Context, bundle status.Bundle) error {
-			return syncer.handleCompleteStatusComplianceBundle(ctx, bundle)
-		}).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)))
+		conflator.CompleteCompliancePriority,
+		metadata.CompleteStateMode,
+		completeComplianceBundleType,
+		func(ctx context.Context, b bundle.ManagerBundle) error {
+			return syncer.handleCompleteComplianceBundle(ctx, b)
+		}).WithDependency(dependency.NewDependency(complianceBundleType, dependency.ExactMatch)))
 	// compliance depends on clusters per policy. should be processed only when there is an exact match
 
+	// handle delta compliance
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.DeltaComplianceStatusPriority, bundle.DeltaStateMode,
-		helpers.GetBundleType(syncer.createDeltaComplianceStatusBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle) error {
-			return syncer.handleDeltaComplianceBundle(ctx, bundle)
-		}).WithDependency(dependency.NewDependency(completeComplianceStatusBundleType, dependency.ExactMatch)))
+		conflator.DeltaCompliancePriority, metadata.DeltaStateMode,
+		bundle.GetBundleType(syncer.createDeltaComplianceFunc()),
+		func(ctx context.Context, b bundle.ManagerBundle) error {
+			return syncer.handleDeltaComplianceBundle(ctx, b)
+		}).WithDependency(dependency.NewDependency(completeComplianceBundleType, dependency.ExactMatch)))
 	// delta compliance depends on complete compliance. should be processed only when there is an exact match
 
+	// handle minimal compliance
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.MinimalComplianceStatusPriority, bundle.CompleteStateMode,
-		helpers.GetBundleType(syncer.createMinimalComplianceStatusBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle) error {
-			return syncer.handleMinimalComplianceBundle(ctx, bundle)
+		conflator.MinimalCompliancePriority,
+		metadata.CompleteStateMode,
+		bundle.GetBundleType(syncer.createMinimalComplianceBundleFunc()),
+		func(ctx context.Context, b bundle.ManagerBundle) error {
+			return syncer.handleMinimalComplianceBundle(ctx, b)
+		},
+	))
+
+	// handle local compliance
+	conflationManager.Register(conflator.NewConflationRegistration(
+		conflator.LocalCompliancePriority,
+		metadata.CompleteStateMode,
+		localComplianceBundleType,
+		func(ctx context.Context, b bundle.ManagerBundle) error {
+			return syncer.handleLocalComplianceBundle(ctx, b)
 		},
 	))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.LocalClustersPerPolicyPriority, bundle.CompleteStateMode, localClustersPerPolicyBundleType,
-		func(ctx context.Context, bundle status.Bundle) error {
-			return syncer.handleLocalClustersPerPolicyBundle(ctx, bundle)
-		},
-	))
-
-	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.LocalCompleteComplianceStatusPriority, bundle.CompleteStateMode,
-		helpers.GetBundleType(syncer.createLocalCompleteComplianceStatusBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle) error {
-			return syncer.handleCompleteLocalStatusComplianceBundle(ctx, bundle)
-		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
+		conflator.LocalCompleteCompliancePriority,
+		metadata.CompleteStateMode,
+		bundle.GetBundleType(syncer.createLocalCompleteComplianceBundleFunc()),
+		func(ctx context.Context, b bundle.ManagerBundle) error {
+			return syncer.handleLocalCompleteComplianceBundle(ctx, b)
+		}).WithDependency(dependency.NewDependency(localComplianceBundleType, dependency.ExactMatch)))
 }
 
 // NewPolicyClusterSets creates a new instance of PolicyClustersSets.

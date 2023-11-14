@@ -8,28 +8,27 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
 
-func NewLocalPolicyEventSyncer(log logr.Logger) Syncer {
-	dbSyncer := &localPoliciesStatusEventSyncer{
-		log:                                    log,
-		createLocalPolicyStatusEventBundleFunc: status.NewClusterPolicyEventBundle,
-	}
-	log.Info("initialized local policies status event syncer")
-	return dbSyncer
+type localPoliciesStatusEventSyncer struct {
+	log                                     logr.Logger
+	createLocalPolicyHistoryEventBundleFunc CreateBundleFunction
 }
 
-type localPoliciesStatusEventSyncer struct {
-	log                                    logr.Logger
-	createLocalPolicyStatusEventBundleFunc status.CreateBundleFunction
+func NewLocalPolicyEventSyncer(log logr.Logger) Syncer {
+	return &localPoliciesStatusEventSyncer{
+		log:                                     log,
+		createLocalPolicyHistoryEventBundleFunc: grc.NewManagerLocalPolicyHistoryEventBundle,
+	}
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -39,8 +38,8 @@ func (syncer *localPoliciesStatusEventSyncer) RegisterCreateBundleFunctions(tran
 	}
 
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.LocalClusterPolicyStatusEventMsgKey,
-		CreateBundleFunc: syncer.createLocalPolicyStatusEventBundleFunc,
+		MsgID:            constants.LocalPolicyHistoryEventMsgKey,
+		CreateBundleFunc: syncer.createLocalPolicyHistoryEventBundleFunc,
 		Predicate:        predicate,
 	})
 }
@@ -56,15 +55,15 @@ func (syncer *localPoliciesStatusEventSyncer) RegisterBundleHandlerFunctions(
 	conflationManager *conflator.ConflationManager,
 ) {
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.LocalPolicyStatusEventPriority,
-		bundle.CompleteStateMode,
-		helpers.GetBundleType(syncer.createLocalPolicyStatusEventBundleFunc()),
+		conflator.LocalPolicyHistoryEventPriority,
+		metadata.CompleteStateMode,
+		bundle.GetBundleType(syncer.createLocalPolicyHistoryEventBundleFunc()),
 		syncer.handleLocalObjectsBundleWrapper()))
 }
 
 func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundleWrapper() func(
-	ctx context.Context, bundle status.Bundle) error {
-	return func(ctx context.Context, bundle status.Bundle) error {
+	ctx context.Context, bundle bundle.ManagerBundle) error {
+	return func(ctx context.Context, bundle bundle.ManagerBundle) error {
 		return syncer.handleLocalObjectsBundle(ctx, bundle)
 	}
 }
@@ -74,7 +73,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundleWrapper() 
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
 func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx context.Context,
-	bundle status.Bundle,
+	bundle bundle.ManagerBundle,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 
@@ -86,7 +85,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 	batchUpsertLocalPolicyEvents := []models.LocalClusterPolicyEvent{}
 
 	for _, object := range bundle.GetObjects() {
-		policyStatusEvent, ok := object.(*models.LocalClusterPolicyEvent)
+		policyStatusEvent, ok := object.(*base.PolicyHistoryEvent)
 		if !ok {
 			continue
 		}
@@ -111,9 +110,6 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 		DoNothing: true,
 	}).CreateInBatches(batchUpsertLocalPolicyEvents, 100).Error
-	if err != nil {
-		return err
-	}
 	if err != nil {
 		return fmt.Errorf("failed handling leaf hub LocalPolicyStatusEvent bundle - %w", err)
 	}

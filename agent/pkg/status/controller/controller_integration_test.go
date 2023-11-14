@@ -23,34 +23,38 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/placement"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/subscription"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
-	constants.ManagedClustersMsgKey:          statusbundle.NewManagedClustersStatusBundle,
-	constants.ClustersPerPolicyMsgKey:        statusbundle.NewClustersPerPolicyBundle,
-	constants.PolicyCompleteComplianceMsgKey: statusbundle.NewCompleteComplianceStatusBundle,
-	constants.PolicyDeltaComplianceMsgKey:    statusbundle.NewDeltaComplianceStatusBundle,
-	constants.SubscriptionStatusMsgKey:       statusbundle.NewSubscriptionStatusesBundle,
-	constants.SubscriptionReportMsgKey:       statusbundle.NewSubscriptionReportsBundle,
-	constants.PlacementRuleMsgKey:            statusbundle.NewPlacementRulesBundle,
-	constants.PlacementMsgKey:                statusbundle.NewPlacementsBundle,
-	constants.PlacementDecisionMsgKey:        statusbundle.NewPlacementDecisionsBundle,
-	constants.HubClusterInfoMsgKey: func() status.Bundle {
-		return &status.HubClusterInfoBundle{}
-	},
-	constants.LocalPolicySpecMsgKey:               statusbundle.NewLocalPolicySpecBundle,
-	constants.LocalClusterPolicyStatusEventMsgKey: status.NewClusterPolicyEventBundle,
+type CreateBundleFunc func() bundle.ManagerBundle
+
+var msgIDBundleCreateFuncMap = map[string]CreateBundleFunc{
+	constants.ManagedClustersMsgKey:         cluster.NewManagerManagedClusterBundle,
+	constants.ComplianceMsgKey:              grc.NewManagerComplianceBundle,
+	constants.CompleteComplianceMsgKey:      grc.NewManagerCompleteComplianceBundle,
+	constants.DeltaComplianceMsgKey:         grc.NewManagerDeltaComplianceBundle,
+	constants.SubscriptionStatusMsgKey:      subscription.NewManagerSubscriptionStatusesBundle,
+	constants.SubscriptionReportMsgKey:      subscription.NewManagerSubscriptionReportsBundle,
+	constants.PlacementRuleMsgKey:           placement.NewManagerPlacementRulesBundle,
+	constants.PlacementMsgKey:               placement.NewManagerPlacementsBundle,
+	constants.PlacementDecisionMsgKey:       placement.NewManagerPlacementDecisionsBundle,
+	constants.HubClusterInfoMsgKey:          cluster.NewManagerHubClusterInfoBundle,
+	constants.LocalPolicySpecMsgKey:         grc.NewManagerLocalSpecPolicyBundle,
+	constants.LocalPolicyHistoryEventMsgKey: grc.NewManagerLocalPolicyHistoryEventBundle,
 }
 
 var _ = Describe("Agent Status Controller", Ordered, func() {
 	testGlobalPolicyOriginUID := "test-globalpolicy-uid"
 	testGlobalPolicy := &policyv1.Policy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-globalpolicy-1",
+			Name:      "test-global-policy-1",
 			Namespace: "default",
 			Annotations: map[string]string{
 				constants.OriginOwnerReferenceAnnotation: testGlobalPolicyOriginUID,
@@ -89,7 +93,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 
-			resourceBundle, ok := statusBundle.(*statusbundle.LocalPolicySpecBundle)
+			resourceBundle, ok := statusBundle.(*grc.LocalSpecPolicyBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type")
 			}
@@ -174,7 +178,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		By("Check the local policy events bundle can be read from kafka consumer")
 		Eventually(func() error {
 			message := <-consumer.MessageChan()
-			statusBundle, err := getStatusBundle(message, constants.LocalClusterPolicyStatusEventMsgKey)
+			statusBundle, err := getStatusBundle(message, constants.LocalPolicyHistoryEventMsgKey)
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
 			printBundle(statusBundle)
@@ -182,7 +186,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 
-			resourceBundle, ok := statusBundle.(*status.ClusterPolicyEventBundle)
+			resourceBundle, ok := statusBundle.(*grc.LocalPolicyHistoryEventBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type")
 			}
@@ -295,7 +299,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 			printBundle(statusBundle)
 
-			managedClustersStatusBundle, ok := statusBundle.(*statusbundle.ManagedClustersStatusBundle)
+			managedClustersStatusBundle, ok := statusBundle.(*cluster.ManagedClusterBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type, want ManagedClustersStatusBundle")
 			}
@@ -351,33 +355,33 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			client.MergeFrom(testGlobalPolicyCopy))).ToNot(HaveOccurred())
 
 		By("Check the policy bundles is synced")
-		var clustersPerPolicyBundle *statusbundle.ClustersPerPolicyBundle
-		var completeComplianceStatusBundle *statusbundle.CompleteComplianceStatusBundle
+		var clustersPerPolicyBundle *grc.ComplianceBundle
+		var completeComplianceStatusBundle *grc.CompleteComplianceBundle
 		Eventually(func() error {
 			message := <-consumer.MessageChan()
 			fmt.Printf("========== received %s \n", message.ID)
 
-			complianceTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.ClustersPerPolicyMsgKey)
-			completeTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.PolicyCompleteComplianceMsgKey)
+			complianceTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.ComplianceMsgKey)
+			completeTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.CompleteComplianceMsgKey)
 
-			var statusBundle status.Bundle
+			var statusBundle bundle.ManagerBundle
 			var err error
 			var ok bool
 			if message.ID == complianceTransportKey {
-				statusBundle, err = getStatusBundle(message, constants.ClustersPerPolicyMsgKey)
+				statusBundle, err = getStatusBundle(message, constants.ComplianceMsgKey)
 				printBundle(statusBundle)
 
-				clustersPerPolicyBundle, ok = statusBundle.(*statusbundle.ClustersPerPolicyBundle)
+				clustersPerPolicyBundle, ok = statusBundle.(*grc.ComplianceBundle)
 				if !ok {
 					return fmt.Errorf("unexpected received bundle type, want *grc.ComplianceBundle")
 				}
 			}
 
 			if message.ID == completeTransportKey {
-				statusBundle, err = getStatusBundle(message, constants.PolicyCompleteComplianceMsgKey)
+				statusBundle, err = getStatusBundle(message, constants.CompleteComplianceMsgKey)
 				printBundle(statusBundle)
 
-				completeComplianceStatusBundle, ok = statusBundle.(*statusbundle.CompleteComplianceStatusBundle)
+				completeComplianceStatusBundle, ok = statusBundle.(*grc.CompleteComplianceBundle)
 				if !ok {
 					return fmt.Errorf("unexpected received bundle type, want *grc.CompleteComplianceBundle")
 				}
@@ -404,7 +408,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		completeComplianceObjs := completeComplianceStatusBundle.GetObjects()
 		Expect(len(completeComplianceObjs)).Should(Equal(1))
 
-		policyGenericComplianceStatus := policyGenericComplianceStatusObjs[0].(*status.PolicyGenericComplianceStatus)
+		policyGenericComplianceStatus := policyGenericComplianceStatusObjs[0].(*base.GenericCompliance)
 		fmt.Println(policyGenericComplianceStatus)
 
 		Expect(policyGenericComplianceStatus.PolicyID).Should(Equal(testGlobalPolicyOriginUID))
@@ -542,7 +546,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
-			placementRulesStatusBundle, ok := statusBundle.(*statusbundle.PlacementRulesBundle)
+			placementRulesStatusBundle, ok := statusBundle.(*placement.PlacementRulesBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type, want PlacementRulesBundle")
 			}
@@ -587,7 +591,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
-			placementsStatusBundle, ok := statusBundle.(*statusbundle.PlacementsBundle)
+			placementsStatusBundle, ok := statusBundle.(*placement.PlacementsBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type, want PlacementsBundle")
 			}
@@ -629,7 +633,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
-			placementDecisionsStatusBundle, ok := statusBundle.(*statusbundle.PlacementDecisionsBundle)
+			placementDecisionsStatusBundle, ok := statusBundle.(*placement.PlacementDecisionsBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type, want PlacementDecisionsBundle")
 			}
@@ -689,7 +693,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
-			subscriptionReportsStatusBundle, ok := statusBundle.(*statusbundle.SubscriptionReportsBundle)
+			subscriptionReportsStatusBundle, ok := statusBundle.(*subscription.SubscriptionReportsBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type, want PlacementDecisionsBundle")
 			}
@@ -714,7 +718,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	})
 })
 
-func getStatusBundle(message *transport.Message, key string) (status.Bundle, error) {
+func getStatusBundle(message *transport.Message, key string) (bundle.ManagerBundle, error) {
 	expectedMessageID := fmt.Sprintf("%s.%s", leafHubName, key)
 	if message.ID != expectedMessageID {
 		return nil, fmt.Errorf("expected messageID %s but got %s", expectedMessageID, message.ID)

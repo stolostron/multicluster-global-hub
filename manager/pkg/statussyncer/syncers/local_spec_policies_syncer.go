@@ -10,31 +10,28 @@ import (
 	"gorm.io/gorm/clause"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
-
-// NewLocalPolicySpecSyncer creates a new instance of LocalSpecDBSyncer.
-func NewLocalPolicySpecSyncer(log logr.Logger) Syncer {
-	dbSyncer := &localSpecPoliciesSyncer{
-		log:                             log,
-		createLocalPolicySpecBundleFunc: statusbundle.NewLocalPolicySpecBundle,
-	}
-	log.Info("initialized local spec policies syncer")
-	return dbSyncer
-}
 
 // localSpecPoliciesSyncer implements local objects spec db sync business logic.
 type localSpecPoliciesSyncer struct {
 	log                             logr.Logger
-	createLocalPolicySpecBundleFunc status.CreateBundleFunction
+	createLocalPolicySpecBundleFunc CreateBundleFunction
+}
+
+// NewLocalPolicySpecSyncer creates a new instance of LocalSpecDBSyncer.
+func NewLocalPolicySpecSyncer(log logr.Logger) Syncer {
+	return &localSpecPoliciesSyncer{
+		log:                             log,
+		createLocalPolicySpecBundleFunc: grc.NewManagerLocalSpecPolicyBundle,
+	}
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -42,7 +39,6 @@ func (syncer *localSpecPoliciesSyncer) RegisterCreateBundleFunctions(transportDi
 	predicate := func() bool {
 		return true
 	}
-
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            constants.LocalPolicySpecMsgKey,
 		CreateBundleFunc: syncer.createLocalPolicySpecBundleFunc,
@@ -60,15 +56,15 @@ func (syncer *localSpecPoliciesSyncer) RegisterCreateBundleFunctions(transportDi
 func (syncer *localSpecPoliciesSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicySpecPriority,
-		bundle.CompleteStateMode,
-		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
-		syncer.handleLocalObjectsBundleWrapper(database.LocalPolicySpecTableName)))
+		metadata.CompleteStateMode,
+		bundle.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
+		syncer.handleLocalObjectsBundleWrapper()))
 }
 
-func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,
-	bundle status.Bundle) error {
-	return func(ctx context.Context, bundle status.Bundle) error {
-		return syncer.handleLocalObjectsBundle(ctx, bundle, database.LocalSpecSchema, tableName)
+func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundleWrapper() func(ctx context.Context,
+	bundle bundle.ManagerBundle) error {
+	return func(ctx context.Context, bundle bundle.ManagerBundle) error {
+		return syncer.handleLocalObjectsBundle(ctx, bundle)
 	}
 }
 
@@ -76,16 +72,15 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundleWrapper(tableName
 // if the row doesn't exist then add it.
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
-func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Context, bundle status.Bundle,
-	tableSchema string, tableName string,
+func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Context, bundle bundle.ManagerBundle,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
 	db := database.GetGorm()
-	policyIdToVersionMapFromDB, err := getPolicyIdToVersionMap(db, tableSchema, tableName, leafHubName)
+	policyIdToVersionMapFromDB, err := getPolicyIdToVersionMap(db, leafHubName)
 	if err != nil {
-		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", tableSchema, tableName, err)
+		return err
 	}
 
 	batchUpsertLocalPolicies := []models.LocalSpecPolicy{}
@@ -154,7 +149,7 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Cont
 	return nil
 }
 
-func getPolicyIdToVersionMap(db *gorm.DB, schema, tableName, leafHubName string) (map[string]string, error) {
+func getPolicyIdToVersionMap(db *gorm.DB, leafHubName string) (map[string]string, error) {
 	var resourceVersions []models.ResourceVersion
 
 	// Find soft deleted records: db.Unscoped().Where(...).Find(...)
