@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -224,7 +223,8 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func AddFailedCondition(ctx context.Context, client client.Client,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub, msg string) error {
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub, msg string,
+) error {
 	if err := condition.SetCondition(ctx, client, mgh,
 		condition.CONDITION_TYPE_GLOBALHUB_READY,
 		metav1.ConditionFalse,
@@ -245,7 +245,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (ctrl.Result, error) {
 	// support BYO kafka
-	kafkaConnection, err := r.GenerateKafkaConnectionFromGHTransportSecret(ctx)
+	kafkaConnection, err := kafka.GenerateKafkaConnectionFromGHTransportSecret(ctx, r.Client)
 	if err != nil && !errors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	} else if errors.IsNotFound(err) {
@@ -372,10 +372,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 
 var mghPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		// set request name to be used in leafhub controller
-		config.SetHoHMGHNamespacedName(types.NamespacedName{
-			Namespace: e.Object.GetNamespace(), Name: e.Object.GetName(),
-		})
 		return true
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
@@ -502,10 +498,10 @@ var webhookPred = predicate.Funcs{
 
 var namespacePred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetName() == config.GetHoHMGHNamespacedName().Namespace
+		return e.Object.GetName() == config.GetMGHNamespacedName().Namespace
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetName() == config.GetHoHMGHNamespacedName().Namespace &&
+		return e.ObjectNew.GetName() == config.GetMGHNamespacedName().Namespace &&
 			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
@@ -517,7 +513,7 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 	func(ctx context.Context, obj client.Object) []reconcile.Request {
 		return []reconcile.Request{
 			// trigger MGH instance reconcile
-			{NamespacedName: config.GetHoHMGHNamespacedName()},
+			{NamespacedName: config.GetMGHNamespacedName()},
 		}
 	},
 )

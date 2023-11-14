@@ -260,14 +260,14 @@ func CopyMap(newMap, originalMap map[string]string) {
 
 func WaitGlobalHubReady(ctx context.Context,
 	client client.Client,
-	interval time.Duration) (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
+	interval time.Duration,
+) (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
 	mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{}
 	klog.Info("Wait MulticlusterGlobalHub ready")
 
 	if err := wait.PollImmediate(interval, 10*time.Minute, func() (bool, error) {
 		mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
 		err := client.List(ctx, mghList)
-
 		if err != nil {
 			klog.Error(err, "Failed to list MulticlusterGlobalHub")
 			return false, nil
@@ -292,4 +292,15 @@ func WaitGlobalHubReady(ctx context.Context,
 	}
 	klog.Info("MulticlusterGlobalHub is ready")
 	return mghInstance, nil
+}
+
+func DeleteIfExist(ctx context.Context, c client.Client, obj client.Object) error {
+	err := c.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return c.Delete(ctx, obj)
 }

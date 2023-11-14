@@ -312,17 +312,17 @@ function waitSecretToBeReady() {
 }
 
 function waitKafkaToBeReady() {
-  clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found)
+  clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found)
   SECOND=0
   while [ -z "$clusterIsReady" ]; do
     if [ $SECOND -gt 600 ]; then
-      echo "Timeout waiting for deploying kafka.kafka.strimzi.io/kafka-brokers-cluster"
+      echo "Timeout waiting for deploying kafka.kafka.strimzi.io/kafka"
       exit 1
     fi
     echo "Waiting for kafka cluster to become available"
     sleep 1
     (( SECOND = SECOND + 1 ))
-    clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka-brokers-cluster -o jsonpath={.status.listeners} --ignore-not-found)
+    clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found)
   done
   echo "Kafka cluster is ready"
   waitSecretToBeReady ${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"} "multicluster-global-hub"

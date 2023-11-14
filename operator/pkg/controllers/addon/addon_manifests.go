@@ -10,6 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
@@ -21,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -157,10 +160,6 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	if a.MiddlewareConfig.KafkaConnection == nil {
-		return nil, fmt.Errorf("failed to get kafka connection config")
-	}
-
 	image, err := a.getOverrideImage(mgh, cluster)
 	if err != nil {
 		return nil, err
@@ -173,14 +172,19 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 
 	agentQPS, agentBurst := a.getAgentRestConfig(a.ControllerConfig)
 
+	kafkaConnection, err := a.getKakaConnection(cluster)
+	if err != nil {
+		return nil, err
+	}
+
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
-		KafkaBootstrapServer:   a.MiddlewareConfig.KafkaConnection.BootstrapServer,
-		KafkaCACert:            a.MiddlewareConfig.KafkaConnection.CACert,
-		KafkaClientCert:        a.MiddlewareConfig.KafkaConnection.ClientCert,
-		KafkaClientKey:         a.MiddlewareConfig.KafkaConnection.ClientKey,
+		KafkaBootstrapServer:   kafkaConnection.BootstrapServer,
+		KafkaCACert:            kafkaConnection.CACert,
+		KafkaClientCert:        kafkaConnection.ClientCert,
+		KafkaClientKey:         kafkaConnection.ClientKey,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		TransportFormat:        string(globalhubv1alpha4.CloudEvents),
@@ -218,6 +222,39 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	a.setInstallHostedMode(cluster, &manifestsConfig)
 
 	return addonfactory.StructToValues(manifestsConfig), nil
+}
+
+func (a *HohAgentAddon) getKakaConnection(cluster *clusterv1.ManagedCluster) (*kafka.KafkaConnection, error) {
+	// support BYO, the transport secret as the only credential for all the managed hubs
+	kafkaConnection, err := kafka.GenerateKafkaConnectionFromGHTransportSecret(a.ctx, a.client)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	if kafkaConnection != nil {
+		return kafkaConnection, nil
+	}
+
+	// get the global hub manager kafka connection, which contain the cluster CA
+	if a.MiddlewareConfig.KafkaConnection == nil {
+		return nil, fmt.Errorf("failed to get the manager kafka connection config")
+	}
+
+	// get client certificate
+	kafkaUserSecret := &corev1.Secret{}
+	err = a.client.Get(a.ctx, types.NamespacedName{
+		Namespace: config.GetMGHNamespacedName().Namespace,
+		Name:      getKafkaUser(cluster.Name).Name,
+	}, kafkaUserSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kafka.KafkaConnection{
+		BootstrapServer: a.MiddlewareConfig.KafkaConnection.BootstrapServer,
+		CACert:          a.MiddlewareConfig.KafkaConnection.CACert,
+		ClientCert:      base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.crt"]),
+		ClientKey:       base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.key"]),
+	}, nil
 }
 
 // getAgentRestConfig return the agent qps and burst, if not set, use default QPS and Burst

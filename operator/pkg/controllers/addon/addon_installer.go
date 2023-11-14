@@ -6,12 +6,14 @@ import (
 	"reflect"
 	"time"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/go-logr/logr"
 	imageregistryv1alpha1 "github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,30 +26,24 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-type HoHAddonInstallReconciler struct {
+type HoHAddonInstaller struct {
 	client.Client
 	Log logr.Logger
 }
 
-func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	mghInstance, err := utils.WaitGlobalHubReady(ctx, r, 5*time.Second)
+func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	mgh, err := utils.WaitGlobalHubReady(ctx, r, 5*time.Second)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	if config.IsPaused(mghInstance) {
-		r.Log.Info("multiclusterglobalhub addon reconciliation is paused, nothing more to do")
+	if config.IsPaused(mgh) {
+		r.Log.Info("multiclusterglobalhub addon installer is paused, nothing more to do")
 		return ctrl.Result{}, nil
-	}
-
-	if config.GetHoHMGHNamespacedName().Namespace == "" ||
-		config.GetHoHMGHNamespacedName().Name == "" {
-		r.Log.Info("waiting multiclusterglobalhub instance", "namespacedname", req.NamespacedName)
-		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	}
 
 	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
@@ -66,28 +62,58 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	cluster := &clusterv1.ManagedCluster{}
-	clusterName := req.NamespacedName.Name
-	err = r.Get(ctx, req.NamespacedName, cluster)
+	cluster := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: req.NamespacedName.Name,
+		},
+	}
+
+	err = r.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		r.Log.Error(err, "Failed to get managedcluster")
 		return ctrl.Result{}, err
 	}
 
 	if !cluster.DeletionTimestamp.IsZero() {
-		r.Log.Info("Cluster is deleting, skip addon deploy", "cluster", clusterName)
-		config.DeleteManagedCluster(clusterName)
-		return ctrl.Result{}, nil
+		r.Log.Info("cluster is deleting, delete the kafkaUser, skip addon deployment", "cluster", cluster.Name)
+		config.DeleteManagedCluster(cluster.Name)
+		return ctrl.Result{}, utils.DeleteIfExist(ctx, r.Client, getKafkaUser(cluster.Name))
 	}
-	config.AppendManagedCluster(clusterName)
+	config.AppendManagedCluster(cluster.Name)
 
+	// BYO: skip create kafka user if the transport secret exist
+	err = r.Client.Get(ctx, types.NamespacedName{
+		Name:      operatorconstants.GHTransportSecretName,
+		Namespace: config.GetDefaultNamespace(),
+	}, &corev1.Secret{})
+	if err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	} else if errors.IsNotFound(err) {
+		if e := r.waitKafkaUserReady(ctx, cluster.Name); e != nil {
+			return ctrl.Result{}, e
+		}
+	}
+
+	addon := &v1alpha1.ManagedClusterAddOn{}
+	err = r.Get(ctx, types.NamespacedName{
+		Namespace: cluster.Name,
+		Name:      operatorconstants.GHManagedClusterAddonName,
+	}, addon)
+	if err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	if err == nil && !addon.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, utils.DeleteIfExist(ctx, r.Client, getKafkaUser(cluster.Name))
+	}
+
+	// create/update the addon
 	expectedAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
-			Namespace: clusterName,
+			Namespace: cluster.Name,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
@@ -103,10 +129,10 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		annotations := cluster.GetAnnotations()
 		if hostingCluster := annotations[operatorconstants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
 			expectedAddonAnnotations[operatorconstants.AnnotationAddonHostingClusterName] = hostingCluster
-			expectedAddon.Spec.InstallNamespace = fmt.Sprintf("klusterlet-%s", clusterName)
+			expectedAddon.Spec.InstallNamespace = fmt.Sprintf("klusterlet-%s", cluster.Name)
 		} else {
 			return ctrl.Result{}, fmt.Errorf("failed to get hosting cluster name "+
-				"when addon in %s is installed in hosted mode", clusterName)
+				"when addon in %s is installed in hosted mode", cluster.Name)
 		}
 	}
 
@@ -119,7 +145,7 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	existingAddon := &v1alpha1.ManagedClusterAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
-		Namespace: clusterName,
+		Namespace: cluster.Name,
 		Name:      operatorconstants.GHManagedClusterAddonName,
 	}, existingAddon)
 	if err != nil {
@@ -129,7 +155,8 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if deployMode == operatorconstants.GHAgentDeployModeNone {
 			return ctrl.Result{}, nil
 		}
-		r.Log.Info("creating addon for cluster", "cluster", clusterName, "addon", expectedAddon.Name)
+
+		r.Log.Info("creating addon for cluster", "cluster", cluster.Name, "addon", expectedAddon.Name)
 		return ctrl.Result{}, r.Create(ctx, expectedAddon)
 	}
 
@@ -141,15 +168,45 @@ func (r *HoHAddonInstallReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
 		existingAddon.SetAnnotations(expectedAddon.Annotations)
 		existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
-		r.Log.Info("updating addon for cluster", "cluster", clusterName, "addon", expectedAddon.Name)
+		r.Log.Info("updating addon for cluster", "cluster", cluster.Name, "addon", expectedAddon.Name)
 		return ctrl.Result{}, r.Update(ctx, existingAddon)
 	}
 
 	return ctrl.Result{}, nil
 }
 
+func (r *HoHAddonInstaller) waitKafkaUserReady(ctx context.Context, clusterName string) error {
+	kafkaUser := getKafkaUser(clusterName)
+
+	// create kafka user before the managed cluster addon
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	} else if errors.IsNotFound(err) {
+		if e := r.Client.Create(ctx, kafka.NewKafkaUser(kafkaUser.Name, kafkaUser.Namespace)); e != nil {
+			return e
+		}
+	}
+
+	// wait the kafka secret ready
+	return wait.PollUntilContextTimeout(ctx, 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+		userSecret := &corev1.Secret{}
+		err = r.Client.Get(ctx, types.NamespacedName{
+			Name:      kafkaUser.Name,
+			Namespace: kafkaUser.Namespace,
+		}, userSecret)
+		if err != nil && !errors.IsNotFound(err) {
+			return false, err
+		} else if errors.IsNotFound(err) {
+			r.Log.Info("waiting kafka user secret ready...", "namespace", kafkaUser.Namespace, "name", kafkaUser.Name)
+			return false, nil
+		}
+		return true, nil
+	})
+}
+
 // SetupWithManager sets up the controller with the Manager.
-func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return !filterManagedCluster(e.Object)
@@ -205,8 +262,13 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 	}
 
 	secretCond := func(obj client.Object) bool {
-		return obj.GetName() == operatorconstants.GHTransportSecretName ||
-			obj.GetName() == config.GetImagePullSecretName()
+		if obj.GetName() == config.GetImagePullSecretName() ||
+			obj.GetName() == operatorconstants.GHTransportSecretName ||
+			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == kafka.KafkaClusterName &&
+				obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
+			return true
+		}
+		return false
 	}
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
@@ -243,7 +305,7 @@ func (r *HoHAddonInstallReconciler) SetupWithManager(ctx context.Context, mgr ct
 		Complete(r)
 }
 
-func (r *HoHAddonInstallReconciler) renderAllManifestsHandler(
+func (r *HoHAddonInstaller) renderAllManifestsHandler(
 	ctx context.Context, obj client.Object,
 ) []reconcile.Request {
 	requests := []reconcile.Request{}
@@ -278,4 +340,16 @@ func filterManagedCluster(obj client.Object) bool {
 	return obj.GetLabels()["vendor"] != "OpenShift" ||
 		obj.GetLabels()["openshiftVersion"] == "3" ||
 		obj.GetName() == operatorconstants.LocalClusterName
+}
+
+func getKafkaUser(clusterName string) *kafkav1beta2.KafkaUser {
+	return &kafkav1beta2.KafkaUser{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-kafka-user", clusterName),
+			Namespace: config.GetMGHNamespacedName().Namespace,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
+			},
+		},
+	}
 }

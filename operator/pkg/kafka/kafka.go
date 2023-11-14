@@ -4,13 +4,21 @@
 package kafka
 
 import (
+	"context"
+	"encoding/base64"
+	"path/filepath"
+
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -249,7 +257,8 @@ func NewKafkaUser(username, namespace string) *kafkav1beta2.KafkaUser {
 			Namespace: namespace,
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the user will not be ready
-				"strimzi.io/cluster": KafkaClusterName,
+				"strimzi.io/cluster":             KafkaClusterName,
+				constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
 			},
 		},
 		Spec: &kafkav1beta2.KafkaUserSpec{
@@ -258,4 +267,25 @@ func NewKafkaUser(username, namespace string) *kafkav1beta2.KafkaUser {
 			},
 		},
 	}
+}
+
+// GenerateKafkaConnectionFromGHTransportSecret returns a kafka connection object from the BYO kafka secret
+func GenerateKafkaConnectionFromGHTransportSecret(ctx context.Context, c client.Client) (
+	*KafkaConnection, error,
+) {
+	kafkaSecret := &corev1.Secret{}
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      operatorconstants.GHTransportSecretName,
+		Namespace: config.GetDefaultNamespace(),
+	}, kafkaSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return &KafkaConnection{
+		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
+		CACert:          base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
+		ClientCert:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
+		ClientKey:       base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
+	}, nil
 }

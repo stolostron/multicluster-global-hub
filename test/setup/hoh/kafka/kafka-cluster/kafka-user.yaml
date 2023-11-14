@@ -2,9 +2,28 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
   name: global-hub-kafka-user
-  namespace: kafka
   labels:
-    strimzi.io/cluster: kafka-brokers-cluster
+    strimzi.io/cluster: kafka
+spec:
+  authentication:
+    type: tls
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: kind-hub1-kafka-user
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  authentication:
+    type: tls
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: kind-hub2-kafka-user
+  labels:
+    strimzi.io/cluster: kafka
 spec:
   authentication:
     type: tls
