@@ -2,6 +2,8 @@
 
 ## Simultation Steps
 
+0. Start counter - `./doc/simulation/inspector/cmd/counter.sh start`
+
 1. Install the global hub and then join the 2 simulated managed hubs, each with 1000 clusters, into it
    ```bash
    # simulate 2 hubs and each with 1000 clusters
@@ -28,6 +30,22 @@
     kubectl label mcl hub1 vendor=OpenShift --overwrite
     kubectl label mcl hub2 vendor=OpenShift --overwrite
     ```
+
+4. Stop counter and draw the data trend in database 
+
+    ```bash
+    # draw the graph
+    ./doc/simulation/inspector/cmd/counter.sh draw
+    # stop the counter
+    ./doc/simulation/inspector/cmd/counter.sh start
+    ```
+
+5. Generate the CPU and Memory of the Componenens
+   
+   ```bash
+   ./doc/simulation/inspector/cmd/check.sh "2023-11-15 08:40:00" "2023-11-15 09:56:37"
+   ```
+
 
 ## The Count of the Global Hub Data from database
 

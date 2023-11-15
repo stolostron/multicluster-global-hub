@@ -107,6 +107,7 @@ def global_hub_operator(pc, start_time, end_time, step):
         plt.savefig(output_path + "/" + file + ".png")
         operator_cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
+        
     except Exception as e:
         print(Fore.RED+"Error in getting cpu for Global Hub Operator: ",e) 
         print(Style.RESET_ALL)   
@@ -119,18 +120,10 @@ def global_hub_manager(pc, start_time, end_time, step):
     print(title)
     try:
         query = '''
-          sum(
-            node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{cluster="", namespace="multicluster-global-hub"}
-            * on(namespace,pod)
-            group_left(workload, workload_type) namespace_workload_pod:kube_pod_owner:relabel{cluster="", namespace="multicluster-global-hub", workload="multicluster-global-hub-manager", workload_type="deployment"}
-          ) by (pod)
+        sum(
+          node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"multicluster-global-hub-manager-.*"}
+        ) by (pod)
         '''
-        # cpu = pc.custom_query(query)
-        # cpu_df = MetricSnapshotDataFrame(cpu)
-        # cpu_df["value"]=cpu_df["value"].astype(float)
-        # cpu_df.rename(columns={"value": "Usage"}, inplace = True)
-        # print(cpu_df.to_markdown())
-
         cpu_trend = pc.custom_query_range(
           query=query,
           start_time=start_time,
@@ -141,12 +134,13 @@ def global_hub_manager(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
-        
-        #node_cpu_trend_df =  node_cpu_trend_df.pivot( columns='node',values='value')
-        cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
+        cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
         
         print(cpu_trend_df.head(3))
-        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='cpu', data=cpu_trend_df, hue='pod')
+        plt.title(title)
+        # cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
@@ -162,13 +156,10 @@ def global_hub_grafana(pc, start_time, end_time, step):
     print(title)
     try:
         query = '''
-          sum(
-            node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{cluster="", namespace="multicluster-global-hub"}
-            * on(namespace,pod)
-            group_left(workload, workload_type) namespace_workload_pod:kube_pod_owner:relabel{cluster="", namespace="multicluster-global-hub", workload="multicluster-global-hub-grafana", workload_type="deployment"}
-          ) by (pod)
+        sum(
+          node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"multicluster-global-hub-grafana-.*"}
+        ) by (pod)
         '''
-
         cpu_trend = pc.custom_query_range(
           query=query,
           start_time=start_time,
@@ -179,13 +170,17 @@ def global_hub_grafana(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
-        cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
+        cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
         
         print(cpu_trend_df.head(3))
-        cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='cpu', data=cpu_trend_df, hue='pod')
+        plt.title(title)
+        # cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
         plt.savefig(output_path + "/" + file + ".png")
         cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
         plt.close('all')
+        
     except Exception as e:
         print(Fore.RED+"Error in getting CPU: ",e) 
         print(Style.RESET_ALL) 
