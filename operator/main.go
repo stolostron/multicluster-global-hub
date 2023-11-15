@@ -258,12 +258,11 @@ func parseFlags() *operatorConfig {
 		"Enable the global resource. It is expermental feature. Do not support upgrade.")
 	pflag.Parse()
 
-	logLevel := "info"
-	logflag := defaultFlags.Lookup("zap-log-level")
-	if len(logflag.Value.String()) != 0 {
-		logLevel = logflag.Value.String()
+	config.LogLevel = "info"
+	if logflag := defaultFlags.Lookup("zap-log-level"); len(logflag.Value.String()) != 0 {
+		config.LogLevel = logflag.Value.String()
 	}
-	config.LogLevel = logLevel
+
 	// set zap logger
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	return config
@@ -289,6 +288,7 @@ func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderEle
 		RetryPeriod:             &retryPeriod,
 		NewCache:                initCache,
 	})
+
 	return mgr, err
 }
 
