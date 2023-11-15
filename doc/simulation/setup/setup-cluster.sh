@@ -15,9 +15,13 @@ mkdir -p ${cluster_dir}
 # creating the simulated hub clusters
 for i in $(seq 1 $1); do
     cluster=hub${i}
-    echo "Creating: $cluster..."
-    kubeconfig="${cluster_dir}/${cluster}"
-    kind create cluster --kubeconfig $kubeconfig --name ${cluster} &
+    if ! kind get clusters | grep -q "$cluster"; then
+        echo "Creating: $cluster..."
+        kubeconfig="${cluster_dir}/${cluster}"
+        kind create cluster --kubeconfig $kubeconfig --name ${cluster} &
+    else
+        echo "Kind cluster '$cluster' already exists. Skipping creation."
+    fi
 done
 
 wait
