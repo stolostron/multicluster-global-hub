@@ -35,9 +35,9 @@ def get_conn():
     # Create connection to postgres
     connection = psycopg2.connect(host=external_host,
                       port=5432,
-                      user=postgres_dict["database-user"],
-                      password=postgres_dict["database-password"],
-                      dbname=postgres_dict["database-name"])
+                      user=postgres_dict["database-readonly-user"],
+                      password=postgres_dict["database-readonly-password"],
+                      dbname="hoh")
     connection.autocommit = True  # Ensure data is added to the database immediately after write commands
     # cur = connection.cursor()
     return connection
