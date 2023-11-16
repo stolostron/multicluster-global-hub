@@ -52,7 +52,6 @@
 ### The Count of the Global Hub Resources from Database
 
 - The Managed Clusters
-
 ![Manager Cluster](./images/1-count-initialization.png)
 
 
@@ -70,8 +69,6 @@
 ![Global Hub Operator CPU](./images/1-operator-cpu-usage.png)
 ![Global Hub Operator Memory](./images/1-operator-memory-usage.png)
 
-### The CPU and Memory Consumption of the Middlewares
-
 - Multicluster Global Hub Kafka Broker
 ![Global Hub Kafka Broker CPU](./images/1-kafka-broker-cpu-usage.png)
 ![Global Hub Kafka Broker Memory](./images/1-kafka-broker-memory-usage.png)
@@ -83,6 +80,24 @@
 - Multicluster Global Hub Postgres
 ![Global Hub Postgres CPU](./images/1-postgres-cpu-usage.png)
 ![Global Hub Postgres Memory](./images/1-postgres-memory-usage.png)
+
+- Memory trends with clusters scale changes
+
+  ---
+  | Cluster Scale | Max Manager Memory | Max Grafana Memory | Max Postgres Memory | Max Kafka Broker Memory | Max Kafka Zookeeper Memory |
+  |---|---|---|---|---|---|
+  | 2k | 48 Mi | 113 Mi | 64.5 Mi | 1.767 Gi | 1.782 Gi |
+  | 4k | 62 Mi | 115.6 Mi | 72 Mi | 1.77 Gi | 1.782 Gi |
+  | 6k | 73 Mi | 116 Mi | 75 Mi | 1.777 Gi | 1.782 Gi |
+
+- CPU trends with clusters scale changes
+
+  ---
+  | Cluster Scale | Max Manager CPU | Max Grafana CPU | Max Postgres CPU | Max Kafka Broker CPU | Max Kafka Zookeeper CPU |
+  |---|---|---|---|---|---|
+  | 2k | 4.8m | 4.4m | 10m | 26.5m | 12.6m |
+  | 4k | 6.5m | 4.4m | 11m | 26.5m | 12.6m |
+  | 6k | 8.2m | 4.6m | 11m | 26.5m | 12.6m |
 
 ### The PVCs of the Global Hub Middlewares
 

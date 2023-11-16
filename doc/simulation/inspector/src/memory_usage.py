@@ -270,13 +270,13 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
     print("-----------------------------------------------------------------------------------------")
     
 def global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step):
-    title = "Global Hub Kafka Zookeeper Memory MB"
+    title = "Global Hub Kafka Zookeeper Memory GB"
     file = "global-hub-kafka-zookeeper-memory-usage"
     print(title)
     
     try:
         query = '''
-         sum(container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"kafka-zookeeper-.*"}) by (pod) / (1024*1024)
+         sum(container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"kafka-zookeeper-.*"}) by (pod) / (1024*1024*1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,
