@@ -47,7 +47,9 @@
    ```
 
 
-## The Count of the Global Hub Data from database
+## Statistics and Analysis
+
+### The Count of the Global Hub Resources from Database
 
 - The Managed Clusters
 
@@ -62,7 +64,7 @@
 
 - Multicluster Global Hub Grafana
 ![Global Hub Grafana CPU](./images/1-grafana-cpu-usage.png)
-![Global Hub Grafana Memory](./images/1-manager-memory-usage.png)
+![Global Hub Grafana Memory](./images/1-grafana-memory-usage.png)
 
 - Multicluster Global Hub Operator
 ![Global Hub Operator CPU](./images/1-operator-cpu-usage.png)
@@ -81,3 +83,11 @@
 - Multicluster Global Hub Postgres
 ![Global Hub Postgres CPU](./images/1-postgres-cpu-usage.png)
 ![Global Hub Postgres Memory](./images/1-postgres-memory-usage.png)
+
+### The PVCs of the Global Hub Middlewares
+
+- Multicluster Global Hub Kafka
+![Global Hub Kafka PVC](./images/1-kafka-pvc-usage.png)
+
+- Multicluster Global Hub Postgres
+![Global Hub Postgres PVC](./images/1-postgres-pvc-usage.png)

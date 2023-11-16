@@ -9,11 +9,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 def check_global_hub_cpu(start_time, end_time, step):
-    print(Back.LIGHTYELLOW_EX+"")
-    print("************************************************************************************************")
-    print("Checking CPU Usage")
-    print("************************************************************************************************")
-    print(Style.RESET_ALL)
+    print(Back.GREEN+"")
+    print("=============================================================================================")
+    print("Checking Global Hub Components CPU Usage")
+    print("=============================================================================================")
+    print(Style.RESET_ALL)  
     
     pc=connectProm()
     
@@ -26,12 +26,6 @@ def check_global_hub_cpu(start_time, end_time, step):
     global_hub_kafka(pc, start_time, end_time, step)
     global_hub_zookeeper_kafka(pc, start_time, end_time, step)
     
-    print(Back.LIGHTYELLOW_EX+"")
-    print("************************************************************************************************")
-    print("CPU Health Check  - ", "PLEASE CHECK to see if the results are concerning!! ")
-    print("************************************************************************************************")
-    print(Style.RESET_ALL)
-
 def kubeapi_cpu_usage(pc, start_time, end_time, step):
     file = 'kubeapi-cpu-usage'
     title = 'Total Kube API Server CPU Core usage'
@@ -69,7 +63,7 @@ def kubeapi_cpu_usage(pc, start_time, end_time, step):
         print(Fore.RED+"Error in getting cpu for Kube API Server: ",e) 
         print(Style.RESET_ALL) 
           
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
    
 def global_hub_operator(pc, start_time, end_time, step):
     file = 'global-hub-operator-cpu-usage'
@@ -111,8 +105,8 @@ def global_hub_operator(pc, start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting cpu for Global Hub Operator: ",e) 
         print(Style.RESET_ALL)   
-        
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
+
   
 def global_hub_manager(pc, start_time, end_time, step):
     file = 'global-hub-manager-cpu-usage'
@@ -148,7 +142,7 @@ def global_hub_manager(pc, start_time, end_time, step):
         print(Fore.RED+"Error in getting CPU: ",e) 
         print(Style.RESET_ALL) 
           
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
 
 def global_hub_grafana(pc, start_time, end_time, step):
     file = 'global-hub-grafana-cpu-usage'
@@ -185,7 +179,7 @@ def global_hub_grafana(pc, start_time, end_time, step):
         print(Fore.RED+"Error in getting CPU: ",e) 
         print(Style.RESET_ALL) 
           
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
 
 def global_hub_total(pc, start_time, end_time, step):
     file = 'global-hub-total-cpu-usage'
@@ -216,7 +210,7 @@ def global_hub_total(pc, start_time, end_time, step):
         print(Fore.RED+"Error in getting CPU: ",e) 
         print(Style.RESET_ALL) 
           
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
 
 def global_hub_postgres(pc, start_time, end_time, step):
     file = 'global-hub-postgres-cpu-usage'
@@ -252,7 +246,7 @@ def global_hub_postgres(pc, start_time, end_time, step):
         print(Fore.RED+"Error in getting CPU: ",e) 
         print(Style.RESET_ALL) 
           
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
 
 def global_hub_kafka(pc, start_time, end_time, step):
     file = 'global-hub-kafka-broker-cpu-usage'
@@ -288,7 +282,7 @@ def global_hub_kafka(pc, start_time, end_time, step):
         print(Fore.RED+"Error in getting CPU: ",e) 
         print(Style.RESET_ALL) 
           
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
     
 def global_hub_zookeeper_kafka(pc, start_time, end_time, step):
     file = 'global-hub-kafka-zookeeper-cpu-usage'
@@ -324,7 +318,7 @@ def global_hub_zookeeper_kafka(pc, start_time, end_time, step):
         print(Fore.RED+"Error in getting CPU: ",e) 
         print(Style.RESET_ALL) 
           
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
 
 
 def check_global_hub_agent_cpu(start_time, end_time, step):
@@ -363,4 +357,4 @@ def check_global_hub_agent_cpu(start_time, end_time, step):
         print(Fore.RED+"Error in getting cpu for Global Hub Agent: ",e) 
         print(Style.RESET_ALL)   
         
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")

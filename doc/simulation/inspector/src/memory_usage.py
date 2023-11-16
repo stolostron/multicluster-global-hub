@@ -8,14 +8,14 @@ from common import *
 import seaborn as sns
 
 def check_global_hub_memory(start_time, end_time, step):
-    print(Back.LIGHTYELLOW_EX+"")
-    print("************************************************************************************************")
-    print("Checking Memory Usage")
-    print("************************************************************************************************")
-    print(Style.RESET_ALL)
+    print(Back.GREEN+"")
+    print("=============================================================================================")
+    print("Checking Global Hub Components Memory Usage")
+    print("=============================================================================================")
+    print(Style.RESET_ALL)  
     pc = connectProm()
     
-    kubeapi_memory_usage(pc, start_time, end_time, step)
+    # kubeapi_memory_usage(pc, start_time, end_time, step)
     global_hub_total_memory_usage(pc, start_time, end_time, step)
     global_hub_operator_memory_usage(pc, start_time, end_time, step)
     global_hub_manager_memory_usage(pc, start_time, end_time, step)
@@ -24,12 +24,6 @@ def check_global_hub_memory(start_time, end_time, step):
     global_hub_kafka_memory_usage(pc, start_time, end_time, step)
     global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step)
     
-    print(Back.LIGHTYELLOW_EX+"")
-    print("************************************************************************************************")
-    print("Memory Health Check  - ", "PLEASE CHECK to see if the results are concerning!! ")
-    print("************************************************************************************************")
-    print(Style.RESET_ALL)
-
 def kubeapi_memory_usage(pc, start_time, end_time, step):
 
     title = "Total Kube API Server Memory(RSS) GB"
@@ -60,7 +54,7 @@ def kubeapi_memory_usage(pc, start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting memory (rss) for Kube API Server: ",e)    
         print(Style.RESET_ALL)
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
 
 def global_hub_total_memory_usage(pc, start_time, end_time, step):
     total = "Total Global Hub Total Memory GB"
@@ -90,7 +84,7 @@ def global_hub_total_memory_usage(pc, start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
         print(Style.RESET_ALL)  
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
 
 def global_hub_operator_memory_usage(pc, start_time, end_time, step):
     title = "Total Global Hub Operator Memory MB"
@@ -125,7 +119,7 @@ def global_hub_operator_memory_usage(pc, start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
         print(Style.RESET_ALL)  
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
 
 def global_hub_manager_memory_usage(pc, start_time, end_time, step):
     title = "Total Global Hub Manager Memory MB"
@@ -160,7 +154,7 @@ def global_hub_manager_memory_usage(pc, start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
         print(Style.RESET_ALL)  
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
     
 
 def global_hub_grafana_memory_usage(pc, start_time, end_time, step):
@@ -196,7 +190,7 @@ def global_hub_grafana_memory_usage(pc, start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
         print(Style.RESET_ALL)  
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
     
 
 def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
@@ -237,7 +231,7 @@ def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
         print(Style.RESET_ALL)  
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
     
 def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
     title = "Global Hub Kafka Broker Memory GB"
@@ -273,7 +267,7 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
         print(Style.RESET_ALL)  
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
     
 def global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step):
     title = "Global Hub Kafka Zookeeper Memory MB"
@@ -309,7 +303,7 @@ def global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
         print(Style.RESET_ALL)  
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
 
 def check_global_hub_agent_memory(start_time, end_time, step):
     total = "Total Global Hub Agent Memory MB"
@@ -347,4 +341,4 @@ def check_global_hub_agent_memory(start_time, end_time, step):
     except Exception as e:
         print(Fore.RED+"Error in getting Memory (rss) for GH Agent: ",e)  
         print(Style.RESET_ALL)  
-    print("=============================================")
+    print("-----------------------------------------------------------------------------------------")
