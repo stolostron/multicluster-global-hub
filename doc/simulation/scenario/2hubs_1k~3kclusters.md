@@ -1,4 +1,4 @@
-# Scenario 1: 2 hubs, 1000, 2000, 3000 clusters
+# Scenario 1: 2 Hubs, Each with 1k~3k Clusters
 
 ## Simultation Steps
 
