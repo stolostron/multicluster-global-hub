@@ -17,7 +17,6 @@ require (
 	github.com/gonvenience/ytbx v1.4.4
 	github.com/google/uuid v1.3.0
 	github.com/homeport/dyff v1.5.5
-	github.com/jackc/pgconn v1.12.1
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lib/pq v1.10.7
@@ -62,7 +61,10 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-require sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
+require (
+	github.com/jackc/pgconn v1.12.1 // indirect
+	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
+)
 
 require (
 	cloud.google.com/go v0.110.0 // indirect

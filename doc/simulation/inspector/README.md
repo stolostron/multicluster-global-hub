@@ -5,7 +5,29 @@ The inspector is inspired by [acm-inspector](https://github.com/bjoydeep/acm-ins
 ## Prerequisites
 
 1. Set the `KUBECONFIG` so that you can connect the OCP.
-2. Expose the postgres endpoint to allow get the database connection. You can achieve this by running `kubectl patch postgrescluster postgres -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge -n multicluster-global-hub`.
+2. Expose the postgres endpoint to allow get the database connection. 
+
+    ```yaml
+    cat <<EOF | oc apply -f -
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: multicluster-global-hub-postgres-lb
+      namespace: multicluster-global-hub
+    spec:
+      ports:
+      - name: postgres
+        port: 5432
+        protocol: TCP
+        targetPort: 5432
+      selector:
+        name: multicluster-global-hub-postgres
+      type: LoadBalancer
+    status:
+      loadBalancer: {}
+    EOF
+    ```
+
 3. The `python3` and the tool `pip3` have been installed on your environment.
 4. Enable the `Prometheus` on your global hub.
 5. Running the `pip3 install -r ./doc/simulation/inspector/requirements.txt` to install dependencies.

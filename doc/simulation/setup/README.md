@@ -5,11 +5,12 @@
 You can execute the following script to create the hub clusters and join them into the global hub. To join these clusters to it, You must set the `KUBECONFIG` environment variable to enable these hubs can connect to the global hub. Besides, you also need to provide several parameters:
 
 ```bash
-./doc/simulation/setup/setup-cluster.sh 5 300
+./doc/simulation/setup/setup-cluster.sh 2 2000 
 ```
 
 - `$1` - How many managed hub clusters will be created
 - `$2` - How many managed cluster will be created on per managed hub
+- `$3` - Which managed cluster to start on per managed hub, default value is `1`
 
 That means create `5` managed hubs and each has `300` managed clusters. You can also run `./doc/simulation/managed-clusters/cleanup-cluster.sh 300` on each hub cluster to cleanup the generated managed clusters.
 

@@ -15,9 +15,13 @@ mkdir -p ${cluster_dir}
 # creating the simulated hub clusters
 for i in $(seq 1 $1); do
     cluster=hub${i}
-    echo "Creating: $cluster..."
-    kubeconfig="${cluster_dir}/${cluster}"
-    kind create cluster --kubeconfig $kubeconfig --name ${cluster} &
+    if ! kind get clusters | grep -q "$cluster"; then
+        echo "Creating: $cluster..."
+        kubeconfig="${cluster_dir}/${cluster}"
+        kind create cluster --kubeconfig $kubeconfig --name ${cluster} &
+    else
+        echo "Kind cluster '$cluster' already exists. Skipping creation."
+    fi
 done
 
 wait
@@ -102,7 +106,9 @@ EOF
     kubectl --kubeconfig $kubeconfig patch ManagedCluster $cluster_name --type=merge --subresource status --patch 'status: {conditions: [{lastTransitionTime: 2023-08-23T05:25:09Z, message: "Accepted by hub cluster admin", reason: "HubClusterAdminAccepted", status: "True", type: "HubAcceptedManagedCluster"}, {lastTransitionTime: 2023-08-23T05:25:10Z, message: "Managed cluster joined", reason: "ManagedClusterJoined", status: "True", type: "ManagedClusterJoined"}, {lastTransitionTime: 2023-08-23T05:25:10Z, message: "ManagedClusterAvailable", reason: "ManagedClusterAvailable", status: "True", type: "ManagedClusterConditionAvailable"}]}'
 }
 
-for j in $(seq 1 $2); do # for each managed cluster on the hub
+
+start_index=${3:=1}
+for j in $(seq $start_index $2); do # for each managed cluster on the hub
   for i in $(seq 1 $1); do # for each hub cluster
       hub_cluster=hub${i}
       name=managedcluster-${j}
