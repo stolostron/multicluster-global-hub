@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -101,6 +102,8 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 
 				By("Verify the local policy is directly synchronized to the global hub spec table")
 				policies := make(map[string]*policiesv1.Policy)
+				policyIds := sets.NewString()
+
 				Eventually(func() error {
 					rows, err := postgresConn.Query(context.TODO(), `select leaf_hub_name,payload from 
 					local_spec.policies where deleted_at is null`)
@@ -117,6 +120,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 						for _, leafhubName := range leafHubNames {
 							if leafhub == leafhubName && policy.Name == LOCAL_POLICY_NAME && policy.Namespace == LOCAL_POLICY_NAMESPACE {
 								policies[leafhub] = policy
+								policyIds.Insert(string(policy.UID))
 							}
 						}
 					}
@@ -129,31 +133,99 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 				By("Verify the local policy is synchronized to the global hub status table")
 				Eventually(func() error {
 					rows, err := postgresConn.Query(context.TODO(),
-						"SELECT policy_id,cluster_name,leaf_hub_name FROM local_status.compliance")
+						"SELECT policy_id,cluster_name,cluster_id,leaf_hub_name FROM local_status.compliance")
+					if err != nil {
+						return err
+					}
+					managedClusterIds := sets.NewString()
+					defer rows.Close()
+					currentPolicyIds := sets.NewString()
+					// policies, if leahfubname check remove the kv
+					for rows.Next() {
+						columnValues, _ := rows.Values()
+						if len(columnValues) < 4 {
+							return fmt.Errorf("the compliance record is not correct, expected 5 but got %d", len(columnValues))
+						}
+						policyId, cluster, cluster_id, leafhub := "", "", "", ""
+						if err := rows.Scan(&policyId, &cluster, &cluster_id, &leafhub); err != nil {
+							return err
+						}
+						if string(policies[leafhub].UID) == policyId {
+							managedClusterIds.Insert(cluster_id)
+							currentPolicyIds.Insert(policyId)
+						}
+					}
+					if managedClusterIds.Len() != len(managedClusters) {
+						return fmt.Errorf("not get all cluster status from local_status.compliance, current number:%v, expect:%v", managedClusterIds.Len(), len(managedClusters))
+					}
+					if len(policyIds) != currentPolicyIds.Len() {
+						return fmt.Errorf("not get all policy from local_status.compliance, current number:%v, expect:%v", currentPolicyIds.Len(), policyIds.Len())
+					}
+					return nil
+				}, 1*time.Minute, 10*time.Second).Should(Succeed())
+
+				By("Verify the local policy events is synchronized to the global hub event.local_policies table")
+				Eventually(func() error {
+					rows, err := postgresConn.Query(context.TODO(),
+						"select policy_id,cluster_id,leaf_hub_name from event.local_policies")
+					if err != nil {
+						return err
+					}
+					defer rows.Close()
+					currentPolicyIds := sets.NewString()
+					managedClusterIds := sets.NewString()
+					for rows.Next() {
+						columnValues, _ := rows.Values()
+						if len(columnValues) < 3 {
+							return fmt.Errorf("the event.local_policies record is not correct, expected 3 but got %d", len(columnValues))
+						}
+						policyId, cluster_id, leafhub := "", "", ""
+						if err := rows.Scan(&policyId, &cluster_id, &leafhub); err != nil {
+							return err
+						}
+						if policyIds.Has(policyId) {
+							managedClusterIds.Insert(cluster_id)
+							currentPolicyIds.Insert(policyId)
+						}
+					}
+					if managedClusterIds.Len() != len(managedClusters) {
+						return fmt.Errorf("not get all cluster status from local_status.compliance, current number:%v, expect:%v", managedClusterIds.Len(), len(managedClusters))
+					}
+					if len(policyIds) != currentPolicyIds.Len() {
+						return fmt.Errorf("not get all policy from local_status.compliance, current number:%v, expect:%v", currentPolicyIds.Len(), policyIds.Len())
+					}
+					return nil
+				}, 3*time.Minute, 1*time.Second).Should(Succeed())
+
+				By("Verify the local policy events is synchronized to the global hub event.local_root_policies table")
+				Eventually(func() error {
+					rows, err := postgresConn.Query(context.TODO(),
+						"select policy_id,leaf_hub_name from event.local_root_policies")
 					if err != nil {
 						return err
 					}
 					defer rows.Close()
 
-					// policies, if leahfubname check remove the kv
+					currentPolicyIds := sets.NewString()
+
 					for rows.Next() {
 						columnValues, _ := rows.Values()
-						if len(columnValues) < 3 {
-							return fmt.Errorf("the compliance record is not correct, expected 5 but got %d", len(columnValues))
+						if len(columnValues) < 2 {
+							return fmt.Errorf("the event.local_root_policies record is not correct, expected 2 but got %d", len(columnValues))
 						}
-						policyId, cluster, leafhub := "", "", ""
-						if err := rows.Scan(&policyId, &cluster, &leafhub); err != nil {
+						policyId, leafhub := "", ""
+						if err := rows.Scan(&policyId, &leafhub); err != nil {
 							return err
 						}
-						if string(policies[leafhub].UID) == policyId {
-							delete(policies, leafhub)
+						if policyIds.Has(policyId) {
+							currentPolicyIds.Insert(policyId)
 						}
 					}
-					if len(policies) == ExpectedLeafHubNum {
-						return fmt.Errorf("not get policy from local_status.compliance")
+					if len(policyIds) != currentPolicyIds.Len() {
+						return fmt.Errorf("not get all policy from local_status.compliance, current number:%v, expect:%v", currentPolicyIds.Len(), policyIds.Len())
 					}
 					return nil
-				}, 1*time.Minute, 1*time.Second).Should(Succeed())
+				}, 3*time.Minute, 1*time.Second).Should(Succeed())
 			})
 
 			// no need to add the finalizer to the local policy

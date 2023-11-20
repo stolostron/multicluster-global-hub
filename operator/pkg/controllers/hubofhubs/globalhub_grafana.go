@@ -448,6 +448,9 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
+	if r.MiddlewareConfig == nil || r.MiddlewareConfig.PgConnection == nil {
+		return false, fmt.Errorf("Middleware PgConnection config is null")
+	}
 	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.PgConnection.ReadonlyUserDatabaseURI,
 		r.MiddlewareConfig.PgConnection.CACert)
 	if err != nil {

@@ -347,8 +347,6 @@ func getGrafanaResource(ctx context.Context, path string) (int, error) {
 		return 0, nil
 	}
 
-	klog.Infof("Response:%v", string(responseBody))
-
 	err = yaml.Unmarshal([]byte(responseBody), &mapObj)
 	if err == nil {
 		return 1, nil
