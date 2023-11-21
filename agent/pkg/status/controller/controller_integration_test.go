@@ -29,7 +29,6 @@ import (
 )
 
 var msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
-	constants.ControlInfoMsgKey:              statusbundle.NewHubClusterInfoBundle,
 	constants.ManagedClustersMsgKey:          statusbundle.NewManagedClustersStatusBundle,
 	constants.ClustersPerPolicyMsgKey:        statusbundle.NewClustersPerPolicyBundle,
 	constants.PolicyCompleteComplianceMsgKey: statusbundle.NewCompleteComplianceStatusBundle,
@@ -63,38 +62,6 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			},
 			Status: policyv1.PolicyStatus{},
 		}
-	})
-
-	It("should be able to sync control-info", func() {
-		By("Create configmap that contains the global-hub configurations")
-		Expect(kubeClient.Create(ctx, &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.GHAgentConfigCMName,
-				Namespace: constants.GHAgentNamespace,
-				Annotations: map[string]string{
-					constants.OriginOwnerReferenceAnnotation: "testing",
-				},
-			},
-			Data: map[string]string{
-				"aggregationLevel":    "full",
-				"enableLocalPolicies": "true",
-				"controlInfo":         "60m",
-				"managedClusters":     "5s",
-				"policies":            "5s",
-			},
-		})).Should(Succeed())
-
-		By("Check the control-info bundle can be read from cloudevents consumer")
-		Eventually(func() error {
-			message := <-consumer.MessageChan()
-
-			statusBundle, err := getStatusBundle(message, constants.ControlInfoMsgKey)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
-			return nil
-		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	It("should be able to sync hub cluster info with openshift console url", func() {

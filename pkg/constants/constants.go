@@ -78,9 +78,6 @@ const (
 	// StatusBundle - status bundle message type.
 	StatusBundle = "StatusBundle"
 
-	// ControlInfoMsgKey - control info message key.
-	ControlInfoMsgKey = "ControlInfo"
-
 	// HubClusterInfoMsgKey - hub cluster info message key.
 	HubClusterInfoMsgKey = "HubClusterInfo"
 
