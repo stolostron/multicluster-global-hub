@@ -12,7 +12,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
 	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/controlinfo"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/hubcluster"
 	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/localplacement"
@@ -52,7 +51,6 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		managedclusters.AddClustersStatusController,
 		// apps.AddSubscriptionStatusesController,
 		localpolicies.AddLocalPoliciesController,
-		controlinfo.AddControlInfoController,
 		localpolicies.AddLocalClusterPolicyEventsController,
 		hubcluster.AddHubClusterController,
 	}
