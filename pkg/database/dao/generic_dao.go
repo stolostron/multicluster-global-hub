@@ -1,6 +1,7 @@
 package dao
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -47,13 +48,22 @@ func (dao *GenericDao) Insert(hubName, id string, obj interface{}) error {
 	sqlTemplate := fmt.Sprintf(
 		`INSERT INTO %s (id, leaf_hub_name, payload) VALUES ($1::uuid, $2, $3::jsonb)`, dao.table)
 
-	return dao.tx.Exec(sqlTemplate, id, hubName, obj).Error
+	payload, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	return dao.tx.Exec(sqlTemplate, id, hubName, payload).Error
 }
 
 func (dao *GenericDao) Update(hubName, id string, obj interface{}) error {
 	sqlTemplate := fmt.Sprintf(
 		`UPDATE %s SET payload = $1::jsonb WHERE leaf_hub_name = $2 AND id = $3::uuid`, dao.table)
-	return dao.tx.Exec(sqlTemplate, obj, hubName, id).Error
+
+	payload, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	return dao.tx.Exec(sqlTemplate, payload, hubName, id).Error
 }
 
 func (dao *GenericDao) Delete(hubName, id string) error {

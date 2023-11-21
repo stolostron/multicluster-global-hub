@@ -116,8 +116,8 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 				if err := rows.Scan(&hubName, &policy); err != nil {
 					return err
 				}
-				if hubName == statusBundle.LeafHubName &&
-					policy.Name == statusBundle.Objects[0].GetName() {
+				if hubName == statusBundle.LeafHubName && policy.Name == statusBundle.Objects[0].GetName() {
+					fmt.Printf("LocalSpecPolicy: %s - %s/%s\n", hubName, policy.Namespace, policy.Name)
 					return nil
 				}
 			}
@@ -132,6 +132,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-placementrule-1",
 				Namespace: "default",
+				UID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			},
 			Spec: placementrulev1.PlacementRuleSpec{
 				SchedulerName: constants.GlobalHubSchedulerName,
@@ -184,8 +185,8 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 				if err := rows.Scan(&hubName, &placementrule); err != nil {
 					return err
 				}
-				if hubName == statusBundle.LeafHubName &&
-					placementrule.Name == statusBundle.Objects[0].GetName() {
+				if hubName == statusBundle.LeafHubName && placementrule.Name == statusBundle.Objects[0].GetName() {
+					fmt.Printf("LocalSpecPlacementrule: %s - %s/%s\n", hubName, placementrule.Namespace, placementrule.Name)
 					return nil
 				}
 			}

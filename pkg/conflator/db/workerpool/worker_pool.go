@@ -39,12 +39,17 @@ func (pool *DBWorkerPool) Start(ctx context.Context) error {
 	stats := sqlDB.Stats()
 	pool.log.Info("connection stats", "open connection(worker)", stats.OpenConnections, "max", stats.MaxOpenConnections)
 
+	workSize := stats.MaxOpenConnections
+	if workSize < 5 {
+		workSize = 5
+	}
+
 	// initialize workers pool
-	pool.workers = make(chan *Worker, stats.OpenConnections)
+	pool.workers = make(chan *Worker, workSize)
 
 	// start workers and register them within the workers pool
 	var i int32
-	for i = 1; i <= int32(stats.MaxOpenConnections); i++ {
+	for i = 1; i <= int32(workSize); i++ {
 		worker := NewWorker(pool.log, i, pool.workers, pool.statistics)
 		go worker.start(ctx) // each worker adds itself to the pool inside start function
 	}
