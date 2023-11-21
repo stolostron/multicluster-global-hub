@@ -18,7 +18,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -189,9 +188,7 @@ var _ = Describe("Transport Integration", Ordered, func() {
 			conflator.ManagedClustersPriority,
 			bundle.CompleteStateMode,
 			"ManagedClustersStatusBundle",
-			func(ctx context.Context, bundle status.Bundle,
-				dbClient postgres.StatusTransportBridgeDB,
-			) error {
+			func(ctx context.Context, bundle status.Bundle) error {
 				return nil
 			},
 		))

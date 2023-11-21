@@ -9,8 +9,8 @@ type BundleRegisterable interface {
 	BundleRegister(*registration.BundleRegistration)
 }
 
-// DBSyncer interface for registering business logic needed for handling bundles.
-type DBSyncer interface {
+// Syncer interface for registering business logic needed for handling bundles.
+type Syncer interface {
 	// RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 	RegisterCreateBundleFunctions(bundleRegisterable BundleRegisterable)
 	// RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.

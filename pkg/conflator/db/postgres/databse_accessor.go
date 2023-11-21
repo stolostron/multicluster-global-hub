@@ -10,7 +10,6 @@ type StatusTransportBridgeDB interface {
 	Stop()
 
 	ManagedClustersStatusDB
-	GenericStatusResourceDB
 	LocalPoliciesStatusDB
 	ControlInfoDB
 }
@@ -29,15 +28,6 @@ type ManagedClustersStatusDB interface {
 		leafHubName string) (map[string]string, error)
 	// NewManagedClustersBatchBuilder returns managed clusters batch builder.
 	NewManagedClustersBatchBuilder(schema string, tableName string, leafHubName string) ManagedClustersBatchBuilder
-}
-
-// GenericStatusResourceDB is the db interface required to manage generic status resources.
-type GenericStatusResourceDB interface {
-	BatchSenderDB
-	// GetResourceIDToVersionByLeafHub returns a map from resource id to its resourceVersion.
-	GetResourceIDToVersionByLeafHub(ctx context.Context, schema string, tableName string,
-		leafHubName string) (map[string]string, error)
-	NewGenericBatchBuilder(schema string, tableName string, leafHubName string) GenericBatchBuilder
 }
 
 // LocalPoliciesStatusDB is the db interface required to manage local policies.

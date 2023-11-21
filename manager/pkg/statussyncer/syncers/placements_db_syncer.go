@@ -11,8 +11,8 @@ import (
 )
 
 // NewPlacementsDBSyncer creates a new instance of genericDBSyncer to sync placements.
-func NewPlacementsDBSyncer(log logr.Logger) DBSyncer {
-	dbSyncer := &genericDBSyncer{
+func NewPlacementsDBSyncer(log logr.Logger) Syncer {
+	dbSyncer := &genericStatusSyncer{
 		log:              log,
 		transportMsgKey:  constants.PlacementMsgKey,
 		dbSchema:         database.StatusSchema,

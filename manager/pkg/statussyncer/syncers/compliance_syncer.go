@@ -12,7 +12,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -21,7 +20,7 @@ import (
 const failedBatchFormat = "failed to perform batch - %w"
 
 // NewCompliancesDBSyncer creates a new instance of PoliciesDBSyncer.
-func NewCompliancesDBSyncer(log logr.Logger) DBSyncer {
+func NewCompliancesDBSyncer(log logr.Logger) Syncer {
 	dbSyncer := &CompliancesDBSyncer{
 		log:                                           log,
 		createClustersPerPolicyBundleFunc:             statusbundle.NewClustersPerPolicyBundle,
@@ -112,14 +111,14 @@ func (syncer *CompliancesDBSyncer) RegisterBundleHandlerFunctions(conflationMana
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ClustersPerPolicyPriority, bundle.CompleteStateMode, clustersPerPolicyBundleType,
-		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle) error {
 			return syncer.handleClustersPerPolicyBundle(ctx, bundle)
 		},
 	))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.CompleteComplianceStatusPriority, bundle.CompleteStateMode, completeComplianceStatusBundleType,
-		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle) error {
 			return syncer.handleCompleteStatusComplianceBundle(ctx, bundle)
 		}).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)))
 	// compliance depends on clusters per policy. should be processed only when there is an exact match
@@ -127,7 +126,7 @@ func (syncer *CompliancesDBSyncer) RegisterBundleHandlerFunctions(conflationMana
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.DeltaComplianceStatusPriority, bundle.DeltaStateMode,
 		helpers.GetBundleType(syncer.createDeltaComplianceStatusBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle) error {
 			return syncer.handleDeltaComplianceBundle(ctx, bundle)
 		}).WithDependency(dependency.NewDependency(completeComplianceStatusBundleType, dependency.ExactMatch)))
 	// delta compliance depends on complete compliance. should be processed only when there is an exact match
@@ -135,14 +134,14 @@ func (syncer *CompliancesDBSyncer) RegisterBundleHandlerFunctions(conflationMana
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.MinimalComplianceStatusPriority, bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createMinimalComplianceStatusBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle) error {
 			return syncer.handleMinimalComplianceBundle(ctx, bundle)
 		},
 	))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalClustersPerPolicyPriority, bundle.CompleteStateMode, localClustersPerPolicyBundleType,
-		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle) error {
 			return syncer.handleLocalClustersPerPolicyBundle(ctx, bundle)
 		},
 	))
@@ -150,7 +149,7 @@ func (syncer *CompliancesDBSyncer) RegisterBundleHandlerFunctions(conflationMana
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalCompleteComplianceStatusPriority, bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalCompleteComplianceStatusBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
+		func(ctx context.Context, bundle status.Bundle) error {
 			return syncer.handleCompleteLocalStatusComplianceBundle(ctx, bundle)
 		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
 }

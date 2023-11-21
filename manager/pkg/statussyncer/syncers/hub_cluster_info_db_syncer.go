@@ -13,14 +13,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 // NewHubClusterInfoDBSyncer creates a new instance of genericDBSyncer to sync hub cluster info.
-func NewHubClusterInfoDBSyncer(log logr.Logger) DBSyncer {
+func NewHubClusterInfoDBSyncer(log logr.Logger) Syncer {
 	dbSyncer := &hubClusterInfoDBSyncer{
 		log: log,
 		createHubClusterInfoFunc: func() status.Bundle {
@@ -64,11 +63,9 @@ func (syncer *hubClusterInfoDBSyncer) RegisterBundleHandlerFunctions(conflationM
 }
 
 func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,
-	bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
-	return func(ctx context.Context, bundle status.Bundle,
-		dbClient postgres.StatusTransportBridgeDB,
-	) error {
-		return syncer.handleLocalObjectsBundle(ctx, bundle, dbClient, database.LocalSpecSchema, tableName)
+	bundle status.Bundle) error {
+	return func(ctx context.Context, bundle status.Bundle) error {
+		return syncer.handleLocalObjectsBundle(ctx, bundle, database.LocalSpecSchema, tableName)
 	}
 }
 
@@ -76,7 +73,7 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundleWrapper(tableName 
 // if the row doesn't exist then add it.
 // if the row exists then update it.
 func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Context, bundle status.Bundle,
-	dbClient postgres.LocalPoliciesStatusDB, schema string, tableName string,
+	schema string, tableName string,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()

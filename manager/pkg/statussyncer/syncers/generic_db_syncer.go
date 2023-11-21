@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
@@ -12,12 +13,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/dao"
 )
 
-// genericDBSyncer implements generic status resource db sync business logic.
-type genericDBSyncer struct {
+// genericStatusSyncer implements generic status resource db sync business logic.
+type genericStatusSyncer struct {
 	log             logr.Logger
 	transportMsgKey string
 
@@ -30,7 +32,7 @@ type genericDBSyncer struct {
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *genericDBSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
+func (syncer *genericStatusSyncer) RegisterCreateBundleFunctions(transportDispatcher BundleRegisterable) {
 	transportDispatcher.BundleRegister(&registration.BundleRegistration{
 		MsgID:            syncer.transportMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
@@ -45,62 +47,68 @@ func (syncer *genericDBSyncer) RegisterCreateBundleFunctions(transportDispatcher
 // therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the database.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
-func (syncer *genericDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
+func (syncer *genericStatusSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		syncer.bundlePriority,
 		syncer.bundleSyncMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
-			return syncer.handleResourcesBundle(ctx, bundle, dbClient)
+		func(ctx context.Context, bundle status.Bundle) error {
+			return syncer.handleResourcesBundle(ctx, bundle)
 		},
 	))
 }
 
-func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle status.Bundle,
-	dbClient postgres.GenericStatusResourceDB,
-) error {
+func (syncer *genericStatusSyncer) handleResourcesBundle(ctx context.Context, bundle status.Bundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	idToVersionMapFromDB, err := dbClient.GetResourceIDToVersionByLeafHub(ctx, syncer.dbSchema,
-		syncer.dbTableName, leafHubName)
+	db := database.GetGorm()
+	genericDao := dao.NewGenericDao(db, fmt.Sprintf("%s.%s", syncer.dbSchema, syncer.dbTableName))
+	idToVersionMapFromDB, err := genericDao.GetIdToVersionByHub(leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w",
 			syncer.dbSchema, syncer.dbTableName, err)
 	}
 
-	batchBuilder := dbClient.NewGenericBatchBuilder(syncer.dbSchema, syncer.dbTableName, leafHubName)
+	// using the transaction for now. once the unique is fixed, try to upInsert with batch operations
+	err = db.Transaction(func(tx *gorm.DB) error {
+		genericDao := dao.NewGenericDao(tx, fmt.Sprintf("%s.%s", syncer.dbSchema, syncer.dbTableName))
+		for _, object := range bundle.GetObjects() {
+			specificObj, ok := object.(metav1.Object)
+			if !ok {
+				continue
+			}
+			uid := getGenericResourceUID(specificObj)
+			resourceVersionFromDB, objExistsInDB := idToVersionMapFromDB[uid]
 
-	for _, object := range bundle.GetObjects() {
-		specificObj, ok := object.(metav1.Object)
-		if !ok {
-			continue
+			if !objExistsInDB { // object not found in the db table
+				if e := genericDao.Insert(leafHubName, uid, object); e != nil {
+					return e
+				}
+				continue
+			}
+
+			delete(idToVersionMapFromDB, uid)
+
+			if specificObj.GetResourceVersion() == resourceVersionFromDB {
+				continue // update object in db only if what we got is a different (newer) version of the resource.
+			}
+
+			if e := genericDao.Update(leafHubName, uid, object); e != nil {
+				return e
+			}
 		}
 
-		uid := getGenericResourceUID(specificObj)
-		resourceVersionFromDB, objExistsInDB := idToVersionMapFromDB[uid]
-
-		if !objExistsInDB { // object not found in the db table
-			batchBuilder.Insert(uid, object)
-			continue
+		// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
+		for uid := range idToVersionMapFromDB {
+			if e := genericDao.Delete(leafHubName, uid); e != nil {
+				return e
+			}
 		}
-
-		delete(idToVersionMapFromDB, uid)
-
-		if specificObj.GetResourceVersion() == resourceVersionFromDB {
-			continue // update object in db only if what we got is a different (newer) version of the resource.
-		}
-
-		batchBuilder.Update(uid, object)
-	}
-
-	// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
-	for uid := range idToVersionMapFromDB {
-		batchBuilder.Delete(uid)
-	}
-
-	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
-		return fmt.Errorf("failed to perform batch - %w", err)
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
