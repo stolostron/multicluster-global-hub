@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	policiesV1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,6 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle"
@@ -28,8 +28,7 @@ const (
 // AddPoliciesStatusController adds policies status controller to the manager.
 func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer) (*generic.HybridSyncManager, error) {
 	leafHubName := agentstatusconfig.GetLeafHubName()
-	agentConfig := agentstatusconfig.GetAgentConfigMap()
-	bundleCollection, hybridSyncManager, err := createBundleCollection(producer, leafHubName, agentConfig)
+	bundleCollection, hybridSyncManager, err := createBundleCollection(producer, leafHubName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}
@@ -53,7 +52,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer) 
 	return hybridSyncManager, nil
 }
 
-func createBundleCollection(pro transport.Producer, leafHubName string, agentConfig *corev1.ConfigMap) (
+func createBundleCollection(pro transport.Producer, leafHubName string) (
 	[]*generic.BundleCollectionEntry, *generic.HybridSyncManager, error,
 ) {
 	// clusters per policy (base bundle)
@@ -65,9 +64,9 @@ func createBundleCollection(pro transport.Producer, leafHubName string, agentCon
 		constants.MinimalPolicyComplianceMsgKey)
 	minimalComplianceStatusBundle := grc.NewMinimalComplianceStatusBundle(leafHubName)
 
-	fullStatusPredicate := func() bool { return agentConfig.Data["aggregationLevel"] == "full" }
+	fullStatusPredicate := func() bool { return config.GetAggregationLevel() == config.AggregationFull }
 	minimalStatusPredicate := func() bool {
-		return agentConfig.Data["aggregationLevel"] == "minimal"
+		return config.GetAggregationLevel() == config.AggregationMinimal
 	}
 
 	// apply a hybrid sync manager on the (full aggregation) compliance bundles

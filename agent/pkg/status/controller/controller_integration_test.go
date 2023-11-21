@@ -22,6 +22,7 @@ import (
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -44,25 +45,21 @@ var msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
 }
 
 var _ = Describe("Agent Status Controller", Ordered, func() {
-	var testGlobalPolicyOriginUID string
-	var testGlobalPolicy *policyv1.Policy
-	BeforeAll(func() {
-		testGlobalPolicyOriginUID = "test-globalpolicy-uid"
-		testGlobalPolicy = &policyv1.Policy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-globalpolicy-1",
-				Namespace: "default",
-				Annotations: map[string]string{
-					constants.OriginOwnerReferenceAnnotation: testGlobalPolicyOriginUID,
-				},
+	testGlobalPolicyOriginUID := "test-globalpolicy-uid"
+	testGlobalPolicy := &policyv1.Policy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-globalpolicy-1",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.OriginOwnerReferenceAnnotation: testGlobalPolicyOriginUID,
 			},
-			Spec: policyv1.PolicySpec{
-				Disabled:        false,
-				PolicyTemplates: []*policyv1.PolicyTemplate{},
-			},
-			Status: policyv1.PolicyStatus{},
-		}
-	})
+		},
+		Spec: policyv1.PolicySpec{
+			Disabled:        false,
+			PolicyTemplates: []*policyv1.PolicyTemplate{},
+		},
+		Status: policyv1.PolicyStatus{},
+	}
 
 	It("should be able to sync hub cluster info with openshift console url", func() {
 		By("Create openshift route for hub cluster")
@@ -93,6 +90,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			printBundle(statusBundle)
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
@@ -126,6 +124,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			printBundle(statusBundle)
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
@@ -160,6 +159,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			printBundle(statusBundle)
 
 			managedClustersStatusBundle, ok := statusBundle.(*statusbundle.ManagedClustersStatusBundle)
 			if !ok {
@@ -219,35 +219,57 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 
 		By("Check the policy bundles is synced")
 		var clustersPerPolicyBundle *statusbundle.ClustersPerPolicyBundle
-		// var policyCompleteComplianceStatusBundle *statusbundle.CompleteComplianceStatusBundle
-		Eventually(func() bool {
+		var completeComplianceStatusBundle *statusbundle.CompleteComplianceStatusBundle
+		Eventually(func() error {
 			message := <-consumer.MessageChan()
+			fmt.Printf("========== received %s \n", message.ID)
 
-			statusBundle, err := getStatusBundle(message, constants.ClustersPerPolicyMsgKey)
-			if err == nil {
-				fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
-				ok := false
+			complianceTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.ClustersPerPolicyMsgKey)
+			completeTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.PolicyCompleteComplianceMsgKey)
+
+			var statusBundle status.Bundle
+			var err error
+			var ok bool
+			if message.ID == complianceTransportKey {
+				statusBundle, err = getStatusBundle(message, constants.ClustersPerPolicyMsgKey)
+				printBundle(statusBundle)
+
 				clustersPerPolicyBundle, ok = statusBundle.(*statusbundle.ClustersPerPolicyBundle)
 				if !ok {
-					fmt.Printf("unexpected received bundle type, want ClustersPerPolicyBundle")
+					return fmt.Errorf("unexpected received bundle type, want *grc.ComplianceBundle")
 				}
 			}
-			// statusBundle, err = getStatusBundle(message,
-			// 	constants.PolicyCompleteComplianceMsgKey)
-			// if err == nil {
-			// 	fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
-			// 	ok := false
-			// 	policyCompleteComplianceStatusBundle, ok = statusBundle.(*statusbundle.CompleteComplianceStatusBundle)
-			// 	if !ok {
-			// 		fmt.Printf("unexpected received bundle type, want ClustersPerPolicyBundle")
-			// 	}
-			// }
-			return clustersPerPolicyBundle != nil
-		}, 30*time.Second, 1*time.Second).Should(BeTrue())
+
+			if message.ID == completeTransportKey {
+				statusBundle, err = getStatusBundle(message, constants.PolicyCompleteComplianceMsgKey)
+				printBundle(statusBundle)
+
+				completeComplianceStatusBundle, ok = statusBundle.(*statusbundle.CompleteComplianceStatusBundle)
+				if !ok {
+					return fmt.Errorf("unexpected received bundle type, want *grc.CompleteComplianceBundle")
+				}
+			}
+
+			if err != nil {
+				return err
+			}
+
+			if clustersPerPolicyBundle == nil {
+				return fmt.Errorf("waiting clustersPerPolicyBundle")
+			}
+
+			if completeComplianceStatusBundle == nil {
+				return fmt.Errorf("waiting completeComplianceStatusBundle")
+			}
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Check the clustersPerPolicyBundle")
 		policyGenericComplianceStatusObjs := clustersPerPolicyBundle.GetObjects()
 		Expect(len(policyGenericComplianceStatusObjs)).Should(Equal(1))
+
+		completeComplianceObjs := completeComplianceStatusBundle.GetObjects()
+		Expect(len(completeComplianceObjs)).Should(Equal(1))
 
 		policyGenericComplianceStatus := policyGenericComplianceStatusObjs[0].(*status.PolicyGenericComplianceStatus)
 		fmt.Println(policyGenericComplianceStatus)
@@ -362,7 +384,6 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	// 		return true
 	// 	}, 30*time.Second, 1*time.Second).Should(BeTrue())
 	// })
-
 	It("should be able to sync global placementrules", func() {
 		By("Create global placementrule in testing managed hub")
 		testGlobalPlacementRuleOriginUID := "test-globalplacementrule-uid"
@@ -571,4 +592,9 @@ func getStatusBundle(message *transport.Message, key string) (status.Bundle, err
 		return nil, err
 	}
 	return receivedBundle, nil
+}
+
+func printBundle(obj interface{}) {
+	b, _ := json.Marshal(obj)
+	fmt.Println(string(b))
 }

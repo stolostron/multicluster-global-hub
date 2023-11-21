@@ -50,8 +50,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	addControllerFunctions := []func(ctrl.Manager, transport.Producer) error{
 		managedclusters.AddClustersStatusController,
 		// apps.AddSubscriptionStatusesController,
-		localpolicies.AddLocalPoliciesController,
-		localpolicies.AddLocalClusterPolicyEventsController,
+		localpolicies.AddLocalPoliciesSyncer,
 		hubcluster.AddHubClusterController,
 	}
 

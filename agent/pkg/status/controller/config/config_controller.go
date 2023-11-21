@@ -51,6 +51,7 @@ func AddConfigController(mgr ctrl.Manager, agentConfig *config.AgentConfig) erro
 func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
+	agentConfigMap := &corev1.ConfigMap{}
 	if err := c.client.Get(ctx, request.NamespacedName, agentConfigMap); apierrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -60,13 +61,15 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 
 	c.setSyncInterval(agentConfigMap, ManagedClusterIntervalKey)
 	c.setSyncInterval(agentConfigMap, PolicyIntervalKey)
-	c.setSyncInterval(agentConfigMap, ControlInfoIntervalKey)
+	c.setSyncInterval(agentConfigMap, HubClusterInfoIntervalKey)
+	c.setAgentConfig(agentConfigMap, AgentAggregationKey)
+	c.setAgentConfig(agentConfigMap, EnableLocalPolicyKey)
 
 	reqLogger.V(2).Info("Reconciliation complete.")
 	return ctrl.Result{}, nil
 }
 
-func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key IntervalKey) {
+func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key AgentConfigKey) {
 	intervalStr, found := configMap.Data[string(key)]
 	if !found {
 		c.log.Info(fmt.Sprintf("%s sync interval not defined, using %s", key, syncIntervals[key].String()))
@@ -79,4 +82,13 @@ func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key
 		return
 	}
 	syncIntervals[key] = interval
+}
+
+func (c *hubOfHubsConfigController) setAgentConfig(configMap *v1.ConfigMap, configKey AgentConfigKey) {
+	val, found := configMap.Data[string(configKey)]
+	if !found {
+		c.log.Info(fmt.Sprintf("%s not defined in agentConfig, using default value", configKey))
+		return
+	}
+	agentConfigs[configKey] = AgentConfigValue(val)
 }
