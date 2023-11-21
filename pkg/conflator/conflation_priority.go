@@ -11,7 +11,6 @@ const (
 	DeltaComplianceStatusPriority         ConflationPriority = iota
 	MinimalComplianceStatusPriority       ConflationPriority = iota
 	HubClusterInfoStatusPriority          ConflationPriority = iota
-	ControlInfoPriority                   ConflationPriority = iota
 	LocalPolicySpecPriority               ConflationPriority = iota
 	LocalClustersPerPolicyPriority        ConflationPriority = iota
 	LocalCompleteComplianceStatusPriority ConflationPriority = iota

@@ -22,9 +22,7 @@ import (
 // adds controllers and/or runnables to the manager, registers handler functions within the dispatcher
 //
 //	and create bundle functions within the bundle.
-func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
-	dbsyncer.BundleRegisterable, error,
-) {
+func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (dbsyncer.BundleRegisterable, error) {
 	// register statistics within the runtime manager
 	stats, err := addStatisticController(mgr, managerConfig)
 	if err != nil {
@@ -76,8 +74,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 				ctrl.Log.WithName("subscription-statuses-db-syncer")),
 			dbsyncer.NewSubscriptionReportsDBSyncer(
 				ctrl.Log.WithName("subscription-reports-db-syncer")),
-			dbsyncer.NewLocalSpecPlacementruleSyncer(
-				ctrl.Log.WithName("local-spec-placementrule-syncer")),
+			dbsyncer.NewLocalSpecPlacementruleSyncer(ctrl.Log.WithName("local-spec-placementrule-syncer")),
 		)
 	}
 
