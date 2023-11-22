@@ -41,7 +41,7 @@ You can read about the use cases for multicluster global hub in [Use Cases](./gl
 
 ### Multicluster Global Hub Operator
 
-The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager` in the global hub cluster and `multicluster-global-hub-agent` in the managed hub clusters.
+The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager`, `multicluster-global-hub-grafana` and built-in `kafka` and `postgres` in the global hub cluster and `multicluster-global-hub-agent` in the managed hub clusters.
 
 The Operator also leverages the `manifestwork` custom resource to deploy the Red Hat Advanced Cluster Management for Kubernetes Operator on the managed cluster. After the Red Hat Advanced Cluster Management Operator is deployed on the managed cluster, the managed cluster becomes a standard Red Hat Advanced Cluster Management Hub cluster. This hub cluster is now a managed hub cluster.
 
@@ -51,13 +51,13 @@ The Multicluster Global Hub Manager is used to persist the data into the `postgr
 
 ### Multicluster Global Hub Agent
 
-The Multicluster Global Hub Agent runs on the managed hub clusters. It synchronizes the data between the global hub cluster and the managed hub clusters. For example, the agent synchronizes the information of the managed clusters from the managed hub clusters with the global hub cluster and synchronizes the policy or application from the global hub cluster and the managed hub clusters.
+The Multicluster Global Hub Agent runs on the managed hub clusters. It synchronizes the data between the global hub cluster and the managed hub clusters. For example, the agent synchronizes the information of the managed clusters from the managed hub clusters to the global hub cluster and synchronizes the policy or application from the global hub cluster to the managed hub clusters.
 
 ### Multicluster Global Hub Observability
 
 Grafana runs on the global hub cluster as the main service for Global Hub Observability. The Postgres data collected by the Global Hub Manager is its default DataSource. By exposing the service using the route called `multicluster-global-hub-grafana`, you can access the global hub Grafana dashboards by accessing the Red Hat OpenShift Container Platform console.
 
-## Workings of Global Hub
+## Workings of Multicluster Global Hub
 
 To understand how Global Hub functions, see [How global hub works](how_global_hub_works.md).
 
@@ -66,12 +66,12 @@ To understand how Global Hub functions, see [How global hub works](how_global_hu
 The following sections provide the steps to start using the Multicluster Global Hub.
 
 ### Prerequisites
+
 #### Dependencies
 
-- Red Hat Advanced Cluster Management for Kubernetes verison 2.7 or later must be installed and configured. [Learn more details about Red Hat Advanced Cluster Management](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.8)
+- Red Hat Advanced Cluster Management for Kubernetes version 2.7 or later must be installed and configured. [Learn more details about Red Hat Advanced Cluster Management](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.8)
 
-#### Sizing
-[Sizing your Red Hat Advanced Cluster Management cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.7/html/install/installing#sizing-your-cluster)
+- [Sizing your Red Hat Advanced Cluster Management cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.8/html/install/installing#sizing-your-cluster)
 
 
 #### Network configuration
@@ -132,7 +132,7 @@ Supported middleware for MCGH:
     **Notes:**
     * The multicluster global hub is only available for the x86 platform.
 
-### Import a managed hub cluster in default mode (Technology Preview)
+### Import a managed hub cluster in default mode
 
 You must disable the cluster self-management in the existing Red Hat Advanced Cluster Management hub cluster. Set `disableHubSelfManagement=true` in the `multiclusterhub` custom resource to disable the automatic importing of the hub cluster as a managed cluster.
 
@@ -166,34 +166,47 @@ To navigate the global hub dashboards, you can choose to observe and filter the 
 
 Similarly, if you want to examine the policy data by `cluster` grouping, begin by using the `Global Hub - Cluster Group Compliancy Overview` dashboard. The navigation flow is identical to the `policy` grouping flow, but you select filters that are related to the cluster, such as managed cluster `labels` and `values`. Instead of viewing policy events for all clusters, after reaching the `Global Hub - What's Changed / Clusters` dashboard, you can view policy events related to an individual cluster.
 
-### Grafana Alerts (Technology Preview)
+### Grafana Alerts
+
 #### Default Grafana Alerts
+
 We have three alerts by default. These alerts are stored in configmap `multicluster-global-hub-default-alerting`. They will watch suspicious policies, suspicious clusters compliance status change and failed cron jobs.
+
 1. Suspicious Policy Change
-This Alert rule watches the suspicious policies change, if the following events occur more than 5 times in 1 hour, it becomes a firing alert.
-- A policy was enabled/disabled
-- A policy was updated
+
+    This Alert rule watches the suspicious policies change, if the following events occur more than 5 times in 1 hour, it becomes a firing alert.
+
+    - A policy was enabled/disabled
+    - A policy was updated
 
 2. Suspicious Cluster Compliance Status Change
-This alert watches the cluster compliance status and policy events for a cluster. There are two rules in this alert.
-- Cluster compliance status change frequently
+
+    This alert watches the cluster compliance status and policy events for a cluster. There are two rules in this alert.
+
+    - Cluster compliance status change frequently
   If a cluster compliance status changes from `compliance` to `non-compliance` more than 3 times in 1 hour, it becomes a firing alert.
-- Too many policy events in a cluster
+
+    - Too many policy events in a cluster
   For a policy in a cluster, if there are more than 20 events in 5 minutes, it becomes a firing alert. If this alert is always firing, the data in the `event.local_policies` table will increase too fast.
 
 3. Cron Job Failed
-This alert watch the [Cron jobs](#Cronjobs-and-Metrics) failed events. There are two rules in this alert.
-- Local Compliance Job Failed
-  If this alert rule becomes firing, it means the [Local compliance status sync job](#Local-compliance-status-sync-job) failed. It may cause the data to be lost in the `history.local_compliance` table. Please check it and [manually run the job](./how_global_hub_works.md#running-the-summarization-process-manually)
 
-- Data Retention Job Failed
-  If this alert rule becomes firing, it means the [Data retention job](#data-retention-job) failed and you can also [run it manually](./troubleshooting.md#run-the-data-retetion-job-manually).
+    This alert watch the [Cron jobs](#Cronjobs and Metrics) failed events. There are two rules in this alert.
+
+    - Local Compliance Job Failed
+
+      If this alert rule becomes firing, it means the [Local compliance status sync job](#local-compliance-status-sync-job) failed. It may cause the data to be lost in the `history.local_compliance` table. Please check it and [manually run the job](./how_global_hub_works.md#running-the-summarization-process-manually)
+
+    - Data Retention Job Failed
+
+      If this alert rule becomes firing, it means the [Data retention job](#data-retention-job) failed and you can also [run it manually](./troubleshooting.md#run-the-data-retetion-job-manually).
 
 #### Delete Default Grafana Alert Rule
+
 If you want to delete a default grafana alert rule, you need to create the [Customize Grafana Alerting Resources](#Customize-Grafana-Alerting-Resources) and include the `deleteRules`.
 
 For deleting all default alerting, the config should be like:
-```
+```yaml
     deleteRules:
       - orgId: 1
         uid: globalhub_suspicious_policy_change
@@ -208,8 +221,11 @@ For deleting all default alerting, the config should be like:
 ```
 
 #### Customize Grafana Alerts
+
 ##### Customize grafana.ini
-Global hub support customize the grafana.ini files. You just need to create a secret in namespace `multicluster-global-hub`, and the secret name must be: `multicluster-global-hub-custom-grafana-config`, the secret data key must be: `grafana.ini`. The following is an example:
+
+Global hub support customize the `grafana.ini` files. You just need to create a secret in namespace `multicluster-global-hub`, and the secret name must be: `multicluster-global-hub-custom-grafana-config`, the secret data key must be: `grafana.ini`. The following is an example:
+
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -232,9 +248,11 @@ stringData:
     # EHLO identity in SMTP dialog (defaults to instance_name)
     ;ehlo_identity = dashboard.example.com
 ```
-Note: you can not config the section which already in `multicluster-global-hub-default-grafana-config` secret
 
-##### Customize Grafana Alerting Resources 
+Note: you can not configure the section which already in `multicluster-global-hub-default-grafana-config` secret
+
+##### Customize Grafana Alerting Resources
+
 Global hub support customize the alerting resources which [grafana support](https://grafana.com/docs/grafana/v9.5/alerting/set-up/provision-alerting-resources/file-provisioning/). You just need to create a configmap in namespace `multicluster-global-hub`, and the configmap name must be: `multicluster-global-hub-custom-alerting`, the configmap data key must be: `alerting.yaml`. The following is an example:
 
 ```yaml
@@ -298,14 +316,19 @@ After installing the global hub operand, the global hub manager starts running a
 
 #### Data retention job
 
-  Some data tables in global hub will continue to grow over time. Generally, they fall into two categories: the policy event tables and the `history.local_compliance` growing every day, the tables containing soft deleted records. The former generates a large amount of data, we use range partitioning to break down the large tables into small partitions. Which helps in executing queries/deletions on these tables faster. The later has a small amount of data, and we add `deletedAt` indexes to these tables to obtain better hard delete performance.
+  Some data tables in global hub will continue to grow over time. So we have the corresponding working to avoid the negative effects of the large data tables. The main approaches primarily involve the following two methods:
 
-  At the practical level, we run a scheduled job to delete expired data, so as to avoid the table being too large, and there is an additional task for it which is to create a buffer partition table for the next month.
+  1. Limiting the growth of the table by deleting data that was stored a long time ago, and is no longer needed
 
-  How long the job should keep the data can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/main/operator/apis/v1alpha4/multiclusterglobalhub_types.go#L90) on the global hub operand. it's recommended minimum value is `1` month, default value is `18` months. Therefore, the execution interval of this job should be less than one month.
+  2. Partitioning on the large table to execute queries/deletions on a large table faster
 
-The above cronjobs are executed every time the global hub manager starts. The compliance sync job is run once a day and can be run multiple times within the day without changing the result. The partitioning job is run once a week and also can be run many times per month, the results will not change. 
-These two jobs' status are saved in the metrics named `multicluster_global_hub_jobs_status`, as shown in the figure below from the console of the Openshift cluster. Where `0` means the job runs successfully, otherwise `1` means failure. 
+  Specifically, We run a cronjob process to implement the above procedure. For the event tables, like the `event.local_policies` and `history.local_compliance` growing every day, we use range partitioning to break down the large tables into small partitions. Furthermore, it's important to note that this process also creates the partition tables for the next month each time it is executed. And For the policy and cluster tables, like `local_spec.policies` and `status.managed_clusters`, we add `deleted_at` indexes on these tables to obtain better performance for hard deleting.
+  
+  It's also worth noting that the time for which the data is retained can be configured through the [retention](https://github.com/stolostron/multicluster-global-hub/blob/main/operator/apis/v1alpha4/multiclusterglobalhub_types.go#L90) on the global hub operand. it's recommended minimum value is `1` month, default value is `18` months. Therefore, the execution interval of this job should be less than one month.
+
+#### The status of the cronjobs
+
+These two jobs' status are saved in the metrics named `multicluster_global_hub_jobs_status`, as shown in the figure below from the console of the Openshift cluster. Where `0` means the job runs successfully, otherwise `1` means failure.
 
 ![Global Hub Jobs Status Metrics Panel](./images/global-hub-jobs-status-metrics-panel.png)
 
