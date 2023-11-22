@@ -63,5 +63,5 @@ func GetAggregationLevel() AgentConfigValue {
 }
 
 func GetEnableLocalPolicy() AgentConfigValue {
-	return agentConfigs[AgentAggregationKey]
+	return agentConfigs[EnableLocalPolicyKey]
 }

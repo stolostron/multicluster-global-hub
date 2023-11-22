@@ -42,6 +42,7 @@ var msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
 	constants.HubClusterInfoMsgKey: func() status.Bundle {
 		return &status.HubClusterInfoBundle{}
 	},
+	constants.LocalPolicySpecMsgKey: statusbundle.NewLocalPolicySpecBundle,
 }
 
 var _ = Describe("Agent Status Controller", Ordered, func() {
@@ -60,6 +61,50 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		},
 		Status: policyv1.PolicyStatus{},
 	}
+
+	It("Should be able to sync local policy spec", func() {
+		By("Create local policies")
+		testLocalPolicy := &policyv1.Policy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-local-policy-spec-1",
+				Namespace: "default",
+			},
+			Spec: policyv1.PolicySpec{
+				Disabled:        false,
+				PolicyTemplates: []*policyv1.PolicyTemplate{},
+			},
+		}
+		Expect(kubeClient.Create(ctx, testLocalPolicy)).ToNot(HaveOccurred())
+
+		By("Check the local policies bundle can be read from kafka consumer")
+		Eventually(func() error {
+			message := <-consumer.MessageChan()
+			statusBundle, err := getStatusBundle(message, constants.LocalPolicySpecMsgKey)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+
+			printBundle(statusBundle)
+			if err != nil {
+				return err
+			}
+
+			resourceBundle, ok := statusBundle.(*statusbundle.LocalPolicySpecBundle)
+			if !ok {
+				return errors.New("unexpected received bundle type")
+			}
+
+			policies := resourceBundle.GetObjects()
+			if len(policies) != 1 {
+				return fmt.Errorf("unexpected object number in received bundle, want 1, got %d\n", len(policies))
+			}
+			receivedPolicy := policies[0].(*policyv1.Policy)
+			if testLocalPolicy.GetName() != receivedPolicy.GetName() ||
+				testLocalPolicy.GetNamespace() != receivedPolicy.GetNamespace() {
+				return fmt.Errorf("========== object not equal, want %v, got %v\n", testLocalPolicy.GetName(), receivedPolicy.GetName())
+			}
+
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+	})
 
 	It("should be able to sync hub cluster info with openshift console url", func() {
 		By("Create openshift route for hub cluster")
