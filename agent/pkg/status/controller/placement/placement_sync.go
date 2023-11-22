@@ -17,18 +17,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-const (
-	placementSyncLog = "placement-sync"
-)
-
-// AddPlacementsController adds placement controller to the manager.
-func AddPlacementsController(mgr ctrl.Manager, producer transport.Producer) error {
+// AddPlacementSyncer adds placement controller to the manager.
+func AddPlacementSyncer(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunction := func() bundle.Object { return &clustersv1beta1.Placement{} }
 	leafHubName := config.GetLeafHubName()
 
 	bundleCollection := []*generic.BundleEntry{
 		generic.NewBundleEntry(fmt.Sprintf("%s.%s", leafHubName, constants.PlacementMsgKey),
-			genericbundle.NewStatusGenericBundle(leafHubName, cleanPlacement),
+			genericbundle.NewGenericStatusBundle(leafHubName, cleanPlacement),
 			func() bool { return true }),
 	} // bundle predicate - always send placements.
 
@@ -36,7 +32,7 @@ func AddPlacementsController(mgr ctrl.Manager, producer transport.Producer) erro
 		return utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 
-	return generic.NewStatusGenericSyncer(mgr, placementSyncLog, producer, bundleCollection,
+	return generic.NewGenericStatusSyncer(mgr, "placement-sync", producer, bundleCollection,
 		createObjFunction, ownerRefAnnotationPredicate, config.GetPolicyDuration)
 }
 

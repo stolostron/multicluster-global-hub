@@ -6,7 +6,7 @@ package consumer
 import (
 	"context"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
 
@@ -22,5 +22,5 @@ type Consumer interface {
 	BundleRegister(registration *registration.BundleRegistration)
 
 	// provide the generic bundle for message producer
-	GetGenericBundleChan() chan *base.SpecGenericBundle
+	GetGenericBundleChan() chan *spec.GenericSpecBundle
 }

@@ -2,7 +2,10 @@ package grc
 
 import "github.com/stolostron/multicluster-global-hub/pkg/bundle"
 
-var _ bundle.ManagerBundle = (*LocalCompleteComplianceBundle)(nil)
+var (
+	_ bundle.AgentBundle            = (*CompleteComplianceBundle)(nil)
+	_ bundle.ManagerDependantBundle = (*CompleteComplianceBundle)(nil)
+)
 
 // NewLocalClustersPerPolicyBundle creates a new instance of LocalClustersPerPolicyBundle.
 func NewManagerLocalCompleteComplianceBundle() bundle.ManagerBundle {

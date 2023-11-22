@@ -46,8 +46,8 @@ var msgIDBundleCreateFuncMap = map[string]CreateBundleFunc{
 	constants.PlacementMsgKey:               placement.NewManagerPlacementsBundle,
 	constants.PlacementDecisionMsgKey:       placement.NewManagerPlacementDecisionsBundle,
 	constants.HubClusterInfoMsgKey:          cluster.NewManagerHubClusterInfoBundle,
-	constants.LocalPolicySpecMsgKey:         grc.NewManagerLocalSpecPolicyBundle,
-	constants.LocalPolicyHistoryEventMsgKey: grc.NewManagerLocalPolicyHistoryEventBundle,
+	constants.LocalPolicySpecMsgKey:         grc.NewManagerLocalPolicyBundle,
+	constants.LocalPolicyHistoryEventMsgKey: grc.NewManagerLocalReplicatedPolicyEventBundle,
 }
 
 var _ = Describe("Agent Status Controller", Ordered, func() {
@@ -93,7 +93,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 
-			resourceBundle, ok := statusBundle.(*grc.LocalSpecPolicyBundle)
+			resourceBundle, ok := statusBundle.(*grc.LocalPolicyBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type")
 			}
@@ -186,7 +186,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 
-			resourceBundle, ok := statusBundle.(*grc.LocalPolicyHistoryEventBundle)
+			resourceBundle, ok := statusBundle.(*grc.LocalReplicatedPolicyEventBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type")
 			}

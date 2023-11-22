@@ -30,7 +30,7 @@ type localSpecPoliciesSyncer struct {
 func NewLocalPolicySpecSyncer(log logr.Logger) Syncer {
 	return &localSpecPoliciesSyncer{
 		log:                             log,
-		createLocalPolicySpecBundleFunc: grc.NewManagerLocalSpecPolicyBundle,
+		createLocalPolicySpecBundleFunc: grc.NewManagerLocalPolicyBundle,
 	}
 }
 

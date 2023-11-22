@@ -32,7 +32,7 @@ func AddLocalRootPolicySyncer(mgr ctrl.Manager, producer transport.Producer) err
 			!utils.HasLabel(object, rootPolicyLabel)
 	})
 
-	return generic.NewStatusGenericSyncer(mgr, "local-root-policies-status-sync", producer, bundleCollection,
+	return generic.NewGenericStatusSyncer(mgr, "local-root-policies-status-sync", producer, bundleCollection,
 		createObjFunc, localPolicyPredicate, config.GetPolicyDuration)
 }
 
@@ -54,7 +54,7 @@ func createBundleCollection(mgr ctrl.Manager) []*generic.BundleEntry {
 
 	// local spec policy bundle
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPolicySpecMsgKey)
-	localPolicySpecBundle := genericbundle.NewStatusGenericBundle(leafHubName, cleanPolicy)
+	localPolicySpecBundle := genericbundle.NewGenericStatusBundle(leafHubName, cleanPolicy)
 
 	// check for full information
 	localPolicyStatusPredicate := func() bool {

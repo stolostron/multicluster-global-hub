@@ -9,7 +9,7 @@ import (
 	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	statusgeneric "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -21,11 +21,11 @@ func AddSubscriptionReportsSyncer(mgr ctrl.Manager, producer transport.Producer)
 
 	bundleCollection := []*generic.BundleEntry{
 		generic.NewBundleEntry(fmt.Sprintf("%s.%s", leafHubName, constants.SubscriptionReportMsgKey),
-			statusgeneric.NewStatusGenericBundle(leafHubName, nil),
+			genericbundle.NewGenericStatusBundle(leafHubName, nil),
 			func() bool { return true }),
 	} // bundle predicate - always send subscription report.
 
-	if err := generic.NewStatusGenericSyncer(mgr, "subscriptions-reports-sync", producer,
+	if err := generic.NewGenericStatusSyncer(mgr, "subscriptions-reports-sync", producer,
 		bundleCollection, createObjFunction, nil, agentconfig.GetPolicyDuration); err != nil {
 		return fmt.Errorf("failed to add subscription reports controller to the manager - %w", err)
 	}

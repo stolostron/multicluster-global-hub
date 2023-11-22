@@ -27,7 +27,7 @@ type localPoliciesStatusEventSyncer struct {
 func NewLocalPolicyEventSyncer(log logr.Logger) Syncer {
 	return &localPoliciesStatusEventSyncer{
 		log:                                     log,
-		createLocalPolicyHistoryEventBundleFunc: grc.NewManagerLocalPolicyHistoryEventBundle,
+		createLocalPolicyHistoryEventBundleFunc: grc.NewManagerLocalReplicatedPolicyEventBundle,
 	}
 }
 
@@ -55,7 +55,7 @@ func (syncer *localPoliciesStatusEventSyncer) RegisterBundleHandlerFunctions(
 	conflationManager *conflator.ConflationManager,
 ) {
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.LocalPolicyHistoryEventPriority,
+		conflator.LocalReplicatedPolicyEventPriority,
 		metadata.CompleteStateMode,
 		bundle.GetBundleType(syncer.createLocalPolicyHistoryEventBundleFunc()),
 		syncer.handleLocalObjectsBundleWrapper()))
@@ -85,7 +85,7 @@ func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundle(ctx conte
 	batchUpsertLocalPolicyEvents := []models.LocalClusterPolicyEvent{}
 
 	for _, object := range bundle.GetObjects() {
-		policyStatusEvent, ok := object.(*base.PolicyHistoryEvent)
+		policyStatusEvent, ok := object.(*base.ReplicatedPolicyEvent)
 		if !ok {
 			continue
 		}

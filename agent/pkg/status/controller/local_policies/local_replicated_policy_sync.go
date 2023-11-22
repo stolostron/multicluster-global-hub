@@ -25,7 +25,7 @@ func AddLocalReplicatedPolicySyncer(mgr ctrl.Manager, producer transport.Produce
 
 	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.LocalPolicyHistoryEventMsgKey)
-	localPolicyHistoryEventBundle := grc.NewAgentLocalPolicyHistoryEventBundle(context.TODO(),
+	localPolicyHistoryEventBundle := grc.NewAgentLocalReplicatedPolicyEventBundle(context.TODO(),
 		leafHubName, mgr.GetClient())
 
 	localClusterPolicyBundleEntryCollection := []*generic.BundleEntry{
@@ -38,7 +38,7 @@ func AddLocalReplicatedPolicySyncer(mgr ctrl.Manager, producer transport.Produce
 			utils.HasLabel(object, rootPolicyLabel)
 	})
 
-	return generic.NewStatusGenericSyncer(mgr, "local-replicas-policies-status-sync", producer,
+	return generic.NewGenericStatusSyncer(mgr, "local-replicas-policies-status-sync", producer,
 		localClusterPolicyBundleEntryCollection, createObjFunc, localClusterPolicyPredicate,
 		config.GetPolicyDuration)
 }

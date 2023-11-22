@@ -17,10 +17,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-const (
-	localPlacementRuleStatusSyncLog = "local-placement-rule-status-sync"
-)
-
 // AddLocalPlacementRulesController adds a new local placement rules controller.
 func AddLocalPlacementRulesController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunc := func() bundle.Object { return &placementrulesv1.PlacementRule{} }
@@ -30,7 +26,7 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, producer transport.Produ
 
 	bundleCollection := []*generic.BundleEntry{
 		generic.NewBundleEntry(localPlacementRuleTransportKey,
-			genericbundle.NewStatusGenericBundle(leafHubName, cleanPlacementRule),
+			genericbundle.NewGenericStatusBundle(leafHubName, cleanPlacementRule),
 			func() bool { // bundle predicate
 				return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue
 			}),
@@ -40,12 +36,8 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, producer transport.Produ
 		return !utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewStatusGenericSyncer(mgr, localPlacementRuleStatusSyncLog, producer, bundleCollection,
-		createObjFunc, localPlacementRulePredicate, config.GetPolicyDuration); err != nil {
-		return fmt.Errorf("failed to add local placement rules controller to the manager - %w", err)
-	}
-
-	return nil
+	return generic.NewGenericStatusSyncer(mgr, "local-placement-rule-status-sync", producer, bundleCollection,
+		createObjFunc, localPlacementRulePredicate, config.GetPolicyDuration)
 }
 
 func cleanPlacementRule(object bundle.Object) {

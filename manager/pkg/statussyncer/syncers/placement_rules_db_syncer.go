@@ -12,7 +12,7 @@ import (
 
 // NewPlacementRulesDBSyncer creates a new instance of genericDBSyncer to sync placement-rules.
 func NewPlacementRulesDBSyncer(log logr.Logger) Syncer {
-	dbSyncer := &genericStatusSyncer{
+	return &genericStatusSyncer{
 		log:              log,
 		transportMsgKey:  constants.PlacementRuleMsgKey,
 		dbSchema:         database.StatusSchema,
@@ -21,8 +21,4 @@ func NewPlacementRulesDBSyncer(log logr.Logger) Syncer {
 		bundlePriority:   conflator.PlacementRulePriority,
 		bundleSyncMode:   metadata.CompleteStateMode,
 	}
-
-	log.Info("initialized placement-rules db syncer")
-
-	return dbSyncer
 }

@@ -6,6 +6,8 @@ import (
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 )
 
+var _ bundle.ManagerBundle = (*PlacementRulesBundle)(nil)
+
 // NewManagerPlacementRulesBundle creates a new instance of PlacementRulesBundle.
 func NewManagerPlacementRulesBundle() bundle.ManagerBundle {
 	return &PlacementRulesBundle{}

@@ -6,6 +6,8 @@ import (
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 )
 
+var _ bundle.ManagerBundle = (*PlacementsBundle)(nil)
+
 // NewManagerPlacementsBundle creates a new instance of PlacementsBundle.
 func NewManagerPlacementsBundle() bundle.ManagerBundle {
 	return &PlacementsBundle{}

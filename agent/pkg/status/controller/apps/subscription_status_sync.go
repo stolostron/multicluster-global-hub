@@ -21,11 +21,11 @@ func AddSubscriptionStatusesController(mgr ctrl.Manager, producer transport.Prod
 
 	bundleCollection := []*generic.BundleEntry{
 		generic.NewBundleEntry(fmt.Sprintf("%s.%s", leafHubName, constants.SubscriptionStatusMsgKey),
-			statusgeneric.NewStatusGenericBundle(leafHubName, nil),
+			statusgeneric.NewGenericStatusBundle(leafHubName, nil),
 			func() bool { return true }),
 	} // bundle predicate - always send subscription status.
 
-	if err := generic.NewStatusGenericSyncer(mgr, "subscriptions-status-sync", producer, bundleCollection,
+	if err := generic.NewGenericStatusSyncer(mgr, "subscriptions-status-sync", producer, bundleCollection,
 		createObjFunction, nil, agentconfig.GetPolicyDuration); err != nil {
 		return fmt.Errorf("failed to add subscription statuses controller to the manager - %w", err)
 	}

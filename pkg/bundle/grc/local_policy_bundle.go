@@ -6,21 +6,21 @@ import (
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
-var _ bundle.ManagerBundle = (*LocalSpecPolicyBundle)(nil)
+var _ bundle.ManagerBundle = (*LocalPolicyBundle)(nil)
 
-// LocalSpecPolicyBundle abstracts management of local policies spec bundle.
-type LocalSpecPolicyBundle struct {
+// LocalPolicyBundle abstracts management of local policies spec bundle.
+type LocalPolicyBundle struct {
 	base.BaseManagerBundle
 	Objects []*policyv1.Policy `json:"objects"`
 }
 
-// NewManagerLocalSpecPolicyBundle creates a new instance of LocalPolicySpecBundle.
-func NewManagerLocalSpecPolicyBundle() bundle.ManagerBundle {
-	return &LocalSpecPolicyBundle{}
+// NewManagerLocalPolicyBundle creates a new instance of LocalPolicySpecBundle.
+func NewManagerLocalPolicyBundle() bundle.ManagerBundle {
+	return &LocalPolicyBundle{}
 }
 
 // GetObjects returns the objects in the bundle.
-func (bundle *LocalSpecPolicyBundle) GetObjects() []interface{} {
+func (bundle *LocalPolicyBundle) GetObjects() []interface{} {
 	result := make([]interface{}, len(bundle.Objects))
 	for i, obj := range bundle.Objects {
 		result[i] = obj

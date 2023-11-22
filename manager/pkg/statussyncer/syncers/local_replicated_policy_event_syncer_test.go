@@ -47,14 +47,14 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 		By("Create ClusterPolicyStatusEventBundle")
 		version := metadata.NewBundleVersion()
 		version.Incr()
-		baseClusterPolicyStatusEventBundle := base.BasePolicyHistoryEventBundle{
-			ReplicasPolicyEvents: make(map[string][]*base.PolicyHistoryEvent),
-			LeafHubName:          leafHubName,
-			BundleVersion:        version,
+		baseClusterPolicyStatusEventBundle := base.BaseReplicatedPolicyEventBundle{
+			ReplicatedPolicyEvents: make(map[string][]*base.ReplicatedPolicyEvent),
+			LeafHubName:            leafHubName,
+			BundleVersion:          version,
 		}
 		lastTimestamp := time.Now()
 
-		basePolicyEvent := &base.PolicyHistoryEvent{
+		basePolicyEvent := &base.ReplicatedPolicyEvent{
 			ClusterID:  "69369013-3e0e-4a9c-b38c-7efbe7770b61",
 			PolicyID:   "f99c4252-bdde-43e9-9d3f-9bf0a5583543",
 			Compliance: "Compliant",
@@ -63,8 +63,8 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 			CreatedAt:  lastTimestamp,
 		}
 
-		events := make([]*base.PolicyHistoryEvent, 0)
-		baseClusterPolicyStatusEventBundle.ReplicasPolicyEvents["clusterPolicyId"] = append(events, basePolicyEvent)
+		events := make([]*base.ReplicatedPolicyEvent, 0)
+		baseClusterPolicyStatusEventBundle.ReplicatedPolicyEvents["clusterPolicyId"] = append(events, basePolicyEvent)
 
 		By("Create transport message")
 		payloadBytes, err := json.Marshal(baseClusterPolicyStatusEventBundle)

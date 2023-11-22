@@ -134,10 +134,10 @@ func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 	bundleTypes := []string{
 		bundle.GetBundleType(&cluster.HubClusterInfoBundle{}),
 		bundle.GetBundleType(&cluster.ManagedClusterBundle{}),
-		bundle.GetBundleType(&grc.LocalSpecPolicyBundle{}),
+		bundle.GetBundleType(&grc.LocalPolicyBundle{}),
 		bundle.GetBundleType(&grc.LocalComplianceBundle{}),
 		bundle.GetBundleType(&grc.LocalCompleteComplianceBundle{}),
-		bundle.GetBundleType(&grc.LocalPolicyHistoryEventBundle{}),
+		bundle.GetBundleType(&grc.LocalReplicatedPolicyEventBundle{}),
 		// bundle.GetBundleType(&placement.LocalPlacementRulesBundle{}),
 	}
 

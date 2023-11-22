@@ -6,12 +6,13 @@ import (
 )
 
 // NewBundleEntry creates a new instance of BundleCollectionEntry.
-func NewBundleEntry(transportBundleKey string, bundle bundle.AgentBundle, predicate func() bool,
+func NewBundleEntry(transportBundleKey string, bundle bundle.AgentBundle,
+	bundlePredicate func() bool,
 ) *BundleEntry {
 	return &BundleEntry{
 		transportBundleKey:    transportBundleKey,
 		bundle:                bundle,
-		predicate:             predicate,
+		bundlePredicate:       bundlePredicate,
 		lastSentBundleVersion: *bundle.GetVersion(),
 	}
 }
@@ -20,6 +21,6 @@ func NewBundleEntry(transportBundleKey string, bundle bundle.AgentBundle, predic
 type BundleEntry struct {
 	transportBundleKey    string
 	bundle                bundle.AgentBundle
-	predicate             func() bool
+	bundlePredicate       func() bool
 	lastSentBundleVersion metadata.BundleVersion // not pointer so it does not point to the bundle's internal version
 }

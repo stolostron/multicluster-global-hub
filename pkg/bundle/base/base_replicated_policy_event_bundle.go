@@ -8,7 +8,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
 
-type PolicyHistoryEvent struct {
+type ReplicatedPolicyEvent struct {
 	ClusterID  string         `json:"clusterId"`
 	PolicyID   string         `json:"policyId"`
 	Compliance string         `json:"compliance"`
@@ -20,9 +20,9 @@ type PolicyHistoryEvent struct {
 	CreatedAt  time.Time      `json:"createdAt"`
 }
 
-// BasePolicyHistoryEventBundle the base struct for cluster policy history event bundle.
-type BasePolicyHistoryEventBundle struct {
-	LeafHubName          string                             `json:"leafHubName"`
-	ReplicasPolicyEvents map[string]([]*PolicyHistoryEvent) `json:"policyStatusEvents"`
-	BundleVersion        *metadata.BundleVersion            `json:"bundleVersion"`
+// BaseReplicatedPolicyEventBundle the base struct for cluster policy history event bundle.
+type BaseReplicatedPolicyEventBundle struct {
+	LeafHubName            string                                `json:"leafHubName"`
+	ReplicatedPolicyEvents map[string]([]*ReplicatedPolicyEvent) `json:"policyStatusEvents"`
+	BundleVersion          *metadata.BundleVersion               `json:"bundleVersion"`
 }

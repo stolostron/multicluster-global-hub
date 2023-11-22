@@ -15,7 +15,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -49,7 +49,7 @@ type KafkaConsumer struct {
 
 	// Used by agent
 	leafHubName                     string
-	genericBundlesChan              chan *base.SpecGenericBundle
+	genericBundlesChan              chan *spec.GenericSpecBundle
 	customBundleIDToRegistrationMap map[string]*registration.CustomBundleRegistration
 	stopChan                        chan struct{}
 	partitionToOffsetToCommitMap    map[int32]kafka.Offset // size limited at all times (low)
@@ -91,7 +91,7 @@ func NewKafkaConsumer(kafkaConfig *transport.KafkaConfig, log logr.Logger,
 		topic:            kafkaConfig.ConsumerConfig.ConsumerTopic,
 		messageChan:      messageChan,
 
-		genericBundlesChan:         make(chan *base.SpecGenericBundle),
+		genericBundlesChan:         make(chan *spec.GenericSpecBundle),
 		messageIDToRegistrationMap: make(map[string]*registration.BundleRegistration),
 
 		customBundleIDToRegistrationMap: make(map[string]*registration.CustomBundleRegistration),
@@ -268,7 +268,7 @@ func (c *KafkaConsumer) processMessage(message *kafka.Message) {
 }
 
 func (c *KafkaConsumer) syncGenericBundle(payload []byte) error {
-	receivedBundle := base.NewSpecGenericBundle()
+	receivedBundle := spec.NewGenericSpecBundle()
 	if err := json.Unmarshal(payload, receivedBundle); err != nil {
 		return fmt.Errorf("failed to parse bundle - %w", err)
 	}
@@ -321,7 +321,7 @@ func (c *KafkaConsumer) lookupHeaderValue(message *kafka.Message, headerKey stri
 	return nil, false
 }
 
-func (c *KafkaConsumer) GetGenericBundleChan() chan *base.SpecGenericBundle {
+func (c *KafkaConsumer) GetGenericBundleChan() chan *spec.GenericSpecBundle {
 	return c.genericBundlesChan
 }
 

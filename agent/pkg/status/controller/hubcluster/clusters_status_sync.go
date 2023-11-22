@@ -36,6 +36,6 @@ func AddHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) erro
 				object.GetName() == constants.ObservabilityGrafanaRouteName)
 	})
 
-	return generic.NewStatusGenericSyncer(mgr, "hub-cluster-status-sync", producer, bundleCollection,
+	return generic.NewGenericStatusSyncer(mgr, "hub-cluster-status-sync", producer, bundleCollection,
 		createObjFunction, hubClusterInfoPredicate, config.GetHubClusterInfoDuration)
 }

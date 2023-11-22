@@ -76,10 +76,10 @@ func (manager *HybridSyncManager) SetHybridModeCallBack(deltaCountSwitchFactor i
 func (manager *HybridSyncManager) appendPredicates() {
 	// append predicates for mode-management
 	for syncMode, bundleCollectionEntry := range manager.bundleCollectionEntryMap {
-		entry := bundleCollectionEntry       // to use in func
-		mode := syncMode                     // to use in func
-		originalPredicate := entry.predicate // avoid recursion
-		entry.predicate = func() bool {
+		entry := bundleCollectionEntry             // to use in func
+		mode := syncMode                           // to use in func
+		originalPredicate := entry.bundlePredicate // avoid recursion
+		entry.bundlePredicate = func() bool {
 			manager.lock.Lock()
 			defer manager.lock.Unlock()
 

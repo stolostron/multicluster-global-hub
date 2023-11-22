@@ -13,7 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/rbac"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	helper "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -36,7 +36,7 @@ func NewGenericSyncer(workerPool *workers.WorkerPool, config *config.AgentConfig
 }
 
 func (syncer *genericBundleSyncer) Sync(payload []byte) error {
-	genericBundle := &base.SpecGenericBundle{}
+	genericBundle := &spec.GenericSpecBundle{}
 	if err := json.Unmarshal(payload, genericBundle); err != nil {
 		return err
 	}

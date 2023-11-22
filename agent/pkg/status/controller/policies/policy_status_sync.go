@@ -24,8 +24,8 @@ const (
 	rootPolicyLabel       = "policy.open-cluster-management.io/root-policy"
 )
 
-// AddPoliciesStatusController adds policies status controller to the manager.
-func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer) (*generic.HybridSyncManager, error) {
+// AddPolicyStatusSyncer adds policies status controller to the manager.
+func AddPolicyStatusSyncer(mgr ctrl.Manager, producer transport.Producer) (*generic.HybridSyncManager, error) {
 	leafHubName := config.GetLeafHubName()
 	bundleCollection, hybridSyncManager, err := createBundleCollection(producer, leafHubName)
 	if err != nil {
@@ -43,7 +43,7 @@ func AddPoliciesStatusController(mgr ctrl.Manager, producer transport.Producer) 
 	createObjFunction := func() bundle.Object { return &policiesV1.Policy{} }
 
 	// initialize policy status controller (contains multiple bundles)
-	if err := generic.NewStatusGenericSyncer(mgr, policiesStatusSyncLog, producer, bundleCollection, createObjFunction,
+	if err := generic.NewGenericStatusSyncer(mgr, policiesStatusSyncLog, producer, bundleCollection, createObjFunction,
 		predicate.And(rootPolicyPredicate, ownerRefAnnotationPredicate), config.GetPolicyDuration); err != nil {
 		return hybridSyncManager, fmt.Errorf("failed to add policies controller to the manager - %w", err)
 	}

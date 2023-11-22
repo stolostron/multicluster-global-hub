@@ -15,10 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-const (
-	placementDecisionsSyncLog = "placement-decisions-sync"
-)
-
 // AddPlacementDecisionsController adds placement-decision controller to the manager.
 func AddPlacementDecisionsController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunction := func() bundle.Object { return &clustersv1beta1.PlacementDecision{} }
@@ -26,14 +22,10 @@ func AddPlacementDecisionsController(mgr ctrl.Manager, producer transport.Produc
 
 	bundleCollection := []*generic.BundleEntry{
 		generic.NewBundleEntry(fmt.Sprintf("%s.%s", leafHubName, constants.PlacementDecisionMsgKey),
-			genericbundle.NewStatusGenericBundle(leafHubName, nil),
+			genericbundle.NewGenericStatusBundle(leafHubName, nil),
 			func() bool { return true }),
 	} // bundle predicate - always send placement decision.
 
-	if err := generic.NewStatusGenericSyncer(mgr, placementDecisionsSyncLog, producer, bundleCollection,
-		createObjFunction, nil, agentstatusconfig.GetPolicyDuration); err != nil {
-		return fmt.Errorf("failed to add placement decisions controller to the manager - %w", err)
-	}
-
-	return nil
+	return generic.NewGenericStatusSyncer(mgr, "placement-decisions-sync", producer, bundleCollection,
+		createObjFunction, nil, agentstatusconfig.GetPolicyDuration)
 }

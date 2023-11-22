@@ -18,34 +18,23 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-const (
-	placementRuleSyncLog = "placement-rules-sync"
-	PlacementRuleMsgKey  = "PlacementRule"
-)
-
 // AddPlacementRulesController adds placement-rule controller to the manager.
 func AddPlacementRulesController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunction := func() bundle.Object { return &placementrulesV1.PlacementRule{} }
 	leafHubName := config.GetLeafHubName()
 
-	// TODO datatypes.PlacementRuleMsgKey
 	bundleCollection := []*generic.BundleEntry{
-		generic.NewBundleEntry(fmt.Sprintf("%s.%s", leafHubName, PlacementRuleMsgKey),
-			genericbundle.NewStatusGenericBundle(leafHubName, cleanPlacementRule),
+		generic.NewBundleEntry(fmt.Sprintf("%s.%s", leafHubName, constants.PlacementRuleMsgKey),
+			genericbundle.NewGenericStatusBundle(leafHubName, cleanPlacementRule),
 			func() bool { return true }),
 	} // bundle predicate - always send placement rules.
 
-	// TODO datatypes.OriginOwnerReferenceAnnotation
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 
-	if err := generic.NewStatusGenericSyncer(mgr, placementRuleSyncLog, producer, bundleCollection,
-		createObjFunction, ownerRefAnnotationPredicate, agentstatusconfig.GetPolicyDuration); err != nil {
-		return fmt.Errorf("failed to add placement rules controller to the manager - %w", err)
-	}
-
-	return nil
+	return generic.NewGenericStatusSyncer(mgr, "placement-rules-sync", producer, bundleCollection,
+		createObjFunction, ownerRefAnnotationPredicate, agentstatusconfig.GetPolicyDuration)
 }
 
 func cleanPlacementRule(object bundle.Object) {

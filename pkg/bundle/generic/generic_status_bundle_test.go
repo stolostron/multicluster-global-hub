@@ -8,7 +8,7 @@ import (
 )
 
 func TestRemoveObjFromBundle(t *testing.T) {
-	bundle := NewStatusGenericBundle("leafhubname", nil)
+	bundle := NewGenericStatusBundle("leafhubname", nil)
 
 	policy := &policiesv1.Policy{
 		ObjectMeta: metav1.ObjectMeta{

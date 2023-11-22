@@ -7,6 +7,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
 )
 
+var _ bundle.ManagerBundle = (*LocalPlacementRulesBundle)(nil)
+
 // LocalPlacementRulesBundle abstracts management of local placement rules bundle.
 type LocalPlacementRulesBundle struct {
 	base.BaseManagerBundle

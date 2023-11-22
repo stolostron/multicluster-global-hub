@@ -41,7 +41,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 	scheme.AddKnownTypes(policiesv1.GroupVersion, policy)
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	controller := &statusGenericSyncer{
+	controller := &genericStatusSyncer{
 		client:              c,
 		log:                 ctrl.Log.WithName("test-controller"),
 		finalizerName:       constants.GlobalHubCleanupFinalizer,

@@ -7,39 +7,40 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
 
-var _ bundle.AgentBundle = (*StatusGenericBundle)(nil)
+var _ bundle.AgentBundle = (*GenericStatusBundle)(nil)
 
-// StatusGenericBundle is a bundle that is used to send to the hub of hubs the leaf CR as is
+// GenericStatusBundle is a bundle that is used to send to the hub of hubs the leaf CR as is
 // except for fields that are not relevant in the hub of hubs like finalizers, etc.
 // for bundles that require more specific behavior, it's required to implement your own status bundle struct.
-type StatusGenericBundle struct {
-	Objects           []bundle.Object         `json:"objects"`
-	LeafHubName       string                  `json:"leafHubName"`
-	BundleVersion     *metadata.BundleVersion `json:"bundleVersion"`
+type GenericStatusBundle struct {
+	base.BaseGenericStatusBundle
 	manipulateObjFunc func(obj bundle.Object)
 	lock              sync.Mutex
 }
 
-// NewStatusGenericBundle creates a new instance of GenericStatusBundle.
-func NewStatusGenericBundle(leafHubName string, manipulateObjFunc func(obj bundle.Object)) bundle.AgentBundle {
+// NewGenericStatusBundle creates a new instance of GenericStatusBundle.
+func NewGenericStatusBundle(leafHubName string, manipulateObjFunc func(obj bundle.Object)) bundle.AgentBundle {
 	if manipulateObjFunc == nil {
 		manipulateObjFunc = func(object bundle.Object) {
 			// do nothing
 		}
 	}
-	return &StatusGenericBundle{
-		Objects:           make([]bundle.Object, 0),
-		LeafHubName:       leafHubName,
-		BundleVersion:     metadata.NewBundleVersion(),
+	return &GenericStatusBundle{
+		BaseGenericStatusBundle: base.BaseGenericStatusBundle{
+			Objects:       make([]bundle.Object, 0),
+			LeafHubName:   leafHubName,
+			BundleVersion: metadata.NewBundleVersion(),
+		},
 		manipulateObjFunc: manipulateObjFunc,
 	}
 }
 
 // UpdateObject function to update a single object inside a bundle.
-func (genericBundle *StatusGenericBundle) UpdateObject(object bundle.Object) {
+func (genericBundle *GenericStatusBundle) UpdateObject(object bundle.Object) {
 	genericBundle.lock.Lock()
 	defer genericBundle.lock.Unlock()
 
@@ -62,7 +63,7 @@ func (genericBundle *StatusGenericBundle) UpdateObject(object bundle.Object) {
 }
 
 // DeleteObject function to delete a single object inside a bundle.
-func (generic *StatusGenericBundle) DeleteObject(object bundle.Object) {
+func (generic *GenericStatusBundle) DeleteObject(object bundle.Object) {
 	generic.lock.Lock()
 	defer generic.lock.Unlock()
 
@@ -75,11 +76,11 @@ func (generic *StatusGenericBundle) DeleteObject(object bundle.Object) {
 }
 
 // GetVersion function to get bundle version.
-func (bundle *StatusGenericBundle) GetVersion() *metadata.BundleVersion {
+func (bundle *GenericStatusBundle) GetVersion() *metadata.BundleVersion {
 	return bundle.BundleVersion
 }
 
-func (genericbundle *StatusGenericBundle) getObjectIndexByUID(uid types.UID) (int, error) {
+func (genericbundle *GenericStatusBundle) getObjectIndexByUID(uid types.UID) (int, error) {
 	for i, object := range genericbundle.Objects {
 		if object.GetUID() == uid {
 			return i, nil
@@ -89,7 +90,7 @@ func (genericbundle *StatusGenericBundle) getObjectIndexByUID(uid types.UID) (in
 	return -1, fmt.Errorf("not find obj by uid: %s", uid)
 }
 
-func (genericBundle *StatusGenericBundle) getObjectIndexByObj(obj bundle.Object) (int, error) {
+func (genericBundle *GenericStatusBundle) getObjectIndexByObj(obj bundle.Object) (int, error) {
 	if len(obj.GetUID()) > 0 {
 		for i, object := range genericBundle.Objects {
 			if object.GetUID() == obj.GetUID() {

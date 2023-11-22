@@ -19,12 +19,12 @@ import (
 )
 
 var (
-	_ bundle.AgentBundle   = (*LocalPolicyHistoryEventBundle)(nil)
-	_ bundle.ManagerBundle = (*LocalPolicyHistoryEventBundle)(nil)
+	_ bundle.AgentBundle   = (*LocalReplicatedPolicyEventBundle)(nil)
+	_ bundle.ManagerBundle = (*LocalReplicatedPolicyEventBundle)(nil)
 )
 
-type LocalPolicyHistoryEventBundle struct {
-	base.BasePolicyHistoryEventBundle
+type LocalReplicatedPolicyEventBundle struct {
+	base.BaseReplicatedPolicyEventBundle
 	lock          sync.Mutex
 	runtimeClient client.Client
 	ctx           context.Context
@@ -32,13 +32,13 @@ type LocalPolicyHistoryEventBundle struct {
 	log           logr.Logger
 }
 
-// NewAgentLocalPolicyHistoryEventBundle creates a new instance of ClustersPerPolicyBundle.
-func NewAgentLocalPolicyHistoryEventBundle(ctx context.Context, leafhub string, c client.Client) bundle.AgentBundle {
-	return &LocalPolicyHistoryEventBundle{
-		BasePolicyHistoryEventBundle: base.BasePolicyHistoryEventBundle{
-			ReplicasPolicyEvents: make(map[string][]*base.PolicyHistoryEvent),
-			LeafHubName:          leafhub,
-			BundleVersion:        metadata.NewBundleVersion(),
+// NewAgentLocalReplicatedPolicyEventBundle creates a new instance of ClustersPerPolicyBundle.
+func NewAgentLocalReplicatedPolicyEventBundle(ctx context.Context, leafhub string, c client.Client) bundle.AgentBundle {
+	return &LocalReplicatedPolicyEventBundle{
+		BaseReplicatedPolicyEventBundle: base.BaseReplicatedPolicyEventBundle{
+			ReplicatedPolicyEvents: make(map[string][]*base.ReplicatedPolicyEvent),
+			LeafHubName:            leafhub,
+			BundleVersion:          metadata.NewBundleVersion(),
 		},
 		lock:          sync.Mutex{},
 		runtimeClient: c,
@@ -48,19 +48,19 @@ func NewAgentLocalPolicyHistoryEventBundle(ctx context.Context, leafhub string, 
 	}
 }
 
-func NewManagerLocalPolicyHistoryEventBundle() bundle.ManagerBundle {
-	return &LocalPolicyHistoryEventBundle{}
+func NewManagerLocalReplicatedPolicyEventBundle() bundle.ManagerBundle {
+	return &LocalReplicatedPolicyEventBundle{}
 }
 
 // Manager - GetLeafHubName returns the leaf hub name that sent the bundle.
-func (bundle *LocalPolicyHistoryEventBundle) GetLeafHubName() string {
+func (bundle *LocalReplicatedPolicyEventBundle) GetLeafHubName() string {
 	return bundle.LeafHubName
 }
 
 // Manager - GetObjects returns the objects in the bundle.
-func (bundle *LocalPolicyHistoryEventBundle) GetObjects() []interface{} {
+func (bundle *LocalReplicatedPolicyEventBundle) GetObjects() []interface{} {
 	objects := make([]interface{}, 0)
-	for _, events := range bundle.ReplicasPolicyEvents {
+	for _, events := range bundle.ReplicatedPolicyEvents {
 		for _, event := range events {
 			objects = append(objects, event)
 		}
@@ -69,12 +69,12 @@ func (bundle *LocalPolicyHistoryEventBundle) GetObjects() []interface{} {
 }
 
 // Manager
-func (bundle *LocalPolicyHistoryEventBundle) SetVersion(version *metadata.BundleVersion) {
+func (bundle *LocalReplicatedPolicyEventBundle) SetVersion(version *metadata.BundleVersion) {
 	bundle.BundleVersion = version
 }
 
 // Agent - UpdateObject function to update a single object inside a bundle.
-func (b *LocalPolicyHistoryEventBundle) UpdateObject(object bundle.Object) {
+func (b *LocalReplicatedPolicyEventBundle) UpdateObject(object bundle.Object) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -107,13 +107,13 @@ func (b *LocalPolicyHistoryEventBundle) UpdateObject(object bundle.Object) {
 	}
 
 	// update the object to bundle
-	bundlePolicyStatusEvents, ok := b.ReplicasPolicyEvents[string(policy.GetUID())]
+	bundlePolicyStatusEvents, ok := b.ReplicatedPolicyEvents[string(policy.GetUID())]
 	if !ok {
-		bundlePolicyStatusEvents = make([]*base.PolicyHistoryEvent, 0)
+		bundlePolicyStatusEvents = make([]*base.ReplicatedPolicyEvent, 0)
 	}
 
 	// deprecated events, cause it has been synced before
-	deprecatedBundleEvents := make(map[string]*base.PolicyHistoryEvent)
+	deprecatedBundleEvents := make(map[string]*base.ReplicatedPolicyEvent)
 	for _, e := range bundlePolicyStatusEvents {
 		deprecatedBundleEvents[e.EventName] = e
 	}
@@ -130,7 +130,7 @@ func (b *LocalPolicyHistoryEventBundle) UpdateObject(object bundle.Object) {
 	}
 
 	// only load the 'new' events to bundle
-	deltaPolicyEvents := make([]*base.PolicyHistoryEvent, 0)
+	deltaPolicyEvents := make([]*base.ReplicatedPolicyEvent, 0)
 	for _, event := range bundlePolicyStatusEvents {
 		if _, ok := deprecatedBundleEvents[event.EventName]; !ok {
 			deltaPolicyEvents = append(deltaPolicyEvents, event)
@@ -138,13 +138,13 @@ func (b *LocalPolicyHistoryEventBundle) UpdateObject(object bundle.Object) {
 	}
 
 	if len(deltaPolicyEvents) > 0 {
-		b.ReplicasPolicyEvents[string(policy.GetUID())] = deltaPolicyEvents
+		b.ReplicatedPolicyEvents[string(policy.GetUID())] = deltaPolicyEvents
 		b.BundleVersion.Incr()
 	}
 }
 
 // Agent - DeleteObject function to delete a single object inside a bundle.
-func (bundle *LocalPolicyHistoryEventBundle) DeleteObject(object bundle.Object) {
+func (bundle *LocalReplicatedPolicyEventBundle) DeleteObject(object bundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
 
@@ -153,16 +153,16 @@ func (bundle *LocalPolicyHistoryEventBundle) DeleteObject(object bundle.Object) 
 		return // do not handle objects other than policy
 	}
 
-	delete(bundle.ReplicasPolicyEvents, string(policy.GetUID()))
+	delete(bundle.ReplicatedPolicyEvents, string(policy.GetUID()))
 	// bundle.BundleVersion.Incr() // if the policy is deleted, we don't need to delete the event from database
 }
 
 // Agent - GetBundleVersion function to get bundle version.
-func (bundle *LocalPolicyHistoryEventBundle) GetVersion() *metadata.BundleVersion {
+func (bundle *LocalReplicatedPolicyEventBundle) GetVersion() *metadata.BundleVersion {
 	return bundle.BundleVersion
 }
 
-func (bundle *LocalPolicyHistoryEventBundle) ParseCompliance(message string) string {
+func (bundle *LocalReplicatedPolicyEventBundle) ParseCompliance(message string) string {
 	match := bundle.regex.FindStringSubmatch(message)
 	if len(match) > 1 {
 		firstWord := strings.TrimSpace(match[1])
@@ -172,10 +172,10 @@ func (bundle *LocalPolicyHistoryEventBundle) ParseCompliance(message string) str
 }
 
 // add/update the current status events to bundle, remove the updated event from deprecatedBundleEvents
-func (bundle *LocalPolicyHistoryEventBundle) updatePolicyEvents(event policiesv1.ComplianceHistory,
-	parentCompliance string, deprecatedBundleEvents map[string]*base.PolicyHistoryEvent,
-	rootPolicyId, clusterId string, bundlePolicyStatusEvents []*base.PolicyHistoryEvent,
-) []*base.PolicyHistoryEvent {
+func (bundle *LocalReplicatedPolicyEventBundle) updatePolicyEvents(event policiesv1.ComplianceHistory,
+	parentCompliance string, deprecatedBundleEvents map[string]*base.ReplicatedPolicyEvent,
+	rootPolicyId, clusterId string, bundlePolicyStatusEvents []*base.ReplicatedPolicyEvent,
+) []*base.ReplicatedPolicyEvent {
 	compliance := bundle.ParseCompliance(event.Message)
 	if compliance == "" {
 		compliance = parentCompliance
@@ -195,7 +195,7 @@ func (bundle *LocalPolicyHistoryEventBundle) updatePolicyEvents(event policiesv1
 		}
 	} else {
 		bundlePolicyStatusEvents = append(bundlePolicyStatusEvents,
-			&base.PolicyHistoryEvent{
+			&base.ReplicatedPolicyEvent{
 				PolicyID:   rootPolicyId,
 				ClusterID:  clusterId,
 				EventName:  event.EventName,

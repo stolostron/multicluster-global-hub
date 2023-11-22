@@ -28,7 +28,7 @@ const REQUEUE_PERIOD = 5 * time.Second
 // CreateObjectFunction is a function for how to create an object that is stored inside the bundle.
 type CreateObjectFunction func() bundle.Object
 
-type statusGenericSyncer struct {
+type genericStatusSyncer struct {
 	log                     logr.Logger
 	client                  client.Client
 	transport               transport.Producer
@@ -40,12 +40,12 @@ type statusGenericSyncer struct {
 	lock                    sync.Mutex
 }
 
-// NewStatusGenericSyncer creates a new instance of genericStatusSyncController and adds it to the manager.
-func NewStatusGenericSyncer(mgr ctrl.Manager, logName string, producer transport.Producer,
+// NewGenericStatusSyncer creates a new instance of genericStatusSyncController and adds it to the manager.
+func NewGenericStatusSyncer(mgr ctrl.Manager, logName string, producer transport.Producer,
 	orderedBundleCollection []*BundleEntry, createObjFunc CreateObjectFunction, predicate predicate.Predicate,
 	resolveSyncIntervalFunc config.ResolveSyncIntervalFunc,
 ) error {
-	statusSyncCtrl := &statusGenericSyncer{
+	statusSyncCtrl := &genericStatusSyncer{
 		client:                  mgr.GetClient(),
 		log:                     ctrl.Log.WithName(logName),
 		transport:               producer,
@@ -69,13 +69,13 @@ func NewStatusGenericSyncer(mgr ctrl.Manager, logName string, producer transport
 	return nil
 }
 
-func (c *statusGenericSyncer) init() {
+func (c *genericStatusSyncer) init() {
 	c.startOnce.Do(func() {
 		go c.periodicSync()
 	})
 }
 
-func (c *statusGenericSyncer) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+func (c *genericStatusSyncer) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Namespace", request.Namespace, "Name", request.Name)
 
 	object := c.createBundleObjFunc()
@@ -108,11 +108,11 @@ func (c *statusGenericSyncer) Reconcile(ctx context.Context, request ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-func (c *statusGenericSyncer) isObjectBeingDeleted(object bundle.Object) bool {
+func (c *genericStatusSyncer) isObjectBeingDeleted(object bundle.Object) bool {
 	return !object.GetDeletionTimestamp().IsZero()
 }
 
-func (c *statusGenericSyncer) updateObjectAndFinalizer(ctx context.Context, object bundle.Object,
+func (c *genericStatusSyncer) updateObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger,
 ) error {
 	// only add finalizer for the global resources
@@ -136,7 +136,7 @@ func (c *statusGenericSyncer) updateObjectAndFinalizer(ctx context.Context, obje
 	return nil
 }
 
-func (c *statusGenericSyncer) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object,
+func (c *genericStatusSyncer) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger,
 ) error {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
@@ -150,7 +150,7 @@ func (c *statusGenericSyncer) deleteObjectAndFinalizer(ctx context.Context, obje
 	return c.removeFinalizer(ctx, object, log)
 }
 
-func (c *statusGenericSyncer) periodicSync() {
+func (c *genericStatusSyncer) periodicSync() {
 	currentSyncInterval := c.resolveSyncIntervalFunc()
 	ticker := time.NewTicker(currentSyncInterval)
 
@@ -169,14 +169,14 @@ func (c *statusGenericSyncer) periodicSync() {
 	}
 }
 
-func (c *statusGenericSyncer) syncBundles() {
+func (c *genericStatusSyncer) syncBundles() {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer c.lock.Unlock()
 
 	for i := range c.orderedBundleCollection {
 		entry := c.orderedBundleCollection[i]
 
-		if !entry.predicate() { // evaluate if bundle has to be sent only if predicate is true.
+		if !entry.bundlePredicate() { // evaluate if bundle has to be sent only if predicate is true.
 			continue
 		}
 
@@ -225,7 +225,7 @@ func cleanObject(object bundle.Object) {
 	// object.SetClusterName("")
 }
 
-func (c *statusGenericSyncer) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
+func (c *genericStatusSyncer) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
 	// if the removing finalizer label hasn't expired, then skip the adding finalizer action
 	if val, found := object.GetLabels()[constants.GlobalHubFinalizerRemovingDeadline]; found {
 		deadline, err := strconv.ParseInt(val, 10, 64)
@@ -254,7 +254,7 @@ func (c *statusGenericSyncer) addFinalizer(ctx context.Context, object bundle.Ob
 	return nil
 }
 
-func (c *statusGenericSyncer) removeFinalizer(ctx context.Context, object bundle.Object,
+func (c *genericStatusSyncer) removeFinalizer(ctx context.Context, object bundle.Object,
 	log logr.Logger,
 ) error {
 	if !controllerutil.ContainsFinalizer(object, c.finalizerName) {

@@ -7,6 +7,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
 )
 
+var _ bundle.ManagerBundle = (*SubscriptionStatusesBundle)(nil)
+
 // NewManagerSubscriptionStatusesBundle creates a new instance of SubscriptionStatusesBundle.
 func NewManagerSubscriptionStatusesBundle() bundle.ManagerBundle {
 	return &SubscriptionStatusesBundle{}
