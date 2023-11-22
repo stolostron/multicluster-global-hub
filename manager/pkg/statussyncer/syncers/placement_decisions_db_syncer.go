@@ -11,8 +11,8 @@ import (
 )
 
 // NewPlacementDecisionsDBSyncer creates a new instance of genericDBSyncer to sync placement-decisions.
-func NewPlacementDecisionsDBSyncer(log logr.Logger) DBSyncer {
-	dbSyncer := &genericDBSyncer{
+func NewPlacementDecisionsDBSyncer(log logr.Logger) Syncer {
+	dbSyncer := &genericStatusSyncer{
 		log:              log,
 		transportMsgKey:  constants.PlacementDecisionMsgKey,
 		dbSchema:         database.StatusSchema,

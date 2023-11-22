@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -15,13 +14,12 @@ import (
 // jobsQueue is initialized with capacity of 1. this is done in order to make sure dispatcher isn't blocked when calling
 // to RunAsync, otherwise it will yield cpu to other go routines.
 func NewWorker(log logr.Logger, workerID int32, dbWorkersPool chan *Worker,
-	dbConnPool postgres.StatusTransportBridgeDB, statistics *statistics.Statistics,
+	statistics *statistics.Statistics,
 ) *Worker {
 	return &Worker{
 		log:        log,
 		workerID:   workerID,
 		workers:    dbWorkersPool,
-		connPool:   dbConnPool,
 		jobsQueue:  make(chan *DBJob, 1),
 		statistics: statistics,
 	}
@@ -32,7 +30,6 @@ type Worker struct {
 	log        logr.Logger
 	workerID   int32
 	workers    chan *Worker
-	connPool   postgres.StatusTransportBridgeDB
 	jobsQueue  chan *DBJob
 	statistics *statistics.Statistics
 }
@@ -59,7 +56,7 @@ func (worker *Worker) start(ctx context.Context) {
 
 		case job := <-worker.jobsQueue: // DBWorker received a job request.
 			startTime := time.Now()
-			err := job.handlerFunc(ctx, job.bundle, worker.connPool) // db connection released to pool when done
+			err := job.handlerFunc(ctx, job.bundle) // db connection released to pool when done
 			worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
 			job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
 

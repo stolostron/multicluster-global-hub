@@ -8,8 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
@@ -18,17 +16,14 @@ import (
 type DBWorkerPool struct {
 	log        logr.Logger
 	statistics *statistics.Statistics
-	dataConfig *config.DatabaseConfig
-	connPool   postgres.StatusTransportBridgeDB
 	workers    chan *Worker // A pool of workers that are registered within the workers pool
 	ticker     *time.Ticker
 }
 
 // NewDBWorkerPool returns a new db workers pool dispatcher.
-func NewDBWorkerPool(dataConfig *config.DatabaseConfig, statistics *statistics.Statistics) (*DBWorkerPool, error) {
+func NewDBWorkerPool(statistics *statistics.Statistics) (*DBWorkerPool, error) {
 	return &DBWorkerPool{
 		log:        ctrl.Log.WithName("worker-pool"),
-		dataConfig: dataConfig,
 		statistics: statistics,
 		ticker:     time.NewTicker(10 * time.Second),
 	}, nil
@@ -36,31 +31,32 @@ func NewDBWorkerPool(dataConfig *config.DatabaseConfig, statistics *statistics.S
 
 // Start function starts the db workers pool.
 func (pool *DBWorkerPool) Start(ctx context.Context) error {
-	// initialize db connection pool, will be deprecated if the gorm library is used
-	dbConnPool, err := postgres.NewStatusPostgreSQL(ctx, &database.DatabaseConfig{
-		URL:        pool.dataConfig.ProcessDatabaseURL,
-		CaCertPath: pool.dataConfig.CACertPath,
-		PoolSize:   pool.dataConfig.MaxOpenConns,
-	})
+	sqlDB, err := database.GetGorm().DB()
 	if err != nil {
-		return fmt.Errorf("failed to initialize db worker pool - %w", err)
+		return err
 	}
-	pool.connPool = dbConnPool
+
+	stats := sqlDB.Stats()
+	pool.log.Info("connection stats", "open connection(worker)", stats.OpenConnections, "max", stats.MaxOpenConnections)
+
+	workSize := stats.MaxOpenConnections
+	if workSize < 5 {
+		workSize = 5
+	}
 
 	// initialize workers pool
-	pool.workers = make(chan *Worker, dbConnPool.GetPoolSize())
+	pool.workers = make(chan *Worker, workSize)
 
 	// start workers and register them within the workers pool
 	var i int32
-	for i = 1; i <= pool.connPool.GetPoolSize(); i++ {
-		worker := NewWorker(pool.log, i, pool.workers, pool.connPool, pool.statistics)
+	for i = 1; i <= int32(workSize); i++ {
+		worker := NewWorker(pool.log, i, pool.workers, pool.statistics)
 		go worker.start(ctx) // each worker adds itself to the pool inside start function
 	}
 
 	<-ctx.Done() // blocking wait until getting context cancel event
 
 	pool.ticker.Stop()
-	pool.connPool.Stop()
 	close(pool.workers)
 
 	return nil

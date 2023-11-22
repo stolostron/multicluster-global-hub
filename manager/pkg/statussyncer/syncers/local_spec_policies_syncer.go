@@ -16,14 +16,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 // NewLocalPolicySpecSyncer creates a new instance of LocalSpecDBSyncer.
-func NewLocalPolicySpecSyncer(log logr.Logger) DBSyncer {
+func NewLocalPolicySpecSyncer(log logr.Logger) Syncer {
 	dbSyncer := &localSpecPoliciesSyncer{
 		log:                             log,
 		createLocalPolicySpecBundleFunc: statusbundle.NewLocalPolicySpecBundle,
@@ -67,11 +66,9 @@ func (syncer *localSpecPoliciesSyncer) RegisterBundleHandlerFunctions(conflation
 }
 
 func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,
-	bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
-	return func(ctx context.Context, bundle status.Bundle,
-		dbClient postgres.StatusTransportBridgeDB,
-	) error {
-		return syncer.handleLocalObjectsBundle(ctx, bundle, dbClient, database.LocalSpecSchema, tableName)
+	bundle status.Bundle) error {
+	return func(ctx context.Context, bundle status.Bundle) error {
+		return syncer.handleLocalObjectsBundle(ctx, bundle, database.LocalSpecSchema, tableName)
 	}
 }
 
@@ -80,7 +77,7 @@ func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundleWrapper(tableName
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
 func (syncer *localSpecPoliciesSyncer) handleLocalObjectsBundle(ctx context.Context, bundle status.Bundle,
-	dbClient postgres.LocalPoliciesStatusDB, tableSchema string, tableName string,
+	tableSchema string, tableName string,
 ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()

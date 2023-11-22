@@ -11,18 +11,16 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
-	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
-func AddLocalClusterPolicyEventsController(mgr ctrl.Manager, producer transport.Producer) error {
+func AddLocalReplicatedPolicySyncer(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
-
-	leafHubName := agentstatusconfig.GetLeafHubName()
-	agentConfig := agentstatusconfig.GetAgentConfigMap()
+	leafHubName := config.GetLeafHubName()
 
 	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
 		constants.LocalClusterPolicyStatusEventMsgKey)
@@ -30,18 +28,15 @@ func AddLocalClusterPolicyEventsController(mgr ctrl.Manager, producer transport.
 
 	localClusterPolicyBundleEntryCollection := []*generic.BundleCollectionEntry{
 		generic.NewBundleCollectionEntry(localClusterPolicyHistoryEventTransportKey, clusterPolicyHistoryEventBundle,
-			func() bool { return agentConfig.Data["enableLocalPolicies"] == "true" }),
+			func() bool { return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue }),
 	}
 
 	localClusterPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return !helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) &&
 			helper.HasLabel(object, rootPolicyLabel)
 	})
-	if err := generic.NewGenericStatusSyncController(mgr, localPoliciesStatusSyncLog, producer,
-		localClusterPolicyBundleEntryCollection, createObjFunc, localClusterPolicyPredicate,
-		agentstatusconfig.GetPolicyDuration); err != nil {
-		return fmt.Errorf("failed to add local cluster policies controller to the manager - %w", err)
-	}
 
-	return nil
+	return generic.NewGenericStatusSyncController(mgr, "local-replicas-policies-status-sync", producer,
+		localClusterPolicyBundleEntryCollection, createObjFunc, localClusterPolicyPredicate,
+		config.GetPolicyDuration)
 }

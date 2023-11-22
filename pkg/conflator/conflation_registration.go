@@ -5,12 +5,11 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/dependency"
 )
 
 // BundleHandlerFunc is a function for handling a bundle.
-type BundleHandlerFunc func(context.Context, statusbundle.Bundle, postgres.StatusTransportBridgeDB) error
+type BundleHandlerFunc func(context.Context, statusbundle.Bundle) error
 
 // NewConflationRegistration creates a new instance of ConflationRegistration.
 func NewConflationRegistration(priority ConflationPriority, syncMode bundle.BundleSyncMode, bundleType string,

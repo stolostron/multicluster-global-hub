@@ -2,26 +2,38 @@ package config
 
 import (
 	"time"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 var (
 	leafHubName   = "leafhub"
-	syncIntervals = map[IntervalKey]time.Duration{
+	syncIntervals = map[AgentConfigKey]time.Duration{
 		ManagedClusterIntervalKey: 5 * time.Second,
 		PolicyIntervalKey:         5 * time.Second,
-		ControlInfoIntervalKey:    60 * time.Second,
+		HubClusterInfoIntervalKey: 60 * time.Second,
 	}
-	agentConfigMap = &corev1.ConfigMap{}
+	agentConfigs = map[AgentConfigKey]AgentConfigValue{
+		AgentAggregationKey:  AggregationFull,
+		EnableLocalPolicyKey: EnableLocalPolicyTrue,
+	}
 )
 
-type IntervalKey string
+type AgentConfigKey string
 
 const (
-	PolicyIntervalKey         IntervalKey = "policies"
-	ManagedClusterIntervalKey IntervalKey = "managedClusters"
-	ControlInfoIntervalKey    IntervalKey = "controlInfo"
+	PolicyIntervalKey         AgentConfigKey = "policies"
+	ManagedClusterIntervalKey AgentConfigKey = "managedClusters"
+	HubClusterInfoIntervalKey AgentConfigKey = "hubClusterInfo"
+	AgentAggregationKey       AgentConfigKey = "aggregationLevel"
+	EnableLocalPolicyKey      AgentConfigKey = "enableLocalPolicies"
+)
+
+type AgentConfigValue string
+
+const (
+	AggregationFull        AgentConfigValue = "full"
+	AggregationMinimal     AgentConfigValue = "minimal"
+	EnableLocalPolicyTrue  AgentConfigValue = "true"
+	EnableLocalPolicyFalse AgentConfigValue = "false"
 )
 
 // ResolveSyncIntervalFunc is a function for resolving corresponding sync interval from SyncIntervals data structure.
@@ -37,15 +49,19 @@ func GetPolicyDuration() time.Duration {
 	return syncIntervals[PolicyIntervalKey]
 }
 
-// GetControlInfoDuration returns control info sync interval.
-func GetControlInfoDuration() time.Duration {
-	return syncIntervals[ControlInfoIntervalKey]
+// GetHubClusterInfoDuration returns control info sync interval.
+func GetHubClusterInfoDuration() time.Duration {
+	return syncIntervals[HubClusterInfoIntervalKey]
 }
 
 func GetLeafHubName() string {
 	return leafHubName
 }
 
-func GetAgentConfigMap() *corev1.ConfigMap {
-	return agentConfigMap
+func GetAggregationLevel() AgentConfigValue {
+	return agentConfigs[AgentAggregationKey]
+}
+
+func GetEnableLocalPolicy() AgentConfigValue {
+	return agentConfigs[EnableLocalPolicyKey]
 }

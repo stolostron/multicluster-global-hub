@@ -12,14 +12,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
-func NewLocalPolicyEventSyncer(log logr.Logger) DBSyncer {
+func NewLocalPolicyEventSyncer(log logr.Logger) Syncer {
 	dbSyncer := &localPoliciesStatusEventSyncer{
 		log:                                    log,
 		createLocalPolicyStatusEventBundleFunc: status.NewClusterPolicyEventBundle,
@@ -64,10 +63,8 @@ func (syncer *localPoliciesStatusEventSyncer) RegisterBundleHandlerFunctions(
 }
 
 func (syncer *localPoliciesStatusEventSyncer) handleLocalObjectsBundleWrapper() func(
-	ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
-	return func(ctx context.Context, bundle status.Bundle,
-		dbClient postgres.StatusTransportBridgeDB,
-	) error {
+	ctx context.Context, bundle status.Bundle) error {
+	return func(ctx context.Context, bundle status.Bundle) error {
 		return syncer.handleLocalObjectsBundle(ctx, bundle)
 	}
 }

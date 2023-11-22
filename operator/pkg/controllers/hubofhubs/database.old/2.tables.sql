@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS history.subscriptions (
 );
 
 CREATE TABLE IF NOT EXISTS local_spec.placementrules (
+    id uuid PRIMARY KEY,
     leaf_hub_name character varying(254) NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
@@ -213,8 +214,6 @@ CREATE TABLE IF NOT EXISTS status.subscription_statuses (
     leaf_hub_name character varying(254) NOT NULL,
     payload jsonb NOT NULL
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS placementrules_leaf_hub_name_id_idx ON local_spec.placementrules (leaf_hub_name, (((payload -> 'metadata'::text) ->> 'uid'::text)));
 
 CREATE UNIQUE INDEX IF NOT EXISTS managed_cluster_sets_tracking_cluster_set_name_and_leaf_hub_name_idx ON spec.managed_cluster_sets_tracking (cluster_set_name, leaf_hub_name);
 

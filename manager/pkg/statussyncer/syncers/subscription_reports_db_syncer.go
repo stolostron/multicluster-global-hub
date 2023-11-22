@@ -11,8 +11,8 @@ import (
 )
 
 // NewSubscriptionReportsDBSyncer creates a new instance of genericDBSyncer to sync subscription-reports.
-func NewSubscriptionReportsDBSyncer(log logr.Logger) DBSyncer {
-	dbSyncer := &genericDBSyncer{
+func NewSubscriptionReportsDBSyncer(log logr.Logger) Syncer {
+	dbSyncer := &genericStatusSyncer{
 		log:              log,
 		transportMsgKey:  constants.SubscriptionReportMsgKey,
 		dbSchema:         database.StatusSchema,

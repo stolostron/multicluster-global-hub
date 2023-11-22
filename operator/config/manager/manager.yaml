@@ -40,6 +40,7 @@ spec:
         - multicluster-global-hub-operator
         args:
         - --leader-election
+        - --global-resource-enabled=true
         image: quay.io/stolostron/multicluster-global-hub-operator:latest
         name: multicluster-global-hub-operator
         env:

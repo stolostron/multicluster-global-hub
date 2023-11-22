@@ -22,9 +22,7 @@ import (
 // adds controllers and/or runnables to the manager, registers handler functions within the dispatcher
 //
 //	and create bundle functions within the bundle.
-func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
-	dbsyncer.BundleRegisterable, error,
-) {
+func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (dbsyncer.BundleRegisterable, error) {
 	// register statistics within the runtime manager
 	stats, err := addStatisticController(mgr, managerConfig)
 	if err != nil {
@@ -37,7 +35,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 	conflationManager := conflator.NewConflationManager(conflationReadyQueue, stats)
 
 	// database layer initialization - worker pool + connection pool
-	dbWorkerPool, err := workerpool.NewDBWorkerPool(managerConfig.DatabaseConfig, stats)
+	dbWorkerPool, err := workerpool.NewDBWorkerPool(stats)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize DBWorkerPool: %w", err)
 	}
@@ -58,8 +56,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 	}
 
 	// register db syncers create bundle functions within transport and handler functions within dispatcher
-	dbSyncers := []dbsyncer.DBSyncer{
-		dbsyncer.NewHubClusterHeartbeatDBSyncer(ctrl.Log.WithName("hub-heartbeat-syncer")),
+	dbSyncers := []dbsyncer.Syncer{
 		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-info-syncer")),
 		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-cluster-syncer")),
 		dbsyncer.NewCompliancesDBSyncer(ctrl.Log.WithName("compliances-syncer")),
@@ -77,8 +74,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (
 				ctrl.Log.WithName("subscription-statuses-db-syncer")),
 			dbsyncer.NewSubscriptionReportsDBSyncer(
 				ctrl.Log.WithName("subscription-reports-db-syncer")),
-			dbsyncer.NewLocalSpecPlacementruleSyncer(
-				ctrl.Log.WithName("local-spec-placementrule-syncer")),
+			dbsyncer.NewLocalSpecPlacementruleSyncer(ctrl.Log.WithName("local-spec-placementrule-syncer")),
 		)
 	}
 

@@ -16,14 +16,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
-func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
+func NewManagedClustersDBSyncer(log logr.Logger) Syncer {
 	dbSyncer := &ManagedClustersDBSyncer{
 		log:              log,
 		createBundleFunc: statusbundle.NewManagedClustersStatusBundle,
@@ -60,15 +59,13 @@ func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflation
 		conflator.ManagedClustersPriority,
 		bundle.CompleteStateMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle, dbClient postgres.StatusTransportBridgeDB) error {
-			return syncer.handleManagedClustersBundle(ctx, bundle, dbClient)
+		func(ctx context.Context, bundle status.Bundle) error {
+			return syncer.handleManagedClustersBundle(ctx, bundle)
 		},
 	))
 }
 
-func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle status.Bundle,
-	dbClient postgres.ManagedClustersStatusDB,
-) error {
+func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle status.Bundle) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 

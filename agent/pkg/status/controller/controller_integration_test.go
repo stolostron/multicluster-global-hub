@@ -22,6 +22,7 @@ import (
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -29,7 +30,6 @@ import (
 )
 
 var msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
-	constants.ControlInfoMsgKey:              statusbundle.NewHubClusterInfoBundle,
 	constants.ManagedClustersMsgKey:          statusbundle.NewManagedClustersStatusBundle,
 	constants.ClustersPerPolicyMsgKey:        statusbundle.NewClustersPerPolicyBundle,
 	constants.PolicyCompleteComplianceMsgKey: statusbundle.NewCompleteComplianceStatusBundle,
@@ -42,57 +42,155 @@ var msgIDBundleCreateFuncMap = map[string]status.CreateBundleFunction{
 	constants.HubClusterInfoMsgKey: func() status.Bundle {
 		return &status.HubClusterInfoBundle{}
 	},
+	constants.LocalPolicySpecMsgKey:               statusbundle.NewLocalPolicySpecBundle,
+	constants.LocalClusterPolicyStatusEventMsgKey: status.NewClusterPolicyEventBundle,
 }
 
 var _ = Describe("Agent Status Controller", Ordered, func() {
-	var testGlobalPolicyOriginUID string
-	var testGlobalPolicy *policyv1.Policy
-	BeforeAll(func() {
-		testGlobalPolicyOriginUID = "test-globalpolicy-uid"
-		testGlobalPolicy = &policyv1.Policy{
+	testGlobalPolicyOriginUID := "test-globalpolicy-uid"
+	testGlobalPolicy := &policyv1.Policy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-globalpolicy-1",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.OriginOwnerReferenceAnnotation: testGlobalPolicyOriginUID,
+			},
+		},
+		Spec: policyv1.PolicySpec{
+			Disabled:        false,
+			PolicyTemplates: []*policyv1.PolicyTemplate{},
+		},
+		Status: policyv1.PolicyStatus{},
+	}
+
+	testLocalPolicy := &policyv1.Policy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-local-policy-spec-1",
+			Namespace: "default",
+		},
+		Spec: policyv1.PolicySpec{
+			Disabled:        false,
+			PolicyTemplates: []*policyv1.PolicyTemplate{},
+		},
+	}
+
+	It("Should be able to sync local root policy spec", func() {
+		By("Create local policies")
+		Expect(kubeClient.Create(ctx, testLocalPolicy)).ToNot(HaveOccurred())
+
+		By("Check the local policies bundle can be read from kafka consumer")
+		Eventually(func() error {
+			message := <-consumer.MessageChan()
+			statusBundle, err := getStatusBundle(message, constants.LocalPolicySpecMsgKey)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+
+			printBundle(statusBundle)
+			if err != nil {
+				return err
+			}
+
+			resourceBundle, ok := statusBundle.(*statusbundle.LocalPolicySpecBundle)
+			if !ok {
+				return errors.New("unexpected received bundle type")
+			}
+
+			policies := resourceBundle.GetObjects()
+			if len(policies) != 1 {
+				return fmt.Errorf("unexpected object number in received bundle, want 1, got %d\n", len(policies))
+			}
+			receivedPolicy := policies[0].(*policyv1.Policy)
+			if testLocalPolicy.GetName() != receivedPolicy.GetName() ||
+				testLocalPolicy.GetNamespace() != receivedPolicy.GetNamespace() {
+				return fmt.Errorf("========== object not equal, want %v, got %v\n", testLocalPolicy.GetName(), receivedPolicy.GetName())
+			}
+
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+	})
+
+	It("should be able to sync local replicas policy event", func() {
+		By("Create namespace and cluster for replicas policy")
+		err := kubeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-globalpolicy-1",
-				Namespace: "default",
-				Annotations: map[string]string{
-					constants.OriginOwnerReferenceAnnotation: testGlobalPolicyOriginUID,
+				Name: "cluster1",
+			},
+		}, &client.CreateOptions{})
+		Expect(err).Should(Succeed())
+
+		cluster := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster1",
+			},
+		}
+		Expect(kubeClient.Create(ctx, cluster, &client.CreateOptions{})).Should(Succeed())
+		cluster.Status = clusterv1.ManagedClusterStatus{
+			ClusterClaims: []clusterv1.ManagedClusterClaim{
+				{
+					Name:  "id.k8s.io",
+					Value: "3f406177-34b2-4852-88dd-ff2809680336",
+				},
+			},
+		}
+		Expect(kubeClient.Status().Update(ctx, cluster)).Should(Succeed())
+
+		By("Create replicas policy")
+		testLocalReplicasPolicy := &policyv1.Policy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-local-policy-spec-1",
+				Namespace: "cluster1",
+				Labels: map[string]string{
+					constants.PolicyEventRootPolicyNameLabelKey: fmt.Sprintf("%s.%s", "default", "test-local-policy-spec-1"),
+					constants.PolicyEventClusterNameLabelKey:    "cluster1",
 				},
 			},
 			Spec: policyv1.PolicySpec{
 				Disabled:        false,
 				PolicyTemplates: []*policyv1.PolicyTemplate{},
 			},
-			Status: policyv1.PolicyStatus{},
 		}
-	})
+		Expect(kubeClient.Create(ctx, testLocalReplicasPolicy)).ToNot(HaveOccurred())
 
-	It("should be able to sync control-info", func() {
-		By("Create configmap that contains the global-hub configurations")
-		Expect(kubeClient.Create(ctx, &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.GHAgentConfigCMName,
-				Namespace: constants.GHAgentNamespace,
-				Annotations: map[string]string{
-					constants.OriginOwnerReferenceAnnotation: "testing",
+		testLocalReplicasPolicy.Status = policyv1.PolicyStatus{
+			ComplianceState: policyv1.NonCompliant,
+			Details: []*policyv1.DetailsPerTemplate{
+				{
+					TemplateMeta: metav1.ObjectMeta{
+						Name: "test-local-policy-template",
+					},
+					History: []policyv1.ComplianceHistory{
+						{
+							EventName:     "openshift-acm-policies.backplane-mobb-sp.176a8f372323ecad",
+							LastTimestamp: metav1.Now(),
+							Message: `Compliant; notification - clusterrolebindings [backplane-mobb-c0] found
+		as specified, therefore this Object template is compliant`,
+						},
+					},
 				},
 			},
-			Data: map[string]string{
-				"aggregationLevel":    "full",
-				"enableLocalPolicies": "true",
-				"controlInfo":         "60m",
-				"managedClusters":     "5s",
-				"policies":            "5s",
-			},
-		})).Should(Succeed())
+		}
+		Expect(kubeClient.Status().Update(ctx, testLocalReplicasPolicy)).Should(Succeed())
+		fmt.Println("== update replicas policy events", testLocalReplicasPolicy.Namespace, testLocalReplicasPolicy.Name)
 
-		By("Check the control-info bundle can be read from cloudevents consumer")
+		By("Check the local policy events bundle can be read from kafka consumer")
 		Eventually(func() error {
 			message := <-consumer.MessageChan()
+			statusBundle, err := getStatusBundle(message, constants.LocalClusterPolicyStatusEventMsgKey)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
 
-			statusBundle, err := getStatusBundle(message, constants.ControlInfoMsgKey)
+			printBundle(statusBundle)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+
+			resourceBundle, ok := statusBundle.(*status.ClusterPolicyEventBundle)
+			if !ok {
+				return errors.New("unexpected received bundle type")
+			}
+
+			events := resourceBundle.GetObjects()
+			if len(events) == 0 {
+				return fmt.Errorf("haven't get the local policy events")
+			}
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
@@ -126,6 +224,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			printBundle(statusBundle)
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
@@ -159,6 +258,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			printBundle(statusBundle)
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
@@ -193,6 +293,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				return err
 			}
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			printBundle(statusBundle)
 
 			managedClustersStatusBundle, ok := statusBundle.(*statusbundle.ManagedClustersStatusBundle)
 			if !ok {
@@ -200,11 +301,10 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			}
 
 			managedClusterObjs := managedClustersStatusBundle.GetObjects()
-			if len(managedClusterObjs) != 1 {
-				return fmt.Errorf("unexpected object number in received bundle, want 1, got %d\n", len(managedClusterObjs))
+			if len(managedClusterObjs) < 1 {
+				return fmt.Errorf("unexpected object number in received bundle, want >= 1, got %d\n", len(managedClusterObjs))
 			}
-
-			managedCluster := managedClusterObjs[0].(*clusterv1.ManagedCluster)
+			managedCluster := managedClusterObjs[1].(*clusterv1.ManagedCluster)
 			if testMangedCluster.GetName() != managedCluster.GetName() ||
 				testMangedCluster.GetNamespace() != managedCluster.GetNamespace() ||
 				!apiequality.Semantic.DeepDerivative(testMangedCluster.Spec, managedCluster.Spec) {
@@ -252,35 +352,57 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 
 		By("Check the policy bundles is synced")
 		var clustersPerPolicyBundle *statusbundle.ClustersPerPolicyBundle
-		// var policyCompleteComplianceStatusBundle *statusbundle.CompleteComplianceStatusBundle
-		Eventually(func() bool {
+		var completeComplianceStatusBundle *statusbundle.CompleteComplianceStatusBundle
+		Eventually(func() error {
 			message := <-consumer.MessageChan()
+			fmt.Printf("========== received %s \n", message.ID)
 
-			statusBundle, err := getStatusBundle(message, constants.ClustersPerPolicyMsgKey)
-			if err == nil {
-				fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
-				ok := false
+			complianceTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.ClustersPerPolicyMsgKey)
+			completeTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.PolicyCompleteComplianceMsgKey)
+
+			var statusBundle status.Bundle
+			var err error
+			var ok bool
+			if message.ID == complianceTransportKey {
+				statusBundle, err = getStatusBundle(message, constants.ClustersPerPolicyMsgKey)
+				printBundle(statusBundle)
+
 				clustersPerPolicyBundle, ok = statusBundle.(*statusbundle.ClustersPerPolicyBundle)
 				if !ok {
-					fmt.Printf("unexpected received bundle type, want ClustersPerPolicyBundle")
+					return fmt.Errorf("unexpected received bundle type, want *grc.ComplianceBundle")
 				}
 			}
-			// statusBundle, err = getStatusBundle(message,
-			// 	constants.PolicyCompleteComplianceMsgKey)
-			// if err == nil {
-			// 	fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
-			// 	ok := false
-			// 	policyCompleteComplianceStatusBundle, ok = statusBundle.(*statusbundle.CompleteComplianceStatusBundle)
-			// 	if !ok {
-			// 		fmt.Printf("unexpected received bundle type, want ClustersPerPolicyBundle")
-			// 	}
-			// }
-			return clustersPerPolicyBundle != nil
-		}, 30*time.Second, 1*time.Second).Should(BeTrue())
+
+			if message.ID == completeTransportKey {
+				statusBundle, err = getStatusBundle(message, constants.PolicyCompleteComplianceMsgKey)
+				printBundle(statusBundle)
+
+				completeComplianceStatusBundle, ok = statusBundle.(*statusbundle.CompleteComplianceStatusBundle)
+				if !ok {
+					return fmt.Errorf("unexpected received bundle type, want *grc.CompleteComplianceBundle")
+				}
+			}
+
+			if err != nil {
+				return err
+			}
+
+			if clustersPerPolicyBundle == nil {
+				return fmt.Errorf("waiting clustersPerPolicyBundle")
+			}
+
+			if completeComplianceStatusBundle == nil {
+				return fmt.Errorf("waiting completeComplianceStatusBundle")
+			}
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Check the clustersPerPolicyBundle")
 		policyGenericComplianceStatusObjs := clustersPerPolicyBundle.GetObjects()
 		Expect(len(policyGenericComplianceStatusObjs)).Should(Equal(1))
+
+		completeComplianceObjs := completeComplianceStatusBundle.GetObjects()
+		Expect(len(completeComplianceObjs)).Should(Equal(1))
 
 		policyGenericComplianceStatus := policyGenericComplianceStatusObjs[0].(*status.PolicyGenericComplianceStatus)
 		fmt.Println(policyGenericComplianceStatus)
@@ -395,7 +517,6 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 	// 		return true
 	// 	}, 30*time.Second, 1*time.Second).Should(BeTrue())
 	// })
-
 	It("should be able to sync global placementrules", func() {
 		By("Create global placementrule in testing managed hub")
 		testGlobalPlacementRuleOriginUID := "test-globalplacementrule-uid"
@@ -604,4 +725,9 @@ func getStatusBundle(message *transport.Message, key string) (status.Bundle, err
 		return nil, err
 	}
 	return receivedBundle, nil
+}
+
+func printBundle(obj interface{}) {
+	b, _ := json.Marshal(obj)
+	fmt.Println(string(b))
 }

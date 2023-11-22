@@ -10,6 +10,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -24,7 +25,6 @@ const (
 func AddLocalPlacementRulesController(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunc := func() bundle.Object { return &placementrulesv1.PlacementRule{} }
 	leafHubName := agentstatusconfig.GetLeafHubName()
-	agentConfig := agentstatusconfig.GetAgentConfigMap()
 
 	localPlacementRuleTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPlacementRulesMsgKey)
 
@@ -32,7 +32,7 @@ func AddLocalPlacementRulesController(mgr ctrl.Manager, producer transport.Produ
 		generic.NewBundleCollectionEntry(localPlacementRuleTransportKey,
 			bundle.NewGenericStatusBundle(leafHubName, cleanPlacementRule),
 			func() bool { // bundle predicate
-				return agentConfig.Data["enableLocalPolicies"] == "true"
+				return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue
 			}),
 	}
 	// controller predicate
