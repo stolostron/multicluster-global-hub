@@ -13,7 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/placement"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/workerpool"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
