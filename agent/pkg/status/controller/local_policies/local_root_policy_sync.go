@@ -21,8 +21,8 @@ const (
 	rootPolicyLabel = "policy.open-cluster-management.io/root-policy"
 )
 
-// AddLocalPoliciesSyncer this function adds a new local policies sync controller.
-func AddLocalPoliciesSyncer(mgr ctrl.Manager, producer transport.Producer) error {
+// AddLocalRootPoliciesSyncer this function adds a new local policies sync controller.
+func AddLocalRootPoliciesSyncer(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
 	bundleCollection := createBundleCollection(mgr)
 
@@ -31,7 +31,7 @@ func AddLocalPoliciesSyncer(mgr ctrl.Manager, producer transport.Producer) error
 			!helper.HasLabel(object, rootPolicyLabel)
 	})
 
-	return generic.NewGenericStatusSyncController(mgr, "local-policies-status-sync", producer, bundleCollection,
+	return generic.NewGenericStatusSyncController(mgr, "local-root-policies-status-sync", producer, bundleCollection,
 		createObjFunc, localPolicyPredicate, config.GetPolicyDuration)
 }
 
@@ -55,11 +55,6 @@ func createBundleCollection(mgr ctrl.Manager) []*generic.BundleCollectionEntry {
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPolicySpecMsgKey)
 	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, cleanPolicy)
 
-	// policy history event bundle
-	localClusterPolicyHistoryEventTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		constants.LocalClusterPolicyStatusEventMsgKey)
-	clusterPolicyHistoryEventBundle := grc.NewClusterPolicyHistoryEventBundle(leafHubName, mgr.GetClient())
-
 	// check for full information
 	localPolicyStatusPredicate := func() bool {
 		return config.GetAggregationLevel() == config.AggregationFull &&
@@ -73,8 +68,6 @@ func createBundleCollection(mgr ctrl.Manager) []*generic.BundleCollectionEntry {
 		generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
 			localCompleteComplianceStatusBundle, localPolicyStatusPredicate),
 		generic.NewBundleCollectionEntry(localPolicySpecTransportKey, localPolicySpecBundle,
-			func() bool { return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue }),
-		generic.NewBundleCollectionEntry(localClusterPolicyHistoryEventTransportKey, clusterPolicyHistoryEventBundle,
 			func() bool { return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue }),
 	}
 }
