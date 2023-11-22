@@ -18,7 +18,7 @@ import (
 )
 
 // AddLocalPoliciesController this function adds a new local policies sync controller.
-func AddLocalReplicasPoliciesSyncer(mgr ctrl.Manager, producer transport.Producer) error {
+func AddLocalReplicatedPolicySyncer(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
 	leafHubName := config.GetLeafHubName()
 

@@ -21,8 +21,8 @@ const (
 	rootPolicyLabel = "policy.open-cluster-management.io/root-policy"
 )
 
-// AddLocalRootPoliciesSyncer this function adds a new local policies sync controller.
-func AddLocalRootPoliciesSyncer(mgr ctrl.Manager, producer transport.Producer) error {
+// AddLocalRootPolicySyncer this function adds a new local policies sync controller.
+func AddLocalRootPolicySyncer(mgr ctrl.Manager, producer transport.Producer) error {
 	createObjFunc := func() bundle.Object { return &policiesv1.Policy{} }
 	bundleCollection := createBundleCollection(mgr)
 
