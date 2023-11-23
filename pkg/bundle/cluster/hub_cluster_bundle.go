@@ -59,15 +59,19 @@ func (baseBundle *HubClusterInfoBundle) SetVersion(version *metadata.BundleVersi
 	baseBundle.BundleVersion = version
 }
 
-// gorm
-func (HubClusterInfoBundle) TableName() string {
-	return "status.leaf_hubs"
-}
-
 // UpdateObject function to update a single object inside a bundle.
 func (bundle *HubClusterInfoBundle) UpdateObject(object bundle.Object) {
 	bundle.lock.Lock()
 	defer bundle.lock.Unlock()
+
+	if len(bundle.Objects) == 0 {
+		bundle.Objects = []*base.HubClusterInfo{
+			{
+				ConsoleURL: "",
+				GrafanaURL: "",
+			},
+		}
+	}
 
 	var routeURL string
 	route := object.(*routev1.Route)
@@ -75,35 +79,29 @@ func (bundle *HubClusterInfoBundle) UpdateObject(object bundle.Object) {
 		routeURL = "https://" + route.Spec.Host
 	}
 
-	if len(bundle.Objects) == 0 {
-		if route.GetName() == constants.OpenShiftConsoleRouteName {
-			bundle.Objects = []*base.HubClusterInfo{
-				{
-					LeafHubName: bundle.LeafHubName,
-					ConsoleURL:  routeURL,
-				},
-			}
-		} else if route.GetName() == constants.ObservabilityGrafanaRouteName {
-			bundle.Objects = []*base.HubClusterInfo{
-				{
-					LeafHubName: bundle.LeafHubName,
-					GrafanaURL:  routeURL,
-				},
-			}
-		}
-	} else {
-		if route.GetName() == constants.OpenShiftConsoleRouteName {
-			bundle.Objects[0].ConsoleURL = routeURL
-		} else if route.GetName() == constants.ObservabilityGrafanaRouteName {
-			bundle.Objects[0].GrafanaURL = routeURL
-		}
+	if route.GetName() == constants.OpenShiftConsoleRouteName && bundle.Objects[0].ConsoleURL != routeURL {
+		bundle.Objects[0].ConsoleURL = routeURL
+		bundle.BundleVersion.Incr()
 	}
-	bundle.BundleVersion.Incr()
+	if route.GetName() == constants.ObservabilityGrafanaRouteName && bundle.Objects[0].GrafanaURL != routeURL {
+		bundle.Objects[0].GrafanaURL = routeURL
+		bundle.BundleVersion.Incr()
+	}
 }
 
 // DeleteObject function to delete a single object inside a bundle.
 func (bundle *HubClusterInfoBundle) DeleteObject(object bundle.Object) {
-	// do nothing
+	if len(bundle.Objects) == 0 {
+		return
+	}
+	if object.GetName() == constants.OpenShiftConsoleRouteName && bundle.Objects[0].ConsoleURL != "" {
+		bundle.Objects[0].ConsoleURL = ""
+		bundle.BundleVersion.Incr()
+	}
+	if object.GetName() == constants.ObservabilityGrafanaRouteName && bundle.Objects[0].GrafanaURL != "" {
+		bundle.Objects[0].GrafanaURL = ""
+		bundle.BundleVersion.Incr()
+	}
 }
 
 // GetBundleVersion function to get bundle version.
