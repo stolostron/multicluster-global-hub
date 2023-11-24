@@ -526,3 +526,9 @@ func createSliceFromSet(set set.Set) []string {
 
 	return result
 }
+
+func (bundle *DeltaComplianceBundle) IncrVersion() {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+	bundle.BundleVersion.Incr()
+}

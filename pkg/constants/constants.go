@@ -83,6 +83,8 @@ const (
 	// HubClusterInfoMsgKey - hub cluster info message key.
 	HubClusterInfoMsgKey = "HubClusterInfo"
 
+	ResendMsgKey = "ResendInfo"
+
 	// ManagedClustersMsgKey - managed clusters message key.
 	ManagedClustersMsgKey = "ManagedClusters"
 	// ManagedClustersLabelsMsgKey - managed clusters labels message key.

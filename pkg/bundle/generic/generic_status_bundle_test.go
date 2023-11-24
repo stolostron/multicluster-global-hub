@@ -26,3 +26,8 @@ func TestRemoveObjFromBundle(t *testing.T) {
 	bundle.UpdateObject(runtimePolicy) // add obj to bundle
 	bundle.DeleteObject(runtimePolicy) // remove obj by uid from bundle
 }
+
+func TestIncrVersion(t *testing.T) {
+	bundle := NewGenericStatusBundle("leafhubname", nil)
+	bundle.IncrVersion()
+}

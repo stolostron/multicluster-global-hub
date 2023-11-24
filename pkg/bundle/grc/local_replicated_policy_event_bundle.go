@@ -70,6 +70,8 @@ func (bundle *LocalReplicatedPolicyEventBundle) GetObjects() []interface{} {
 
 // Manager
 func (bundle *LocalReplicatedPolicyEventBundle) SetVersion(version *metadata.BundleVersion) {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
 	bundle.BundleVersion = version
 }
 
@@ -208,4 +210,10 @@ func (bundle *LocalReplicatedPolicyEventBundle) updatePolicyEvents(event policie
 			})
 	}
 	return bundlePolicyStatusEvents
+}
+
+func (bundle *LocalReplicatedPolicyEventBundle) IncrVersion() {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+	bundle.BundleVersion.Incr()
 }

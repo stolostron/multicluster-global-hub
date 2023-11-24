@@ -36,6 +36,8 @@ import (
 
 type CreateBundleFunc func() bundle.ManagerBundle
 
+const timeFormat = "2006-01-02_15-04-05.000000"
+
 var msgIDBundleCreateFuncMap = map[string]CreateBundleFunc{
 	constants.ManagedClustersMsgKey:         cluster.NewManagerManagedClusterBundle,
 	constants.ComplianceMsgKey:              grc.NewManagerComplianceBundle,
@@ -98,7 +100,6 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if !ok {
 				return errors.New("unexpected received bundle type")
 			}
-
 			policies := resourceBundle.GetObjects()
 			if len(policies) != 1 {
 				return fmt.Errorf("unexpected object number in received bundle, want 1, got %d\n", len(policies))
@@ -181,17 +182,15 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			message := <-consumer.MessageChan()
 			statusBundle, err := getStatusBundle(message, constants.LocalPolicyHistoryEventMsgKey)
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
-
 			printBundle(statusBundle)
 			if err != nil {
 				return err
 			}
-
 			resourceBundle, ok := statusBundle.(*grc.LocalReplicatedPolicyEventBundle)
 			if !ok {
 				return errors.New("unexpected received bundle type")
 			}
-
+			resourceBundle.IncrVersion()
 			events := resourceBundle.GetObjects()
 			if len(events) == 0 {
 				return fmt.Errorf("haven't get the local policy events")
@@ -330,7 +329,6 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if !ok {
 				return errors.New("unexpected received bundle type, want ManagedClustersStatusBundle")
 			}
-
 			managedClusterObjs := managedClustersStatusBundle.GetObjects()
 			if len(managedClusterObjs) < 1 {
 				return fmt.Errorf("unexpected object number in received bundle, want >= 1, got %d\n", len(managedClusterObjs))
@@ -402,6 +400,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				if !ok {
 					return fmt.Errorf("unexpected received bundle type, want *grc.ComplianceBundle")
 				}
+				clustersPerPolicyBundle.IncrVersion()
 			}
 
 			if message.ID == completeTransportKey {
@@ -412,6 +411,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				if !ok {
 					return fmt.Errorf("unexpected received bundle type, want *grc.CompleteComplianceBundle")
 				}
+				completeComplianceStatusBundle.IncrVersion()
 			}
 
 			if err != nil {
@@ -622,7 +622,6 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if !ok {
 				return errors.New("unexpected received bundle type, want PlacementsBundle")
 			}
-
 			placementObjs := placementsStatusBundle.GetObjects()
 			if len(placementObjs) != 1 {
 				return fmt.Errorf("unexpected object number in received bundle, want 1, got %d\n", len(placementObjs))
@@ -743,6 +742,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
+
 })
 
 func getStatusBundle(message *transport.Message, key string) (bundle.ManagerBundle, error) {

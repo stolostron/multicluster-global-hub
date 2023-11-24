@@ -17,6 +17,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+var bundleCollection []*generic.BundleEntry
+
 // AddHubClusterInfoSyncer creates a controller and adds it to the manager.
 // this controller is responsible for syncing the hub cluster status.
 // right now, it only syncs the openshift console url.
@@ -24,7 +26,7 @@ func AddHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) erro
 	createObjFunction := func() bundle.Object { return &routev1.Route{} }
 	leafHubName := config.GetLeafHubName()
 
-	bundleCollection := []*generic.BundleEntry{
+	bundleCollection = []*generic.BundleEntry{
 		generic.NewBundleEntry(fmt.Sprintf("%s.%s", leafHubName, constants.HubClusterInfoMsgKey),
 			cluster.NewAgentHubClusterInfoBundle(leafHubName),
 			func() bool { return true }),
@@ -58,4 +60,11 @@ func AddHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) erro
 		return err
 	}
 	return nil
+}
+
+func IncreaseBundleVersion() {
+	for _, entry := range bundleCollection {
+		// update in each bundle from the collection according to their order.
+		entry.Bundle.IncrVersion()
+	}
 }

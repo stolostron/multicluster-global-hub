@@ -1,6 +1,8 @@
 package syncer
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/gorm"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer/dbsyncer"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
@@ -41,14 +44,39 @@ func AddDB2TransportSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 			return fmt.Errorf("failed to add DB Syncer: %w", err)
 		}
 	}
-
-	return nil
+	err = SendSyncAllMsgInfo(producer)
+	return err
 }
 
 // AddManagedClusterLabelSyncer update the label table by the managed cluster table
 func AddManagedClusterLabelSyncer(mgr ctrl.Manager, deletedLabelsTrimmingInterval time.Duration) error {
 	if err := dbsyncer.AddManagedClusterLabelsSyncer(mgr, deletedLabelsTrimmingInterval); err != nil {
 		return fmt.Errorf("failed to add status watcher: %w", err)
+	}
+	return nil
+}
+
+// SendSyncAllMsgInfo send a constants.ResendMsgKey bundle in manager start.
+// When agent get the bundle, it will resend the "resendMsgKeys" bundles to transport
+// It is mainly used to handle data lost in upgade scenario.
+func SendSyncAllMsgInfo(producer transport.Producer) error {
+	lastUpdateTimestamp := time.Now()
+	const timeFormat = "2006-01-02_15-04-05.000000"
+	ctx := context.Background()
+
+	resendMsgKeys := []string{constants.HubClusterInfoMsgKey}
+	payloadBytes, err := json.Marshal(resendMsgKeys)
+	if err != nil {
+		return err
+	}
+	if err := producer.Send(ctx, &transport.Message{
+		Destination: transport.Broadcast,
+		ID:          constants.ResendMsgKey,
+		MsgType:     constants.SpecBundle,
+		Version:     lastUpdateTimestamp.Format(timeFormat),
+		Payload:     payloadBytes,
+	}); err != nil {
+		return fmt.Errorf("Failed to resend resendbundle")
 	}
 	return nil
 }

@@ -31,7 +31,7 @@ func NewHybridSyncManager(log logr.Logger, completeStateBundleCollectionEntry *B
 	deltaStateBundleCollectionEntry *BundleEntry,
 ) (*HybridSyncManager, error) {
 	// check that the delta state collection does indeed wrap a delta bundle
-	deltaStateBundle, ok := deltaStateBundleCollectionEntry.bundle.(bundle.AgentDeltaBundle)
+	deltaStateBundle, ok := deltaStateBundleCollectionEntry.Bundle.(bundle.AgentDeltaBundle)
 	if !ok {
 		return nil, errExpectingDeltaStateBundle
 	}

@@ -106,3 +106,9 @@ func (genericBundle *GenericStatusBundle) getObjectIndexByObj(obj bundle.Object)
 	}
 	return -1, fmt.Errorf("not found obj by uid or namespacedName")
 }
+
+func (bundle *GenericStatusBundle) IncrVersion() {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+	bundle.BundleVersion.Incr()
+}

@@ -240,3 +240,9 @@ func (bundle *CompleteComplianceBundle) getObjectIndexByObj(obj bundle.Object) (
 	}
 	return -1, fmt.Errorf("not found object by uid or namespacedName")
 }
+
+func (bundle *CompleteComplianceBundle) IncrVersion() {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+	bundle.BundleVersion.Incr()
+}

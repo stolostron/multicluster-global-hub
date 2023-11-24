@@ -131,7 +131,7 @@ func (c *genericStatusSyncer) updateObjectAndFinalizer(ctx context.Context, obje
 
 	for _, entry := range c.orderedBundleCollection {
 		// update in each bundle from the collection according to their order.
-		entry.bundle.UpdateObject(object)
+		entry.Bundle.UpdateObject(object)
 	}
 	return nil
 }
@@ -142,7 +142,7 @@ func (c *genericStatusSyncer) deleteObjectAndFinalizer(ctx context.Context, obje
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 
 	for _, entry := range c.orderedBundleCollection {
-		entry.bundle.DeleteObject(object) // delete from all bundles.
+		entry.Bundle.DeleteObject(object) // delete from all bundles.
 	}
 
 	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
@@ -180,20 +180,20 @@ func (c *genericStatusSyncer) syncBundles() {
 			continue
 		}
 
-		bundleVersion := entry.bundle.GetVersion()
+		bundleVersion := entry.Bundle.GetVersion()
 
 		// send to transport only if bundle has changed.
 		if bundleVersion.NewerThan(&entry.lastSentBundleVersion) {
 
-			payloadBytes, err := json.Marshal(entry.bundle)
+			payloadBytes, err := json.Marshal(entry.Bundle)
 			if err != nil {
-				c.log.Error(err, "marshal entry.bundle error", "entry.bundleKey", entry.transportBundleKey)
+				c.log.Error(err, "marshal entry.Bundle error", "entry.BundleKey", entry.transportBundleKey)
 				continue
 			}
 
 			messageId := entry.transportBundleKey
 			transportMessageKey := entry.transportBundleKey
-			if deltaStateBundle, ok := entry.bundle.(bundle.AgentDeltaBundle); ok {
+			if deltaStateBundle, ok := entry.Bundle.(bundle.AgentDeltaBundle); ok {
 				transportMessageKey = fmt.Sprintf("%s@%d", entry.transportBundleKey, deltaStateBundle.GetTransportationID())
 			}
 
@@ -201,7 +201,7 @@ func (c *genericStatusSyncer) syncBundles() {
 				Key:     transportMessageKey,
 				ID:      messageId,
 				MsgType: constants.StatusBundle,
-				Version: entry.bundle.GetVersion().String(),
+				Version: entry.Bundle.GetVersion().String(),
 				Payload: payloadBytes,
 			}); err != nil {
 				c.log.Error(err, "send transport message error", "id", messageId)
@@ -210,8 +210,8 @@ func (c *genericStatusSyncer) syncBundles() {
 
 			// 1. get into the next generation
 			// 2. set the lastSentBundleVersion to first version of next generation
-			entry.bundle.GetVersion().Next()
-			entry.lastSentBundleVersion = *entry.bundle.GetVersion()
+			entry.Bundle.GetVersion().Next()
+			entry.lastSentBundleVersion = *entry.Bundle.GetVersion()
 		}
 	}
 }

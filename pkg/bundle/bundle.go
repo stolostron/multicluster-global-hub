@@ -29,6 +29,8 @@ type AgentBundle interface {
 	DeleteObject(object Object)
 	// GetVersion function to get bundle generation.
 	GetVersion() *metadata.BundleVersion
+	// IncrVersion function to increase bundle version.
+	IncrVersion()
 }
 
 // AgentDeltaBundle abstracts the logic needed from the delta-state bundle.

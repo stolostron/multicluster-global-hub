@@ -86,6 +86,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 		By("Create transport message")
 		// increment the version
 		statusBundle.BundleVersion.Incr()
+
 		payloadBytes, err := json.Marshal(statusBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 

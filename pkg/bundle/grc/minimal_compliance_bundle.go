@@ -197,3 +197,9 @@ func (b *MinimalComplianceBundle) getObjectIndexByObj(obj bundle.Object) (int, e
 	}
 	return -1, fmt.Errorf("not found object by id or namespacedName")
 }
+
+func (bundle *MinimalComplianceBundle) IncrVersion() {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+	bundle.BundleVersion.Incr()
+}

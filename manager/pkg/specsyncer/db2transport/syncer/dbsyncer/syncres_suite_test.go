@@ -29,6 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -41,6 +42,7 @@ var (
 	kubeClient      client.Client
 	testPostgres    *testpostgres.TestPostgres
 	genericConsumer *consumer.GenericConsumer
+	producer        transport.Producer
 )
 
 func TestSpecSyncer(t *testing.T) {
@@ -117,6 +119,10 @@ var _ = BeforeSuite(func() {
 	genericConsumer, err = consumer.NewGenericConsumer(managerConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(genericConsumer)).Should(Succeed())
+
+	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
+	Expect(err).NotTo(HaveOccurred())
+	specsycner.SendSyncAllMsgInfo(producer)
 
 	By("Start the manager")
 	go func() {

@@ -228,3 +228,9 @@ func (b *ComplianceBundle) getObjectIndexByObj(obj bundle.Object) (int, error) {
 
 	return -1, errors.New("object not found by id or namespacedName")
 }
+
+func (b *ComplianceBundle) IncrVersion() {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	b.BundleVersion.Incr()
+}

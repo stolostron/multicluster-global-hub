@@ -125,3 +125,9 @@ func (bundle *HubClusterInfoBundle) DeleteObject(object bundle.Object) {
 func (bundle *HubClusterInfoBundle) GetVersion() *metadata.BundleVersion {
 	return bundle.BundleVersion
 }
+
+func (bundle *HubClusterInfoBundle) IncrVersion() {
+	bundle.lock.Lock()
+	defer bundle.lock.Unlock()
+	bundle.BundleVersion.Incr()
+}

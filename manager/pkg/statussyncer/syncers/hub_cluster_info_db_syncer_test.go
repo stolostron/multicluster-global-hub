@@ -63,14 +63,13 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 		statusBundle.UpdateObject(obj)
 
 		claim := &clustersv1alpha1.ClusterClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "id.k8s.io",
-			},
+			ObjectMeta: metav1.ObjectMeta{},
 			Spec: clustersv1alpha1.ClusterClaimSpec{
 				Value: "00000000-0000-0000-0000-000000000000",
 			},
 		}
 		statusBundle.UpdateObject(claim)
+		statusBundle.IncrVersion()
 		By("Create transport message")
 		// increment the version
 		payloadBytes, err := json.Marshal(statusBundle)
