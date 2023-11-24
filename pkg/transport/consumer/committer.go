@@ -8,12 +8,22 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
+
+// committer is responsible for committing offsets to transport.
+type committer struct {
+	log                    logr.Logger
+	topic                  string
+	client                 *kafka.Consumer
+	getBundlesMetadataFunc metadata.GetBundleStatusesFunc
+	commitsMap             map[int32]kafka.Offset // map of partition -> offset
+	interval               time.Duration
+}
 
 // NewCommitter returns a new instance of committer.
 func NewCommitter(committerInterval time.Duration, topic string, client *kafka.Consumer,
-	getBundlesMetadataFunc bundle.GetBundlesMetadataFunc, log logr.Logger,
+	getBundlesMetadataFunc metadata.GetBundleStatusesFunc, log logr.Logger,
 ) *committer {
 	return &committer{
 		log:                    log,
@@ -23,16 +33,6 @@ func NewCommitter(committerInterval time.Duration, topic string, client *kafka.C
 		commitsMap:             make(map[int32]kafka.Offset),
 		interval:               committerInterval,
 	}
-}
-
-// committer is responsible for committing offsets to transport.
-type committer struct {
-	log                    logr.Logger
-	topic                  string
-	client                 *kafka.Consumer
-	getBundlesMetadataFunc bundle.GetBundlesMetadataFunc
-	commitsMap             map[int32]kafka.Offset // map of partition -> offset
-	interval               time.Duration
 }
 
 // start runs the committer instance.
@@ -67,7 +67,7 @@ func (c *committer) periodicCommit(ctx context.Context) {
 	}
 }
 
-func (c *committer) filterMetadataPerPartition(metadataArray []bundle.BundleMetadata) (map[int32]kafka.Offset,
+func (c *committer) filterMetadataPerPartition(metadataArray []metadata.BundleStatus) (map[int32]kafka.Offset,
 	map[int32]kafka.Offset,
 ) {
 	// assumes all are in the same topic.

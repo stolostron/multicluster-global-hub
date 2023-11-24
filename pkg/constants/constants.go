@@ -86,25 +86,25 @@ const (
 	// ManagedClustersLabelsMsgKey - managed clusters labels message key.
 	ManagedClustersLabelsMsgKey = "ManagedClustersLabels"
 
-	// ClustersPerPolicyMsgKey - clusters per policy message key.
-	ClustersPerPolicyMsgKey = "ClustersPerPolicy"
-	// PolicyCompleteComplianceMsgKey - policy complete state compliance message key.
-	PolicyCompleteComplianceMsgKey = "PolicyCompleteCompliance"
-	// PolicyDeltaComplianceMsgKey - policy delta state compliance message key.
-	PolicyDeltaComplianceMsgKey = "PolicyDeltaCompliance"
-	// MinimalPolicyComplianceMsgKey - minimal policy compliance message key.
-	MinimalPolicyComplianceMsgKey = "MinimalPolicyCompliance"
+	// ComplianceMsgKey - clusters per policy message key.
+	ComplianceMsgKey = "Compliance"
+	// CompleteComplianceMsgKey - policy complete state compliance message key.
+	CompleteComplianceMsgKey = "CompleteCompliance"
+	// DeltaComplianceMsgKey - policy delta state compliance message key.
+	DeltaComplianceMsgKey = "DeltaCompliance"
+	// MinimalComplianceMsgKey - minimal policy compliance message key.
+	MinimalComplianceMsgKey = "MinimalCompliance"
 
 	// LocalPolicySpecMsgKey - the local policy spec message key.
 	LocalPolicySpecMsgKey = "LocalPolicySpec"
-	// LocalClustersPerPolicyMsgKey - local clusters per policy message key.
-	LocalClustersPerPolicyMsgKey = "LocalClustersPerPolicy"
-	// LocalPolicyCompleteComplianceMsgKey - local policy compliance message key.
-	LocalPolicyCompleteComplianceMsgKey = "LocalPolicyCompleteCompliance"
+	// LocalComplianceMsgKey - local clusters per policy message key.
+	LocalComplianceMsgKey = "LocalCompliance"
+	// LocalCompleteComplianceMsgKey - local policy compliance message key.
+	LocalCompleteComplianceMsgKey = "LocalCompleteCompliance"
 	// LocalPlacementRulesMsgKey - local placement rules message key.
 	LocalPlacementRulesMsgKey = "LocalPlacementRules"
-	// LocalClusterPolicyStatusEventMsgKey - local cluster policy history events message key.
-	LocalClusterPolicyStatusEventMsgKey = "LocalClusterPolicyStatusEvents"
+	// LocalPolicyHistoryEventMsgKey - local cluster policy history events message key.
+	LocalPolicyHistoryEventMsgKey = "LocalPolicyHistoryEvents"
 
 	// SubscriptionStatusMsgKey - subscription-status message key.
 	SubscriptionStatusMsgKey = "SubscriptionStatus"

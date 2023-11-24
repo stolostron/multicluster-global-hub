@@ -6,7 +6,7 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/workerpool"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
 )
 
 // NewConflationDispatcher creates a new instance of Dispatcher.

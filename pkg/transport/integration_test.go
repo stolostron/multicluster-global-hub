@@ -12,10 +12,9 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -23,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
 
 var _ = Describe("Transport Integration", Ordered, func() {
@@ -186,9 +186,9 @@ var _ = Describe("Transport Integration", Ordered, func() {
 			conflationReadyQueue, stats) // manage all Conflation Units
 		conflationManager.Register(conflator.NewConflationRegistration(
 			conflator.ManagedClustersPriority,
-			bundle.CompleteStateMode,
+			metadata.CompleteStateMode,
 			"ManagedClustersStatusBundle",
-			func(ctx context.Context, bundle status.Bundle) error {
+			func(ctx context.Context, bundle bundle.ManagerBundle) error {
 				return nil
 			},
 		))
@@ -201,7 +201,7 @@ var _ = Describe("Transport Integration", Ordered, func() {
 
 		kafkaConsumer.BundleRegister(&registration.BundleRegistration{
 			MsgID:            constants.ManagedClustersMsgKey,
-			CreateBundleFunc: statusbundle.NewManagedClustersStatusBundle,
+			CreateBundleFunc: cluster.NewManagerManagedClusterBundle,
 			Predicate:        func() bool { return true }, // always get managed clusters bundles
 		})
 
@@ -211,7 +211,7 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		statusBundle := &GenericStatusBundle{
 			Objects:       make([]Object, 0),
 			LeafHubName:   "hub1",
-			BundleVersion: status.NewBundleVersion(),
+			BundleVersion: metadata.NewBundleVersion(),
 		}
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -248,9 +248,9 @@ var _ = Describe("Transport Integration", Ordered, func() {
 })
 
 type GenericStatusBundle struct {
-	Objects       []Object              `json:"objects"`
-	LeafHubName   string                `json:"leafHubName"`
-	BundleVersion *status.BundleVersion `json:"bundleVersion"`
+	Objects       []Object                `json:"objects"`
+	LeafHubName   string                  `json:"leafHubName"`
+	BundleVersion *metadata.BundleVersion `json:"bundleVersion"`
 }
 
 type Object interface {

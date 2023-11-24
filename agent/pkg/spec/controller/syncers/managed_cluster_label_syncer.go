@@ -15,9 +15,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
 	specbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -157,12 +157,12 @@ func (syncer *managedClusterLabelsBundleSyncer) updateManagedFieldEntry(managedC
 	managedClusterLabelsSpec *specbundle.ManagedClusterLabelsSpec,
 ) error {
 	// create label fields
-	labelFields := helper.LabelsField{Labels: map[string]struct{}{}}
+	labelFields := utils.LabelsField{Labels: map[string]struct{}{}}
 	for key := range managedClusterLabelsSpec.Labels {
 		labelFields.Labels[fmt.Sprintf("f:%s", key)] = struct{}{}
 	}
 	// create metadata field
-	metadataField := helper.MetadataField{LabelsField: labelFields}
+	metadataField := utils.MetadataField{LabelsField: labelFields}
 
 	metadataFieldRaw, err := json.Marshal(metadataField)
 	if err != nil {

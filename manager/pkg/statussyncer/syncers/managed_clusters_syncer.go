@@ -10,32 +10,28 @@ import (
 	"gorm.io/gorm/clause"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
-
-// NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
-func NewManagedClustersDBSyncer(log logr.Logger) Syncer {
-	dbSyncer := &ManagedClustersDBSyncer{
-		log:              log,
-		createBundleFunc: statusbundle.NewManagedClustersStatusBundle,
-	}
-
-	log.Info("initialized managed clusters db syncer")
-	return dbSyncer
-}
 
 // ManagedClustersDBSyncer implements managed clusters db sync business logic.
 type ManagedClustersDBSyncer struct {
 	log              logr.Logger
-	createBundleFunc status.CreateBundleFunction
+	createBundleFunc CreateBundleFunction
+}
+
+// NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
+func NewManagedClustersDBSyncer(log logr.Logger) Syncer {
+	return &ManagedClustersDBSyncer{
+		log:              log,
+		createBundleFunc: cluster.NewManagerManagedClusterBundle,
+	}
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -57,15 +53,16 @@ func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(dispatcher 
 func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ManagedClustersPriority,
-		bundle.CompleteStateMode,
-		helpers.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle status.Bundle) error {
+		metadata.CompleteStateMode,
+		bundle.GetBundleType(syncer.createBundleFunc()),
+		func(ctx context.Context, bundle bundle.ManagerBundle) error {
 			return syncer.handleManagedClustersBundle(ctx, bundle)
 		},
 	))
 }
 
-func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle status.Bundle) error {
+func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.ManagerBundle,
+) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 

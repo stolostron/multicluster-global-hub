@@ -6,13 +6,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/dispatcher"
 	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/helpers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/placement"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator/db/workerpool"
+	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -131,22 +132,21 @@ func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.Confl
 // only statistic the local policy and managed clusters
 func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (*statistics.Statistics, error) {
 	bundleTypes := []string{
-		helpers.GetBundleType(&status.HubClusterInfoBundle{}),
-		helpers.GetBundleType(&statusbundle.HubClusterHeartbeatBundle{}),
-		helpers.GetBundleType(&statusbundle.ManagedClustersStatusBundle{}),
-		helpers.GetBundleType(&statusbundle.LocalPolicySpecBundle{}),
-		helpers.GetBundleType(&status.ClusterPolicyEventBundle{}),
-		helpers.GetBundleType(&statusbundle.LocalClustersPerPolicyBundle{}),
-		helpers.GetBundleType(&statusbundle.LocalCompleteComplianceStatusBundle{}),
+		bundle.GetBundleType(&cluster.HubClusterInfoBundle{}),
+		bundle.GetBundleType(&cluster.ManagedClusterBundle{}),
+		bundle.GetBundleType(&grc.LocalPolicyBundle{}),
+		bundle.GetBundleType(&grc.LocalComplianceBundle{}),
+		bundle.GetBundleType(&grc.LocalCompleteComplianceBundle{}),
+		bundle.GetBundleType(&grc.LocalReplicatedPolicyEventBundle{}),
+		// bundle.GetBundleType(&placement.LocalPlacementRulesBundle{}),
 	}
 
 	if managerConfig.EnableGlobalResource {
 		bundleTypes = append(bundleTypes,
-			helpers.GetBundleType(&statusbundle.LocalPlacementRulesBundle{}),
-			helpers.GetBundleType(&statusbundle.PlacementsBundle{}),
-			helpers.GetBundleType(&statusbundle.PlacementDecisionsBundle{}),
-			helpers.GetBundleType(&statusbundle.ClustersPerPolicyBundle{}),
-			helpers.GetBundleType(&statusbundle.CompleteComplianceStatusBundle{}),
+			bundle.GetBundleType(&placement.PlacementsBundle{}),
+			bundle.GetBundleType(&placement.PlacementDecisionsBundle{}),
+			bundle.GetBundleType(&grc.ComplianceBundle{}),
+			bundle.GetBundleType(&grc.CompleteComplianceBundle{}),
 		)
 	}
 	// create statistics

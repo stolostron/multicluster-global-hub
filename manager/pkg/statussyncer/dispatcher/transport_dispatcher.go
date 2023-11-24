@@ -8,11 +8,11 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/registration"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
 
 // Get message from transport, convert it to bundle and forward it to conflation manager.
@@ -92,7 +92,7 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			// d.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
 			// 	message.TopicPartition.Offset))
 			d.log.V(2).Info("forward received bundle to conflation", "messageID", msgID)
-			d.conflationManager.Insert(receivedBundle, bundle.NewBaseBundleMetadata())
+			d.conflationManager.Insert(receivedBundle, metadata.NewGenericBundleStatus())
 		}
 	}
 }

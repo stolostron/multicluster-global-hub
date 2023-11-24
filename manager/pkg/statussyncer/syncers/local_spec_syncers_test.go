@@ -15,7 +15,7 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -58,7 +58,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 	})
 
 	It("sync LocalPolicyBundle to database", func() {
-		version := status.NewBundleVersion()
+		version := metadata.NewBundleVersion()
 		By("Create LocalPolicyBundle")
 		policy := &policiesv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -141,7 +141,7 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 		statusBundle := &GenericStatusBundle{
 			Objects:       make([]Object, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(),
+			BundleVersion: metadata.NewBundleVersion(),
 			manipulateObjFunc: func(object Object) {
 				placementRule, ok := object.(*placementrulev1.PlacementRule)
 				if !ok {
@@ -197,9 +197,9 @@ var _ = Describe("LocalSpecDbSyncer", Ordered, func() {
 })
 
 type GenericStatusBundle struct {
-	Objects           []Object              `json:"objects"`
-	LeafHubName       string                `json:"leafHubName"`
-	BundleVersion     *status.BundleVersion `json:"bundleVersion"`
+	Objects           []Object                `json:"objects"`
+	LeafHubName       string                  `json:"leafHubName"`
+	BundleVersion     *metadata.BundleVersion `json:"bundleVersion"`
 	manipulateObjFunc func(obj Object)
 	lock              sync.Mutex
 }

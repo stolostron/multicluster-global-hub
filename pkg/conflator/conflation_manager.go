@@ -7,7 +7,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -42,16 +42,16 @@ func (cm *ConflationManager) Register(registration *ConflationRegistration) {
 }
 
 // Insert function inserts the bundle to the appropriate conflation unit.
-func (cm *ConflationManager) Insert(bundle statusbundle.Bundle, metadata bundle.BundleMetadata) {
-	cm.getConflationUnit(bundle.GetLeafHubName()).insert(bundle, metadata)
+func (cm *ConflationManager) Insert(managerBundle bundle.ManagerBundle, bundleStatus metadata.BundleStatus) {
+	cm.getConflationUnit(managerBundle.GetLeafHubName()).insert(managerBundle, bundleStatus)
 }
 
 // GetBundlesMetadata provides collections of the CU's bundle transport-metadata.
-func (cm *ConflationManager) GetBundlesMetadata() []bundle.BundleMetadata {
-	metadata := make([]bundle.BundleMetadata, 0)
+func (cm *ConflationManager) GetBundlesMetadata() []metadata.BundleStatus {
+	metadata := make([]metadata.BundleStatus, 0)
 
 	for _, cu := range cm.conflationUnits {
-		metadata = append(metadata, cu.getBundlesMetadata()...)
+		metadata = append(metadata, cu.getBundleStatues()...)
 	}
 
 	return metadata

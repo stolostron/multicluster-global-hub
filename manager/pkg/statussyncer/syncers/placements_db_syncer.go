@@ -3,8 +3,8 @@ package dbsyncer
 import (
 	"github.com/go-logr/logr"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/placement"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -17,9 +17,9 @@ func NewPlacementsDBSyncer(log logr.Logger) Syncer {
 		transportMsgKey:  constants.PlacementMsgKey,
 		dbSchema:         database.StatusSchema,
 		dbTableName:      database.PlacementsTableName,
-		createBundleFunc: statusbundle.NewPlacementsBundle,
+		createBundleFunc: placement.NewManagerPlacementsBundle,
 		bundlePriority:   conflator.PlacementPriority,
-		bundleSyncMode:   bundle.CompleteStateMode,
+		bundleSyncMode:   metadata.CompleteStateMode,
 	}
 
 	log.Info("initialized placements db syncer")

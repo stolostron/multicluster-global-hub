@@ -24,7 +24,7 @@ var (
 	// - to setup/close connection because GORM V2 removed gorm.Close()
 	// - to work with pq.CopyIn because connection returned by GORM V2 gorm.DB() in "not the same"
 	sqlDB *sql.DB
-	log   = ctrl.Log.WithName("addon-controller")
+	log   = ctrl.Log.WithName("database-controller")
 )
 
 type DatabaseConfig struct {
@@ -49,7 +49,7 @@ func InitGormInstance(config *DatabaseConfig) error {
 			log.Error(err, "failed to open database connection")
 			return
 		}
-		sqlDB.SetMaxOpenConns(config.PoolSize)
+		// sqlDB.SetMaxOpenConns(config.PoolSize)
 		gormDB, err = gorm.Open(postgres.New(postgres.Config{
 			Conn:                 sqlDB,
 			PreferSimpleProtocol: true,
@@ -61,6 +61,13 @@ func InitGormInstance(config *DatabaseConfig) error {
 			log.Error(err, "failed to open gorm connection")
 			return
 		}
+		sqlDB, err = gormDB.DB()
+		if err != nil {
+			log.Error(err, "failed to open gorm connection")
+			return
+		}
+		fmt.Println("set max connection==============:", config.PoolSize)
+		sqlDB.SetMaxOpenConns(config.PoolSize)
 	})
 	return err
 }

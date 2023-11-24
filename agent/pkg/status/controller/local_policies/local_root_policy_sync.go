@@ -8,13 +8,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/bundle/grc"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -27,47 +28,46 @@ func AddLocalRootPolicySyncer(mgr ctrl.Manager, producer transport.Producer) err
 	bundleCollection := createBundleCollection(mgr)
 
 	localPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return !helper.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) &&
-			!helper.HasLabel(object, rootPolicyLabel)
+		return !utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) &&
+			!utils.HasLabel(object, rootPolicyLabel)
 	})
 
-	return generic.NewGenericStatusSyncController(mgr, "local-root-policies-status-sync", producer, bundleCollection,
+	return generic.NewGenericStatusSyncer(mgr, "local-root-policies-status-sync", producer, bundleCollection,
 		createObjFunc, localPolicyPredicate, config.GetPolicyDuration)
 }
 
-func createBundleCollection(mgr ctrl.Manager) []*generic.BundleCollectionEntry {
+func createBundleCollection(mgr ctrl.Manager) []*generic.BundleEntry {
 	leafHubName := config.GetLeafHubName()
 
 	extractLocalPolicyIDFunc := func(obj bundle.Object) (string, bool) { return string(obj.GetUID()), true }
 
-	// clusters per policy (base bundle)
-	localClustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		constants.LocalClustersPerPolicyMsgKey)
-	localClustersPerPolicyBundle := grc.NewClustersPerPolicyBundle(leafHubName, extractLocalPolicyIDFunc)
+	// compliance bundle (base bundle)
+	localComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		constants.LocalComplianceMsgKey)
+	localComplianceBundle := grc.NewAgentComplianceBundle(leafHubName, extractLocalPolicyIDFunc)
 
-	// compliance status bundle
-	localCompleteComplianceStatusTransportKey := fmt.Sprintf("%s.%s", leafHubName,
-		constants.LocalPolicyCompleteComplianceMsgKey)
-	localCompleteComplianceStatusBundle := grc.NewCompleteComplianceStatusBundle(leafHubName,
-		localClustersPerPolicyBundle, extractLocalPolicyIDFunc)
+	// complete compliance bundle
+	localCompleteComplianceTransportKey := fmt.Sprintf("%s.%s", leafHubName,
+		constants.LocalCompleteComplianceMsgKey)
+	localCompleteComplianceBundle := grc.NewAgentCompleteComplianceBundle(leafHubName,
+		localComplianceBundle, extractLocalPolicyIDFunc)
 
 	// local spec policy bundle
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPolicySpecMsgKey)
-	localPolicySpecBundle := bundle.NewGenericStatusBundle(leafHubName, cleanPolicy)
+	localPolicySpecBundle := genericbundle.NewGenericStatusBundle(leafHubName, cleanPolicy)
 
 	// check for full information
 	localPolicyStatusPredicate := func() bool {
 		return config.GetAggregationLevel() == config.AggregationFull &&
 			config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue
 	}
-
 	// multiple bundles for local policies
-	return []*generic.BundleCollectionEntry{
-		generic.NewBundleCollectionEntry(localClustersPerPolicyTransportKey,
-			localClustersPerPolicyBundle, localPolicyStatusPredicate),
-		generic.NewBundleCollectionEntry(localCompleteComplianceStatusTransportKey,
-			localCompleteComplianceStatusBundle, localPolicyStatusPredicate),
-		generic.NewBundleCollectionEntry(localPolicySpecTransportKey, localPolicySpecBundle,
+	return []*generic.BundleEntry{
+		generic.NewBundleEntry(localComplianceTransportKey,
+			localComplianceBundle, localPolicyStatusPredicate),
+		generic.NewBundleEntry(localCompleteComplianceTransportKey,
+			localCompleteComplianceBundle, localPolicyStatusPredicate),
+		generic.NewBundleEntry(localPolicySpecTransportKey, localPolicySpecBundle,
 			func() bool { return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue }),
 	}
 }

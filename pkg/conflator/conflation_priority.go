@@ -5,16 +5,16 @@ type ConflationPriority uint8
 
 // priority list of conflation unit.
 const (
-	ManagedClustersPriority               ConflationPriority = iota
-	ClustersPerPolicyPriority             ConflationPriority = iota
-	CompleteComplianceStatusPriority      ConflationPriority = iota
-	DeltaComplianceStatusPriority         ConflationPriority = iota
-	MinimalComplianceStatusPriority       ConflationPriority = iota
-	HubClusterInfoStatusPriority          ConflationPriority = iota
-	LocalPolicySpecPriority               ConflationPriority = iota
-	LocalClustersPerPolicyPriority        ConflationPriority = iota
-	LocalCompleteComplianceStatusPriority ConflationPriority = iota
-	LocalPolicyStatusEventPriority        ConflationPriority = iota
+	ManagedClustersPriority            ConflationPriority = iota
+	CompliancePriority                 ConflationPriority = iota
+	CompleteCompliancePriority         ConflationPriority = iota
+	DeltaCompliancePriority            ConflationPriority = iota
+	MinimalCompliancePriority          ConflationPriority = iota
+	HubClusterInfoPriority             ConflationPriority = iota
+	LocalPolicySpecPriority            ConflationPriority = iota
+	LocalCompliancePriority            ConflationPriority = iota
+	LocalCompleteCompliancePriority    ConflationPriority = iota
+	LocalReplicatedPolicyEventPriority ConflationPriority = iota
 
 	// enable global resource
 	PlacementRulePriority           ConflationPriority = iota

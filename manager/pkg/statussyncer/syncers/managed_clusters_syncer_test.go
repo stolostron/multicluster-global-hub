@@ -11,11 +11,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
@@ -65,9 +65,9 @@ var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
 		statusBundle := &GenericStatusBundle{
 			Objects:       make([]Object, 0),
 			LeafHubName:   leafHubName,
-			BundleVersion: status.NewBundleVersion(),
+			BundleVersion: metadata.NewBundleVersion(),
 			manipulateObjFunc: func(object Object) {
-				helper.AddAnnotations(object, map[string]string{
+				utils.AddAnnotations(object, map[string]string{
 					constants.ManagedClusterManagedByAnnotation: leafHubName,
 				})
 			},

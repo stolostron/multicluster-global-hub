@@ -34,7 +34,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		return fmt.Errorf("failed to get producer: %w", err)
 	}
 
-	_, err = policies.AddPoliciesStatusController(mgr, producer)
+	_, err = policies.AddPolicyStatusSyncer(mgr, producer)
 	if err != nil {
 		return fmt.Errorf("failed to add PoliciesStatusController controller: %w", err)
 	}
@@ -48,19 +48,19 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	// }
 
 	addControllerFunctions := []func(ctrl.Manager, transport.Producer) error{
-		managedclusters.AddClustersStatusController,
+		managedclusters.AddMangedClusterSyncer,
 		// apps.AddSubscriptionStatusesController,
 		localpolicies.AddLocalRootPolicySyncer,
 		localpolicies.AddLocalReplicatedPolicySyncer,
-		hubcluster.AddHubClusterController,
+		hubcluster.AddHubClusterInfoSyncer,
 	}
 
 	if agentConfig.EnableGlobalResource {
 		addControllerFunctions = append(addControllerFunctions,
 			placement.AddPlacementRulesController,
-			placement.AddPlacementsController,
+			placement.AddPlacementSyncer,
 			placement.AddPlacementDecisionsController,
-			apps.AddSubscriptionReportsController,
+			apps.AddSubscriptionReportsSyncer,
 			localplacement.AddLocalPlacementRulesController,
 		)
 	}

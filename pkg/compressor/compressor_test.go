@@ -7,7 +7,8 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 
-	statusbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -19,8 +20,8 @@ func TestTransportCompressor(t *testing.T) {
 	}
 
 	// compress the kafka message with bundle
-	clusterPerPolicyBundle := &statusbundle.BaseClustersPerPolicyBundle{
-		Objects: []*statusbundle.PolicyGenericComplianceStatus{
+	clusterPerPolicyBundle := &base.BaseComplianceBundle{
+		Objects: []*base.GenericCompliance{
 			{
 				PolicyID:                  "d9347b09-bb46-4e2b-91ea-513e83ab9ea7",
 				CompliantClusters:         []string{"cluster1"},
@@ -29,7 +30,7 @@ func TestTransportCompressor(t *testing.T) {
 			},
 		},
 		LeafHubName:   "hub1",
-		BundleVersion: statusbundle.NewBundleVersion(),
+		BundleVersion: metadata.NewBundleVersion(),
 	}
 	transportPayload, err := json.Marshal(clusterPerPolicyBundle)
 	if err != nil {
@@ -83,7 +84,7 @@ func TestTransportCompressor(t *testing.T) {
 	decompressTransportMsg := &transport.Message{}
 	json.Unmarshal(decompressMessageValueBytes, decompressTransportMsg)
 
-	decompressBundle := &statusbundle.BaseClustersPerPolicyBundle{}
+	decompressBundle := &base.BaseComplianceBundle{}
 	json.Unmarshal(decompressTransportMsg.Payload, decompressBundle)
 
 	if decompressBundle.LeafHubName != clusterPerPolicyBundle.LeafHubName {

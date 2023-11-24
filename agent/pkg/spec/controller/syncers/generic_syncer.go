@@ -11,10 +11,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/helper"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/rbac"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	helper "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // genericBundleSyncer syncs objects spec from received bundles.
@@ -35,7 +36,7 @@ func NewGenericSyncer(workerPool *workers.WorkerPool, config *config.AgentConfig
 }
 
 func (syncer *genericBundleSyncer) Sync(payload []byte) error {
-	genericBundle := &bundle.GenericBundle{}
+	genericBundle := &spec.GenericSpecBundle{}
 	if err := json.Unmarshal(payload, genericBundle); err != nil {
 		return err
 	}
@@ -61,7 +62,7 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
 
 			if !syncer.enforceHohRbac { // if rbac not enforced, create missing namespaces.
-				if err := helper.CreateNamespaceIfNotExist(ctx, k8sClient,
+				if err := utils.CreateNamespaceIfNotExist(ctx, k8sClient,
 					unstructuredObject.GetNamespace()); err != nil {
 					syncer.log.Error(err, "failed to create namespace",
 						"namespace", unstructuredObject.GetNamespace())
