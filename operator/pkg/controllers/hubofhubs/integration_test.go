@@ -146,8 +146,8 @@ var postgresCertSecret = &corev1.Secret{
 // Define utility constants for object names and testing timeouts/durations and intervals.
 const (
 	MGHName              = "test-mgh"
-	StorageSecretName    = operatorconstants.GHStorageSecretName
-	TransportSecretName  = operatorconstants.GHTransportSecretName
+	StorageSecretName    = constants.GHStorageSecretName
+	TransportSecretName  = constants.GHTransportSecretName
 	kafkaCACert          = "foobar"
 	kafkaClientCert      = "foobar"
 	KafkaClientKey       = "foobar"

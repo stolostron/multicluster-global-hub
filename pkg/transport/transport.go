@@ -5,34 +5,20 @@ package transport
 
 import (
 	"context"
-	"time"
+
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 )
 
-const (
-	// DestinationHub is the key used for destination-hub name header.
-	DestinationHub = "destination-hub"
-	// CompressionType is the key used for compression type header.
-	CompressionType = "content-encoding"
-	// Size is the key used for total bundle size header.
-	Size = "size"
-	// Offset is the key used for message fragment offset header.
-	Offset = "offset"
-	// FragmentationTimestamp is the key used for bundle fragmentation time header.
-	FragmentationTimestamp = "fragmentation-timestamp"
-	// Broadcast can be used as destination when a bundle should be broadcasted.
-	Broadcast = ""
+type Transport interface {
+	// init the transport with different implementation/protocol: AMQ, strimzi operator or plain deployment
+	Initialize(mgh *globalhubv1alpha4.MulticlusterGlobalHub, waitReady bool) error
 
-	// Kafka transportType and transportFormat values
-	Kafka              TransportType   = "kafka"
-	Chan               TransportType   = "chan"
-	KafkaMessageFormat TransportFormat = "message"
-	CloudEventsFormat  TransportFormat = "cloudEvents"
-)
+	// create the transport user(KafkaUser) if not exist for each hub clusters
+	CreateUser(name string, waitReady bool) (error, string)
 
-type (
-	TransportType   string
-	TransportFormat string
-)
+	// create the transport topic(KafkaTopic) if not exist for each hub clusters
+	CreateTopic(clusterIdentity string, waitReady bool) (error, string)
+}
 
 type Producer interface {
 	Send(ctx context.Context, msg *Message) error
@@ -53,35 +39,4 @@ type Message struct {
 	MsgType     string `json:"msgType"`
 	Version     string `json:"version"`
 	Payload     []byte `json:"payload"`
-}
-
-type TransportConfig struct {
-	TransportType          string
-	TransportFormat        string
-	MessageCompressionType string
-	CommitterInterval      time.Duration
-	KafkaConfig            *KafkaConfig
-	Extends                map[string]interface{}
-}
-
-// Kafka Config
-type KafkaConfig struct {
-	BootstrapServer string
-	CaCertPath      string
-	ClientCertPath  string
-	ClientKeyPath   string
-	EnableTLS       bool
-	ProducerConfig  *KafkaProducerConfig
-	ConsumerConfig  *KafkaConsumerConfig
-}
-
-type KafkaProducerConfig struct {
-	ProducerID         string
-	ProducerTopic      string
-	MessageSizeLimitKB int
-}
-
-type KafkaConsumerConfig struct {
-	ConsumerID    string
-	ConsumerTopic string
 }

@@ -420,7 +420,7 @@ var secretPred = predicate.Funcs{
 		return secretCond(e.ObjectNew) && e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetName() == operatorconstants.CustomGrafanaIniName
+		return e.Object.GetName() == constants.CustomGrafanaIniName
 	},
 }
 
@@ -438,7 +438,7 @@ var deletePred = predicate.Funcs{
 
 var configmappred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetName() == operatorconstants.CustomAlertName
+		return e.Object.GetName() == constants.CustomAlertName
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
@@ -446,14 +446,14 @@ var configmappred = predicate.Funcs{
 			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
 			return true
 		}
-		return e.ObjectNew.GetName() == operatorconstants.CustomAlertName
+		return e.ObjectNew.GetName() == constants.CustomAlertName
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
 			constants.GHOperatorOwnerLabelVal {
 			return true
 		}
-		return e.Object.GetName() == operatorconstants.CustomAlertName
+		return e.Object.GetName() == constants.CustomAlertName
 	},
 }
 
@@ -519,10 +519,10 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 )
 
 func secretCond(obj client.Object) bool {
-	return obj.GetName() == operatorconstants.GHTransportSecretName ||
-		obj.GetName() == operatorconstants.GHStorageSecretName ||
-		obj.GetName() == operatorconstants.GHBuiltInStorageSecretName ||
-		obj.GetName() == operatorconstants.CustomGrafanaIniName ||
+	return obj.GetName() == constants.GHTransportSecretName ||
+		obj.GetName() == constants.GHStorageSecretName ||
+		obj.GetName() == constants.GHBuiltInStorageSecretName ||
+		obj.GetName() == constants.CustomGrafanaIniName ||
 		obj.GetName() == config.GetImagePullSecretName()
 }
 

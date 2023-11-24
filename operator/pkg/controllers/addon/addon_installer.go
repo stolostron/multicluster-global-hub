@@ -85,7 +85,7 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// BYO: skip create kafka user if the transport secret exist
 	err = r.Client.Get(ctx, types.NamespacedName{
-		Name:      operatorconstants.GHTransportSecretName,
+		Name:      constants.GHTransportSecretName,
 		Namespace: config.GetDefaultNamespace(),
 	}, &corev1.Secret{})
 	if err != nil && !errors.IsNotFound(err) {
@@ -263,7 +263,7 @@ func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 
 	secretCond := func(obj client.Object) bool {
 		if obj.GetName() == config.GetImagePullSecretName() ||
-			obj.GetName() == operatorconstants.GHTransportSecretName ||
+			obj.GetName() == constants.GHTransportSecretName ||
 			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == kafka.KafkaClusterName &&
 				obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
 			return true

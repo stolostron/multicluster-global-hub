@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
@@ -91,7 +90,8 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
 	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
 ) (dbsyncer.BundleRegisterable, error) {
-	if managerConfig.TransportConfig.TransportFormat == string(transport.KafkaMessageFormat) {
+	// deprecated: only support cloudevents to send message
+	if managerConfig.TransportConfig.TransportFormat == "KafkaMessage" {
 		kafkaConsumer, err := consumer.NewKafkaConsumer(
 			managerConfig.TransportConfig.KafkaConfig,
 			ctrl.Log.WithName("message-consumer"))

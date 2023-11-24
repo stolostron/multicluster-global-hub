@@ -74,7 +74,8 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 }
 
 func getProducer(mgr ctrl.Manager, agentConfig *config.AgentConfig) (transport.Producer, bool, error) {
-	if agentConfig.TransportConfig.TransportFormat == string(transport.KafkaMessageFormat) {
+	// deprecated: only support cloudevents
+	if agentConfig.TransportConfig.TransportFormat == "kafkaMessage" {
 		// support kafka
 		isAsync := true
 		messageCompressor, err := compressor.NewCompressor(

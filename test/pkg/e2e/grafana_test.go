@@ -14,8 +14,8 @@ import (
 	"k8s.io/klog"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
@@ -57,7 +57,7 @@ var _ = Describe("The alert configmap should be created", Ordered, Label("e2e-te
 		customConfig := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: Namespace,
-				Name:      operatorconstants.CustomAlertName,
+				Name:      constants.CustomAlertName,
 			},
 			Data: map[string]string{
 				alertConfigMapKey: `
@@ -92,7 +92,7 @@ policies:
 			defaultAlertConfigMap, err := testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Get(ctx, defaultAlertName, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			customAlertConfigMap, err := testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Get(ctx, operatorconstants.CustomAlertName, metav1.GetOptions{})
+			customAlertConfigMap, err := testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Get(ctx, constants.CustomAlertName, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			mergedAlertConfigMap, err := testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Get(ctx, mergedAlertName, metav1.GetOptions{})
@@ -114,7 +114,7 @@ policies:
 				defaultAlertConfigMap.Data[alertConfigMapKey], customAlertConfigMap.Data, mergedAlertConfigMap.Data)
 		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, operatorconstants.CustomAlertName, metav1.DeleteOptions{})
+		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, constants.CustomAlertName, metav1.DeleteOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
@@ -142,7 +142,7 @@ policies:
 		customConfig := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: Namespace,
-				Name:      operatorconstants.CustomAlertName,
+				Name:      constants.CustomAlertName,
 			},
 			Data: map[string]string{
 				alertConfigMapKey: `
@@ -177,7 +177,7 @@ policies:
 				mergedAlertConfigMap.Data, defaultAlertConfigMap.Data[alertConfigMapKey])
 		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, operatorconstants.CustomAlertName, metav1.DeleteOptions{})
+		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, constants.CustomAlertName, metav1.DeleteOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 })
@@ -204,7 +204,7 @@ var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-tests-
 		customSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: Namespace,
-				Name:      operatorconstants.CustomGrafanaIniName,
+				Name:      constants.CustomGrafanaIniName,
 			},
 			Data: map[string][]byte{
 				grafanaIniKey: []byte(`
@@ -236,7 +236,7 @@ var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-tests-
 			return nil
 		}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-		err = testClients.KubeClient().CoreV1().Secrets(Namespace).Delete(ctx, operatorconstants.CustomGrafanaIniName, metav1.DeleteOptions{})
+		err = testClients.KubeClient().CoreV1().Secrets(Namespace).Delete(ctx, constants.CustomGrafanaIniName, metav1.DeleteOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
@@ -284,14 +284,14 @@ var _ = Describe("The grafana resources counts should be right", Ordered, Label(
 	It("The grafana dashboard should be exist", func() {
 		ctx := context.Background()
 		dashboardUids := []string{
-			"pAqtIGj4k",                            //adhoc investigation
-			"868845a4d1334958bd62303c5ccb4c19",     //clustergroup compliance overview
-			"0e0ddb7f16b946f99d96a483a4a3f95f",     //offending clusters
-			"b67e0727891f4121ae2dde09671520ae",     //offending policies
-			"fbf66c88-ba14-4553-90b7-55ea5870faab", //overview
-			"9bb3bee6a17e47f9a231f6d77f2408fa",     //policy group compliance overview
-			"5a3a577af7894943aa6e7ca8408502fb",     //what's changed cluster
-			"5a3a577af7894943aa6e7ca8408502fa",     //what's changed policies
+			"pAqtIGj4k",                            // adhoc investigation
+			"868845a4d1334958bd62303c5ccb4c19",     // clustergroup compliance overview
+			"0e0ddb7f16b946f99d96a483a4a3f95f",     // offending clusters
+			"b67e0727891f4121ae2dde09671520ae",     // offending policies
+			"fbf66c88-ba14-4553-90b7-55ea5870faab", // overview
+			"9bb3bee6a17e47f9a231f6d77f2408fa",     // policy group compliance overview
+			"5a3a577af7894943aa6e7ca8408502fb",     // what's changed cluster
+			"5a3a577af7894943aa6e7ca8408502fa",     // what's changed policies
 		}
 		for _, uid := range dashboardUids {
 			Eventually(func() error {

@@ -56,6 +56,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
@@ -187,7 +188,7 @@ var _ = AfterSuite(func() {
 
 const (
 	MGHName              = "test-mgh"
-	StorageSecretName    = operatorconstants.GHStorageSecretName
+	StorageSecretName    = constants.GHStorageSecretName
 	kafkaCA              = "foobar"
 	kafkaBootstrapServer = "https://test-kafka.example.com"
 

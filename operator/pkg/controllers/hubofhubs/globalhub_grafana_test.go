@@ -16,8 +16,8 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func Test_mergeAlertConfigMap(t *testing.T) {
@@ -184,7 +184,7 @@ func Test_generateAlertConfigMap(t *testing.T) {
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: configNamespace,
-						Name:      operatorconstants.CustomAlertName,
+						Name:      constants.CustomAlertName,
 					},
 					Data: map[string]string{
 						alertConfigMapKey: "- orgId: 1\n	name: Suspicious policy change\n    folder: Custom\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Custom\ncontactPoints:\n  - orgId: 1\n    name: alerts-cu-webhook\n    receivers:\n      - uid: 4e3bfe25-00cf-4173-b02b-16f077e539da\n        type: email\n        disableResolveMessage: false\npolicies:\n  - orgId: 1\n    receiver: alerts-cu-webhook",
@@ -261,7 +261,7 @@ func Test_generateAlertConfigMap(t *testing.T) {
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: configNamespace,
-						Name:      operatorconstants.CustomAlertName,
+						Name:      constants.CustomAlertName,
 					},
 					Data: map[string]string{
 						alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Custom\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Custom\ncontactPoints:\n  - orgId: 1\n    name: alerts-cu-webhook\n    receivers:\n      - uid: 4e3bfe25-00cf-4173-b02b-16f077e539da\n        type: email\n        disableResolveMessage: false\npolicies:\n  - orgId: 1\n    receiver: alerts-cu-webhook",
@@ -470,7 +470,7 @@ func Test_generateGranafaIni(t *testing.T) {
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: configNamespace,
-						Name:      operatorconstants.CustomGrafanaIniName,
+						Name:      constants.CustomGrafanaIniName,
 					},
 					Data: map[string][]byte{
 						grafanaIniKey: []byte("    [smtp]\n    email = example@redhat.com"),
@@ -510,7 +510,7 @@ func Test_generateGranafaIni(t *testing.T) {
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: configNamespace,
-						Name:      operatorconstants.CustomGrafanaIniName,
+						Name:      constants.CustomGrafanaIniName,
 					},
 					Data: map[string][]byte{
 						grafanaIniKey: []byte("    [smtp]\n    email = example@redhat.com"),

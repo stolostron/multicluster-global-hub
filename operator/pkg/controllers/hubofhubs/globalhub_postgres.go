@@ -16,11 +16,11 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
