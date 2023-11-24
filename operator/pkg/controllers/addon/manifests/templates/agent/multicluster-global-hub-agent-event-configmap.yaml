@@ -22,7 +22,7 @@ data:
     receivers:
       - name: "kafka"
         kafka:
-          topic: "event"
+          topic: {{.KafkaEventTopic}}
           clientId: {{ .LeafHubID }}
           brokers:
             - {{ .KafkaBootstrapServer }}

@@ -61,6 +61,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/topic"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -383,39 +384,12 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			if months < 1 {
 				months = 1
 			}
+
+			globalTopic := topic.NewClusterTopic(topic.GlobalHubTopicIdentity)
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {
-				return struct {
-					Image                  string
-					Replicas               int32
-					ProxyImage             string
-					ImagePullPolicy        string
-					ImagePullSecret        string
-					ProxySessionSecret     string
-					DatabaseURL            string
-					PostgresCACert         string
-					KafkaCACert            string
-					KafkaClientCert        string
-					KafkaClientKey         string
-					KafkaBootstrapServer   string
-					TransportType          string
-					TransportFormat        string
-					MessageCompressionType string
-					Namespace              string
-					LeaseDuration          string
-					RenewDeadline          string
-					RetryPeriod            string
-					SchedulerInterval      string
-					SkipAuth               bool
-					NodeSelector           map[string]string
-					Tolerations            []corev1.Toleration
-					RetentionMonth         int
-					StatisticLogInterval   string
-					EnableGlobalResource   bool
-					LaunchJobNames         string
-					LogLevel               string
-				}{
+				return hubofhubs.ManagerVariables{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					Replicas:               2,
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -428,6 +402,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaClientCert:        base64.RawStdEncoding.EncodeToString([]byte(kafkaClientCert)),
 					KafkaClientKey:         base64.RawStdEncoding.EncodeToString([]byte(KafkaClientKey)),
 					KafkaBootstrapServer:   kafkaBootstrapServer,
+					KafkaConsumerTopic:     globalTopic.StatusTopic(),
+					KafkaProducerTopic:     globalTopic.SpecTopic(),
+					KafkaEventTopic:        globalTopic.EventTopic(),
 					MessageCompressionType: string(operatorconstants.GzipCompressType),
 					TransportType:          string(transport.Kafka),
 					TransportFormat:        string(globalhubv1alpha4.CloudEvents),

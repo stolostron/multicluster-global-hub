@@ -27,6 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/topic"
 )
 
 //go:embed manifests/templates
@@ -47,6 +48,9 @@ type ManifestsConfig struct {
 	KafkaCACert            string
 	KafkaClientCert        string
 	KafkaClientKey         string
+	KafkaConsumerTopic     string
+	KafkaProducerTopic     string
+	KafkaEventTopic        string
 	MessageCompressionType string
 	InstallACMHub          bool
 	Channel                string
@@ -177,6 +181,8 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
+	clusterTopic := topic.NewClusterTopic(cluster.Name)
+
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
@@ -185,6 +191,9 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaCACert:            kafkaConnection.CACert,
 		KafkaClientCert:        kafkaConnection.ClientCert,
 		KafkaClientKey:         kafkaConnection.ClientKey,
+		KafkaConsumerTopic:     clusterTopic.SpecTopic(),
+		KafkaProducerTopic:     clusterTopic.StatusTopic(),
+		KafkaEventTopic:        clusterTopic.EventTopic(),
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		TransportFormat:        string(globalhubv1alpha4.CloudEvents),

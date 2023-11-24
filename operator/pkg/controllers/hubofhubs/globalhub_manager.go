@@ -23,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/topic"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -78,37 +79,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		replicas = 2
 	}
 
+	globalTopic := topic.NewClusterTopic(topic.GlobalHubTopicIdentity)
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
-		return struct {
-			Image                  string
-			Replicas               int32
-			ProxyImage             string
-			ImagePullSecret        string
-			ImagePullPolicy        string
-			ProxySessionSecret     string
-			DatabaseURL            string
-			PostgresCACert         string
-			KafkaCACert            string
-			KafkaClientCert        string
-			KafkaClientKey         string
-			KafkaBootstrapServer   string
-			MessageCompressionType string
-			TransportType          string
-			TransportFormat        string
-			Namespace              string
-			LeaseDuration          string
-			RenewDeadline          string
-			RetryPeriod            string
-			SchedulerInterval      string
-			SkipAuth               bool
-			LaunchJobNames         string
-			NodeSelector           map[string]string
-			Tolerations            []corev1.Toleration
-			RetentionMonth         int
-			StatisticLogInterval   string
-			EnableGlobalResource   bool
-			LogLevel               string
-		}{
+		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
 			Replicas:           replicas,
 			ProxyImage:         config.GetImage(config.OauthProxyImageKey),
@@ -122,6 +96,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			KafkaClientCert:        r.MiddlewareConfig.KafkaConnection.ClientCert,
 			KafkaClientKey:         r.MiddlewareConfig.KafkaConnection.ClientKey,
 			KafkaBootstrapServer:   r.MiddlewareConfig.KafkaConnection.BootstrapServer,
+			KafkaConsumerTopic:     globalTopic.StatusTopic(),
+			KafkaProducerTopic:     globalTopic.SpecTopic(),
+			KafkaEventTopic:        globalTopic.EventTopic(),
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
 			TransportFormat:        string(globalhubv1alpha4.CloudEvents),
@@ -187,4 +164,38 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 	}
 
 	return nil
+}
+
+type ManagerVariables struct {
+	Image                  string
+	Replicas               int32
+	ProxyImage             string
+	ImagePullSecret        string
+	ImagePullPolicy        string
+	ProxySessionSecret     string
+	DatabaseURL            string
+	PostgresCACert         string
+	KafkaCACert            string
+	KafkaConsumerTopic     string
+	KafkaProducerTopic     string
+	KafkaEventTopic        string
+	KafkaClientCert        string
+	KafkaClientKey         string
+	KafkaBootstrapServer   string
+	MessageCompressionType string
+	TransportType          string
+	TransportFormat        string
+	Namespace              string
+	LeaseDuration          string
+	RenewDeadline          string
+	RetryPeriod            string
+	SchedulerInterval      string
+	SkipAuth               bool
+	LaunchJobNames         string
+	NodeSelector           map[string]string
+	Tolerations            []corev1.Toleration
+	RetentionMonth         int
+	StatisticLogInterval   string
+	EnableGlobalResource   bool
+	LogLevel               string
 }
