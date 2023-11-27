@@ -162,24 +162,26 @@ func (cu *ConflationUnit) ReportResult(metadata *ConflationBundleMetadata, err e
 
 	priority := cu.bundleTypeToPriority[metadata.bundleType] // priority of the bundle that was processed
 	conflationElement := cu.priorityQueue[priority]
-	conflationElement.isInProcess = false // finished processing bundle
+
+	defer func() {
+		if metadata.bundleStatus.Processed() {
+			conflationElement.isInProcess = false // finished processing bundle
+			if metadata.bundleVersion.NewerThan(conflationElement.lastProcessedVersion) {
+				conflationElement.lastProcessedVersion = metadata.bundleVersion
+			}
+		}
+		cu.addCUToReadyQueueIfNeeded()
+	}()
 
 	if err != nil {
+		metadata.bundleStatus.MarkAsUnprocessed()
 		if deltaBundleInfo, ok := conflationElement.conflationBundle.(deltaBundleAdapter); ok {
 			deltaBundleInfo.handleFailure(metadata)
 		}
-
-		cu.addCUToReadyQueueIfNeeded()
-
-		return
+	} else {
+		// otherwise, err is nil, means bundle processing finished successfully
+		metadata.bundleStatus.MarkAsProcessed()
 	}
-	// otherwise, err is nil, means bundle processing finished successfully
-	if metadata.bundleVersion.NewerThan(conflationElement.lastProcessedVersion) {
-		conflationElement.lastProcessedVersion = metadata.bundleVersion
-	}
-
-	conflationElement.conflationBundle.markAsProcessed(metadata)
-	cu.addCUToReadyQueueIfNeeded()
 }
 
 func (cu *ConflationUnit) isInProcess() bool {
