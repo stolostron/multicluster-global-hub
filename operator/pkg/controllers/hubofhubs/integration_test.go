@@ -78,7 +78,7 @@ var (
 var kafkaCluster = &kafkav1beta2.Kafka{
 	ObjectMeta: metav1.ObjectMeta{
 		Namespace: config.GetDefaultNamespace(),
-		Name:      protocol.DefaultKakaName,
+		Name:      config.GetKafkaClusterName(),
 	},
 	Status: &kafkav1beta2.KafkaStatus{
 		Listeners: []kafkav1beta2.KafkaStatusListenersElem{
@@ -384,7 +384,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				months = 1
 			}
 
-			globalTopic := transport.GetTopics(transport.GlobalHubTopicIdentity)
+			globalTopic := transport.GetTopicNames(transport.GlobalHubTopicIdentity)
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {

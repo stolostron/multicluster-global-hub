@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 type Object interface {
@@ -54,11 +56,14 @@ func prepareCluster(name string, labels, annotations map[string]string,
 		Expect(k8sClient.Status().Update(ctx, cluster)).Should(Succeed())
 	}
 
-	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+	err := k8sClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-	})).Should(Succeed())
+	})
+	if !errors.IsAlreadyExists(err) {
+		Expect(err).Should(Succeed())
+	}
 
 	Expect(k8sClient.Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -87,6 +92,16 @@ var _ = Describe("addon integration", Ordered, func() {
 			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 			workName := fmt.Sprintf("addon-%s-deploy-0",
 				operatorconstants.GHManagedClusterAddonName)
+
+			By("By creating secret transport")
+			fmt.Println("create secret", clusterName, constants.GHTransportSecretName)
+			err := createTestTransportSecret(k8sClient, clusterName)
+			Expect(err).Should(Succeed())
+			transporter := protocol.NewTransportSecret(ctx, types.NamespacedName{
+				Namespace: clusterName,
+				Name:      constants.GHStorageSecretName,
+			}, k8sClient)
+			config.SetTransporter(transporter)
 
 			By("By preparing an OCP Managed Clusters")
 			prepareCluster(clusterName,

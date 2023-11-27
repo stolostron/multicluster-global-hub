@@ -55,9 +55,10 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -153,7 +154,7 @@ var _ = BeforeSuite(func() {
 
 	By("Add the addon controller to the manager")
 	middlewareCfg := &hubofhubscontroller.MiddlewareConfig{
-		TransportConn: &kafka.KafkaConnection{
+		TransportConn: &transport.ConnCredential{
 			BootstrapServer: kafkaBootstrapServer,
 			CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCA)),
 			ClientCert:      "",
@@ -265,6 +266,14 @@ func prepareBeforeTest() {
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
 	})).Should(Succeed())
+
+	By("By creating secret transport")
+	createTestTransportSecret(k8sClient, mgh.Namespace)
+	transporter := protocol.NewTransportSecret(context.TODO(), types.NamespacedName{
+		Namespace: mgh.Namespace,
+		Name:      constants.GHStorageSecretName,
+	}, k8sClient)
+	config.SetTransporter(transporter)
 }
 
 func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {
@@ -302,4 +311,39 @@ func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 	cfg.RenewDeadline = renewDeadlineSec
 	cfg.RetryPeriod = retryPeriodSec
 	return cfg, nil
+}
+
+func createTestTransportSecret(c client.Client, namespace string) error {
+	// Check if the namespace already exists
+	err := c.Create(context.TODO(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+
+	// Replace the following placeholders with your actual data
+	data := map[string][]byte{
+		"bootstrap_server": []byte("your_bootstrap_server_data"),
+		"ca.crt":           []byte("your_ca_crt_data"),
+		"client.crt":       []byte("your_client_crt_data"),
+		"client.key":       []byte("your_client_key_data"),
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHTransportSecretName,
+			Namespace: namespace,
+		},
+		Data: data,
+		Type: corev1.SecretTypeOpaque,
+	}
+
+	err = c.Create(context.TODO(), secret)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
 }

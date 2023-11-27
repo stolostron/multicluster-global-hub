@@ -1,16 +1,8 @@
 package transport
 
 import (
-	"context"
 	"fmt"
 	"time"
-
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -79,25 +71,13 @@ const (
 	ExternalTransport
 )
 
-func DetectTransportProtocol(ctx context.Context, runtimeClient client.Client) (TransportProtocol, error) {
-	// get the transport secret
-	kafkaSecret := &corev1.Secret{}
-	err := runtimeClient.Get(ctx, types.NamespacedName{
-		Name:      constants.GHTransportSecretName,
-		Namespace: config.GetDefaultNamespace(),
-	}, kafkaSecret)
-	if err == nil {
-		return ExternalTransport, nil
-	}
-	if err != nil && !errors.IsNotFound(err) {
-		return ExternalTransport, err
-	}
-
-	// the transport secret is not found
-	return InternalTransport, nil
+// topics
+type ClusterTopic struct {
+	SpecTopic   string
+	StatusTopic string
+	EventTopic  string
 }
 
-// topics
 const (
 	GlobalHubTopicIdentity        = "*"
 	managedHubSpecTopicTemplate   = "GlobalHub.Spec.%s"
@@ -105,10 +85,32 @@ const (
 	managedHubEventTopicTemplate  = "GlobalHub.Event.%s"
 )
 
-func GetTopics(clusterIdentity string) *ClusterTopic {
+func GetTopicNames(clusterIdentity string) *ClusterTopic {
 	return &ClusterTopic{
 		SpecTopic:   fmt.Sprintf(managedHubSpecTopicTemplate, clusterIdentity),
 		StatusTopic: fmt.Sprintf(managedHubStatusTopicTemplate, clusterIdentity),
 		EventTopic:  fmt.Sprintf(managedHubEventTopicTemplate, clusterIdentity),
 	}
+}
+
+func GetUserName(clusterIdentity string) string {
+	return fmt.Sprintf("%s-kafka-user", clusterIdentity)
+}
+
+// Message abstracts a message object to be used by different transport components.
+type Message struct {
+	Destination string `json:"destination"`
+	Key         string `json:"key"`
+	ID          string `json:"id"`
+	MsgType     string `json:"msgType"`
+	Version     string `json:"version"`
+	Payload     []byte `json:"payload"`
+}
+
+// ConnCredential is used to connect the transporter instance
+type ConnCredential struct {
+	BootstrapServer string
+	CACert          string
+	ClientCert      string
+	ClientKey       string
 }

@@ -38,8 +38,16 @@ func (s *transportSecret) CreateUser(name string) error {
 	return nil
 }
 
+func (k *transportSecret) DeleteUser(username string) error {
+	return nil
+}
+
 // create the transport topic(KafkaTopic) if not exist for each hub clusters
-func (s *transportSecret) CreateTopic(name string) error {
+func (s *transportSecret) CreateTopic(names []string) error {
+	return nil
+}
+
+func (k *transportSecret) DeleteTopic(names []string) error {
 	return nil
 }
 

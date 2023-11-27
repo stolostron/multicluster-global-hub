@@ -25,6 +25,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 		return err
 	}
 
+	// set image pull secret
 	config.SetImagePullSecretName(mgh)
 
 	// set statistic log interval

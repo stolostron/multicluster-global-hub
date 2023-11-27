@@ -26,8 +26,6 @@ import (
 )
 
 const (
-	// kafka - common
-	DefaultKakaName = "kafka"
 	// kafka storage
 	DefaultKafkaDefaultStorageSize = "10Gi"
 
@@ -48,12 +46,6 @@ const (
 
 	// users
 	DefaultGlobalHubKafkaUser = "global-hub-kafka-user"
-
-	// topics
-	GlobalHubTopicIdentity        = "*"
-	managedHubSpecTopicTemplate   = "GlobalHub.Spec.%s"
-	managedHubStatusTopicTemplate = "GlobalHub.Status.%s"
-	managedHubEventTopicTemplate  = "GlobalHub.Event.%s"
 )
 
 var (
@@ -89,7 +81,7 @@ func NewStrimziKafka(opts ...KafkaOption) (*strimziKafka, error) {
 	k := &strimziKafka{
 		log:       ctrl.Log.WithName("strimzi-kafka-transport"),
 		ctx:       context.TODO(),
-		name:      DefaultKakaName,
+		name:      config.GetKafkaClusterName(),
 		namespace: constants.GHDefaultNamespace,
 
 		subName:              DefaultKafkaSubName,
@@ -202,16 +194,56 @@ func (k *strimziKafka) CreateUser(username string) error {
 	return err
 }
 
-func (k *strimziKafka) CreateTopic(topicName string) error {
-	kafkaTopic := &kafkav1beta2.KafkaTopic{}
+func (k *strimziKafka) DeleteUser(topicName string) error {
+	kafkaUser := &kafkav1beta2.KafkaUser{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      topicName,
 		Namespace: k.namespace,
-	}, kafkaTopic)
-	if err != nil && errors.IsNotFound(err) {
-		return k.runtimeClient.Create(k.ctx, k.newKafkaTopic(topicName))
+	}, kafkaUser)
+	if errors.IsNotFound(err) {
+		return nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return k.runtimeClient.Delete(k.ctx, kafkaUser)
+}
+
+func (k *strimziKafka) CreateTopic(topicNames []string) error {
+	for _, topicName := range topicNames {
+		kafkaTopic := &kafkav1beta2.KafkaTopic{}
+		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+			Name:      topicName,
+			Namespace: k.namespace,
+		}, kafkaTopic)
+		if err != nil && errors.IsNotFound(err) {
+			if e := k.runtimeClient.Create(k.ctx, k.newKafkaTopic(topicName)); e != nil {
+				return e
+			}
+		}
+	}
+	return nil
+}
+
+func (k *strimziKafka) DeleteTopic(topicNames []string) error {
+	for _, topicName := range topicNames {
+		kafkaTopic := &kafkav1beta2.KafkaTopic{}
+		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+			Name:      topicName,
+			Namespace: k.namespace,
+		}, kafkaTopic)
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		err = k.runtimeClient.Delete(k.ctx, kafkaTopic)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (k *strimziKafka) GetConnCredential(username string) (*transport.ConnCredential, error) {
@@ -259,7 +291,8 @@ func (k *strimziKafka) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic 
 			Namespace: k.namespace,
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the topic will not be ready
-				"strimzi.io/cluster": k.name,
+				"strimzi.io/cluster":             k.name,
+				constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
 			},
 		},
 		Spec: &kafkav1beta2.KafkaTopicSpec{
@@ -333,15 +366,16 @@ func (k *strimziKafka) createKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlo
 }
 
 func (k *strimziKafka) newKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
+	storageSize := config.GetKafkaStorageSize(mgh)
 	kafkaSpecKafkaStorageVolumesElem := kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
 		Id:          &KafkaStorageIdentifier,
-		Size:        config.GetKafkaStorageSize(mgh),
+		Size:        &storageSize,
 		Type:        kafkav1beta2.KafkaSpecKafkaStorageVolumesElemTypePersistentClaim,
 		DeleteClaim: &KafkaStorageDeleteClaim,
 	}
 	kafkaSpecZookeeperStorage := kafkav1beta2.KafkaSpecZookeeperStorage{
 		Type:        kafkav1beta2.KafkaSpecZookeeperStorageTypePersistentClaim,
-		Size:        config.GetKafkaStorageSize(mgh),
+		Size:        &storageSize,
 		DeleteClaim: &KafkaStorageDeleteClaim,
 	}
 

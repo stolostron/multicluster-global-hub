@@ -43,11 +43,12 @@ kubectl --context $CTX_HUB get kafka kafka -n $targetNamespace -o jsonpath='{.st
 
 # create target namespace
 kubectl --context $CTX_HUB create namespace $targetNamespace --dry-run=client -o yaml | kubectl apply -f -
-kubectl --context $CTX_HUB create secret generic $transportSecret -n $targetNamespace \
-    --from-literal=bootstrap_server=$bootstrapServers \
-    --from-file=ca.crt=$setupDir/config/kafka-ca-cert.pem
-    # --from-file=client.crt=$setupDir/config/kafka-client-cert.pem \
-    # --from-file=client.key=$setupDir/config/kafka-client-key.pem 
+# Note: skip to create the transport secret, trying to use the the internal multi users and topics for managed hubs 
+# kubectl --context $CTX_HUB create secret generic $transportSecret -n $targetNamespace \
+#     --from-literal=bootstrap_server=$bootstrapServers \
+#     --from-file=ca.crt=$setupDir/config/kafka-ca-cert.pem
+#     # --from-file=client.crt=$setupDir/config/kafka-client-cert.pem \
+#     # --from-file=client.key=$setupDir/config/kafka-client-key.pem 
 echo "transport secret is ready!"
 
 

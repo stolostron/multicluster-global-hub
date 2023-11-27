@@ -22,10 +22,12 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -94,13 +96,13 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 
 func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 ) (*transport.ConnCredential, error) {
-	transportProtocol, err := transport.DetectTransportProtocol(ctx, r.Client)
+	transportProtocol, err := detectTransportProtocol(ctx, r.Client)
 	if err != nil {
 		return nil, err
 	}
 
 	// create the transport instance
-	var trans transport.Transport
+	var trans transport.Transporter
 	switch transportProtocol {
 	case transport.InternalTransport:
 		trans, err = protocol.NewStrimziKafka(protocol.WithContext(ctx), protocol.WithClient(r.Client),
@@ -122,18 +124,13 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 	}
 	// create global hub topics
 
-	topics := transport.GetTopics(transport.GlobalHubTopicIdentity)
-	for _, topicName := range []string{
+	topics := transport.GetTopicNames(transport.GlobalHubTopicIdentity)
+	trans.CreateTopic([]string{
 		topics.SpecTopic,
 		topics.StatusTopic,
 		topics.EventTopic,
-	} {
-		if err := trans.CreateTopic(topicName); err != nil {
-			return nil, err
-		}
-	}
+	})
 
-	// wait the transport connection ready
 	var conn *transport.ConnCredential
 	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
@@ -144,6 +141,9 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 			}
 			return true, nil
 		})
+	if err != nil && trans != nil {
+		config.SetTransporter(trans)
+	}
 	return conn, err
 }
 
@@ -195,4 +195,22 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileStorage(ctx context.Context, 
 			})
 	}
 	return pgConnection, nil
+}
+
+func detectTransportProtocol(ctx context.Context, runtimeClient client.Client) (transport.TransportProtocol, error) {
+	// get the transport secret
+	kafkaSecret := &corev1.Secret{}
+	err := runtimeClient.Get(ctx, types.NamespacedName{
+		Name:      constants.GHTransportSecretName,
+		Namespace: config.GetDefaultNamespace(),
+	}, kafkaSecret)
+	if err == nil {
+		return transport.ExternalTransport, nil
+	}
+	if err != nil && !errors.IsNotFound(err) {
+		return transport.ExternalTransport, err
+	}
+
+	// the transport secret is not found
+	return transport.InternalTransport, nil
 }

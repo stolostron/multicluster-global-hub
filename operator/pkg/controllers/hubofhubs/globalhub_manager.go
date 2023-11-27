@@ -78,7 +78,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		replicas = 2
 	}
 
-	globalTopic := transport.GetTopics(transport.GlobalHubTopicIdentity)
+	globalTopic := transport.GetTopicNames(transport.GlobalHubTopicIdentity)
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
