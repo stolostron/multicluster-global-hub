@@ -160,11 +160,11 @@ func (r *MulticlusterGlobalHubReconciler) GeneratePGConnectionFromGHStorageSecre
 
 func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) error {
+) (*postgres.PostgresConnection, error) {
 	// install the postgres statefulset only
 	credential, err := getPostgresCredential(ctx, mgh, r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	imagePullPolicy := corev1.PullAlways
 	if mgh.Spec.ImagePullPolicy != "" {
@@ -202,32 +202,31 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 			}, nil
 		})
 	if err != nil {
-		return fmt.Errorf("failed to render postgres manifests: %w", err)
+		return nil, fmt.Errorf("failed to render postgres manifests: %w", err)
 	}
 
 	// create restmapper for deployer to find GVR
 	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
 	if err = r.manipulateObj(ctx, postgresDeployer, mapper, postgresObjects, mgh, r.Log); err != nil {
-		return fmt.Errorf("failed to create/update postgres objects: %w", err)
+		return nil, fmt.Errorf("failed to create/update postgres objects: %w", err)
 	}
 
 	ca, err := getPostgresCA(ctx, mgh, r)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	r.MiddlewareConfig.PgConnection = &postgres.PostgresConnection{
+	return &postgres.PostgresConnection{
 		SuperuserDatabaseURI: "postgresql://" + credential.postgresAdminUsername + ":" +
 			credential.postgresAdminUserPassword + partialPostgresURI,
 		ReadonlyUserDatabaseURI: "postgresql://" + credential.postgresReadonlyUsername + ":" +
 			credential.postgresReadonlyUserPassword + partialPostgresURI,
 		CACert: []byte(ca),
-	}
-	return nil
+	}, nil
 }
 
 func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub,

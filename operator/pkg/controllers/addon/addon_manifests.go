@@ -27,7 +27,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/topic"
 )
 
 //go:embed manifests/templates
@@ -181,7 +180,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	clusterTopic := topic.NewClusterTopic(cluster.Name)
+	clusterTopic := transport.GetTopics(cluster.Name)
 
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          image,
@@ -191,9 +190,9 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaCACert:            kafkaConnection.CACert,
 		KafkaClientCert:        kafkaConnection.ClientCert,
 		KafkaClientKey:         kafkaConnection.ClientKey,
-		KafkaConsumerTopic:     clusterTopic.SpecTopic(),
-		KafkaProducerTopic:     clusterTopic.StatusTopic(),
-		KafkaEventTopic:        clusterTopic.EventTopic(),
+		KafkaConsumerTopic:     clusterTopic.SpecTopic,
+		KafkaProducerTopic:     clusterTopic.StatusTopic,
+		KafkaEventTopic:        clusterTopic.EventTopic,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		TransportFormat:        string(globalhubv1alpha4.CloudEvents),
@@ -244,7 +243,7 @@ func (a *HohAgentAddon) getKakaConnection(cluster *clusterv1.ManagedCluster) (*k
 	}
 
 	// get the global hub manager kafka connection, which contain the cluster CA
-	if a.MiddlewareConfig.KafkaConnection == nil {
+	if a.MiddlewareConfig.TransportConn == nil {
 		return nil, fmt.Errorf("failed to get the manager kafka connection config")
 	}
 
@@ -259,8 +258,8 @@ func (a *HohAgentAddon) getKakaConnection(cluster *clusterv1.ManagedCluster) (*k
 	}
 
 	return &kafka.KafkaConnection{
-		BootstrapServer: a.MiddlewareConfig.KafkaConnection.BootstrapServer,
-		CACert:          a.MiddlewareConfig.KafkaConnection.CACert,
+		BootstrapServer: a.MiddlewareConfig.TransportConn.BootstrapServer,
+		CACert:          a.MiddlewareConfig.TransportConn.CACert,
 		ClientCert:      base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.crt"]),
 		ClientKey:       base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.key"]),
 	}, nil

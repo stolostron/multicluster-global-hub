@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -10,12 +11,15 @@ import (
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -25,9 +29,7 @@ const (
 	// kafka - common
 	DefaultKakaName = "kafka"
 	// kafka storage
-	DefaultKafkaDefaultStorageSize       = "10Gi"
-	Replicas1                      int32 = 1
-	Replicas2                      int32 = 2
+	DefaultKafkaDefaultStorageSize = "10Gi"
 
 	// subscription - common
 	DefaultKafkaSubName           = "strimzi-kafka-operator"
@@ -43,16 +45,27 @@ const (
 	CommunityChannel           = "strimzi-0.36.x"
 	CommunityPackageName       = "strimzi-kafka-operator"
 	CommunityCatalogSourceName = "community-operators"
+
+	// users
+	DefaultGlobalHubKafkaUser = "global-hub-kafka-user"
+
+	// topics
+	GlobalHubTopicIdentity        = "*"
+	managedHubSpecTopicTemplate   = "GlobalHub.Spec.%s"
+	managedHubStatusTopicTemplate = "GlobalHub.Status.%s"
+	managedHubEventTopicTemplate  = "GlobalHub.Event.%s"
 )
 
 var (
 	KafkaStorageIdentifier  int32 = 0
 	KafkaStorageDeleteClaim       = false
 	KafkaVersion                  = "3.5.0"
+	DefaultPartition        int32 = 1
+	DefaultReplicas         int32 = 2
 )
 
 // install the strimzi kafka cluster by operator
-type StrimziKafka struct {
+type strimziKafka struct {
 	log           logr.Logger
 	ctx           context.Context
 	name          string
@@ -60,34 +73,27 @@ type StrimziKafka struct {
 	runtimeClient client.Client
 
 	// subscription properties
-	community            bool
 	subName              string
-	subConfig            *subv1alpha1.SubscriptionConfig
+	subCommunity         bool
 	subChannel           string
 	subCatalogSourceName string
 	subPackageName       string
 
-	// installer
-	installer *types.NamespacedName
-
-	// kafka cluster
-	kafkaStorageSize *string
+	// global hub config
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub
 }
 
-type KafkaOption func(*StrimziKafka)
+type KafkaOption func(*strimziKafka)
 
-func NewStrimziKafka(opts ...KafkaOption) *StrimziKafka {
-	k := &StrimziKafka{
+func NewStrimziKafka(opts ...KafkaOption) (*strimziKafka, error) {
+	k := &strimziKafka{
+		log:       ctrl.Log.WithName("strimzi-kafka-transport"),
+		ctx:       context.TODO(),
 		name:      DefaultKakaName,
 		namespace: constants.GHDefaultNamespace,
 
-		installer: &types.NamespacedName{
-			Name:      "multiclusterglobalhub",
-			Namespace: constants.GHDefaultNamespace,
-		},
-
-		community:            false,
 		subName:              DefaultKafkaSubName,
+		subCommunity:         false,
 		subChannel:           DefaultAMQChannel,
 		subPackageName:       DefaultAMQPackageName,
 		subCatalogSourceName: DefaultCatalogSourceName,
@@ -97,54 +103,62 @@ func NewStrimziKafka(opts ...KafkaOption) *StrimziKafka {
 		opt(k)
 	}
 
-	if k.community {
+	if k.subCommunity {
 		k.subChannel = CommunityChannel
 		k.subPackageName = CommunityPackageName
 		k.subCatalogSourceName = CommunityCatalogSourceName
 	}
-	return k
+	err := k.initialize(k.mgh)
+	return k, err
 }
 
-func WithName(name string) KafkaOption {
-	return func(sk *StrimziKafka) {
-		sk.name = name
-	}
-}
-
-func WithNamespace(namespace string) KafkaOption {
-	return func(sk *StrimziKafka) {
-		sk.namespace = namespace
-	}
-}
-
-func WithCommunity(val bool) KafkaOption {
-	return func(sk *StrimziKafka) {
-		sk.community = val
+func WithNamespacedName(name types.NamespacedName) KafkaOption {
+	return func(sk *strimziKafka) {
+		sk.name = name.Name
+		sk.namespace = name.Namespace
 	}
 }
 
 func WithClient(c client.Client) KafkaOption {
-	return func(sk *StrimziKafka) {
+	return func(sk *strimziKafka) {
+		sk.runtimeClient = c
+	}
+}
+
+func WithContext(ctx context.Context) KafkaOption {
+	return func(sk *strimziKafka) {
+		sk.ctx = ctx
+	}
+}
+
+func WithCommunity(val bool) KafkaOption {
+	return func(sk *strimziKafka) {
+		sk.subCommunity = val
+	}
+}
+
+func WithRuntimeClient(c client.Client) KafkaOption {
+	return func(sk *strimziKafka) {
 		sk.runtimeClient = c
 	}
 }
 
 func WithSubName(name string) KafkaOption {
-	return func(sk *StrimziKafka) {
+	return func(sk *strimziKafka) {
 		sk.subName = name
 	}
 }
 
-func WithSubConfig(config *subv1alpha1.SubscriptionConfig) KafkaOption {
-	return func(sk *StrimziKafka) {
-		sk.subConfig = config
+func WithGlobalHub(mgh *globalhubv1alpha4.MulticlusterGlobalHub) KafkaOption {
+	return func(sk *strimziKafka) {
+		sk.mgh = mgh
 	}
 }
 
 // initialize the kafka cluster, return nil if the instance is launched successfully!
-func (k *StrimziKafka) Initialize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func (k *strimziKafka) initialize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	k.log.Info("reconcile global hub kafka subscription")
-	err := k.reconcileSubscription()
+	err := k.ensureSubscription(mgh)
 	if err != nil {
 		return err
 	}
@@ -176,8 +190,109 @@ func (k *StrimziKafka) Initialize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) 
 	return err
 }
 
+func (k *strimziKafka) CreateUser(username string) error {
+	kafkaUser := &kafkav1beta2.KafkaUser{}
+	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		Name:      username,
+		Namespace: k.namespace,
+	}, kafkaUser)
+	if err != nil && errors.IsNotFound(err) {
+		return k.runtimeClient.Create(k.ctx, k.newKafkaUser(username))
+	}
+	return err
+}
+
+func (k *strimziKafka) CreateTopic(topicName string) error {
+	kafkaTopic := &kafkav1beta2.KafkaTopic{}
+	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		Name:      topicName,
+		Namespace: k.namespace,
+	}, kafkaTopic)
+	if err != nil && errors.IsNotFound(err) {
+		return k.runtimeClient.Create(k.ctx, k.newKafkaTopic(topicName))
+	}
+	return err
+}
+
+func (k *strimziKafka) GetConnCredential(username string) (*transport.ConnCredential, error) {
+	kafkaCluster := &kafkav1beta2.Kafka{}
+	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		Name:      k.name,
+		Namespace: k.namespace,
+	}, kafkaCluster)
+	if err != nil {
+		return nil, err
+	}
+
+	if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
+		return nil, fmt.Errorf("kafka cluster %s has no status conditions", kafkaCluster.Name)
+	}
+
+	kafkaUserSecret := &corev1.Secret{}
+	err = k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		Name:      username,
+		Namespace: k.namespace,
+	}, kafkaUserSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, condition := range kafkaCluster.Status.Conditions {
+		if *condition.Type == "Ready" && *condition.Status == "True" {
+			return &transport.ConnCredential{
+				BootstrapServer: *kafkaCluster.Status.Listeners[1].BootstrapServers,
+				CACert: base64.StdEncoding.EncodeToString(
+					[]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
+				ClientCert: base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.crt"]),
+				ClientKey:  base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.key"]),
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("kafka user %s/%s is not ready", k.namespace, username)
+}
+
+func (k *strimziKafka) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
+	return &kafkav1beta2.KafkaTopic{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      topicName,
+			Namespace: k.namespace,
+			Labels: map[string]string{
+				// It is important to set the cluster label otherwise the topic will not be ready
+				"strimzi.io/cluster": k.name,
+			},
+		},
+		Spec: &kafkav1beta2.KafkaTopicSpec{
+			Partitions: &DefaultPartition,
+			Replicas:   &DefaultReplicas,
+			Config: &apiextensions.JSON{Raw: []byte(`{
+				"cleanup.policy": "compact"
+			}`)},
+		},
+	}
+}
+
+func (k *strimziKafka) newKafkaUser(username string) *kafkav1beta2.KafkaUser {
+	return &kafkav1beta2.KafkaUser{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      username,
+			Namespace: k.namespace,
+			Labels: map[string]string{
+				// It is important to set the cluster label otherwise the user will not be ready
+				"strimzi.io/cluster":             k.name,
+				constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
+			},
+		},
+		Spec: &kafkav1beta2.KafkaUserSpec{
+			Authentication: &kafkav1beta2.KafkaUserSpecAuthentication{
+				Type: kafkav1beta2.KafkaUserSpecAuthenticationTypeTls,
+			},
+		},
+	}
+}
+
 // waits for kafka cluster to be ready and returns nil if kafka cluster ready
-func (k *StrimziKafka) kafkaClusterReady() error {
+func (k *strimziKafka) kafkaClusterReady() error {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      k.name,
@@ -199,7 +314,7 @@ func (k *StrimziKafka) kafkaClusterReady() error {
 	return fmt.Errorf("kafka cluster %s is not ready", kafkaCluster.Name)
 }
 
-func (k *StrimziKafka) createKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func (k *strimziKafka) createKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	existingKafka := &kafkav1beta2.Kafka{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      k.name,
@@ -217,7 +332,7 @@ func (k *StrimziKafka) createKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlo
 	return k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh))
 }
 
-func (k *StrimziKafka) newKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
+func (k *strimziKafka) newKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
 	kafkaSpecKafkaStorageVolumesElem := kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
 		Id:          &KafkaStorageIdentifier,
 		Size:        config.GetKafkaStorageSize(mgh),
@@ -307,7 +422,7 @@ func (k *StrimziKafka) newKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlobal
 }
 
 // create/ update the kafka subscription
-func (k *StrimziKafka) reconcileSubscription() error {
+func (k *strimziKafka) ensureSubscription(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	// get subscription
 	existingSub := &subv1alpha1.Subscription{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
@@ -318,7 +433,7 @@ func (k *StrimziKafka) reconcileSubscription() error {
 		return err
 	}
 
-	expectedSub := k.newSubscription()
+	expectedSub := k.newSubscription(mgh)
 	if errors.IsNotFound(err) {
 		return k.runtimeClient.Create(k.ctx, expectedSub)
 	} else {
@@ -336,12 +451,18 @@ func (k *StrimziKafka) reconcileSubscription() error {
 }
 
 // newSubscription returns an CrunchyPostgres subscription with desired default values
-func (k *StrimziKafka) newSubscription() *subv1alpha1.Subscription {
+func (k *strimziKafka) newSubscription(mgh *globalhubv1alpha4.MulticlusterGlobalHub) *subv1alpha1.Subscription {
 	labels := map[string]string{
-		"installer.name":                 k.installer.Name,
-		"installer.namespace":            k.installer.Namespace,
+		"installer.name":                 mgh.Name,
+		"installer.namespace":            mgh.Namespace,
 		constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 	}
+	// Generate sub config from mgh CR
+	subConfig := &subv1alpha1.SubscriptionConfig{
+		NodeSelector: mgh.Spec.NodeSelector,
+		Tolerations:  mgh.Spec.Tolerations,
+	}
+
 	sub := &subv1alpha1.Subscription{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: subv1alpha1.SubscriptionCRDAPIVersion,
@@ -358,7 +479,7 @@ func (k *StrimziKafka) newSubscription() *subv1alpha1.Subscription {
 			Package:                k.subPackageName,
 			CatalogSource:          k.subCatalogSourceName,
 			CatalogSourceNamespace: DefaultCatalogSourceNamespace,
-			Config:                 k.subConfig,
+			Config:                 subConfig,
 		},
 	}
 	return sub

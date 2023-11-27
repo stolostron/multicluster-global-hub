@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -36,16 +37,6 @@ const (
 	Chan  TransportType = "chan"
 )
 
-// indicate which kind of transport protocol, only support
-type TransportProtocol int
-
-const (
-	// the kafka cluster is created by the strimzi operator, which is provisioned by global hub operator
-	Internal TransportProtocol = iota
-	// the kafka cluster is created by customer, and the transport secret will be shared between clusters
-	External
-)
-
 type TransportConfig struct {
 	TransportType          string
 	TransportFormat        string
@@ -77,6 +68,17 @@ type KafkaConsumerConfig struct {
 	ConsumerTopic string
 }
 
+// transport protocol
+// indicate which kind of transport protocol, only support
+type TransportProtocol int
+
+const (
+	// the kafka cluster is created by the strimzi operator, which is provisioned by global hub operator
+	InternalTransport TransportProtocol = iota
+	// the kafka cluster is created by customer, and the transport secret will be shared between clusters
+	ExternalTransport
+)
+
 func DetectTransportProtocol(ctx context.Context, runtimeClient client.Client) (TransportProtocol, error) {
 	// get the transport secret
 	kafkaSecret := &corev1.Secret{}
@@ -85,12 +87,28 @@ func DetectTransportProtocol(ctx context.Context, runtimeClient client.Client) (
 		Namespace: config.GetDefaultNamespace(),
 	}, kafkaSecret)
 	if err == nil {
-		return External, nil
+		return ExternalTransport, nil
 	}
 	if err != nil && !errors.IsNotFound(err) {
-		return External, err
+		return ExternalTransport, err
 	}
 
 	// the transport secret is not found
-	return Internal, nil
+	return InternalTransport, nil
+}
+
+// topics
+const (
+	GlobalHubTopicIdentity        = "*"
+	managedHubSpecTopicTemplate   = "GlobalHub.Spec.%s"
+	managedHubStatusTopicTemplate = "GlobalHub.Status.%s"
+	managedHubEventTopicTemplate  = "GlobalHub.Event.%s"
+)
+
+func GetTopics(clusterIdentity string) *ClusterTopic {
+	return &ClusterTopic{
+		SpecTopic:   fmt.Sprintf(managedHubSpecTopicTemplate, clusterIdentity),
+		StatusTopic: fmt.Sprintf(managedHubStatusTopicTemplate, clusterIdentity),
+		EventTopic:  fmt.Sprintf(managedHubEventTopicTemplate, clusterIdentity),
+	}
 }

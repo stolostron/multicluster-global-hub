@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
@@ -55,11 +54,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 //go:embed manifests
@@ -84,8 +83,8 @@ type MulticlusterGlobalHubReconciler struct {
 
 // MiddlewareConfig defines the configuration for middleware and shared in opearator
 type MiddlewareConfig struct {
-	PgConnection    *postgres.PostgresConnection
-	KafkaConnection *kafka.KafkaConnection
+	StorageConn   *postgres.PostgresConnection
+	TransportConn *transport.ConnCredential
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -235,97 +234,6 @@ func AddFailedCondition(ctx context.Context, client client.Client,
 		return err
 	}
 	return nil
-}
-
-// ReconcileMiddleware creates the kafka and postgres if needed.
-// 1. create the kafka and postgres subscription at the same time
-// 2. then create the kafka and postgres resources at the same time
-// 3. wait for kafka and postgres ready
-func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) (ctrl.Result, error) {
-	// support BYO kafka
-	kafkaConnection, err := kafka.GenerateKafkaConnectionFromGHTransportSecret(ctx, r.Client)
-	if err != nil && !errors.IsNotFound(err) {
-		return ctrl.Result{}, err
-	} else if errors.IsNotFound(err) {
-		// create kafka operator by subscription
-		if e := r.EnsureKafkaSubscription(ctx, mgh); e != nil {
-			return ctrl.Result{}, e
-		}
-	} else {
-		r.MiddlewareConfig.KafkaConnection = kafkaConnection
-	}
-
-	// support BYO postgres
-	pgConnection, err := r.GeneratePGConnectionFromGHStorageSecret(ctx)
-	if err != nil && !errors.IsNotFound(err) {
-		return ctrl.Result{}, err
-	} else if errors.IsNotFound(err) {
-		// if not-provided postgres secret, create crunchy postgres operator by subscription
-		if config.GetInstallCrunchyOperator(mgh) {
-			if e := r.EnsureCrunchyPostgresSubscription(ctx, mgh); e != nil {
-				return ctrl.Result{}, e
-			}
-		} else {
-			// create the statefulset postgres and initialize the r.MiddlewareConfig.PgConnection
-			if e := r.InitPostgresByStatefulset(ctx, mgh); e != nil {
-				return ctrl.Result{}, e
-			}
-		}
-	} else {
-		r.MiddlewareConfig.PgConnection = pgConnection
-	}
-
-	if pgConnection == nil && config.GetInstallCrunchyOperator(mgh) {
-		if err := r.EnsureCrunchyPostgres(ctx); err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
-		}
-	}
-
-	if kafkaConnection == nil {
-		if err := r.EnsureKafkaResources(ctx, mgh); err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
-		}
-	}
-
-	if kafkaConnection == nil {
-		r.Log.Info("Wait kafka cluster ready")
-		err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
-			kafkaConnection, err = r.WaitForKafkaClusterReady(ctx)
-			if err != nil {
-				r.Log.V(2).Info("Wait kafka cluster ready.", "error", err)
-				return false, nil
-			}
-			return true, nil
-		})
-		if err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second},
-				fmt.Errorf("Kafaka cluster is not ready in 10 minutes, Error: %v", err)
-		}
-		r.Log.Info("Kafka cluster is ready")
-
-		r.MiddlewareConfig.KafkaConnection = kafkaConnection
-	}
-
-	if pgConnection == nil && config.GetInstallCrunchyOperator(mgh) {
-		// store crunchy postgres connection
-		err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
-			pgConnection, err = r.WaitForPostgresReady(ctx)
-			if err != nil {
-				r.Log.V(2).Info("Wait postgres ready.", "error", err)
-				return false, nil
-			}
-			return true, nil
-		})
-		if err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second},
-				fmt.Errorf("Postgres is not ready in 10 minutes, Error: %v", err)
-		}
-		r.MiddlewareConfig.PgConnection = pgConnection
-	}
-
-	return ctrl.Result{}, nil
 }
 
 func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context,

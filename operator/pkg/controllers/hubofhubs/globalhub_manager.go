@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -23,12 +23,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/topic"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("manager")
 
@@ -75,11 +74,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 
 	replicas := int32(1)
-	if mgh.Spec.AvailabilityConfig == globalhubv1alpha4.HAHigh {
+	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
 		replicas = 2
 	}
 
-	globalTopic := topic.NewClusterTopic(topic.GlobalHubTopicIdentity)
+	globalTopic := transport.GetTopics(transport.GlobalHubTopicIdentity)
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
@@ -90,18 +89,18 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			ImagePullPolicy:    string(imagePullPolicy),
 			ProxySessionSecret: proxySessionSecret,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
-				[]byte(r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI)),
-			PostgresCACert:         base64.StdEncoding.EncodeToString(r.MiddlewareConfig.PgConnection.CACert),
-			KafkaCACert:            r.MiddlewareConfig.KafkaConnection.CACert,
-			KafkaClientCert:        r.MiddlewareConfig.KafkaConnection.ClientCert,
-			KafkaClientKey:         r.MiddlewareConfig.KafkaConnection.ClientKey,
-			KafkaBootstrapServer:   r.MiddlewareConfig.KafkaConnection.BootstrapServer,
-			KafkaConsumerTopic:     globalTopic.StatusTopic(),
-			KafkaProducerTopic:     globalTopic.SpecTopic(),
-			KafkaEventTopic:        globalTopic.EventTopic(),
+				[]byte(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI)),
+			PostgresCACert:         base64.StdEncoding.EncodeToString(r.MiddlewareConfig.StorageConn.CACert),
+			KafkaCACert:            r.MiddlewareConfig.TransportConn.CACert,
+			KafkaClientCert:        r.MiddlewareConfig.TransportConn.ClientCert,
+			KafkaClientKey:         r.MiddlewareConfig.TransportConn.ClientKey,
+			KafkaBootstrapServer:   r.MiddlewareConfig.TransportConn.BootstrapServer,
+			KafkaConsumerTopic:     globalTopic.StatusTopic,
+			KafkaProducerTopic:     globalTopic.SpecTopic,
+			KafkaEventTopic:        globalTopic.EventTopic,
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
-			TransportFormat:        string(globalhubv1alpha4.CloudEvents),
+			TransportFormat:        string(v1alpha4.CloudEvents),
 			Namespace:              config.GetDefaultNamespace(),
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
@@ -130,7 +129,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, objs []*unstructured.Unstructured,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub, log logr.Logger,
+	mgh *v1alpha4.MulticlusterGlobalHub, log logr.Logger,
 ) error {
 	// manipulate the object
 	for _, obj := range objs {

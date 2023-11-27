@@ -447,14 +447,14 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
-	if r.MiddlewareConfig == nil || r.MiddlewareConfig.PgConnection == nil {
+	if r.MiddlewareConfig == nil || r.MiddlewareConfig.StorageConn == nil {
 		return false, fmt.Errorf("Middleware PgConnection config is null")
 	}
-	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.PgConnection.ReadonlyUserDatabaseURI,
-		r.MiddlewareConfig.PgConnection.CACert)
+	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI,
+		r.MiddlewareConfig.StorageConn.CACert)
 	if err != nil {
-		datasourceVal, err = GrafanaDataSource(r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI,
-			r.MiddlewareConfig.PgConnection.CACert)
+		datasourceVal, err = GrafanaDataSource(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI,
+			r.MiddlewareConfig.StorageConn.CACert)
 		if err != nil {
 			return false, err
 		}

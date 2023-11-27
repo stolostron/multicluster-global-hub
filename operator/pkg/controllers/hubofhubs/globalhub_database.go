@@ -42,8 +42,8 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 		}
 	}
 
-	conn, err := database.PostgresConnection(ctx, r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI,
-		r.MiddlewareConfig.PgConnection.CACert)
+	conn, err := database.PostgresConnection(ctx, r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI,
+		r.MiddlewareConfig.StorageConn.CACert)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -53,7 +53,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 		}
 	}()
 
-	objURI, err := url.Parse(r.MiddlewareConfig.PgConnection.ReadonlyUserDatabaseURI)
+	objURI, err := url.Parse(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI)
 	if err != nil {
 		log.Error(err, "failed to parse database_uri_with_readonlyuser")
 	}

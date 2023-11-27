@@ -153,7 +153,7 @@ var _ = BeforeSuite(func() {
 
 	By("Add the addon controller to the manager")
 	middlewareCfg := &hubofhubscontroller.MiddlewareConfig{
-		KafkaConnection: &kafka.KafkaConnection{
+		TransportConn: &kafka.KafkaConnection{
 			BootstrapServer: kafkaBootstrapServer,
 			CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCA)),
 			ClientCert:      "",
