@@ -24,3 +24,21 @@ type BundleEntry struct {
 	bundlePredicate       func() bool
 	lastSentBundleVersion metadata.BundleVersion // not pointer so it does not point to the bundle's internal version
 }
+
+func NewHandlerBundleEntry(transportBundleKey string, baseAgentBundle bundle.BaseAgentBundle,
+	bundlePredicate func() bool,
+) *HandlerBundleEntry {
+	return &HandlerBundleEntry{
+		transportBundleKey:    transportBundleKey,
+		bundle:                baseAgentBundle,
+		bundlePredicate:       bundlePredicate,
+		lastSentBundleVersion: *baseAgentBundle.GetVersion(),
+	}
+}
+
+type HandlerBundleEntry struct {
+	transportBundleKey    string
+	bundle                bundle.BaseAgentBundle
+	bundlePredicate       func() bool
+	lastSentBundleVersion metadata.BundleVersion // not pointer so it does not point to the bundle's internal version
+}

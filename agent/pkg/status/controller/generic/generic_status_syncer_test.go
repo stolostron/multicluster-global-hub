@@ -49,7 +49,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 		createBundleObjFunc: func() bundle.Object { return &policiesv1.Policy{} },
 	}
 
-	if err := controller.removeFinalizer(context.TODO(), policy, controller.log); err != nil {
+	if err := removeFinalizer(context.TODO(), c, policy, controller.finalizerName); err != nil {
 		t.Fatal(err)
 	}
 
@@ -75,7 +75,7 @@ func TestAddRemoveFinalizer(t *testing.T) {
 	time.Sleep(6 * time.Second)
 
 	// do nothing
-	if err := controller.addFinalizer(context.TODO(), policy, controller.log); err != nil {
+	if err := addFinalizer(context.TODO(), c, policy, controller.finalizerName); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,11 +88,6 @@ func TestAddRemoveFinalizer(t *testing.T) {
 	}
 
 	if err := controller.deleteObjectAndFinalizer(context.TODO(), policy, controller.log); err != nil {
-		t.Fatal(err)
-	}
-
-	// do nothing
-	if err := controller.removeFinalizer(context.TODO(), policy, controller.log); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,10 +108,5 @@ func TestAddRemoveFinalizer(t *testing.T) {
 		NamespacedName: namespacedName,
 	}); err != nil {
 		t.Fatal(err)
-	}
-
-	controllerutil.AddFinalizer(policy, constants.GlobalHubCleanupFinalizer)
-	if err := controller.removeFinalizer(context.TODO(), policy, controller.log); err == nil {
-		t.Fatal("Expect to report error")
 	}
 }

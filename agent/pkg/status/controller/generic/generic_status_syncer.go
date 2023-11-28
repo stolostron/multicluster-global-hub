@@ -119,7 +119,7 @@ func (c *genericStatusSyncer) updateObjectAndFinalizer(ctx context.Context, obje
 	_, globalLabelResource := object.GetLabels()[constants.GlobalHubGlobalResourceLabel]
 	if globalLabelResource || utils.HasAnnotation(object,
 		constants.OriginOwnerReferenceAnnotation) {
-		if err := c.addFinalizer(ctx, object, log); err != nil {
+		if err := addFinalizer(ctx, c.client, object, c.finalizerName); err != nil {
 			return fmt.Errorf("failed to add finalizer - %w", err)
 		}
 	}
@@ -147,7 +147,7 @@ func (c *genericStatusSyncer) deleteObjectAndFinalizer(ctx context.Context, obje
 
 	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
 
-	return c.removeFinalizer(ctx, object, log)
+	return removeFinalizer(ctx, c.client, object, c.finalizerName)
 }
 
 func (c *genericStatusSyncer) periodicSync() {
@@ -225,9 +225,9 @@ func cleanObject(object bundle.Object) {
 	// object.SetClusterName("")
 }
 
-func (c *genericStatusSyncer) addFinalizer(ctx context.Context, object bundle.Object, log logr.Logger) error {
+func addFinalizer(ctx context.Context, c client.Client, obj bundle.Object, finalizer string) error {
 	// if the removing finalizer label hasn't expired, then skip the adding finalizer action
-	if val, found := object.GetLabels()[constants.GlobalHubFinalizerRemovingDeadline]; found {
+	if val, found := obj.GetLabels()[constants.GlobalHubFinalizerRemovingDeadline]; found {
 		deadline, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
@@ -235,38 +235,27 @@ func (c *genericStatusSyncer) addFinalizer(ctx context.Context, object bundle.Ob
 		if time.Now().Unix() < deadline {
 			return nil
 		} else {
-			delete(object.GetLabels(), constants.GlobalHubFinalizerRemovingDeadline)
+			delete(obj.GetLabels(), constants.GlobalHubFinalizerRemovingDeadline)
 		}
 	}
 
-	if controllerutil.ContainsFinalizer(object, c.finalizerName) {
+	if controllerutil.ContainsFinalizer(obj, finalizer) {
 		return nil
 	}
 
-	log.Info("adding finalizer")
-	controllerutil.AddFinalizer(object, c.finalizerName)
+	controllerutil.AddFinalizer(obj, finalizer)
 
-	if err := c.client.Update(ctx, object); err != nil &&
-		!strings.Contains(err.Error(), "the object has been modified") {
-		return fmt.Errorf("failed to add finalizer %s - %w", c.finalizerName, err)
+	if err := c.Update(ctx, obj); err != nil && !strings.Contains(err.Error(), "the object has been modified") {
+		return err
 	}
-
 	return nil
 }
 
-func (c *genericStatusSyncer) removeFinalizer(ctx context.Context, object bundle.Object,
-	log logr.Logger,
-) error {
-	if !controllerutil.ContainsFinalizer(object, c.finalizerName) {
+func removeFinalizer(ctx context.Context, c client.Client, obj bundle.Object, finalizer string) error {
+	if !controllerutil.ContainsFinalizer(obj, finalizer) {
 		return nil // if finalizer is not there, do nothing.
 	}
+	controllerutil.RemoveFinalizer(obj, finalizer)
 
-	log.Info("removing finalizer")
-	controllerutil.RemoveFinalizer(object, c.finalizerName)
-
-	if err := c.client.Update(ctx, object); err != nil {
-		return fmt.Errorf("failed to remove finalizer %s - %w", c.finalizerName, err)
-	}
-
-	return nil
+	return c.Update(ctx, obj)
 }

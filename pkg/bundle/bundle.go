@@ -3,9 +3,11 @@ package bundle
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
@@ -21,14 +23,27 @@ type Bundle interface {
 	ManagerBundle
 }
 
+// BundleHandler is an abstraction for managing different object for a bundle.
+type ObjectHandler interface {
+	Predicate() predicate.Predicate
+	CreateObject() Object
+	SyncIntervalFunc() func() time.Duration
+	BundleUpdate(obj Object, b BaseAgentBundle)
+	BundleDelete(obj Object, b BaseAgentBundle)
+}
+
+type BaseAgentBundle interface {
+	// GetVersion function to get bundle generation.
+	GetVersion() *metadata.BundleVersion
+}
+
 // AgentBundle is an abstraction for managing different bundle types.
 type AgentBundle interface {
+	BaseAgentBundle
 	// UpdateObject function to update a single object inside a bundle.
 	UpdateObject(object Object)
 	// DeleteObject function to delete a single object inside a bundle.
 	DeleteObject(object Object)
-	// GetVersion function to get bundle generation.
-	GetVersion() *metadata.BundleVersion
 }
 
 // AgentDeltaBundle abstracts the logic needed from the delta-state bundle.
