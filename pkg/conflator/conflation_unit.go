@@ -162,25 +162,24 @@ func (cu *ConflationUnit) ReportResult(metadata *ConflationBundleMetadata, err e
 
 	priority := cu.bundleTypeToPriority[metadata.bundleType] // priority of the bundle that was processed
 	conflationElement := cu.priorityQueue[priority]
+	conflationElement.isInProcess = false // finished processing bundle
 
 	defer func() {
-		if metadata.bundleStatus.Processed() {
-			conflationElement.isInProcess = false // finished processing bundle
-			if metadata.bundleVersion.NewerThan(conflationElement.lastProcessedVersion) {
-				conflationElement.lastProcessedVersion = metadata.bundleVersion
-			}
+		if conflationElement.conflationBundle.getMetadata().bundleStatus.Processed() &&
+			metadata.bundleVersion.NewerThan(conflationElement.lastProcessedVersion) {
+			conflationElement.lastProcessedVersion = metadata.bundleVersion
 		}
 		cu.addCUToReadyQueueIfNeeded()
 	}()
 
 	if err != nil {
-		metadata.bundleStatus.MarkAsUnprocessed()
+		conflationElement.conflationBundle.getMetadata().bundleStatus.MarkAsUnprocessed()
+
 		if deltaBundleInfo, ok := conflationElement.conflationBundle.(deltaBundleAdapter); ok {
 			deltaBundleInfo.handleFailure(metadata)
 		}
 	} else {
-		// otherwise, err is nil, means bundle processing finished successfully
-		metadata.bundleStatus.MarkAsProcessed()
+		conflationElement.conflationBundle.markAsProcessed(metadata)
 	}
 }
 
@@ -210,6 +209,7 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
 		if conflationElement.conflationBundle.getBundle() != nil &&
+			!conflationElement.conflationBundle.getMetadata().bundleStatus.Processed() &&
 			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) && cu.checkDependency(conflationElement) {
 			return priority // bundle in this priority is ready to be processed
 		}
@@ -281,7 +281,7 @@ func (cu *ConflationUnit) getBundleStatues() []metadata.BundleStatus {
 	bundleStatues := make([]metadata.BundleStatus, 0, len(cu.priorityQueue))
 
 	for _, element := range cu.priorityQueue {
-		if bundleStatus := element.conflationBundle.getBundleStatus(); bundleStatus != nil {
+		if bundleStatus := element.conflationBundle.getMetadata().bundleStatus; bundleStatus != nil {
 			bundleStatues = append(bundleStatues, bundleStatus)
 		}
 	}

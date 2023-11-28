@@ -67,7 +67,7 @@ func (s *thresholdBundleStatus) MarkAsProcessed() {
 
 // Processed returns whether the bundle was processed or not.
 func (s *thresholdBundleStatus) Processed() bool {
-	return s.count == -1 || s.count == s.maxRetry
+	return s.count == -1 || s.count >= s.maxRetry
 }
 
 // MarkAsUnprocessed function that marks the metadata as processed.

@@ -166,15 +166,6 @@ func (bi *deltaConflationBundle) handleFailure(failedMetadata *ConflationBundleM
 	bi.transportMetadata.bundleStatus = lastDispatchedTransportMetadata
 }
 
-// getBundleStatus returns the wrapped bundle's transport metadata.
-func (bi *deltaConflationBundle) getBundleStatus() metadata.BundleStatus {
-	if bi.transportMetadata == nil {
-		return nil
-	}
-
-	return bi.transportMetadata.bundleStatus
-}
-
 // markAsProcessed releases the bundle content and marks transport metadata as processed.
 func (bi *deltaConflationBundle) markAsProcessed(metadata *ConflationBundleMetadata) {
 	metadata.bundleStatus.MarkAsProcessed()
