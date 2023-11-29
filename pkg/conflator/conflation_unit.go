@@ -2,6 +2,7 @@ package conflator
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -165,6 +166,8 @@ func (cu *ConflationUnit) ReportResult(metadata *ConflationBundleMetadata, err e
 	conflationElement.isInProcess = false // finished processing bundle
 
 	defer func() {
+		fmt.Println("========= report", conflationElement.conflationBundle.getMetadata().bundleType,
+			conflationElement.conflationBundle.getMetadata().bundleStatus.Processed(), conflationElement.lastProcessedVersion, conflationElement.conflationBundle.getMetadata().bundleVersion, metadata.bundleVersion)
 		if conflationElement.conflationBundle.getMetadata().bundleStatus.Processed() &&
 			metadata.bundleVersion.NewerThan(conflationElement.lastProcessedVersion) {
 			conflationElement.lastProcessedVersion = metadata.bundleVersion

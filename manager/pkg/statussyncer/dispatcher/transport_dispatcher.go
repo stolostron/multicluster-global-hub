@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
@@ -80,6 +82,8 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 					"bundle with false predicate", "message", message)
 				continue // bundle-registration predicate is false, do not send the update in the channel
 			}
+
+			fmt.Println("========= receive", constants.LocalPolicySpecMsgKey, string(message.Payload))
 
 			receivedBundle := d.bundleRegistrations[msgID].CreateBundleFunc()
 			if err := json.Unmarshal(message.Payload, receivedBundle); err != nil {
