@@ -169,12 +169,14 @@ func (cu *ConflationUnit) ReportResult(metadata *ConflationBundleMetadata, err e
 			metadata.bundleVersion.NewerThan(conflationElement.lastProcessedVersion) {
 			conflationElement.lastProcessedVersion = metadata.bundleVersion
 		}
-		cu.addCUToReadyQueueIfNeeded()
+
+		if !conflationElement.conflationBundle.getMetadata().bundleStatus.Processed() {
+			cu.addCUToReadyQueueIfNeeded()
+		}
 	}()
 
 	if err != nil {
 		conflationElement.conflationBundle.getMetadata().bundleStatus.MarkAsUnprocessed()
-
 		if deltaBundleInfo, ok := conflationElement.conflationBundle.(deltaBundleAdapter); ok {
 			deltaBundleInfo.handleFailure(metadata)
 		}
@@ -189,7 +191,6 @@ func (cu *ConflationUnit) isInProcess() bool {
 			return true // if any bundle is in process than conflation unit is in process
 		}
 	}
-
 	return false
 }
 
@@ -209,8 +210,8 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
 		if conflationElement.conflationBundle.getBundle() != nil &&
-			!conflationElement.conflationBundle.getMetadata().bundleStatus.Processed() &&
-			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) && cu.checkDependency(conflationElement) {
+			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) &&
+			cu.checkDependency(conflationElement) {
 			return priority // bundle in this priority is ready to be processed
 		}
 	}

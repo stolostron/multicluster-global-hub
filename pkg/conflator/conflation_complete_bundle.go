@@ -54,4 +54,12 @@ func (bi *completeConflationBundle) update(b bundle.ManagerBundle, bundleStatus 
 
 // markAsProcessed releases the bundle content and marks transport metadata as processed.
 func (bi *completeConflationBundle) markAsProcessed(metadata *ConflationBundleMetadata) {
+	metadata.bundleStatus.MarkAsProcessed()
+
+	if !metadata.bundleVersion.Equals(bi.elementMetadata.bundleVersion) {
+		return
+	}
+	// if this is the same bundle that was processed then release bundle pointer, otherwise leave
+	// the current (newer one) as pending.
+	bi.bundle = nil
 }
