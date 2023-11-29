@@ -33,12 +33,11 @@ func NewMultiHandlerStatusSyncer(mgr ctrl.Manager, producer transport.Producer, 
 }
 
 type handlerStatusSyncer struct {
-	log          logr.Logger
-	client       client.Client
-	producer     transport.Producer
-	bundleEntry  *HandlerBundleEntry
-	handler      bundle.ObjectHandler
-	intervalFunc func() time.Duration
+	log         logr.Logger
+	client      client.Client
+	producer    transport.Producer
+	bundleEntry *HandlerBundleEntry
+	handler     bundle.ObjectHandler
 
 	finalizerName string
 	startOnce     sync.Once
@@ -131,14 +130,14 @@ func (c *handlerStatusSyncer) deleteObjectAndFinalizer(ctx context.Context, obje
 }
 
 func (c *handlerStatusSyncer) periodicSync() {
-	currentSyncInterval := c.intervalFunc()
+	currentSyncInterval := c.handler.SyncInterval()
 	ticker := time.NewTicker(currentSyncInterval)
 
 	for {
 		<-ticker.C // wait for next time interval
 		c.syncBundles()
 
-		resolvedInterval := c.intervalFunc()
+		resolvedInterval := c.handler.SyncInterval()
 
 		// reset ticker if sync interval has changed
 		if resolvedInterval != currentSyncInterval {

@@ -27,7 +27,7 @@ type Bundle interface {
 type ObjectHandler interface {
 	Predicate() predicate.Predicate
 	CreateObject() Object
-	SyncIntervalFunc() func() time.Duration
+	SyncInterval() time.Duration
 	BundleUpdate(obj Object, b BaseAgentBundle)
 	BundleDelete(obj Object, b BaseAgentBundle)
 }

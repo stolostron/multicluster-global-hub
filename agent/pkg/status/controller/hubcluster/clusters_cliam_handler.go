@@ -30,8 +30,8 @@ func (h *hubClusterClaimHandler) CreateObject() bundle.Object {
 	return &clustersv1alpha1.ClusterClaim{}
 }
 
-func (h *hubClusterClaimHandler) SyncIntervalFunc() func() time.Duration {
-	return config.GetHubClusterInfoDuration
+func (h *hubClusterClaimHandler) SyncInterval() time.Duration {
+	return config.GetHubClusterInfoDuration()
 }
 
 func (h *hubClusterClaimHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAgentBundle) {

@@ -37,8 +37,8 @@ func (h *hubClusterRouteHandler) CreateObject() bundle.Object {
 	return &routev1.Route{}
 }
 
-func (h *hubClusterRouteHandler) SyncIntervalFunc() func() time.Duration {
-	return config.GetHubClusterInfoDuration
+func (h *hubClusterRouteHandler) SyncInterval() time.Duration {
+	return config.GetHubClusterInfoDuration()
 }
 
 func (h *hubClusterRouteHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAgentBundle) {
