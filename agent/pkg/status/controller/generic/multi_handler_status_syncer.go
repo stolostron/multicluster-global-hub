@@ -18,13 +18,32 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+type multiHandlerStatusSyncer struct {
+	log              logr.Logger
+	bundleEntry      *HandlerBundleEntry
+	finalizerName    string
+	producer         transport.Producer
+	syncIntervalFunc func() time.Duration
+	startOnce        sync.Once
+	lock             *sync.Mutex
+}
+
 // NewMultiHandlerStatusSyncer creates a new instance of genericStatusSyncController and adds it to the manager.
 func NewMultiHandlerStatusSyncer(mgr ctrl.Manager, producer transport.Producer, bundleEntry *HandlerBundleEntry,
-	objectHandlers []bundle.ObjectHandler,
+	objectHandlers []bundle.ObjectHandler, syncIntervalFunc func() time.Duration,
 ) error {
-	var lock sync.Mutex
+	statusSyncCtrl := &multiHandlerStatusSyncer{
+		log:              ctrl.Log.WithName(bundleEntry.transportBundleKey),
+		bundleEntry:      bundleEntry,
+		finalizerName:    constants.GlobalHubCleanupFinalizer,
+		producer:         producer,
+		syncIntervalFunc: syncIntervalFunc,
+		lock:             &sync.Mutex{},
+	}
+	statusSyncCtrl.init()
+
 	for _, handler := range objectHandlers {
-		err := newHandlerStatusSyncer(mgr, producer, bundleEntry, handler, &lock)
+		err := newHandlerStatusSyncer(mgr, producer, bundleEntry, handler, statusSyncCtrl.lock)
 		if err != nil {
 			return err
 		}
@@ -32,15 +51,81 @@ func NewMultiHandlerStatusSyncer(mgr ctrl.Manager, producer transport.Producer, 
 	return nil
 }
 
-type handlerStatusSyncer struct {
-	log         logr.Logger
-	client      client.Client
-	producer    transport.Producer
-	bundleEntry *HandlerBundleEntry
-	handler     bundle.ObjectHandler
+func (c *multiHandlerStatusSyncer) init() {
+	c.startOnce.Do(func() {
+		go c.periodicSync()
+	})
+}
 
+func (c *multiHandlerStatusSyncer) periodicSync() {
+	currentSyncInterval := c.syncIntervalFunc()
+	ticker := time.NewTicker(currentSyncInterval)
+
+	for {
+		<-ticker.C // wait for next time interval
+		c.syncBundles()
+
+		resolvedInterval := c.syncIntervalFunc()
+
+		// reset ticker if sync interval has changed
+		if resolvedInterval != currentSyncInterval {
+			currentSyncInterval = resolvedInterval
+			ticker.Reset(currentSyncInterval)
+			c.log.Info(fmt.Sprintf("sync interval has been reset to %s", currentSyncInterval.String()))
+		}
+	}
+}
+
+func (c *multiHandlerStatusSyncer) syncBundles() {
+	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
+	defer c.lock.Unlock()
+
+	entry := c.bundleEntry
+	// evaluate if bundle has to be sent only if predicate is true.
+	if !entry.bundlePredicate() {
+		return
+	}
+	bundleVersion := entry.bundle.GetVersion()
+
+	// send to transport only if bundle has changed.
+	if bundleVersion.NewerThan(&entry.lastSentBundleVersion) {
+		payloadBytes, err := json.Marshal(entry.bundle)
+		if err != nil {
+			c.log.Error(err, "marshal entry.bundle error", "entry.bundleKey", entry.transportBundleKey)
+			return
+		}
+
+		messageId := entry.transportBundleKey
+		transportMessageKey := entry.transportBundleKey
+		if deltaStateBundle, ok := entry.bundle.(bundle.AgentDeltaBundle); ok {
+			transportMessageKey = fmt.Sprintf("%s@%d", entry.transportBundleKey, deltaStateBundle.GetTransportationID())
+		}
+
+		if err := c.producer.Send(context.TODO(), &transport.Message{
+			Key:     transportMessageKey,
+			ID:      messageId,
+			MsgType: constants.StatusBundle,
+			Version: entry.bundle.GetVersion().String(),
+			Payload: payloadBytes,
+		}); err != nil {
+			c.log.Error(err, "send transport message error", "id", messageId)
+			return
+		}
+
+		// 1. get into the next generation
+		// 2. set the lastSentBundleVersion to first version of next generation
+		entry.bundle.GetVersion().Next()
+		entry.lastSentBundleVersion = *entry.bundle.GetVersion()
+	}
+}
+
+type handlerStatusSyncer struct {
+	log           logr.Logger
+	client        client.Client
+	bundleEntry   *HandlerBundleEntry
+	handler       bundle.ObjectHandler
+	producer      transport.Producer
 	finalizerName string
-	startOnce     sync.Once
 	lock          *sync.Mutex
 }
 
@@ -51,26 +136,19 @@ func newHandlerStatusSyncer(mgr ctrl.Manager, producer transport.Producer, bundl
 	logName := fmt.Sprintf("%s.%s", bundleEntry.transportBundleKey, obj.GetObjectKind())
 	statusSyncCtrl := &handlerStatusSyncer{
 		log:           ctrl.Log.WithName(logName),
+		bundleEntry:   bundleEntry,
 		client:        mgr.GetClient(),
 		producer:      producer,
-		bundleEntry:   bundleEntry,
 		handler:       handler,
 		finalizerName: constants.GlobalHubCleanupFinalizer,
 		lock:          lock,
 	}
-	statusSyncCtrl.init()
 
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).For(obj)
 	if handler.Predicate() != nil {
 		controllerBuilder = controllerBuilder.WithEventFilter(handler.Predicate())
 	}
 	return controllerBuilder.Complete(statusSyncCtrl)
-}
-
-func (c *handlerStatusSyncer) init() {
-	c.startOnce.Do(func() {
-		go c.periodicSync()
-	})
 }
 
 func (c *handlerStatusSyncer) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -127,66 +205,4 @@ func (c *handlerStatusSyncer) deleteObjectAndFinalizer(ctx context.Context, obje
 	c.lock.Unlock()
 
 	return removeFinalizer(ctx, c.client, object, c.finalizerName)
-}
-
-func (c *handlerStatusSyncer) periodicSync() {
-	currentSyncInterval := c.handler.SyncInterval()
-	ticker := time.NewTicker(currentSyncInterval)
-
-	for {
-		<-ticker.C // wait for next time interval
-		c.syncBundles()
-
-		resolvedInterval := c.handler.SyncInterval()
-
-		// reset ticker if sync interval has changed
-		if resolvedInterval != currentSyncInterval {
-			currentSyncInterval = resolvedInterval
-			ticker.Reset(currentSyncInterval)
-			c.log.Info(fmt.Sprintf("sync interval has been reset to %s", currentSyncInterval.String()))
-		}
-	}
-}
-
-func (c *handlerStatusSyncer) syncBundles() {
-	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-	defer c.lock.Unlock()
-
-	entry := c.bundleEntry
-	// evaluate if bundle has to be sent only if predicate is true.
-	if !entry.bundlePredicate() {
-		return
-	}
-	bundleVersion := entry.bundle.GetVersion()
-
-	// send to transport only if bundle has changed.
-	if bundleVersion.NewerThan(&entry.lastSentBundleVersion) {
-		payloadBytes, err := json.Marshal(entry.bundle)
-		if err != nil {
-			c.log.Error(err, "marshal entry.bundle error", "entry.bundleKey", entry.transportBundleKey)
-			return
-		}
-
-		messageId := entry.transportBundleKey
-		transportMessageKey := entry.transportBundleKey
-		if deltaStateBundle, ok := entry.bundle.(bundle.AgentDeltaBundle); ok {
-			transportMessageKey = fmt.Sprintf("%s@%d", entry.transportBundleKey, deltaStateBundle.GetTransportationID())
-		}
-
-		if err := c.producer.Send(context.TODO(), &transport.Message{
-			Key:     transportMessageKey,
-			ID:      messageId,
-			MsgType: constants.StatusBundle,
-			Version: entry.bundle.GetVersion().String(),
-			Payload: payloadBytes,
-		}); err != nil {
-			c.log.Error(err, "send transport message error", "id", messageId)
-			return
-		}
-
-		// 1. get into the next generation
-		// 2. set the lastSentBundleVersion to first version of next generation
-		entry.bundle.GetVersion().Next()
-		entry.lastSentBundleVersion = *entry.bundle.GetVersion()
-	}
 }

@@ -28,5 +28,5 @@ func AddHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) erro
 		NewHubClusterInfoClaimHandler(),
 		NewHubClusterInfoRouteHandler(),
 	}
-	return generic.NewMultiHandlerStatusSyncer(mgr, producer, bundleEntry, handlers)
+	return generic.NewMultiHandlerStatusSyncer(mgr, producer, bundleEntry, handlers, config.GetHubClusterInfoDuration)
 }

@@ -3,7 +3,6 @@ package bundle
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,7 +26,6 @@ type Bundle interface {
 type ObjectHandler interface {
 	Predicate() predicate.Predicate
 	CreateObject() Object
-	SyncInterval() time.Duration
 	BundleUpdate(obj Object, b BaseAgentBundle)
 	BundleDelete(obj Object, b BaseAgentBundle)
 }

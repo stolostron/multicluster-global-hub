@@ -1,9 +1,6 @@
 package hubcluster
 
 import (
-	"time"
-
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
@@ -28,10 +25,6 @@ func (h *hubClusterClaimHandler) Predicate() predicate.Predicate {
 
 func (h *hubClusterClaimHandler) CreateObject() bundle.Object {
 	return &clustersv1alpha1.ClusterClaim{}
-}
-
-func (h *hubClusterClaimHandler) SyncInterval() time.Duration {
-	return config.GetHubClusterInfoDuration()
 }
 
 func (h *hubClusterClaimHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAgentBundle) {
