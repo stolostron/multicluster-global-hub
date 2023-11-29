@@ -154,7 +154,7 @@ func (c *handlerStatusSyncer) syncBundles() {
 
 	entry := c.bundleEntry
 	// evaluate if bundle has to be sent only if predicate is true.
-	if entry.bundlePredicate() {
+	if !entry.bundlePredicate() {
 		return
 	}
 	bundleVersion := entry.bundle.GetVersion()
