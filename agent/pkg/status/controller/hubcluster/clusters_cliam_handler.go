@@ -1,7 +1,6 @@
 package hubcluster
 
 import (
-	"reflect"
 	"time"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
@@ -42,11 +41,17 @@ func (h *hubClusterClaimHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAg
 		return
 	}
 
-	oldObj := hubClusterBundle.Objects[0]
+	oldClusterID := hubClusterBundle.Objects[0].ClusterId
 	if clusterClaim.Name == "id.k8s.io" {
 		hubClusterBundle.Objects[0].ClusterId = clusterClaim.Spec.Value
 	}
-	incrVersionIfUpdated(oldObj, hubClusterBundle)
+	// If no ClusterId, do not send the bundle
+	if hubClusterBundle.Objects[0].ClusterId == "" {
+		return
+	}
+	if oldClusterID != hubClusterBundle.Objects[0].ClusterId {
+		hubClusterBundle.GetVersion().Incr()
+	}
 }
 
 func (h *hubClusterClaimHandler) BundleDelete(obj bundle.Object, b bundle.BaseAgentBundle) {
@@ -69,14 +74,4 @@ func ensureBundle(b bundle.BaseAgentBundle) (*cluster.HubClusterInfoBundle, bool
 		}
 	}
 	return hubClusterBundle, true
-}
-
-func incrVersionIfUpdated(old *base.HubClusterInfo, b *cluster.HubClusterInfoBundle) {
-	// If no ClusterId, do not send the bundle
-	if b.Objects[0].ClusterId == "" {
-		return
-	}
-	if !reflect.DeepEqual(old, b.Objects[0]) {
-		b.BundleVersion.Incr()
-	}
 }

@@ -46,7 +46,6 @@ func (h *hubClusterRouteHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAg
 	if !ok {
 		return
 	}
-	oldObj := hubClusterBundle.Objects[0]
 
 	var routeURL string
 	route, ok := obj.(*routev1.Route)
@@ -56,12 +55,14 @@ func (h *hubClusterRouteHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAg
 		}
 		if route.GetName() == constants.OpenShiftConsoleRouteName && hubClusterBundle.Objects[0].ConsoleURL != routeURL {
 			hubClusterBundle.Objects[0].ConsoleURL = routeURL
+			hubClusterBundle.GetVersion().Incr()
 		}
-		if route.GetName() == constants.ObservabilityGrafanaRouteName && hubClusterBundle.Objects[0].GrafanaURL != routeURL {
+		if route.GetName() == constants.ObservabilityGrafanaRouteName &&
+			hubClusterBundle.Objects[0].GrafanaURL != routeURL {
 			hubClusterBundle.Objects[0].GrafanaURL = routeURL
+			hubClusterBundle.GetVersion().Incr()
 		}
 	}
-	incrVersionIfUpdated(oldObj, hubClusterBundle)
 }
 
 func (h *hubClusterRouteHandler) BundleDelete(obj bundle.Object, b bundle.BaseAgentBundle) {
@@ -69,13 +70,13 @@ func (h *hubClusterRouteHandler) BundleDelete(obj bundle.Object, b bundle.BaseAg
 	if !ok {
 		return
 	}
-	oldObj := hubClusterBundle.Objects[0]
 
 	if obj.GetName() == constants.OpenShiftConsoleRouteName && hubClusterBundle.Objects[0].ConsoleURL != "" {
 		hubClusterBundle.Objects[0].ConsoleURL = ""
+		hubClusterBundle.GetVersion().Incr()
 	}
 	if obj.GetName() == constants.ObservabilityGrafanaRouteName && hubClusterBundle.Objects[0].GrafanaURL != "" {
 		hubClusterBundle.Objects[0].GrafanaURL = ""
+		hubClusterBundle.GetVersion().Incr()
 	}
-	incrVersionIfUpdated(oldObj, hubClusterBundle)
 }
