@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	routev1 "github.com/openshift/api/route/v1"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -30,12 +31,31 @@ func AddHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) erro
 	} // bundle predicate - always send subscription status.
 
 	hubClusterInfoPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return (object.GetNamespace() == constants.OpenShiftConsoleNamespace &&
-			object.GetName() == constants.OpenShiftConsoleRouteName) ||
-			(object.GetNamespace() == constants.ObservabilityNamespace &&
-				object.GetName() == constants.ObservabilityGrafanaRouteName)
+		if object.GetNamespace() == constants.OpenShiftConsoleNamespace &&
+			object.GetName() == constants.OpenShiftConsoleRouteName {
+			return true
+		}
+		if object.GetNamespace() == constants.ObservabilityNamespace &&
+			object.GetName() == constants.ObservabilityGrafanaRouteName {
+			return true
+		}
+		return false
 	})
 
-	return generic.NewGenericStatusSyncer(mgr, "hub-cluster-status-sync", producer, bundleCollection,
+	err := generic.NewGenericStatusSyncer(mgr, "hub-cluster-status-sync", producer, bundleCollection,
 		createObjFunction, hubClusterInfoPredicate, config.GetHubClusterInfoDuration)
+	if err != nil {
+		return err
+	}
+
+	createClaimObjFunction := func() bundle.Object { return &clustersv1alpha1.ClusterClaim{} }
+	hubClusterClaimPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return object.GetName() == "id.k8s.io"
+	})
+	err = generic.NewGenericStatusSyncer(mgr, "hub-cluster-status-sync", producer, bundleCollection,
+		createClaimObjFunction, hubClusterClaimPredicate, config.GetHubClusterInfoDuration)
+	if err != nil {
+		return err
+	}
+	return nil
 }

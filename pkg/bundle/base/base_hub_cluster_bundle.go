@@ -6,6 +6,7 @@ import "github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 type HubClusterInfo struct {
 	ConsoleURL string `json:"consoleURL"`
 	GrafanaURL string `json:"grafanaURL"`
+	ClusterId  string `json:"clusterId"`
 }
 
 // BaseHubClusterInfoBundle the bundle for the hub cluster info.
