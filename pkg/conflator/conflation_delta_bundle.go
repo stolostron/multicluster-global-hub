@@ -71,7 +71,7 @@ func (bi *deltaConflationBundle) getMetadata() *ConflationBundleMetadata {
 }
 
 // update function to update the bundle and its metadata according to delta-state sync-mode.
-func (bi *deltaConflationBundle) update(newBundle bundle.ManagerBundle, transportMetadata metadata.BundleStatus,
+func (bi *deltaConflationBundle) update(newBundle bundle.ManagerBundle, bundleStatus metadata.BundleStatus,
 	overwriteMetadataObject bool,
 ) error {
 	newDeltaBundle, ok := newBundle.(bundle.ManagerDeltaBundle)
@@ -86,14 +86,14 @@ func (bi *deltaConflationBundle) update(newBundle bundle.ManagerBundle, transpor
 		return fmt.Errorf("failed to update bundle - %w", err)
 	}
 
-	bi.updateMetadata(bundle.GetBundleType(newDeltaBundle), newDeltaBundle.GetVersion(), transportMetadata,
+	bi.updateMetadata(bundle.GetBundleType(newDeltaBundle), newDeltaBundle.GetVersion(), bundleStatus,
 		overwriteMetadataObject)
 
 	// update transport metadata only if bundle starts a new line of deltas
 	if bundleStartsNewLine {
 		// update current line-version info
 		bi.deltaLineHeadBundleVersion = bi.transportMetadata.bundleVersion
-		bi.transportMetadata.bundleStatus = transportMetadata
+		bi.transportMetadata.bundleStatus = bundleStatus
 	}
 
 	return nil
@@ -117,14 +117,14 @@ func (bi *deltaConflationBundle) updateBundle(newDeltaBundle bundle.ManagerDelta
 // updateMetadata updates the wrapped metadata according to the delta-state sync mode.
 // createNewObjects boolean sets whether new (bundle/metadata) objects must be pointed to.
 func (bi *deltaConflationBundle) updateMetadata(bundleType string, version *metadata.BundleVersion,
-	bundleStatus metadata.BundleStatus, overwriteObject bool,
+	bundleStatus metadata.BundleStatus, inProcess bool,
 ) {
 	if bi.transportMetadata == nil { // new metadata
 		bi.transportMetadata = &ConflationBundleMetadata{
 			bundleType:   bundleType,
 			bundleStatus: bundleStatus,
 		}
-	} else if !overwriteObject {
+	} else if inProcess {
 		// create new metadata with identical info and plug it in
 		bi.transportMetadata = &ConflationBundleMetadata{
 			bundleType:   bundleType,

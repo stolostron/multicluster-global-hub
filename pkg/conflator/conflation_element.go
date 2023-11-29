@@ -18,7 +18,7 @@ type conflationElement struct {
 func (element *conflationElement) update(b bundle.ManagerBundle, m metadata.BundleStatus) error {
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
-	return element.conflationBundle.update(b, m, !element.isInProcess)
+	return element.conflationBundle.update(b, m, element.isInProcess)
 }
 
 // getBundleForProcessing function to return Bundle and BundleMetadata to forward to processors.

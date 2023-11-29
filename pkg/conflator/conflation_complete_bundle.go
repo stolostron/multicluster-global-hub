@@ -31,11 +31,11 @@ func (bi *completeConflationBundle) getMetadata() *ConflationBundleMetadata {
 
 // update function to update the bundle and its metadata according to complete-state sync-mode.
 func (bi *completeConflationBundle) update(b bundle.ManagerBundle, bundleStatus metadata.BundleStatus,
-	overwriteMetadata bool,
+	inProcess bool,
 ) error {
 	bi.bundle = b
 
-	if bi.elementMetadata == nil || !overwriteMetadata {
+	if bi.elementMetadata == nil || inProcess {
 		bi.elementMetadata = &ConflationBundleMetadata{
 			bundleType:    bundle.GetBundleType(b),
 			bundleVersion: b.GetVersion(),
