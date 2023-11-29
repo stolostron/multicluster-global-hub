@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -89,8 +87,6 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 					"parse message.payload error", "message", message)
 				continue
 			}
-
-			fmt.Println("1 ----------- receive", bundle.GetBundleType(receivedBundle), msgID, string(message.Payload))
 
 			d.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 			// d.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,

@@ -2,11 +2,9 @@ package dispatcher
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
 )
@@ -61,8 +59,6 @@ func (dispatcher *ConflationDispatcher) dispatch(ctx context.Context) {
 				dispatcher.log.Error(err, "failed to get next bundle")
 				continue
 			}
-
-			fmt.Println("5 ******* forwart bundle", bundle.GetBundleType(b), b.GetVersion())
 
 			dbWorker.RunAsync(workerpool.NewDBJob(b, bundleMetadata, handlerFunction, conflationUnit))
 		}
