@@ -71,7 +71,7 @@ func (bi *deltaConflationBundle) getMetadata() *ConflationBundleMetadata {
 }
 
 // update function to update the bundle and its metadata according to delta-state sync-mode.
-func (bi *deltaConflationBundle) update(newBundle bundle.ManagerBundle, bundleStatus metadata.BundleStatus,
+func (bi *deltaConflationBundle) update(newBundle bundle.ManagerBundle, transportMetadata metadata.BundleStatus,
 	overwriteMetadataObject bool,
 ) error {
 	newDeltaBundle, ok := newBundle.(bundle.ManagerDeltaBundle)
@@ -86,14 +86,14 @@ func (bi *deltaConflationBundle) update(newBundle bundle.ManagerBundle, bundleSt
 		return fmt.Errorf("failed to update bundle - %w", err)
 	}
 
-	bi.updateMetadata(bundle.GetBundleType(newDeltaBundle), newDeltaBundle.GetVersion(), bundleStatus,
+	bi.updateMetadata(bundle.GetBundleType(newDeltaBundle), newDeltaBundle.GetVersion(), transportMetadata,
 		overwriteMetadataObject)
 
 	// update transport metadata only if bundle starts a new line of deltas
 	if bundleStartsNewLine {
 		// update current line-version info
 		bi.deltaLineHeadBundleVersion = bi.transportMetadata.bundleVersion
-		bi.transportMetadata.bundleStatus = bundleStatus
+		bi.transportMetadata.bundleStatus = transportMetadata
 	}
 
 	return nil
@@ -117,14 +117,14 @@ func (bi *deltaConflationBundle) updateBundle(newDeltaBundle bundle.ManagerDelta
 // updateMetadata updates the wrapped metadata according to the delta-state sync mode.
 // createNewObjects boolean sets whether new (bundle/metadata) objects must be pointed to.
 func (bi *deltaConflationBundle) updateMetadata(bundleType string, version *metadata.BundleVersion,
-	bundleStatus metadata.BundleStatus, inProcess bool,
+	bundleStatus metadata.BundleStatus, overwriteObject bool,
 ) {
 	if bi.transportMetadata == nil { // new metadata
 		bi.transportMetadata = &ConflationBundleMetadata{
 			bundleType:   bundleType,
 			bundleStatus: bundleStatus,
 		}
-	} else if inProcess {
+	} else if !overwriteObject {
 		// create new metadata with identical info and plug it in
 		bi.transportMetadata = &ConflationBundleMetadata{
 			bundleType:   bundleType,
@@ -164,6 +164,15 @@ func (bi *deltaConflationBundle) handleFailure(failedMetadata *ConflationBundleM
 
 	// restore transport metadata to that of the earliest contributor in the saved delta-pack
 	bi.transportMetadata.bundleStatus = lastDispatchedTransportMetadata
+}
+
+// getBundleStatus returns the wrapped bundle's transport metadata.
+func (bi *deltaConflationBundle) getBundleStatus() metadata.BundleStatus {
+	if bi.transportMetadata == nil {
+		return nil
+	}
+
+	return bi.transportMetadata.bundleStatus
 }
 
 // markAsProcessed releases the bundle content and marks transport metadata as processed.
