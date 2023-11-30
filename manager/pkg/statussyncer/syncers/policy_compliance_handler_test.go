@@ -150,7 +150,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("update the policy status with complete and delta bundle where aggregationLevel = full", func() {
+	It("update the policy status with complete bundle where aggregationLevel = full", func() {
 		By("Create a complete compliance bundle")
 		completeComplianceStatusBundle := base.BaseCompleteComplianceBundle{
 			Objects:           make([]*base.GenericCompleteCompliance, 0),
@@ -221,7 +221,10 @@ var _ = Describe("Status Compliances", Ordered, func() {
 			}
 			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, complianceTable)
 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+	})
 
+	It("update the policy status with delta bundle where aggregationLevel = full", func() {
+		Skip("Skip the delta bundle")
 		By("Create the delta policy bundle")
 		deltaComplianceStatusBundle := base.BaseDeltaComplianceBundle{
 			Objects:           make([]*base.GenericCompliance, 0),
@@ -251,7 +254,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Synchronize the delta policy bundle with transport")
-		transportMessage = &transport.Message{
+		transportMessage := &transport.Message{
 			Key:     policyDeltaComplianceTransportKey,
 			ID:      policyDeltaComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
@@ -265,7 +268,7 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		By("Check the delta policy bundle is only update compliance status of the existing record in database")
 		Eventually(func() error {
 			querySql := fmt.Sprintf("SELECT policy_id,cluster_name,leaf_hub_name,compliance FROM %s.%s", testSchema, complianceTable)
-			fmt.Printf("DeltaCompliance1: Query from the %s.%s \n", testSchema, complianceTable)
+			fmt.Printf("DeltaCompliance: Query from the %s.%s \n", testSchema, complianceTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err

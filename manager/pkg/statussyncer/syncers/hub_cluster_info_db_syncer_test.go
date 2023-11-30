@@ -17,7 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var _ = Describe("HubClusterInfoDbSyncer", Ordered, Label("hubcluster"), func() {
+var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 	const (
 		leafHubName = "hub1"
 		routeHost   = "console-openshift-console.apps.test-cluster"
