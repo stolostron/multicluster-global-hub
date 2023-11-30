@@ -11,7 +11,6 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/hubcluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -64,7 +63,7 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 		statusBundle := cluster.NewAgentHubClusterInfoBundle(leafHubName)
 
 		// update bundle with route handler
-		routeHandler := hubcluster.NewHubClusterInfoRouteHandler()
+		routeHandler := cluster.NewHubClusterInfoRouteObject()
 		routeHandler.BundleUpdate(route, statusBundle)
 
 		claim := &clustersv1alpha1.ClusterClaim{
@@ -75,7 +74,7 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 				Value: "00000000-0000-0000-0000-000000000001",
 			},
 		}
-		calimHandler := hubcluster.NewHubClusterInfoClaimHandler()
+		calimHandler := cluster.NewHubClusterInfoClaimObject()
 		calimHandler.BundleUpdate(claim, statusBundle)
 
 		By("Create transport message")

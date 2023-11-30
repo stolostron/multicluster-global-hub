@@ -1,4 +1,4 @@
-package hubcluster
+package cluster
 
 import (
 	"time"
@@ -11,15 +11,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-var _ bundle.ObjectHandler = (*hubClusterRouteHandler)(nil)
+var _ bundle.SharedBundleObject = (*hubClusterRouteObject)(nil)
 
-type hubClusterRouteHandler struct{}
+type hubClusterRouteObject struct{}
 
-func NewHubClusterInfoRouteHandler() *hubClusterRouteHandler {
-	return &hubClusterRouteHandler{}
+func NewHubClusterInfoRouteObject() *hubClusterRouteObject {
+	return &hubClusterRouteObject{}
 }
 
-func (h *hubClusterRouteHandler) Predicate() predicate.Predicate {
+func (h *hubClusterRouteObject) Predicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(object client.Object) bool {
 		if object.GetNamespace() == constants.OpenShiftConsoleNamespace &&
 			object.GetName() == constants.OpenShiftConsoleRouteName {
@@ -33,15 +33,15 @@ func (h *hubClusterRouteHandler) Predicate() predicate.Predicate {
 	})
 }
 
-func (h *hubClusterRouteHandler) CreateObject() bundle.Object {
+func (h *hubClusterRouteObject) CreateObject() bundle.Object {
 	return &routev1.Route{}
 }
 
-func (h *hubClusterRouteHandler) SyncInterval() time.Duration {
+func (h *hubClusterRouteObject) SyncInterval() time.Duration {
 	return config.GetHubClusterInfoDuration()
 }
 
-func (h *hubClusterRouteHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAgentBundle) {
+func (h *hubClusterRouteObject) BundleUpdate(obj bundle.Object, b bundle.BaseAgentBundle) {
 	hubClusterBundle, ok := ensureBundle(b)
 	if !ok {
 		return
@@ -65,7 +65,7 @@ func (h *hubClusterRouteHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAg
 	}
 }
 
-func (h *hubClusterRouteHandler) BundleDelete(obj bundle.Object, b bundle.BaseAgentBundle) {
+func (h *hubClusterRouteObject) BundleDelete(obj bundle.Object, b bundle.BaseAgentBundle) {
 	hubClusterBundle, ok := ensureBundle(b)
 	if !ok {
 		return

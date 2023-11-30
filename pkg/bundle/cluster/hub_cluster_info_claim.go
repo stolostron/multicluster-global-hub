@@ -1,33 +1,32 @@
-package hubcluster
+package cluster
 
 import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-var _ bundle.ObjectHandler = (*hubClusterClaimHandler)(nil)
+var _ bundle.SharedBundleObject = (*hubClusterClaimObject)(nil)
 
-type hubClusterClaimHandler struct{}
+type hubClusterClaimObject struct{}
 
-func NewHubClusterInfoClaimHandler() *hubClusterClaimHandler {
-	return &hubClusterClaimHandler{}
+func NewHubClusterInfoClaimObject() *hubClusterClaimObject {
+	return &hubClusterClaimObject{}
 }
 
-func (h *hubClusterClaimHandler) Predicate() predicate.Predicate {
+func (h *hubClusterClaimObject) Predicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return object.GetName() == "id.k8s.io"
 	})
 }
 
-func (h *hubClusterClaimHandler) CreateObject() bundle.Object {
+func (h *hubClusterClaimObject) CreateObject() bundle.Object {
 	return &clustersv1alpha1.ClusterClaim{}
 }
 
-func (h *hubClusterClaimHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAgentBundle) {
+func (h *hubClusterClaimObject) BundleUpdate(obj bundle.Object, b bundle.BaseAgentBundle) {
 	hubClusterBundle, ok1 := ensureBundle(b)
 	clusterClaim, ok2 := obj.(*clustersv1alpha1.ClusterClaim)
 	if !ok1 || !ok2 {
@@ -47,12 +46,12 @@ func (h *hubClusterClaimHandler) BundleUpdate(obj bundle.Object, b bundle.BaseAg
 	}
 }
 
-func (h *hubClusterClaimHandler) BundleDelete(obj bundle.Object, b bundle.BaseAgentBundle) {
+func (h *hubClusterClaimObject) BundleDelete(obj bundle.Object, b bundle.BaseAgentBundle) {
 	// do noting
 }
 
-func ensureBundle(b bundle.BaseAgentBundle) (*cluster.HubClusterInfoBundle, bool) {
-	hubClusterBundle, ok := b.(*cluster.HubClusterInfoBundle)
+func ensureBundle(b bundle.BaseAgentBundle) (*HubClusterInfoBundle, bool) {
+	hubClusterBundle, ok := b.(*HubClusterInfoBundle)
 	if !ok {
 		return nil, false
 	}

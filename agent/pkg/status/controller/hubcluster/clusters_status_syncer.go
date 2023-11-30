@@ -22,11 +22,12 @@ func AddHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) erro
 	clusterInfoBundle := cluster.NewAgentHubClusterInfoBundle(leafHubName)
 	transportKey := fmt.Sprintf("%s.%s", leafHubName, constants.HubClusterInfoMsgKey)
 	bundlePredicate := func() bool { return true }
-	bundleEntry := generic.NewHandlerBundleEntry(transportKey, clusterInfoBundle, bundlePredicate)
+	bundleEntry := generic.NewSharedBundleEntry(transportKey, clusterInfoBundle, bundlePredicate)
 
-	handlers := []bundle.ObjectHandler{
-		NewHubClusterInfoClaimHandler(),
-		NewHubClusterInfoRouteHandler(),
+	objectCollection := []bundle.SharedBundleObject{
+		cluster.NewHubClusterInfoClaimObject(),
+		cluster.NewHubClusterInfoRouteObject(),
 	}
-	return generic.NewMultiHandlerStatusSyncer(mgr, producer, bundleEntry, handlers, config.GetHubClusterInfoDuration)
+	return generic.NewGenericSharedBundleSyncer(mgr, producer, bundleEntry, objectCollection,
+		config.GetHubClusterInfoDuration)
 }

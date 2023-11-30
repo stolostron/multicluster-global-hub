@@ -25,10 +25,10 @@ type BundleEntry struct {
 	lastSentBundleVersion metadata.BundleVersion // not pointer so it does not point to the bundle's internal version
 }
 
-func NewHandlerBundleEntry(transportBundleKey string, baseAgentBundle bundle.BaseAgentBundle,
+func NewSharedBundleEntry(transportBundleKey string, baseAgentBundle bundle.BaseAgentBundle,
 	bundlePredicate func() bool,
-) *HandlerBundleEntry {
-	return &HandlerBundleEntry{
+) *SharedBundleEntry {
+	return &SharedBundleEntry{
 		transportBundleKey:    transportBundleKey,
 		bundle:                baseAgentBundle,
 		bundlePredicate:       bundlePredicate,
@@ -36,7 +36,7 @@ func NewHandlerBundleEntry(transportBundleKey string, baseAgentBundle bundle.Bas
 	}
 }
 
-type HandlerBundleEntry struct {
+type SharedBundleEntry struct {
 	transportBundleKey    string
 	bundle                bundle.BaseAgentBundle
 	bundlePredicate       func() bool

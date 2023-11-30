@@ -23,7 +23,7 @@ type Bundle interface {
 }
 
 // BundleHandler is an abstraction for managing different object for a bundle.
-type ObjectHandler interface {
+type SharedBundleObject interface {
 	Predicate() predicate.Predicate
 	CreateObject() Object
 	BundleUpdate(obj Object, b BaseAgentBundle)
