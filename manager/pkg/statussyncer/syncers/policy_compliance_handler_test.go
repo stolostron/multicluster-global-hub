@@ -224,7 +224,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 	})
 
 	It("update the policy status with delta bundle where aggregationLevel = full", func() {
-		Skip("Skip the delta bundle")
 		By("Create the delta policy bundle")
 		deltaComplianceStatusBundle := base.BaseDeltaComplianceBundle{
 			Objects:           make([]*base.GenericCompliance, 0),
