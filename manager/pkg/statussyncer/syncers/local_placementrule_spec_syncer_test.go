@@ -3,7 +3,6 @@ package dbsyncer_test
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -11,13 +10,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var _ = Describe("LocalPlacementrulesSyncer", Ordered, func() {
+var _ = Describe("LocalPlacementrulesSyncer", Label("localplacementrule"), func() {
 	const (
 		testSchema                   = database.LocalSpecSchema
 		testPlacementRuleTable       = database.PlacementRulesTableName
@@ -26,33 +25,9 @@ var _ = Describe("LocalPlacementrulesSyncer", Ordered, func() {
 		localPlacementRuleMessageKey = constants.LocalPlacementRulesMsgKey
 	)
 
-	BeforeAll(func() {
-		By("Check whether the tables are created")
-		Eventually(func() error {
-			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
-			if err != nil {
-				return err
-			}
-			defer rows.Close()
-			expectedCount := 0
-			for rows.Next() {
-				columnValues, _ := rows.Values()
-				schema := columnValues[0]
-				table := columnValues[1]
-				if schema == testSchema && (table == placementRuleTable) {
-					expectedCount++
-				}
-			}
-			if expectedCount == 2 {
-				return nil
-			}
-			return fmt.Errorf("failed to create table %s.%s", testSchema, placementRuleTable)
-		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-	})
-
 	It("sync LocalPlacementRuleBundle to database", func() {
 		By("Create LocalPlacementRuleBundle")
-		testPlacementrule := &placementrulev1.PlacementRule{
+		placementrule := &placementrulev1.PlacementRule{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-placementrule-1",
 				Namespace: "default",
@@ -62,24 +37,10 @@ var _ = Describe("LocalPlacementrulesSyncer", Ordered, func() {
 				SchedulerName: constants.GlobalHubSchedulerName,
 			},
 		}
-		statusBundle := &GenericStatusBundle{
-			Objects:       make([]Object, 0),
-			LeafHubName:   leafHubName,
-			BundleVersion: metadata.NewBundleVersion(),
-			manipulateObjFunc: func(object Object) {
-				placementRule, ok := object.(*placementrulev1.PlacementRule)
-				if !ok {
-					panic("Wrong instance passed to clean policy function, not a Policy")
-				}
-				placementRule.Status = placementrulev1.PlacementRuleStatus{}
-			},
-			lock: sync.Mutex{},
-		}
-		statusBundle.Objects = append(statusBundle.Objects, testPlacementrule)
 
 		By("Create transport message")
-		// increment the version
-		statusBundle.BundleVersion.Incr()
+		statusBundle := generic.NewGenericStatusBundle(leafHubName, nil)
+		statusBundle.UpdateObject(placementrule)
 		payloadBytes, err := json.Marshal(statusBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -88,7 +49,7 @@ var _ = Describe("LocalPlacementrulesSyncer", Ordered, func() {
 			Key:     transportMessageKey,
 			ID:      transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.BundleVersion.String(),
+			Version: statusBundle.GetVersion().String(),
 			Payload: payloadBytes,
 		}
 		By("Sync message with transport")
@@ -104,13 +65,13 @@ var _ = Describe("LocalPlacementrulesSyncer", Ordered, func() {
 			}
 			defer rows.Close()
 			for rows.Next() {
-				var hubName string
-				placementrule := placementrulev1.PlacementRule{}
-				if err := rows.Scan(&hubName, &placementrule); err != nil {
+				var receivedHubName string
+				receivedPlacementrule := placementrulev1.PlacementRule{}
+				if err := rows.Scan(&receivedHubName, &receivedPlacementrule); err != nil {
 					return err
 				}
-				if hubName == statusBundle.LeafHubName && placementrule.Name == statusBundle.Objects[0].GetName() {
-					fmt.Printf("LocalSpecPlacementrule: %s - %s/%s\n", hubName, placementrule.Namespace, placementrule.Name)
+				if receivedHubName == leafHubName && receivedPlacementrule.Name == placementrule.Name {
+					fmt.Printf("LocalSpecPlacementrule: %s - %s/%s\n", receivedHubName, receivedPlacementrule.Namespace, receivedPlacementrule.Name)
 					return nil
 				}
 			}

@@ -54,13 +54,13 @@ func (dispatcher *ConflationDispatcher) dispatch(ctx context.Context) {
 				continue
 			}
 
-			b, bundleMetadata, handlerFunction, err := conflationUnit.GetNext()
+			bundle, bundleMetadata, handlerFunction, err := conflationUnit.GetNext()
 			if err != nil {
-				dispatcher.log.Error(err, "failed to get next bundle")
+				dispatcher.log.Info(err.Error()) // don't need to throw the error when bundle is not ready
 				continue
 			}
 
-			dbWorker.RunAsync(workerpool.NewDBJob(b, bundleMetadata, handlerFunction, conflationUnit))
+			dbWorker.RunAsync(workerpool.NewDBJob(bundle, bundleMetadata, handlerFunction, conflationUnit))
 		}
 	}
 }
