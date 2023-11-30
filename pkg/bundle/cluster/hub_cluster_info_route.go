@@ -1,10 +1,7 @@
 package cluster
 
 import (
-	"time"
-
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,10 +32,6 @@ func (h *hubClusterRouteObject) Predicate() predicate.Predicate {
 
 func (h *hubClusterRouteObject) CreateObject() bundle.Object {
 	return &routev1.Route{}
-}
-
-func (h *hubClusterRouteObject) SyncInterval() time.Duration {
-	return config.GetHubClusterInfoDuration()
 }
 
 func (h *hubClusterRouteObject) BundleUpdate(obj bundle.Object, b bundle.BaseAgentBundle) {
