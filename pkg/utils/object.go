@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -82,4 +83,8 @@ func GetClusterId(ctx context.Context, runtimeClient client.Client, clusterName 
 		}
 	}
 	return clusterId, nil
+}
+
+func GetObjectKey(obj bundle.Object) string {
+	return obj.GetObjectKind().GroupVersionKind().String()
 }

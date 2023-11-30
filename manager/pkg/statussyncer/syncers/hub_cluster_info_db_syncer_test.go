@@ -49,7 +49,7 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 
 	It("sync the hubClusterInfo bundle", func() {
 		By("Create hubClusterInfo bundle")
-		obj := &routev1.Route{
+		route := &routev1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      constants.OpenShiftConsoleRouteName,
 				Namespace: constants.OpenShiftConsoleNamespace,
@@ -59,67 +59,12 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 			},
 		}
 
+		// create bundle
 		statusBundle := cluster.NewAgentHubClusterInfoBundle(leafHubName)
-		statusBundle.UpdateObject(obj)
 
-		claim := &clustersv1alpha1.ClusterClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "id.k8s.io",
-			},
-			Spec: clustersv1alpha1.ClusterClaimSpec{
-				Value: "00000000-0000-0000-0000-000000000000",
-			},
-		}
-		statusBundle.UpdateObject(claim)
-		By("Create transport message")
-		// increment the version
-		payloadBytes, err := json.Marshal(statusBundle)
-		Expect(err).ShouldNot(HaveOccurred())
-
-		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, messageKey)
-		transportMessage := &transport.Message{
-			Key:     transportMessageKey,
-			ID:      transportMessageKey,
-			MsgType: constants.StatusBundle,
-			Version: statusBundle.GetVersion().String(),
-			Payload: payloadBytes,
-		}
-
-		By("Sync message with transport")
-		err = producer.Send(ctx, transportMessage)
-		Expect(err).Should(Succeed())
-
-		By("Check the leaf hubs table")
-		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT leaf_hub_name,console_url FROM %s.%s", testSchema, testTable)
-			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
-			if err != nil {
-				return err
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var hubName, consoleURL string
-				if err := rows.Scan(&hubName, &consoleURL); err != nil {
-					return err
-				}
-				if hubName == leafHubName && strings.Contains(consoleURL, routeHost) {
-					return nil
-				}
-			}
-			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testTable)
-		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-	})
-
-	It("update the hubClusterInfo bundle", func() {
-		By("Update hubClusterInfo bundle")
-		obj := &routev1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.OpenShiftConsoleRouteName,
-				Namespace: constants.OpenShiftConsoleNamespace,
-			},
-		}
-		statusBundle := cluster.NewAgentHubClusterInfoBundle(leafHubName)
-		statusBundle.UpdateObject(obj)
+		// update bundle with route handler
+		routeHandler := cluster.NewHubClusterInfoRouteObject()
+		routeHandler.BundleUpdate(route, statusBundle)
 
 		claim := &clustersv1alpha1.ClusterClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -129,9 +74,10 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 				Value: "00000000-0000-0000-0000-000000000001",
 			},
 		}
-		statusBundle.UpdateObject(claim)
+		calimHandler := cluster.NewHubClusterInfoClaimObject()
+		calimHandler.BundleUpdate(claim, statusBundle)
+
 		By("Create transport message")
-		// increment the version
 		payloadBytes, err := json.Marshal(statusBundle)
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -150,22 +96,23 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 
 		By("Check the leaf hubs table")
 		Eventually(func() error {
-			querySql := fmt.Sprintf("SELECT leaf_hub_name,cluster_id FROM %s.%s", testSchema, testTable)
+			querySql := fmt.Sprintf("SELECT leaf_hub_name,console_url,cluster_id FROM %s.%s", testSchema, testTable)
 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
 			if err != nil {
 				return err
 			}
 			defer rows.Close()
 			for rows.Next() {
-				var hubName, cluster_id string
-				if err := rows.Scan(&hubName, &cluster_id); err != nil {
+				var receivedHubName, receivedConsoleURL, receivedClusterID string
+				if err := rows.Scan(&receivedHubName, &receivedConsoleURL, &receivedClusterID); err != nil {
 					return err
 				}
-				if hubName == leafHubName && cluster_id == "00000000-0000-0000-0000-000000000001" {
+				if receivedHubName == leafHubName && strings.Contains(receivedConsoleURL, routeHost) &&
+					receivedClusterID == claim.Spec.Value {
 					return nil
 				}
 			}
-			return fmt.Errorf("failed to update content of table %s.%s", testSchema, testTable)
+			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testTable)
 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 })
