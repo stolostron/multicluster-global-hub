@@ -239,11 +239,18 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
+	producer, err := producer.NewGenericProducer(managerConfig.TransportConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
+	}
 	if managerConfig.EnableGlobalResource {
-		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig); err != nil {
+		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
 			return nil, fmt.Errorf("failed to add global resource spec syncers: %w", err)
 		}
 	}
+
+	//Send the resend message when manager start.
+	err = specsyncer.SendSyncAllMsgInfo(producer)
 
 	if err := specsyncer.AddBasicSpecSyncers(mgr); err != nil {
 		return nil, fmt.Errorf("failed to add basic spec syncers: %w", err)

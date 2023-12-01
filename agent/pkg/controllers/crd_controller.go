@@ -33,12 +33,10 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	reqLogger.V(2).Info("crd controller", "NamespacedName:", request.NamespacedName)
 
 	// add spec controllers
-	if c.agentConfig.EnableGlobalResource {
-		if err := specController.AddToManager(c.mgr, c.agentConfig); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
-		}
-		reqLogger.V(2).Info("add spec controllers to manager")
+	if err := specController.AddToManager(c.mgr, c.agentConfig); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
+	reqLogger.V(2).Info("add spec controllers to manager")
 
 	if err := statusController.AddControllers(ctx, c.mgr, c.agentConfig); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)

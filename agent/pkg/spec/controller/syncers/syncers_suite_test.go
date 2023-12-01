@@ -66,9 +66,10 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),
 		},
-		SpecWorkPoolSize:   2,
-		LeafHubName:        "leaf-hub1",
-		SpecEnforceHohRbac: true,
+		SpecWorkPoolSize:     2,
+		LeafHubName:          "leaf-hub1",
+		SpecEnforceHohRbac:   true,
+		EnableGlobalResource: true,
 	}
 
 	err = speccontroller.AddToManager(mgr, agentConfig)

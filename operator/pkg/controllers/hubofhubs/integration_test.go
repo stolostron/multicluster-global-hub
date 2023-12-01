@@ -113,6 +113,7 @@ const (
 var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	var storageSecret *corev1.Secret
 	BeforeAll(func() {
+
 		storageSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      StorageSecretName,
@@ -162,6 +163,11 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			// delete the testing MGH instance with invalid large scale data layer setting
 			By("By deleting the testing MGH instance with invalid large scale data layer setting")
 			Expect(k8sClient.Delete(ctx, mgh)).Should(Succeed())
+			// check MGH instance is deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, mghLookupKey, createdMGH)
+				return errors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 
