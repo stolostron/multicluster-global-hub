@@ -4,14 +4,18 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -20,11 +24,16 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+var pgConnectionCache *postgres.PostgresConnection
+var kafkaConnectionCache *kafka.KafkaConnection
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
@@ -78,6 +87,12 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		replicas = 2
 	}
 
+	if isMiddlewareChanged(r.MiddlewareConfig) {
+		err = restartManagerPod(ctx, r.KubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to restart manager pod: %v", err)
+		}
+	}
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                  string
@@ -149,6 +164,64 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 	log.Info("manager objects are created/updated successfully")
 	return nil
+}
+
+func restartManagerPod(ctx context.Context, kubeClient kubernetes.Interface) error {
+	configNamespace := config.GetDefaultNamespace()
+	labelSelector := fmt.Sprintf("name=%s", constants.ManagerDeploymentName)
+
+	poList, err := kubeClient.CoreV1().Pods(configNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	for _, po := range poList.Items {
+		err := kubeClient.CoreV1().Pods(configNamespace).Delete(ctx, po.Name, metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func isMiddlewareChanged(curMiddlewareConfig *MiddlewareConfig) bool {
+	if curMiddlewareConfig == nil {
+		return false
+	}
+	if kafkaConnectionCache == nil || pgConnectionCache == nil {
+		setMiddlewareCache(curMiddlewareConfig)
+		return false
+	}
+
+	if !reflect.DeepEqual(curMiddlewareConfig.KafkaConnection, kafkaConnectionCache) {
+		setMiddlewareCache(curMiddlewareConfig)
+		return true
+	}
+	if !reflect.DeepEqual(curMiddlewareConfig.PgConnection, pgConnectionCache) {
+		setMiddlewareCache(curMiddlewareConfig)
+		return true
+	}
+	return false
+}
+
+func setMiddlewareCache(curMiddlewareConfig *MiddlewareConfig) {
+	if curMiddlewareConfig == nil {
+		return
+	}
+
+	if curMiddlewareConfig.KafkaConnection != nil {
+		tmpKafkaConn := *curMiddlewareConfig.KafkaConnection
+		kafkaConnectionCache = &tmpKafkaConn
+	}
+
+	if curMiddlewareConfig.PgConnection != nil {
+		tmpPgConn := *curMiddlewareConfig.PgConnection
+		pgConnectionCache = &tmpPgConn
+	}
 }
 
 func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,
