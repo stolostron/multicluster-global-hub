@@ -20,12 +20,10 @@ type ConflationBundleMetadata struct {
 type conflationBundle interface {
 	// getBundle returns the bundle.
 	getBundle() bundle.ManagerBundle
-	// getMetadata returns the metadata to forward to processors.
+	// getMetadata returns the metadata to forward to processors, the transport metadata for message committing purposes.
 	getMetadata() *ConflationBundleMetadata
 	// update function to update the bundle and its metadata according to sync-mode.
 	update(bundle bundle.ManagerBundle, bundleStatus metadata.BundleStatus, overwriteMetadata bool) error
-	// getBundleStatus returns the transport metadata for message committing purposes.
-	getBundleStatus() metadata.BundleStatus
 	// markAsProcessed marks the given metadata as processed.
 	markAsProcessed(elementMetadata *ConflationBundleMetadata)
 }

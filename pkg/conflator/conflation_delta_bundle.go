@@ -55,17 +55,17 @@ func (bi *deltaConflationBundle) getBundle() bundle.ManagerBundle {
 
 // getMetadata returns the metadata to be forwarded to processors.
 func (bi *deltaConflationBundle) getMetadata() *ConflationBundleMetadata {
-	// save the dispatched bundle content before giving metadata, so that we can start a new pack and recover
-	// from failure if it happens
-	bi.lastDispatchedDeltaBundleData.bundle = bi.bundle
-	// lastDispatchedDeltaBundleData's transportMetadata will be used later in case the processing fails, therefore
-	// it should point to the delta-pack's earliest pending contributor's (current transport metadata)
-	bi.lastDispatchedDeltaBundleData.lowestPendingTransportMetadata = bi.transportMetadata.bundleStatus
-	// the bundle's transport metadata will be used to mark as processed, therefore we should give out that of the
-	// latest pending contributing delta-bundle's
-	bi.transportMetadata.bundleStatus = bi.lastReceivedTransportMetadata
-	// reset bundle only when dispatching, to start a new delta-pack
-	bi.bundle = nil
+	// // save the dispatched bundle content before giving metadata, so that we can start a new pack and recover
+	// // from failure if it happens
+	// bi.lastDispatchedDeltaBundleData.bundle = bi.bundle
+	// // lastDispatchedDeltaBundleData's transportMetadata will be used later in case the processing fails, therefore
+	// // it should point to the delta-pack's earliest pending contributor's (current transport metadata)
+	// bi.lastDispatchedDeltaBundleData.lowestPendingTransportMetadata = bi.transportMetadata.bundleStatus
+	// // the bundle's transport metadata will be used to mark as processed, therefore we should give out that of the
+	// // latest pending contributing delta-bundle's
+	// bi.transportMetadata.bundleStatus = bi.lastReceivedTransportMetadata
+	// // reset bundle only when dispatching, to start a new delta-pack
+	// bi.bundle = nil
 
 	return bi.transportMetadata
 }
@@ -178,6 +178,8 @@ func (bi *deltaConflationBundle) getBundleStatus() metadata.BundleStatus {
 // markAsProcessed releases the bundle content and marks transport metadata as processed.
 func (bi *deltaConflationBundle) markAsProcessed(metadata *ConflationBundleMetadata) {
 	metadata.bundleStatus.MarkAsProcessed()
+
+	bi.bundle = nil
 
 	// release fail-recovery data
 	bi.lastDispatchedDeltaBundleData.bundle = nil

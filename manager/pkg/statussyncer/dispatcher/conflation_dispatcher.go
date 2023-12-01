@@ -56,7 +56,7 @@ func (dispatcher *ConflationDispatcher) dispatch(ctx context.Context) {
 
 			bundle, bundleMetadata, handlerFunction, err := conflationUnit.GetNext()
 			if err != nil {
-				dispatcher.log.Error(err, "failed to get next bundle")
+				dispatcher.log.Info(err.Error()) // don't need to throw the error when bundle is not ready
 				continue
 			}
 

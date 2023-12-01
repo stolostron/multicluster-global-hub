@@ -31,11 +31,11 @@ func (bi *completeConflationBundle) getMetadata() *ConflationBundleMetadata {
 
 // update function to update the bundle and its metadata according to complete-state sync-mode.
 func (bi *completeConflationBundle) update(b bundle.ManagerBundle, bundleStatus metadata.BundleStatus,
-	overwriteMetadata bool,
+	inProcess bool,
 ) error {
 	bi.bundle = b
 
-	if bi.elementMetadata == nil || !overwriteMetadata {
+	if bi.elementMetadata == nil || inProcess {
 		bi.elementMetadata = &ConflationBundleMetadata{
 			bundleType:    bundle.GetBundleType(b),
 			bundleVersion: b.GetVersion(),
@@ -50,15 +50,6 @@ func (bi *completeConflationBundle) update(b bundle.ManagerBundle, bundleStatus 
 	bi.elementMetadata.bundleStatus = bundleStatus
 
 	return nil
-}
-
-// getBundleStatus returns the wrapped bundle's transport metadata.
-func (bi *completeConflationBundle) getBundleStatus() metadata.BundleStatus {
-	if bi.elementMetadata == nil {
-		return nil
-	}
-
-	return bi.elementMetadata.bundleStatus
 }
 
 // markAsProcessed releases the bundle content and marks transport metadata as processed.

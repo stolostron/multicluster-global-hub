@@ -126,6 +126,7 @@ func (cu *ConflationUnit) insert(insertBundle bundle.ManagerBundle, bundleStatus
 		cu.log.Error(err, "failed to insert bundle")
 		return
 	}
+
 	// TODO: fix conflation mechanism:
 	// - count correctly when a bundle is in processing but more than one bundle comes in
 	// - conflating delta bundles is different from conflating complete-state bundles, needs to be addressed.
@@ -164,22 +165,23 @@ func (cu *ConflationUnit) ReportResult(metadata *ConflationBundleMetadata, err e
 	conflationElement := cu.priorityQueue[priority]
 	conflationElement.isInProcess = false // finished processing bundle
 
-	if err != nil {
-		if deltaBundleInfo, ok := conflationElement.conflationBundle.(deltaBundleAdapter); ok {
-			deltaBundleInfo.handleFailure(metadata)
+	defer func() {
+		if conflationElement.conflationBundle.getMetadata().bundleStatus.Processed() &&
+			metadata.bundleVersion.NewerThan(conflationElement.lastProcessedVersion) {
+			conflationElement.lastProcessedVersion = metadata.bundleVersion
 		}
 
 		cu.addCUToReadyQueueIfNeeded()
+	}()
 
-		return
+	if err != nil {
+		conflationElement.conflationBundle.getMetadata().bundleStatus.MarkAsUnprocessed()
+		if deltaBundleInfo, ok := conflationElement.conflationBundle.(deltaBundleAdapter); ok {
+			deltaBundleInfo.handleFailure(metadata)
+		}
+	} else {
+		conflationElement.conflationBundle.markAsProcessed(metadata)
 	}
-	// otherwise, err is nil, means bundle processing finished successfully
-	if metadata.bundleVersion.NewerThan(conflationElement.lastProcessedVersion) {
-		conflationElement.lastProcessedVersion = metadata.bundleVersion
-	}
-
-	conflationElement.conflationBundle.markAsProcessed(metadata)
-	cu.addCUToReadyQueueIfNeeded()
 }
 
 func (cu *ConflationUnit) isInProcess() bool {
@@ -188,7 +190,6 @@ func (cu *ConflationUnit) isInProcess() bool {
 			return true // if any bundle is in process than conflation unit is in process
 		}
 	}
-
 	return false
 }
 
@@ -208,12 +209,23 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
 		if conflationElement.conflationBundle.getBundle() != nil &&
-			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) && cu.checkDependency(conflationElement) {
+			!cu.isProcessed(conflationElement) &&
+			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) &&
+			cu.checkDependency(conflationElement) {
 			return priority // bundle in this priority is ready to be processed
 		}
 	}
 
 	return invalidPriority
+}
+
+func (cu *ConflationUnit) isProcessed(conflationElement *conflationElement) bool {
+	processed := false
+	m := conflationElement.conflationBundle.getMetadata()
+	if m != nil && m.bundleStatus != nil && m.bundleStatus.Processed() {
+		processed = true
+	}
+	return processed
 }
 
 // isCurrentOrAnyDependencyInProcess checks if current element or any dependency from dependency chain is in process.
@@ -279,7 +291,7 @@ func (cu *ConflationUnit) getBundleStatues() []metadata.BundleStatus {
 	bundleStatues := make([]metadata.BundleStatus, 0, len(cu.priorityQueue))
 
 	for _, element := range cu.priorityQueue {
-		if bundleStatus := element.conflationBundle.getBundleStatus(); bundleStatus != nil {
+		if bundleStatus := element.conflationBundle.getMetadata().bundleStatus; bundleStatus != nil {
 			bundleStatues = append(bundleStatues, bundleStatus)
 		}
 	}
