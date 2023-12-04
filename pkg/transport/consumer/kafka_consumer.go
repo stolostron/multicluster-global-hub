@@ -64,7 +64,7 @@ type KafkaConsumer struct {
 // NewConsumer creates a new instance of Consumer.
 func NewKafkaConsumer(kafkaConfig *transport.KafkaConfig, log logr.Logger,
 ) (*KafkaConsumer, error) {
-	kafkaConfigMap, err := config.GetConfluentConfigMap(kafkaConfig)
+	kafkaConfigMap, err := config.GetConfluentConfigMap(kafkaConfig, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kafka config map: %w", err)
 	}

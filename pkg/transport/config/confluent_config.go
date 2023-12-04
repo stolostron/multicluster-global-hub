@@ -7,16 +7,19 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig) (*kafka.ConfigMap, error) {
+func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*kafka.ConfigMap, error) {
 	kafkaConfigMap := &kafka.ConfigMap{
 		"bootstrap.servers":       kafkaConfig.BootstrapServer,
 		"socket.keepalive.enable": "true",
-		"auto.offset.reset":       "earliest", // consumer
-		"enable.auto.commit":      "false",    // consumer
-		"acks":                    "1",        // producer
-		"retries":                 "0",        // producer
 		// silence spontaneous disconnection logs, kafka recovers by itself.
-		"log.connection.close": "false",
+		"log.connection.close": "true",
+	}
+	if producer {
+		kafkaConfigMap.SetKey("acks", "1")
+		kafkaConfigMap.SetKey("retries", "0")
+	} else {
+		kafkaConfigMap.SetKey("enable.auto.commit", "false")
+		kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
 	}
 
 	if kafkaConfig.EnableTLS && utils.Validate(kafkaConfig.CaCertPath) {

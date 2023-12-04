@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	TopicDefault        = "status"
 	DelayDefault        = 1000
 	MessageDefault      = "Hello from Go Kafka Sarama"
 	MessageCountDefault = 10
@@ -21,10 +20,17 @@ const (
 )
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Please provide at least one topic command-line argument.")
+		os.Exit(1)
+	}
+	topic := os.Args[1]
+
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGKILL)
 
-	bootstrapSever, saramaConfig, err := config.GetSaramaConfig()
+	// bootstrapSever, saramaConfig, err := config.GetSaramaConfig()
+	bootstrapServer, saramaConfig, err := config.GetSaramaConfigFromKafkaUser()
 	if err != nil {
 		fmt.Printf("Error getting producer config: %v\n", err)
 		os.Exit(1)
@@ -33,7 +39,7 @@ func main() {
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.MaxMessageBytes = 1024 * 1000 // 1024KB
 
-	producer, err := sarama.NewSyncProducer([]string{string(bootstrapSever)}, saramaConfig)
+	producer, err := sarama.NewSyncProducer([]string{string(bootstrapServer)}, saramaConfig)
 	if err != nil {
 		log.Printf("Error creating the Sarama sync producer: %v", err)
 		os.Exit(1)
@@ -42,17 +48,17 @@ func main() {
 	end := make(chan int, 1)
 	go func() {
 		for i := 0; i < MessageCountDefault; i++ {
-			value := fmt.Sprintf("%s-%d", "hello", int64(i))
+			value := fmt.Sprintf("%s-%d", topic, int64(i))
 			msg := &sarama.ProducerMessage{
-				Topic: TopicDefault,
+				Topic: topic,
 				Value: sarama.StringEncoder(value),
 				Key:   sarama.StringEncoder("key"),
 			}
 			partition, offset, err := producer.SendMessage(msg)
 			if err != nil {
-				log.Printf("Erros sending message: %v\n", err)
+				log.Printf("error for sending message: %v\n", err)
 			} else {
-				log.Printf("Message sent: partition=%d, offset=%d, msg=%s\n", partition, offset, msg.Value)
+				log.Printf("message sent: partition=%d, offset=%d, msg=%s\n", partition, offset, msg.Value)
 			}
 
 			// sleep before next message or avoid sleeping
@@ -68,9 +74,9 @@ func main() {
 	// waiting for the end of all messages sent or an OS signal
 	select {
 	case <-end:
-		log.Printf("Finished to send %d messages\n", MessageCountDefault)
+		log.Printf("finished to send %d messages\n", MessageCountDefault)
 	case sig := <-signals:
-		log.Printf("Got signal: %v\n", sig)
+		log.Printf("got signal: %v\n", sig)
 	}
 
 	err = producer.Close()
@@ -78,5 +84,5 @@ func main() {
 		log.Printf("Error closing the Sarama sync producer: %v", err)
 		os.Exit(1)
 	}
-	log.Printf("Producer closed")
+	log.Printf("producer closed")
 }
