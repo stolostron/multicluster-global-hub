@@ -1,7 +1,6 @@
 package transport
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -76,25 +75,6 @@ type ClusterTopic struct {
 	SpecTopic   string
 	StatusTopic string
 	EventTopic  string
-}
-
-const (
-	GlobalHubTopicIdentity        = "*"
-	managedHubSpecTopicTemplate   = "GlobalHub.Spec.%s"
-	managedHubStatusTopicTemplate = "GlobalHub.Status.%s"
-	managedHubEventTopicTemplate  = "GlobalHub.Event.%s"
-)
-
-func GetTopicNames(clusterIdentity string) *ClusterTopic {
-	return &ClusterTopic{
-		SpecTopic:   fmt.Sprintf(managedHubSpecTopicTemplate, clusterIdentity),
-		StatusTopic: fmt.Sprintf(managedHubStatusTopicTemplate, clusterIdentity),
-		EventTopic:  fmt.Sprintf(managedHubEventTopicTemplate, clusterIdentity),
-	}
-}
-
-func GetUserName(clusterIdentity string) string {
-	return fmt.Sprintf("%s-kafka-user", clusterIdentity)
 }
 
 // Message abstracts a message object to be used by different transport components.

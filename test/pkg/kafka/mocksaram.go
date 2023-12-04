@@ -1,9 +1,15 @@
 package kafka
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Shopify/sarama"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // the default offset range is 0 ~ 100, topic is "my-topic", partition is 0
@@ -53,4 +59,39 @@ func MockSaramaCluster(t *testing.T, messages []string) *sarama.MockBroker {
 		),
 	})
 	return broker0
+}
+
+func MockTransportSecret(c client.Client, namespace string) error {
+	// Check if the namespace already exists
+	err := c.Create(context.TODO(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+
+	// Replace the following placeholders with your actual data
+	data := map[string][]byte{
+		"bootstrap_server": []byte("your_bootstrap_server_data"),
+		"ca.crt":           []byte("your_ca_crt_data"),
+		"client.crt":       []byte("your_client_crt_data"),
+		"client.key":       []byte("your_client_key_data"),
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHTransportSecretName,
+			Namespace: namespace,
+		},
+		Data: data,
+		Type: corev1.SecretTypeOpaque,
+	}
+
+	err = c.Create(context.TODO(), secret)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
 }

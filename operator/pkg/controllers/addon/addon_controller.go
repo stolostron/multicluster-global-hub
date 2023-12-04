@@ -54,6 +54,7 @@ type HoHAddonController struct {
 	LogLevel             string
 }
 
+// used to create addon manager
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 	leaderElection *commonobjects.LeaderElectionConfig, middlewareCfg *hubofhubs.MiddlewareConfig,
 	enableGlobalResource bool, controllerConfig *corev1.ConfigMap, logLevel string,

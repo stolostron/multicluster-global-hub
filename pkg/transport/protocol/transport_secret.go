@@ -51,6 +51,18 @@ func (k *transportSecret) DeleteTopic(names []string) error {
 	return nil
 }
 
+func (k *transportSecret) GetTopicNames(clusterIdentity string) *transport.ClusterTopic {
+	return &transport.ClusterTopic{
+		SpecTopic:   "spec",
+		StatusTopic: "status",
+		EventTopic:  "event",
+	}
+}
+
+func (k *transportSecret) GetUserName(clusterIdentity string) string {
+	return ""
+}
+
 func (s *transportSecret) GetConnCredential(username string) (*transport.ConnCredential, error) {
 	kafkaSecret := &corev1.Secret{}
 	err := s.runtimeClient.Get(s.ctx, types.NamespacedName{

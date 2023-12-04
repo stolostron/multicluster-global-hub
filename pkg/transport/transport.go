@@ -15,6 +15,9 @@ type Transporter interface {
 	CreateTopic(names []string) error
 	DeleteTopic(name []string) error
 
+	GetTopicNames(clusterIdentity string) *ClusterTopic
+	GetUserName(clusterIdentity string) string
+
 	// get the connection credential by user
 	GetConnCredential(username string) (*ConnCredential, error)
 }

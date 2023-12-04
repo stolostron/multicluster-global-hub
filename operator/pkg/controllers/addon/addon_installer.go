@@ -46,15 +46,23 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	fmt.Println("111111111 addon installer")
+
 	// wait the transport to be ready
-	wait.PollUntilContextTimeout(ctx, 1*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-		if config.GetTransporter() == nil {
-			r.Log.Info("waiting transport ready...")
-			return false, nil
-		}
-		return true, nil
-	})
+	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, 10*time.Minute, true,
+		func(ctx context.Context) (bool, error) {
+			if config.GetTransporter() == nil {
+				r.Log.Info("waiting transport ready...")
+				return false, nil
+			}
+			return true, nil
+		})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	transporter := config.GetTransporter()
+
+	fmt.Println("222222222222 addon installer")
 
 	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
@@ -72,6 +80,8 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	fmt.Println("33333333 addon installer")
+
 	cluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: req.NamespacedName.Name,
@@ -85,8 +95,13 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, err
 	}
+	fmt.Println("44444444444 addon installer")
+
 	userName := transport.GetUserName(cluster.Name)
 	topicNames := transport.GetTopicNames(cluster.Name)
+
+	fmt.Println("5555555 addon installer", "username", userName)
+	fmt.Println("6666666 addon installer", "topicNames", topicNames)
 
 	if !cluster.DeletionTimestamp.IsZero() {
 		r.Log.Info("cluster is deleting, delete the kafkaUser, skip addon deployment", "cluster", cluster.Name)
@@ -110,6 +125,7 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	fmt.Println("777777777777 addon installer", "topicNames", topicNames)
 
 	addon := &v1alpha1.ManagedClusterAddOn{}
 	err = r.Get(ctx, types.NamespacedName{

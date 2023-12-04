@@ -125,11 +125,14 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 	// create global hub topics
 
 	topics := transport.GetTopicNames(transport.GlobalHubTopicIdentity)
-	trans.CreateTopic([]string{
+	err = trans.CreateTopic([]string{
 		topics.SpecTopic,
 		topics.StatusTopic,
 		topics.EventTopic,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	var conn *transport.ConnCredential
 	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,

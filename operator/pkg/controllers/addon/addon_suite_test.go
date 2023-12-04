@@ -140,7 +140,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	By("Add the addon install reconciler to the manager")
+	By("Add the addon installer to the manager")
 	err = (&addon.HoHAddonInstaller{
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("addon install controller"),
@@ -166,6 +166,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())
+
+	By("Create an external transport")
+	trans := protocol.NewTransportSecret(ctx, types.NamespacedName{
+		Namespace: mgh.Namespace,
+		Name:      constants.GHTransportSecretName,
+	}, k8sClient)
+	config.SetTransporter(trans)
 
 	go func() {
 		defer GinkgoRecover()
@@ -268,7 +275,7 @@ func prepareBeforeTest() {
 	})).Should(Succeed())
 
 	By("By creating secret transport")
-	createTestTransportSecret(k8sClient, mgh.Namespace)
+	CreateTestTransportSecret(k8sClient, mgh.Namespace)
 	transporter := protocol.NewTransportSecret(context.TODO(), types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHStorageSecretName,
@@ -311,39 +318,4 @@ func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 	cfg.RenewDeadline = renewDeadlineSec
 	cfg.RetryPeriod = retryPeriodSec
 	return cfg, nil
-}
-
-func createTestTransportSecret(c client.Client, namespace string) error {
-	// Check if the namespace already exists
-	err := c.Create(context.TODO(), &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return err
-	}
-
-	// Replace the following placeholders with your actual data
-	data := map[string][]byte{
-		"bootstrap_server": []byte("your_bootstrap_server_data"),
-		"ca.crt":           []byte("your_ca_crt_data"),
-		"client.crt":       []byte("your_client_crt_data"),
-		"client.key":       []byte("your_client_key_data"),
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.GHTransportSecretName,
-			Namespace: namespace,
-		},
-		Data: data,
-		Type: corev1.SecretTypeOpaque,
-	}
-
-	err = c.Create(context.TODO(), secret)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return err
-	}
-	return nil
 }

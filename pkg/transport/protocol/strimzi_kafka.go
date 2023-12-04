@@ -46,6 +46,12 @@ const (
 
 	// users
 	DefaultGlobalHubKafkaUser = "global-hub-kafka-user"
+
+	// topic names
+	GlobalHubTopicIdentity = "*"
+	SpecTopicTemplate      = "GlobalHub.Spec.%s"
+	StatusTopicTemplate    = "GlobalHub.Status.%s"
+	EventTopicTemplate     = "GlobalHub.Event.%s"
 )
 
 var (
@@ -207,6 +213,18 @@ func (k *strimziKafka) DeleteUser(topicName string) error {
 		return err
 	}
 	return k.runtimeClient.Delete(k.ctx, kafkaUser)
+}
+
+func (k *strimziKafka) GetTopicNames(clusterIdentity string) *transport.ClusterTopic {
+	return &transport.ClusterTopic{
+		SpecTopic:   fmt.Sprintf(SpecTopicTemplate, clusterIdentity),
+		StatusTopic: fmt.Sprintf(StatusTopicTemplate, clusterIdentity),
+		EventTopic:  fmt.Sprintf(EventTopicTemplate, clusterIdentity),
+	}
+}
+
+func (k *strimziKafka) GetUserName(clusterIdentity string) string {
+	return fmt.Sprintf("%s-kafka-user", clusterIdentity)
 }
 
 func (k *strimziKafka) CreateTopic(topicNames []string) error {

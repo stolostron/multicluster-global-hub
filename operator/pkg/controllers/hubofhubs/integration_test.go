@@ -62,6 +62,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
@@ -173,6 +174,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Type: corev1.SecretTypeOpaque,
 		}
 		Expect(k8sClient.Create(ctx, storageSecret)).Should(Succeed())
+
+		By("create the transport secret for secretTransport")
+		kafka.MockTransportSecret(k8sClient, config.GetDefaultNamespace())
 	})
 
 	Context("When create MGH instance with invalid large scale data layer type", func() {
