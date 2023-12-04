@@ -16,6 +16,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	KAFkA_USER      = "global-hub-kafka-user"
+	KAFKA_CLUSTER   = "kafka"
+	KAFKA_NAMESPACE = "multicluster-global-hub"
+
+	// KAFkA_USER      = "my-user"
+	// KAFKA_CLUSTER   = "my-cluster"
+	// KAFKA_NAMESPACE = "kafka"
+)
+
 func GetConfluentConfigMap(isProducer bool) (*kafka.ConfigMap, error) {
 	secret, err := GetTransportSecret()
 	if err != nil {
@@ -60,12 +70,7 @@ func GetConfluentConfigMap(isProducer bool) (*kafka.ConfigMap, error) {
 	return configMap, nil
 }
 
-func GetConfluentConfigMapByKafkaUser(EnvUserName string, isProducer bool) (*kafka.ConfigMap, error) {
-	userName := os.Getenv(EnvUserName)
-	if userName == "" {
-		return nil, fmt.Errorf("not found env %s", EnvUserName)
-	}
-
+func GetConfluentConfigMapByKafkaUser(isProducer bool) (*kafka.ConfigMap, error) {
 	kubeconfig, err := loadDynamicKubeConfig(EnvKubconfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubeconfig")
@@ -79,8 +84,8 @@ func GetConfluentConfigMapByKafkaUser(EnvUserName string, isProducer bool) (*kaf
 
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err = c.Get(context.TODO(), types.NamespacedName{
-		Name:      "kafka",
-		Namespace: "multicluster-global-hub",
+		Name:      KAFKA_CLUSTER,
+		Namespace: KAFKA_NAMESPACE,
 	}, kafkaCluster)
 	if err != nil {
 		return nil, err
@@ -90,8 +95,8 @@ func GetConfluentConfigMapByKafkaUser(EnvUserName string, isProducer bool) (*kaf
 
 	kafkaUserSecret := &corev1.Secret{}
 	err = c.Get(context.TODO(), types.NamespacedName{
-		Name:      userName,
-		Namespace: "multicluster-global-hub",
+		Name:      KAFkA_USER,
+		Namespace: KAFKA_NAMESPACE,
 	}, kafkaUserSecret)
 	if err != nil {
 		return nil, err
