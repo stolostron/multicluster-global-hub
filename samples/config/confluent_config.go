@@ -20,10 +20,6 @@ const (
 	KAFkA_USER      = "global-hub-kafka-user"
 	KAFKA_CLUSTER   = "kafka"
 	KAFKA_NAMESPACE = "multicluster-global-hub"
-
-	// KAFkA_USER      = "my-user"
-	// KAFKA_CLUSTER   = "my-cluster"
-	// KAFKA_NAMESPACE = "kafka"
 )
 
 func GetConfluentConfigMap(isProducer bool) (*kafka.ConfigMap, error) {

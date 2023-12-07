@@ -8,6 +8,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
+const EnvKubconfig = "KUBECONFIG"
+
 func loadDynamicKubeConfig(envVar string) (*rest.Config, error) {
 	kubeconfigPath := os.Getenv(envVar)
 	if kubeconfigPath != "" {

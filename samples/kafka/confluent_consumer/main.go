@@ -15,7 +15,7 @@ import (
 
 const (
 	messageCount = 10
-	consumerId   = "test-consumer"
+	consumerId   = "consumer-group-1"
 )
 
 var kafkaMessages = make([]*kafka.Message, 0)
@@ -133,8 +133,9 @@ func getKafkaMessages() []*kafka.Message {
 func rebalanceCallback(c *kafka.Consumer, event kafka.Event) error {
 	switch ev := event.(type) {
 	case kafka.AssignedPartitions:
-		log.Printf("%% %s rebalance: %d new partition(s) assigned: %v\n",
-			c.GetRebalanceProtocol(), len(ev.Partitions), ev.Partitions)
+		// log.Printf("%% %s rebalance: %d new partition(s) assigned: %v\n", c.GetRebalanceProtocol(), len(ev.Partitions), ev.Partitions)
+
+		log.Printf("%% %s rebalance: %d new partition(s) assigned\n", c.GetRebalanceProtocol(), len(ev.Partitions))
 
 		// The application may update the start .Offset of each assigned
 		// partition and then call Assign(). It is optional to call Assign
@@ -148,8 +149,9 @@ func rebalanceCallback(c *kafka.Consumer, event kafka.Event) error {
 		}
 
 	case kafka.RevokedPartitions:
-		log.Printf("%% %s rebalance: %d partition(s) revoked: %v\n",
-			c.GetRebalanceProtocol(), len(ev.Partitions), ev.Partitions)
+		// log.Printf("%% %s rebalance: %d partition(s) revoked: %v\n", c.GetRebalanceProtocol(), len(ev.Partitions), ev.Partitions)
+
+		log.Printf("%% %s rebalance: %d partition(s) revoked\n", c.GetRebalanceProtocol(), len(ev.Partitions))
 
 		// Usually, the rebalance callback for `RevokedPartitions` is called
 		// just before the partitions are revoked. We can be certain that a

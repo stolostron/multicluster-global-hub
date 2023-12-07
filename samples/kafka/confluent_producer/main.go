@@ -41,6 +41,7 @@ func main() {
 
 	// Listen to all the events on the default events channel
 	go func() {
+		count := 0
 		for e := range producer.Events() {
 			switch ev := e.(type) {
 			case *kafka.Message:
@@ -54,6 +55,11 @@ func main() {
 				} else {
 					log.Printf("delivered message to topic %s [%d] at offset %v\n",
 						*m.TopicPartition.Topic, m.TopicPartition.Partition, m.TopicPartition.Offset)
+				}
+				count++
+				if count == messageCount {
+					signals <- syscall.SIGKILL
+					return
 				}
 			case kafka.Error:
 				// Generic client instance-level errors, such as
