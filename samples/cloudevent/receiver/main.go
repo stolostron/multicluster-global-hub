@@ -4,21 +4,26 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/client"
 
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
-var (
-	groupId = "test-group-id"
-	topic   = "event"
-)
+var groupId = "test-group-id"
 
 func main() {
-	bootstrapServer, saramaConfig, err := config.GetSaramaConfig()
+	if len(os.Args) < 2 {
+		fmt.Println("Please provide at least one topic command-line argument.")
+		os.Exit(1)
+	}
+	topic := os.Args[1]
+
+	bootstrapServer, saramaConfig, err := config.GetSaramaConfigFromKafkaUser()
 	if err != nil {
 		log.Fatalf("failed to get sarama config: %v", err)
 	}
@@ -34,7 +39,7 @@ func main() {
 
 	defer receiver.Close(context.Background())
 
-	c, err := cloudevents.NewClient(receiver)
+	c, err := cloudevents.NewClient(receiver, client.WithPollGoroutines(1))
 	if err != nil {
 		log.Fatalf("failed to create client, %v", err)
 	}
