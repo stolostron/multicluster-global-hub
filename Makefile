@@ -75,7 +75,7 @@ e2e-setup-clean:
 	./test/setup/e2e_clean.sh
 
 e2e-tests-all: tidy vendor
-	./cicd-scripts/run-local-e2e-test.sh -f "e2e-tests-validation,e2e-tests-local-policy,e2e-tests-grafana,e2e-tests-placement,e2e-tests-app,e2e-tests-policy" -v $(VERBOSE)
+	./cicd-scripts/run-local-e2e-test.sh -f "e2e-tests-validation,e2e-tests-local-policy,e2e-tests-grafana,e2e-tests-placement,e2e-tests-app,e2e-tests-policy,e2e-tests-backup" -v $(VERBOSE)
 
 e2e-tests-validation e2e-tests-label e2e-tests-placement e2e-tests-app e2e-tests-policy e2e-tests-local-policy: tidy vendor
 	./cicd-scripts/run-local-e2e-test.sh -f $@ -v $(VERBOSE)
