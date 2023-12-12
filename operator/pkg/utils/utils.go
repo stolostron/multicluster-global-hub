@@ -71,6 +71,19 @@ func GetAnnotation(annotations map[string]string, key string) string {
 	return annotations[key]
 }
 
+// HasLabel check if the labels has key=value label
+func HasLabel(labels map[string]string, key, value string) bool {
+	if len(labels) == 0 {
+		return false
+	}
+	for k, v := range labels {
+		if k == key && v == value {
+			return true
+		}
+	}
+	return false
+}
+
 func RemoveDuplicates(elements []string) []string {
 	// Use map to record duplicates as we find them.
 	encountered := map[string]struct{}{}

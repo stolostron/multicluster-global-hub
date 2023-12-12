@@ -159,6 +159,9 @@ func NewKafka(mgh *globalhubv1alpha4.MulticlusterGlobalHub, name, namespace stri
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels: map[string]string{
+				constants.BackupKey: constants.BackupGlobalHubValue,
+			},
 		},
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
@@ -203,6 +206,16 @@ func NewKafka(mgh *globalhubv1alpha4.MulticlusterGlobalHub, name, namespace stri
 						kafkaSpecKafkaStorageVolumesElem,
 					},
 				},
+				Template: &kafkav1beta2.KafkaSpecKafkaTemplate{
+					PersistentVolumeClaim: &kafkav1beta2.KafkaSpecKafkaTemplatePersistentVolumeClaim{
+						Metadata: &kafkav1beta2.KafkaSpecKafkaTemplatePersistentVolumeClaimMetadata{
+							Labels: &apiextensions.JSON{Raw: []byte(`{
+								"cluster.open-cluster-management.io/volsync": "globalhub"
+								}`),
+							},
+						},
+					},
+				},
 				Version: &kafkaVersion,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
@@ -216,6 +229,16 @@ func NewKafka(mgh *globalhubv1alpha4.MulticlusterGlobalHub, name, namespace stri
 					Limits: &apiextensions.JSON{Raw: []byte(`{
 "memory": "3Gi"
 }`)},
+				},
+				Template: &kafkav1beta2.KafkaSpecZookeeperTemplate{
+					PersistentVolumeClaim: &kafkav1beta2.KafkaSpecZookeeperTemplatePersistentVolumeClaim{
+						Metadata: &kafkav1beta2.KafkaSpecZookeeperTemplatePersistentVolumeClaimMetadata{
+							Labels: &apiextensions.JSON{Raw: []byte(`{
+								"cluster.open-cluster-management.io/volsync": "globalhub"
+								}`),
+							},
+						},
+					},
 				},
 			},
 			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
@@ -236,6 +259,7 @@ func NewKafkaTopic(topicName, namespace string) *kafkav1beta2.KafkaTopic {
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the topic will not be ready
 				"strimzi.io/cluster": KafkaClusterName,
+				constants.BackupKey:  constants.BackupGlobalHubValue,
 			},
 		},
 		Spec: &kafkav1beta2.KafkaTopicSpec{
@@ -259,6 +283,7 @@ func NewKafkaUser(username, namespace string) *kafkav1beta2.KafkaUser {
 				// It is important to set the cluster label otherwise the user will not be ready
 				"strimzi.io/cluster":             KafkaClusterName,
 				constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
+				constants.BackupKey:              constants.BackupGlobalHubValue,
 			},
 		},
 		Spec: &kafkav1beta2.KafkaUserSpec{

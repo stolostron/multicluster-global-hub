@@ -28,6 +28,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
@@ -78,6 +79,7 @@ var _ = BeforeSuite(func() {
 	By("Get the managed clusters")
 	Eventually(func() (err error) {
 		managedClusters, err = getManagedCluster(httpClient)
+		klog.Errorf("Faild to get managedclusters: %v", err)
 		return err
 	}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	Expect(len(managedClusters)).Should(Equal(ExpectedManagedClusterNum))
@@ -224,6 +226,10 @@ func deployGlobalHub() {
 		}
 		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
 	}, 3*time.Minute, 1*time.Second).Should(Succeed())
+
+	//Before run test, the mgh should be ready
+	_, err = operatorutils.WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
+	Expect(err).ShouldNot(HaveOccurred())
 }
 
 func checkDeployAvailable(runtimeClient client.Client, namespace, name string) error {
