@@ -37,7 +37,7 @@ func TestConfluentConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := GetConfluentConfigMap(tc.kafkaConfig)
+			_, err := GetConfluentConfigMap(tc.kafkaConfig, true)
 			if err != tc.expectedErr {
 				t.Errorf("%s:\nexpected err: %v\ngot err: %v\n", tc.desc, tc.expectedErr, err)
 			}

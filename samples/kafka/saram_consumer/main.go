@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -13,15 +14,21 @@ import (
 )
 
 const (
-	TopicDefault   = "event"
 	GroupIDDefault = "my-group"
 )
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Please provide at least one topic command-line argument.")
+		os.Exit(1)
+	}
+	topic := os.Args[1]
+
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGKILL)
 
-	bootstrapSever, saramaConfig, err := config.GetSaramaConfig()
+	// bootstrapSever, saramaConfig, err := config.GetSaramaConfig()
+	bootstrapServer, saramaConfig, err := config.GetSaramaConfigFromKafkaUser()
 	if err != nil {
 		log.Panicf("Error getting the consumer config: %v", err)
 		os.Exit(1)
@@ -30,7 +37,7 @@ func main() {
 	saramaConfig.Consumer.Offsets.AutoCommit.Enable = false
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	consumerGroup, err := sarama.NewConsumerGroup([]string{string(bootstrapSever)}, GroupIDDefault, saramaConfig)
+	consumerGroup, err := sarama.NewConsumerGroup([]string{string(bootstrapServer)}, GroupIDDefault, saramaConfig)
 	if err != nil {
 		log.Printf("Error creating the Sarama consumer: %v", err)
 		os.Exit(1)
@@ -45,7 +52,7 @@ func main() {
 			// `Consume` should be called inside an infinite loop, when a
 			// server-side rebalance happens, the consumer session will need to be
 			// recreated to get the new claims
-			if err := consumerGroup.Consume(ctx, []string{TopicDefault}, &consumerGroupHandler{}); err != nil {
+			if err := consumerGroup.Consume(ctx, []string{topic}, &consumerGroupHandler{}); err != nil {
 				log.Printf("Error from consumer: %v", err)
 			}
 

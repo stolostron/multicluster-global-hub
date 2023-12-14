@@ -42,7 +42,7 @@ type KafkaProducer struct {
 // NewProducer returns a new instance of Producer object.
 func NewKafkaProducer(compressor compressor.Compressor, kafkaConfig *transport.KafkaConfig, log logr.Logger,
 ) (*KafkaProducer, error) {
-	kafkaConfigMap, err := config.GetConfluentConfigMap(kafkaConfig)
+	kafkaConfigMap, err := config.GetConfluentConfigMap(kafkaConfig, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure kafka-producer - %w", err)
 	}

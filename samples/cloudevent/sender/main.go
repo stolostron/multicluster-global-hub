@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -13,11 +15,17 @@ import (
 
 const (
 	count = 10
-	topic = "event"
 )
 
 func main() {
-	bootstrapServer, saramaConfig, err := config.GetSaramaConfig()
+	if len(os.Args) < 2 {
+		fmt.Println("Please provide at least one topic command-line argument.")
+		os.Exit(1)
+	}
+	topic := os.Args[1]
+
+	// bootstrapServer, saramaConfig, err := config.GetSaramaConfig()
+	bootstrapServer, saramaConfig, err := config.GetSaramaConfigFromKafkaUser()
 	if err != nil {
 		log.Fatalf("failed to get sarama config: %v", err)
 	}
@@ -41,6 +49,7 @@ func main() {
 		e.SetID(uuid.New().String())
 		e.SetType("com.cloudevents.sample.sent")
 		e.SetSource("https://github.com/cloudevents/sdk-go/samples/kafka/sender")
+		e.SetExtension("test", "foo")
 		_ = e.SetData(cloudevents.ApplicationJSON, map[string]interface{}{
 			"id":      i,
 			"message": "Hello, World!",
