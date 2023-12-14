@@ -52,6 +52,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -147,6 +148,9 @@ var _ = BeforeSuite(func() {
 
 	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
+
+	err = kafka.CreateTestTransportSecret(k8sClient, testNamespace)
+	Expect(err).Should(Succeed())
 
 	// the leader election will be propagate to global hub manager
 	leaderElection := &commonobjects.LeaderElectionConfig{

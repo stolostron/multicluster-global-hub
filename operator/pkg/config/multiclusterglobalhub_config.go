@@ -72,7 +72,6 @@ var (
 	statisticLogInterval = "1m"
 	imagePullSecretName  = ""
 	transporter          transport.Transporter
-	kafkaClusterName     = "kafka"
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -257,12 +256,4 @@ func SetTransporter(p transport.Transporter) {
 
 func GetTransporter() transport.Transporter {
 	return transporter
-}
-
-func SetKafkaClusterName(name string) {
-	kafkaClusterName = name
-}
-
-func GetKafkaClusterName() string {
-	return kafkaClusterName
 }

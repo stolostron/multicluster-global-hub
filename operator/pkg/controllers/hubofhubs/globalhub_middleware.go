@@ -35,7 +35,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 )
 
 type middlewareResult struct {
@@ -96,35 +96,37 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 
 func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 ) (*transport.ConnCredential, error) {
-	transportProtocol, err := detectTransportProtocol(ctx, r.Client)
+	transProtocol, err := detectTransportProtocol(ctx, r.Client)
 	if err != nil {
 		return nil, err
 	}
 
 	// create the transport instance
 	var trans transport.Transporter
-	switch transportProtocol {
-	case transport.InternalTransport:
-		trans, err = protocol.NewStrimziKafka(protocol.WithContext(ctx), protocol.WithClient(r.Client),
-			protocol.WithCommunity(utils.IsCommunityMode()), protocol.WithGlobalHub(mgh))
+	switch transProtocol {
+	case transport.StrimziTransporter:
+		trans, err = transportprotocol.NewStrimziTransporter(
+			transportprotocol.WithContext(ctx),
+			transportprotocol.WithClient(r.Client),
+			transportprotocol.WithCommunity(utils.IsCommunityMode()),
+			transportprotocol.WithGlobalHub(mgh))
 		if err != nil {
 			return nil, err
 		}
-	case transport.ExternalTransport:
-		trans = protocol.NewTransportSecret(ctx, types.NamespacedName{
+	case transport.SecretTransporter:
+		trans = transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
 			Namespace: mgh.Namespace,
 			Name:      constants.GHTransportSecretName,
 		}, r.Client)
 	}
 
 	// create the user to connect the transport instance
-	err = trans.CreateUser(protocol.DefaultGlobalHubKafkaUser)
+	err = trans.CreateUser(transportprotocol.DefaultGlobalHubKafkaUser)
 	if err != nil {
 		return nil, err
 	}
 	// create global hub topics
-
-	topics := transport.GetTopicNames(transport.GlobalHubTopicIdentity)
+	topics := trans.GetClusterTopic(nil)
 	err = trans.CreateTopic([]string{
 		topics.SpecTopic,
 		topics.StatusTopic,
@@ -137,7 +139,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 	var conn *transport.ConnCredential
 	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
-			conn, err = trans.GetConnCredential(protocol.DefaultGlobalHubKafkaUser)
+			conn, err = trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
 			if err != nil {
 				r.Log.Info("waiting the kafka connection credential to be ready...", "message", err.Error())
 				return false, err
@@ -208,12 +210,12 @@ func detectTransportProtocol(ctx context.Context, runtimeClient client.Client) (
 		Namespace: config.GetDefaultNamespace(),
 	}, kafkaSecret)
 	if err == nil {
-		return transport.ExternalTransport, nil
+		return transport.SecretTransporter, nil
 	}
 	if err != nil && !errors.IsNotFound(err) {
-		return transport.ExternalTransport, err
+		return transport.SecretTransporter, err
 	}
 
 	// the transport secret is not found
-	return transport.InternalTransport, nil
+	return transport.StrimziTransporter, nil
 }

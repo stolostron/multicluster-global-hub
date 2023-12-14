@@ -1,4 +1,4 @@
-package protocol
+package transporter
 
 import (
 	"context"
@@ -9,11 +9,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type transportSecret struct {
+type secretTransporter struct {
 	ctx           context.Context
 	log           logr.Logger
 	name          string
@@ -24,9 +25,9 @@ type transportSecret struct {
 // create the transport with secret, it should meet the following conditions
 // 1. name: "multicluster-global-hub-transport"
 // 2. properties: "bootstrap_server", "ca.crt", "client.crt" and "client.key"
-func NewTransportSecret(ctx context.Context, namespacedName types.NamespacedName, c client.Client) *transportSecret {
-	return &transportSecret{
-		log:           ctrl.Log.WithName("secret-transport"),
+func NewSecretTransporter(ctx context.Context, namespacedName types.NamespacedName, c client.Client) *secretTransporter {
+	return &secretTransporter{
+		log:           ctrl.Log.WithName("secret-transporter"),
 		ctx:           ctx,
 		name:          namespacedName.Name,
 		namespace:     namespacedName.Namespace,
@@ -34,24 +35,28 @@ func NewTransportSecret(ctx context.Context, namespacedName types.NamespacedName
 	}
 }
 
-func (s *transportSecret) CreateUser(name string) error {
+func (k *secretTransporter) GetUserName(cluster *clusterv1.ManagedCluster) string {
+	return ""
+}
+
+func (s *secretTransporter) CreateUser(name string) error {
 	return nil
 }
 
-func (k *transportSecret) DeleteUser(username string) error {
+func (k *secretTransporter) DeleteUser(username string) error {
 	return nil
 }
 
 // create the transport topic(KafkaTopic) if not exist for each hub clusters
-func (s *transportSecret) CreateTopic(names []string) error {
+func (s *secretTransporter) CreateTopic(names []string) error {
 	return nil
 }
 
-func (k *transportSecret) DeleteTopic(names []string) error {
+func (k *secretTransporter) DeleteTopic(names []string) error {
 	return nil
 }
 
-func (k *transportSecret) GetTopicNames(clusterIdentity string) *transport.ClusterTopic {
+func (k *secretTransporter) GetClusterTopic(cluster *clusterv1.ManagedCluster) *transport.ClusterTopic {
 	return &transport.ClusterTopic{
 		SpecTopic:   "spec",
 		StatusTopic: "status",
@@ -59,11 +64,7 @@ func (k *transportSecret) GetTopicNames(clusterIdentity string) *transport.Clust
 	}
 }
 
-func (k *transportSecret) GetUserName(clusterIdentity string) string {
-	return ""
-}
-
-func (s *transportSecret) GetConnCredential(username string) (*transport.ConnCredential, error) {
+func (s *secretTransporter) GetConnCredential(username string) (*transport.ConnCredential, error) {
 	kafkaSecret := &corev1.Secret{}
 	err := s.runtimeClient.Get(s.ctx, types.NamespacedName{
 		Name:      s.name,

@@ -23,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -78,7 +79,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		replicas = 2
 	}
 
-	globalTopic := transport.GetTopicNames(transport.GlobalHubTopicIdentity)
+	trans := config.GetTransporter()
+
+	transportTopic := trans.GetClusterTopic(nil)
+	transportConn, err := trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
+	if err != nil {
+		return fmt.Errorf("failed to get global hub transport connection: %v", err)
+	}
 
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
@@ -91,13 +98,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
 				[]byte(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI)),
 			PostgresCACert:         base64.StdEncoding.EncodeToString(r.MiddlewareConfig.StorageConn.CACert),
-			KafkaCACert:            r.MiddlewareConfig.TransportConn.CACert,
-			KafkaClientCert:        r.MiddlewareConfig.TransportConn.ClientCert,
-			KafkaClientKey:         r.MiddlewareConfig.TransportConn.ClientKey,
-			KafkaBootstrapServer:   r.MiddlewareConfig.TransportConn.BootstrapServer,
-			KafkaConsumerTopic:     globalTopic.StatusTopic,
-			KafkaProducerTopic:     globalTopic.SpecTopic,
-			KafkaEventTopic:        globalTopic.EventTopic,
+			KafkaCACert:            transportConn.CACert,
+			KafkaClientCert:        transportConn.ClientCert,
+			KafkaClientKey:         transportConn.ClientKey,
+			KafkaBootstrapServer:   transportConn.BootstrapServer,
+			KafkaConsumerTopic:     transportTopic.StatusTopic,
+			KafkaProducerTopic:     transportTopic.SpecTopic,
+			KafkaEventTopic:        transportTopic.EventTopic,
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
 			TransportFormat:        string(v1alpha4.CloudEvents),

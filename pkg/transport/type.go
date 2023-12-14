@@ -30,7 +30,6 @@ const (
 
 type TransportConfig struct {
 	TransportType          string
-	TransportFormat        string
 	MessageCompressionType string
 	CommitterInterval      time.Duration
 	KafkaConfig            *KafkaConfig
@@ -65,9 +64,9 @@ type TransportProtocol int
 
 const (
 	// the kafka cluster is created by the strimzi operator, which is provisioned by global hub operator
-	InternalTransport TransportProtocol = iota
+	StrimziTransporter TransportProtocol = iota
 	// the kafka cluster is created by customer, and the transport secret will be shared between clusters
-	ExternalTransport
+	SecretTransporter
 )
 
 // topics

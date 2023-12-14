@@ -174,11 +174,11 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 
 	transporter := config.GetTransporter()
 	// will block until the credential is ready
-	kafkaConnection, err := transporter.GetConnCredential(transport.GetUserName(cluster.Name))
+	kafkaConnection, err := transporter.GetConnCredential(transporter.GetUserName(cluster))
 	if err != nil {
 		return nil, err
 	}
-	clusterTopic := transport.GetTopicNames(cluster.Name)
+	clusterTopic := transporter.GetClusterTopic(cluster)
 
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          image,

@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -97,8 +96,7 @@ func TestConsumer(t *testing.T) {
 			TransportBridgeDatabaseURL: testPostgres.URI,
 		},
 		TransportConfig: &transport.TransportConfig{
-			TransportType:   string(transport.Kafka),
-			TransportFormat: string(globalhubv1alpha4.KafkaMessage),
+			TransportType: string(transport.Kafka),
 			KafkaConfig: &transport.KafkaConfig{
 				BootstrapServer: mockKafkaCluster.BootstrapServers(),
 				EnableTLS:       false,

@@ -28,7 +28,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 )
 
 var kubeCfg *rest.Config
@@ -283,7 +283,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 				},
 			})
 
-			transporter := protocol.NewTransportSecret(ctx, types.NamespacedName{
+			transporter := transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
 				Namespace: tc.mgh.Namespace,
 				Name:      constants.GHStorageSecretName,
 			}, k8sClient)

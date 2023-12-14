@@ -28,7 +28,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 )
 
 type HoHAddonInstaller struct {
@@ -46,8 +46,6 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	fmt.Println("111111111 addon installer")
-
 	// wait the transport to be ready
 	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, 10*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
@@ -61,8 +59,6 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 	transporter := config.GetTransporter()
-
-	fmt.Println("222222222222 addon installer")
 
 	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
@@ -80,8 +76,6 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	fmt.Println("33333333 addon installer")
-
 	cluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: req.NamespacedName.Name,
@@ -95,13 +89,9 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, err
 	}
-	fmt.Println("44444444444 addon installer")
 
-	userName := transport.GetUserName(cluster.Name)
-	topicNames := transport.GetTopicNames(cluster.Name)
-
-	fmt.Println("5555555 addon installer", "username", userName)
-	fmt.Println("6666666 addon installer", "topicNames", topicNames)
+	userName := transporter.GetUserName(cluster)
+	topicNames := transporter.GetClusterTopic(cluster)
 
 	if !cluster.DeletionTimestamp.IsZero() {
 		r.Log.Info("cluster is deleting, delete the kafkaUser, skip addon deployment", "cluster", cluster.Name)
@@ -125,7 +115,6 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	fmt.Println("777777777777 addon installer", "topicNames", topicNames)
 
 	addon := &v1alpha1.ManagedClusterAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
@@ -265,7 +254,7 @@ func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 	secretCond := func(obj client.Object) bool {
 		if obj.GetName() == config.GetImagePullSecretName() ||
 			obj.GetName() == constants.GHTransportSecretName ||
-			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == config.GetKafkaClusterName() &&
+			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == transportprotocol.KafkaClusterName &&
 				obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
 			return true
 		}

@@ -58,7 +58,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/protocol"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -155,10 +156,10 @@ var _ = BeforeSuite(func() {
 	By("Add the addon controller to the manager")
 	middlewareCfg := &hubofhubscontroller.MiddlewareConfig{
 		TransportConn: &transport.ConnCredential{
-			BootstrapServer: kafkaBootstrapServer,
-			CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCA)),
-			ClientCert:      "",
-			ClientKey:       "",
+			BootstrapServer: kafka.KafkaBootstrapServer,
+			CACert:          base64.StdEncoding.EncodeToString([]byte(kafka.KafkaCA)),
+			ClientCert:      kafka.KafkaClientCert,
+			ClientKey:       kafka.KafkaClientKey,
 		},
 	}
 	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient,
@@ -168,7 +169,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Create an external transport")
-	trans := protocol.NewTransportSecret(ctx, types.NamespacedName{
+	trans := transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,
 	}, k8sClient)
@@ -195,10 +196,8 @@ var _ = AfterSuite(func() {
 })
 
 const (
-	MGHName              = "test-mgh"
-	StorageSecretName    = constants.GHStorageSecretName
-	kafkaCA              = "foobar"
-	kafkaBootstrapServer = "https://test-kafka.example.com"
+	MGHName           = "test-mgh"
+	StorageSecretName = constants.GHStorageSecretName
 
 	timeout  = time.Second * 60
 	duration = time.Second * 10
@@ -275,8 +274,8 @@ func prepareBeforeTest() {
 	})).Should(Succeed())
 
 	By("By creating secret transport")
-	CreateTestTransportSecret(k8sClient, mgh.Namespace)
-	transporter := protocol.NewTransportSecret(context.TODO(), types.NamespacedName{
+	kafka.CreateTestTransportSecret(k8sClient, mgh.Namespace)
+	transporter := transportprotocol.NewSecretTransporter(context.TODO(), types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHStorageSecretName,
 	}, k8sClient)
