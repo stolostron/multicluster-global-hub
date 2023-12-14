@@ -23,24 +23,52 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2023-10-16T03:07:33Z"
+    createdAt: "2023-12-13T14:50:11Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     operatorframework.io/suggested-namespace: multicluster-global-hub
     operators.operatorframework.io/builder: operator-sdk-v1.31.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/stolostron/multicluster-global-hub
     support: Red Hat
-  name: multicluster-global-hub-operator.v1.0.0-dev
+  name: multicluster-global-hub-operator.v1.1.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
     - description: MulticlusterGlobalHub defines the configuration for an instance
-        of the MultiCluster Global Hub
+        of the multiCluster global hub
       displayName: Multicluster Global Hub
       kind: MulticlusterGlobalHub
       name: multiclusterglobalhubs.operator.open-cluster-management.io
+      resources:
+      - kind: Deployment
+        name: multicluster-global-hub-operator
+        version: v1
+      specDescriptors:
+      - description: 'Specifies deployment replication for improved availability.
+          Options are: Basic and High (default)'
+        displayName: Availability Config
+        path: availabilityConfig
+      - description: DataLayer can be configured to use a different data layer.
+        displayName: Data Layer
+        path: dataLayer
+      - description: Pull policy of the multicluster global hub images
+        displayName: Image Pull Policy
+        path: imagePullPolicy
+      - description: Pull secret of the multicluster global hub images
+        displayName: Image Pull Secret
+        path: imagePullSecret
+      - description: Spec of NodeSelector
+        displayName: Node Selector
+        path: nodeSelector
+      - description: Tolerations causes all components to tolerate any taints.
+        displayName: Tolerations
+        path: tolerations
+      statusDescriptors:
+      - description: MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
+        displayName: Conditions
+        path: conditions
       version: v1alpha4
   description: |
     The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager` and `multicluster-global-hub-grafana` in the global hub cluster and `multicluster-global-hub-agent` in the managed hub clusters.
@@ -839,4 +867,4 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 1.0.0-dev
+  version: 1.1.0-dev

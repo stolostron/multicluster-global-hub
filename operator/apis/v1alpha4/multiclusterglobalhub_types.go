@@ -53,7 +53,8 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName={mgh,mcgh}
-// MulticlusterGlobalHub is the Schema for the multiclusterglobalhubs API
+// +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1,multicluster-global-hub-operator}}
+// MulticlusterGlobalHub defines the configuration for an instance of the multiCluster global hub
 type MulticlusterGlobalHub struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -67,21 +68,27 @@ type MulticlusterGlobalHub struct {
 type MulticlusterGlobalHubSpec struct {
 	// Specifies deployment replication for improved availability. Options are: Basic and High (default)
 	// +kubebuilder:default:="High"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	AvailabilityConfig AvailabilityType `json:"availabilityConfig,omitempty"`
 	// Pull policy of the multicluster global hub images
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	// Pull secret of the multicluster global hub images
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 	// Spec of NodeSelector
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// Tolerations causes all components to tolerate any taints.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// DataLayer can be configured to use a different data layer.
 	// +kubebuilder:default={postgres: {retention: "18m"}}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	DataLayer DataLayerConfig `json:"dataLayer"`
 }
 
@@ -120,6 +127,7 @@ type KafkaConfig struct {
 // MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
 type MulticlusterGlobalHubStatus struct {
 	// MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
