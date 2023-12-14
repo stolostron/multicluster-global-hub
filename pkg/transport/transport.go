@@ -9,20 +9,19 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
-// init the transport with different implementation/protocol: AMQ, strimzi operator or plain deployment
+// init the transport with different implementation/protocol: secret, strimzi operator or plain deployment
 type Transporter interface {
-	// create the transport user(KafkaUser) if not exist for each hub clusters
+	// define the user for each hub clusters, user lifecycle is managed by the transporter
 	GetUserName(cluster *clusterv1.ManagedCluster) string
 	CreateUser(name string) error
 	DeleteUser(name string) error
 
-	// create the transport topic(KafkaTopic) if not exist for each hub clusters
-	// if the cluster is nil, that means the global hub cluster
+	// define the topic for each hub clusters(or shared topic), topic lifecycle is managed by the transporter
 	GetClusterTopic(cluster *clusterv1.ManagedCluster) *ClusterTopic
 	CreateTopic(names []string) error
 	DeleteTopic(name []string) error
 
-	// get the connection credential by cluster
+	// get the connection credential by user
 	GetConnCredential(userName string) (*ConnCredential, error)
 }
 
