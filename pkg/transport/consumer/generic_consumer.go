@@ -10,6 +10,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/client"
 	ceprotocol "github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/go-logr/logr"
@@ -59,7 +60,7 @@ func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericCon
 		return nil, fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}
 
-	client, err := cloudevents.NewClient(receiver)
+	client, err := cloudevents.NewClient(receiver, client.WithPollGoroutines(1))
 	if err != nil {
 		return nil, err
 	}
