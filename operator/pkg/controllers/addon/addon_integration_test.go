@@ -91,8 +91,7 @@ var _ = Describe("addon integration", Ordered, func() {
 	Context("When configure the image registry and pull secret", func() {
 		It("Should update the image pull secret from the mgh cr", func() {
 			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
-			workName := fmt.Sprintf("addon-%s-deploy-0",
-				operatorconstants.GHManagedClusterAddonName)
+			workName := fmt.Sprintf("addon-%s-deploy-0", operatorconstants.GHManagedClusterAddonName)
 
 			By("By creating secret transport")
 			fmt.Println("create secret", clusterName, constants.GHTransportSecretName)
@@ -100,7 +99,7 @@ var _ = Describe("addon integration", Ordered, func() {
 			Expect(err).Should(Succeed())
 			transporter := transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
 				Namespace: clusterName,
-				Name:      constants.GHStorageSecretName,
+				Name:      constants.GHTransportSecretName,
 			}, k8sClient)
 			config.SetTransporter(transporter)
 

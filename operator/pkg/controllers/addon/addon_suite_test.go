@@ -196,8 +196,7 @@ var _ = AfterSuite(func() {
 })
 
 const (
-	MGHName           = "test-mgh"
-	StorageSecretName = constants.GHStorageSecretName
+	MGHName = "test-mgh"
 
 	timeout  = time.Second * 60
 	duration = time.Second * 10
@@ -277,7 +276,7 @@ func prepareBeforeTest() {
 	kafka.CreateTestTransportSecret(k8sClient, mgh.Namespace)
 	transporter := transportprotocol.NewSecretTransporter(context.TODO(), types.NamespacedName{
 		Namespace: mgh.Namespace,
-		Name:      constants.GHStorageSecretName,
+		Name:      constants.GHTransportSecretName,
 	}, k8sClient)
 	config.SetTransporter(transporter)
 }

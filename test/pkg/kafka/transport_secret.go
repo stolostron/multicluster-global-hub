@@ -20,7 +20,17 @@ const (
 )
 
 func CreateTestTransportSecret(c client.Client, namespace string) error {
-	err := c.Get(context.TODO(), types.NamespacedName{
+	// if namespace not exist, then create the namespace
+	err := c.Create(context.TODO(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+
+	err = c.Get(context.TODO(), types.NamespacedName{
 		Namespace: namespace,
 		Name:      constants.GHTransportSecretName,
 	}, &corev1.Secret{})

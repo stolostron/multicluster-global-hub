@@ -285,7 +285,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 
 			transporter := transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
 				Namespace: tc.mgh.Namespace,
-				Name:      constants.GHStorageSecretName,
+				Name:      constants.GHTransportSecretName,
 			}, k8sClient)
 			config.SetTransporter(transporter)
 
