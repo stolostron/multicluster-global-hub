@@ -207,6 +207,11 @@ func deployGlobalHub() {
 	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
 	Expect(err).ShouldNot(HaveOccurred())
 
+	// patch global hub operator to enable global resources
+	Eventually(func() error {
+		return patchGHDeployment(runtimeClient, Namespace, "multicluster-global-hub-operator")
+	}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
 	err = runtimeClient.Create(context.TODO(), mcgh)
 	if !errors.IsAlreadyExists(err) {
 		Expect(err).ShouldNot(HaveOccurred())
@@ -242,4 +247,18 @@ func checkDeployAvailable(runtimeClient client.Client, namespace, name string) e
 		fmt.Printf("deployment image: %s/%s: %s\n", deployment.Name, container.Name, container.Image)
 	}
 	return fmt.Errorf("deployment: %s is not ready", deployment.Name)
+}
+
+func patchGHDeployment(runtimeClient client.Client, namespace, name string) error {
+	deployment := &appsv1.Deployment{}
+	err := runtimeClient.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, deployment)
+	if err != nil {
+		return err
+	}
+	args := deployment.Spec.Template.Spec.Containers[0].Args
+	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
+	return runtimeClient.Update(context.Background(), deployment)
 }
