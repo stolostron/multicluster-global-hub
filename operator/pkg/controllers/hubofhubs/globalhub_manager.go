@@ -87,6 +87,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		return fmt.Errorf("failed to get global hub transport connection: %v", err)
 	}
 
+	if r.MiddlewareConfig.StorageConn == nil {
+		return fmt.Errorf("failed to get storage connection")
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),

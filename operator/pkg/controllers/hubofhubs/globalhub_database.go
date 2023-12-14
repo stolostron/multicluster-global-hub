@@ -42,6 +42,10 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 		}
 	}
 
+	if r.MiddlewareConfig.StorageConn == nil {
+		return fmt.Errorf("storage connection is nil")
+	}
+
 	conn, err := database.PostgresConnection(ctx, r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI,
 		r.MiddlewareConfig.StorageConn.CACert)
 	if err != nil {

@@ -961,9 +961,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
 
 				err := UpdateReadyKafkaCluster(k8sClient, mcgh.Namespace)
-				if err != nil {
-					return fmt.Errorf("failed to update the kafka cluster: %v", err)
-				}
+				Expect(err).NotTo(HaveOccurred())
 
 				// postgres should be ready in envtest
 				// kafka should be ready in envtest
@@ -971,9 +969,11 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				if mghReconciler.MiddlewareConfig.StorageConn == nil {
 					return fmt.Errorf("mghReconciler.MiddlewareConfig.StorageConn should not be nil")
 				}
+
 				if mghReconciler.MiddlewareConfig.TransportConn == nil {
 					return fmt.Errorf("mghReconciler.TransportConn.PgConnection should not be nil")
 				}
+
 				return nil
 			}, timeout, interval).ShouldNot(HaveOccurred())
 		})
