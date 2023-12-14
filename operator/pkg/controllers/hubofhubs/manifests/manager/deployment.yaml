@@ -31,7 +31,6 @@ spec:
             - --manager-namespace=$(POD_NAMESPACE)
             - --watch-namespace=$(WATCH_NAMESPACE)
             - --transport-type={{.TransportType}}
-            - --transport-format={{.TransportFormat}}
             - --kafka-bootstrap-server={{.KafkaBootstrapServer}}
             - --kafka-consumer-topic={{.KafkaConsumerTopic}}
             - --kafka-producer-topic={{.KafkaProducerTopic}}

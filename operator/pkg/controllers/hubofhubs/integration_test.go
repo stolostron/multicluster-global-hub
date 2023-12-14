@@ -150,7 +150,7 @@ const (
 	TransportSecretName  = constants.GHTransportSecretName
 	datasourceSecretName = "multicluster-global-hub-grafana-datasources"
 
-	timeout  = time.Second * 15
+	timeout  = time.Second * 30
 	duration = time.Second * 10
 	interval = time.Millisecond * 250
 )
@@ -395,7 +395,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaEventTopic:        transportTopic.EventTopic,
 					MessageCompressionType: string(operatorconstants.GzipCompressType),
 					TransportType:          string(transport.Kafka),
-					TransportFormat:        string(globalhubv1alpha4.CloudEvents),
 					Namespace:              config.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",

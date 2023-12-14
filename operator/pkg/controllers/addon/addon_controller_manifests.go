@@ -40,7 +40,6 @@ type ManifestsConfig struct {
 	LeafHubID              string
 	KafkaBootstrapServer   string
 	TransportType          string
-	TransportFormat        string
 	KafkaCACert            string
 	KafkaClientCert        string
 	KafkaClientKey         string
@@ -193,7 +192,6 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaEventTopic:        clusterTopic.EventTopic,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
-		TransportFormat:        string(globalhubv1alpha4.CloudEvents),
 		LeaseDuration:          strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
 		RenewDeadline:          strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
 		RetryPeriod:            strconv.Itoa(a.leaderElectionConfig.RetryPeriod),

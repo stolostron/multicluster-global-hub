@@ -54,6 +54,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	var wg sync.WaitGroup
 
 	resultChan := make(chan middlewareResult, 2)
+	defer close(resultChan)
 
 	// initialize transport
 	wg.Add(1)
@@ -77,7 +78,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		}
 	}()
 
-	wg.Done()
+	wg.Wait()
 
 	for result := range resultChan {
 		if result.Err != nil {

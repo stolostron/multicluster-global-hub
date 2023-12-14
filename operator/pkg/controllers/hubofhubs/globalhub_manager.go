@@ -107,8 +107,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			KafkaEventTopic:        transportTopic.EventTopic,
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
-			TransportFormat:        string(v1alpha4.CloudEvents),
-			Namespace:              config.GetDefaultNamespace(),
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
 			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
@@ -190,7 +188,6 @@ type ManagerVariables struct {
 	KafkaBootstrapServer   string
 	MessageCompressionType string
 	TransportType          string
-	TransportFormat        string
 	Namespace              string
 	LeaseDuration          string
 	RenewDeadline          string
