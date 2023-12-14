@@ -102,7 +102,7 @@ var kafkaCluster = &kafkav1beta2.Kafka{
 	},
 }
 
-var kafkaSecret = &corev1.Secret{
+var kafkaGlobalUserSecret = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
 		Namespace: config.GetDefaultNamespace(),
 		Name:      transportprotocol.DefaultGlobalHubKafkaUser,
@@ -164,8 +164,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				Namespace: config.GetDefaultNamespace(),
 			},
 			Data: map[string][]byte{
-				"database_uri": []byte(testPostgres.URI),
-				"ca.crt":       []byte(""),
+				"database_uri":                   []byte(testPostgres.URI),
+				"database_uri_with_readonlyuser": []byte(testPostgres.URI),
+				"ca.crt":                         []byte(""),
 			},
 			Type: corev1.SecretTypeOpaque,
 		}
@@ -373,6 +374,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(trans).ShouldNot(BeNil())
 			transportTopic := trans.GetClusterTopic(nil)
 			transportConn, err := trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
+			Expect(err).Should(Succeed())
 
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
@@ -958,6 +960,11 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				mghReconciler.MiddlewareConfig.TransportConn = nil
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
 
+				err := UpdateReadyKafkaCluster(k8sClient, mcgh.Namespace)
+				if err != nil {
+					return fmt.Errorf("failed to update the kafka cluster: %v", err)
+				}
+
 				// postgres should be ready in envtest
 				// kafka should be ready in envtest
 
@@ -1080,15 +1087,14 @@ func UpdateReadyKafkaCluster(client client.Client, ns string) error {
 	err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
 		existkafkaCluster := &kafkav1beta2.Kafka{}
 		err := client.Get(context.Background(), types.NamespacedName{
-			Name:      transportprotocol.DefaultGlobalHubKafkaUser,
+			Name:      transportprotocol.KafkaClusterName,
 			Namespace: ns,
 		}, existkafkaCluster)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				kafkaCluster.Namespace = ns
-				err = client.Create(context.Background(), kafkaCluster)
-				if err != nil {
-					klog.Errorf("Failed to create kafka cluster, error:%v", err)
+				if e := client.Create(context.Background(), kafkaCluster); e != nil {
+					klog.Errorf("Failed to create kafka cluster, error: %v", e)
 					return false, nil
 				}
 			}
@@ -1120,10 +1126,20 @@ func UpdateReadyKafkaCluster(client client.Client, ns string) error {
 			return false, nil
 		}
 
-		kafkaSecret.Namespace = ns
-		err = client.Create(context.Background(), kafkaSecret)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			klog.Errorf("Failed to create Kafka secret, error:%v", err)
+		kafkaGlobalUserSecret.Namespace = ns
+		err = client.Get(context.Background(), types.NamespacedName{
+			Name:      kafkaGlobalUserSecret.Name,
+			Namespace: ns,
+		}, kafkaGlobalUserSecret)
+
+		if errors.IsNotFound(err) {
+			e := client.Create(context.Background(), kafkaGlobalUserSecret)
+			if e != nil {
+				klog.Errorf("Failed to create Kafka secret, error:%v", e)
+				return false, nil
+			}
+		} else if err != nil {
+			klog.Errorf("Failed to get Kafka secret, error:%v", err)
 			return false, nil
 		}
 		return true, nil

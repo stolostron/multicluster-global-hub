@@ -159,6 +159,7 @@ func WithGlobalHub(mgh *globalhubv1alpha4.MulticlusterGlobalHub) KafkaOption {
 // initialize the kafka cluster, return nil if the instance is launched successfully!
 func (k *strimziTransporter) initialize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	k.log.Info("reconcile global hub kafka subscription")
+	k.namespace = mgh.Namespace
 	err := k.ensureSubscription(mgh)
 	if err != nil {
 		return err
@@ -378,7 +379,7 @@ func (k *strimziTransporter) createKafkaCluster(mgh *globalhubv1alpha4.Multiclus
 	existingKafka := &kafkav1beta2.Kafka{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      k.name,
-		Namespace: k.namespace,
+		Namespace: mgh.Namespace,
 	}, existingKafka)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
@@ -488,7 +489,7 @@ func (k *strimziTransporter) ensureSubscription(mgh *globalhubv1alpha4.Multiclus
 	existingSub := &subv1alpha1.Subscription{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      k.subName,
-		Namespace: k.namespace,
+		Namespace: mgh.GetNamespace(),
 	}, existingSub)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
@@ -531,7 +532,7 @@ func (k *strimziTransporter) newSubscription(mgh *globalhubv1alpha4.Multicluster
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.subName,
-			Namespace: k.namespace,
+			Namespace: mgh.Namespace,
 			Labels:    labels,
 		},
 		Spec: &subv1alpha1.SubscriptionSpec{

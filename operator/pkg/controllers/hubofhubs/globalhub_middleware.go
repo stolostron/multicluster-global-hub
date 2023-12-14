@@ -38,12 +38,6 @@ import (
 	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 )
 
-type middlewareResult struct {
-	Err           error
-	StorageConn   *postgres.PostgresConnection
-	TransportConn *transport.ConnCredential
-}
-
 // ReconcileMiddleware creates the kafka and postgres if needed.
 // 1. create the kafka and postgres subscription at the same time
 // 2. then create the kafka and postgres resources at the same time
@@ -53,18 +47,16 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	// initialize postgres and kafka at the same time
 	var wg sync.WaitGroup
 
-	resultChan := make(chan middlewareResult, 2)
-	defer close(resultChan)
-
+	errorChan := make(chan error, 2)
 	// initialize transport
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		conn, e := r.ReconcileTransport(ctx, mgh)
-		resultChan <- middlewareResult{
-			Err:           e,
-			TransportConn: conn,
+		if e != nil {
+			errorChan <- e
 		}
+		r.MiddlewareConfig.TransportConn = conn
 	}()
 
 	// initialize storage
@@ -72,23 +64,22 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	go func() {
 		defer wg.Done()
 		conn, e := r.ReconcileStorage(ctx, mgh)
-		resultChan <- middlewareResult{
-			Err:         e,
-			StorageConn: conn,
+		if e != nil {
+			errorChan <- e
 		}
+		r.MiddlewareConfig.StorageConn = conn
+	}()
+
+	go func() {
+		wg.Wait()
+		close(errorChan)
 	}()
 
 	wg.Wait()
 
-	for result := range resultChan {
-		if result.Err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("middleware not ready, Error: %v", result.Err)
-		}
-		if result.StorageConn != nil {
-			r.MiddlewareConfig.StorageConn = result.StorageConn
-		}
-		if result.TransportConn != nil {
-			r.MiddlewareConfig.TransportConn = result.TransportConn
+	for err := range errorChan {
+		if err != nil {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("middleware not ready, Error: %v", err)
 		}
 	}
 
@@ -147,7 +138,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 			}
 			return true, nil
 		})
-	if err != nil && trans != nil {
+	if trans != nil {
 		config.SetTransporter(trans)
 	}
 	return conn, err
