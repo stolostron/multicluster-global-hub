@@ -104,10 +104,14 @@ func (c *testClient) KubeDynamicClient() dynamic.Interface {
 
 func (c *testClient) Kubectl(clusterName string, args ...string) (string, error) {
 	if c.options.GlobalHub.Name == clusterName {
-		// insert to the first
 		args = append([]string{"--context", c.options.GlobalHub.KubeContext}, args...)
 		args = append([]string{"--kubeconfig", c.options.GlobalHub.KubeConfig}, args...)
+		klog.Infof("args: %v", args)
 		output, err := exec.Command("kubectl", args...).Output()
+		if err != nil {
+			combinedOutput, curErr := exec.Command("kubectl", args...).CombinedOutput()
+			klog.Errorf("Output:%v, err:%v", string(combinedOutput), curErr)
+		}
 		return string(output), err
 	}
 	for _, cluster := range c.options.GlobalHub.ManagedHubs {
@@ -115,7 +119,11 @@ func (c *testClient) Kubectl(clusterName string, args ...string) (string, error)
 			args = append([]string{"--context", cluster.KubeContext}, args...)
 			args = append([]string{"--kubeconfig", cluster.KubeConfig}, args...)
 			fmt.Println(args)
-			output, err := exec.Command("kubectl", args...).Output()
+			output, err := exec.Command("kubectl", args...).CombinedOutput()
+			if err != nil {
+				combinedOutput, curErr := exec.Command("kubectl", args...).CombinedOutput()
+				klog.Errorf("Output:%v, err:%v", string(combinedOutput), curErr)
+			}
 			return string(output), err
 		}
 	}

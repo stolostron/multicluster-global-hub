@@ -163,6 +163,8 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 			Expect(err).ShouldNot(HaveOccurred())
 			return utils.HasLabel(cusSecret.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
 		}, 2*time.Minute, 1*time.Second).Should(BeTrue())
+		err = testClients.KubeClient().CoreV1().Secrets(Namespace).Delete(ctx, customSecret.Name, metav1.DeleteOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
 	})
 
 	It("The configmap should have backup label", func() {
@@ -189,5 +191,7 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 			Expect(err).ShouldNot(HaveOccurred())
 			return utils.HasLabel(cusConfigmap.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
 		}, 2*time.Minute, 1*time.Second).Should(BeTrue())
+		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, customConfig.Name, metav1.DeleteOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
 	})
 })
