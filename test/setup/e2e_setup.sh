@@ -1,5 +1,6 @@
 #!/bin/bash
-
+ 
+ 
 set -euo pipefail
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
