@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -227,6 +228,10 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 
 	// add scheme
 	if err := agentscheme.AddToScheme(mgr.GetScheme()); err != nil {
+		return nil, fmt.Errorf("failed to add schemes: %w", err)
+	}
+
+	if err := apiextensionsv1.AddToScheme(mgr.GetScheme()); err != nil {
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
