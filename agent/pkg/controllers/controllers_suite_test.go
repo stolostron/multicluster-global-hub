@@ -67,7 +67,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Adding the controllers to the manager")
-	Expect(controllers.AddClusterClaimController(mgr)).NotTo(HaveOccurred())
+	Expect(controllers.StartHubClusterClaimController(mgr)).NotTo(HaveOccurred())
+	Expect(controllers.StartVersionClusterClaimController(mgr)).NotTo(HaveOccurred())
 
 	go func() {
 		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())

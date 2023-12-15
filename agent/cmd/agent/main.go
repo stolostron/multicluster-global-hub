@@ -8,13 +8,9 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	operatorv1 "open-cluster-management.io/api/operator/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -22,10 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/event"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
-	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
-	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -237,49 +230,14 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	// generate the client based on the config
-	dynamicClient, err := dynamic.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create dynamic client %v", err)
-	}
-	// check the acm is installed and then add the following controllers to mgr
-	mchExists, err := ensureMulticlusterHub(ctx, dynamicClient)
-	if err != nil {
-		setupLog.Error(err, "You need install ACM before using the agent")
-	}
-
-	var clusterManagerExists bool
-	if !mchExists {
-		// we are using ocm for e2e test
-		clusterManagerExists, err = ensureClusterManager(ctx, dynamicClient)
-		if err != nil {
-			setupLog.Error(err, "You need install OCM before using the agent")
-		}
-	}
-
-	if mchExists || clusterManagerExists {
-		// add spec controllers
-		if agentConfig.EnableGlobalResource {
-			if err := specController.AddToManager(mgr, agentConfig); err != nil {
-				return nil, fmt.Errorf("failed to add spec syncer: %w", err)
-			}
-			setupLog.Info("add spec controllers to manager")
-		}
-
-		if err := statusController.AddControllers(ctx, mgr, agentConfig); err != nil {
-			return nil, fmt.Errorf("failed to add status syncer: %w", err)
-		}
-
-		if err := lease.AddHoHLeaseUpdater(mgr, agentConfig.PodNameSpace,
-			"multicluster-global-hub-controller"); err != nil {
-			return nil, fmt.Errorf("failed to add lease updater: %w", err)
-		}
-	}
-
 	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
 	// we use the value to decide whether install the ACM or not
-	if err := controllers.AddClusterClaimController(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add controllers: %w", err)
+	if err := controllers.StartHubClusterClaimController(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
+	}
+
+	if err := controllers.StartCRDController(mgr, restConfig, agentConfig); err != nil {
+		return nil, fmt.Errorf("failed to add crd controller: %w", err)
 	}
 
 	if err := event.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath,
@@ -288,26 +246,4 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	}
 
 	return mgr, nil
-}
-
-func ensureMulticlusterHub(ctx context.Context, dynamicClient dynamic.Interface) (bool, error) {
-	mch, err := dynamicClient.Resource(mchv1.GroupVersion.WithResource("multiclusterhubs")).
-		Namespace("").
-		List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return false, err
-	}
-	return len(mch.Items) > 0, nil
-}
-
-func ensureClusterManager(ctx context.Context, dynamicClient dynamic.Interface) (
-	bool, error,
-) {
-	clusterManager, err := dynamicClient.Resource(
-		operatorv1.GroupVersion.WithResource("clustermanagers")).
-		List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return false, err
-	}
-	return len(clusterManager.Items) > 0, nil
 }
