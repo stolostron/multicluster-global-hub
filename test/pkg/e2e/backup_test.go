@@ -18,7 +18,6 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -139,7 +138,7 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 		customSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: Namespace,
-				Name:      operatorconstants.CustomGrafanaIniName,
+				Name:      constants.CustomGrafanaIniName,
 			},
 			Data: map[string][]byte{
 				grafanaIniKey: []byte(`
@@ -163,13 +162,15 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 			Expect(err).ShouldNot(HaveOccurred())
 			return utils.HasLabel(cusSecret.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
 		}, 2*time.Minute, 1*time.Second).Should(BeTrue())
+		err = testClients.KubeClient().CoreV1().Secrets(Namespace).Delete(ctx, customSecret.Name, metav1.DeleteOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
 	})
 
 	It("The configmap should have backup label", func() {
 		customConfig := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: Namespace,
-				Name:      operatorconstants.CustomAlertName,
+				Name:      constants.CustomAlertName,
 			},
 			Data: map[string]string{
 				alertConfigMapKey: `
@@ -189,5 +190,7 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 			Expect(err).ShouldNot(HaveOccurred())
 			return utils.HasLabel(cusConfigmap.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
 		}, 2*time.Minute, 1*time.Second).Should(BeTrue())
+		err = testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Delete(ctx, customConfig.Name, metav1.DeleteOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
 	})
 })

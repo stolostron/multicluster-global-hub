@@ -1,5 +1,5 @@
 /*
-Copyright 2022.
+Copyright 2023.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -96,7 +95,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 		It("Should create the customize secret with backup label", func() {
 			cusSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      operatorconstants.CustomGrafanaIniName,
+					Name:      constants.CustomGrafanaIniName,
 					Namespace: mghNamespace,
 				},
 			}
@@ -105,7 +104,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 			Eventually(func() bool {
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: mghNamespace,
-					Name:      operatorconstants.CustomGrafanaIniName,
+					Name:      constants.CustomGrafanaIniName,
 				}, cusSecret, &client.GetOptions{})).Should(Succeed())
 
 				return utils.HasLabel(cusSecret.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
@@ -117,7 +116,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 		It("Should create the customize secret with backup label", func() {
 			cusSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      operatorconstants.GHStorageSecretName,
+					Name:      constants.GHStorageSecretName,
 					Namespace: mghNamespace,
 				},
 			}
@@ -126,7 +125,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 			Eventually(func() bool {
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: mghNamespace,
-					Name:      operatorconstants.GHStorageSecretName,
+					Name:      constants.GHStorageSecretName,
 				}, cusSecret, &client.GetOptions{})).Should(Succeed())
 
 				return utils.HasLabel(cusSecret.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
@@ -138,7 +137,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 		It("Should create the customize secret with backup label", func() {
 			cusSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      operatorconstants.GHTransportSecretName,
+					Name:      constants.GHTransportSecretName,
 					Namespace: mghNamespace,
 				},
 			}
@@ -147,7 +146,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 			Eventually(func() bool {
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: mghNamespace,
-					Name:      operatorconstants.GHTransportSecretName,
+					Name:      constants.GHTransportSecretName,
 				}, cusSecret, &client.GetOptions{})).Should(Succeed())
 
 				return utils.HasLabel(cusSecret.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
@@ -158,7 +157,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 			cusSecret := &corev1.Secret{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Namespace: mghNamespace,
-				Name:      operatorconstants.GHTransportSecretName,
+				Name:      constants.GHTransportSecretName,
 			}, cusSecret, &client.GetOptions{})).Should(Succeed())
 
 			cusSecret.Labels = nil
@@ -168,7 +167,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 			Eventually(func() bool {
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: mghNamespace,
-					Name:      operatorconstants.GHTransportSecretName,
+					Name:      constants.GHTransportSecretName,
 				}, cusSecret, &client.GetOptions{})).Should(Succeed())
 				return utils.HasLabel(cusSecret.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
 			}, timeout, interval).Should(BeTrue())
@@ -179,7 +178,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 		It("Should create the customize configmap with backup label", func() {
 			cusConfigmap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      operatorconstants.CustomAlertName,
+					Name:      constants.CustomAlertName,
 					Namespace: mghNamespace,
 				},
 			}
@@ -188,7 +187,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 			Eventually(func() bool {
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: mghNamespace,
-					Name:      operatorconstants.CustomAlertName,
+					Name:      constants.CustomAlertName,
 				}, cusConfigmap, &client.GetOptions{})).Should(Succeed())
 
 				return utils.HasLabel(cusConfigmap.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
@@ -199,7 +198,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 			cusConfigmap := &corev1.ConfigMap{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Namespace: mghNamespace,
-				Name:      operatorconstants.CustomAlertName,
+				Name:      constants.CustomAlertName,
 			}, cusConfigmap, &client.GetOptions{})).Should(Succeed())
 
 			cusConfigmap.Labels = nil
@@ -209,7 +208,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 			Eventually(func() bool {
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: mghNamespace,
-					Name:      operatorconstants.CustomAlertName,
+					Name:      constants.CustomAlertName,
 				}, cusConfigmap, &client.GetOptions{})).Should(Succeed())
 				return utils.HasLabel(cusConfigmap.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
 			}, timeout, interval).Should(BeTrue())

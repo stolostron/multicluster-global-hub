@@ -97,6 +97,7 @@ var (
 			"app": "strimzi",
 		},
 	)
+	namespacePath = "metadata.namespace"
 )
 
 func init() {
@@ -354,10 +355,10 @@ func getElectionConfig(configMap *corev1.ConfigMap) (*commonobjects.LeaderElecti
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		&corev1.Secret{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", hubofhubsconfig.GetDefaultNamespace()),
+			Field: fields.OneTermEqualSelector(namespacePath, hubofhubsconfig.GetDefaultNamespace()),
 		},
 		&corev1.ConfigMap{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", hubofhubsconfig.GetDefaultNamespace()),
+			Field: fields.OneTermEqualSelector(namespacePath, hubofhubsconfig.GetDefaultNamespace()),
 		},
 		&corev1.ServiceAccount{}: {
 			Label: labelSelector,
@@ -417,7 +418,7 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Label: kafkaLabelSelector,
 		},
 		&corev1.PersistentVolumeClaim{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", hubofhubsconfig.GetDefaultNamespace()),
+			Field: fields.OneTermEqualSelector(namespacePath, hubofhubsconfig.GetDefaultNamespace()),
 		},
 	}
 	return cache.New(config, cacheOpts)
