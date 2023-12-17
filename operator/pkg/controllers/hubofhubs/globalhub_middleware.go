@@ -118,12 +118,8 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 		return nil, err
 	}
 	// create global hub topics
-	topics := trans.GetClusterTopic(nil)
-	err = trans.CreateTopic([]string{
-		topics.SpecTopic,
-		topics.StatusTopic,
-		topics.EventTopic,
-	})
+	topics := trans.GenerateClusterTopic("")
+	err = trans.CreateTopic(topics)
 	if err != nil {
 		return nil, err
 	}

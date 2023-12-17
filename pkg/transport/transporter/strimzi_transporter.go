@@ -19,7 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -192,8 +191,8 @@ func (k *strimziTransporter) initialize(mgh *globalhubv1alpha4.MulticlusterGloba
 	return err
 }
 
-func (k *strimziTransporter) GetUserName(cluster *clusterv1.ManagedCluster) string {
-	return fmt.Sprintf("%s-kafka-user", cluster.Name)
+func (k *strimziTransporter) GenerateUserName(clusterIdentity string) string {
+	return fmt.Sprintf("%s-kafka-user", clusterIdentity)
 }
 
 func (k *strimziTransporter) CreateUser(username string) error {
@@ -223,7 +222,7 @@ func (k *strimziTransporter) DeleteUser(topicName string) error {
 	return k.runtimeClient.Delete(k.ctx, kafkaUser)
 }
 
-func (k *strimziTransporter) GetClusterTopic(cluster *clusterv1.ManagedCluster) *transport.ClusterTopic {
+func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *transport.ClusterTopic {
 	// return &transport.ClusterTopic{
 	// 	SpecTopic:   fmt.Sprintf(SpecTopicTemplate, clusterIdentity),
 	// 	StatusTopic: fmt.Sprintf(StatusTopicTemplate, clusterIdentity),
@@ -237,8 +236,8 @@ func (k *strimziTransporter) GetClusterTopic(cluster *clusterv1.ManagedCluster) 
 	}
 }
 
-func (k *strimziTransporter) CreateTopic(topicNames []string) error {
-	for _, topicName := range topicNames {
+func (k *strimziTransporter) CreateTopic(topic *transport.ClusterTopic) error {
+	for _, topicName := range []string{topic.SpecTopic, topic.StatusTopic, topic.EventTopic} {
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
 		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 			Name:      topicName,
@@ -253,8 +252,8 @@ func (k *strimziTransporter) CreateTopic(topicNames []string) error {
 	return nil
 }
 
-func (k *strimziTransporter) DeleteTopic(topicNames []string) error {
-	for _, topicName := range topicNames {
+func (k *strimziTransporter) DeleteTopic(topic *transport.ClusterTopic) error {
+	for _, topicName := range []string{topic.SpecTopic, topic.StatusTopic, topic.EventTopic} {
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
 		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 			Name:      topicName,

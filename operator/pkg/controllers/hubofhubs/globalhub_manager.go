@@ -81,7 +81,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 	trans := config.GetTransporter()
 
-	transportTopic := trans.GetClusterTopic(nil)
+	transportTopic := trans.GenerateClusterTopic("")
 	transportConn, err := trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
 	if err != nil {
 		return fmt.Errorf("failed to get global hub transport connection: %v", err)

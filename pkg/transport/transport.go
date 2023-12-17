@@ -5,21 +5,19 @@ package transport
 
 import (
 	"context"
-
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
 // init the transport with different implementation/protocol: secret, strimzi operator or plain deployment
 type Transporter interface {
 	// define the user for each hub clusters, user lifecycle is managed by the transporter
-	GetUserName(cluster *clusterv1.ManagedCluster) string
+	GenerateUserName(clusterIdentity string) string
 	CreateUser(name string) error
 	DeleteUser(name string) error
 
 	// define the topic for each hub clusters(or shared topic), topic lifecycle is managed by the transporter
-	GetClusterTopic(cluster *clusterv1.ManagedCluster) *ClusterTopic
-	CreateTopic(names []string) error
-	DeleteTopic(name []string) error
+	GenerateClusterTopic(clusterIdentity string) *ClusterTopic
+	CreateTopic(topic *ClusterTopic) error
+	DeleteTopic(topic *ClusterTopic) error
 
 	// get the connection credential by user
 	GetConnCredential(userName string) (*ConnCredential, error)

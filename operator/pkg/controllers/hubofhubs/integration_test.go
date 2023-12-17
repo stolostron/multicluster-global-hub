@@ -372,7 +372,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 			trans := config.GetTransporter()
 			Expect(trans).ShouldNot(BeNil())
-			transportTopic := trans.GetClusterTopic(nil)
+			transportTopic := trans.GenerateClusterTopic("")
 			transportConn, err := trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
 			Expect(err).Should(Succeed())
 

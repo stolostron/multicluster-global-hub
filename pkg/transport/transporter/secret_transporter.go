@@ -9,7 +9,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -35,7 +34,7 @@ func NewSecretTransporter(ctx context.Context, namespacedName types.NamespacedNa
 	}
 }
 
-func (k *secretTransporter) GetUserName(cluster *clusterv1.ManagedCluster) string {
+func (k *secretTransporter) GenerateUserName(clusterIdentity string) string {
 	return ""
 }
 
@@ -48,15 +47,15 @@ func (k *secretTransporter) DeleteUser(username string) error {
 }
 
 // create the transport topic(KafkaTopic) if not exist for each hub clusters
-func (s *secretTransporter) CreateTopic(names []string) error {
+func (s *secretTransporter) CreateTopic(topic *transport.ClusterTopic) error {
 	return nil
 }
 
-func (k *secretTransporter) DeleteTopic(names []string) error {
+func (k *secretTransporter) DeleteTopic(topic *transport.ClusterTopic) error {
 	return nil
 }
 
-func (k *secretTransporter) GetClusterTopic(cluster *clusterv1.ManagedCluster) *transport.ClusterTopic {
+func (k *secretTransporter) GenerateClusterTopic(clusterIdentity string) *transport.ClusterTopic {
 	return &transport.ClusterTopic{
 		SpecTopic:   "spec",
 		StatusTopic: "status",

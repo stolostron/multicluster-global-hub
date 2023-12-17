@@ -90,8 +90,8 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	userName := transporter.GetUserName(cluster)
-	topicNames := transporter.GetClusterTopic(cluster)
+	userName := transporter.GenerateUserName(cluster.Name)
+	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
 
 	if !cluster.DeletionTimestamp.IsZero() {
 		r.Log.Info("cluster is deleting, delete the kafkaUser, skip addon deployment", "cluster", cluster.Name)
@@ -107,11 +107,7 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// create transport topic
-	err = transporter.CreateTopic([]string{
-		topicNames.SpecTopic,
-		topicNames.StatusTopic,
-		topicNames.EventTopic,
-	})
+	err = transporter.CreateTopic(clusterTopic)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
