@@ -84,6 +84,7 @@ type strimziTransporter struct {
 
 	// wait until kafka cluster status is ready when initialize
 	waitReady bool
+	enableTLS bool
 }
 
 type KafkaOption func(*strimziTransporter)
@@ -104,6 +105,7 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 		subCatalogSourceName: DefaultCatalogSourceName,
 
 		waitReady: true,
+		enableTLS: true,
 
 		runtimeClient: c,
 		mgh:           mgh,
@@ -292,13 +294,16 @@ func (k *strimziTransporter) GetConnCredential(username string) (*transport.Conn
 
 	for _, condition := range kafkaCluster.Status.Conditions {
 		if *condition.Type == "Ready" && *condition.Status == "True" {
-			return &transport.ConnCredential{
+			credential := &transport.ConnCredential{
 				BootstrapServer: *kafkaCluster.Status.Listeners[1].BootstrapServers,
-				CACert: base64.StdEncoding.EncodeToString(
-					[]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
-				ClientCert: base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.crt"]),
-				ClientKey:  base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.key"]),
-			}, nil
+				CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
+			}
+			if k.enableTLS {
+				k.log.Info("enable TLS for kafka user", "username", username)
+				credential.ClientCert = base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.crt"])
+				credential.ClientKey = base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.key"])
+			}
+			return credential, nil
 		}
 	}
 
@@ -363,6 +368,16 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 				return false, nil
 			}
 
+			// if the kafka cluster is already created, check if the tls is enabled
+			enableTLS := false
+			for _, listener := range kafkaCluster.Spec.Kafka.Listeners {
+				if listener.Tls && listener.Type != kafkav1beta2.KafkaSpecKafkaListenersElemTypeNodeport {
+					enableTLS = true
+					break
+				}
+			}
+			k.enableTLS = enableTLS
+
 			for _, condition := range kafkaCluster.Status.Conditions {
 				if *condition.Type == "Ready" && *condition.Status == "True" {
 					return true, nil
@@ -384,14 +399,12 @@ func (k *strimziTransporter) createKafkaCluster(mgh *operatorv1alpha4.Multiclust
 	}, existingKafka)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
+	} else if errors.IsNotFound(err) {
+		if e := k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh)); e != nil {
+			return e
+		}
 	}
-
-	if err == nil {
-		return nil
-	}
-
-	// not found
-	return k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh))
+	return nil
 }
 
 func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
