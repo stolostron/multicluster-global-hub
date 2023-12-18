@@ -22,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 )
 
 const (
@@ -66,11 +66,10 @@ var (
 
 // install the strimzi kafka cluster by operator
 type strimziTransporter struct {
-	log           logr.Logger
-	ctx           context.Context
-	name          string
-	namespace     string
-	runtimeClient client.Client
+	log       logr.Logger
+	ctx       context.Context
+	name      string
+	namespace string
 
 	// subscription properties
 	subName              string
@@ -80,12 +79,18 @@ type strimziTransporter struct {
 	subPackageName       string
 
 	// global hub config
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub
+	mgh           *operatorv1alpha4.MulticlusterGlobalHub
+	runtimeClient client.Client
+
+	// wait until kafka cluster status is ready when initialize
+	waitReady bool
 }
 
 type KafkaOption func(*strimziTransporter)
 
-func NewStrimziTransporter(opts ...KafkaOption) (*strimziTransporter, error) {
+func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	opts ...KafkaOption,
+) (*strimziTransporter, error) {
 	k := &strimziTransporter{
 		log:       ctrl.Log.WithName("strimzi-transporter"),
 		ctx:       context.TODO(),
@@ -97,6 +102,11 @@ func NewStrimziTransporter(opts ...KafkaOption) (*strimziTransporter, error) {
 		subChannel:           DefaultAMQChannel,
 		subPackageName:       DefaultAMQPackageName,
 		subCatalogSourceName: DefaultCatalogSourceName,
+
+		waitReady: true,
+
+		runtimeClient: c,
+		mgh:           mgh,
 	}
 	// apply options
 	for _, opt := range opts {
@@ -108,6 +118,7 @@ func NewStrimziTransporter(opts ...KafkaOption) (*strimziTransporter, error) {
 		k.subPackageName = CommunityPackageName
 		k.subCatalogSourceName = CommunityCatalogSourceName
 	}
+
 	err := k.initialize(k.mgh)
 	return k, err
 }
@@ -116,12 +127,6 @@ func WithNamespacedName(name types.NamespacedName) KafkaOption {
 	return func(sk *strimziTransporter) {
 		sk.name = name.Name
 		sk.namespace = name.Namespace
-	}
-}
-
-func WithClient(c client.Client) KafkaOption {
-	return func(sk *strimziTransporter) {
-		sk.runtimeClient = c
 	}
 }
 
@@ -137,26 +142,20 @@ func WithCommunity(val bool) KafkaOption {
 	}
 }
 
-func WithRuntimeClient(c client.Client) KafkaOption {
-	return func(sk *strimziTransporter) {
-		sk.runtimeClient = c
-	}
-}
-
 func WithSubName(name string) KafkaOption {
 	return func(sk *strimziTransporter) {
 		sk.subName = name
 	}
 }
 
-func WithGlobalHub(mgh *globalhubv1alpha4.MulticlusterGlobalHub) KafkaOption {
+func WithWaitReady(wait bool) KafkaOption {
 	return func(sk *strimziTransporter) {
-		sk.mgh = mgh
+		sk.waitReady = wait
 	}
 }
 
 // initialize the kafka cluster, return nil if the instance is launched successfully!
-func (k *strimziTransporter) initialize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func (k *strimziTransporter) initialize(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	k.log.Info("reconcile global hub kafka subscription")
 	k.namespace = mgh.Namespace
 	err := k.ensureSubscription(mgh)
@@ -178,17 +177,12 @@ func (k *strimziTransporter) initialize(mgh *globalhubv1alpha4.MulticlusterGloba
 		return err
 	}
 
+	if !k.waitReady {
+		return nil
+	}
+
 	k.log.Info("waiting the kafka cluster instance to be ready...")
-	err = wait.PollUntilContextTimeout(k.ctx, 5*time.Second, 10*time.Minute, true,
-		func(ctx context.Context) (bool, error) {
-			err := k.kafkaClusterReady()
-			if err != nil {
-				k.log.Info("the kafka is not ready, waiting", "message", err.Error())
-				return false, nil
-			}
-			return true, nil
-		})
-	return err
+	return k.kafkaClusterReady()
 }
 
 func (k *strimziTransporter) GenerateUserName(clusterIdentity string) string {
@@ -353,28 +347,36 @@ func (k *strimziTransporter) newKafkaUser(username string) *kafkav1beta2.KafkaUs
 
 // waits for kafka cluster to be ready and returns nil if kafka cluster ready
 func (k *strimziTransporter) kafkaClusterReady() error {
-	kafkaCluster := &kafkav1beta2.Kafka{}
-	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
-		Name:      k.name,
-		Namespace: k.namespace,
-	}, kafkaCluster)
-	if err != nil {
-		return err
-	}
+	err := wait.PollUntilContextTimeout(k.ctx, 5*time.Second, 10*time.Minute, true,
+		func(ctx context.Context) (bool, error) {
+			kafkaCluster := &kafkav1beta2.Kafka{}
+			err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+				Name:      k.name,
+				Namespace: k.namespace,
+			}, kafkaCluster)
+			if err != nil {
+				k.log.Info("fail to get the kafka cluster, waiting", "message", err.Error())
+				return false, nil
+			}
+			if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
+				k.log.Info("kafka cluster status is not ready", "message", err.Error())
+				return false, nil
+			}
 
-	if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
-		return fmt.Errorf("kafka cluster %s has no status conditions", kafkaCluster.Name)
-	}
+			for _, condition := range kafkaCluster.Status.Conditions {
+				if *condition.Type == "Ready" && *condition.Status == "True" {
+					return true, nil
+				}
+			}
 
-	for _, condition := range kafkaCluster.Status.Conditions {
-		if *condition.Type == "Ready" && *condition.Status == "True" {
-			return nil
-		}
-	}
-	return fmt.Errorf("kafka cluster %s is not ready", kafkaCluster.Name)
+			k.log.Info("kafka cluster status condition is not ready")
+			return false, nil
+		})
+
+	return err
 }
 
-func (k *strimziTransporter) createKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func (k *strimziTransporter) createKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	existingKafka := &kafkav1beta2.Kafka{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      k.name,
@@ -392,7 +394,7 @@ func (k *strimziTransporter) createKafkaCluster(mgh *globalhubv1alpha4.Multiclus
 	return k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh))
 }
 
-func (k *strimziTransporter) newKafkaCluster(mgh *globalhubv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
+func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
 	storageSize := config.GetKafkaStorageSize(mgh)
 	kafkaSpecKafkaStorageVolumesElem := kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
 		Id:          &KafkaStorageIdentifier,
@@ -483,7 +485,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *globalhubv1alpha4.Multicluster
 }
 
 // create/ update the kafka subscription
-func (k *strimziTransporter) ensureSubscription(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	// get subscription
 	existingSub := &subv1alpha1.Subscription{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
@@ -512,7 +514,7 @@ func (k *strimziTransporter) ensureSubscription(mgh *globalhubv1alpha4.Multiclus
 }
 
 // newSubscription returns an CrunchyPostgres subscription with desired default values
-func (k *strimziTransporter) newSubscription(mgh *globalhubv1alpha4.MulticlusterGlobalHub) *subv1alpha1.Subscription {
+func (k *strimziTransporter) newSubscription(mgh *operatorv1alpha4.MulticlusterGlobalHub) *subv1alpha1.Subscription {
 	labels := map[string]string{
 		"installer.name":                 mgh.Name,
 		"installer.namespace":            mgh.Namespace,

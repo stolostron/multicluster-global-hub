@@ -98,10 +98,11 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 	switch transProtocol {
 	case transport.StrimziTransporter:
 		trans, err = transportprotocol.NewStrimziTransporter(
+			r.Client,
+			mgh,
 			transportprotocol.WithContext(ctx),
-			transportprotocol.WithClient(r.Client),
 			transportprotocol.WithCommunity(utils.IsCommunityMode()),
-			transportprotocol.WithGlobalHub(mgh))
+		)
 		if err != nil {
 			return nil, err
 		}

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +37,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -69,49 +67,6 @@ import (
 
 //go:embed manifests
 var testFS embed.FS
-
-var (
-	readyCondition = "Ready"
-	trueCondition  = "True"
-	bootServer     = "kafka-kafka-bootstrap.multicluster-global-hub.svc:9092"
-)
-
-var kafkaCluster = &kafkav1beta2.Kafka{
-	ObjectMeta: metav1.ObjectMeta{
-		Namespace: config.GetDefaultNamespace(),
-		Name:      transportprotocol.KafkaClusterName,
-	},
-	Status: &kafkav1beta2.KafkaStatus{
-		Listeners: []kafkav1beta2.KafkaStatusListenersElem{
-			{
-				BootstrapServers: &bootServer,
-			},
-			{
-				BootstrapServers: &bootServer,
-				Certificates: []string{
-					"cert",
-				},
-			},
-		},
-		Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
-			{
-				Type:   &readyCondition,
-				Status: &trueCondition,
-			},
-		},
-	},
-}
-
-var kafkaGlobalUserSecret = &corev1.Secret{
-	ObjectMeta: metav1.ObjectMeta{
-		Namespace: config.GetDefaultNamespace(),
-		Name:      transportprotocol.DefaultGlobalHubKafkaUser,
-	},
-	Data: map[string][]byte{
-		"user.crt": []byte("usercrt"),
-		"user.key": []byte("userkey"),
-	},
-}
 
 var guestPostgresSecret = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
@@ -680,7 +635,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should remove finalizer added to MGH consumer resources", func() {
-			err := UpdateReadyKafkaCluster(mghReconciler.Client, "default")
+			err := transportprotocol.UpdateReadyKafkaCluster(mghReconciler.Client, "default")
 			Expect(err).NotTo(HaveOccurred())
 
 			By("By creating a finalizer placement")
@@ -960,7 +915,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				mghReconciler.MiddlewareConfig.TransportConn = nil
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
 
-				err := UpdateReadyKafkaCluster(k8sClient, mcgh.Namespace)
+				err := transportprotocol.UpdateReadyKafkaCluster(k8sClient, mcgh.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
 				// postgres should be ready in envtest
@@ -1081,71 +1036,6 @@ func checkResourceExistence(ctx context.Context, k8sClient client.Client, desire
 	}
 
 	return nil
-}
-
-func UpdateReadyKafkaCluster(client client.Client, ns string) error {
-	err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
-		existkafkaCluster := &kafkav1beta2.Kafka{}
-		err := client.Get(context.Background(), types.NamespacedName{
-			Name:      transportprotocol.KafkaClusterName,
-			Namespace: ns,
-		}, existkafkaCluster)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				kafkaCluster.Namespace = ns
-				if e := client.Create(context.Background(), kafkaCluster); e != nil {
-					klog.Errorf("Failed to create kafka cluster, error: %v", e)
-					return false, nil
-				}
-			}
-			klog.Errorf("Failed to get Kafka cluster, error:%v", err)
-			return false, nil
-		}
-		existkafkaCluster.Status = &kafkav1beta2.KafkaStatus{
-			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
-				{
-					BootstrapServers: &bootServer,
-				},
-				{
-					BootstrapServers: &bootServer,
-					Certificates: []string{
-						"cert",
-					},
-				},
-			},
-			Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
-				{
-					Type:   &readyCondition,
-					Status: &trueCondition,
-				},
-			},
-		}
-		err = client.Status().Update(context.Background(), existkafkaCluster)
-		if err != nil {
-			klog.Errorf("Failed to update Kafka cluster, error:%v", err)
-			return false, nil
-		}
-
-		kafkaGlobalUserSecret.Namespace = ns
-		err = client.Get(context.Background(), types.NamespacedName{
-			Name:      kafkaGlobalUserSecret.Name,
-			Namespace: ns,
-		}, kafkaGlobalUserSecret)
-
-		if errors.IsNotFound(err) {
-			e := client.Create(context.Background(), kafkaGlobalUserSecret)
-			if e != nil {
-				klog.Errorf("Failed to create Kafka secret, error:%v", e)
-				return false, nil
-			}
-		} else if err != nil {
-			klog.Errorf("Failed to get Kafka secret, error:%v", err)
-			return false, nil
-		}
-		return true, nil
-	})
-
-	return err
 }
 
 func UpdateReadyPostgresCluster(client client.Client, ns string) error {

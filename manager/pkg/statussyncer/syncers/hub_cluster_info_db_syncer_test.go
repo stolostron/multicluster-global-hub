@@ -10,12 +10,12 @@ import (
 	. "github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 )
 
 var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
