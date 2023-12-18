@@ -368,15 +368,17 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 				return false, nil
 			}
 
-			// if the kafka cluster is already created, check if the tls is enabled
-			enableTLS := false
-			for _, listener := range kafkaCluster.Spec.Kafka.Listeners {
-				if listener.Tls && listener.Type != kafkav1beta2.KafkaSpecKafkaListenersElemTypeNodeport {
-					enableTLS = true
-					break
+			if kafkaCluster.Spec != nil && kafkaCluster.Spec.Kafka.Listeners != nil {
+				// if the kafka cluster is already created, check if the tls is enabled
+				enableTLS := false
+				for _, listener := range kafkaCluster.Spec.Kafka.Listeners {
+					if listener.Tls && listener.Type != kafkav1beta2.KafkaSpecKafkaListenersElemTypeNodeport {
+						enableTLS = true
+						break
+					}
 				}
+				k.enableTLS = enableTLS
 			}
-			k.enableTLS = enableTLS
 
 			for _, condition := range kafkaCluster.Status.Conditions {
 				if *condition.Type == "Ready" && *condition.Status == "True" {
