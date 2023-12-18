@@ -635,7 +635,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should remove finalizer added to MGH consumer resources", func() {
-			err := transportprotocol.UpdateReadyKafkaCluster(mghReconciler.Client, "default")
+			err := kafka.UpdateKafkaClusterReady(mghReconciler.Client, "default")
 			Expect(err).NotTo(HaveOccurred())
 
 			By("By creating a finalizer placement")
@@ -915,7 +915,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				mghReconciler.MiddlewareConfig.TransportConn = nil
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
 
-				err := transportprotocol.UpdateReadyKafkaCluster(k8sClient, mcgh.Namespace)
+				err := kafka.UpdateKafkaClusterReady(k8sClient, mcgh.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
 				// postgres should be ready in envtest

@@ -75,8 +75,6 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		close(errorChan)
 	}()
 
-	wg.Wait()
-
 	for err := range errorChan {
 		if err != nil {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, fmt.Errorf("middleware not ready, Error: %v", err)
