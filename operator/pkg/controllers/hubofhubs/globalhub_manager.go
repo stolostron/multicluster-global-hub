@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -23,11 +23,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("manager")
 
@@ -74,41 +75,24 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 
 	replicas := int32(1)
-	if mgh.Spec.AvailabilityConfig == globalhubv1alpha4.HAHigh {
+	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
 		replicas = 2
 	}
 
+	trans := config.GetTransporter()
+
+	transportTopic := trans.GenerateClusterTopic("")
+	transportConn, err := trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
+	if err != nil {
+		return fmt.Errorf("failed to get global hub transport connection: %v", err)
+	}
+
+	if r.MiddlewareConfig.StorageConn == nil {
+		return fmt.Errorf("failed to get storage connection")
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
-		return struct {
-			Image                  string
-			Replicas               int32
-			ProxyImage             string
-			ImagePullSecret        string
-			ImagePullPolicy        string
-			ProxySessionSecret     string
-			DatabaseURL            string
-			PostgresCACert         string
-			KafkaCACert            string
-			KafkaClientCert        string
-			KafkaClientKey         string
-			KafkaBootstrapServer   string
-			MessageCompressionType string
-			TransportType          string
-			TransportFormat        string
-			Namespace              string
-			LeaseDuration          string
-			RenewDeadline          string
-			RetryPeriod            string
-			SchedulerInterval      string
-			SkipAuth               bool
-			LaunchJobNames         string
-			NodeSelector           map[string]string
-			Tolerations            []corev1.Toleration
-			RetentionMonth         int
-			StatisticLogInterval   string
-			EnableGlobalResource   bool
-			LogLevel               string
-		}{
+		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
 			Replicas:           replicas,
 			ProxyImage:         config.GetImage(config.OauthProxyImageKey),
@@ -116,16 +100,18 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			ImagePullPolicy:    string(imagePullPolicy),
 			ProxySessionSecret: proxySessionSecret,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
-				[]byte(r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI)),
-			PostgresCACert:         base64.StdEncoding.EncodeToString(r.MiddlewareConfig.PgConnection.CACert),
-			KafkaCACert:            r.MiddlewareConfig.KafkaConnection.CACert,
-			KafkaClientCert:        r.MiddlewareConfig.KafkaConnection.ClientCert,
-			KafkaClientKey:         r.MiddlewareConfig.KafkaConnection.ClientKey,
-			KafkaBootstrapServer:   r.MiddlewareConfig.KafkaConnection.BootstrapServer,
+				[]byte(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI)),
+			PostgresCACert:         base64.StdEncoding.EncodeToString(r.MiddlewareConfig.StorageConn.CACert),
+			KafkaCACert:            transportConn.CACert,
+			KafkaClientCert:        transportConn.ClientCert,
+			KafkaClientKey:         transportConn.ClientKey,
+			KafkaBootstrapServer:   transportConn.BootstrapServer,
+			KafkaConsumerTopic:     transportTopic.StatusTopic,
+			KafkaProducerTopic:     transportTopic.SpecTopic,
+			KafkaEventTopic:        transportTopic.EventTopic,
+			Namespace:              config.GetDefaultNamespace(),
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
-			TransportFormat:        string(globalhubv1alpha4.CloudEvents),
-			Namespace:              config.GetDefaultNamespace(),
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
 			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
@@ -153,7 +139,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, objs []*unstructured.Unstructured,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub, log logr.Logger,
+	mgh *v1alpha4.MulticlusterGlobalHub, log logr.Logger,
 ) error {
 	// manipulate the object
 	for _, obj := range objs {
@@ -187,4 +173,37 @@ func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hoh
 	}
 
 	return nil
+}
+
+type ManagerVariables struct {
+	Image                  string
+	Replicas               int32
+	ProxyImage             string
+	ImagePullSecret        string
+	ImagePullPolicy        string
+	ProxySessionSecret     string
+	DatabaseURL            string
+	PostgresCACert         string
+	KafkaCACert            string
+	KafkaConsumerTopic     string
+	KafkaProducerTopic     string
+	KafkaEventTopic        string
+	KafkaClientCert        string
+	KafkaClientKey         string
+	KafkaBootstrapServer   string
+	MessageCompressionType string
+	TransportType          string
+	Namespace              string
+	LeaseDuration          string
+	RenewDeadline          string
+	RetryPeriod            string
+	SchedulerInterval      string
+	SkipAuth               bool
+	LaunchJobNames         string
+	NodeSelector           map[string]string
+	Tolerations            []corev1.Toleration
+	RetentionMonth         int
+	StatisticLogInterval   string
+	EnableGlobalResource   bool
+	LogLevel               string
 }

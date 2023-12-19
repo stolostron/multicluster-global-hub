@@ -293,14 +293,3 @@ func WaitGlobalHubReady(ctx context.Context,
 	klog.Info("MulticlusterGlobalHub is ready")
 	return mghInstance, nil
 }
-
-func DeleteIfExist(ctx context.Context, c client.Client, obj client.Object) error {
-	err := c.Get(ctx, client.ObjectKeyFromObject(obj), obj)
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	return c.Delete(ctx, obj)
-}

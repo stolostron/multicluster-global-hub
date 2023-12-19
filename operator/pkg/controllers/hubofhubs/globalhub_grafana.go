@@ -24,7 +24,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -184,14 +183,14 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 	customGrafanaIniSecret, err := r.KubeClient.CoreV1().
 		Secrets(configNamespace).
 		Get(ctx,
-			operatorconstants.CustomGrafanaIniName,
+			constants.CustomGrafanaIniName,
 			metav1.GetOptions{},
 		)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, fmt.Errorf(
 			"failed to get custom grafana.ini secret. Namespace:%v, Name:%v, Error: %w",
 			configNamespace,
-			operatorconstants.CustomGrafanaIniName,
+			constants.CustomGrafanaIniName,
 			err,
 		)
 	}
@@ -288,7 +287,7 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 	customAlertConfigMap, err := r.KubeClient.CoreV1().
 		ConfigMaps(configNamespace).
 		Get(ctx,
-			operatorconstants.CustomAlertName,
+			constants.CustomAlertName,
 			metav1.GetOptions{},
 		)
 	if err != nil && !errors.IsNotFound(err) {
@@ -448,14 +447,14 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
-	if r.MiddlewareConfig == nil || r.MiddlewareConfig.PgConnection == nil {
+	if r.MiddlewareConfig == nil || r.MiddlewareConfig.StorageConn == nil {
 		return false, fmt.Errorf("Middleware PgConnection config is null")
 	}
-	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.PgConnection.ReadonlyUserDatabaseURI,
-		r.MiddlewareConfig.PgConnection.CACert)
+	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI,
+		r.MiddlewareConfig.StorageConn.CACert)
 	if err != nil {
-		datasourceVal, err = GrafanaDataSource(r.MiddlewareConfig.PgConnection.SuperuserDatabaseURI,
-			r.MiddlewareConfig.PgConnection.CACert)
+		datasourceVal, err = GrafanaDataSource(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI,
+			r.MiddlewareConfig.StorageConn.CACert)
 		if err != nil {
 			return false, err
 		}

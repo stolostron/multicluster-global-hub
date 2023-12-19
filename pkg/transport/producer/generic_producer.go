@@ -68,7 +68,7 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.P
 	}
 
 	return &GenericProducer{
-		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportFormat)),
+		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
 		client:           client,
 		messageSizeLimit: messageSize,
 	}, nil

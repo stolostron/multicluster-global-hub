@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
@@ -91,41 +90,21 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
 	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
 ) (dbsyncer.BundleRegisterable, error) {
-	if managerConfig.TransportConfig.TransportFormat == string(transport.KafkaMessageFormat) {
-		kafkaConsumer, err := consumer.NewKafkaConsumer(
-			managerConfig.TransportConfig.KafkaConfig,
-			ctrl.Log.WithName("message-consumer"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
-		}
-		kafkaConsumer.SetConflationManager(conflationManager)
-		kafkaConsumer.SetCommitter(consumer.NewCommitter(
-			managerConfig.TransportConfig.CommitterInterval,
-			managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, kafkaConsumer.Consumer(),
-			conflationManager.GetBundlesMetadata, ctrl.Log.WithName("message-consumer")),
-		)
-		kafkaConsumer.SetStatistics(stats)
-		if err := mgr.Add(kafkaConsumer); err != nil {
-			return nil, fmt.Errorf("failed to add status transport bridge: %w", err)
-		}
-		return kafkaConsumer, nil
-	} else {
-		consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
-		}
-		if err := mgr.Add(consumer); err != nil {
-			return nil, fmt.Errorf("failed to add transport consumer to manager: %w", err)
-		}
-		// consume message from consumer and dispatcher it to conflation manager
-		transportDispatcher := dispatcher.NewTransportDispatcher(
-			ctrl.Log.WithName("transport-dispatcher"), consumer,
-			conflationManager, stats)
-		if err := mgr.Add(transportDispatcher); err != nil {
-			return nil, fmt.Errorf("failed to add transport dispatcher to runtime manager: %w", err)
-		}
-		return transportDispatcher, nil
+	consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
 	}
+	if err := mgr.Add(consumer); err != nil {
+		return nil, fmt.Errorf("failed to add transport consumer to manager: %w", err)
+	}
+	// consume message from consumer and dispatcher it to conflation manager
+	transportDispatcher := dispatcher.NewTransportDispatcher(
+		ctrl.Log.WithName("transport-dispatcher"), consumer,
+		conflationManager, stats)
+	if err := mgr.Add(transportDispatcher); err != nil {
+		return nil, fmt.Errorf("failed to add transport dispatcher to runtime manager: %w", err)
+	}
+	return transportDispatcher, nil
 }
 
 // only statistic the local policy and managed clusters

@@ -75,8 +75,8 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 	existingObjs := []models.LeafHub{}
 	db := database.GetGorm()
 
-	//We use gorm soft delete: https://gorm.io/gen/delete.html#Soft-Delete
-	//So, the db query will not get deleted leafhubs, then we could use leafhub name to identy the unique leafhub
+	// We use gorm soft delete: https://gorm.io/gen/delete.html#Soft-Delete
+	// So, the db query will not get deleted leafhubs, then we could use leafhub name to identy the unique leafhub
 	err := db.Where(&models.LeafHub{
 		LeafHubName: leafHubName,
 	}).Find(&existingObjs).Error
@@ -84,14 +84,14 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 		return err
 	}
 
-	//It should only have one item in the objects
+	// It should only have one item in the objects
 	for _, object := range bundle.GetObjects() {
 		specificObj, ok := object.(*base.HubClusterInfo)
 		if !ok {
 			continue
 		}
 
-		//Handle agent version is 1.0 and manager version is 1.1 or bigger
+		// Handle agent version is 1.0 and manager version is 1.1 or bigger
 		clusterId := constants.DefaultClusterId
 		if len(specificObj.ClusterId) != 0 {
 			clusterId = specificObj.ClusterId

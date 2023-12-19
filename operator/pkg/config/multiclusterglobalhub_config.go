@@ -29,6 +29,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // ManifestImage contains details for a specific image version
@@ -51,13 +52,17 @@ const (
 	GrafanaImageKey              = "grafana"
 	PostgresImageKey             = "postgresql"
 	GHPostgresDefaultStorageSize = "25Gi"
+	// default values for the global hub configured by the operator
+	// We may expose these as CRD fields in the future
+	AggregationLevel    = "full"
+	EnableLocalPolicies = "true"
 )
 
 var (
-	managedClusters      = []string{}
-	hohMGHNamespacedName = types.NamespacedName{}
-	oauthSessionSecret   = ""
-	imageOverrides       = map[string]string{
+	managedClusters    = []string{}
+	mghNamespacedName  = types.NamespacedName{}
+	oauthSessionSecret = ""
+	imageOverrides     = map[string]string{
 		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
@@ -65,13 +70,8 @@ var (
 		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
 	}
 	statisticLogInterval = "1m"
-	// default values for the global hub configured by the operator
-	// We may expose these as CRD fields in the future
-	AggregationLevel    = "full"
-	EnableLocalPolicies = "true"
-	imagePullSecretName = ""
-
-	GHKafkaDefaultStorageSize = "10Gi"
+	imagePullSecretName  = ""
+	transporter          transport.Transporter
 )
 
 // GetDefaultNamespace returns default installation namespace
@@ -84,11 +84,11 @@ func GetDefaultNamespace() string {
 }
 
 func SetMGHNamespacedName(namespacedName types.NamespacedName) {
-	hohMGHNamespacedName = namespacedName
+	mghNamespacedName = namespacedName
 }
 
 func GetMGHNamespacedName() types.NamespacedName {
-	return hohMGHNamespacedName
+	return mghNamespacedName
 }
 
 func GetOauthSessionSecret() (string, error) {
@@ -232,11 +232,12 @@ func GetPostgresStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string
 	return GHPostgresDefaultStorageSize
 }
 
-func GetKafkaStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) *string {
+func GetKafkaStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+	defaultKafkaStorageSize := "10Gi"
 	if mgh.Spec.DataLayer.Kafka.StorageSize != "" {
-		return &mgh.Spec.DataLayer.Kafka.StorageSize
+		return mgh.Spec.DataLayer.Kafka.StorageSize
 	}
-	return &GHKafkaDefaultStorageSize
+	return defaultKafkaStorageSize
 }
 
 func SetImagePullSecretName(mgh *globalhubv1alpha4.MulticlusterGlobalHub) {
@@ -247,4 +248,12 @@ func SetImagePullSecretName(mgh *globalhubv1alpha4.MulticlusterGlobalHub) {
 
 func GetImagePullSecretName() string {
 	return imagePullSecretName
+}
+
+func SetTransporter(p transport.Transporter) {
+	transporter = p
+}
+
+func GetTransporter() transport.Transporter {
+	return transporter
 }

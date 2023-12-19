@@ -26,9 +26,9 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 )
 
 type HoHAddonInstaller struct {
@@ -45,6 +45,20 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		r.Log.Info("multiclusterglobalhub addon installer is paused, nothing more to do")
 		return ctrl.Result{}, nil
 	}
+
+	// wait the transport to be ready
+	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, 10*time.Minute, true,
+		func(ctx context.Context) (bool, error) {
+			if config.GetTransporter() == nil {
+				r.Log.Info("waiting transport ready...")
+				return false, nil
+			}
+			return true, nil
+		})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	transporter := config.GetTransporter()
 
 	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
@@ -76,24 +90,26 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	userName := transporter.GenerateUserName(cluster.Name)
+	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
+
 	if !cluster.DeletionTimestamp.IsZero() {
 		r.Log.Info("cluster is deleting, delete the kafkaUser, skip addon deployment", "cluster", cluster.Name)
 		config.DeleteManagedCluster(cluster.Name)
-		return ctrl.Result{}, utils.DeleteIfExist(ctx, r.Client, getKafkaUser(cluster.Name))
+		return ctrl.Result{}, transporter.DeleteUser(userName)
 	}
 	config.AppendManagedCluster(cluster.Name)
 
-	// BYO: skip create kafka user if the transport secret exist
-	err = r.Client.Get(ctx, types.NamespacedName{
-		Name:      operatorconstants.GHTransportSecretName,
-		Namespace: config.GetDefaultNamespace(),
-	}, &corev1.Secret{})
-	if err != nil && !errors.IsNotFound(err) {
+	// create transport user
+	err = transporter.CreateUser(userName)
+	if err != nil {
 		return ctrl.Result{}, err
-	} else if errors.IsNotFound(err) {
-		if e := r.waitKafkaUserReady(ctx, cluster.Name); e != nil {
-			return ctrl.Result{}, e
-		}
+	}
+
+	// create transport topic
+	err = transporter.CreateTopic(clusterTopic)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	addon := &v1alpha1.ManagedClusterAddOn{}
@@ -106,7 +122,7 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if err == nil && !addon.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, utils.DeleteIfExist(ctx, r.Client, getKafkaUser(cluster.Name))
+		return ctrl.Result{}, transporter.DeleteUser(userName)
 	}
 
 	// create/update the addon
@@ -175,36 +191,6 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *HoHAddonInstaller) waitKafkaUserReady(ctx context.Context, clusterName string) error {
-	kafkaUser := getKafkaUser(clusterName)
-
-	// create kafka user before the managed cluster addon
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	} else if errors.IsNotFound(err) {
-		if e := r.Client.Create(ctx, kafka.NewKafkaUser(kafkaUser.Name, kafkaUser.Namespace)); e != nil {
-			return e
-		}
-	}
-
-	// wait the kafka secret ready
-	return wait.PollUntilContextTimeout(ctx, 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
-		userSecret := &corev1.Secret{}
-		err = r.Client.Get(ctx, types.NamespacedName{
-			Name:      kafkaUser.Name,
-			Namespace: kafkaUser.Namespace,
-		}, userSecret)
-		if err != nil && !errors.IsNotFound(err) {
-			return false, err
-		} else if errors.IsNotFound(err) {
-			r.Log.Info("waiting kafka user secret ready...", "namespace", kafkaUser.Namespace, "name", kafkaUser.Name)
-			return false, nil
-		}
-		return true, nil
-	})
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
@@ -263,8 +249,8 @@ func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 
 	secretCond := func(obj client.Object) bool {
 		if obj.GetName() == config.GetImagePullSecretName() ||
-			obj.GetName() == operatorconstants.GHTransportSecretName ||
-			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == kafka.KafkaClusterName &&
+			obj.GetName() == constants.GHTransportSecretName ||
+			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == transportprotocol.KafkaClusterName &&
 				obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
 			return true
 		}

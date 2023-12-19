@@ -119,8 +119,6 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
 	pflag.StringVar(&managerConfig.TransportConfig.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'.")
-	pflag.StringVar(&managerConfig.TransportConfig.TransportFormat, "transport-format", "cloudEvents",
-		"The transport format, default is 'cloudEvents'.")
 	pflag.StringVar(&managerConfig.TransportConfig.MessageCompressionType, "transport-message-compression-type",
 		"gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
 	pflag.DurationVar(&managerConfig.TransportConfig.CommitterInterval, "transport-committer-interval",

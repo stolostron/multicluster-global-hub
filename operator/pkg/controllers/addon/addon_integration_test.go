@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,6 +23,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
 
 type Object interface {
@@ -54,11 +57,14 @@ func prepareCluster(name string, labels, annotations map[string]string,
 		Expect(k8sClient.Status().Update(ctx, cluster)).Should(Succeed())
 	}
 
-	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+	err := k8sClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-	})).Should(Succeed())
+	})
+	if !errors.IsAlreadyExists(err) {
+		Expect(err).Should(Succeed())
+	}
 
 	Expect(k8sClient.Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -85,8 +91,17 @@ var _ = Describe("addon integration", Ordered, func() {
 	Context("When configure the image registry and pull secret", func() {
 		It("Should update the image pull secret from the mgh cr", func() {
 			clusterName := fmt.Sprintf("hub-%s", rand.String(6))
-			workName := fmt.Sprintf("addon-%s-deploy-0",
-				operatorconstants.GHManagedClusterAddonName)
+			workName := fmt.Sprintf("addon-%s-deploy-0", operatorconstants.GHManagedClusterAddonName)
+
+			By("By creating secret transport")
+			fmt.Println("create secret", clusterName, constants.GHTransportSecretName)
+			err := kafka.CreateTestTransportSecret(k8sClient, clusterName)
+			Expect(err).Should(Succeed())
+			transporter := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
+				Namespace: clusterName,
+				Name:      constants.GHTransportSecretName,
+			}, k8sClient)
+			config.SetTransporter(transporter)
 
 			By("By preparing an OCP Managed Clusters")
 			prepareCluster(clusterName,

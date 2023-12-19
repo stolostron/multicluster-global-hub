@@ -3,9 +3,10 @@ package hubofhubs
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // reconcileSystemConfig tries to create hoh resources if they don't exist
@@ -25,6 +26,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 		return err
 	}
 
+	// set image pull secret
 	config.SetImagePullSecretName(mgh)
 
 	// set statistic log interval

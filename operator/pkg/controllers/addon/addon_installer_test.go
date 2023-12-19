@@ -28,6 +28,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 )
 
 var kubeCfg *rest.Config
@@ -281,6 +282,12 @@ func TestHoHAddonReconciler(t *testing.T) {
 					},
 				},
 			})
+
+			transporter := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
+				Namespace: tc.mgh.Namespace,
+				Name:      constants.GHTransportSecretName,
+			}, k8sClient)
+			config.SetTransporter(transporter)
 
 			r := &hubofhubsaddon.HoHAddonInstaller{
 				Client: fake.NewClientBuilder().WithScheme(addonTestScheme).WithObjects(objects...).Build(),

@@ -55,8 +55,11 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -138,7 +141,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	By("Add the addon install reconciler to the manager")
+	By("Add the addon installer to the manager")
 	err = (&addon.HoHAddonInstaller{
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("addon install controller"),
@@ -152,11 +155,11 @@ var _ = BeforeSuite(func() {
 
 	By("Add the addon controller to the manager")
 	middlewareCfg := &hubofhubscontroller.MiddlewareConfig{
-		KafkaConnection: &kafka.KafkaConnection{
-			BootstrapServer: kafkaBootstrapServer,
-			CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCA)),
-			ClientCert:      "",
-			ClientKey:       "",
+		TransportConn: &transport.ConnCredential{
+			BootstrapServer: kafka.KafkaBootstrapServer,
+			CACert:          base64.StdEncoding.EncodeToString([]byte(kafka.KafkaCA)),
+			ClientCert:      kafka.KafkaClientCert,
+			ClientKey:       kafka.KafkaClientKey,
 		},
 	}
 	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient,
@@ -164,6 +167,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())
+
+	By("Create an external transport")
+	trans := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
+		Namespace: mgh.Namespace,
+		Name:      constants.GHTransportSecretName,
+	}, k8sClient)
+	config.SetTransporter(trans)
 
 	go func() {
 		defer GinkgoRecover()
@@ -186,10 +196,7 @@ var _ = AfterSuite(func() {
 })
 
 const (
-	MGHName              = "test-mgh"
-	StorageSecretName    = operatorconstants.GHStorageSecretName
-	kafkaCA              = "foobar"
-	kafkaBootstrapServer = "https://test-kafka.example.com"
+	MGHName = "test-mgh"
 
 	timeout  = time.Second * 60
 	duration = time.Second * 10
@@ -264,6 +271,14 @@ func prepareBeforeTest() {
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
 	})).Should(Succeed())
+
+	By("By creating secret transport")
+	kafka.CreateTestTransportSecret(k8sClient, mgh.Namespace)
+	transporter := transportprotocol.NewBYOTransporter(context.TODO(), types.NamespacedName{
+		Namespace: mgh.Namespace,
+		Name:      constants.GHTransportSecretName,
+	}, k8sClient)
+	config.SetTransporter(transporter)
 }
 
 func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {

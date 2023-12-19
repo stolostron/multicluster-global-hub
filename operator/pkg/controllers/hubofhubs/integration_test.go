@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +37,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -54,63 +52,21 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
 
 // +kubebuilder:docs-gen:collapse=Imports
 
 //go:embed manifests
 var testFS embed.FS
-
-var (
-	readyCondition = "Ready"
-	trueCondition  = "True"
-	bootServer     = "kafka-kafka-bootstrap.multicluster-global-hub.svc:9092"
-)
-
-var kafkaCluster = &kafkav1beta2.Kafka{
-	ObjectMeta: metav1.ObjectMeta{
-		Namespace: config.GetDefaultNamespace(),
-		Name:      kafka.KafkaClusterName,
-	},
-	Status: &kafkav1beta2.KafkaStatus{
-		Listeners: []kafkav1beta2.KafkaStatusListenersElem{
-			{
-				BootstrapServers: &bootServer,
-			},
-			{
-				BootstrapServers: &bootServer,
-				Certificates: []string{
-					"cert",
-				},
-			},
-		},
-		Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
-			{
-				Type:   &readyCondition,
-				Status: &trueCondition,
-			},
-		},
-	},
-}
-
-var kafkaSecret = &corev1.Secret{
-	ObjectMeta: metav1.ObjectMeta{
-		Namespace: config.GetDefaultNamespace(),
-		Name:      kafka.KafkaUserName,
-	},
-	Data: map[string][]byte{
-		"user.crt": []byte("usercrt"),
-		"user.key": []byte("userkey"),
-	},
-}
 
 var guestPostgresSecret = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
@@ -145,15 +101,11 @@ var postgresCertSecret = &corev1.Secret{
 // Define utility constants for object names and testing timeouts/durations and intervals.
 const (
 	MGHName              = "test-mgh"
-	StorageSecretName    = operatorconstants.GHStorageSecretName
-	TransportSecretName  = operatorconstants.GHTransportSecretName
-	kafkaCACert          = "foobar"
-	kafkaClientCert      = "foobar"
-	KafkaClientKey       = "foobar"
-	kafkaBootstrapServer = "https://test-kafka.example.com"
+	StorageSecretName    = constants.GHStorageSecretName
+	TransportSecretName  = constants.GHTransportSecretName
 	datasourceSecretName = "multicluster-global-hub-grafana-datasources"
 
-	timeout  = time.Second * 15
+	timeout  = time.Second * 30
 	duration = time.Second * 10
 	interval = time.Millisecond * 250
 )
@@ -167,12 +119,16 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				Namespace: config.GetDefaultNamespace(),
 			},
 			Data: map[string][]byte{
-				"database_uri": []byte(testPostgres.URI),
-				"ca.crt":       []byte(""),
+				"database_uri":                   []byte(testPostgres.URI),
+				"database_uri_with_readonlyuser": []byte(testPostgres.URI),
+				"ca.crt":                         []byte(""),
 			},
 			Type: corev1.SecretTypeOpaque,
 		}
 		Expect(k8sClient.Create(ctx, storageSecret)).Should(Succeed())
+
+		By("create the transport secret for secretTransport")
+		kafka.MockTransportSecret(k8sClient, config.GetDefaultNamespace())
 	})
 
 	Context("When create MGH instance with invalid large scale data layer type", func() {
@@ -289,21 +245,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		var managerObjects []*unstructured.Unstructured
 		var grafanaObjects []*unstructured.Unstructured
 		It("Should update the conditions and mgh finalizer when MCH instance is created", func() {
-			By("By creating a fake transport secret")
-			Expect(k8sClient.Create(ctx, &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      TransportSecretName,
-					Namespace: config.GetDefaultNamespace(),
-				},
-				Data: map[string][]byte{
-					"ca.crt":           []byte(kafkaCACert),
-					"client.crt":       []byte(kafkaClientCert),
-					"client.key":       []byte(KafkaClientKey),
-					"bootstrap_server": []byte(kafkaBootstrapServer),
-				},
-				Type: corev1.SecretTypeOpaque,
-			})).Should(Succeed())
-
 			By("By creating a new MCH instance")
 			mch := &mchv1.MultiClusterHub{
 				ObjectMeta: metav1.ObjectMeta{
@@ -383,39 +324,17 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			if months < 1 {
 				months = 1
 			}
+
+			trans := config.GetTransporter()
+			Expect(trans).ShouldNot(BeNil())
+			transportTopic := trans.GenerateClusterTopic("")
+			transportConn, err := trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
+			Expect(err).Should(Succeed())
+
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {
-				return struct {
-					Image                  string
-					Replicas               int32
-					ProxyImage             string
-					ImagePullPolicy        string
-					ImagePullSecret        string
-					ProxySessionSecret     string
-					DatabaseURL            string
-					PostgresCACert         string
-					KafkaCACert            string
-					KafkaClientCert        string
-					KafkaClientKey         string
-					KafkaBootstrapServer   string
-					TransportType          string
-					TransportFormat        string
-					MessageCompressionType string
-					Namespace              string
-					LeaseDuration          string
-					RenewDeadline          string
-					RetryPeriod            string
-					SchedulerInterval      string
-					SkipAuth               bool
-					NodeSelector           map[string]string
-					Tolerations            []corev1.Toleration
-					RetentionMonth         int
-					StatisticLogInterval   string
-					EnableGlobalResource   bool
-					LaunchJobNames         string
-					LogLevel               string
-				}{
+				return hubofhubs.ManagerVariables{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					Replicas:               2,
 					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
@@ -424,13 +343,15 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ProxySessionSecret:     "testing",
 					DatabaseURL:            base64.StdEncoding.EncodeToString([]byte(testPostgres.URI)),
 					PostgresCACert:         base64.StdEncoding.EncodeToString([]byte("")),
-					KafkaCACert:            base64.RawStdEncoding.EncodeToString([]byte(kafkaCACert)),
-					KafkaClientCert:        base64.RawStdEncoding.EncodeToString([]byte(kafkaClientCert)),
-					KafkaClientKey:         base64.RawStdEncoding.EncodeToString([]byte(KafkaClientKey)),
-					KafkaBootstrapServer:   kafkaBootstrapServer,
+					KafkaCACert:            transportConn.CACert,
+					KafkaClientCert:        transportConn.ClientCert,
+					KafkaClientKey:         transportConn.ClientKey,
+					KafkaBootstrapServer:   transportConn.BootstrapServer,
+					KafkaConsumerTopic:     transportTopic.StatusTopic,
+					KafkaProducerTopic:     transportTopic.SpecTopic,
+					KafkaEventTopic:        transportTopic.EventTopic,
 					MessageCompressionType: string(operatorconstants.GzipCompressType),
 					TransportType:          string(transport.Kafka),
-					TransportFormat:        string(globalhubv1alpha4.CloudEvents),
 					Namespace:              config.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",
@@ -676,9 +597,13 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By checking the kafkaBootstrapServer")
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
-			kafkaConnection, err := kafka.GenerateKafkaConnectionFromGHTransportSecret(ctx, mghReconciler.Client)
+			secretTrasnporter := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
+				Name: constants.GHTransportSecretName, Namespace: config.GetDefaultNamespace(),
+			}, mghReconciler.Client)
+
+			kafkaConnection, err := secretTrasnporter.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(kafkaConnection.BootstrapServer).To(Equal(kafkaBootstrapServer))
+			Expect(kafkaConnection.BootstrapServer).To(Equal(kafka.KafkaBootstrapServer))
 
 			By("By checking the kafka secret is deleted")
 			Expect(k8sClient.Delete(ctx, &corev1.Secret{
@@ -700,13 +625,17 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return fmt.Errorf("should not find the secret")
 			}, timeout, interval).ShouldNot(HaveOccurred())
 			Eventually(func() error {
-				_, err = kafka.GenerateKafkaConnectionFromGHTransportSecret(ctx, mghReconciler.Client)
+				secretTrasnport := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
+					Name: constants.GHTransportSecretName, Namespace: config.GetDefaultNamespace(),
+				}, mghReconciler.Client)
+
+				_, err := secretTrasnport.GetConnCredential("")
 				return err
 			}, timeout, interval).Should(HaveOccurred())
 		})
 
 		It("Should remove finalizer added to MGH consumer resources", func() {
-			err := UpdateReadyKafkaCluster(mghReconciler.Client, "default")
+			err := kafka.UpdateKafkaClusterReady(mghReconciler.Client, "default")
 			Expect(err).NotTo(HaveOccurred())
 
 			By("By creating a finalizer placement")
@@ -980,32 +909,28 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(k8sClient.Create(ctx, mcgh)).Should(Succeed())
 		})
 
-		It("Should get the postgres connection", func() {
+		It("Should get the postgres/kafka connection", func() {
 			Eventually(func() error {
-				mghReconciler.MiddlewareConfig.PgConnection = nil
-				mghReconciler.MiddlewareConfig.KafkaConnection = nil
+				mghReconciler.MiddlewareConfig.StorageConn = nil
+				mghReconciler.MiddlewareConfig.TransportConn = nil
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
 
-				if mghReconciler.MiddlewareConfig.PgConnection == nil {
-					return fmt.Errorf("mghReconciler.MiddlewareConfig.PgConnection should not be nil")
+				err := kafka.UpdateKafkaClusterReady(k8sClient, mcgh.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
+				// postgres should be ready in envtest
+				// kafka should be ready in envtest
+
+				if mghReconciler.MiddlewareConfig.StorageConn == nil {
+					return fmt.Errorf("mghReconciler.MiddlewareConfig.StorageConn should not be nil")
 				}
+
+				if mghReconciler.MiddlewareConfig.TransportConn == nil {
+					return fmt.Errorf("mghReconciler.TransportConn.PgConnection should not be nil")
+				}
+
 				return nil
 			}, timeout, interval).ShouldNot(HaveOccurred())
-		})
-
-		It("Should create the postgres resources", func() {
-			Expect(mghReconciler.EnsureCrunchyPostgresSubscription(ctx, mcgh)).Should(Succeed())
-			Expect(mghReconciler.EnsureCrunchyPostgres(ctx)).Should(Succeed())
-			_, err := mghReconciler.WaitForPostgresReady(ctx)
-			// postgres should be ready in envtest
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-		It("Should create the kafka resources", func() {
-			Expect(mghReconciler.EnsureKafkaSubscription(ctx, mcgh)).Should(Succeed())
-			Expect(mghReconciler.EnsureKafkaResources(ctx, mcgh)).Should(Succeed())
-			_, err := mghReconciler.WaitForKafkaClusterReady(ctx)
-			// kafka should be ready in envtest
-			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		It("Should get the postgres and kafka connection", func() {
@@ -1023,14 +948,14 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return fmt.Errorf("should not find the secret")
 			}, timeout, interval).ShouldNot(HaveOccurred())
 			Eventually(func() error {
-				mghReconciler.MiddlewareConfig.PgConnection = nil
-				mghReconciler.MiddlewareConfig.KafkaConnection = nil
+				mghReconciler.MiddlewareConfig.StorageConn = nil
+				mghReconciler.MiddlewareConfig.TransportConn = nil
 
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
-				if mghReconciler.MiddlewareConfig.PgConnection == nil {
+				if mghReconciler.MiddlewareConfig.StorageConn == nil {
 					return fmt.Errorf("mghReconciler.MiddlewareConfig.PgConnection should be nil")
 				}
-				if mghReconciler.MiddlewareConfig.KafkaConnection == nil {
+				if mghReconciler.MiddlewareConfig.TransportConn == nil {
 					return fmt.Errorf("mghReconciler.MiddlewareConfig.KafkaConnection should be nil")
 				}
 				return nil
@@ -1057,12 +982,12 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 		It("Should get the postgres connection", func() {
 			Eventually(func() error {
-				mghReconciler.MiddlewareConfig.PgConnection = nil
-				err := mghReconciler.InitPostgresByStatefulset(ctx, mcgh)
+				var err error
+				mghReconciler.MiddlewareConfig.StorageConn, err = mghReconciler.InitPostgresByStatefulset(ctx, mcgh)
 				if err != nil {
 					return err
 				}
-				if mghReconciler.MiddlewareConfig.PgConnection == nil {
+				if mghReconciler.MiddlewareConfig.StorageConn == nil {
 					return fmt.Errorf("mghReconciler.MiddlewareConfig.PgConnection should not be nil")
 				}
 				return nil
@@ -1111,62 +1036,6 @@ func checkResourceExistence(ctx context.Context, k8sClient client.Client, desire
 	}
 
 	return nil
-}
-
-func UpdateReadyKafkaCluster(client client.Client, ns string) error {
-	err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
-		existkafkaCluster := &kafkav1beta2.Kafka{}
-		err := client.Get(context.Background(), types.NamespacedName{
-			Name:      kafka.KafkaClusterName,
-			Namespace: ns,
-		}, existkafkaCluster)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				kafkaCluster.Namespace = ns
-				err = client.Create(context.Background(), kafkaCluster)
-				if err != nil {
-					klog.Errorf("Failed to create kafka cluster, error:%v", err)
-					return false, nil
-				}
-			}
-			klog.Errorf("Failed to get Kafka cluster, error:%v", err)
-			return false, nil
-		}
-		existkafkaCluster.Status = &kafkav1beta2.KafkaStatus{
-			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
-				{
-					BootstrapServers: &bootServer,
-				},
-				{
-					BootstrapServers: &bootServer,
-					Certificates: []string{
-						"cert",
-					},
-				},
-			},
-			Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
-				{
-					Type:   &readyCondition,
-					Status: &trueCondition,
-				},
-			},
-		}
-		err = client.Status().Update(context.Background(), existkafkaCluster)
-		if err != nil {
-			klog.Errorf("Failed to update Kafka cluster, error:%v", err)
-			return false, nil
-		}
-
-		kafkaSecret.Namespace = ns
-		err = client.Create(context.Background(), kafkaSecret)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			klog.Errorf("Failed to create Kafka secret, error:%v", err)
-			return false, nil
-		}
-		return true, nil
-	})
-
-	return err
 }
 
 func UpdateReadyPostgresCluster(client client.Client, ns string) error {
