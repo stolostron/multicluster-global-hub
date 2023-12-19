@@ -8,6 +8,8 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -34,6 +36,8 @@ func AddToScheme(runtimeScheme *runtime.Scheme) error {
 		operatorv1.AddToScheme,
 		apiregistrationv1.AddToScheme,
 		routev1.AddToScheme,
+		apiextensionsv1.AddToScheme,
+		coordinationv1.AddToScheme,
 	}
 
 	schemeBuilders := []*scheme.Builder{

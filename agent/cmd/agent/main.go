@@ -7,12 +7,22 @@ import (
 	"os"
 	"time"
 
+	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -212,9 +222,16 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 		}
 	}
 
+	scheme := runtime.NewScheme()
+	// add scheme
+	if err := agentscheme.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add schemes: %w", err)
+	}
+
 	options := ctrl.Options{
 		MetricsBindAddress:      agentConfig.MetricsAddress,
 		LeaderElection:          true,
+		Scheme:                  scheme,
 		LeaderElectionConfig:    leaderElectionConfig,
 		LeaderElectionID:        leaderElectionLockID,
 		LeaderElectionNamespace: agentConfig.PodNameSpace,
@@ -227,15 +244,6 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
-	}
-
-	// add scheme
-	if err := agentscheme.AddToScheme(mgr.GetScheme()); err != nil {
-		return nil, fmt.Errorf("failed to add schemes: %w", err)
-	}
-
-	if err := apiextensionsv1.AddToScheme(mgr.GetScheme()); err != nil {
-		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
 	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
@@ -260,6 +268,20 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		&apiextensionsv1.CustomResourceDefinition{}: {
 			Field: fields.OneTermEqualSelector("metadata.name", "clustermanagers.operator.open-cluster-management.io"),
+		},
+		&policyv1.Policy{}:                  {},
+		&clusterv1.ManagedCluster{}:         {},
+		&clustersv1alpha1.ClusterClaim{}:    {},
+		&routev1.Route{}:                    {},
+		&placementrulev1.PlacementRule{}:    {},
+		&clusterv1beta1.Placement{}:         {},
+		&clusterv1beta1.PlacementDecision{}: {},
+		&appsv1alpha1.SubscriptionReport{}:  {},
+		&coordinationv1.Lease{}: {
+			Field: fields.OneTermEqualSelector("metadata.namespace", constants.GHAgentNamespace),
+		},
+		&corev1.Event{}: {
+			Field: fields.OneTermEqualSelector("involvedObject.kind", policyv1.Kind),
 		},
 	}
 	return cache.New(config, cacheOpts)
