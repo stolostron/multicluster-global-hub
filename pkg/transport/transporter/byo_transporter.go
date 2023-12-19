@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type secretTransporter struct {
+type BYOTransporter struct {
 	ctx           context.Context
 	log           logr.Logger
 	name          string
@@ -21,11 +21,13 @@ type secretTransporter struct {
 	runtimeClient client.Client
 }
 
-// create the transport with secret, it should meet the following conditions
+// create the transport with secret(BYO case), it should meet the following conditions
 // 1. name: "multicluster-global-hub-transport"
 // 2. properties: "bootstrap_server", "ca.crt", "client.crt" and "client.key"
-func NewSecretTransporter(ctx context.Context, namespacedName types.NamespacedName, c client.Client) *secretTransporter {
-	return &secretTransporter{
+func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
+	c client.Client,
+) *BYOTransporter {
+	return &BYOTransporter{
 		log:           ctrl.Log.WithName("secret-transporter"),
 		ctx:           ctx,
 		name:          namespacedName.Name,
@@ -34,28 +36,28 @@ func NewSecretTransporter(ctx context.Context, namespacedName types.NamespacedNa
 	}
 }
 
-func (k *secretTransporter) GenerateUserName(clusterIdentity string) string {
+func (k *BYOTransporter) GenerateUserName(clusterIdentity string) string {
 	return ""
 }
 
-func (s *secretTransporter) CreateUser(name string) error {
+func (s *BYOTransporter) CreateUser(name string) error {
 	return nil
 }
 
-func (k *secretTransporter) DeleteUser(username string) error {
+func (k *BYOTransporter) DeleteUser(username string) error {
 	return nil
 }
 
 // create the transport topic(KafkaTopic) if not exist for each hub clusters
-func (s *secretTransporter) CreateTopic(topic *transport.ClusterTopic) error {
+func (s *BYOTransporter) CreateTopic(topic *transport.ClusterTopic) error {
 	return nil
 }
 
-func (k *secretTransporter) DeleteTopic(topic *transport.ClusterTopic) error {
+func (k *BYOTransporter) DeleteTopic(topic *transport.ClusterTopic) error {
 	return nil
 }
 
-func (k *secretTransporter) GenerateClusterTopic(clusterIdentity string) *transport.ClusterTopic {
+func (k *BYOTransporter) GenerateClusterTopic(clusterIdentity string) *transport.ClusterTopic {
 	return &transport.ClusterTopic{
 		SpecTopic:   "spec",
 		StatusTopic: "status",
@@ -63,7 +65,7 @@ func (k *secretTransporter) GenerateClusterTopic(clusterIdentity string) *transp
 	}
 }
 
-func (s *secretTransporter) GetConnCredential(username string) (*transport.ConnCredential, error) {
+func (s *BYOTransporter) GetConnCredential(username string) (*transport.ConnCredential, error) {
 	kafkaSecret := &corev1.Secret{}
 	err := s.runtimeClient.Get(s.ctx, types.NamespacedName{
 		Name:      s.name,

@@ -105,7 +105,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 			return nil, err
 		}
 	case transport.SecretTransporter:
-		trans = transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
+		trans = transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
 			Namespace: mgh.Namespace,
 			Name:      constants.GHTransportSecretName,
 		}, r.Client)

@@ -597,7 +597,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			By("By checking the kafkaBootstrapServer")
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
-			secretTrasnporter := transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
+			secretTrasnporter := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
 				Name: constants.GHTransportSecretName, Namespace: config.GetDefaultNamespace(),
 			}, mghReconciler.Client)
 
@@ -625,7 +625,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return fmt.Errorf("should not find the secret")
 			}, timeout, interval).ShouldNot(HaveOccurred())
 			Eventually(func() error {
-				secretTrasnport := transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
+				secretTrasnport := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
 					Name: constants.GHTransportSecretName, Namespace: config.GetDefaultNamespace(),
 				}, mghReconciler.Client)
 

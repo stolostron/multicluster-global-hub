@@ -283,7 +283,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 				},
 			})
 
-			transporter := transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
+			transporter := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
 				Namespace: tc.mgh.Namespace,
 				Name:      constants.GHTransportSecretName,
 			}, k8sClient)

@@ -169,7 +169,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Create an external transport")
-	trans := transportprotocol.NewSecretTransporter(ctx, types.NamespacedName{
+	trans := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,
 	}, k8sClient)
@@ -274,7 +274,7 @@ func prepareBeforeTest() {
 
 	By("By creating secret transport")
 	kafka.CreateTestTransportSecret(k8sClient, mgh.Namespace)
-	transporter := transportprotocol.NewSecretTransporter(context.TODO(), types.NamespacedName{
+	transporter := transportprotocol.NewBYOTransporter(context.TODO(), types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,
 	}, k8sClient)
