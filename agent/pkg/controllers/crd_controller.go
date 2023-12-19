@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -59,15 +59,22 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 // this controller is used to watch the multiclusterhub crd or clustermanager crd
 // if the crd exists, then add controllers to the manager dynamically
 func StartCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *config.AgentConfig) error {
-	crdPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		if object.GetName() == "multiclusterhubs.operator.open-cluster-management.io" ||
-			object.GetName() == "clustermanagers.operator.open-cluster-management.io" {
-			return true
-		}
-		return false
-	})
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&apiextensionsv1.CustomResourceDefinition{}, builder.WithPredicates(crdPredicate)).
+		For(&apiextensionsv1.CustomResourceDefinition{}, builder.WithPredicates(predicate.Funcs{
+			// trigger the reconciler only if the crd is created
+			CreateFunc: func(e event.CreateEvent) bool {
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return false
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return false
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				return false
+			},
+		})).
 		Complete(&crdController{
 			mgr:         mgr,
 			restConfig:  restConfig,

@@ -10,9 +10,11 @@ import (
 	"github.com/spf13/pflag"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
+	"k8s.io/apimachinery/pkg/fields"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -219,6 +221,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
+		NewCache:                initCache,
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
@@ -251,4 +254,13 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	}
 
 	return mgr, nil
+}
+
+func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
+	cacheOpts.ByObject = map[client.Object]cache.ByObject{
+		&apiextensionsv1.CustomResourceDefinition{}: {
+			Field: fields.OneTermEqualSelector("metadata.name", "clustermanagers.operator.open-cluster-management.io"),
+		},
+	}
+	return cache.New(config, cacheOpts)
 }
