@@ -42,6 +42,8 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -73,20 +75,29 @@ import (
 	hubofhubsconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	backupcontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
-	scheme        = runtime.NewScheme()
-	setupLog      = ctrl.Log.WithName("setup")
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
+
 	labelSelector = labels.SelectorFromSet(
 		labels.Set{
 			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 		},
 	)
+	kafkaLabelSelector = labels.SelectorFromSet(
+		labels.Set{
+			"app": "strimzi",
+		},
+	)
+	namespacePath = "metadata.namespace"
 )
 
 func init() {
@@ -110,6 +121,7 @@ func init() {
 	utilruntime.Must(mchv1.AddToScheme(scheme))
 	utilruntime.Must(agentv1.SchemeBuilder.AddToScheme(scheme))
 	utilruntime.Must(promv1.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 
 	// Add postgres-operator scheme
 	utilruntime.Must(postgresv1beta1.AddToScheme(scheme))
@@ -214,6 +226,16 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		LogLevel:             operatorConfig.LogLevel,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
+		return 1
+	}
+
+	backupController := backupcontrollers.NewBackupReconciler(
+		mgr,
+		ctrl.Log.WithName("backup-reconciler"),
+	)
+
+	if err = mgr.Add(backupController); err != nil {
+		setupLog.Error(err, "unable to bakcup controller to manager")
 		return 1
 	}
 
@@ -333,10 +355,10 @@ func getElectionConfig(configMap *corev1.ConfigMap) (*commonobjects.LeaderElecti
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		&corev1.Secret{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", hubofhubsconfig.GetDefaultNamespace()),
+			Field: fields.OneTermEqualSelector(namespacePath, hubofhubsconfig.GetDefaultNamespace()),
 		},
 		&corev1.ConfigMap{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", hubofhubsconfig.GetDefaultNamespace()),
+			Field: fields.OneTermEqualSelector(namespacePath, hubofhubsconfig.GetDefaultNamespace()),
 		},
 		&corev1.ServiceAccount{}: {
 			Label: labelSelector,
@@ -392,6 +414,12 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&kafkav1beta2.KafkaTopic{}:         {},
 		&kafkav1beta2.KafkaUser{}:          {},
 		&postgresv1beta1.PostgresCluster{}: {},
+		&apiextensionsv1.CustomResourceDefinition{}: {
+			Label: kafkaLabelSelector,
+		},
+		&corev1.PersistentVolumeClaim{}: {
+			Field: fields.OneTermEqualSelector(namespacePath, hubofhubsconfig.GetDefaultNamespace()),
+		},
 	}
 	return cache.New(config, cacheOpts)
 }

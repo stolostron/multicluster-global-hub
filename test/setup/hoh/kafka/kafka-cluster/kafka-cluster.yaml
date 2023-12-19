@@ -2,6 +2,9 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: kafka
+  labels:
+    cluster.open-cluster-management.io/backup: globalhub
+    strimzi.io/cluster: kafka
 spec:
   kafka:
     replicas: 1
@@ -43,6 +46,11 @@ spec:
       ssl.protocol: "TLSv1.2"
     storage:
       type: ephemeral
+    template:
+      persistentVolumeClaim:
+        metadata:
+          labels:
+            cluster.open-cluster-management.io/volsync: globalhub
   zookeeper:
     replicas: 1
     logging:
@@ -51,6 +59,11 @@ spec:
         zookeeper.root.logger: "INFO"
     storage:
       type: ephemeral
+    template:
+      persistentVolumeClaim:
+        metadata:
+          labels:
+            cluster.open-cluster-management.io/volsync: globalhub
   entityOperator:
     topicOperator: {}
     userOperator: {}

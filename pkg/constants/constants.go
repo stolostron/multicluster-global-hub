@@ -24,6 +24,11 @@ const (
 	DefaultAgentBurst = 300
 
 	DefaultClusterId = "00000000-0000-0000-0000-000000000000"
+
+	BackupKey             = "cluster.open-cluster-management.io/backup"
+	BackupVolumnKey       = "cluster.open-cluster-management.io/volsync"
+	BackupActivationValue = "cluster-activation"
+	BackupGlobalHubValue  = "globalhub"
 )
 
 // global hub transport and storage secret names
