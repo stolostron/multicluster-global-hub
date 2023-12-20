@@ -420,6 +420,7 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&corev1.PersistentVolumeClaim{}: {
 			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
+		&mchv1.MultiClusterHub{}: {},
 	}
 	return cache.New(config, cacheOpts)
 }

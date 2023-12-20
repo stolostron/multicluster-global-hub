@@ -24,14 +24,25 @@ func HasAnnotation(obj metav1.Object, annotation string) bool {
 }
 
 // HasLabel returns a bool if the given label exists in labels.
-func HasLabel(obj metav1.Object, label string) bool {
-	if obj == nil || obj.GetLabels() == nil {
+func HasLabelKey(labels map[string]string, label string) bool {
+	if len(labels) == 0 {
 		return false
 	}
-
-	_, found := obj.GetLabels()[label]
-
+	_, found := labels[label]
 	return found
+}
+
+// HasLabel check if the labels has key=value label
+func HasLabel(labels map[string]string, key, value string) bool {
+	if len(labels) == 0 {
+		return false
+	}
+	for k, v := range labels {
+		if k == key && v == value {
+			return true
+		}
+	}
+	return false
 }
 
 // AddAnnotations adds the given annotations to the given object. if obj is nil or annotations are nil, it's a no-op.

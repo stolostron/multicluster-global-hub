@@ -28,4 +28,7 @@ type Backup interface {
 
 	//Add label to all objects which in one namespace
 	AddLabelToAllObjs(ctx context.Context, client client.Client, namespace string) error
+
+	//Delete the label of all objects which in one namespace
+	DeleteLabelOfAllObjs(ctx context.Context, client client.Client, namespace string) error
 }

@@ -47,6 +47,9 @@ bash ${CURRENT_DIR}/hoh/kafka/kafka_setup.sh $CTX_HUB 2>&1 >> $LOG &
 initHub $CTX_HUB 2>&1 >> $LOG &
 startTime_s=`date +%s`
 
+# apply multiclusterhubs.crd.yaml
+kubectl --kubeconfig $hub_kubeconfig apply -f ${CURRENT_DIR}/../../pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+
 # init leafhub
 sleep 1 &
 hover $! "2 Prepare leaf hub cluster $LEAF_HUB_NAME"

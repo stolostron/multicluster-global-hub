@@ -23,8 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type mghBackup struct {
@@ -64,6 +64,27 @@ func (r *mghBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, name
 		}
 		obj := &globalhubv1alpha4.MulticlusterGlobalHub{}
 		err := addLabel(ctx, c, obj, namespace, mgh.Name, r.labelKey, r.labelValue)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *mghBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, namespace string) error {
+	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
+	err := c.List(ctx, mghList, &client.ListOptions{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return err
+	}
+	for _, mgh := range mghList.Items {
+		if !utils.HasLabel(mgh.GetLabels(), r.labelKey, r.labelValue) {
+			continue
+		}
+		obj := &globalhubv1alpha4.MulticlusterGlobalHub{}
+		err := deleteLabel(ctx, c, obj, namespace, mgh.Name, r.labelKey)
 		if err != nil {
 			return err
 		}

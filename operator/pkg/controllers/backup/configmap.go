@@ -64,3 +64,14 @@ func (r *configmapBackup) AddLabelToAllObjs(ctx context.Context, client client.C
 	}
 	return nil
 }
+
+func (r *configmapBackup) DeleteLabelOfAllObjs(ctx context.Context, client client.Client, namespace string) error {
+	for name := range configmapList {
+		obj := &corev1.ConfigMap{}
+		err := deleteLabel(ctx, client, obj, namespace, name, r.labelKey)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

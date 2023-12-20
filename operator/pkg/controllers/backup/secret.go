@@ -66,3 +66,14 @@ func (r *secretBackup) AddLabelToAllObjs(ctx context.Context, client client.Clie
 	}
 	return nil
 }
+
+func (r *secretBackup) DeleteLabelOfAllObjs(ctx context.Context, client client.Client, namespace string) error {
+	for name := range secretList {
+		obj := &corev1.Secret{}
+		err := deleteLabel(ctx, client, obj, namespace, name, r.labelKey)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

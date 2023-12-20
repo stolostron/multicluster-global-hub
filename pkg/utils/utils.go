@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +12,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	uberzap "go.uber.org/zap"
 	uberzapcore "go.uber.org/zap/zapcore"
+
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -54,4 +60,24 @@ func GetDefaultNamespace() string {
 		defaultNamespace = constants.GHDefaultNamespace
 	}
 	return defaultNamespace
+}
+
+func ListMCH(ctx context.Context, k8sClient client.Client) (*mchv1.MultiClusterHub, error) {
+	mch := &mchv1.MultiClusterHubList{}
+	err := k8sClient.List(ctx, mch)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+	if meta.IsNoMatchError(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if len(mch.Items) == 0 {
+		return nil, err
+	}
+
+	return &mch.Items[0], nil
 }

@@ -23,8 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type kafkaBackup struct {
@@ -64,6 +64,27 @@ func (r *kafkaBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, na
 		}
 		kafka := &kafkav1beta2.Kafka{}
 		err := addLabel(ctx, c, kafka, namespace, obj.Name, r.labelKey, r.labelValue)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *kafkaBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, namespace string) error {
+	objList := &kafkav1beta2.KafkaList{}
+	err := c.List(ctx, objList, &client.ListOptions{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return err
+	}
+	for _, obj := range objList.Items {
+		if !utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
+			continue
+		}
+		kafka := &kafkav1beta2.Kafka{}
+		err := deleteLabel(ctx, c, kafka, namespace, obj.Name, r.labelKey)
 		if err != nil {
 			return err
 		}

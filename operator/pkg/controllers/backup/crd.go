@@ -66,3 +66,14 @@ func (r *crdBackup) AddLabelToAllObjs(ctx context.Context, client client.Client,
 	}
 	return nil
 }
+
+func (r *crdBackup) DeleteLabelOfAllObjs(ctx context.Context, client client.Client, namespace string) error {
+	for name := range crdList {
+		obj := &apiextensionsv1.CustomResourceDefinition{}
+		err := deleteLabel(ctx, client, obj, namespace, name, r.labelKey)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

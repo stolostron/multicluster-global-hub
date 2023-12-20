@@ -14,13 +14,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func getMCH(ctx context.Context, client client.Client,
 	NamespacedName types.NamespacedName,
 ) (*mchv1.MultiClusterHub, error) {
 	if NamespacedName.Name == "" || NamespacedName.Namespace == "" {
-		return listMCH(ctx, client)
+		return utils.ListMCH(ctx, client)
 	}
 
 	mch := &mchv1.MultiClusterHub{}
@@ -35,26 +36,6 @@ func getMCH(ctx context.Context, client client.Client,
 		return nil, err
 	}
 	return mch, nil
-}
-
-func listMCH(ctx context.Context, k8sClient client.Client) (*mchv1.MultiClusterHub, error) {
-	mch := &mchv1.MultiClusterHubList{}
-	err := k8sClient.List(ctx, mch)
-	if errors.IsNotFound(err) {
-		return nil, nil
-	}
-	if meta.IsNoMatchError(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	if len(mch.Items) == 0 {
-		return nil, err
-	}
-
-	return &mch.Items[0], nil
 }
 
 func getClusterManager(ctx context.Context, client client.Client) (*operatorv1.ClusterManager, error) {
