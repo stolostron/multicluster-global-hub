@@ -53,14 +53,14 @@ var _ = BeforeSuite(func() {
 	cfg, err = testenv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
+	// add scheme
+	agentscheme.AddToScheme(scheme.Scheme)
+
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
 		Scheme:             scheme.Scheme,
 	})
 	Expect(err).NotTo(HaveOccurred())
-
-	// add scheme
-	Expect(agentscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
 
 	agentConfig = &config.AgentConfig{
 		TransportConfig: &transport.TransportConfig{

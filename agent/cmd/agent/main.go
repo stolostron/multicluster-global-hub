@@ -13,7 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -47,11 +47,10 @@ const (
 
 var (
 	setupLog = ctrl.Log.WithName("setup")
-	scheme   = runtime.NewScheme()
 )
 
 func init() {
-	agentscheme.AddToScheme(scheme)
+	agentscheme.AddToScheme(scheme.Scheme)
 }
 
 func main() {
@@ -228,7 +227,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	options := ctrl.Options{
 		MetricsBindAddress:      agentConfig.MetricsAddress,
 		LeaderElection:          true,
-		Scheme:                  scheme,
+		Scheme:                  scheme.Scheme,
 		LeaderElectionConfig:    leaderElectionConfig,
 		LeaderElectionID:        leaderElectionLockID,
 		LeaderElectionNamespace: agentConfig.PodNameSpace,

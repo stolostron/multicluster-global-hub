@@ -73,6 +73,9 @@ var _ = BeforeSuite(func() {
 	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Add to Scheme")
+	agentscheme.AddToScheme(scheme.Scheme)
+
 	By("Create controller-runtime manager")
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
@@ -80,9 +83,6 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr).NotTo(BeNil())
-
-	By("Add to Scheme")
-	Expect(agentscheme.AddToScheme(mgr.GetScheme())).NotTo(HaveOccurred())
 
 	By("Get kubeClient")
 	kubeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
