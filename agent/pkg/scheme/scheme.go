@@ -1,16 +1,15 @@
-// Copyright (c) 2022 Red Hat, Inc.
+// Copyright (c) 2022 Red Hat(scheme)) Inc.
 // Copyright Contributors to the Open Cluster Management project
 
 package scheme
 
 import (
-	"fmt"
-
 	routev1 "github.com/openshift/api/route/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
@@ -23,44 +22,24 @@ import (
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 // AddToScheme adds all the resources to be processed to the Scheme.
-func AddToScheme(runtimeScheme *runtime.Scheme) error {
-	addToSchemeFuncs := []func(s *runtime.Scheme) error{
-		clusterv1.AddToScheme,
-		clusterv1alpha1.AddToScheme,
-		clusterv1beta1.AddToScheme,
-		clusterv1beta2.AddToScheme,
-		operatorv1.AddToScheme,
-		apiregistrationv1.AddToScheme,
-		routev1.AddToScheme,
-		apiextensionsv1.AddToScheme,
-		coordinationv1.AddToScheme,
-	}
-
-	schemeBuilders := []*scheme.Builder{
-		mchv1.SchemeBuilder,
-		policyv1.SchemeBuilder,
-		placementrulev1.SchemeBuilder,
-		appsubv1alpha1.SchemeBuilder,
-		channelv1.SchemeBuilder,
-		appsubv1.SchemeBuilder,
-		appv1beta1.SchemeBuilder,
-	}
-
-	for _, addToSchemeFunc := range addToSchemeFuncs {
-		if err := addToSchemeFunc(runtimeScheme); err != nil {
-			return fmt.Errorf("failed to install scheme: %w", err)
-		}
-	}
-
-	for _, schemeBuilder := range schemeBuilders {
-		if err := schemeBuilder.AddToScheme(runtimeScheme); err != nil {
-			return fmt.Errorf("failed to add scheme: %w", err)
-		}
-	}
-
-	return nil
+func AddToScheme(scheme *runtime.Scheme) {
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1beta1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1beta2.AddToScheme(scheme))
+	utilruntime.Must(operatorv1.AddToScheme(scheme))
+	utilruntime.Must(apiregistrationv1.AddToScheme(scheme))
+	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
+	utilruntime.Must(coordinationv1.AddToScheme(scheme))
+	utilruntime.Must(mchv1.AddToScheme(scheme))
+	utilruntime.Must(policyv1.AddToScheme(scheme))
+	utilruntime.Must(placementrulev1.AddToScheme(scheme))
+	utilruntime.Must(appsubv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(channelv1.AddToScheme(scheme))
+	utilruntime.Must(appsubv1.SchemeBuilder.AddToScheme(scheme))
+	utilruntime.Must(appv1beta1.AddToScheme(scheme))
 }

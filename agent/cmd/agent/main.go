@@ -12,7 +12,6 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -46,7 +45,14 @@ const (
 	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
 )
 
-var setupLog = ctrl.Log.WithName("setup")
+var (
+	setupLog = ctrl.Log.WithName("setup")
+	scheme   = runtime.NewScheme()
+)
+
+func init() {
+	agentscheme.AddToScheme(scheme)
+}
 
 func main() {
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
@@ -67,11 +73,8 @@ func main() {
 }
 
 func doTermination(ctx context.Context, restConfig *rest.Config) int {
-	if err := agentscheme.AddToScheme(scheme.Scheme); err != nil {
-		setupLog.Error(err, "failed to add to scheme")
-		return 1
-	}
-	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
+
+	client, err := client.New(restConfig, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "failed to int controller runtime client")
 		return 1
@@ -220,12 +223,6 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	scheme := runtime.NewScheme()
-	// add scheme
-	if err := agentscheme.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
 	options := ctrl.Options{
