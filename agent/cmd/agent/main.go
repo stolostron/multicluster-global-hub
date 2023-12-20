@@ -7,25 +7,30 @@ import (
 	"os"
 	"time"
 
+	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/dynamic"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	operatorv1 "open-cluster-management.io/api/operator/v1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/event"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
-	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
-	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -40,7 +45,13 @@ const (
 	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
 )
 
-var setupLog = ctrl.Log.WithName("setup")
+var (
+	setupLog = ctrl.Log.WithName("setup")
+)
+
+func init() {
+	agentscheme.AddToScheme(scheme.Scheme)
+}
 
 func main() {
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
@@ -61,11 +72,8 @@ func main() {
 }
 
 func doTermination(ctx context.Context, restConfig *rest.Config) int {
-	if err := agentscheme.AddToScheme(scheme.Scheme); err != nil {
-		setupLog.Error(err, "failed to add to scheme")
-		return 1
-	}
-	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
+
+	client, err := client.New(restConfig, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "failed to int controller runtime client")
 		return 1
@@ -217,12 +225,14 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	options := ctrl.Options{
 		MetricsBindAddress:      agentConfig.MetricsAddress,
 		LeaderElection:          true,
+		Scheme:                  scheme.Scheme,
 		LeaderElectionConfig:    leaderElectionConfig,
 		LeaderElectionID:        leaderElectionLockID,
 		LeaderElectionNamespace: agentConfig.PodNameSpace,
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
+		NewCache:                initCache,
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
@@ -230,54 +240,14 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 
-	// add scheme
-	if err := agentscheme.AddToScheme(mgr.GetScheme()); err != nil {
-		return nil, fmt.Errorf("failed to add schemes: %w", err)
-	}
-
-	// generate the client based on the config
-	dynamicClient, err := dynamic.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create dynamic client %v", err)
-	}
-	// check the acm is installed and then add the following controllers to mgr
-	mchExists, err := ensureMulticlusterHub(ctx, dynamicClient)
-	if err != nil {
-		setupLog.Error(err, "You need install ACM before using the agent")
-	}
-
-	var clusterManagerExists bool
-	if !mchExists {
-		// we are using ocm for e2e test
-		clusterManagerExists, err = ensureClusterManager(ctx, dynamicClient)
-		if err != nil {
-			setupLog.Error(err, "You need install OCM before using the agent")
-		}
-	}
-
-	if mchExists || clusterManagerExists {
-		// add spec controllers
-		if agentConfig.EnableGlobalResource {
-			if err := specController.AddToManager(mgr, agentConfig); err != nil {
-				return nil, fmt.Errorf("failed to add spec syncer: %w", err)
-			}
-			setupLog.Info("add spec controllers to manager")
-		}
-
-		if err := statusController.AddControllers(ctx, mgr, agentConfig); err != nil {
-			return nil, fmt.Errorf("failed to add status syncer: %w", err)
-		}
-
-		if err := lease.AddHoHLeaseUpdater(mgr, agentConfig.PodNameSpace,
-			"multicluster-global-hub-controller"); err != nil {
-			return nil, fmt.Errorf("failed to add lease updater: %w", err)
-		}
-	}
-
 	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
 	// we use the value to decide whether install the ACM or not
-	if err := controllers.AddClusterClaimController(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add controllers: %w", err)
+	if err := controllers.StartHubClusterClaimController(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
+	}
+
+	if err := controllers.StartCRDController(mgr, restConfig, agentConfig); err != nil {
+		return nil, fmt.Errorf("failed to add crd controller: %w", err)
 	}
 
 	if err := event.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath,
@@ -288,24 +258,25 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	return mgr, nil
 }
 
-func ensureMulticlusterHub(ctx context.Context, dynamicClient dynamic.Interface) (bool, error) {
-	mch, err := dynamicClient.Resource(mchv1.GroupVersion.WithResource("multiclusterhubs")).
-		Namespace("").
-		List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return false, err
+func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
+	cacheOpts.ByObject = map[client.Object]cache.ByObject{
+		&apiextensionsv1.CustomResourceDefinition{}: {
+			Field: fields.OneTermEqualSelector("metadata.name", "clustermanagers.operator.open-cluster-management.io"),
+		},
+		&policyv1.Policy{}:                  {},
+		&clusterv1.ManagedCluster{}:         {},
+		&clustersv1alpha1.ClusterClaim{}:    {},
+		&routev1.Route{}:                    {},
+		&placementrulev1.PlacementRule{}:    {},
+		&clusterv1beta1.Placement{}:         {},
+		&clusterv1beta1.PlacementDecision{}: {},
+		&appsv1alpha1.SubscriptionReport{}:  {},
+		&coordinationv1.Lease{}: {
+			Field: fields.OneTermEqualSelector("metadata.namespace", constants.GHAgentNamespace),
+		},
+		&corev1.Event{}: {
+			Field: fields.OneTermEqualSelector("involvedObject.kind", policyv1.Kind),
+		},
 	}
-	return len(mch.Items) > 0, nil
-}
-
-func ensureClusterManager(ctx context.Context, dynamicClient dynamic.Interface) (
-	bool, error,
-) {
-	clusterManager, err := dynamicClient.Resource(
-		operatorv1.GroupVersion.WithResource("clustermanagers")).
-		List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return false, err
-	}
-	return len(clusterManager.Items) > 0, nil
+	return cache.New(config, cacheOpts)
 }

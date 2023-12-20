@@ -20,12 +20,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-type clusterClaimController struct {
+type versionClusterClaimController struct {
 	client client.Client
 	log    logr.Logger
 }
 
-func (c *clusterClaimController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+func (c *versionClusterClaimController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(2).Info("cluster claim controller", "NamespacedName:", request.NamespacedName)
 
@@ -44,7 +44,7 @@ func (c *clusterClaimController) Reconcile(ctx context.Context, request ctrl.Req
 	return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 }
 
-func StartClusterClaimController(mgr ctrl.Manager) error {
+func StartVersionClusterClaimController(mgr ctrl.Manager) error {
 	clusterClaimPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			constants.GlobalHubOwnerLabelKey: constants.GHAgentOwnerLabelValue,
@@ -53,7 +53,7 @@ func StartClusterClaimController(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&clustersv1alpha1.ClusterClaim{}, builder.WithPredicates(clusterClaimPredicate)).
 		Watches(&mchv1.MultiClusterHub{}, &handler.EnqueueRequestForObject{}).
-		Complete(&clusterClaimController{
+		Complete(&versionClusterClaimController{
 			client: mgr.GetClient(),
 			log:    ctrl.Log.WithName("clusterclaim-controller"),
 		})
