@@ -62,11 +62,6 @@ require (
 )
 
 require (
-	github.com/jackc/pgconn v1.12.1 // indirect
-	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
-)
-
-require (
 	cloud.google.com/go v0.110.0 // indirect
 	cloud.google.com/go/bigquery v1.50.0 // indirect
 	cloud.google.com/go/compute v1.19.0 // indirect
@@ -146,6 +141,7 @@ require (
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
+	github.com/jackc/pgconn v1.12.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.0 // indirect
@@ -249,10 +245,12 @@ require (
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
+	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
 replace (
+	github.com/cloudevents/sdk-go => github.com/yanmxa/cloudevents-sdk-go v0.0.0-20231219014825-195a55e2d6b9
 	k8s.io/api => k8s.io/api v0.26.7
 	k8s.io/apiserver => k8s.io/apiserver v0.26.7
 	k8s.io/client-go => k8s.io/client-go v0.26.7
