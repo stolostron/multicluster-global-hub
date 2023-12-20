@@ -139,9 +139,9 @@ func TestStrimziTransporter(t *testing.T) {
 
 	// topic
 	clusterTopic := trans.GenerateClusterTopic(clusterName)
-	assert.Equal(t, "globalhub.spec", clusterTopic.SpecTopic)
+	assert.Equal(t, "spec", clusterTopic.SpecTopic)
 	assert.Equal(t, "event", clusterTopic.EventTopic)
-	assert.Equal(t, fmt.Sprintf("globalhub.status.%s", clusterName), clusterTopic.StatusTopic)
+	assert.Equal(t, fmt.Sprintf(StatusTopicTemplate, clusterName), clusterTopic.StatusTopic)
 
 	err = trans.CreateTopic(clusterTopic)
 	assert.Nil(t, err)

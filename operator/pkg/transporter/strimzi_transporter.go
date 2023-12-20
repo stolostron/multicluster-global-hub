@@ -52,8 +52,6 @@ const (
 	// topic names
 	StatusTopicTemplate    = "globalhub.status.%s"
 	GlobalRegexStatusTopic = "^globalhub.status.*"
-
-	GlobalSpecTopic = "globalhub.spec"
 )
 
 var (
@@ -227,7 +225,6 @@ func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *trans
 		EventTopic:  "event",
 	}
 	if k.multiTopic {
-		topic.SpecTopic = GlobalSpecTopic
 		topic.StatusTopic = fmt.Sprintf(StatusTopicTemplate, clusterIdentity)
 		if len(clusterIdentity) == 0 {
 			topic.StatusTopic = GlobalRegexStatusTopic
