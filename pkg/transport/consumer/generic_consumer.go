@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Shopify/sarama"
-	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
 	ceprotocol "github.com/cloudevents/sdk-go/v2/protocol"
@@ -18,6 +16,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
 type GenericConsumer struct {
@@ -30,20 +29,11 @@ type GenericConsumer struct {
 func NewGenericConsumer(transportConfig *transport.TransportConfig) (*GenericConsumer, error) {
 	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", transportConfig.TransportType))
 	var receiver interface{}
+	var err error
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
 		log.Info("transport consumer with cloudevents-kafka receiver")
-		saramaConfig, err := config.GetSaramaConfig(transportConfig.KafkaConfig)
-		if err != nil {
-			return nil, err
-		}
-		// if set this to false, it will consume message from beginning when restart the client
-		saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
-		saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
-		// set the consumer groupId = clientId
-		receiver, err = kafka_sarama.NewConsumer([]string{transportConfig.KafkaConfig.BootstrapServer}, saramaConfig,
-			transportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
-			transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic)
+		receiver, err = getConfluentReceiverProtocol(transportConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -103,4 +93,28 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 func (c *GenericConsumer) MessageChan() chan *transport.Message {
 	return c.messageChan
+}
+
+// func getSaramaReceiverProtocol(transportConfig *transport.TransportConfig) (interface{}, error) {
+// 	saramaConfig, err := config.GetSaramaConfig(transportConfig.KafkaConfig)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	// if set this to false, it will consume message from beginning when restart the client
+// 	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
+// 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
+// 	// set the consumer groupId = clientId
+// 	return kafka_sarama.NewConsumer([]string{transportConfig.KafkaConfig.BootstrapServer}, saramaConfig,
+// 		transportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
+// 		transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic)
+// }
+
+func getConfluentReceiverProtocol(transportConfig *transport.TransportConfig) (interface{}, error) {
+	configMap, err := config.GetConfluentConfigMap(transportConfig.KafkaConfig, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
+		kafka_confluent.WithReceiverTopics([]string{transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic}))
 }

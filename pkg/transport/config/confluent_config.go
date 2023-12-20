@@ -18,8 +18,9 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*
 		_ = kafkaConfigMap.SetKey("acks", "1")
 		_ = kafkaConfigMap.SetKey("retries", "0")
 	} else {
-		_ = kafkaConfigMap.SetKey("enable.auto.commit", "false")
+		_ = kafkaConfigMap.SetKey("enable.auto.commit", "true")
 		_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
+		_ = kafkaConfigMap.SetKey("group.id", kafkaConfig.ConsumerConfig.ConsumerID)
 	}
 
 	if kafkaConfig.EnableTLS && utils.Validate(kafkaConfig.CaCertPath) {

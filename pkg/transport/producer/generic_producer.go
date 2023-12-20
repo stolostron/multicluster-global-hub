@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
 const (
@@ -33,23 +33,18 @@ type GenericProducer struct {
 
 func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.Producer, error) {
 	var sender interface{}
+	var err error
 	messageSize := DefaultMessageKBSize * 1000
+	if transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > 0 {
+		messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
+	}
 
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
-		saramaConfig, err := config.GetSaramaConfig(transportConfig.KafkaConfig)
+		sender, err = getConfluentSenderProtocol(transportConfig)
 		if err != nil {
 			return nil, err
 		}
-		// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
-		saramaConfig.Producer.MaxMessageBytes = MaxMessageKBLimit * 1000
-		saramaConfig.Producer.Return.Successes = true
-		sender, err = kafka_sarama.NewSender([]string{transportConfig.KafkaConfig.BootstrapServer},
-			saramaConfig, transportConfig.KafkaConfig.ProducerConfig.ProducerTopic)
-		if err != nil {
-			return nil, err
-		}
-		messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
 	case string(transport.Chan): // this go chan protocol is only use for test
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
@@ -93,8 +88,7 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 		if err := event.SetData(cloudevents.ApplicationJSON, chunk); err != nil {
 			return fmt.Errorf("failed to set cloudevents data: %v", msg)
 		}
-		if result := p.client.Send(kafka_sarama.WithMessageKey(ctx, sarama.StringEncoder(event.ID())),
-			event); cloudevents.IsUndelivered(result) {
+		if result := p.client.Send(kafka_confluent.WithMessageKey(ctx, msg.ID), event); cloudevents.IsUndelivered(result) {
 			return fmt.Errorf("failed to send generic message to transport: %s", result.Error())
 		}
 
@@ -114,4 +108,29 @@ func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 		chunks = append(chunks, payload)
 	}
 	return chunks
+}
+
+func getSaramaSenderProtocol(transportConfig *transport.TransportConfig) (interface{}, error) {
+	saramaConfig, err := config.GetSaramaConfig(transportConfig.KafkaConfig)
+	if err != nil {
+		return nil, err
+	}
+	// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
+	saramaConfig.Producer.MaxMessageBytes = MaxMessageKBLimit * 1000
+	saramaConfig.Producer.Return.Successes = true
+	sender, err := kafka_sarama.NewSender([]string{transportConfig.KafkaConfig.BootstrapServer},
+		saramaConfig, transportConfig.KafkaConfig.ProducerConfig.ProducerTopic)
+	if err != nil {
+		return nil, err
+	}
+	return sender, nil
+}
+
+func getConfluentSenderProtocol(transportConfig *transport.TransportConfig) (interface{}, error) {
+	configMap, err := config.GetConfluentConfigMap(transportConfig.KafkaConfig, true)
+	if err != nil {
+		return nil, err
+	}
+	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
+		kafka_confluent.WithSenderTopic(transportConfig.KafkaConfig.ProducerConfig.ProducerTopic))
 }

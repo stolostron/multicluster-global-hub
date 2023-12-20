@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get kafka config map: %v", err)
 	}
-	_ = kafkaConfigMap.SetKey("client.id", consumerId)
+	// _ = kafkaConfigMap.SetKey("client.id", consumerId)
 	_ = kafkaConfigMap.SetKey("group.id", consumerId)
 	_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
 	_ = kafkaConfigMap.SetKey("enable.auto.commit", "true")

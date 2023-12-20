@@ -125,6 +125,9 @@ func GetConfluentConfigMapByKafkaUser(isProducer bool) (*kafka.ConfigMap, error)
 		CaCertPath:      caCrtPath,
 		ClientCertPath:  clientCrtPath,
 		ClientKeyPath:   clientKeyPath,
+		ConsumerConfig: &transport.KafkaConsumerConfig{
+			ConsumerID: KAFkA_USER,
+		},
 	}
 	configMap, err := config.GetConfluentConfigMap(kafkaConfig, isProducer)
 	if err != nil {

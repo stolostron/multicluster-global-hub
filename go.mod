@@ -250,7 +250,6 @@ require (
 )
 
 replace (
-	github.com/cloudevents/sdk-go => github.com/yanmxa/cloudevents-sdk-go v0.0.0-20231219014825-195a55e2d6b9
 	k8s.io/api => k8s.io/api v0.26.7
 	k8s.io/apiserver => k8s.io/apiserver v0.26.7
 	k8s.io/client-go => k8s.io/client-go v0.26.7

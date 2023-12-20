@@ -50,10 +50,10 @@ const (
 	DefaultGlobalHubKafkaUser = "global-hub-kafka-user"
 
 	// topic names
-	GlobalHubTopicIdentity = "*"
-	SpecTopicTemplate      = "GlobalHub.Spec.%s"
-	StatusTopicTemplate    = "GlobalHub.Status.%s"
-	EventTopicTemplate     = "GlobalHub.Event.%s"
+	StatusTopicTemplate    = "globalhub.status.%s"
+	GlobalRegexStatusTopic = "^globalhub.status.*"
+
+	GlobalSpecTopic = "globalhub.spec"
 )
 
 var (
@@ -83,8 +83,9 @@ type strimziTransporter struct {
 	runtimeClient client.Client
 
 	// wait until kafka cluster status is ready when initialize
-	waitReady bool
-	enableTLS bool
+	waitReady  bool
+	enableTLS  bool
+	multiTopic bool
 }
 
 type KafkaOption func(*strimziTransporter)
@@ -104,8 +105,9 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 		subPackageName:       DefaultAMQPackageName,
 		subCatalogSourceName: DefaultCatalogSourceName,
 
-		waitReady: true,
-		enableTLS: true,
+		waitReady:  true,
+		enableTLS:  true,
+		multiTopic: true,
 
 		runtimeClient: c,
 		mgh:           mgh,
@@ -219,17 +221,20 @@ func (k *strimziTransporter) DeleteUser(topicName string) error {
 }
 
 func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *transport.ClusterTopic {
-	// return &transport.ClusterTopic{
-	// 	SpecTopic:   fmt.Sprintf(SpecTopicTemplate, clusterIdentity),
-	// 	StatusTopic: fmt.Sprintf(StatusTopicTemplate, clusterIdentity),
-	// 	EventTopic:  fmt.Sprintf(EventTopicTemplate, clusterIdentity),
-	// }
-	// need the feature from https://github.com/cloudevents/sdk-go/pull/988 to support multiple topics
-	return &transport.ClusterTopic{
+	topic := &transport.ClusterTopic{
 		SpecTopic:   "spec",
 		StatusTopic: "status",
 		EventTopic:  "event",
 	}
+	if k.multiTopic {
+		topic.SpecTopic = GlobalSpecTopic
+		topic.StatusTopic = fmt.Sprintf(StatusTopicTemplate, clusterIdentity)
+		if len(clusterIdentity) == 0 {
+			topic.StatusTopic = GlobalRegexStatusTopic
+		}
+	}
+
+	return topic
 }
 
 func (k *strimziTransporter) CreateTopic(topic *transport.ClusterTopic) error {
