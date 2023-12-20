@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Red Hat, Inc.
+// Copyright (c) 2023 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
 package controllers
