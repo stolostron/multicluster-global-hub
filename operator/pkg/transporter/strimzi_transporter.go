@@ -313,6 +313,13 @@ func (k *strimziTransporter) GetConnCredential(username string) (*transport.Conn
 }
 
 func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
+	replicas := DefaultReplicas
+	// if tls is not enabled(that means its the dev environment), the replicas must be 1
+	// of it may occur such error 'Replication factor: 2 larger than available brokers: 1.'
+	if !k.enableTLS {
+		replicas = 1
+	}
+
 	return &kafkav1beta2.KafkaTopic{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      topicName,
@@ -325,7 +332,7 @@ func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.Kafka
 		},
 		Spec: &kafkav1beta2.KafkaTopicSpec{
 			Partitions: &DefaultPartition,
-			Replicas:   &DefaultReplicas,
+			Replicas:   &replicas,
 			Config: &apiextensions.JSON{Raw: []byte(`{
 				"cleanup.policy": "compact"
 			}`)},
