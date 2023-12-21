@@ -97,7 +97,8 @@ func completePostgres(postgresUri string, caCertPath string) (*url.URL, error) {
 	}
 	// only support verify-ca or disable(for test)
 	query := urlObj.Query()
-	if query.Get("sslmode") == "verify-ca" && utils.Validate(caCertPath) {
+	_, ok := utils.Validate(caCertPath)
+	if query.Get("sslmode") == "verify-ca" && ok {
 		query.Set("sslrootcert", caCertPath)
 	} else {
 		query.Add("sslmode", "disable")

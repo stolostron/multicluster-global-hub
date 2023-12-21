@@ -16,7 +16,8 @@ func GetSaramaConfig(kafkaConfig *transport.KafkaConfig) (*sarama.Config, error)
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Version = sarama.V2_0_0_0
 
-	if kafkaConfig.EnableTLS && utils.Validate(kafkaConfig.CaCertPath) {
+	_, validCa := utils.Validate(kafkaConfig.CaCertPath)
+	if kafkaConfig.EnableTLS && validCa {
 		var err error
 		saramaConfig.Net.TLS.Enable = true
 		saramaConfig.Net.TLS.Config, err = NewTLSConfig(kafkaConfig.ClientCertPath, kafkaConfig.ClientKeyPath,
@@ -33,7 +34,9 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 	tlsConfig := tls.Config{}
 
 	// Load client cert
-	if utils.Validate(clientCertFile) && utils.Validate(clientKeyFile) {
+	_, validCert := utils.Validate(clientCertFile)
+	_, validKey := utils.Validate(clientKeyFile)
+	if validCert && validKey {
 		cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 		if err != nil {
 			return &tlsConfig, err
