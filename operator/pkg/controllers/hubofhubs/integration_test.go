@@ -54,11 +54,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
@@ -70,7 +70,7 @@ var testFS embed.FS
 
 var guestPostgresSecret = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: commonutils.GetDefaultNamespace(),
 		Name:      postgres.PostgresGuestUserSecretName,
 	},
 	Data: map[string][]byte{
@@ -80,7 +80,7 @@ var guestPostgresSecret = &corev1.Secret{
 
 var superuserPostgresSecret = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: commonutils.GetDefaultNamespace(),
 		Name:      postgres.PostgresSuperUserSecretName,
 	},
 	Data: map[string][]byte{
@@ -90,7 +90,7 @@ var superuserPostgresSecret = &corev1.Secret{
 
 var postgresCertSecret = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: commonutils.GetDefaultNamespace(),
 		Name:      postgres.PostgresCertName,
 	},
 	Data: map[string][]byte{
@@ -116,7 +116,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		storageSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      StorageSecretName,
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: commonutils.GetDefaultNamespace(),
 			},
 			Data: map[string][]byte{
 				"database_uri":                   []byte(testPostgres.URI),
@@ -128,7 +128,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		Expect(k8sClient.Create(ctx, storageSecret)).Should(Succeed())
 
 		By("create the transport secret for secretTransport")
-		kafka.MockTransportSecret(k8sClient, config.GetDefaultNamespace())
+		kafka.MockTransportSecret(k8sClient, commonutils.GetDefaultNamespace())
 	})
 
 	Context("When create MGH instance with invalid large scale data layer type", func() {
@@ -139,14 +139,14 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 				},
 				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 			}
 			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
 			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
-			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
+			mghLookupKey := types.NamespacedName{Namespace: commonutils.GetDefaultNamespace(), Name: MGHName}
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 
 			// get this newly created MGH instance, given that creation may not immediately happen.
@@ -173,7 +173,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 					Annotations: map[string]string{
 						operatorconstants.AnnotationImageOverridesCM: "noexisting-cm",
 					},
@@ -185,7 +185,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
 			// after creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
-			mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
+			mghLookupKey := types.NamespacedName{Namespace: commonutils.GetDefaultNamespace(), Name: MGHName}
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 
 			// get this newly created MGH instance, given that creation may not immediately happen.
@@ -221,7 +221,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      MGHName,
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: commonutils.GetDefaultNamespace(),
 			},
 			Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
 				DataLayer: globalhubv1alpha4.DataLayerConfig{
@@ -249,7 +249,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mch := &mchv1.MultiClusterHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "multiclusterhub",
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 				},
 				Spec: mchv1.MultiClusterHubSpec{
 					Overrides: &mchv1.Overrides{
@@ -269,7 +269,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(k8sClient.Create(ctx, mch)).Should(Succeed())
 
 			By("By creating a new MGH instance")
-			mgh.SetNamespace(config.GetDefaultNamespace())
+			mgh.SetNamespace(commonutils.GetDefaultNamespace())
 			Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
@@ -352,7 +352,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					KafkaEventTopic:        transportTopic.EventTopic,
 					MessageCompressionType: string(operatorconstants.GzipCompressType),
 					TransportType:          string(transport.Kafka),
-					Namespace:              config.GetDefaultNamespace(),
+					Namespace:              commonutils.GetDefaultNamespace(),
 					LeaseDuration:          "137",
 					RenewDeadline:          "107",
 					RetryPeriod:            "26",
@@ -406,7 +406,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Tolerations          []corev1.Toleration
 					LogLevel             string
 				}{
-					Namespace:            config.GetDefaultNamespace(),
+					Namespace:            commonutils.GetDefaultNamespace(),
 					Replicas:             2,
 					SessionSecret:        "testing",
 					ProxyImage:           config.GetImage(config.OauthProxyImageKey),
@@ -546,7 +546,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			localCluster := &clusterv1.ManagedCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      operatorconstants.LocalClusterName,
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 				},
 			}
 			Expect(k8sClient.Create(ctx, localCluster)).Should(Succeed())
@@ -555,7 +555,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mh1 := &clusterv1.ManagedCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mh1",
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 				},
 			}
 			Expect(k8sClient.Create(ctx, mh1)).Should(Succeed())
@@ -564,7 +564,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mh2 := &clusterv1.ManagedCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mh2",
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 					Annotations: map[string]string{
 						"foo": "bar",
 						operatorconstants.AnnotationONMulticlusterHub: "false",
@@ -598,7 +598,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(mgh), createdMGH)).Should(Succeed())
 			secretTrasnporter := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
-				Name: constants.GHTransportSecretName, Namespace: config.GetDefaultNamespace(),
+				Name: constants.GHTransportSecretName, Namespace: commonutils.GetDefaultNamespace(),
 			}, mghReconciler.Client)
 
 			kafkaConnection, err := secretTrasnporter.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
@@ -609,13 +609,13 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(k8sClient.Delete(ctx, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      TransportSecretName,
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 				},
 			})).Should(Succeed())
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      TransportSecretName,
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 				}, &corev1.Secret{}); err != nil {
 					if errors.IsNotFound(err) {
 						return nil
@@ -626,7 +626,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 			Eventually(func() error {
 				secretTrasnport := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
-					Name: constants.GHTransportSecretName, Namespace: config.GetDefaultNamespace(),
+					Name: constants.GHTransportSecretName, Namespace: commonutils.GetDefaultNamespace(),
 				}, mghReconciler.Client)
 
 				_, err := secretTrasnport.GetConnCredential("")
@@ -642,7 +642,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			testPlacement := &clusterv1beta1.Placement{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-placement-1",
-					Namespace:  config.GetDefaultNamespace(),
+					Namespace:  commonutils.GetDefaultNamespace(),
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: clusterv1beta1.PlacementSpec{},
@@ -653,7 +653,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			testApplication := &applicationv1beta1.Application{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-application-1",
-					Namespace:  config.GetDefaultNamespace(),
+					Namespace:  commonutils.GetDefaultNamespace(),
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: applicationv1beta1.ApplicationSpec{
@@ -668,7 +668,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			testPolicy := &policyv1.Policy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-policy-1",
-					Namespace:  config.GetDefaultNamespace(),
+					Namespace:  commonutils.GetDefaultNamespace(),
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: policyv1.PolicySpec{
@@ -682,7 +682,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			testPlacementrule := &placementrulesv1.PlacementRule{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-placementrule-1",
-					Namespace:  config.GetDefaultNamespace(),
+					Namespace:  commonutils.GetDefaultNamespace(),
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: placementrulesv1.PlacementRuleSpec{
@@ -695,7 +695,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			testManagedClusterSetBinding := &clusterv1beta2.ManagedClusterSetBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-managedclustersetbinding-1",
-					Namespace:  config.GetDefaultNamespace(),
+					Namespace:  commonutils.GetDefaultNamespace(),
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: clusterv1beta2.ManagedClusterSetBindingSpec{
@@ -709,12 +709,12 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			testChannel := &chnv1.Channel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-channel-1",
-					Namespace:  config.GetDefaultNamespace(),
+					Namespace:  commonutils.GetDefaultNamespace(),
 					Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 				},
 				Spec: chnv1.ChannelSpec{
 					Type:               chnv1.ChannelTypeGit,
-					Pathname:           config.GetDefaultNamespace(),
+					Pathname:           commonutils.GetDefaultNamespace(),
 					InsecureSkipVerify: true,
 				},
 			}
@@ -899,7 +899,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			mcgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MGHName,
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 					Annotations: map[string]string{
 						operatorconstants.AnnotationMGHInstallCrunchyOperator: "true",
 					},
@@ -938,7 +938,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      StorageSecretName,
-					Namespace: config.GetDefaultNamespace(),
+					Namespace: commonutils.GetDefaultNamespace(),
 				}, &corev1.Secret{}); err != nil {
 					if errors.IsNotFound(err) {
 						return nil

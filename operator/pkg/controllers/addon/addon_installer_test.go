@@ -27,8 +27,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 )
 
 var kubeCfg *rest.Config

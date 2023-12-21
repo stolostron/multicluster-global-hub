@@ -15,13 +15,13 @@ import (
 	"k8s.io/utils/pointer"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func Test_mergeAlertConfigMap(t *testing.T) {
-	configNamespace := config.GetDefaultNamespace()
+	configNamespace := utils.GetDefaultNamespace()
 
 	tests := []struct {
 		name                  string
@@ -126,7 +126,7 @@ policies:
 }
 
 func Test_generateAlertConfigMap(t *testing.T) {
-	configNamespace := config.GetDefaultNamespace()
+	configNamespace := utils.GetDefaultNamespace()
 
 	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
@@ -328,7 +328,7 @@ policies:
 			if err != nil {
 				t.Errorf("Failed to get merged configmap. Err:%v", err)
 			}
-			equal, err := utils.IsAlertGPCcountEqual([]byte(existConfigMap.Data[alertConfigMapKey]), []byte(tt.wantConfigMap.Data[alertConfigMapKey]))
+			equal, err := operatorutils.IsAlertGPCcountEqual([]byte(existConfigMap.Data[alertConfigMapKey]), []byte(tt.wantConfigMap.Data[alertConfigMapKey]))
 			if err != nil || !equal {
 				t.Errorf("len(existConfigMap.Data[alertConfigMapKey]):%v, len(tt.wantConfigMap.Data[alertConfigMapKey]):%v", len(existConfigMap.Data[alertConfigMapKey]), len(tt.wantConfigMap.Data[alertConfigMapKey]))
 			}
@@ -338,7 +338,7 @@ policies:
 
 func TestRestartGrafanaPod(t *testing.T) {
 	ctx := context.Background()
-	configNamespace := config.GetDefaultNamespace()
+	configNamespace := utils.GetDefaultNamespace()
 
 	tests := []struct {
 		name        string
@@ -377,7 +377,7 @@ func TestRestartGrafanaPod(t *testing.T) {
 }
 
 func Test_generateGranafaIni(t *testing.T) {
-	configNamespace := config.GetDefaultNamespace()
+	configNamespace := utils.GetDefaultNamespace()
 	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",

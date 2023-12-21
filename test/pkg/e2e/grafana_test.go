@@ -13,9 +13,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -304,7 +304,7 @@ var _ = Describe("The grafana resources counts should be right", Ordered, Label(
 
 // getGrafanaResource return the resource number and error
 func getGrafanaResource(ctx context.Context, path string) (int, error) {
-	configNamespace := config.GetDefaultNamespace()
+	configNamespace := commonutils.GetDefaultNamespace()
 
 	labelSelector := fmt.Sprintf("name=%s", grafanaDeploymentName)
 

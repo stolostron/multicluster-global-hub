@@ -21,9 +21,9 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -109,7 +109,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			KafkaConsumerTopic:     transportTopic.StatusTopic,
 			KafkaProducerTopic:     transportTopic.SpecTopic,
 			KafkaEventTopic:        transportTopic.EventTopic,
-			Namespace:              config.GetDefaultNamespace(),
+			Namespace:              commonutils.GetDefaultNamespace(),
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
 			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),

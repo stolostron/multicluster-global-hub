@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -146,7 +146,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Check whether multiclusterglobalhub is exists")
 		mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 		err := runtimeClient.Get(ctx, types.NamespacedName{
-			Namespace: config.GetDefaultNamespace(),
+			Namespace: utils.GetDefaultNamespace(),
 			Name:      "multiclusterglobalhub",
 		}, mgh)
 		Expect(err).NotTo(HaveOccurred())
@@ -158,7 +158,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Check whether multiclusterglobalhub is deleted")
 		Eventually(func() error {
 			err = runtimeClient.Get(ctx, types.NamespacedName{
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 				Name:      "multiclusterglobalhub",
 			}, mgh)
 			if errors.IsNotFound(err) {

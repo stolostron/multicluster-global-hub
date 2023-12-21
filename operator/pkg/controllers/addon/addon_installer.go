@@ -26,9 +26,9 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
 )
 
 type HoHAddonInstaller struct {

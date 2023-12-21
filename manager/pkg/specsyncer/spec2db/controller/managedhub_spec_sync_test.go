@@ -15,8 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("managed hub controller", Ordered, func() {
@@ -24,7 +24,7 @@ var _ = Describe("managed hub controller", Ordered, func() {
 		managedHub := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "managedhub-1",
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 				Labels: map[string]string{
 					"vendor": "OpenShift",
 				},

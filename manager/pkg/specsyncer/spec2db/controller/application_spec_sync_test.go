@@ -9,8 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("application to database controller", func() {
@@ -42,7 +42,7 @@ var _ = Describe("application to database controller", func() {
 		instance := &appv1beta1.Application{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "app1",
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 				Labels:    map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 			},
 			Spec: appv1beta1.ApplicationSpec{},

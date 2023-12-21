@@ -19,8 +19,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -38,13 +39,13 @@ type postgresCredential struct {
 }
 
 var partialPostgresURI = "@multicluster-global-hub-postgres." +
-	config.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=verify-ca"
+	utils.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=verify-ca"
 
 // EnsureCrunchyPostgresSubscription verifies resources needed for Crunchy Postgres are created
 func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgresSubscription(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
-	postgresSub, err := utils.GetSubscriptionByName(ctx, r.Client, postgres.SubscriptionName)
+	postgresSub, err := operatorutils.GetSubscriptionByName(ctx, r.Client, postgres.SubscriptionName)
 	if err != nil {
 		return err
 	}
@@ -58,12 +59,12 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgresSubscription(ctx 
 	createSub := false
 	if postgresSub == nil {
 		// Sub is nil so create a new one
-		postgresSub = postgres.NewSubscription(mgh, subConfig, utils.IsCommunityMode())
+		postgresSub = postgres.NewSubscription(mgh, subConfig, operatorutils.IsCommunityMode())
 		createSub = true
 	}
 
 	// Apply Crunchy Postgres sub
-	calcSub := postgres.RenderSubscription(postgresSub, subConfig, utils.IsCommunityMode())
+	calcSub := postgres.RenderSubscription(postgresSub, subConfig, operatorutils.IsCommunityMode())
 	if createSub {
 		err = r.Client.Create(ctx, calcSub)
 	} else {
@@ -83,10 +84,10 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgres(ctx context.Cont
 	postgresCluster := &postgresv1beta1.PostgresCluster{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      postgres.PostgresName,
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: utils.GetDefaultNamespace(),
 	}, postgresCluster)
 	if err != nil && errors.IsNotFound(err) {
-		return r.Client.Create(ctx, postgres.NewPostgres(postgres.PostgresName, config.GetDefaultNamespace()))
+		return r.Client.Create(ctx, postgres.NewPostgres(postgres.PostgresName, utils.GetDefaultNamespace()))
 	}
 	return err
 }
@@ -99,7 +100,7 @@ func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Conte
 	guestPostgresSecret := &corev1.Secret{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      postgres.PostgresGuestUserSecretName,
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: utils.GetDefaultNamespace(),
 	}, guestPostgresSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -111,7 +112,7 @@ func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Conte
 	superuserPostgresSecret := &corev1.Secret{}
 	err = r.Client.Get(ctx, types.NamespacedName{
 		Name:      postgres.PostgresSuperUserSecretName,
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: utils.GetDefaultNamespace(),
 	}, superuserPostgresSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -123,7 +124,7 @@ func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Conte
 	postgresCertName := &corev1.Secret{}
 	err = r.Client.Get(ctx, types.NamespacedName{
 		Name:      postgres.PostgresCertName,
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: utils.GetDefaultNamespace(),
 	}, postgresCertName)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -146,7 +147,7 @@ func (r *MulticlusterGlobalHubReconciler) GeneratePGConnectionFromGHStorageSecre
 	pgSecret := &corev1.Secret{}
 	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      constants.GHStorageSecretName,
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: utils.GetDefaultNamespace(),
 	}, pgSecret)
 	if err != nil {
 		return nil, err

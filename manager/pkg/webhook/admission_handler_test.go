@@ -18,8 +18,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("Multicluster hub manager webhook", func() {
@@ -60,7 +60,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			testPlacement := &clusterv1beta1.Placement{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placement-",
-					Namespace:    config.GetDefaultNamespace(),
+					Namespace:    utils.GetDefaultNamespace(),
 					Labels:       map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				},
 				Spec: clusterv1beta1.PlacementSpec{},
@@ -82,7 +82,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			testPlacement := &clusterv1beta1.Placement{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placement-",
-					Namespace:    config.GetDefaultNamespace(),
+					Namespace:    utils.GetDefaultNamespace(),
 				},
 				Spec: clusterv1beta1.PlacementSpec{},
 			}
@@ -103,7 +103,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			testPlacementRule := &placementrulesv1.PlacementRule{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placementrule-",
-					Namespace:    config.GetDefaultNamespace(),
+					Namespace:    utils.GetDefaultNamespace(),
 					Labels:       map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 				},
 				Spec: placementrulesv1.PlacementRuleSpec{},
@@ -125,7 +125,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			testPlacementRule := &placementrulesv1.PlacementRule{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placementrule-",
-					Namespace:    config.GetDefaultNamespace(),
+					Namespace:    utils.GetDefaultNamespace(),
 					Labels:       map[string]string{},
 				},
 				Spec: placementrulesv1.PlacementRuleSpec{},
