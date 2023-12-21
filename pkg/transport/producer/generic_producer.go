@@ -35,12 +35,12 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.P
 	var sender interface{}
 	var err error
 	messageSize := DefaultMessageKBSize * 1000
-	if transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > 0 {
-		messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
-	}
 
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
+		if transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > 0 {
+			messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
+		}
 		sender, err = getConfluentSenderProtocol(transportConfig)
 		if err != nil {
 			return nil, err
