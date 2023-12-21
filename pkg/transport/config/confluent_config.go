@@ -17,7 +17,7 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*
 		"bootstrap.servers":       kafkaConfig.BootstrapServer,
 		"socket.keepalive.enable": "true",
 		// silence spontaneous disconnection logs, kafka recovers by itself.
-		"log.connection.close": "true",
+		"log.connection.close": "false",
 	}
 	if producer {
 		_ = kafkaConfigMap.SetKey("acks", "1")
