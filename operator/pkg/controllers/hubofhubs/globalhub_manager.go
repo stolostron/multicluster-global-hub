@@ -22,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -124,6 +125,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			StatisticLogInterval:   config.GetStatisticLogInterval(),
 			EnableGlobalResource:   r.EnableGlobalResource,
 			LogLevel:               r.LogLevel,
+			Resources:              utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
 		}, nil
 	})
 	if err != nil {
@@ -206,4 +208,5 @@ type ManagerVariables struct {
 	StatisticLogInterval   string
 	EnableGlobalResource   bool
 	LogLevel               string
+	Resources              *corev1.ResourceRequirements
 }

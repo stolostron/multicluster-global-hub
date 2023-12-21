@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -29,6 +31,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
 var (
@@ -353,5 +356,33 @@ func TestWaitGlobalHubReady(t *testing.T) {
 				t.Errorf("name:%v, expect returned:%v, actual returned: %v", tt.name, tt.returned, returned)
 			}
 		})
+	}
+}
+
+func Test_GetResources(t *testing.T) {
+	res := GetResources(constants.Kafka, &globalhubv1alpha4.AdvancedConfig{
+		Kafka: &globalhubv1alpha4.CommonSpec{
+			Resources: &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceCPU): resource.MustParse("100m"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceMemory): resource.MustParse("100Mi"),
+				},
+			},
+		},
+	})
+
+	if res.Limits.Cpu().String() != "100m" {
+		t.Errorf("expect cpu: 100m, actual cpu: %v", res.Limits.Cpu().String())
+	}
+	if res.Limits.Memory().String() != "4Gi" {
+		t.Errorf("expect memory: 4Gi, actual memory: %v", res.Limits.Memory().String())
+	}
+	if res.Requests.Memory().String() != "100Mi" {
+		t.Errorf("expect memory: 100Mi, actual memory: %v", res.Requests.Memory().String())
+	}
+	if res.Requests.Cpu().String() != "25m" {
+		t.Errorf("expect cpu: 25m, actual cpu: %v", res.Requests.Cpu().String())
 	}
 }

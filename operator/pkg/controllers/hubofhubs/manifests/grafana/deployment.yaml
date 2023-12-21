@@ -54,13 +54,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        resources:
-          limits:
-            cpu: 500m
-            memory: 1Gi
-          requests:
-            cpu: 4m
-            memory: 100Mi
+        resources: {{.Resources}}
         volumeMounts:
         - mountPath: /var/lib/grafana
           name: grafana-storage

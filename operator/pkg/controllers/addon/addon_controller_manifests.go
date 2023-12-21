@@ -21,6 +21,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -66,6 +67,7 @@ type ManifestsConfig struct {
 	AgentQPS               float32
 	AgentBurst             int
 	LogLevel               string
+	Resources              *corev1.ResourceRequirements
 }
 
 type HohAgentAddon struct {
@@ -201,6 +203,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		AgentQPS:               agentQPS,
 		AgentBurst:             agentBurst,
 		LogLevel:               a.LogLevel,
+		Resources:              utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig),
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {

@@ -24,6 +24,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -111,6 +112,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			DatasourceSecretName string
 			NodeSelector         map[string]string
 			Tolerations          []corev1.Toleration
+			Resources            *corev1.ResourceRequirements
 		}{
 			Namespace:            utils.GetDefaultNamespace(),
 			Replicas:             replicas,
@@ -122,6 +124,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			DatasourceSecretName: datasourceName,
 			NodeSelector:         mgh.Spec.NodeSelector,
 			Tolerations:          mgh.Spec.Tolerations,
+			Resources:            operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
 		}, nil
 	})
 	if err != nil {
@@ -449,7 +452,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
 	if r.MiddlewareConfig == nil || r.MiddlewareConfig.StorageConn == nil {
-		return false, fmt.Errorf("Middleware PgConnection config is null")
+		return false, fmt.Errorf("middleware PgConnection config is null")
 	}
 	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI,
 		r.MiddlewareConfig.StorageConn.CACert)

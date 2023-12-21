@@ -50,12 +50,7 @@ spec:
             - /usr/libexec/check-container
           initialDelaySeconds: 5
           timeoutSeconds: 1
-        resources:
-          limits:
-            memory: 4Gi
-          requests:
-            cpu: 25m
-            memory: 128Mi
+        resources: {{.Resources}}
         volumeMounts:
         - mountPath: /var/lib/pgsql/data
           name: postgresdb
