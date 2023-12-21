@@ -45,9 +45,7 @@ const (
 	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
 )
 
-var (
-	setupLog = ctrl.Log.WithName("setup")
-)
+var setupLog = ctrl.Log.WithName("setup")
 
 func init() {
 	agentscheme.AddToScheme(scheme.Scheme)
@@ -72,7 +70,6 @@ func main() {
 }
 
 func doTermination(ctx context.Context, restConfig *rest.Config) int {
-
 	client, err := client.New(restConfig, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "failed to int controller runtime client")

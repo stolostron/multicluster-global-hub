@@ -174,7 +174,7 @@ func (p *Protocol) OpenInbound(ctx context.Context) error {
 				// will try to automatically recover.
 				logger.Warnf("Consumer get a kafka error %v: %v\n", e.Code(), e)
 			default:
-				logger.Infof("Ignored %v\n", e)
+				// logger.Infof("Ignored %v\n", e)
 			}
 		}
 	}
