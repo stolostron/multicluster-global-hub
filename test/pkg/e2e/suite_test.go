@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
@@ -166,12 +166,12 @@ func deployGlobalHub() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Creating namespace for the multicluster global hub")
-	_, err = testClients.KubeClient().CoreV1().Namespaces().Get(context.Background(), config.GetDefaultNamespace(),
-		metav1.GetOptions{})
+	_, err = testClients.KubeClient().CoreV1().Namespaces().Get(context.Background(),
+		commonutils.GetDefaultNamespace(), metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: config.GetDefaultNamespace(),
+				Name: commonutils.GetDefaultNamespace(),
 			},
 		}, metav1.CreateOptions{})
 	}

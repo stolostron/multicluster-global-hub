@@ -10,8 +10,8 @@ import (
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("subscriptions to database controller", func() {
@@ -43,7 +43,7 @@ var _ = Describe("subscriptions to database controller", func() {
 		filteredSubscription := &appsubv1.Subscription{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "sub1",
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 				Labels: map[string]string{
 					constants.GlobalHubGlobalResourceLabel: "",
 				},
@@ -60,7 +60,7 @@ var _ = Describe("subscriptions to database controller", func() {
 		expectedSubscription := &appsubv1.Subscription{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "sub2",
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 				Labels: map[string]string{
 					constants.GlobalHubGlobalResourceLabel: "",
 				},

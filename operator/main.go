@@ -31,6 +31,7 @@ import (
 	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -72,7 +73,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	hubofhubsconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	backupcontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
@@ -159,7 +159,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		setupLog.Error(err, "New route client config error:")
 	}
 
-	controllerConfigMap, err := kubeClient.CoreV1().ConfigMaps(hubofhubsconfig.GetDefaultNamespace()).Get(
+	controllerConfigMap, err := kubeClient.CoreV1().ConfigMaps(utils.GetDefaultNamespace()).Get(
 		context.TODO(), operatorconstants.ControllerConfig, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -261,7 +261,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 
 func parseFlags() *operatorConfig {
 	config := &operatorConfig{
-		PodNamespace: hubofhubsconfig.GetDefaultNamespace(),
+		PodNamespace: utils.GetDefaultNamespace(),
 	}
 
 	// add zap flags
@@ -355,10 +355,10 @@ func getElectionConfig(configMap *corev1.ConfigMap) (*commonobjects.LeaderElecti
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		&corev1.Secret{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, hubofhubsconfig.GetDefaultNamespace()),
+			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
 		&corev1.ConfigMap{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, hubofhubsconfig.GetDefaultNamespace()),
+			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
 		&corev1.ServiceAccount{}: {
 			Label: labelSelector,
@@ -418,7 +418,7 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Label: kafkaLabelSelector,
 		},
 		&corev1.PersistentVolumeClaim{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, hubofhubsconfig.GetDefaultNamespace()),
+			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
 	}
 	return cache.New(config, cacheOpts)

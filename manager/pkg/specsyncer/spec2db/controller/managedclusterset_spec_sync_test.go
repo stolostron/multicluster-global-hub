@@ -13,8 +13,8 @@ import (
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("managedclusterset controller", Ordered, func() {
@@ -22,7 +22,7 @@ var _ = Describe("managedclusterset controller", Ordered, func() {
 		testManagedClusterSet := &clusterv1beta2.ManagedClusterSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-managedclusterset-1",
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 				Labels: map[string]string{
 					constants.GlobalHubGlobalResourceLabel: "",
 				},

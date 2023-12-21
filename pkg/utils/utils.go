@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	uberzap "go.uber.org/zap"
 	uberzapcore "go.uber.org/zap/zapcore"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -44,4 +45,13 @@ func Validate(filePath string) bool {
 	}
 	trimmedContent := strings.TrimSpace(string(content))
 	return len(trimmedContent) > 0
+}
+
+// GetDefaultNamespace returns default installation namespace
+func GetDefaultNamespace() string {
+	defaultNamespace, _ := os.LookupEnv("POD_NAMESPACE")
+	if defaultNamespace == "" {
+		defaultNamespace = constants.GHDefaultNamespace
+	}
+	return defaultNamespace
 }

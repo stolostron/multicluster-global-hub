@@ -21,14 +21,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -115,7 +114,7 @@ func initializeWebhookInEnvironment() {
 						ClientConfig: admissionv1.WebhookClientConfig{
 							Service: &admissionv1.ServiceReference{
 								Name:      "multicluster-global-hub-mutator",
-								Namespace: config.GetDefaultNamespace(),
+								Namespace: utils.GetDefaultNamespace(),
 								Path:      &webhookPathV1,
 							},
 						},

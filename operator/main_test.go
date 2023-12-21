@@ -21,8 +21,8 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
@@ -150,7 +150,7 @@ func TestOperator(t *testing.T) {
 		}, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      operatorconstants.ControllerConfig,
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 			},
 			Data: map[string]string{"leaseDuration": "138", "renewDeadline": "107", "retryPeriod": "26"},
 		}, 0},

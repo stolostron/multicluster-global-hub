@@ -26,8 +26,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
 	specctrl "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -118,7 +118,7 @@ var _ = BeforeSuite(func() {
 	multiclusterhub = &mchv1.MultiClusterHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "multiclusterhub",
-			Namespace: config.GetDefaultNamespace(),
+			Namespace: utils.GetDefaultNamespace(),
 		},
 		Spec: mchv1.MultiClusterHubSpec{},
 	}

@@ -55,10 +55,11 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
 
@@ -224,7 +225,7 @@ var mgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 func prepareBeforeTest() {
 	// create a MGH instance
 	By("By creating a new MGH instance")
-	mgh.SetNamespace(config.GetDefaultNamespace())
+	mgh.SetNamespace(utils.GetDefaultNamespace())
 	Expect(k8sClient.Create(ctx, mgh)).Should(Succeed())
 	config.SetMGHNamespacedName(types.NamespacedName{
 		Namespace: mgh.Namespace,
@@ -243,7 +244,7 @@ func prepareBeforeTest() {
 	Expect(err).ShouldNot(HaveOccurred())
 
 	// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
-	mghLookupKey := types.NamespacedName{Namespace: config.GetDefaultNamespace(), Name: MGHName}
+	mghLookupKey := types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: MGHName}
 	config.SetMGHNamespacedName(mghLookupKey)
 	createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 
@@ -264,7 +265,7 @@ func prepareBeforeTest() {
 	Expect(k8sClient.Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mgh.Spec.ImagePullSecret,
-			Namespace: config.GetDefaultNamespace(),
+			Namespace: utils.GetDefaultNamespace(),
 		},
 		Data: map[string][]byte{
 			".dockerconfigjson": []byte(`{"test":"global hub pull secret"}`),
@@ -288,7 +289,7 @@ func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderE
 		RetryPeriod:   26,
 	}
 
-	configMap, err := kubeClient.CoreV1().ConfigMaps(config.GetDefaultNamespace()).Get(
+	configMap, err := kubeClient.CoreV1().ConfigMaps(utils.GetDefaultNamespace()).Get(
 		context.TODO(), operatorconstants.ControllerConfig, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return cfg, nil

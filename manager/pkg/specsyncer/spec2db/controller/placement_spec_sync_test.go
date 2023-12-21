@@ -13,8 +13,8 @@ import (
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("placement controller", Ordered, func() {
@@ -22,7 +22,7 @@ var _ = Describe("placement controller", Ordered, func() {
 		testPlacement := &clusterv1beta1.Placement{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-placement-1",
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 				Annotations: map[string]string{
 					clusterv1beta1.PlacementDisableAnnotation: "true",
 				},

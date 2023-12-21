@@ -28,7 +28,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -73,15 +72,6 @@ var (
 	imagePullSecretName  = ""
 	transporter          transport.Transporter
 )
-
-// GetDefaultNamespace returns default installation namespace
-func GetDefaultNamespace() string {
-	defaultNamespace, _ := os.LookupEnv("POD_NAMESPACE")
-	if defaultNamespace == "" {
-		defaultNamespace = constants.GHDefaultNamespace
-	}
-	return defaultNamespace
-}
 
 func SetMGHNamespacedName(namespacedName types.NamespacedName) {
 	mghNamespacedName = namespacedName

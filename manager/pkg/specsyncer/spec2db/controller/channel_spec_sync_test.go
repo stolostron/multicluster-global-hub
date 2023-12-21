@@ -10,8 +10,8 @@ import (
 	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("channels to database controller", func() {
@@ -43,7 +43,7 @@ var _ = Describe("channels to database controller", func() {
 		filteredChannel := &channelv1.Channel{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ch1",
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 			},
 			Spec: channelv1.ChannelSpec{
 				Type:     channelv1.ChannelTypeGit,
@@ -58,7 +58,7 @@ var _ = Describe("channels to database controller", func() {
 		expectedChannel := &channelv1.Channel{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ch2",
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 				Labels:    map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
 			},
 			Spec: channelv1.ChannelSpec{

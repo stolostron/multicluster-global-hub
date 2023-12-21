@@ -26,8 +26,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -111,7 +112,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			NodeSelector         map[string]string
 			Tolerations          []corev1.Toleration
 		}{
-			Namespace:            config.GetDefaultNamespace(),
+			Namespace:            utils.GetDefaultNamespace(),
 			Replicas:             replicas,
 			SessionSecret:        proxySessionSecret,
 			ProxyImage:           config.GetImage(config.OauthProxyImageKey),
@@ -164,7 +165,7 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
-	configNamespace := config.GetDefaultNamespace()
+	configNamespace := utils.GetDefaultNamespace()
 	defaultGrafanaIniSecret, err := r.KubeClient.CoreV1().
 		Secrets(configNamespace).
 		Get(ctx,
@@ -251,7 +252,7 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 	if err = controllerutil.SetControllerReference(mgh, mergedGrafanaIniSecret, r.Scheme); err != nil {
 		return false, err
 	}
-	return utils.ApplySecret(ctx, r.KubeClient, mergedGrafanaIniSecret)
+	return operatorutils.ApplySecret(ctx, r.KubeClient, mergedGrafanaIniSecret)
 }
 
 // generateAlertConfigMap generate the alert configmap which grafana direclly use
@@ -261,7 +262,7 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
-	configNamespace := config.GetDefaultNamespace()
+	configNamespace := utils.GetDefaultNamespace()
 	defaultAlertConfigMap, err := r.KubeClient.CoreV1().
 		ConfigMaps(configNamespace).
 		Get(ctx,
@@ -314,7 +315,7 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 	if err = controllerutil.SetControllerReference(mgh, mergedAlertConfigMap, r.Scheme); err != nil {
 		return false, err
 	}
-	return utils.ApplyConfigMap(ctx, r.KubeClient, mergedAlertConfigMap)
+	return operatorutils.ApplyConfigMap(ctx, r.KubeClient, mergedAlertConfigMap)
 }
 
 // mergeGrafanaIni merge the default grafana.ini and custom grafana.ini
@@ -396,7 +397,7 @@ func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.Con
 
 	var mergedAlertConfigMap corev1.ConfigMap
 	mergedAlertConfigMap.Name = mergedAlertName
-	mergedAlertConfigMap.Namespace = config.GetDefaultNamespace()
+	mergedAlertConfigMap.Namespace = utils.GetDefaultNamespace()
 
 	if defaultAlertConfigMap == nil {
 		mergedAlertConfigMap.Data = customAlertConfigMap.Data
@@ -420,7 +421,7 @@ func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.Con
 }
 
 func restartGrafanaPod(ctx context.Context, kubeClient kubernetes.Interface) error {
-	configNamespace := config.GetDefaultNamespace()
+	configNamespace := utils.GetDefaultNamespace()
 	labelSelector := fmt.Sprintf("name=%s", grafanaDeploymentName)
 
 	poList, err := kubeClient.CoreV1().Pods(configNamespace).List(ctx, metav1.ListOptions{
@@ -463,7 +464,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	dsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      datasourceName,
-			Namespace: config.GetDefaultNamespace(),
+			Namespace: utils.GetDefaultNamespace(),
 			Labels: map[string]string{
 				"datasource/time-tarted":         time.Now().Format("2006-1-2.1504"),
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,

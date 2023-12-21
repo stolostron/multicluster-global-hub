@@ -32,10 +32,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/pkg/transport/transporter"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // ReconcileMiddleware creates the kafka and postgres if needed.
@@ -99,7 +100,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 			r.Client,
 			mgh,
 			transportprotocol.WithContext(ctx),
-			transportprotocol.WithCommunity(utils.IsCommunityMode()),
+			transportprotocol.WithCommunity(operatorutils.IsCommunityMode()),
 		)
 		if err != nil {
 			return nil, err
@@ -194,7 +195,7 @@ func detectTransportProtocol(ctx context.Context, runtimeClient client.Client) (
 	kafkaSecret := &corev1.Secret{}
 	err := runtimeClient.Get(ctx, types.NamespacedName{
 		Name:      constants.GHTransportSecretName,
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: utils.GetDefaultNamespace(),
 	}, kafkaSecret)
 	if err == nil {
 		return transport.SecretTransporter, nil

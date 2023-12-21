@@ -39,7 +39,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // Remove is used to remove string from a string array
@@ -113,7 +113,7 @@ func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, name st
 	found := &subv1alpha1.Subscription{}
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
-		Namespace: config.GetDefaultNamespace(),
+		Namespace: utils.GetDefaultNamespace(),
 	}, found)
 	if err != nil {
 		if errors.IsNotFound(err) {

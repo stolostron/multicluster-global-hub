@@ -13,8 +13,8 @@ import (
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("placementrules controller", Ordered, func() {
@@ -22,7 +22,7 @@ var _ = Describe("placementrules controller", Ordered, func() {
 		testPlacementrule := &placementrulev1.PlacementRule{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-placementrule-1",
-				Namespace: config.GetDefaultNamespace(),
+				Namespace: utils.GetDefaultNamespace(),
 				Labels: map[string]string{
 					constants.GlobalHubGlobalResourceLabel: "",
 				},
