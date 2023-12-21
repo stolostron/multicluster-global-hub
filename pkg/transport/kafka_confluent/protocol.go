@@ -172,7 +172,7 @@ func (p *Protocol) OpenInbound(ctx context.Context) error {
 			case kafka.Error:
 				// Errors should generally be considered informational, the client
 				// will try to automatically recover.
-				logger.Warnf("Consumer get a kafka error %v: %v\n", e.Code(), e)
+				// logger.Warnf("Consumer get a kafka error %v: %v\n", e.Code(), e)
 			default:
 				// logger.Infof("Ignored %v\n", e)
 			}
