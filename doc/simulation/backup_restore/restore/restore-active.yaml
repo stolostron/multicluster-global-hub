@@ -1,0 +1,10 @@
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Restore
+metadata:
+  name: restore-acm-passive-activate
+  namespace: open-cluster-management-backup
+spec:
+  cleanupBeforeRestore: CleanupRestored
+  veleroManagedClustersBackupName: latest
+  veleroCredentialsBackupName: skip
+  veleroResourcesBackupName: skip

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: multicluster-global-hub-custom-grafana-config
+  namespace: multicluster-global-hub
+type: Opaque
+stringData:
+  grafana.ini: |
+    [smtp]
+    enabled = true
+    host = smtp.126.com:465
+    user = example@126.com
+    password = <PASSPWD>
+    ;cert_file =
+    ;key_file =
+    skip_verify = true
+    from_address = example@126.com
+    from_name = Grafana 
+

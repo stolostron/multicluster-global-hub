@@ -1,0 +1,33 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+ name: dpa-sample
+ namespace: open-cluster-management-backup
+spec:
+ backupLocations:
+   - velero:
+       config:
+         profile: default
+         region: us-east-1
+       credential:
+         key: cloud
+         name: cloud-credentials
+       default: true
+       objectStorage:
+         bucket: <AWS_BUCKET>
+         prefix: velero
+       provider: aws
+ configuration:
+   restic:
+     enable: true
+   velero:
+     defaultPlugins:
+       - openshift
+       - aws
+       - kubevirt
+ snapshotLocations:
+   - velero:
+       config:
+         profile: default
+         region: us-west-2
+       provider: aws
