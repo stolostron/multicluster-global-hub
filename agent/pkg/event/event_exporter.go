@@ -115,7 +115,9 @@ func validateEventConfig(eventConfig *exporter.Config, log logr.Logger) {
 	}
 
 	kafkaConfig := eventConfig.Receivers[0].Kafka
-	if utils.Validate(kafkaConfig.TLS.CertFile) && utils.Validate(kafkaConfig.TLS.KeyFile) {
+	_, validCert := utils.Validate(kafkaConfig.TLS.CertFile)
+	_, validKey := utils.Validate(kafkaConfig.TLS.KeyFile)
+	if validCert && validKey {
 		kafkaConfig.TLS.InsecureSkipVerify = false
 	} else {
 		kafkaConfig.TLS.InsecureSkipVerify = true

@@ -34,17 +34,17 @@ func CtrlZapOptions() zap.Options {
 }
 
 // Validate return true if the file exists and the content is not empty
-func Validate(filePath string) bool {
+func Validate(filePath string) (string, bool) {
 	if len(filePath) == 0 {
-		return false
+		return "", false
 	}
 	content, err := os.ReadFile(filePath) // #nosec G304
 	if err != nil {
 		log.Printf("failed to read file %s - %v", filePath, err)
-		return false
+		return "", false
 	}
 	trimmedContent := strings.TrimSpace(string(content))
-	return len(trimmedContent) > 0
+	return trimmedContent, len(trimmedContent) > 0
 }
 
 // GetDefaultNamespace returns default installation namespace

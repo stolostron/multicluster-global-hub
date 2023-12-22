@@ -9,9 +9,6 @@ import (
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/go-logr/logr"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -23,6 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -50,10 +50,9 @@ const (
 	DefaultGlobalHubKafkaUser = "global-hub-kafka-user"
 
 	// topic names
-	GlobalHubTopicIdentity = "*"
-	SpecTopicTemplate      = "GlobalHub.Spec.%s"
-	StatusTopicTemplate    = "GlobalHub.Status.%s"
-	EventTopicTemplate     = "GlobalHub.Event.%s"
+	StatusTopicTemplate    = "status.%s"
+	GlobalRegexStatusTopic = "^status.*"
+	GlobalHubClusterName   = "global"
 )
 
 var (
@@ -83,8 +82,9 @@ type strimziTransporter struct {
 	runtimeClient client.Client
 
 	// wait until kafka cluster status is ready when initialize
-	waitReady bool
-	enableTLS bool
+	waitReady  bool
+	enableTLS  bool
+	multiTopic bool
 }
 
 type KafkaOption func(*strimziTransporter)
@@ -104,8 +104,9 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 		subPackageName:       DefaultAMQPackageName,
 		subCatalogSourceName: DefaultCatalogSourceName,
 
-		waitReady: true,
-		enableTLS: true,
+		waitReady:  true,
+		enableTLS:  true,
+		multiTopic: true,
 
 		runtimeClient: c,
 		mgh:           mgh,
@@ -219,21 +220,28 @@ func (k *strimziTransporter) DeleteUser(topicName string) error {
 }
 
 func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *transport.ClusterTopic {
-	// return &transport.ClusterTopic{
-	// 	SpecTopic:   fmt.Sprintf(SpecTopicTemplate, clusterIdentity),
-	// 	StatusTopic: fmt.Sprintf(StatusTopicTemplate, clusterIdentity),
-	// 	EventTopic:  fmt.Sprintf(EventTopicTemplate, clusterIdentity),
-	// }
-	// need the feature from https://github.com/cloudevents/sdk-go/pull/988 to support multiple topics
-	return &transport.ClusterTopic{
+	topic := &transport.ClusterTopic{
 		SpecTopic:   "spec",
 		StatusTopic: "status",
 		EventTopic:  "event",
 	}
+	if k.multiTopic {
+		topic.StatusTopic = fmt.Sprintf(StatusTopicTemplate, clusterIdentity)
+		// the status topic for global hub manager should be "^status.*"
+		if clusterIdentity == GlobalHubClusterName {
+			topic.StatusTopic = GlobalRegexStatusTopic
+		}
+	}
+
+	return topic
 }
 
 func (k *strimziTransporter) CreateTopic(topic *transport.ClusterTopic) error {
 	for _, topicName := range []string{topic.SpecTopic, topic.StatusTopic, topic.EventTopic} {
+		// if the topicName = "^status.*", convert it to status.global for creating
+		if topicName == GlobalRegexStatusTopic {
+			topicName = fmt.Sprintf(StatusTopicTemplate, GlobalHubClusterName)
+		}
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
 		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 			Name:      topicName,
@@ -311,6 +319,13 @@ func (k *strimziTransporter) GetConnCredential(username string) (*transport.Conn
 }
 
 func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
+	replicas := DefaultReplicas
+	// if tls is not enabled(that means its the dev environment), the replicas must be 1
+	// of it may occur such error 'Replication factor: 2 larger than available brokers: 1.'
+	if !k.enableTLS {
+		replicas = 1
+	}
+
 	return &kafkav1beta2.KafkaTopic{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      topicName,
@@ -323,7 +338,7 @@ func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.Kafka
 		},
 		Spec: &kafkav1beta2.KafkaTopicSpec{
 			Partitions: &DefaultPartition,
-			Replicas:   &DefaultReplicas,
+			Replicas:   &replicas,
 			Config: &apiextensions.JSON{Raw: []byte(`{
 				"cleanup.policy": "compact"
 			}`)},
@@ -364,7 +379,7 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 				return false, nil
 			}
 			if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
-				k.log.Info("kafka cluster status is not ready", "message", err.Error())
+				k.log.Info("kafka cluster status is not ready")
 				return false, nil
 			}
 

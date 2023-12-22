@@ -13,8 +13,6 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -24,6 +22,9 @@ import (
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
 
 var (
@@ -141,7 +142,7 @@ func TestStrimziTransporter(t *testing.T) {
 	clusterTopic := trans.GenerateClusterTopic(clusterName)
 	assert.Equal(t, "spec", clusterTopic.SpecTopic)
 	assert.Equal(t, "event", clusterTopic.EventTopic)
-	assert.Equal(t, "status", clusterTopic.StatusTopic)
+	assert.Equal(t, fmt.Sprintf(StatusTopicTemplate, clusterName), clusterTopic.StatusTopic)
 
 	err = trans.CreateTopic(clusterTopic)
 	assert.Nil(t, err)

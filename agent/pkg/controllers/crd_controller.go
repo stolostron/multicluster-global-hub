@@ -8,16 +8,17 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
-	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
-	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
+	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
+	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
 )
 
 type crdController struct {
