@@ -193,6 +193,8 @@ func deployGlobalHub() {
 			},
 		},
 		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+			// the topic partition replicas(depend on the HA) should less than broker replicas
+			AvailabilityConfig: globalhubv1alpha4.HABasic,
 			DataLayer: globalhubv1alpha4.DataLayerConfig{
 				Kafka: globalhubv1alpha4.KafkaConfig{},
 				Postgres: globalhubv1alpha4.PostgresConfig{
@@ -228,7 +230,7 @@ func deployGlobalHub() {
 		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
 	}, 3*time.Minute, 1*time.Second).Should(Succeed())
 
-	//Before run test, the mgh should be ready
+	// Before run test, the mgh should be ready
 	_, err = operatorutils.WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
 	Expect(err).ShouldNot(HaveOccurred())
 }
