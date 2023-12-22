@@ -39,6 +39,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -281,7 +282,9 @@ func WaitGlobalHubReady(ctx context.Context,
 			klog.V(2).Info("MulticlusterGlobalHub is deleting")
 			return false, nil
 		}
-
+		if len(config.GetMGHNamespacedName().Name) == 0 || len(config.GetMGHNamespacedName().Namespace) == 0 {
+			return false, nil
+		}
 		if meta.IsStatusConditionTrue(mghInstance.Status.Conditions, condition.CONDITION_TYPE_GLOBALHUB_READY) {
 			klog.V(2).Info("MulticlusterGlobalHub ready condition is not true")
 			return true, nil

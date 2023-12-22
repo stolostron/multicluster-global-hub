@@ -23,12 +23,14 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 var (
@@ -341,7 +343,10 @@ func TestWaitGlobalHubReady(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := runtime.NewScheme()
 			globalhubv1alpha4.AddToScheme(s)
-
+			config.SetMGHNamespacedName(types.NamespacedName{
+				Namespace: "open-cluster-management",
+				Name:      "mgh",
+			})
 			runtimeClient := fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(tt.mgh...).Build()
 			returned := false
 			go func() {

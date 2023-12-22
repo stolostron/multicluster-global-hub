@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -230,6 +232,10 @@ func deployGlobalHub() {
 		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
 	}, 3*time.Minute, 1*time.Second).Should(Succeed())
 
+	config.SetMGHNamespacedName(types.NamespacedName{
+		Namespace: "multicluster-global-hub",
+		Name:      "multiclusterglobalhub",
+	})
 	// Before run test, the mgh should be ready
 	_, err = operatorutils.WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
 	Expect(err).ShouldNot(HaveOccurred())
