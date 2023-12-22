@@ -62,7 +62,7 @@ spec:
               {{- end }}
           {{ end }}
           {{ if .Resources.Requests }}
-            limits:
+            requests:
               {{- range $key, $value := .Resources.Requests }}
               {{$key}}: {{.ToUnstructured}}
               {{- end }}
