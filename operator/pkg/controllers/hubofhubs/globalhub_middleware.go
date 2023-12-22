@@ -117,9 +117,9 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	// create global hub topics, create the globalhub.status.global, global.spec and event topics
-	// it's a placeholder for the manager to subscribe the `^globalhub.status.*`
-	topics := trans.GenerateClusterTopic("global")
+	// create global hub topics, create the status.global, spec and event topics
+	// it's a placeholder for the manager to subscribe the `^status.*`
+	topics := trans.GenerateClusterTopic(transportprotocol.GlobalHubClusterName)
 	err = trans.CreateTopic(topics)
 	if err != nil {
 		return nil, err

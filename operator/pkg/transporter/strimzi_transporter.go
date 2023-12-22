@@ -50,8 +50,9 @@ const (
 	DefaultGlobalHubKafkaUser = "global-hub-kafka-user"
 
 	// topic names
-	StatusTopicTemplate    = "globalhub.status.%s"
-	GlobalRegexStatusTopic = "^globalhub.status.*"
+	StatusTopicTemplate    = "status.%s"
+	GlobalRegexStatusTopic = "^status.*"
+	GlobalHubClusterName   = "global"
 )
 
 var (
@@ -226,7 +227,8 @@ func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *trans
 	}
 	if k.multiTopic {
 		topic.StatusTopic = fmt.Sprintf(StatusTopicTemplate, clusterIdentity)
-		if len(clusterIdentity) == 0 {
+		// the status topic for global hub manager should be "^status.*"
+		if clusterIdentity == GlobalHubClusterName {
 			topic.StatusTopic = GlobalRegexStatusTopic
 		}
 	}
@@ -236,6 +238,10 @@ func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *trans
 
 func (k *strimziTransporter) CreateTopic(topic *transport.ClusterTopic) error {
 	for _, topicName := range []string{topic.SpecTopic, topic.StatusTopic, topic.EventTopic} {
+		// if the topicName = "^status.*", convert it to status.global for creating
+		if topicName == GlobalRegexStatusTopic {
+			topicName = fmt.Sprintf(StatusTopicTemplate, GlobalHubClusterName)
+		}
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
 		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 			Name:      topicName,
