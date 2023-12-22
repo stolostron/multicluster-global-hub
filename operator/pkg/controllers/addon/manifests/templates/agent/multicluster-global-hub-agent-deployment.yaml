@@ -20,7 +20,19 @@ spec:
       containers:
         - name: multicluster-global-hub-agent
           image: {{ .HoHAgentImage }}
-          resources: {{.Resources}}
+          resources:
+          {{ if .Resources.Limits }}
+            limits:
+              {{- range $key, $value := .Resources.Limits }}
+              {{$key}}: {{.ToUnstructured}}
+              {{- end }}
+          {{ end }}
+          {{ if .Resources.Requests }}
+            limits:
+              {{- range $key, $value := .Resources.Requests }}
+              {{$key}}: {{.ToUnstructured}}
+              {{- end }}
+          {{ end }}
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             - --zap-log-level={{.LogLevel}}

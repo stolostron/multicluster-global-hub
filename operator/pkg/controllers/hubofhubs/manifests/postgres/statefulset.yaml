@@ -50,7 +50,19 @@ spec:
             - /usr/libexec/check-container
           initialDelaySeconds: 5
           timeoutSeconds: 1
-        resources: {{.Resources}}
+        resources:
+          {{ if .Resources.Limits }}
+            limits:
+              {{- range $key, $value := .Resources.Limits }}
+              {{$key}}: {{.ToUnstructured}}
+              {{- end }}
+          {{ end }}
+          {{ if .Resources.Requests }}
+            limits:
+              {{- range $key, $value := .Resources.Requests }}
+              {{$key}}: {{.ToUnstructured}}
+              {{- end }}
+          {{ end }}
         volumeMounts:
         - mountPath: /var/lib/pgsql/data
           name: postgresdb
