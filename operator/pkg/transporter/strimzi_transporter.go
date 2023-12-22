@@ -85,7 +85,7 @@ type strimziTransporter struct {
 	waitReady              bool
 	enableTLS              bool
 	multiTopic             bool
-	TopicPartitionReplicas int32
+	topicPartitionReplicas int32
 }
 
 type KafkaOption func(*strimziTransporter)
@@ -108,7 +108,7 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 		waitReady:              true,
 		enableTLS:              true,
 		multiTopic:             true,
-		TopicPartitionReplicas: DefaultPartitionReplicas,
+		topicPartitionReplicas: DefaultPartitionReplicas,
 
 		runtimeClient: c,
 		mgh:           mgh,
@@ -125,7 +125,7 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 	}
 
 	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
-		k.TopicPartitionReplicas = 1
+		k.topicPartitionReplicas = 1
 	}
 
 	err := k.initialize(k.mgh)
@@ -338,7 +338,7 @@ func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.Kafka
 		},
 		Spec: &kafkav1beta2.KafkaTopicSpec{
 			Partitions: &DefaultPartition,
-			Replicas:   &k.TopicPartitionReplicas,
+			Replicas:   &k.topicPartitionReplicas,
 			Config: &apiextensions.JSON{Raw: []byte(`{
 				"cleanup.policy": "compact"
 			}`)},
