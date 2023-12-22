@@ -6,5 +6,5 @@ metadata:
 spec:
   cleanupBeforeRestore: CleanupRestored
   veleroManagedClustersBackupName: latest
-  veleroCredentialsBackupName: skip
-  veleroResourcesBackupName: skip
+  veleroCredentialsBackupName: latest
+  veleroResourcesBackupName: latest

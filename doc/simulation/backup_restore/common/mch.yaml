@@ -7,7 +7,6 @@ spec:
   availabilityConfig: High
   disableHubSelfManagement: false
   enableClusterBackup: true
-  imagePullSecret: multiclusterhub-operator-pull-secret
   overrides:
     components:
       - enabled: true

@@ -4,7 +4,6 @@ metadata:
   name: multiclusterengine
 spec:
   availabilityConfig: High
-  imagePullSecret: multiclusterhub-operator-pull-secret
   overrides:
     components:
       - enabled: true
