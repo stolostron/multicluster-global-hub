@@ -307,9 +307,10 @@ func (k *strimziTransporter) GetConnCredential(username string) (*transport.Conn
 				CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
 			}
 			if k.enableTLS {
-				k.log.Info("enable TLS for kafka user", "username", username)
 				credential.ClientCert = base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.crt"])
 				credential.ClientKey = base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.key"])
+			} else {
+				k.log.Info("the kafka cluster hasn't enable tls for user", "username", username)
 			}
 			return credential, nil
 		}
@@ -387,7 +388,7 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 				// if the kafka cluster is already created, check if the tls is enabled
 				enableTLS := false
 				for _, listener := range kafkaCluster.Spec.Kafka.Listeners {
-					if listener.Tls && listener.Type != kafkav1beta2.KafkaSpecKafkaListenersElemTypeNodeport {
+					if listener.Tls {
 						enableTLS = true
 						break
 					}
