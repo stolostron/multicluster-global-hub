@@ -427,7 +427,8 @@ func (k *strimziTransporter) createKafkaCluster(mgh *operatorv1alpha4.Multiclust
 	return nil
 }
 
-func (k *strimziTransporter) getKafkaResources(mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.KafkaSpecKafkaResources {
+func (k *strimziTransporter) getKafkaResources(
+	mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.KafkaSpecKafkaResources {
 	kafkaRes := utils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedConfig)
 	kafkaSpecRes := &kafkav1beta2.KafkaSpecKafkaResources{}
 	jsonData, err := json.Marshal(kafkaRes)
@@ -442,7 +443,8 @@ func (k *strimziTransporter) getKafkaResources(mgh *operatorv1alpha4.Multicluste
 	return kafkaSpecRes
 }
 
-func (k *strimziTransporter) getZookeeperResources(mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.KafkaSpecZookeeperResources {
+func (k *strimziTransporter) getZookeeperResources(
+	mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.KafkaSpecZookeeperResources {
 	zookeeperRes := utils.GetResources(operatorconstants.Zookeeper, mgh.Spec.AdvancedConfig)
 
 	zookeeperSpecRes := &kafkav1beta2.KafkaSpecZookeeperResources{}

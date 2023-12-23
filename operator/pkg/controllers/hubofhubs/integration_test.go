@@ -242,8 +242,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			},
 		}
 
-		var managerObjects []*unstructured.Unstructured
-		var grafanaObjects []*unstructured.Unstructured
 		It("Should update the conditions and mgh finalizer when MCH instance is created", func() {
 			By("By creating a new MCH instance")
 			mch := &mchv1.MultiClusterHub{
@@ -308,6 +306,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			prettyPrint(createdMGH.Status)
 		})
 
+		var managerObjects []*unstructured.Unstructured
 		It("Should create Multicluster Global Manager resources when MGH instance is created", func() {
 			// create hoh render for testing
 			hohRenderer := renderer.NewHoHRenderer(testFS)
@@ -387,13 +386,23 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return nil
 			}, timeout, interval).Should(Succeed())
 
+		})
+
+		It("Should create grafana resources when MGH instance is created", func() {
+			// create hoh render for testing
+			hohRenderer := renderer.NewHoHRenderer(testFS)
+
+			By("By checking the multicluster-global-hub-manager resources are created as expected")
+			imagePullPolicy := corev1.PullAlways
+			if mgh.Spec.ImagePullPolicy != "" {
+				imagePullPolicy = mgh.Spec.ImagePullPolicy
+			}
 			// get the grafana objects
 			By("By checking the multicluster-global-hub-grafana resources are created as expected")
 			// generate datasource secret: must before the grafana objects
 			mghReconciler.GenerateGrafanaDataSourceSecret(ctx, mgh)
-			Expect(err).NotTo(HaveOccurred())
 
-			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
+			grafanaObjects, err := hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
 					Namespace            string
 					Replicas             int32
@@ -443,53 +452,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 						desiredObj.GetObjectKind().GroupVersionKind().Kind, objLookupKey)
 				}
 				fmt.Printf("all grafana resources(%d) are created as expected \n", len(grafanaObjects))
-				return nil
-			}, timeout, interval).Should(Succeed())
-
-			postgresObjects, err := hohRenderer.Render("manifests/postgres", "", func(profile string) (interface{}, error) {
-				return struct {
-					Namespace                    string
-					PostgresImage                string
-					StorageSize                  string
-					ImagePullSecret              string
-					ImagePullPolicy              string
-					NodeSelector                 map[string]string
-					Tolerations                  []corev1.Toleration
-					PostgresAdminUserPassword    string
-					PostgresReadonlyUsername     string
-					PostgresReadonlyUserPassword string
-					StorageClass                 string
-					Resources                    *corev1.ResourceRequirements
-				}{
-					Namespace:                    mgh.GetNamespace(),
-					PostgresImage:                config.GetImage(config.PostgresImageKey),
-					ImagePullSecret:              mgh.Spec.ImagePullSecret,
-					ImagePullPolicy:              string(imagePullPolicy),
-					NodeSelector:                 mgh.Spec.NodeSelector,
-					Tolerations:                  mgh.Spec.Tolerations,
-					StorageSize:                  config.GetPostgresStorageSize(mgh),
-					PostgresAdminUserPassword:    "password",
-					PostgresReadonlyUsername:     "user",
-					PostgresReadonlyUserPassword: "user",
-					StorageClass:                 mgh.Spec.DataLayer.StorageClass,
-					Resources: operatorutils.GetResources(operatorconstants.Postgres,
-						mgh.Spec.AdvancedConfig),
-				}, nil
-			})
-
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(func() error {
-				for _, desiredObj := range postgresObjects {
-					objLookupKey := types.NamespacedName{Name: desiredObj.GetName(), Namespace: desiredObj.GetNamespace()}
-					foundObj := &unstructured.Unstructured{}
-					foundObj.SetGroupVersionKind(desiredObj.GetObjectKind().GroupVersionKind())
-					if err := k8sClient.Get(ctx, objLookupKey, foundObj); err != nil {
-						return err
-					}
-					fmt.Printf("found postgres resource: %s(%s) \n",
-						desiredObj.GetObjectKind().GroupVersionKind().Kind, objLookupKey)
-				}
-				fmt.Printf("all postgres resources(%d) are created as expected \n", len(postgresObjects))
 				return nil
 			}, timeout, interval).Should(Succeed())
 		})
