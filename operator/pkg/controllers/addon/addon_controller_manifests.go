@@ -4,12 +4,14 @@ import (
 	"context"
 	"embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
@@ -67,7 +69,16 @@ type ManifestsConfig struct {
 	AgentQPS               float32
 	AgentBurst             int
 	LogLevel               string
-	Resources              *corev1.ResourceRequirements
+	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
+	Resources *Resources
+}
+
+type Resources struct {
+	// Limits corresponds to the JSON schema field "limits".
+	Limits *apiextensions.JSON `json:"limits,omitempty"`
+
+	// Requests corresponds to the JSON schema field "requests".
+	Requests *apiextensions.JSON `json:"requests,omitempty"`
 }
 
 type HohAgentAddon struct {
@@ -181,6 +192,17 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
 
+	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig)
+	agentRes := &Resources{}
+	jsonData, err := json.Marshal(agentResReq)
+	if err != nil {
+		log.Error(err, "failed to marshal agent resources")
+	}
+	err = json.Unmarshal(jsonData, agentRes)
+	if err != nil {
+		log.Error(err, "failed to unmarshal to agent resources")
+	}
+
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
@@ -203,7 +225,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		AgentQPS:               agentQPS,
 		AgentBurst:             agentBurst,
 		LogLevel:               a.LogLevel,
-		Resources:              utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig),
+		Resources:              agentRes,
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {
