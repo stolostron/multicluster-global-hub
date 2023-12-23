@@ -51,18 +51,18 @@ spec:
           initialDelaySeconds: 5
           timeoutSeconds: 1
         resources:
-          {{ if .Resources.Limits }}
-            limits:
-              {{- range $key, $value := .Resources.Limits }}
-              {{$key}}: {{.ToUnstructured}}
-              {{- end }}
-          {{ end }}
-          {{ if .Resources.Requests }}
-            requests:
-              {{- range $key, $value := .Resources.Requests }}
-              {{$key}}: {{.ToUnstructured}}
-              {{- end }}
-          {{ end }}
+        {{- if .Resources.Limits }}
+          limits:
+            {{- range $key, $value := .Resources.Limits }}
+            {{$key}}: {{.ToUnstructured}}
+            {{- end }}
+        {{- end }}
+        {{- if .Resources.Requests }}
+          requests:
+            {{- range $key, $value := .Resources.Requests }}
+            {{$key}}: {{.ToUnstructured}}
+            {{- end }}
+        {{- end }}
         volumeMounts:
         - mountPath: /var/lib/pgsql/data
           name: postgresdb
@@ -75,10 +75,10 @@ spec:
           name: postgresql-start
       serviceAccount: multicluster-global-hub-postgres
       serviceAccountName: multicluster-global-hub-postgres
-      {{ if .ImagePullSecret }}
+      {{- if .ImagePullSecret }}
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
-      {{ end }}
+      {{- end }}
       nodeSelector:
         {{- range $key, $value := .NodeSelector}}
         "{{$key}}": "{{$value}}"

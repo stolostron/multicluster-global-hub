@@ -155,7 +155,7 @@ func ApplyConfigMap(ctx context.Context, kubeClient kubernetes.Interface, requir
 					metav1.CreateOptions{},
 				)
 			if err != nil {
-				return false, fmt.Errorf("Failed to create alert configmap, namespace: %v, name: %v, error:%v",
+				return false, fmt.Errorf("failed to create alert configmap, namespace: %v, name: %v, error:%v",
 					required.Namespace, required.Name, err)
 			}
 			return true, err
@@ -175,7 +175,7 @@ func ApplyConfigMap(ctx context.Context, kubeClient kubernetes.Interface, requir
 			metav1.UpdateOptions{},
 		)
 	if err != nil {
-		return false, fmt.Errorf("Failed to update alert configmap, namespace: %v, name: %v, error:%v",
+		return false, fmt.Errorf("failed to update alert configmap, namespace: %v, name: %v, error:%v",
 			required.Namespace, required.Name, err)
 	}
 	return true, nil
@@ -198,7 +198,7 @@ func ApplySecret(ctx context.Context, kubeClient kubernetes.Interface, requiredS
 					metav1.CreateOptions{},
 				)
 			if err != nil {
-				return false, fmt.Errorf("Failed to create secret, namespace: %v, name: %v, error:%v",
+				return false, fmt.Errorf("failed to create secret, namespace: %v, name: %v, error:%v",
 					requiredSecret.Namespace, requiredSecret.Name, err)
 			}
 			return true, err
@@ -218,7 +218,7 @@ func ApplySecret(ctx context.Context, kubeClient kubernetes.Interface, requiredS
 			metav1.UpdateOptions{},
 		)
 	if err != nil {
-		return false, fmt.Errorf("Failed to update secret, namespace: %v, name: %v, error:%v",
+		return false, fmt.Errorf("failed to update secret, namespace: %v, name: %v, error:%v",
 			requiredSecret.Namespace, requiredSecret.Name, err)
 	}
 	return true, nil
@@ -372,8 +372,7 @@ func GetResources(component string, advanced *globalhubv1alpha4.AdvancedConfig) 
 func setResourcesFromCR(res *corev1.ResourceRequirements, requests, limits corev1.ResourceList) {
 	if res != nil {
 		if res.Requests.Memory().String() != "0" {
-			requests[corev1.ResourceName(corev1.ResourceMemory)] =
-				resource.MustParse(res.Requests.Memory().String())
+			requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(res.Requests.Memory().String())
 		}
 		if res.Requests.Cpu().String() != "0" {
 			requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(res.Requests.Cpu().String())

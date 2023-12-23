@@ -55,18 +55,18 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         resources:
-          {{ if .Resources.Limits }}
-            limits:
-              {{- range $key, $value := .Resources.Limits }}
-              {{$key}}: {{.ToUnstructured}}
-              {{- end }}
-          {{ end }}
-          {{ if .Resources.Requests }}
-            requests:
-              {{- range $key, $value := .Resources.Requests }}
-              {{$key}}: {{.ToUnstructured}}
-              {{- end }}
-          {{ end }}
+        {{- if .Resources.Limits }}
+          limits:
+            {{- range $key, $value := .Resources.Limits }}
+            {{$key}}: {{.ToUnstructured}}
+            {{- end }}
+        {{- end }}
+        {{- if .Resources.Requests }}
+          requests:
+            {{- range $key, $value := .Resources.Requests }}
+            {{$key}}: {{.ToUnstructured}}
+            {{- end }}
+        {{- end }}
         volumeMounts:
         - mountPath: /var/lib/grafana
           name: grafana-storage
@@ -132,10 +132,10 @@ spec:
           - '--openshift-ca=/etc/pki/tls/cert.pem'
           - '--openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
       serviceAccount: multicluster-global-hub-grafana
-      {{ if .ImagePullSecret }}
+      {{- if .ImagePullSecret }}
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
-      {{ end }}
+      {{- end }}
       nodeSelector:
         {{- range $key, $value := .NodeSelector}}
         "{{$key}}": "{{$value}}"
