@@ -56,11 +56,11 @@ const (
 )
 
 var (
-	KafkaStorageIdentifier  int32 = 0
-	KafkaStorageDeleteClaim       = false
-	KafkaVersion                  = "3.5.0"
-	DefaultPartition        int32 = 1
-	DefaultReplicas         int32 = 2
+	KafkaStorageIdentifier   int32 = 0
+	KafkaStorageDeleteClaim        = false
+	KafkaVersion                   = "3.5.0"
+	DefaultPartition         int32 = 1
+	DefaultPartitionReplicas int32 = 2
 )
 
 // install the strimzi kafka cluster by operator
@@ -82,9 +82,10 @@ type strimziTransporter struct {
 	runtimeClient client.Client
 
 	// wait until kafka cluster status is ready when initialize
-	waitReady  bool
-	enableTLS  bool
-	multiTopic bool
+	waitReady              bool
+	enableTLS              bool
+	multiTopic             bool
+	topicPartitionReplicas int32
 }
 
 type KafkaOption func(*strimziTransporter)
@@ -104,9 +105,10 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 		subPackageName:       DefaultAMQPackageName,
 		subCatalogSourceName: DefaultCatalogSourceName,
 
-		waitReady:  true,
-		enableTLS:  true,
-		multiTopic: true,
+		waitReady:              true,
+		enableTLS:              true,
+		multiTopic:             true,
+		topicPartitionReplicas: DefaultPartitionReplicas,
 
 		runtimeClient: c,
 		mgh:           mgh,
@@ -120,6 +122,10 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 		k.subChannel = CommunityChannel
 		k.subPackageName = CommunityPackageName
 		k.subCatalogSourceName = CommunityCatalogSourceName
+	}
+
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+		k.topicPartitionReplicas = 1
 	}
 
 	err := k.initialize(k.mgh)
@@ -307,9 +313,10 @@ func (k *strimziTransporter) GetConnCredential(username string) (*transport.Conn
 				CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
 			}
 			if k.enableTLS {
-				k.log.Info("enable TLS for kafka user", "username", username)
 				credential.ClientCert = base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.crt"])
 				credential.ClientKey = base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.key"])
+			} else {
+				k.log.Info("the kafka cluster hasn't enable tls for user", "username", username)
 			}
 			return credential, nil
 		}
@@ -319,13 +326,6 @@ func (k *strimziTransporter) GetConnCredential(username string) (*transport.Conn
 }
 
 func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
-	replicas := DefaultReplicas
-	// if tls is not enabled(that means its the dev environment), the replicas must be 1
-	// of it may occur such error 'Replication factor: 2 larger than available brokers: 1.'
-	if !k.enableTLS {
-		replicas = 1
-	}
-
 	return &kafkav1beta2.KafkaTopic{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      topicName,
@@ -338,7 +338,7 @@ func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.Kafka
 		},
 		Spec: &kafkav1beta2.KafkaTopicSpec{
 			Partitions: &DefaultPartition,
-			Replicas:   &replicas,
+			Replicas:   &k.topicPartitionReplicas,
 			Config: &apiextensions.JSON{Raw: []byte(`{
 				"cleanup.policy": "compact"
 			}`)},
@@ -387,7 +387,7 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 				// if the kafka cluster is already created, check if the tls is enabled
 				enableTLS := false
 				for _, listener := range kafkaCluster.Spec.Kafka.Listeners {
-					if listener.Tls && listener.Type != kafkav1beta2.KafkaSpecKafkaListenersElemTypeNodeport {
+					if listener.Tls {
 						enableTLS = true
 						break
 					}
