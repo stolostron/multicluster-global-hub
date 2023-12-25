@@ -331,6 +331,7 @@ func (k *strimziTransporter) GrantRead(userName string, topicName string) error 
 	}
 
 	// add the read acl
+	k.log.Info("add read permission", "user", kafkaUser, "topic", topicName)
 	authorization.Acls = append(authorization.Acls, readAcl)
 	kafkaUser.Spec.Authorization = authorization
 	return k.runtimeClient.Update(k.ctx, kafkaUser)
@@ -375,6 +376,7 @@ func (k *strimziTransporter) GrantWrite(userName string, topicName string) error
 	}
 
 	// add the read acl
+	k.log.Info("add write permission", "user", kafkaUser, "topic", topicName)
 	authorization.Acls = append(authorization.Acls, writeAcl)
 	kafkaUser.Spec.Authorization = authorization
 	return k.runtimeClient.Update(k.ctx, kafkaUser)
@@ -427,15 +429,15 @@ func containAcl(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
 ) bool {
 	for _, acl := range acls {
 		// resource
-		if targetAcl.Host == acl.Host &&
+		if *targetAcl.Host == *acl.Host &&
 			targetAcl.Resource.Type == acl.Resource.Type &&
-			targetAcl.Resource.Name == acl.Resource.Name &&
-			targetAcl.Resource.PatternType == acl.Resource.PatternType {
+			*targetAcl.Resource.Name == *acl.Resource.Name &&
+			*targetAcl.Resource.PatternType == *acl.Resource.PatternType {
 			// operation
 			matchedOp := 0
 			for _, targetOp := range targetAcl.Operations {
 				for _, op := range acl.Operations {
-					if op == targetOp {
+					if string(op) == string(targetOp) {
 						matchedOp += 1
 						break
 					}

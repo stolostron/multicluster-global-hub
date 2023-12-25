@@ -133,8 +133,6 @@ func TestStrimziTransporter(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%s-kafka-user", clusterName), userName)
 	err = trans.CreateUser(userName)
 	assert.Nil(t, err)
-	err = trans.DeleteUser(userName)
-	assert.Nil(t, err)
 
 	// topic
 	clusterTopic := trans.GenerateClusterTopic(clusterName)
@@ -144,6 +142,41 @@ func TestStrimziTransporter(t *testing.T) {
 
 	err = trans.CreateTopic(clusterTopic)
 	assert.Nil(t, err)
+
+	// grant readable permission
+	err = trans.GrantRead(userName, "spec")
+	assert.Nil(t, err)
+
+	err = trans.GrantRead(userName, "spec")
+	assert.Nil(t, err)
+
+	kafkaUser := &kafkav1beta2.KafkaUser{}
+	err = runtimeClient.Get(context.TODO(), types.NamespacedName{
+		Name:      userName,
+		Namespace: "default",
+	}, kafkaUser)
+	assert.Nil(t, err)
+	assert.Equal(t, len(kafkaUser.Spec.Authorization.Acls), 1)
+
+	// grant writable permission
+	err = trans.GrantWrite(userName, "spec")
+	assert.Nil(t, err)
+
+	err = trans.GrantWrite(userName, "spec")
+	assert.Nil(t, err)
+
+	kafkaUser = &kafkav1beta2.KafkaUser{}
+	err = runtimeClient.Get(context.TODO(), types.NamespacedName{
+		Name:      userName,
+		Namespace: "default",
+	}, kafkaUser)
+	assert.Nil(t, err)
+	assert.Equal(t, len(kafkaUser.Spec.Authorization.Acls), 2)
+
+	// delete user and topic
+	err = trans.DeleteUser(userName)
+	assert.Nil(t, err)
+
 	err = trans.DeleteTopic(clusterTopic)
 	assert.Nil(t, err)
 
