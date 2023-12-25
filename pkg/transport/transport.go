@@ -19,6 +19,10 @@ type Transporter interface {
 	CreateTopic(topic *ClusterTopic) error
 	DeleteTopic(topic *ClusterTopic) error
 
+	// authorize
+	GrantRead(userName string, topicName string) error
+	GrantWrite(userName string, topicName string) error
+
 	// get the connection credential by user
 	GetConnCredential(userName string) (*ConnCredential, error)
 }

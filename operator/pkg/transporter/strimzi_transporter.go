@@ -286,6 +286,94 @@ func (k *strimziTransporter) DeleteTopic(topic *transport.ClusterTopic) error {
 	return nil
 }
 
+// authorize
+func (k *strimziTransporter) GrantRead(userName string, topicName string) error {
+	kafkaUser := &kafkav1beta2.KafkaUser{}
+	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		Name:      userName,
+		Namespace: k.namespace,
+	}, kafkaUser)
+	if err != nil {
+		return err
+	}
+
+	// expected ACL
+	host := "*"
+	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	readAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+			Name:        &topicName,
+			PatternType: &patternType,
+		},
+		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	}
+
+	authorization := kafkaUser.Spec.Authorization
+	if authorization == nil {
+		authorization = &kafkav1beta2.KafkaUserSpecAuthorization{
+			Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
+			Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{},
+		}
+	}
+	if containAcl(authorization.Acls, readAcl) {
+		return nil
+	}
+
+	// add the read acl
+	authorization.Acls = append(authorization.Acls, readAcl)
+	kafkaUser.Spec.Authorization = authorization
+	return k.runtimeClient.Update(k.ctx, kafkaUser)
+}
+
+func (k *strimziTransporter) GrantWrite(userName string, topicName string) error {
+	kafkaUser := &kafkav1beta2.KafkaUser{}
+	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		Name:      userName,
+		Namespace: k.namespace,
+	}, kafkaUser)
+	if err != nil {
+		return err
+	}
+
+	// expected ACL
+	host := "*"
+	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	writeAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+			Name:        &topicName,
+			PatternType: &patternType,
+		},
+		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemCreate,
+		},
+	}
+
+	authorization := kafkaUser.Spec.Authorization
+	if authorization == nil {
+		authorization = &kafkav1beta2.KafkaUserSpecAuthorization{
+			Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
+			Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{},
+		}
+	}
+	if containAcl(authorization.Acls, writeAcl) {
+		return nil
+	}
+
+	// add the read acl
+	authorization.Acls = append(authorization.Acls, writeAcl)
+	kafkaUser.Spec.Authorization = authorization
+	return k.runtimeClient.Update(k.ctx, kafkaUser)
+}
+
 func (k *strimziTransporter) GetConnCredential(username string) (*transport.ConnCredential, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
@@ -326,6 +414,33 @@ func (k *strimziTransporter) GetConnCredential(username string) (*transport.Conn
 	}
 
 	return nil, fmt.Errorf("kafka user %s/%s is not ready", k.namespace, username)
+}
+
+func containAcl(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+	targetAcl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+) bool {
+	for _, acl := range acls {
+		// resource
+		if targetAcl.Host == acl.Host &&
+			targetAcl.Resource.Type == acl.Resource.Type &&
+			targetAcl.Resource.Name == acl.Resource.Name &&
+			targetAcl.Resource.PatternType == acl.Resource.PatternType {
+			// operation
+			matchedOp := 0
+			for _, targetOp := range targetAcl.Operations {
+				for _, op := range acl.Operations {
+					if op == targetOp {
+						matchedOp += 1
+						break
+					}
+				}
+			}
+			if matchedOp == len(targetAcl.Operations) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
@@ -512,7 +627,10 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 					},
 				},
 				Resources: k.getKafkaResources(mgh),
-				Replicas:  3,
+				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
+					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
+				},
+				Replicas: 3,
 				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
 					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
