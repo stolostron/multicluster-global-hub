@@ -53,10 +53,10 @@ const (
 	DefaultGlobalHubKafkaUser = "global-hub-kafka-user"
 
 	// topic names
-	StatusPrefix           = "status"
-	StatusTopicTemplate    = "status.%s"
-	GlobalRegexStatusTopic = "^status.*"
-	GlobalHubClusterName   = "global"
+	StatusTopicPrefix    = "status"
+	StatusTopicTemplate  = "status.%s"
+	StatusTopicRegex     = "^status.*"
+	GlobalHubClusterName = "global"
 )
 
 var (
@@ -239,7 +239,7 @@ func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *trans
 		topic.StatusTopic = fmt.Sprintf(StatusTopicTemplate, clusterIdentity)
 		// the status topic for global hub manager should be "^status.*"
 		if clusterIdentity == GlobalHubClusterName {
-			topic.StatusTopic = GlobalRegexStatusTopic
+			topic.StatusTopic = StatusTopicRegex
 		}
 	}
 
@@ -249,7 +249,7 @@ func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *trans
 func (k *strimziTransporter) CreateTopic(topic *transport.ClusterTopic) error {
 	for _, topicName := range []string{topic.SpecTopic, topic.StatusTopic, topic.EventTopic} {
 		// if the topicName = "^status.*", convert it to status.global for creating
-		if topicName == GlobalRegexStatusTopic {
+		if topicName == StatusTopicRegex {
 			topicName = fmt.Sprintf(StatusTopicTemplate, GlobalHubClusterName)
 		}
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
@@ -301,9 +301,9 @@ func (k *strimziTransporter) GrantRead(userName string, topicName string) error 
 	// expected ACL
 	host := "*"
 	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	if userName == DefaultGlobalHubKafkaUser {
+	if userName == DefaultGlobalHubKafkaUser && topicName == StatusTopicRegex {
 		// give the topic permission for the manager user
-		topicName = StatusPrefix
+		topicName = StatusTopicPrefix
 		patternType = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
 	readAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
