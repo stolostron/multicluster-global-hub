@@ -458,23 +458,27 @@ func containAcl(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
 		if *targetAcl.Host == *acl.Host &&
 			targetAcl.Resource.Type == acl.Resource.Type &&
 			*targetAcl.Resource.Name == *acl.Resource.Name &&
-			*targetAcl.Resource.PatternType == *acl.Resource.PatternType {
-			// operation
-			matchedOp := 0
-			for _, targetOp := range targetAcl.Operations {
-				for _, op := range acl.Operations {
-					if string(op) == string(targetOp) {
-						matchedOp += 1
-						break
-					}
-				}
-			}
-			if matchedOp == len(targetAcl.Operations) {
-				return true
-			}
+			*targetAcl.Resource.PatternType == *acl.Resource.PatternType &&
+			containOps(acl.Operations, targetAcl.Operations) { // operation
+			return true
 		}
 	}
 	return false
+}
+
+func containOps(operations []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+	subOpertions []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+) bool {
+	matchedOp := 0
+	for _, targetOp := range subOpertions {
+		for _, op := range operations {
+			if string(op) == string(targetOp) {
+				matchedOp += 1
+				break
+			}
+		}
+	}
+	return len(subOpertions) == matchedOp
 }
 
 func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
