@@ -298,7 +298,15 @@ func (k *strimziTransporter) GrantRead(userName string, topicName string) error 
 		return err
 	}
 
-	// expected ACL
+	authorization := kafkaUser.Spec.Authorization
+	if authorization == nil {
+		authorization = &kafkav1beta2.KafkaUserSpecAuthorization{
+			Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
+			Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{},
+		}
+	}
+
+	// expected topic ACL
 	host := "*"
 	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
 	if userName == DefaultGlobalHubKafkaUser && topicName == StatusTopicRegex {
@@ -319,22 +327,40 @@ func (k *strimziTransporter) GrantRead(userName string, topicName string) error 
 		},
 	}
 
-	authorization := kafkaUser.Spec.Authorization
-	if authorization == nil {
-		authorization = &kafkav1beta2.KafkaUserSpecAuthorization{
-			Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
-			Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{},
-		}
-	}
-	if containAcl(authorization.Acls, readAcl) {
-		return nil
+	// expected consumer group ACL
+	consumerGroup := "*"
+	consumerPatternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	consumerAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup,
+			Name:        &consumerGroup,
+			PatternType: &consumerPatternType,
+		},
+		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
 	}
 
-	// add the read acl
-	k.log.Info("add read permission", "user", kafkaUser, "topic", topicName)
-	authorization.Acls = append(authorization.Acls, readAcl)
-	kafkaUser.Spec.Authorization = authorization
-	return k.runtimeClient.Update(k.ctx, kafkaUser)
+	updateAuthorization := false
+	if !containAcl(authorization.Acls, readAcl) {
+		k.log.Info("add read topic permission", "user", kafkaUser, "topic", topicName)
+		authorization.Acls = append(authorization.Acls, readAcl)
+		updateAuthorization = true
+	}
+
+	if !containAcl(authorization.Acls, consumerAcl) {
+		k.log.Info("add using consumer group permission", "user", kafkaUser, "consumerGroup", consumerGroup)
+		authorization.Acls = append(authorization.Acls, consumerAcl)
+		updateAuthorization = true
+	}
+
+	if updateAuthorization {
+		kafkaUser.Spec.Authorization = authorization
+		return k.runtimeClient.Update(k.ctx, kafkaUser)
+	}
+
+	return nil
 }
 
 func (k *strimziTransporter) GrantWrite(userName string, topicName string) error {

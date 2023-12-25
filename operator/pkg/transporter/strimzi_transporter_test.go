@@ -156,13 +156,15 @@ func TestStrimziTransporter(t *testing.T) {
 		Namespace: "default",
 	}, kafkaUser)
 	assert.Nil(t, err)
-	assert.Equal(t, len(kafkaUser.Spec.Authorization.Acls), 1)
+	assert.Equal(t, 2, len(kafkaUser.Spec.Authorization.Acls))
+	// p, _ := json.MarshalIndent(kafkaUser, "", " ")
+	// fmt.Println(string(p))
 
 	// grant writable permission
-	err = trans.GrantWrite(userName, "spec")
+	err = trans.GrantWrite(userName, "event")
 	assert.Nil(t, err)
 
-	err = trans.GrantWrite(userName, "spec")
+	err = trans.GrantWrite(userName, "event")
 	assert.Nil(t, err)
 
 	kafkaUser = &kafkav1beta2.KafkaUser{}
@@ -171,7 +173,7 @@ func TestStrimziTransporter(t *testing.T) {
 		Namespace: "default",
 	}, kafkaUser)
 	assert.Nil(t, err)
-	assert.Equal(t, len(kafkaUser.Spec.Authorization.Acls), 2)
+	assert.Equal(t, 3, len(kafkaUser.Spec.Authorization.Acls))
 
 	// delete user and topic
 	err = trans.DeleteUser(userName)
