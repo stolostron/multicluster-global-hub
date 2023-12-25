@@ -53,6 +53,7 @@ const (
 	DefaultGlobalHubKafkaUser = "global-hub-kafka-user"
 
 	// topic names
+	StatusPrefix           = "status"
 	StatusTopicTemplate    = "status.%s"
 	GlobalRegexStatusTopic = "^status.*"
 	GlobalHubClusterName   = "global"
@@ -300,6 +301,11 @@ func (k *strimziTransporter) GrantRead(userName string, topicName string) error 
 	// expected ACL
 	host := "*"
 	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	if userName == DefaultGlobalHubKafkaUser {
+		// give the topic permission for the manager user
+		topicName = StatusPrefix
+		patternType = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
+	}
 	readAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
 		Host: &host,
 		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
