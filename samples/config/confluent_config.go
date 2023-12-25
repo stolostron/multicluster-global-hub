@@ -72,6 +72,12 @@ func GetConfluentConfigMapByKafkaUser(isProducer bool) (*kafka.ConfigMap, error)
 		return nil, fmt.Errorf("failed to get kubeconfig")
 	}
 
+	userName := KAFkA_USER
+	name := os.Getenv("KAFkA_USER")
+	if name != "" {
+		userName = name
+	}
+
 	kafkav1beta2.AddToScheme(scheme.Scheme)
 	c, err := client.New(kubeconfig, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
@@ -91,7 +97,7 @@ func GetConfluentConfigMapByKafkaUser(isProducer bool) (*kafka.ConfigMap, error)
 
 	kafkaUserSecret := &corev1.Secret{}
 	err = c.Get(context.TODO(), types.NamespacedName{
-		Name:      KAFkA_USER,
+		Name:      userName,
 		Namespace: KAFKA_NAMESPACE,
 	}, kafkaUserSecret)
 	if err != nil {
@@ -126,7 +132,7 @@ func GetConfluentConfigMapByKafkaUser(isProducer bool) (*kafka.ConfigMap, error)
 		ClientCertPath:  clientCrtPath,
 		ClientKeyPath:   clientKeyPath,
 		ConsumerConfig: &transport.KafkaConsumerConfig{
-			ConsumerID: KAFkA_USER,
+			ConsumerID: userName,
 		},
 	}
 	configMap, err := config.GetConfluentConfigMap(kafkaConfig, isProducer)
