@@ -116,7 +116,7 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	err = transporter.GrantRead(userName, clusterTopic.EventTopic)
+	err = transporter.GrantWrite(userName, clusterTopic.EventTopic)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
