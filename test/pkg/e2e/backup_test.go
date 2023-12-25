@@ -18,19 +18,39 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-var crdList = sets.NewString(
-	"kafkas.kafka.strimzi.io",
-	"kafkatopics.kafka.strimzi.io",
-	"kafkausers.kafka.strimzi.io",
+var (
+	crdList = sets.NewString(
+		"kafkas.kafka.strimzi.io",
+		"kafkatopics.kafka.strimzi.io",
+		"kafkausers.kafka.strimzi.io",
+	)
+	runtimeClient client.Client
+	scheme        = runtime.NewScheme()
+	ctx           = context.Background()
 )
-var runtimeClient client.Client
-var scheme = runtime.NewScheme()
-var ctx = context.Background()
+
+var mchObj = &mchv1.MultiClusterHub{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "mch",
+		Namespace: "open-cluster-management",
+	},
+	Spec: mchv1.MultiClusterHubSpec{
+		Overrides: &mchv1.Overrides{
+			Components: []mchv1.ComponentConfig{
+				{
+					Name:    "cluster-backup",
+					Enabled: true,
+				},
+			},
+		},
+	},
+}
 
 var _ = Describe("The resources should have backup label", Ordered, Label("e2e-tests-backup"), func() {
 	BeforeAll(func() {
@@ -39,8 +59,11 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 		kafkav1beta2.AddToScheme(scheme)
 		apiextensionsv1.AddToScheme(scheme)
 		corev1.AddToScheme(scheme)
+		mchv1.AddToScheme(scheme)
 		var err error
 		runtimeClient, err = testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
+		Expect(err).ShouldNot(HaveOccurred())
+		err = runtimeClient.Create(ctx, mchObj)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 	It("The kafka resources should have backup label", func() {

@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -51,8 +52,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	backupcontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
-	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -63,10 +62,8 @@ var (
 	k8sClient     client.Client // You'll be using this client in your tests.
 	kubeClient    *kubernetes.Clientset
 	testEnv       *envtest.Environment
-	testPostgres  *testpostgres.TestPostgres
 	ctx           context.Context
 	cancel        context.CancelFunc
-	mghReconciler *hubofhubscontroller.MulticlusterGlobalHubReconciler
 	testNamespace = "default"
 )
 
@@ -80,6 +77,7 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancel = context.WithCancel(context.TODO())
+	klog.Errorf("####")
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -122,6 +120,7 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+	klog.Errorf("####")
 
 	leaseDuration := 137 * time.Second
 	renewDeadline := 126 * time.Second
@@ -137,6 +136,7 @@ var _ = BeforeSuite(func() {
 		RetryPeriod:             &retryPeriod,
 	})
 	Expect(err).ToNot(HaveOccurred())
+	klog.Errorf("####")
 
 	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
@@ -147,9 +147,12 @@ var _ = BeforeSuite(func() {
 		Log:     ctrl.Log.WithName("backup-reconciler"),
 	}
 	Expect(backupReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
+	klog.Errorf("####")
 
 	go func() {
 		defer GinkgoRecover()
+		klog.Errorf("####")
+
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()

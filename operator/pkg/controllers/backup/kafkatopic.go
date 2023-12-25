@@ -23,8 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type kafkaTopicBackup struct {
@@ -64,6 +64,27 @@ func (r *kafkaTopicBackup) AddLabelToAllObjs(ctx context.Context, c client.Clien
 		}
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
 		err := addLabel(ctx, c, kafkaTopic, namespace, obj.Name, r.labelKey, r.labelValue)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *kafkaTopicBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, namespace string) error {
+	objList := &kafkav1beta2.KafkaTopicList{}
+	err := c.List(ctx, objList, &client.ListOptions{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return err
+	}
+	for _, obj := range objList.Items {
+		if !utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
+			continue
+		}
+		kafkaTopic := &kafkav1beta2.KafkaTopic{}
+		err := deleteLabel(ctx, c, kafkaTopic, namespace, obj.Name, r.labelKey)
 		if err != nil {
 			return err
 		}

@@ -37,8 +37,11 @@ import (
 	"github.com/go-logr/logr"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 )
 
 var (
@@ -65,7 +68,7 @@ func NewBackupReconciler(mgr manager.Manager, log logr.Logger) *BackupReconciler
 
 func (r *BackupReconciler) Start(ctx context.Context) error {
 	//Only when global hub started, then start the backup controller
-	_, err := utils.WaitGlobalHubReady(ctx, r.Client, 5*time.Second)
+	_, err := operatorutils.WaitGlobalHubReady(ctx, r.Client, 5*time.Second)
 	if err != nil {
 		return err
 	}
@@ -103,8 +106,24 @@ func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.PersistentVolumeClaim{},
 			objEventHandler,
 			builder.WithPredicates(pvcPred)).
+		Watches(&mchv1.MultiClusterHub{},
+			mchEventHandler).
 		Complete(r)
 }
+
+var mchEventHandler = handler.EnqueueRequestsFromMapFunc(
+	func(ctx context.Context, obj client.Object) []reconcile.Request {
+		t := reflect.TypeOf(obj)
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Namespace: t.Elem().Name(),
+					Name:      obj.GetName(),
+				},
+			},
+		}
+	},
+)
 
 var mghPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {

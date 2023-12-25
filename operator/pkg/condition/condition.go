@@ -82,6 +82,14 @@ const (
 	CONDITION_REASON_GLOBALHUB_PAUSED = "MulticlusterGlobalHubPaused"
 )
 
+const (
+	CONDITION_TYPE_BACKUP             = "BackupLabelAdded"
+	CONDITION_REASON_BACKUP           = "BackupLabelAdded"
+	CONDITION_MESSAGE_BACKUP          = "Added Backup Label To Global Hub Resources"
+	CONDITION_REASON_BACKUP_DISABLED  = "BackupDisabled"
+	CONDITION_MESSAGE_BACKUP_DISABLED = "Backup Disabled In RHACM"
+)
+
 // SetConditionFunc is function type that receives the concrete condition method
 type SetConditionFunc func(ctx context.Context, c client.Client,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,

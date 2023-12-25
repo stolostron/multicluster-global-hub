@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type pvcBackup struct {
@@ -59,6 +59,9 @@ func (r *pvcBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, name
 			},
 		),
 	})
+	if err != nil {
+		return err
+	}
 
 	postgresList := &corev1.PersistentVolumeClaimList{}
 	err = c.List(ctx, postgresList, &client.ListOptions{
@@ -83,6 +86,52 @@ func (r *pvcBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, name
 		}
 		pvc := &corev1.PersistentVolumeClaim{}
 		err := addLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey, r.labelValue)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *pvcBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, namespace string) error {
+	kafkaList := &corev1.PersistentVolumeClaimList{}
+	err := c.List(ctx, kafkaList, &client.ListOptions{
+		Namespace: namespace,
+		LabelSelector: labels.SelectorFromSet(
+			labels.Set{
+				kafkaPvcLabelKey: kafkaPvcLabelValue,
+				r.labelKey:       r.labelValue,
+			},
+		),
+	})
+	if err != nil {
+		return err
+	}
+
+	postgresList := &corev1.PersistentVolumeClaimList{}
+	err = c.List(ctx, postgresList, &client.ListOptions{
+		Namespace: namespace,
+		LabelSelector: labels.SelectorFromSet(
+			labels.Set{
+				postgresPvcLabelKey: postgresPvcLabelValue,
+				r.labelKey:          r.labelValue,
+			},
+		),
+	})
+	if err != nil {
+		return err
+	}
+
+	var objs []corev1.PersistentVolumeClaim
+	objs = append(objs, postgresList.Items...)
+	objs = append(objs, kafkaList.Items...)
+
+	for _, obj := range objs {
+		if !utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
+			continue
+		}
+		pvc := &corev1.PersistentVolumeClaim{}
+		err := deleteLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey)
 		if err != nil {
 			return err
 		}
