@@ -48,7 +48,6 @@ var _ = Describe("LocalPlacementrulesSyncer", Label("localplacementrule"), func(
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.GetVersion().String(),
 			Payload: payloadBytes,
 		}
 		By("Sync message with transport")

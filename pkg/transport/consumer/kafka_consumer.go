@@ -202,14 +202,14 @@ func (c *KafkaConsumer) processMessageWithConflation(message *kafka.Message) {
 	msgID := msgIDTokens[1]
 	if _, found := c.messageIDToRegistrationMap[msgID]; !found {
 		c.log.Info("no bundle-registration available, not sending bundle", "MessageKey", transportMessage.Key,
-			"messageType", transportMessage.MsgType, "version", transportMessage.Version)
+			"messageType", transportMessage.MsgType)
 		// no one registered for this msg id
 		return
 	}
 
 	if !c.messageIDToRegistrationMap[msgID].Predicate() {
 		c.log.Info("predicate is false, not sending bundle", "MessageKey", transportMessage.Key,
-			"messageType", transportMessage.MsgType, "version", transportMessage.Version)
+			"messageType", transportMessage.MsgType)
 
 		return // bundle-registration predicate is false, do not send the update in the channel
 	}
@@ -256,14 +256,14 @@ func (c *KafkaConsumer) processMessage(message *kafka.Message) {
 	if !found { // received generic bundle
 		if err := c.syncGenericBundle(transportMessage.Payload); err != nil {
 			c.log.Error(err, parseFail, "MessageKey", transportMessage.Key,
-				"MessageType", transportMessage.MsgType, "Version", transportMessage.Version)
+				"MessageType", transportMessage.MsgType)
 		}
 		return
 	}
 	// received a custom bundle
 	if err := c.SyncCustomBundle(customBundleRegistration, transportMessage.Payload); err != nil {
 		c.log.Error(err, parseFail, "MessageKey", transportMessage.Key,
-			"MessageType", transportMessage.MsgType, "Version", transportMessage.Version)
+			"MessageType", transportMessage.MsgType)
 	}
 }
 

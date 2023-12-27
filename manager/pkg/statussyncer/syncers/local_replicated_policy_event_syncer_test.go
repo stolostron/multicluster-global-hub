@@ -74,7 +74,6 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: baseClusterPolicyStatusEventBundle.BundleVersion.String(),
 			Payload: payloadBytes,
 		}
 

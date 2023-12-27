@@ -47,11 +47,10 @@ var _ = Describe("GenericBundle", func() {
 		fmt.Println("payload", string(payloadBytes))
 		Expect(err).NotTo(HaveOccurred())
 		err = producer.Send(ctx, &transport.Message{
-			Destination: transport.DestinationBroadcast,
-			Key:         "Placements",
-			MsgType:     constants.SpecBundle,
-			Version:     time.Now().Format(timeFormat),
-			Payload:     payloadBytes,
+			Source:  transport.Broadcast,
+			Key:     "Placements",
+			MsgType: constants.SpecBundle,
+			Payload: payloadBytes,
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -99,11 +98,10 @@ var _ = Describe("GenericBundle", func() {
 		fmt.Println("payload", string(payloadBytes))
 		Expect(err).NotTo(HaveOccurred())
 		err = producer.Send(ctx, &transport.Message{
-			Destination: transport.DestinationBroadcast,
-			Key:         "Placementbinding",
-			MsgType:     constants.SpecBundle,
-			Version:     time.Now().Format(timeFormat),
-			Payload:     payloadBytes,
+			Source:  transport.Broadcast,
+			Key:     "Placementbinding",
+			MsgType: constants.SpecBundle,
+			Payload: payloadBytes,
 		})
 		Expect(err).NotTo(HaveOccurred())
 

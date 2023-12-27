@@ -50,7 +50,6 @@ var _ = Describe("LocalPolicySpecSyncer", Label("localpolicy"), func() {
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.GetVersion().String(),
 			Payload: payloadBytes,
 		}
 

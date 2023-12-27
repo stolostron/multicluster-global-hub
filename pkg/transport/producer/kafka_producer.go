@@ -127,8 +127,7 @@ func (p *KafkaProducer) Send(ctx context.Context, msg *transport.Message) error 
 func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 	msgBytes, err := json.Marshal(msg)
 	if err != nil {
-		p.log.Error(err, "failed to send message", "MessageKey", msg.Key, "MessageType", msg.MsgType,
-			"Version", msg.Version)
+		p.log.Error(err, "failed to send message", "MessageKey", msg.Key, "MessageType", msg.MsgType)
 
 		return
 	}
@@ -136,7 +135,7 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 	compressedBytes, err := p.compressor.Compress(msgBytes)
 	if err != nil {
 		p.log.Error(err, "failed to compress bundle", "CompressorType", p.compressor.GetType(),
-			"MessageKey", msg.Key, "MessageType", msg.MsgType, "Version", msg.Version)
+			"MessageKey", msg.Key, "MessageType", msg.MsgType)
 
 		return
 	}
@@ -146,24 +145,19 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 	}
 
 	msgKey := msg.Key
-	if msg.Destination != transport.DestinationBroadcast { // set destination if specified
-		msgKey = fmt.Sprintf("%s.%s", msg.Destination, msg.Key)
-
-		messageHeaders = append(messageHeaders, kafka.Header{
-			Key:   transport.DestinationKey,
-			Value: []byte(msg.Destination),
-		})
+	if msg.Source != transport.Broadcast {
+		msgKey = fmt.Sprintf("%s.%s", msg.Source, msg.Key)
 	}
 
 	if err = p.produceAsync(msgKey, p.topic, partition, messageHeaders, compressedBytes); err != nil {
 		p.log.Error(err, "failed to send message", "MessageKey", msg.Key,
-			"MessageType", msg.MsgType, "Version", msg.Version)
+			"MessageType", msg.MsgType)
 		InvokeCallback(p.eventSubscriptionMap, string(msg.Key), DeliveryFailure)
 
 		return
 	}
 	InvokeCallback(p.eventSubscriptionMap, string(msg.Key), DeliveryAttempt)
-	p.log.V(2).Info("Message sent successfully", "MessageKey", msg.Key, "MessageType", msg.MsgType, "Version", msg.Version)
+	p.log.V(2).Info("Message sent successfully", "MessageKey", msg.Key, "MessageType", msg.MsgType)
 }
 
 // Close closes the KafkaProducer.

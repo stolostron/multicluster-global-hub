@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -100,8 +101,8 @@ func (c *genericSharedBundleSyncer) syncBundles() {
 
 		if err := c.producer.Send(context.TODO(), &transport.Message{
 			Key:     transportMessageKey,
+			Source:  config.GetLeafHubName(),
 			MsgType: constants.StatusBundle,
-			Version: entry.bundle.GetVersion().String(),
 			Payload: payloadBytes,
 		}); err != nil {
 			c.log.Error(err, "send transport message error", "key", transportMessageKey)

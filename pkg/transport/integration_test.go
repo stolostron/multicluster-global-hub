@@ -59,7 +59,6 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		kafkaProducer.SendAsync(&transport.Message{
 			Key:     "PlacementRule", // entry.transportBundleKey
 			MsgType: constants.SpecBundle,
-			Version: "2022-10-26_08-32-00.739891", // entry.bundle.GetBundleVersion().String()
 			Payload: []byte(`{
 				"objects": [
 				  {
@@ -108,7 +107,6 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		kafkaProducer.SendAsync(&transport.Message{
 			Key:     "PlacementRule", // entry.transportBundleKey
 			MsgType: constants.SpecBundle,
-			Version: "2022-10-26_08-32-00.739891", // entry.bundle.GetBundleVersion().String()
 			Payload: []byte(`{
 					"objects": [
 					],
@@ -235,7 +233,6 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		kafkaProducer.SendAsync(&transport.Message{
 			Key:     "hub1.ManagedClusters", // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payload,
 		})
 

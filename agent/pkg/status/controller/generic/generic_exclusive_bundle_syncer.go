@@ -198,8 +198,8 @@ func (c *genericStatusSyncer) syncBundles() {
 
 			if err := c.transport.Send(context.TODO(), &transport.Message{
 				Key:     transportMessageKey,
+				Source:  config.GetLeafHubName(),
 				MsgType: constants.StatusBundle,
-				Version: entry.bundle.GetVersion().String(),
 				Payload: payloadBytes,
 			}); err != nil {
 				c.log.Error(err, "send transport message error", "key", transportMessageKey)

@@ -71,13 +71,13 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.P
 
 func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) error {
 	event := cloudevents.NewEvent()
-	event.SetSpecVersion(cloudevents.VersionV1)
 	event.SetID(msg.Key)
-	event.SetSource("")
-	event.SetExtension(transport.DestinationKey, msg.Destination)
+	event.SetSource(msg.Source)
 	event.SetType(msg.MsgType)
 	event.SetTime(time.Now())
-	event.SetExtension(transport.BundleVersionKey, msg.Version)
+	if msg.Source == "" {
+		event.SetSource(transport.Broadcast)
+	}
 
 	messageBytes := msg.Payload
 	chunks := p.splitPayloadIntoChunks(messageBytes)
@@ -91,7 +91,7 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 			return fmt.Errorf("failed to send generic message to transport: %s", result.Error())
 		}
 
-		p.log.Info("sent message", "Key", msg.Key, "Version", msg.Version)
+		p.log.Info("sent message", "Key", msg.Key)
 	}
 	return nil
 }

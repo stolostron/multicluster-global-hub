@@ -75,7 +75,6 @@ var _ = Describe("PlacementRulesDbSyncer", Ordered, func() {
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.BundleVersion.String(),
 			Payload: payloadBytes,
 		}
 

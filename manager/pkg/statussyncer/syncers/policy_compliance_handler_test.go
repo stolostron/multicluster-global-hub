@@ -108,7 +108,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		transportMessage := &transport.Message{
 			Key:     clustersPerPolicyTransportKey,
 			MsgType: constants.StatusBundle,
-			Version: clusterPerPolicyBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
 		}
 		By("Sync message with transport")
@@ -176,7 +175,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		transportMessage := &transport.Message{
 			Key:     policyCompleteComplianceTransportKey,
 			MsgType: constants.StatusBundle,
-			Version: completeComplianceStatusBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: completePayloadBytes,
 		}
 		By("Sync message with transport")
@@ -254,7 +252,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		transportMessage := &transport.Message{
 			Key:     policyDeltaComplianceTransportKey,
 			MsgType: constants.StatusBundle,
-			Version: deltaComplianceStatusBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
 		}
 		By("Sync message with transport")
@@ -337,7 +334,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		transportMessage = &transport.Message{
 			Key:     policyDeltaComplianceTransportKey,
 			MsgType: constants.StatusBundle,
-			Version: deltaComplianceStatusBundle.BaseBundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
 		}
 		By("Sync message with transport")
@@ -417,7 +413,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		transportMessage := &transport.Message{
 			Key:     minimalPolicyComplianceTransportKey,
 			MsgType: constants.StatusBundle,
-			Version: minimalComplianceBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
 		}
 		By("Sync message with transport")

@@ -85,7 +85,6 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.GetVersion().String(),
 			Payload: payloadBytes,
 		}
 

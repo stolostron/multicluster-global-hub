@@ -70,8 +70,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		transportMessage := &transport.Message{}
 		transportMessage.Key = event.ID()
 		transportMessage.MsgType = event.Type()
-		transportMessage.Destination = event.Extensions()[transportMessage.Destination].(string)
-		transportMessage.Version = event.Extensions()[transport.BundleVersionKey].(string)
+		transportMessage.Source = event.Source()
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
