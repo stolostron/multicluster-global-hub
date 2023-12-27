@@ -70,7 +70,6 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		transportMessage := &transport.Message{}
 		transportMessage.Key = event.ID()
 		transportMessage.MsgType = event.Type()
-		transportMessage.Source = event.Source()
 		transportMessage.Destination = event.Extensions()[transportMessage.Destination].(string)
 		transportMessage.Version = event.Extensions()[transport.BundleVersionKey].(string)
 

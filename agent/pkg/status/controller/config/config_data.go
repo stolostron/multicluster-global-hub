@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	leafHubName   = "leafhub"
+	leafHubName   = "leaf-hub"
 	syncIntervals = map[AgentConfigKey]time.Duration{
 		ManagedClusterIntervalKey: 5 * time.Second,
 		PolicyIntervalKey:         5 * time.Second,

@@ -73,7 +73,7 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 	event := cloudevents.NewEvent()
 	event.SetSpecVersion(cloudevents.VersionV1)
 	event.SetID(msg.Key)
-	event.SetSource(msg.Source)
+	event.SetSource("")
 	event.SetExtension(transport.DestinationKey, msg.Destination)
 	event.SetType(msg.MsgType)
 	event.SetTime(time.Now())
