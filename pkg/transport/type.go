@@ -14,7 +14,7 @@ const (
 	// ChunkOffsetKey is the key used for message fragment offset header.
 	ChunkOffsetKey = "offset"
 	// Transport version
-	BundleVersionKey = "bundle-version"
+	BundleVersionKey = "bundleversion"
 
 	// Deprecated
 	// CompressionType is the key used for compression type header.
