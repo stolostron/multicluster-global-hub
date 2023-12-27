@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS status.transport (
     payload jsonb NOT NULL,
     type character varying(50) DEFAULT 'kafka',
     created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
 -- Partition tables
