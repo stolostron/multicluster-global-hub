@@ -114,3 +114,12 @@ CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
     offsets int8, 
     error TEXT
 );
+
+CREATE TABLE IF NOT EXISTS status.transport (
+    -- transport name, it is the topic name for the kafka transport
+    name character varying(254) PRIMARY KEY,
+    payload jsonb NOT NULL,
+    type character varying(50) DEFAULT 'kafka',
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
+);
