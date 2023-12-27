@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -90,7 +89,7 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			// d.conflationManager.Insert(receivedBundle, NewBundleMetadata(message.TopicPartition.Partition,
 			// 	message.TopicPartition.Offset))
 			d.log.V(2).Info("forward received bundle to conflation", "messageID", msgID)
-			d.conflationManager.Insert(receivedBundle, metadata.NewThresholdBundleStatus(3))
+			d.conflationManager.Insert(receivedBundle, message.BundleStatus)
 		}
 	}
 }

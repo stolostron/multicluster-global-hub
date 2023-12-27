@@ -14,6 +14,7 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
@@ -71,6 +72,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		transportMessage.Key = event.ID()
 		transportMessage.MsgType = event.Type()
 		transportMessage.Destination = event.Source()
+		transportMessage.BundleStatus = status.NewThresholdBundleStatus(3, event)
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {

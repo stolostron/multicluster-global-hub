@@ -11,6 +11,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/placement"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
@@ -27,6 +28,12 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 	stats, err := addStatisticController(mgr, managerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add statistics to manager - %w", err)
+	}
+
+	// add kafka offset to the database periodically
+	kafkaStatusCommitter := status.NewKafkaStatusCommitter()
+	if err := mgr.Add(kafkaStatusCommitter); err != nil {
+		return nil, fmt.Errorf("failed to add DB worker pool: %w", err)
 	}
 
 	// conflationReadyQueue is shared between conflation manager and dispatcher
