@@ -72,10 +72,10 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.P
 func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) error {
 	event := cloudevents.NewEvent()
 	event.SetID(msg.Key)
-	event.SetSource(msg.Source)
 	event.SetType(msg.MsgType)
 	event.SetTime(time.Now())
-	if msg.Source == "" {
+	event.SetSource(msg.Destination)
+	if msg.Destination == "" {
 		event.SetSource(transport.Broadcast)
 	}
 

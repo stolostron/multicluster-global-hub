@@ -56,15 +56,6 @@ CREATE TABLE IF NOT EXISTS status.leaf_hubs (
 );
 CREATE INDEX IF NOT EXISTS leafhub_deleted_at_idx ON status.leaf_hubs (deleted_at);
 
-CREATE TABLE IF NOT EXISTS status.transport (
-    -- transport name, it is the topic name for the kafka transport
-    name character varying(254) PRIMARY KEY,
-    payload jsonb NOT NULL,
-    type character varying(50) DEFAULT 'kafka',
-    created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL
-);
-
 -- Partition tables
 CREATE TABLE IF NOT EXISTS event.local_policies (
     event_name text NOT NULL,

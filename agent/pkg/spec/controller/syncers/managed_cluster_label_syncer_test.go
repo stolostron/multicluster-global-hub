@@ -62,10 +62,10 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 		payloadBytes, err := json.Marshal(managedClusterLabelsSpecBundle)
 		Expect(err).NotTo(HaveOccurred())
 		err = producer.Send(ctx, &transport.Message{
-			Source:  agentConfig.LeafHubName,
-			Key:     constants.ManagedClustersLabelsMsgKey,
-			MsgType: constants.SpecBundle,
-			Payload: payloadBytes,
+			Destination: agentConfig.LeafHubName,
+			Key:         constants.ManagedClustersLabelsMsgKey,
+			MsgType:     constants.SpecBundle,
+			Payload:     payloadBytes,
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -107,10 +107,10 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 		payloadBytes, err := json.Marshal(baseBundle)
 		Expect(err).NotTo(HaveOccurred())
 		err = producer.Send(ctx, &transport.Message{
-			Source:  transport.Broadcast,
-			Key:     "Config",
-			MsgType: constants.SpecBundle,
-			Payload: payloadBytes,
+			Destination: transport.Broadcast,
+			Key:         "Config",
+			MsgType:     constants.SpecBundle,
+			Payload:     payloadBytes,
 		})
 		Expect(err).NotTo(HaveOccurred())
 

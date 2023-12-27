@@ -145,8 +145,8 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 	}
 
 	msgKey := msg.Key
-	if msg.Source != transport.Broadcast {
-		msgKey = fmt.Sprintf("%s.%s", msg.Source, msg.Key)
+	if msg.Destination != transport.Broadcast {
+		msgKey = fmt.Sprintf("%s.%s", msg.Destination, msg.Key)
 	}
 
 	if err = p.produceAsync(msgKey, p.topic, partition, messageHeaders, compressedBytes); err != nil {

@@ -79,10 +79,10 @@ type ClusterTopic struct {
 
 // Message abstracts a message object to be used by different transport components.
 type Message struct {
-	Key     string `json:"key"`
-	Source  string `json:"source"`
-	MsgType string `json:"msgType"`
-	Payload []byte `json:"payload"`
+	Key         string `json:"key"`
+	Destination string `json:"destination"`
+	MsgType     string `json:"msgType"`
+	Payload     []byte `json:"payload"`
 }
 
 // ConnCredential is used to connect the transporter instance

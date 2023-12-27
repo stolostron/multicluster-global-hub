@@ -100,10 +100,10 @@ func (c *genericSharedBundleSyncer) syncBundles() {
 		}
 
 		if err := c.producer.Send(context.TODO(), &transport.Message{
-			Key:     transportMessageKey,
-			Source:  config.GetLeafHubName(),
-			MsgType: constants.StatusBundle,
-			Payload: payloadBytes,
+			Key:         transportMessageKey,
+			Destination: config.GetLeafHubName(),
+			MsgType:     constants.StatusBundle,
+			Payload:     payloadBytes,
 		}); err != nil {
 			c.log.Error(err, "send transport message error", "key", transportMessageKey)
 			return

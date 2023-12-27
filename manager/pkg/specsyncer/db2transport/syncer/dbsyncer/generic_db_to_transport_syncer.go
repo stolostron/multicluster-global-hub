@@ -108,10 +108,10 @@ func syncObjectsBundle(ctx context.Context, producer transport.Producer, transpo
 		return false, fmt.Errorf("failed to sync marshal bundle(%s)", transportBundleKey)
 	}
 	if err := producer.Send(ctx, &transport.Message{
-		Source:  transport.Broadcast,
-		Key:     transportBundleKey,
-		MsgType: constants.SpecBundle,
-		Payload: payloadBytes,
+		Destination: transport.Broadcast,
+		Key:         transportBundleKey,
+		MsgType:     constants.SpecBundle,
+		Payload:     payloadBytes,
 	}); err != nil {
 		return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",
 			transportBundleKey, dbTableName, transport.Broadcast, err)
