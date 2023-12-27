@@ -67,20 +67,21 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	err := c.client.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
 		c.log.V(2).Info("received message and forward to bundle channel", "event.ID", event.ID())
 
+		transportMessage := &transport.Message{}
+		transportMessage.Key = event.ID()
+		transportMessage.MsgType = event.Type()
+		transportMessage.Source = event.Source()
+		transportMessage.Destination = event.Extensions()[transportMessage.Destination].(string)
+		transportMessage.Version = event.Extensions()[transport.BundleVersionKey].(string)
+
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
-			transportMessage := &transport.Message{}
-			if err := event.DataAs(transportMessage); err != nil {
-				c.log.Error(err, "get transport message error", "event.ID", event.ID())
-				return ceprotocol.ResultNACK
-			}
+			transportMessage.Payload = event.Data()
 			c.messageChan <- transportMessage
-			return ceprotocol.ResultACK
 		}
-
-		if transportMessage := c.assembler.assemble(chunk); transportMessage != nil {
+		if payload := c.assembler.assemble(chunk); payload != nil {
+			transportMessage.Payload = payload
 			c.messageChan <- transportMessage
-			return ceprotocol.ResultACK
 		}
 		return ceprotocol.ResultNACK
 	})

@@ -5,7 +5,6 @@ package producer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 const (
 	MaxMessageKBLimit    = 1024
 	DefaultMessageKBSize = 960
+	BundleVersionKey     = "bundleVersion"
 )
 
 type GenericProducer struct {
@@ -72,27 +72,26 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.P
 func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) error {
 	event := cloudevents.NewEvent()
 	event.SetSpecVersion(cloudevents.VersionV1)
-	event.SetSource("global-hub-manager")
-	event.SetID(msg.ID)
+	event.SetID(msg.Key)
+	event.SetSource(msg.Source)
+	event.SetExtension(transport.DestinationKey, msg.Destination)
 	event.SetType(msg.MsgType)
 	event.SetTime(time.Now())
-	messageBytes, err := json.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("failed to marshal message to bytes: %s", messageBytes)
-	}
+	event.SetExtension(transport.BundleVersionKey, msg.Version)
 
+	messageBytes := msg.Payload
 	chunks := p.splitPayloadIntoChunks(messageBytes)
 	for index, chunk := range chunks {
-		event.SetExtension(transport.Size, len(messageBytes))
-		event.SetExtension(transport.Offset, index*p.messageSizeLimit)
+		event.SetExtension(transport.ChunkSizeKey, len(messageBytes))
+		event.SetExtension(transport.ChunkOffsetKey, index*p.messageSizeLimit)
 		if err := event.SetData(cloudevents.ApplicationJSON, chunk); err != nil {
 			return fmt.Errorf("failed to set cloudevents data: %v", msg)
 		}
-		if result := p.client.Send(kafka_confluent.WithMessageKey(ctx, msg.ID), event); cloudevents.IsUndelivered(result) {
+		if result := p.client.Send(kafka_confluent.WithMessageKey(ctx, msg.Key), event); cloudevents.IsUndelivered(result) {
 			return fmt.Errorf("failed to send generic message to transport: %s", result.Error())
 		}
 
-		p.log.V(2).Info("sent message", "ID", msg.ID, "Version", msg.Version)
+		p.log.Info("sent message", "Key", msg.Key, "Version", msg.Version)
 	}
 	return nil
 }

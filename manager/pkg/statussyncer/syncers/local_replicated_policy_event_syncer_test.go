@@ -73,7 +73,6 @@ var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, localPoliciesStatusEventMsgKey)
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
-			ID:      transportMessageKey,
 			MsgType: constants.StatusBundle,
 			Version: baseClusterPolicyStatusEventBundle.BundleVersion.String(),
 			Payload: payloadBytes,

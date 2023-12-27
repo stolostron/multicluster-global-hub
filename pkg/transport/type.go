@@ -5,18 +5,22 @@ import (
 )
 
 const (
-	// DestinationHub is the key used for destination-hub name header.
-	DestinationHub = "destination-hub"
+	// DestinationKey is the key used for destination-hub name header.
+	DestinationKey = "destination"
+	// Broadcast can be used as destination when a bundle should be broadcasted.
+	DestinationBroadcast = ""
+	// ChunkSizeKey is the key used for total bundle size header.
+	ChunkSizeKey = "size"
+	// ChunkOffsetKey is the key used for message fragment offset header.
+	ChunkOffsetKey = "offset"
+	// Transport version
+	BundleVersionKey = "bundle-version"
+
+	// Deprecated
 	// CompressionType is the key used for compression type header.
 	CompressionType = "content-encoding"
-	// Size is the key used for total bundle size header.
-	Size = "size"
-	// Offset is the key used for message fragment offset header.
-	Offset = "offset"
 	// FragmentationTimestamp is the key used for bundle fragmentation time header.
 	FragmentationTimestamp = "fragmentation-timestamp"
-	// Broadcast can be used as destination when a bundle should be broadcasted.
-	Broadcast = ""
 )
 
 // indicate the transport type, only support kafka or go chan
@@ -79,11 +83,12 @@ type ClusterTopic struct {
 // Message abstracts a message object to be used by different transport components.
 type Message struct {
 	Destination string `json:"destination"`
+	Source      string `json:"source"`
 	Key         string `json:"key"`
-	ID          string `json:"id"`
-	MsgType     string `json:"msgType"`
-	Version     string `json:"version"`
-	Payload     []byte `json:"payload"`
+	// ID      string `json:"id"`
+	MsgType string `json:"msgType"`
+	Version string `json:"version"`
+	Payload []byte `json:"payload"`
 }
 
 // ConnCredential is used to connect the transporter instance

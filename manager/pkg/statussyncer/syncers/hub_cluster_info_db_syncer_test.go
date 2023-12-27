@@ -84,7 +84,6 @@ var _ = Describe("HubClusterInfoDbSyncer", Ordered, func() {
 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, messageKey)
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
-			ID:      transportMessageKey,
 			MsgType: constants.StatusBundle,
 			Version: statusBundle.GetVersion().String(),
 			Payload: payloadBytes,

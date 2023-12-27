@@ -93,7 +93,6 @@ func (c *genericSharedBundleSyncer) syncBundles() {
 			return
 		}
 
-		messageId := entry.transportBundleKey
 		transportMessageKey := entry.transportBundleKey
 		if deltaStateBundle, ok := entry.bundle.(bundle.AgentDeltaBundle); ok {
 			transportMessageKey = fmt.Sprintf("%s@%d", entry.transportBundleKey, deltaStateBundle.GetTransportationID())
@@ -101,12 +100,11 @@ func (c *genericSharedBundleSyncer) syncBundles() {
 
 		if err := c.producer.Send(context.TODO(), &transport.Message{
 			Key:     transportMessageKey,
-			ID:      messageId,
 			MsgType: constants.StatusBundle,
 			Version: entry.bundle.GetVersion().String(),
 			Payload: payloadBytes,
 		}); err != nil {
-			c.log.Error(err, "send transport message error", "id", messageId)
+			c.log.Error(err, "send transport message error", "key", transportMessageKey)
 			return
 		}
 

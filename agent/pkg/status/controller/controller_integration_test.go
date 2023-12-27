@@ -87,7 +87,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		Eventually(func() error {
 			message := <-consumer.MessageChan()
 			statusBundle, err := getStatusBundle(message, constants.LocalPolicySpecMsgKey)
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 
 			printBundle(statusBundle)
 			if err != nil {
@@ -180,7 +180,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		Eventually(func() error {
 			message := <-consumer.MessageChan()
 			statusBundle, err := getStatusBundle(message, constants.LocalPolicyHistoryEventMsgKey)
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 
 			printBundle(statusBundle)
 			if err != nil {
@@ -220,7 +220,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 			printBundle(statusBundle)
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
@@ -254,7 +254,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 			printBundle(statusBundle)
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
@@ -288,7 +288,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 			printBundle(statusBundle)
 			return nil
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
@@ -323,7 +323,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 			printBundle(statusBundle)
 
 			managedClustersStatusBundle, ok := statusBundle.(*cluster.ManagedClusterBundle)
@@ -386,7 +386,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 		var completeComplianceStatusBundle *grc.CompleteComplianceBundle
 		Eventually(func() error {
 			message := <-consumer.MessageChan()
-			fmt.Printf("========== received %s \n", message.ID)
+			fmt.Printf("========== received %s \n", message.Key)
 
 			complianceTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.ComplianceMsgKey)
 			completeTransportKey := fmt.Sprintf("%s.%s", config.GetLeafHubName(), constants.CompleteComplianceMsgKey)
@@ -394,7 +394,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			var statusBundle bundle.ManagerBundle
 			var err error
 			var ok bool
-			if message.ID == complianceTransportKey {
+			if message.Key == complianceTransportKey {
 				statusBundle, err = getStatusBundle(message, constants.ComplianceMsgKey)
 				printBundle(statusBundle)
 
@@ -404,7 +404,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 				}
 			}
 
-			if message.ID == completeTransportKey {
+			if message.Key == completeTransportKey {
 				statusBundle, err = getStatusBundle(message, constants.CompleteComplianceMsgKey)
 				printBundle(statusBundle)
 
@@ -571,7 +571,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 
 			placementRulesStatusBundle, ok := statusBundle.(*placement.PlacementRulesBundle)
 			if !ok {
@@ -616,7 +616,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 
 			placementsStatusBundle, ok := statusBundle.(*placement.PlacementsBundle)
 			if !ok {
@@ -658,7 +658,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 
 			placementDecisionsStatusBundle, ok := statusBundle.(*placement.PlacementDecisionsBundle)
 			if !ok {
@@ -718,7 +718,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("========== received %s with statusBundle: %v\n", message.ID, statusBundle)
+			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 
 			subscriptionReportsStatusBundle, ok := statusBundle.(*subscription.SubscriptionReportsBundle)
 			if !ok {
@@ -747,8 +747,8 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 
 func getStatusBundle(message *transport.Message, key string) (bundle.ManagerBundle, error) {
 	expectedMessageID := fmt.Sprintf("%s.%s", leafHubName, key)
-	if message.ID != expectedMessageID {
-		return nil, fmt.Errorf("expected messageID %s but got %s", expectedMessageID, message.ID)
+	if message.Key != expectedMessageID {
+		return nil, fmt.Errorf("expected messageID %s but got %s", expectedMessageID, message.Key)
 	}
 
 	receivedBundle := msgIDBundleCreateFuncMap[key]()

@@ -192,7 +192,7 @@ func (c *KafkaConsumer) processMessageWithConflation(message *kafka.Message) {
 	}
 
 	// get msgID
-	msgIDTokens := strings.Split(transportMessage.ID, ".") // object id is LH_ID.MSG_ID
+	msgIDTokens := strings.Split(transportMessage.Key, ".") // object id is LH_ID.MSG_ID
 	if len(msgIDTokens) != 2 {
 		c.logError(errors.New("message ID format is bad"),
 			"expecting MessageID of format LH_ID.MSG_ID", message)
@@ -201,14 +201,14 @@ func (c *KafkaConsumer) processMessageWithConflation(message *kafka.Message) {
 
 	msgID := msgIDTokens[1]
 	if _, found := c.messageIDToRegistrationMap[msgID]; !found {
-		c.log.Info("no bundle-registration available, not sending bundle", "messageId", transportMessage.ID,
+		c.log.Info("no bundle-registration available, not sending bundle", "MessageKey", transportMessage.Key,
 			"messageType", transportMessage.MsgType, "version", transportMessage.Version)
 		// no one registered for this msg id
 		return
 	}
 
 	if !c.messageIDToRegistrationMap[msgID].Predicate() {
-		c.log.Info("predicate is false, not sending bundle", "messageId", transportMessage.ID,
+		c.log.Info("predicate is false, not sending bundle", "MessageKey", transportMessage.Key,
 			"messageType", transportMessage.MsgType, "version", transportMessage.Version)
 
 		return // bundle-registration predicate is false, do not send the update in the channel
@@ -227,7 +227,7 @@ func (c *KafkaConsumer) processMessageWithConflation(message *kafka.Message) {
 }
 
 func (c *KafkaConsumer) processMessage(message *kafka.Message) {
-	if msgDestinationLeafHubBytes, found := c.lookupHeaderValue(message, transport.DestinationHub); found {
+	if msgDestinationLeafHubBytes, found := c.lookupHeaderValue(message, transport.DestinationKey); found {
 		if string(msgDestinationLeafHubBytes) != c.leafHubName {
 			return // if destination is explicitly specified and does not match, drop bundle
 		}
@@ -252,17 +252,17 @@ func (c *KafkaConsumer) processMessage(message *kafka.Message) {
 		return
 	}
 
-	customBundleRegistration, found := c.customBundleIDToRegistrationMap[transportMessage.ID]
+	customBundleRegistration, found := c.customBundleIDToRegistrationMap[transportMessage.Key]
 	if !found { // received generic bundle
 		if err := c.syncGenericBundle(transportMessage.Payload); err != nil {
-			c.log.Error(err, parseFail, "MessageID", transportMessage.ID,
+			c.log.Error(err, parseFail, "MessageKey", transportMessage.Key,
 				"MessageType", transportMessage.MsgType, "Version", transportMessage.Version)
 		}
 		return
 	}
 	// received a custom bundle
 	if err := c.SyncCustomBundle(customBundleRegistration, transportMessage.Payload); err != nil {
-		c.log.Error(err, parseFail, "MessageID", transportMessage.ID,
+		c.log.Error(err, parseFail, "MessageKey", transportMessage.Key,
 			"MessageType", transportMessage.MsgType, "Version", transportMessage.Version)
 	}
 }
@@ -398,8 +398,8 @@ func (c *KafkaConsumer) Commit(msg *kafka.Message) error {
 }
 
 func (c *KafkaConsumer) messageIsFragment(msg *kafka.Message) (*messageFragment, bool) {
-	offsetHeader, offsetFound := c.lookupHeader(msg, transport.Offset)
-	_, sizeFound := c.lookupHeader(msg, transport.Size)
+	offsetHeader, offsetFound := c.lookupHeader(msg, transport.ChunkOffsetKey)
+	_, sizeFound := c.lookupHeader(msg, transport.ChunkSizeKey)
 
 	if !(offsetFound && sizeFound) {
 		return nil, false
@@ -428,9 +428,9 @@ func (c *KafkaConsumer) createFragmentInfo(msg *kafka.Message, fragment *message
 		return nil, fmt.Errorf("%w : header key - %s", errHeaderNotFound, transport.FragmentationTimestamp)
 	}
 
-	sizeHeader, found := c.lookupHeader(msg, transport.Size)
+	sizeHeader, found := c.lookupHeader(msg, transport.ChunkSizeKey)
 	if !found {
-		return nil, fmt.Errorf("%w : header key - %s", errHeaderNotFound, transport.Size)
+		return nil, fmt.Errorf("%w : header key - %s", errHeaderNotFound, transport.ChunkSizeKey)
 	}
 
 	timestamp, err := time.Parse(time.RFC3339, string(timestampHeader.Value))

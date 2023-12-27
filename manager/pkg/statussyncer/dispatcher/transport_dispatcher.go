@@ -60,7 +60,7 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 		case message := <-d.consumer.MessageChan():
 
 			// get msgID
-			msgIDTokens := strings.Split(message.ID, ".") // object id is LH_ID.MSG_ID
+			msgIDTokens := strings.Split(message.Key, ".") // object id is LH_ID.MSG_ID
 			if len(msgIDTokens) != 2 {
 				d.log.Error(errors.New("message ID format is bad"),
 					"expecting MsgID format LH_ID.MSG_ID", "message", message)

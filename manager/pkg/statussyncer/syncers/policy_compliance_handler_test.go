@@ -107,7 +107,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		By("Synchronize the latest ClustersPerPolicy bundle with transport")
 		transportMessage := &transport.Message{
 			Key:     clustersPerPolicyTransportKey,
-			ID:      clustersPerPolicyTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: clusterPerPolicyBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
@@ -176,7 +175,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		By("Synchronize the complete policy bundle with transport")
 		transportMessage := &transport.Message{
 			Key:     policyCompleteComplianceTransportKey,
-			ID:      policyCompleteComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: completeComplianceStatusBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: completePayloadBytes,
@@ -255,7 +253,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		By("Synchronize the delta policy bundle with transport")
 		transportMessage := &transport.Message{
 			Key:     policyDeltaComplianceTransportKey,
-			ID:      policyDeltaComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: deltaComplianceStatusBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
@@ -339,7 +336,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		By("Synchronize the updated delta policy bundle with transport")
 		transportMessage = &transport.Message{
 			Key:     policyDeltaComplianceTransportKey,
-			ID:      policyDeltaComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: deltaComplianceStatusBundle.BaseBundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
@@ -420,7 +416,6 @@ var _ = Describe("Status Compliances", Ordered, func() {
 		By("Synchronize the policy bundle with transport")
 		transportMessage := &transport.Message{
 			Key:     minimalPolicyComplianceTransportKey,
-			ID:      minimalPolicyComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
 			Version: minimalComplianceBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,

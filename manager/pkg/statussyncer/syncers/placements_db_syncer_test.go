@@ -74,7 +74,6 @@ var _ = Describe("PlacementDbSyncer", Ordered, func() {
 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, messageKey)
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
-			ID:      transportMessageKey,
 			MsgType: constants.StatusBundle,
 			Version: statusBundle.BundleVersion.String(),
 			Payload: payloadBytes,
