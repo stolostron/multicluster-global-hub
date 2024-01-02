@@ -5,6 +5,7 @@ package transporter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -174,6 +175,8 @@ func TestStrimziTransporter(t *testing.T) {
 	}, kafkaUser)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(kafkaUser.Spec.Authorization.Acls))
+	p, _ := json.MarshalIndent(kafkaUser, "", " ")
+	fmt.Println(string(p))
 
 	// delete user and topic
 	err = trans.DeleteUser(userName)

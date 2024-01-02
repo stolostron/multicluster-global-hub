@@ -298,23 +298,22 @@ func (k *strimziTransporter) GrantRead(userName string, topicName string) error 
 		return err
 	}
 
-	authorization := kafkaUser.Spec.Authorization
-	if authorization == nil {
-		authorization = &kafkav1beta2.KafkaUserSpecAuthorization{
-			Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
-			Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{},
-		}
+	expectedAcls := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		topicReadAcl(topicName),
+		consumeGroupReadAcl(),
 	}
 
-	// expected topic ACL
+	return k.addPermissions(kafkaUser, expectedAcls)
+}
+
+func topicReadAcl(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
 	host := "*"
 	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	if userName == DefaultGlobalHubKafkaUser && topicName == StatusTopicRegex {
+	if topicName == StatusTopicRegex {
 		// give the topic permission for the manager user
-		topicName = StatusTopicPrefix
 		patternType = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
-	readAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+	return kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
 		Host: &host,
 		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
 			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
@@ -326,8 +325,11 @@ func (k *strimziTransporter) GrantRead(userName string, topicName string) error 
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
 		},
 	}
+}
 
+func consumeGroupReadAcl() kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
 	// expected consumer group ACL
+	host := "*"
 	consumerGroup := "*"
 	consumerPatternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
 	consumerAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
@@ -341,26 +343,7 @@ func (k *strimziTransporter) GrantRead(userName string, topicName string) error 
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
 		},
 	}
-
-	updateAuthorization := false
-	if !containAcl(authorization.Acls, readAcl) {
-		k.log.Info("add read topic permission", "user", kafkaUser, "topic", topicName)
-		authorization.Acls = append(authorization.Acls, readAcl)
-		updateAuthorization = true
-	}
-
-	if !containAcl(authorization.Acls, consumerAcl) {
-		k.log.Info("add using consumer group permission", "user", kafkaUser, "consumerGroup", consumerGroup)
-		authorization.Acls = append(authorization.Acls, consumerAcl)
-		updateAuthorization = true
-	}
-
-	if updateAuthorization {
-		kafkaUser.Spec.Authorization = authorization
-		return k.runtimeClient.Update(k.ctx, kafkaUser)
-	}
-
-	return nil
+	return consumerAcl
 }
 
 func (k *strimziTransporter) GrantWrite(userName string, topicName string) error {
@@ -373,7 +356,49 @@ func (k *strimziTransporter) GrantWrite(userName string, topicName string) error
 		return err
 	}
 
-	// expected ACL
+	expectedAcls := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		topicWriteAcl(topicName),
+	}
+
+	return k.addPermissions(kafkaUser, expectedAcls)
+}
+
+func (k *strimziTransporter) addPermissions(kafkaUser *kafkav1beta2.KafkaUser,
+	expectedAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem) error {
+
+	authorization := kafkaUser.Spec.Authorization
+	if authorization == nil {
+		authorization = &kafkav1beta2.KafkaUserSpecAuthorization{
+			Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
+			Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{},
+		}
+	}
+
+	// the acl need to be added to the authorization
+	pendingAcls := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}
+	for _, expectedAcl := range expectedAcls {
+		exist := false
+		for _, acl := range authorization.Acls {
+			if equality.Semantic.DeepEqual(acl, expectedAcl) {
+				exist = true
+			}
+		}
+		if !exist {
+			pendingAcls = append(pendingAcls, expectedAcl)
+			k.log.Info("add permission", "user", kafkaUser, "type", expectedAcl.Resource.Type,
+				"name", expectedAcl.Resource.Name, "permission", expectedAcl.Operations)
+		}
+	}
+
+	if len(pendingAcls) > 0 {
+		authorization.Acls = append(authorization.Acls, pendingAcls...)
+		kafkaUser.Spec.Authorization = authorization
+		return k.runtimeClient.Update(k.ctx, kafkaUser)
+	}
+	return nil
+}
+
+func topicWriteAcl(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
 	host := "*"
 	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
 	writeAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
@@ -386,26 +411,9 @@ func (k *strimziTransporter) GrantWrite(userName string, topicName string) error
 		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemCreate,
 		},
 	}
-
-	authorization := kafkaUser.Spec.Authorization
-	if authorization == nil {
-		authorization = &kafkav1beta2.KafkaUserSpecAuthorization{
-			Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
-			Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{},
-		}
-	}
-	if containAcl(authorization.Acls, writeAcl) {
-		return nil
-	}
-
-	// add the read acl
-	k.log.Info("add write permission", "user", kafkaUser, "topic", topicName)
-	authorization.Acls = append(authorization.Acls, writeAcl)
-	kafkaUser.Spec.Authorization = authorization
-	return k.runtimeClient.Update(k.ctx, kafkaUser)
+	return writeAcl
 }
 
 func (k *strimziTransporter) GetConnCredential(username string) (*transport.ConnCredential, error) {
@@ -450,36 +458,36 @@ func (k *strimziTransporter) GetConnCredential(username string) (*transport.Conn
 	return nil, fmt.Errorf("kafka user %s/%s is not ready", k.namespace, username)
 }
 
-func containAcl(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
-	targetAcl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
-) bool {
-	for _, acl := range acls {
-		// resource
-		if *targetAcl.Host == *acl.Host &&
-			targetAcl.Resource.Type == acl.Resource.Type &&
-			*targetAcl.Resource.Name == *acl.Resource.Name &&
-			*targetAcl.Resource.PatternType == *acl.Resource.PatternType &&
-			containOps(acl.Operations, targetAcl.Operations) { // operation
-			return true
-		}
-	}
-	return false
-}
+// func containAcl(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+// 	targetAcl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+// ) bool {
+// 	for _, acl := range acls {
+// 		// resource
+// 		if *targetAcl.Host == *acl.Host &&
+// 			targetAcl.Resource.Type == acl.Resource.Type &&
+// 			*targetAcl.Resource.Name == *acl.Resource.Name &&
+// 			*targetAcl.Resource.PatternType == *acl.Resource.PatternType &&
+// 			containOps(acl.Operations, targetAcl.Operations) { // operation
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
-func containOps(operations []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
-	subOpertions []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
-) bool {
-	matchedOp := 0
-	for _, targetOp := range subOpertions {
-		for _, op := range operations {
-			if string(op) == string(targetOp) {
-				matchedOp += 1
-				break
-			}
-		}
-	}
-	return len(subOpertions) == matchedOp
-}
+// func containOps(operations []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+// 	subOpertions []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+// ) bool {
+// 	matchedOp := 0
+// 	for _, targetOp := range subOpertions {
+// 		for _, op := range operations {
+// 			if string(op) == string(targetOp) {
+// 				matchedOp += 1
+// 				break
+// 			}
+// 		}
+// 	}
+// 	return len(subOpertions) == matchedOp
+// }
 
 func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
 	return &kafkav1beta2.KafkaTopic{
