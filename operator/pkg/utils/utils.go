@@ -297,7 +297,6 @@ func WaitGlobalHubReady(ctx context.Context,
 }
 
 func GetResources(component string, advanced *globalhubv1alpha4.AdvancedConfig) *corev1.ResourceRequirements {
-
 	resourceReq := corev1.ResourceRequirements{}
 	requests := corev1.ResourceList{}
 	limits := corev1.ResourceList{}

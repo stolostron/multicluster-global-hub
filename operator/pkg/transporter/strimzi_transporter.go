@@ -363,8 +363,8 @@ func (k *strimziTransporter) GrantWrite(userName string, topicName string) error
 }
 
 func (k *strimziTransporter) addPermissions(kafkaUser *kafkav1beta2.KafkaUser,
-	expectedAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem) error {
-
+	expectedAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+) error {
 	authorization := kafkaUser.Spec.Authorization
 	if authorization == nil {
 		authorization = &kafkav1beta2.KafkaUserSpecAuthorization{
@@ -588,7 +588,8 @@ func (k *strimziTransporter) createKafkaCluster(mgh *operatorv1alpha4.Multiclust
 }
 
 func (k *strimziTransporter) getKafkaResources(
-	mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.KafkaSpecKafkaResources {
+	mgh *operatorv1alpha4.MulticlusterGlobalHub,
+) *kafkav1beta2.KafkaSpecKafkaResources {
 	kafkaRes := utils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedConfig)
 	kafkaSpecRes := &kafkav1beta2.KafkaSpecKafkaResources{}
 	jsonData, err := json.Marshal(kafkaRes)
@@ -604,7 +605,8 @@ func (k *strimziTransporter) getKafkaResources(
 }
 
 func (k *strimziTransporter) getZookeeperResources(
-	mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.KafkaSpecZookeeperResources {
+	mgh *operatorv1alpha4.MulticlusterGlobalHub,
+) *kafkav1beta2.KafkaSpecZookeeperResources {
 	zookeeperRes := utils.GetResources(operatorconstants.Zookeeper, mgh.Spec.AdvancedConfig)
 
 	zookeeperSpecRes := &kafkav1beta2.KafkaSpecZookeeperResources{}
