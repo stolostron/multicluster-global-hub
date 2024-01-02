@@ -99,7 +99,7 @@ func (p *KafkaProducer) deliveryReportHandler(ctx context.Context) {
 func (p *KafkaProducer) handleDeliveryReport(kafkaMessage *kafka.Message) {
 	if kafkaMessage.TopicPartition.Error != nil {
 		p.log.Error(kafkaMessage.TopicPartition.Error, "failed to deliver message",
-			"MessageId", string(kafkaMessage.Key), "TopicPartition", kafkaMessage.TopicPartition)
+			"MessageKey", string(kafkaMessage.Key), "TopicPartition", kafkaMessage.TopicPartition)
 		InvokeCallback(p.eventSubscriptionMap, string(kafkaMessage.Key), DeliveryFailure)
 		return
 	}
@@ -127,8 +127,7 @@ func (p *KafkaProducer) Send(ctx context.Context, msg *transport.Message) error 
 func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 	msgBytes, err := json.Marshal(msg)
 	if err != nil {
-		p.log.Error(err, "failed to send message", "MessageId", msg.ID, "MessageType", msg.MsgType,
-			"Version", msg.Version)
+		p.log.Error(err, "failed to send message", "MessageKey", msg.Key, "MessageType", msg.MsgType)
 
 		return
 	}
@@ -136,7 +135,7 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 	compressedBytes, err := p.compressor.Compress(msgBytes)
 	if err != nil {
 		p.log.Error(err, "failed to compress bundle", "CompressorType", p.compressor.GetType(),
-			"MessageId", msg.ID, "MessageType", msg.MsgType, "Version", msg.Version)
+			"MessageKey", msg.Key, "MessageType", msg.MsgType)
 
 		return
 	}
@@ -145,25 +144,20 @@ func (p *KafkaProducer) SendAsync(msg *transport.Message) {
 		{Key: transport.CompressionType, Value: []byte(p.compressor.GetType())},
 	}
 
-	msgKey := msg.ID
-	if msg.Destination != transport.Broadcast { // set destination if specified
-		msgKey = fmt.Sprintf("%s.%s", msg.Destination, msg.ID)
-
-		messageHeaders = append(messageHeaders, kafka.Header{
-			Key:   transport.DestinationHub,
-			Value: []byte(msg.Destination),
-		})
+	msgKey := msg.Key
+	if msg.Destination != transport.Broadcast {
+		msgKey = fmt.Sprintf("%s.%s", msg.Destination, msg.Key)
 	}
 
 	if err = p.produceAsync(msgKey, p.topic, partition, messageHeaders, compressedBytes); err != nil {
-		p.log.Error(err, "failed to send message", "MessageKey", msg.Key, "MessageId", msg.ID,
-			"MessageType", msg.MsgType, "Version", msg.Version)
-		InvokeCallback(p.eventSubscriptionMap, string(msg.ID), DeliveryFailure)
+		p.log.Error(err, "failed to send message", "MessageKey", msg.Key,
+			"MessageType", msg.MsgType)
+		InvokeCallback(p.eventSubscriptionMap, string(msg.Key), DeliveryFailure)
 
 		return
 	}
-	InvokeCallback(p.eventSubscriptionMap, string(msg.ID), DeliveryAttempt)
-	p.log.V(2).Info("Message sent successfully", "MessageId", msg.ID, "MessageType", msg.MsgType, "Version", msg.Version)
+	InvokeCallback(p.eventSubscriptionMap, string(msg.Key), DeliveryAttempt)
+	p.log.V(2).Info("Message sent successfully", "MessageKey", msg.Key, "MessageType", msg.MsgType)
 }
 
 // Close closes the KafkaProducer.
@@ -208,10 +202,10 @@ func (p *KafkaProducer) getMessageFragments(key string, topic *string, partition
 			fmt.Sprintf("%s_%d", key, index), topic, partition,
 			headers, chunk).
 			Header(kafka.Header{
-				Key: transport.Size, Value: toByteArray(len(payload)),
+				Key: transport.ChunkSizeKey, Value: toByteArray(len(payload)),
 			}).
 			Header(kafka.Header{
-				Key: transport.Offset, Value: toByteArray(index * p.messageSizeLimit),
+				Key: transport.ChunkOffsetKey, Value: toByteArray(index * p.messageSizeLimit),
 			}).
 			Header(kafka.Header{
 				Key: transport.FragmentationTimestamp, Value: []byte(fragmentationTimestamp),

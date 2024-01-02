@@ -71,9 +71,8 @@ func syncManagedClusterLabelsBundles(ctx context.Context, producer transport.Pro
 		}
 		if err := producer.Send(ctx, &transport.Message{
 			Destination: leafHubName,
-			ID:          transportBundleKey,
+			Key:         transportBundleKey,
 			MsgType:     constants.SpecBundle,
-			Version:     lastUpdateTimestamp.Format(timeFormat),
 			Payload:     payloadBytes,
 		}); err != nil {
 			return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",

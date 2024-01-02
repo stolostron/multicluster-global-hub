@@ -57,9 +57,8 @@ var _ = Describe("Transport Integration", Ordered, func() {
 
 		By("Send message to create PlacementRule")
 		kafkaProducer.SendAsync(&transport.Message{
-			ID:      "PlacementRule", // entry.transportBundleKey
+			Key:     "PlacementRule", // entry.transportBundleKey
 			MsgType: constants.SpecBundle,
-			Version: "2022-10-26_08-32-00.739891", // entry.bundle.GetBundleVersion().String()
 			Payload: []byte(`{
 				"objects": [
 				  {
@@ -106,9 +105,8 @@ var _ = Describe("Transport Integration", Ordered, func() {
 
 		By("Send message to delete PlacementRule")
 		kafkaProducer.SendAsync(&transport.Message{
-			ID:      "PlacementRule", // entry.transportBundleKey
+			Key:     "PlacementRule", // entry.transportBundleKey
 			MsgType: constants.SpecBundle,
-			Version: "2022-10-26_08-32-00.739891", // entry.bundle.GetBundleVersion().String()
 			Payload: []byte(`{
 					"objects": [
 					],
@@ -233,10 +231,8 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		kafkaProducer.SendAsync(&transport.Message{
-			Key:     "hub1.ManagedClusters",
-			ID:      "hub1.ManagedClusters", // entry.transportBundleKey
+			Key:     "hub1.ManagedClusters", // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payload,
 		})
 

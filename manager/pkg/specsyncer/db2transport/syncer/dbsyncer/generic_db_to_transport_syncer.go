@@ -78,8 +78,6 @@ func (syncer *genericDBToTransportSyncer) periodicSync(ctx context.Context) {
 	}
 }
 
-const timeFormat = "2006-01-02_15-04-05.000000"
-
 // syncObjectsBundle performs the actual sync logic and returns true if bundle was committed to transport,
 // otherwise false.
 func syncObjectsBundle(ctx context.Context, producer transport.Producer, transportBundleKey string,
@@ -111,9 +109,8 @@ func syncObjectsBundle(ctx context.Context, producer transport.Producer, transpo
 	}
 	if err := producer.Send(ctx, &transport.Message{
 		Destination: transport.Broadcast,
-		ID:          transportBundleKey,
+		Key:         transportBundleKey,
 		MsgType:     constants.SpecBundle,
-		Version:     lastUpdateTimestamp.Format(timeFormat),
 		Payload:     payloadBytes,
 	}); err != nil {
 		return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",

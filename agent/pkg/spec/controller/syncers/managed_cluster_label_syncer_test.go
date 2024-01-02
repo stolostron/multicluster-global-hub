@@ -19,8 +19,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-const timeFormat = "2006-01-02_15-04-05.000000"
-
 var _ = Describe("ManagerClusterLabel Bundle", func() {
 	It("sync managedclusterlabel bundle", func() {
 		managedClusterName := "mc1"
@@ -65,9 +63,8 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 		Expect(err).NotTo(HaveOccurred())
 		err = producer.Send(ctx, &transport.Message{
 			Destination: agentConfig.LeafHubName,
-			ID:          constants.ManagedClustersLabelsMsgKey,
+			Key:         constants.ManagedClustersLabelsMsgKey,
 			MsgType:     constants.SpecBundle,
-			Version:     time.Now().Format(timeFormat),
 			Payload:     payloadBytes,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -111,9 +108,8 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 		Expect(err).NotTo(HaveOccurred())
 		err = producer.Send(ctx, &transport.Message{
 			Destination: transport.Broadcast,
-			ID:          "Config",
+			Key:         "Config",
 			MsgType:     constants.SpecBundle,
-			Version:     time.Now().Format(timeFormat),
 			Payload:     payloadBytes,
 		})
 		Expect(err).NotTo(HaveOccurred())

@@ -49,9 +49,7 @@ var _ = Describe("LocalPolicySpecSyncer", Label("localpolicy"), func() {
 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, localPolicyMessageKey)
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
-			ID:      transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.GetVersion().String(),
 			Payload: payloadBytes,
 		}
 

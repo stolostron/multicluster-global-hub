@@ -37,10 +37,8 @@ func TestTransportCompressor(t *testing.T) {
 		t.Fatal(err)
 	}
 	transportMessage := &transport.Message{
-		ID:      "hub1.ClustersPerPolicy",
 		Key:     "hub1.ClustersPerPolicy",
 		MsgType: "StatusBundle",
-		Version: "0.2",
 		Payload: transportPayload,
 	}
 	transportBytes, err := json.Marshal(transportMessage)

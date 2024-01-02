@@ -50,17 +50,16 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 			return
 		case message := <-d.consumer.MessageChan():
 			// if destination is explicitly specified and does not match, drop bundle
-			if message.Destination != transport.Broadcast &&
-				message.Destination != d.agentConfig.LeafHubName {
+			if message.Destination != transport.Broadcast && message.Destination != d.agentConfig.LeafHubName {
 				continue
 			}
-			syncer, found := d.syncers[message.ID]
+			syncer, found := d.syncers[message.Key]
 			if !found {
-				d.log.V(2).Info("dispatching to the default generic syncer", "messageID", message.ID)
+				d.log.V(2).Info("dispatching to the default generic syncer", "messageKey", message.Key)
 				syncer = d.syncers[GenericMessageKey]
 			}
 			if err := syncer.Sync(message.Payload); err != nil {
-				d.log.Error(err, "submit to syncer error", "messageID", message.ID)
+				d.log.Error(err, "submit to syncer error", "messageKey", message.Key)
 			}
 		}
 	}

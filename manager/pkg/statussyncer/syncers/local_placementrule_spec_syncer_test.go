@@ -47,9 +47,7 @@ var _ = Describe("LocalPlacementrulesSyncer", Label("localplacementrule"), func(
 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, localPlacementRuleMessageKey)
 		transportMessage := &transport.Message{
 			Key:     transportMessageKey,
-			ID:      transportMessageKey,
 			MsgType: constants.StatusBundle,
-			Version: statusBundle.GetVersion().String(),
 			Payload: payloadBytes,
 		}
 		By("Sync message with transport")

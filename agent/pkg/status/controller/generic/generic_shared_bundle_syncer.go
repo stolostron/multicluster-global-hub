@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -93,20 +94,18 @@ func (c *genericSharedBundleSyncer) syncBundles() {
 			return
 		}
 
-		messageId := entry.transportBundleKey
 		transportMessageKey := entry.transportBundleKey
 		if deltaStateBundle, ok := entry.bundle.(bundle.AgentDeltaBundle); ok {
 			transportMessageKey = fmt.Sprintf("%s@%d", entry.transportBundleKey, deltaStateBundle.GetTransportationID())
 		}
 
 		if err := c.producer.Send(context.TODO(), &transport.Message{
-			Key:     transportMessageKey,
-			ID:      messageId,
-			MsgType: constants.StatusBundle,
-			Version: entry.bundle.GetVersion().String(),
-			Payload: payloadBytes,
+			Key:         transportMessageKey,
+			Destination: config.GetLeafHubName(),
+			MsgType:     constants.StatusBundle,
+			Payload:     payloadBytes,
 		}); err != nil {
-			c.log.Error(err, "send transport message error", "id", messageId)
+			c.log.Error(err, "send transport message error", "key", transportMessageKey)
 			return
 		}
 

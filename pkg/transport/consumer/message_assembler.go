@@ -4,7 +4,6 @@
 package consumer
 
 import (
-	"encoding/json"
 	"sync"
 	"time"
 
@@ -87,7 +86,7 @@ func newMessageAssembler() *messageAssembler {
 }
 
 // processChunk processes a message chunk and returns transport message if any got assembled, otherwise,nil.
-func (assembler *messageAssembler) assemble(chunk *messageChunk) *transport.Message {
+func (assembler *messageAssembler) assemble(chunk *messageChunk) []byte {
 	assembler.lock.Lock()
 	defer assembler.lock.Unlock()
 
@@ -106,32 +105,26 @@ func (assembler *messageAssembler) assemble(chunk *messageChunk) *transport.Mess
 	chunkCollection.add(chunk)
 
 	if chunkCollection.totalSize == chunkCollection.accumulatedSize {
-		transportMessageBytes := chunkCollection.collect()
+		transportPayloadBytes := chunkCollection.collect()
 		assembler.log.V(2).Info("assemble collection successfully", "id", chunkCollection.id,
 			"collection.size", chunkCollection.totalSize)
 
-		transportMessage := &transport.Message{}
-		if err := json.Unmarshal(transportMessageBytes, transportMessage); err != nil {
-			assembler.log.Error(err, "unmarshal collection bytes to transport.Message error")
-			return nil
-		}
-
 		// delete collection from map
 		delete(assembler.chunkCollectionMap, chunkCollection.id)
-		return transportMessage
+		return transportPayloadBytes
 	}
 
 	return nil
 }
 
 func (assembler *messageAssembler) messageChunk(e cloudevents.Event) (*messageChunk, bool) {
-	offset, err := types.ToInteger(e.Extensions()[transport.Offset])
+	offset, err := types.ToInteger(e.Extensions()[transport.ChunkOffsetKey])
 	if err != nil {
 		assembler.log.Error(err, "event offset parse error")
 		return nil, false
 	}
 
-	size, err := types.ToInteger(e.Extensions()[transport.Size])
+	size, err := types.ToInteger(e.Extensions()[transport.ChunkSizeKey])
 	if err != nil {
 		assembler.log.Error(err, "event size parse error")
 		return nil, false

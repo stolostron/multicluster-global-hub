@@ -75,9 +75,7 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 		By("Synchronize the latest ClustersPerPolicy bundle with transport")
 		transportMessage := &transport.Message{
 			Key:     clustersPerPolicyTransportKey,
-			ID:      clustersPerPolicyTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
-			Version: clusterPerPolicyBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: payloadBytes,
 		}
 		By("Sync message with transport")
@@ -138,9 +136,7 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 		By("Synchronize the complete policy bundle with transport")
 		transportMessage := &transport.Message{
 			Key:     policyCompleteComplianceTransportKey,
-			ID:      policyCompleteComplianceTransportKey, // entry.transportBundleKey
 			MsgType: constants.StatusBundle,
-			Version: completeComplianceStatusBundle.BundleVersion.String(), // entry.bundle.GetBundleVersion().String()
 			Payload: completePayloadBytes,
 		}
 		By("Sync message with transport")
