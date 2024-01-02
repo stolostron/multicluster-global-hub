@@ -53,7 +53,6 @@ const (
 	DefaultGlobalHubKafkaUser = "global-hub-kafka-user"
 
 	// topic names
-	StatusTopicPrefix    = "status"
 	StatusTopicTemplate  = "status.%s"
 	StatusTopicRegex     = "^status.*"
 	GlobalHubClusterName = "global"

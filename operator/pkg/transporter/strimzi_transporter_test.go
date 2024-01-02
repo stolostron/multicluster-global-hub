@@ -168,13 +168,16 @@ func TestStrimziTransporter(t *testing.T) {
 	err = trans.GrantWrite(userName, "event")
 	assert.Nil(t, err)
 
+	err = trans.GrantRead(userName, StatusTopicRegex)
+	assert.Nil(t, err)
+
 	kafkaUser = &kafkav1beta2.KafkaUser{}
 	err = runtimeClient.Get(context.TODO(), types.NamespacedName{
 		Name:      userName,
 		Namespace: "default",
 	}, kafkaUser)
 	assert.Nil(t, err)
-	assert.Equal(t, 3, len(kafkaUser.Spec.Authorization.Acls))
+	assert.Equal(t, 4, len(kafkaUser.Spec.Authorization.Acls))
 	p, _ := json.MarshalIndent(kafkaUser, "", " ")
 	fmt.Println(string(p))
 
