@@ -55,6 +55,7 @@ const (
 	// topic names
 	StatusTopicTemplate  = "status.%s"
 	StatusTopicRegex     = "^status.*"
+	StatusTopicPrefix    = "status"
 	GlobalHubClusterName = "global"
 )
 
@@ -311,6 +312,7 @@ func topicReadAcl(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAclsE
 	if topicName == StatusTopicRegex {
 		// give the topic permission for the manager user
 		patternType = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
+		topicName = StatusTopicPrefix
 	}
 	return kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
 		Host: &host,
@@ -408,7 +410,6 @@ func topicWriteAcl(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAcls
 			PatternType: &patternType,
 		},
 		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
 		},
 	}
