@@ -21,11 +21,18 @@ spec:
         - name: multicluster-global-hub-agent
           image: {{ .HoHAgentImage }}
           resources:
-            requests:
-              memory: 200Mi
-              cpu: 10m
+          {{- if .Resources.Limits }}
             limits:
-              memory: 1000Mi
+              {{- range $key, $value := .Resources.Limits }}
+              {{$key}}: {{$value}}
+              {{- end }}
+          {{- end }}
+          {{- if .Resources.Requests }}
+            requests:
+              {{- range $key, $value := .Resources.Requests }}
+              {{$key}}: {{$value}}
+              {{- end }}
+          {{- end }}
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             - --zap-log-level={{.LogLevel}}
@@ -65,10 +72,10 @@ spec:
             readOnly: true
           - mountPath: /kube-event
             name: kubernetes-event-exporter-config
-      {{ if .ImagePullSecretName }}
+      {{- if .ImagePullSecretName }}
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
-      {{ end }}
+      {{- end }}
       nodeSelector:
         {{- range $key, $value := .NodeSelector}}
         "{{$key}}": "{{$value}}"

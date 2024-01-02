@@ -16,6 +16,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -188,6 +189,7 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 				PostgresReadonlyUsername     string
 				PostgresReadonlyUserPassword string
 				StorageClass                 string
+				Resources                    *corev1.ResourceRequirements
 			}{
 				Namespace:                    mgh.GetNamespace(),
 				PostgresImage:                config.GetImage(config.PostgresImageKey),
@@ -200,6 +202,8 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
 				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
 				StorageClass:                 mgh.Spec.DataLayer.StorageClass,
+				Resources: operatorutils.GetResources(operatorconstants.Postgres,
+					mgh.Spec.AdvancedConfig),
 			}, nil
 		})
 	if err != nil {

@@ -130,3 +130,44 @@ const (
 	// NoopCompressType is an MessageCompressionType
 	NoopCompressType MessageCompressionType = "no-op"
 )
+
+// default resources for each component
+const (
+
+	// default resources for postgres
+	Postgres              = "postgres"
+	PostgresMemoryLimit   = "4Gi"
+	PostgresMemoryRequest = "128Mi"
+	PostgresCPURequest    = "25m"
+
+	// default resources for manager
+	Manager              = "manager"
+	ManagerMemoryLimit   = "300Mi"
+	ManagerMemoryRequest = "100Mi"
+	ManagerCPURequest    = "100m"
+
+	// default resources for agent
+	Agent              = "agent"
+	AgentMemoryLimit   = "1000Mi"
+	AgentMemoryRequest = "200Mi"
+	AgentCPURequest    = "10m"
+
+	// default resources for grafana
+	Grafana              = "grafana"
+	GrafanaMemoryLimit   = "1Gi"
+	GrafanaCPULimit      = "500m"
+	GrafanaMemoryRequest = "100Mi"
+	GrafanaCPURequest    = "4m"
+
+	// default resources for kafka
+	Kafka              = "kafka"
+	KafkaMemoryLimit   = "4Gi"
+	KafkaMemoryRequest = "128Mi"
+	KafkaCPURequest    = "25m"
+
+	// default resources for zookeeper
+	Zookeeper              = "zookeeper"
+	ZookeeperMemoryLimit   = "3Gi"
+	ZookeeperMemoryRequest = "500Mi"
+	ZookeeperCPURequest    = "20m"
+)

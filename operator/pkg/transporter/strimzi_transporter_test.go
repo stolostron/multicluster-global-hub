@@ -28,12 +28,10 @@ import (
 )
 
 var (
-	cfg            *rest.Config
-	kubeClient     kubernetes.Interface
-	runtimeClient  client.Client
-	readyCondition = "Ready"
-	trueCondition  = "True"
-	bootServer     = "kafka-kafka-bootstrap.multicluster-global-hub.svc:9092"
+	cfg           *rest.Config
+	kubeClient    kubernetes.Interface
+	runtimeClient client.Client
+	bootServer    = "kafka-kafka-bootstrap.multicluster-global-hub.svc:9092"
 )
 
 func TestMain(m *testing.M) {

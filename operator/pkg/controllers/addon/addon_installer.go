@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/go-logr/logr"
 	imageregistryv1alpha1 "github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -326,16 +325,4 @@ func filterManagedCluster(obj client.Object) bool {
 	return obj.GetLabels()["vendor"] != "OpenShift" ||
 		obj.GetLabels()["openshiftVersion"] == "3" ||
 		obj.GetName() == operatorconstants.LocalClusterName
-}
-
-func getKafkaUser(clusterName string) *kafkav1beta2.KafkaUser {
-	return &kafkav1beta2.KafkaUser{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-kafka-user", clusterName),
-			Namespace: config.GetMGHNamespacedName().Namespace,
-			Labels: map[string]string{
-				constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
-			},
-		},
-	}
 }

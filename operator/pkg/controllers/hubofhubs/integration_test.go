@@ -55,7 +55,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -242,8 +242,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			},
 		}
 
-		var managerObjects []*unstructured.Unstructured
-		var grafanaObjects []*unstructured.Unstructured
 		It("Should update the conditions and mgh finalizer when MCH instance is created", func() {
 			By("By creating a new MCH instance")
 			mch := &mchv1.MultiClusterHub{
@@ -299,7 +297,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					condition.CONDITION_STATUS_FALSE {
 					return fmt.Errorf("the grafana available condition is not set")
 				}
-				if !utils.Contains(createdMGH.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
+				if !operatorutils.Contains(createdMGH.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("the finalizer(%s) should be added if mgh controller has no error occurred",
 						constants.GlobalHubCleanupFinalizer)
 				}
@@ -308,6 +306,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			prettyPrint(createdMGH.Status)
 		})
 
+		var managerObjects []*unstructured.Unstructured
 		It("Should create Multicluster Global Manager resources when MGH instance is created", func() {
 			// create hoh render for testing
 			hohRenderer := renderer.NewHoHRenderer(testFS)
@@ -372,6 +371,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					EnableGlobalResource: true,
 					LaunchJobNames:       config.GetLaunchJobNames(mgh),
 					LogLevel:             "info",
+					Resources:            operatorutils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -386,13 +386,23 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return nil
 			}, timeout, interval).Should(Succeed())
 
+		})
+
+		It("Should create grafana resources when MGH instance is created", func() {
+			// create hoh render for testing
+			hohRenderer := renderer.NewHoHRenderer(testFS)
+
+			By("By checking the multicluster-global-hub-manager resources are created as expected")
+			imagePullPolicy := corev1.PullAlways
+			if mgh.Spec.ImagePullPolicy != "" {
+				imagePullPolicy = mgh.Spec.ImagePullPolicy
+			}
 			// get the grafana objects
 			By("By checking the multicluster-global-hub-grafana resources are created as expected")
 			// generate datasource secret: must before the grafana objects
 			mghReconciler.GenerateGrafanaDataSourceSecret(ctx, mgh)
-			Expect(err).NotTo(HaveOccurred())
 
-			grafanaObjects, err = hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
+			grafanaObjects, err := hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
 					Namespace            string
 					Replicas             int32
@@ -405,6 +415,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					NodeSelector         map[string]string
 					Tolerations          []corev1.Toleration
 					LogLevel             string
+					Resources            *corev1.ResourceRequirements
 				}{
 					Namespace:            commonutils.GetDefaultNamespace(),
 					Replicas:             2,
@@ -423,7 +434,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
-					LogLevel: "info",
+					LogLevel:  "info",
+					Resources: operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
 				}, nil
 			})
 
@@ -765,7 +777,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range placements.Items {
-					if utils.Contains(placements.Items[idx].GetFinalizers(),
+					if operatorutils.Contains(placements.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the placements finalizer has not been removed")
 					}
@@ -780,7 +792,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range applications.Items {
-					if utils.Contains(applications.Items[idx].GetFinalizers(),
+					if operatorutils.Contains(applications.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the applications finalizer has not been removed")
 					}
@@ -795,7 +807,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range placementrules.Items {
-					if utils.Contains(placementrules.Items[idx].GetFinalizers(),
+					if operatorutils.Contains(placementrules.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the placementrules finalizer has not been removed")
 					}
@@ -810,7 +822,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range managedclustersetbindings.Items {
-					if utils.Contains(managedclustersetbindings.Items[idx].GetFinalizers(),
+					if operatorutils.Contains(managedclustersetbindings.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the managedclustersetbindings finalizer has not been removed")
 					}
@@ -825,7 +837,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range channels.Items {
-					if utils.Contains(channels.Items[idx].GetFinalizers(),
+					if operatorutils.Contains(channels.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the channels finalizer has not been removed")
 					}
@@ -840,7 +852,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range policies.Items {
-					if utils.Contains(policies.Items[idx].GetFinalizers(),
+					if operatorutils.Contains(policies.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the policies finalizer has not been removed")
 					}

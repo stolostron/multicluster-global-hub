@@ -90,6 +90,41 @@ type MulticlusterGlobalHubSpec struct {
 	// +kubebuilder:default={postgres: {retention: "18m"}}
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	DataLayer DataLayerConfig `json:"dataLayer"`
+	// Advanced configurations for global hub
+	// +optional
+	AdvancedConfig *AdvancedConfig `json:"advanced,omitempty"`
+}
+
+type AdvancedConfig struct {
+	// The spec of grafana
+	// +optional
+	Grafana *CommonSpec `json:"grafana,omitempty"`
+
+	// The spec of kafka
+	// +optional
+	Kafka *CommonSpec `json:"kafka,omitempty"`
+
+	// The spec of zookeeper
+	// +optional
+	Zookeeper *CommonSpec `json:"zookeeper,omitempty"`
+
+	// The spec of postgres
+	// +optional
+	Postgres *CommonSpec `json:"postgres,omitempty"`
+
+	// The spec of global hub manager
+	// +optional
+	Manager *CommonSpec `json:"manager,omitempty"`
+
+	// The spec of global hub agent
+	// +optional
+	Agent *CommonSpec `json:"agent,omitempty"`
+}
+
+type CommonSpec struct {
+	// Compute Resources required by this component.
+	// +optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // DataLayerConfig is a discriminated union of data layer specific configuration.

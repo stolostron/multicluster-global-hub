@@ -20,11 +20,18 @@ spec:
         - name: multicluster-global-hub-manager
           image: {{.Image}}
           resources:
-            requests:
-              memory: 100Mi
-              cpu: 100m
+          {{- if .Resources.Limits }}
             limits:
-              memory: 300Mi
+              {{- range $key, $value := .Resources.Limits }}
+              {{$key}}: {{.ToUnstructured}}
+              {{- end }}
+          {{- end }}
+          {{- if .Resources.Requests }}
+            requests:
+              {{- range $key, $value := .Resources.Requests }}
+              {{$key}}: {{.ToUnstructured}}
+              {{- end }}
+          {{- end }}
           imagePullPolicy: {{.ImagePullPolicy}}
           args:
             - --zap-log-level={{.LogLevel}}
@@ -81,18 +88,18 @@ spec:
             name: metrics
             protocol: TCP
           volumeMounts:
-          {{ if .EnableGlobalResource }}
+          {{- if .EnableGlobalResource }}
           - mountPath: /webhook-certs
             name: webhook-certs
             readOnly: true
-          {{ end }}
+          {{- end }}
           - mountPath: /kafka-certs
             name: kafka-certs
             readOnly: true
           - mountPath: /postgres-credential
             name: postgres-credential
             readOnly: true
-        {{ if .EnableGlobalResource }}
+        {{- if .EnableGlobalResource }}
         - name: oauth-proxy
           image: {{.ProxyImage}}
           imagePullPolicy: {{.ImagePullPolicy}}
@@ -137,11 +144,11 @@ spec:
             readOnly: true
           - mountPath: /etc/proxy/secrets
             name: cookie-secret
-        {{ end }}
-      {{ if .ImagePullSecret }}
+        {{- end }}
+      {{- if .ImagePullSecret }}
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
-      {{ end }}
+      {{- end }}
       nodeSelector:
         {{- range $key, $value := .NodeSelector}}
         "{{$key}}": "{{$value}}"
@@ -163,7 +170,7 @@ spec:
       - name: postgres-credential
         secret:
           secretName: postgres-credential-secret
-      {{ if .EnableGlobalResource }}
+      {{- if .EnableGlobalResource }}
       - name: apiserver-certs
         secret:
           secretName: multicluster-global-hub-manager-certs
@@ -173,4 +180,4 @@ spec:
       - name: webhook-certs
         secret:
           secretName: multicluster-global-hub-webhook-certs
-      {{ end }}
+      {{- end }}

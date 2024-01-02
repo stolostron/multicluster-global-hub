@@ -21,20 +21,15 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
-)
-
-var (
-	cfg           *rest.Config
-	runtimeClient client.Client
-	ctx           context.Context
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
 func Test_getAlertGPCcount(t *testing.T) {
@@ -354,4 +349,183 @@ func TestWaitGlobalHubReady(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_GetResources(t *testing.T) {
+	customCPURequest := "2m"
+	customCPULimit := "1m"
+	customMemoryRequest := "1Mi"
+	customMemoryLimit := "2Mi"
+
+	tests := []struct {
+		name          string
+		component     string
+		advanced      func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig
+		cpuRequest    string
+		cpuLimit      string
+		memoryRequest string
+		memoryLimit   string
+		custom        bool
+	}{
+		{
+			name:          "Test Grafana with default values",
+			component:     constants.Grafana,
+			cpuRequest:    constants.GrafanaCPURequest,
+			cpuLimit:      constants.GrafanaCPULimit,
+			memoryRequest: constants.GrafanaMemoryRequest,
+			memoryLimit:   constants.GrafanaMemoryLimit,
+		},
+		{
+			name:      "Test Grafana with customized values",
+			component: constants.Grafana,
+			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+				return &globalhubv1alpha4.AdvancedConfig{
+					Grafana: &globalhubv1alpha4.CommonSpec{
+						Resources: resReq,
+					},
+				}
+			},
+			custom: true,
+		},
+		{
+			name:          "Test Postgres with default values",
+			component:     constants.Postgres,
+			cpuRequest:    constants.PostgresCPURequest,
+			cpuLimit:      "0",
+			memoryRequest: constants.PostgresMemoryRequest,
+			memoryLimit:   constants.PostgresMemoryLimit,
+		},
+		{
+			name:      "Test Postgres with customized values",
+			component: constants.Postgres,
+			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+				return &globalhubv1alpha4.AdvancedConfig{
+					Postgres: &globalhubv1alpha4.CommonSpec{
+						Resources: resReq,
+					},
+				}
+			},
+			custom: true,
+		},
+		{
+			name:          "Test Agent with default values",
+			component:     constants.Agent,
+			cpuRequest:    constants.AgentCPURequest,
+			cpuLimit:      "0",
+			memoryRequest: constants.AgentMemoryRequest,
+			memoryLimit:   constants.AgentMemoryLimit,
+		},
+		{
+			name:      "Test Agent with customized values",
+			component: constants.Agent,
+			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+				return &globalhubv1alpha4.AdvancedConfig{
+					Agent: &globalhubv1alpha4.CommonSpec{
+						Resources: resReq,
+					},
+				}
+			},
+			custom: true,
+		},
+		{
+			name:          "Test Manager with default values",
+			component:     constants.Manager,
+			cpuRequest:    constants.ManagerCPURequest,
+			cpuLimit:      "0",
+			memoryRequest: constants.ManagerMemoryRequest,
+			memoryLimit:   constants.ManagerMemoryLimit,
+		},
+		{
+			name:      "Test Manager with customized values",
+			component: constants.Manager,
+			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+				return &globalhubv1alpha4.AdvancedConfig{
+					Manager: &globalhubv1alpha4.CommonSpec{
+						Resources: resReq,
+					},
+				}
+			},
+			custom: true,
+		},
+		{
+			name:          "Test Kafka with default values",
+			component:     constants.Kafka,
+			cpuRequest:    constants.KafkaCPURequest,
+			cpuLimit:      "0",
+			memoryRequest: constants.KafkaMemoryRequest,
+			memoryLimit:   constants.KafkaMemoryLimit,
+		},
+		{
+			name:      "Test Kafka with customized values",
+			component: constants.Kafka,
+			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+				return &globalhubv1alpha4.AdvancedConfig{
+					Kafka: &globalhubv1alpha4.CommonSpec{
+						Resources: resReq,
+					},
+				}
+			},
+			custom: true,
+		},
+		{
+			name:          "Test Zookeeper with default values",
+			component:     constants.Zookeeper,
+			cpuRequest:    constants.ZookeeperCPURequest,
+			cpuLimit:      "0",
+			memoryRequest: constants.ZookeeperMemoryRequest,
+			memoryLimit:   constants.ZookeeperMemoryLimit,
+		},
+		{
+			name:      "Test Zookeeper with customized values",
+			component: constants.Zookeeper,
+			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+				return &globalhubv1alpha4.AdvancedConfig{
+					Zookeeper: &globalhubv1alpha4.CommonSpec{
+						Resources: resReq,
+					},
+				}
+			},
+			custom: true,
+		},
+	}
+
+	resReq := &corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
+			corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
+			corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),
+		},
+	}
+
+	for _, tt := range tests {
+
+		t.Run(tt.name, func(t *testing.T) {
+			var advanced *globalhubv1alpha4.AdvancedConfig
+			if tt.custom {
+				advanced = tt.advanced(resReq)
+				tt.cpuRequest = customCPURequest
+				tt.cpuLimit = customCPULimit
+				tt.memoryLimit = customMemoryLimit
+				tt.memoryRequest = customMemoryRequest
+			}
+			res := GetResources(tt.component, advanced)
+			if res.Limits.Cpu().String() != tt.cpuLimit {
+				t.Errorf("expect cpu: %v, actual cpu: %v", tt.cpuLimit, res.Limits.Cpu().String())
+			}
+			if res.Limits.Memory().String() != tt.memoryLimit {
+				t.Errorf("expect memory: %v, actual memory: %v", tt.memoryLimit, res.Limits.Memory().String())
+			}
+			if res.Requests.Memory().String() != tt.memoryRequest {
+				t.Errorf("expect memory: %v, actual memory: %v", tt.memoryRequest, res.Requests.Memory().String())
+			}
+			if res.Requests.Cpu().String() != tt.cpuRequest {
+				t.Errorf("expect cpu: %v, actual cpu: %v", tt.cpuRequest, res.Requests.Cpu().String())
+			}
+		})
+
+	}
+
 }

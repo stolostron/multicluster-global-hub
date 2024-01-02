@@ -4,12 +4,14 @@ import (
 	"context"
 	"embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
@@ -21,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -66,6 +69,16 @@ type ManifestsConfig struct {
 	AgentQPS               float32
 	AgentBurst             int
 	LogLevel               string
+	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
+	Resources *Resources
+}
+
+type Resources struct {
+	// Limits corresponds to the JSON schema field "limits".
+	Limits *apiextensions.JSON `json:"limits,omitempty"`
+
+	// Requests corresponds to the JSON schema field "requests".
+	Requests *apiextensions.JSON `json:"requests,omitempty"`
 }
 
 type HohAgentAddon struct {
@@ -179,6 +192,17 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
 
+	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig)
+	agentRes := &Resources{}
+	jsonData, err := json.Marshal(agentResReq)
+	if err != nil {
+		log.Error(err, "failed to marshal agent resources")
+	}
+	err = json.Unmarshal(jsonData, agentRes)
+	if err != nil {
+		log.Error(err, "failed to unmarshal to agent resources")
+	}
+
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
@@ -201,6 +225,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		AgentQPS:               agentQPS,
 		AgentBurst:             agentBurst,
 		LogLevel:               a.LogLevel,
+		Resources:              agentRes,
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {

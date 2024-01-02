@@ -3,6 +3,7 @@ package transporter
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -21,6 +22,8 @@ import (
 
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -424,8 +427,41 @@ func (k *strimziTransporter) createKafkaCluster(mgh *operatorv1alpha4.Multiclust
 	return nil
 }
 
+func (k *strimziTransporter) getKafkaResources(
+	mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.KafkaSpecKafkaResources {
+	kafkaRes := utils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedConfig)
+	kafkaSpecRes := &kafkav1beta2.KafkaSpecKafkaResources{}
+	jsonData, err := json.Marshal(kafkaRes)
+	if err != nil {
+		k.log.Error(err, "failed to marshal kafka resources")
+	}
+	err = json.Unmarshal(jsonData, kafkaRes)
+	if err != nil {
+		k.log.Error(err, "failed to unmarshal to KafkaSpecKafkaResources")
+	}
+
+	return kafkaSpecRes
+}
+
+func (k *strimziTransporter) getZookeeperResources(
+	mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.KafkaSpecZookeeperResources {
+	zookeeperRes := utils.GetResources(operatorconstants.Zookeeper, mgh.Spec.AdvancedConfig)
+
+	zookeeperSpecRes := &kafkav1beta2.KafkaSpecZookeeperResources{}
+	jsonData, err := json.Marshal(zookeeperRes)
+	if err != nil {
+		k.log.Error(err, "failed to marshal zookeeper resources")
+	}
+	err = json.Unmarshal(jsonData, zookeeperSpecRes)
+	if err != nil {
+		k.log.Error(err, "failed to unmarshal to KafkaSpecZookeeperResources")
+	}
+	return zookeeperSpecRes
+}
+
 func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
 	storageSize := config.GetKafkaStorageSize(mgh)
+
 	kafkaSpecKafkaStorageVolumesElem := kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
 		Id:          &KafkaStorageIdentifier,
 		Size:        &storageSize,
@@ -475,16 +511,8 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 						},
 					},
 				},
-				Resources: &kafkav1beta2.KafkaSpecKafkaResources{
-					Requests: &apiextensions.JSON{Raw: []byte(`{
-"memory": "1Gi",
-"cpu": "100m"
-}`)},
-					Limits: &apiextensions.JSON{Raw: []byte(`{
-"memory": "4Gi"
-}`)},
-				},
-				Replicas: 3,
+				Resources: k.getKafkaResources(mgh),
+				Replicas:  3,
 				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
 					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
@@ -494,17 +522,9 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Version: &KafkaVersion,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
-				Replicas: 3,
-				Storage:  kafkaSpecZookeeperStorage,
-				Resources: &kafkav1beta2.KafkaSpecZookeeperResources{
-					Requests: &apiextensions.JSON{Raw: []byte(`{
-"memory": "500Mi",
-"cpu": "20m"
-}`)},
-					Limits: &apiextensions.JSON{Raw: []byte(`{
-"memory": "3Gi"
-}`)},
-				},
+				Replicas:  3,
+				Storage:   kafkaSpecZookeeperStorage,
+				Resources: k.getZookeeperResources(mgh),
 			},
 			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
 				TopicOperator: &kafkav1beta2.KafkaSpecEntityOperatorTopicOperator{},
