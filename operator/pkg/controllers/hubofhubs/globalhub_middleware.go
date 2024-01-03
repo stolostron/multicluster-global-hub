@@ -124,6 +124,19 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
+	// grant permission: read - status,event, write - spec;
+	err = trans.GrantRead(transportprotocol.DefaultGlobalHubKafkaUser, topics.EventTopic)
+	if err != nil {
+		return nil, err
+	}
+	err = trans.GrantRead(transportprotocol.DefaultGlobalHubKafkaUser, topics.StatusTopic)
+	if err != nil {
+		return nil, err
+	}
+	err = trans.GrantWrite(transportprotocol.DefaultGlobalHubKafkaUser, topics.SpecTopic)
+	if err != nil {
+		return nil, err
+	}
 
 	var conn *transport.ConnCredential
 	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,

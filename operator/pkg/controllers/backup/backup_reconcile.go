@@ -61,7 +61,7 @@ var allResourcesBackup = map[string]Backup{
 // So for request.Namespace, we set it as request type, like "Secret","Configmap","MulticlusterGlobalHub" and so on.
 // In the reconcile, we identy the request kind and get it by request.Name.
 func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	//mgh is used to update backup condition
+	// mgh is used to update backup condition
 	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
 	err := r.Client.List(ctx, mghList)
 	if err != nil {
@@ -72,15 +72,15 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, nil
 	}
 	mgh := mghList.Items[0].DeepCopy()
-	//Backup condition means added backup label to all resources already
+	// Backup condition means added backup label to all resources already
 	backuped := meta.IsStatusConditionTrue(mgh.Status.Conditions, condition.CONDITION_TYPE_BACKUP)
 
-	//Check if backup is enabled
+	// Check if backup is enabled
 	backupEnabled, err := isBackupEnabled(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	//If backup is not enable, need to clean up the backup labels
+	// If backup is not enable, need to clean up the backup labels
 	if !backupEnabled {
 		if !backuped {
 			return addDisableCondition(ctx, r.Client, mgh, nil)
@@ -92,7 +92,7 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return addDisableCondition(ctx, r.Client, mgh, err)
 	}
 
-	//If backup is enable, need to add backup label to all resources
+	// If backup is enable, need to add backup label to all resources
 	if !backuped {
 		err := r.addLableToAllResources(ctx)
 		if err != nil {
@@ -101,7 +101,7 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return addBackupCondition(ctx, r.Client, mgh, err)
 	}
 
-	//Watch the changed resources, then update the backuplabel
+	// Watch the changed resources, then update the backuplabel
 	r.Log.Info("backup reconcile:", "requestType", req.Namespace, "name", req.Name)
 	_, found := allResourcesBackup[req.Namespace]
 	if !found {
@@ -152,7 +152,8 @@ func addBackupCondition(ctx context.Context, client client.Client,
 func addLabel(
 	ctx context.Context, client client.Client, obj client.Object,
 	namespace, name string,
-	labelKey string, labelValue string) error {
+	labelKey string, labelValue string,
+) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		err := client.Get(ctx, types.NamespacedName{
 			Namespace: namespace,
@@ -188,7 +189,8 @@ func addLabel(
 func deleteLabel(
 	ctx context.Context, client client.Client, obj client.Object,
 	namespace, name string,
-	labelKey string) error {
+	labelKey string,
+) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		err := client.Get(ctx, types.NamespacedName{
 			Namespace: namespace,

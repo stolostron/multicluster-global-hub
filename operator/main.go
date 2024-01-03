@@ -31,7 +31,6 @@ import (
 	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -44,7 +43,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -77,7 +75,6 @@ import (
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	backupcontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
-
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"

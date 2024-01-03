@@ -76,7 +76,7 @@ func (c *saramaConsumer) Start(ctx context.Context) error {
 			processedChan: c.processedChan,
 		})
 		if err != nil {
-			c.log.Error(err, "Error from sarama consumer")
+			c.log.Error(err, "Error from sarama consumer", "topic", c.kafkaConfig.ConsumerConfig.ConsumerTopic)
 		}
 		// check if context was cancelled, signaling that the consumer should stop
 		if ctx.Err() != nil {

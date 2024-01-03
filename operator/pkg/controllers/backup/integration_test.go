@@ -22,6 +22,7 @@ import (
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +37,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 )
 
 const (
@@ -84,11 +84,12 @@ var _ = Describe("Backup controller", Ordered, func() {
 		Expect(k8sClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: mchNamespace,
-			}})).Should(Succeed())
+			},
+		})).Should(Succeed())
 		Expect(k8sClient.Create(ctx, mchObj)).Should(Succeed())
 	})
 	BeforeEach(func() {
-		//enable backup before each case
+		// enable backup before each case
 		Eventually(func() error {
 			existingMch := &mchv1.MultiClusterHub{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
@@ -146,7 +147,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 		})
 
 		It("disable backup, mgh should remove backup label and have disable condition", func() {
-			//Disable backup
+			// Disable backup
 			disableBackup()
 			Eventually(func() bool {
 				mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
@@ -471,7 +472,6 @@ var _ = Describe("Backup controller", Ordered, func() {
 				return !utils.HasLabel(kafkaTopic.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
 			}, timeout, interval).Should(BeTrue())
 		})
-
 	})
 
 	Context("add backup label to kafka PVC", Ordered, func() {
@@ -537,7 +537,6 @@ var _ = Describe("Backup controller", Ordered, func() {
 				return !utils.HasLabel(pvc.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue)
 			}, timeout, interval).Should(BeTrue())
 		})
-
 	})
 
 	Context("add backup label to postgres PVC", Ordered, func() {
@@ -603,7 +602,6 @@ var _ = Describe("Backup controller", Ordered, func() {
 				return !utils.HasLabel(pvc.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue)
 			}, timeout, interval).Should(BeTrue())
 		})
-
 	})
 
 	Context("add backup label to crd", Ordered, func() {
@@ -687,9 +685,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 				return !utils.HasLabel(crd.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
 			}, timeout, interval).Should(BeTrue())
 		})
-
 	})
-
 })
 
 func disableBackup() {

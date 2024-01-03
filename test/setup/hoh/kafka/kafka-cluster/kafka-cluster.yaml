@@ -35,6 +35,8 @@ spec:
         configuration:
           bootstrap:
             nodePort: 30095
+    authorization:
+      type: simple
     config:
       auto.create.topics.enable: "false"
       offsets.topic.replication.factor: 1

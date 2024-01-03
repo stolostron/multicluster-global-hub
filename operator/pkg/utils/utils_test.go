@@ -501,7 +501,6 @@ func Test_GetResources(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
 			var advanced *globalhubv1alpha4.AdvancedConfig
 			if tt.custom {
@@ -525,7 +524,5 @@ func Test_GetResources(t *testing.T) {
 				t.Errorf("expect cpu: %v, actual cpu: %v", tt.cpuRequest, res.Requests.Cpu().String())
 			}
 		})
-
 	}
-
 }

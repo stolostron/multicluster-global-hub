@@ -385,7 +385,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				fmt.Printf("all manager resources(%d) are created as expected \n", len(managerObjects))
 				return nil
 			}, timeout, interval).Should(Succeed())
-
 		})
 
 		It("Should create grafana resources when MGH instance is created", func() {

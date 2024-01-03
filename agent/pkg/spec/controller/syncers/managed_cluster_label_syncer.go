@@ -107,6 +107,10 @@ func (syncer *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
 			return
 		}
 
+		if managedCluster.Labels == nil {
+			managedCluster.Labels = make(map[string]string)
+		}
+
 		// enforce received labels state (overwrite if exists)
 		for key, value := range labelsSpec.Labels {
 			managedCluster.Labels[key] = value
@@ -123,8 +127,7 @@ func (syncer *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
 		}
 
 		// update CR with replace API: fails if CR was modified since client.get
-		if err := k8sClient.Update(ctx, managedCluster,
-			&client.UpdateOptions{FieldManager: hohFieldManager}); err != nil {
+		if err := k8sClient.Update(ctx, managedCluster, &client.UpdateOptions{FieldManager: hohFieldManager}); err != nil {
 			syncer.log.Error(err, "failed to update managed cluster", "name", labelsSpec.ClusterName)
 			return
 		}

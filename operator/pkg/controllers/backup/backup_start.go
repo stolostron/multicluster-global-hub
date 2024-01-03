@@ -21,6 +21,9 @@ import (
 	"reflect"
 	"time"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	"github.com/go-logr/logr"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,15 +36,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"github.com/go-logr/logr"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 )
 
 var (
@@ -67,7 +66,7 @@ func NewBackupReconciler(mgr manager.Manager, log logr.Logger) *BackupReconciler
 }
 
 func (r *BackupReconciler) Start(ctx context.Context) error {
-	//Only when global hub started, then start the backup controller
+	// Only when global hub started, then start the backup controller
 	_, err := operatorutils.WaitGlobalHubReady(ctx, r.Client, 5*time.Second)
 	if err != nil {
 		return err
@@ -167,7 +166,6 @@ var configmapPred = predicate.Funcs{
 			return false
 		}
 		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
-
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -227,7 +225,7 @@ var crdPred = predicate.Funcs{
 var objEventHandler = handler.EnqueueRequestsFromMapFunc(
 	func(ctx context.Context, obj client.Object) []reconcile.Request {
 		t := reflect.TypeOf(obj)
-		//Only watch the global hub namespace resources or cluster scope resources
+		// Only watch the global hub namespace resources or cluster scope resources
 		if len(obj.GetNamespace()) != 0 && (obj.GetNamespace() != config.GetMGHNamespacedName().Namespace) {
 			return []reconcile.Request{}
 		}

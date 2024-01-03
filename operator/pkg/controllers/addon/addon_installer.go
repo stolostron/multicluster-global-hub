@@ -111,6 +111,20 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	// grant spec/event with readable, status with writable
+	err = transporter.GrantRead(userName, clusterTopic.SpecTopic)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	err = transporter.GrantWrite(userName, clusterTopic.EventTopic)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	err = transporter.GrantWrite(userName, clusterTopic.StatusTopic)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	addon := &v1alpha1.ManagedClusterAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
 		Namespace: cluster.Name,

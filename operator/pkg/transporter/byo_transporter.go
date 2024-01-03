@@ -58,6 +58,15 @@ func (k *BYOTransporter) DeleteTopic(topic *transport.ClusterTopic) error {
 	return nil
 }
 
+// authorize
+func (k *BYOTransporter) GrantRead(userName string, topicName string) error {
+	return nil
+}
+
+func (k *BYOTransporter) GrantWrite(userName string, topicName string) error {
+	return nil
+}
+
 func (k *BYOTransporter) GenerateClusterTopic(clusterIdentity string) *transport.ClusterTopic {
 	return &transport.ClusterTopic{
 		SpecTopic:   "spec",
