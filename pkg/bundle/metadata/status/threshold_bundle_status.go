@@ -1,6 +1,8 @@
 package status
 
 import (
+	"strconv"
+
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,9 +38,14 @@ func NewThresholdBundleStatus(max int, evt cloudevents.Event) *thresholdBundleSt
 		log.Info("failed to parse partition from event", "error", err)
 	}
 
-	offset, ok := evt.Extensions()[kafka_confluent.KafkaOffsetKey].(int64)
+	offsetStr, ok := evt.Extensions()[kafka_confluent.KafkaOffsetKey].(string)
 	if !ok {
-		log.Info("failed to parse offset from event", "offset value", evt.Extensions()[kafka_confluent.KafkaOffsetKey])
+		log.Info("failed to get offset string from event", "offset", evt.Extensions()[kafka_confluent.KafkaOffsetKey])
+	}
+
+	offset, err := strconv.ParseInt(offsetStr, 10, 64)
+	if !ok {
+		log.Info("failed to parse offset from event", "offset", offsetStr)
 	}
 
 	return &thresholdBundleStatus{
@@ -56,7 +63,7 @@ func (s *thresholdBundleStatus) MarkAsProcessed() {
 	s.count = -1
 
 	// commit the offset to database
-	addToCommit(s.topic, s.partition, s.offset)
+	ToCommit(s.topic, s.partition, s.offset)
 }
 
 // Processed returns whether the bundle was processed or not.

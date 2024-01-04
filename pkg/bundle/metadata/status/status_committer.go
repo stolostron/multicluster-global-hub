@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -16,9 +17,15 @@ import (
 
 const KafkaPartitionDelimiter = "@"
 
-var kafkaPositions map[string]KafkaPosition = map[string]KafkaPosition{} // for kafka: topic@partition: offset
+var (
+	kafkaPositions map[string]KafkaPosition = map[string]KafkaPosition{} // for kafka: topic@partition: offset
+	lock           sync.Mutex
+)
 
-func addToCommit(topic string, partition int32, offset int64) {
+func ToCommit(topic string, partition int32, offset int64) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	key := fmt.Sprintf("%s@%d", topic, partition)
 	p, ok := kafkaPositions[key]
 	if ok && p.Offset >= offset {
@@ -34,7 +41,7 @@ func addToCommit(topic string, partition int32, offset int64) {
 type KafkaPosition struct {
 	Topic     string `json:"-"`
 	Partition int32  `json:"partition"`
-	Offset    int64  `json:"agent"`
+	Offset    int64  `json:"offset"`
 }
 
 type kafkaStatusCommitter struct {
@@ -72,6 +79,9 @@ func (k *kafkaStatusCommitter) Start(ctx context.Context) error {
 }
 
 func (k *kafkaStatusCommitter) commit() error {
+	lock.Lock()
+	defer lock.Unlock()
+
 	db := database.GetGorm()
 	batchStatus := []models.Transport{}
 	for key, position := range kafkaPositions {
@@ -80,12 +90,13 @@ func (k *kafkaStatusCommitter) commit() error {
 			continue
 		}
 
+		k.log.Info("commit offset to database", "topic", position.Topic, "partition", position.Partition, "offset", position.Offset)
 		payload, err := json.Marshal(position)
 		if err != nil {
 			return err
 		}
 		batchStatus = append(batchStatus, models.Transport{
-			Name:    key,
+			Name:    position.Topic,
 			Payload: payload,
 		})
 		k.committedPositions[key] = position.Offset

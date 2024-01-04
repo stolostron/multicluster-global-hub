@@ -89,6 +89,11 @@ func (cu *ConflationUnit) insert(insertBundle bundle.ManagerBundle, bundleStatus
 	conflationElement := cu.priorityQueue[priority]
 	conflationElementBundle := conflationElement.conflationBundle.getBundle()
 
+	if insertBundle == nil || insertBundle.GetVersion() == nil {
+		cu.log.Info("the insert bundle isn't validated", "insertBundle", insertBundle)
+		return
+	}
+
 	// when the agent is started without incarnation configmap, the first message version will be 0.1. then we need to
 	// 1. reset lastProcessedBundleVersion to 0
 	// 2. reset the bundleInfo version to 0 (add the resetBundleVersion() function to bundleInfo interface)

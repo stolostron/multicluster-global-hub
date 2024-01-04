@@ -66,7 +66,6 @@ func (a AggregatedCompliance) TableName() string {
 type Transport struct {
 	Name      string         `gorm:"column:name;primaryKey"`
 	Payload   datatypes.JSON `gorm:"column:payload;type:jsonb"`
-	Type      string         `gorm:"column:type;not null"`
 	CreatedAt time.Time      `gorm:"autoCreateTime:true"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime:true"`
 }

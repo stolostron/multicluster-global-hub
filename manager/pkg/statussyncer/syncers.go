@@ -97,7 +97,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
 	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
 ) (dbsyncer.BundleRegisterable, error) {
-	consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig)
+	consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig, consumer.WithDatabasePosition(true))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
 	}
