@@ -5,6 +5,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
@@ -15,18 +16,16 @@ import (
 // 0 - the default initial value
 // 1, 2, 3 ... - the retry times of current bundle has been failed processed
 // -1 means it processed successfully
-type thresholdBundleStatus struct {
+type ThresholdBundleStatus struct {
 	maxRetry int
 	count    int
 
 	// transport position
-	topic     string
-	partition int32
-	offset    int64
+	kafkaPosition *kafka.TopicPartition
 }
 
 // the retry times(max) when the bundle has been failed processed
-func NewThresholdBundleStatus(max int, evt cloudevents.Event) *thresholdBundleStatus {
+func NewThresholdBundleStatus(max int, evt cloudevents.Event) *ThresholdBundleStatus {
 	log := ctrl.Log.WithName("threshold-bundle-status")
 
 	topic, err := types.ToString(evt.Extensions()[kafka_confluent.KafkaTopicKey])
@@ -48,30 +47,33 @@ func NewThresholdBundleStatus(max int, evt cloudevents.Event) *thresholdBundleSt
 		log.Info("failed to parse offset from event", "offset", offsetStr)
 	}
 
-	return &thresholdBundleStatus{
+	return &ThresholdBundleStatus{
 		maxRetry: max,
 		count:    0,
 
-		topic:     topic,
-		partition: partition,
-		offset:    int64(offset),
+		kafkaPosition: &kafka.TopicPartition{
+			Topic:     &topic,
+			Partition: partition,
+			Offset:    kafka.Offset(offset),
+		},
 	}
 }
 
 // MarkAsProcessed function that marks the metadata as processed.
-func (s *thresholdBundleStatus) MarkAsProcessed() {
+func (s *ThresholdBundleStatus) MarkAsProcessed() {
 	s.count = -1
-
-	// commit the offset to database
-	ToCommit(s.topic, s.partition, s.offset)
 }
 
 // Processed returns whether the bundle was processed or not.
-func (s *thresholdBundleStatus) Processed() bool {
+func (s *ThresholdBundleStatus) Processed() bool {
 	return s.count == -1 || s.count >= s.maxRetry
 }
 
 // MarkAsUnprocessed function that marks the metadata as processed.
-func (s *thresholdBundleStatus) MarkAsUnprocessed() {
+func (s *ThresholdBundleStatus) MarkAsUnprocessed() {
 	s.count++
+}
+
+func (s *ThresholdBundleStatus) GetTransportMetadata() *kafka.TopicPartition {
+	return s.kafkaPosition
 }

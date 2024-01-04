@@ -296,6 +296,9 @@ func (cu *ConflationUnit) getBundleStatues() []metadata.BundleStatus {
 	bundleStatues := make([]metadata.BundleStatus, 0, len(cu.priorityQueue))
 
 	for _, element := range cu.priorityQueue {
+		if element.conflationBundle == nil || element.conflationBundle.getMetadata() == nil {
+			continue
+		}
 		if bundleStatus := element.conflationBundle.getMetadata().bundleStatus; bundleStatus != nil {
 			bundleStatues = append(bundleStatues, bundleStatus)
 		}

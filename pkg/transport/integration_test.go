@@ -191,7 +191,7 @@ var _ = Describe("Transport Integration", Ordered, func() {
 			},
 		))
 		kafkaConsumer.SetCommitter(consumer.NewCommitter(100*time.Second, "status", kafkaConsumer.Consumer(),
-			conflationManager.GetBundlesMetadata, ctrl.Log.WithName("kafka-consumer")),
+			conflationManager.GetTransportMetadatas, ctrl.Log.WithName("kafka-consumer")),
 		)
 		kafkaConsumer.SetStatistics(stats)
 		kafkaConsumer.SetConflationManager(conflationManager)

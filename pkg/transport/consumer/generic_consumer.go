@@ -146,7 +146,7 @@ func (c *GenericConsumer) getInitedOffset() ([]kafka.TopicPartition, error) {
 		}
 		offsetToStart := []kafka.TopicPartition{}
 		for i, pos := range positions {
-			var kafkaPosition status.KafkaPosition
+			var kafkaPosition models.KafkaPosition
 			err := json.Unmarshal(pos.Payload, &kafkaPosition)
 			if err != nil {
 				return nil, err

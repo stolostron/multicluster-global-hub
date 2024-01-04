@@ -46,8 +46,8 @@ func (cm *ConflationManager) Insert(managerBundle bundle.ManagerBundle, bundleSt
 	cm.getConflationUnit(managerBundle.GetLeafHubName()).insert(managerBundle, bundleStatus)
 }
 
-// GetBundlesMetadata provides collections of the CU's bundle transport-metadata.
-func (cm *ConflationManager) GetBundlesMetadata() []metadata.BundleStatus {
+// GetTransportMetadatas provides collections of the CU's bundle transport-metadata.
+func (cm *ConflationManager) GetTransportMetadatas() []metadata.BundleStatus {
 	metadata := make([]metadata.BundleStatus, 0)
 
 	for _, cu := range cm.conflationUnits {
