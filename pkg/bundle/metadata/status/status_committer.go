@@ -90,7 +90,8 @@ func (k *kafkaStatusCommitter) commit() error {
 			continue
 		}
 
-		k.log.Info("commit offset to database", "topic", position.Topic, "partition", position.Partition, "offset", position.Offset)
+		k.log.Info("commit offset to database", "topic", position.Topic, "partition",
+			position.Partition, "offset", position.Offset)
 		payload, err := json.Marshal(position)
 		if err != nil {
 			return err
