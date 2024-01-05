@@ -1,7 +1,5 @@
 package metadata
 
-import "github.com/confluentinc/confluent-kafka-go/v2/kafka"
-
 // GetBundleStatusesFunc is the function to be called by committer to fetch metadata to commit.
 type GetBundleStatusesFunc func() []BundleStatus
 
@@ -19,5 +17,11 @@ type BundleStatus interface {
 type TransportMetadata interface {
 	BundleStatus
 	// only support kafka for now
-	GetTransportMetadata() *kafka.TopicPartition
+	GetTransportMetadata() *TransportPosition
+}
+
+type TransportPosition struct {
+	Topic     string `json:"-"`
+	Partition int32  `json:"partition"`
+	Offset    int64  `json:"offset"`
 }

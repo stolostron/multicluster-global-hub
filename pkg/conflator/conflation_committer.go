@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-logr/logr"
 	"gorm.io/gorm/clause"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -62,30 +61,30 @@ func (k *ConflationCommitter) commit() error {
 	// get metadata (both pending and processed)
 	transportMetadatas := k.transportMetadatasFunc()
 
-	metadatas := metadataToCommit(transportMetadatas)
+	transPositions := metadataToCommit(transportMetadatas)
 
 	databaseTransports := []models.Transport{}
-	for key, metadata := range metadatas {
+	for key, transPosition := range transPositions {
 		// skip request if already committed this offset
 		committedOffset, found := k.committedPositions[key]
-		if found && committedOffset >= int64(metadata.Offset) {
+		if found && committedOffset >= int64(transPosition.Offset) {
 			continue
 		}
 
-		k.log.Info("commit offset to database", "topic@partition", key, "offset", metadata.Offset)
-		payload, err := json.Marshal(models.KafkaPosition{
-			Topic:     *metadata.Topic,
-			Partition: metadata.Partition,
-			Offset:    int64(metadata.Offset),
+		k.log.Info("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
+		payload, err := json.Marshal(metadata.TransportPosition{
+			Topic:     transPosition.Topic,
+			Partition: transPosition.Partition,
+			Offset:    int64(transPosition.Offset),
 		})
 		if err != nil {
 			return err
 		}
 		databaseTransports = append(databaseTransports, models.Transport{
-			Name:    *metadata.Topic,
+			Name:    transPosition.Topic,
 			Payload: payload,
 		})
-		k.committedPositions[key] = int64(metadata.Offset)
+		k.committedPositions[key] = int64(transPosition.Offset)
 	}
 
 	db := database.GetGorm()
@@ -100,10 +99,10 @@ func (k *ConflationCommitter) commit() error {
 	return nil
 }
 
-func metadataToCommit(metadataArray []metadata.BundleStatus) map[string]*kafka.TopicPartition {
+func metadataToCommit(metadataArray []metadata.BundleStatus) map[string]*metadata.TransportPosition {
 	// extract the lowest per partition in the pending bundles, the highest per partition in the processed bundles
-	pendingLowestMetadataMap := make(map[string]*kafka.TopicPartition)
-	processedHighestMetadataMap := make(map[string]*kafka.TopicPartition)
+	pendingLowestMetadataMap := make(map[string]*metadata.TransportPosition)
+	processedHighestMetadataMap := make(map[string]*metadata.TransportPosition)
 
 	for _, transportMetadata := range metadataArray {
 		bundleStatus, ok := transportMetadata.(metadata.TransportMetadata)
@@ -112,7 +111,7 @@ func metadataToCommit(metadataArray []metadata.BundleStatus) map[string]*kafka.T
 		}
 
 		metadata := bundleStatus.GetTransportMetadata()
-		key := positionKey(*metadata.Topic, metadata.Partition)
+		key := positionKey(metadata.Topic, metadata.Partition)
 
 		if !bundleStatus.Processed() {
 			// this belongs to a pending bundle, update the lowest-offsets-map
@@ -135,7 +134,7 @@ func metadataToCommit(metadataArray []metadata.BundleStatus) map[string]*kafka.T
 
 	// increment processed offsets so they are not re-read on kafka consumer restart
 	for key := range processedHighestMetadataMap {
-		processedHighestMetadataMap[key] = &kafka.TopicPartition{
+		processedHighestMetadataMap[key] = &metadata.TransportPosition{
 			Topic:     processedHighestMetadataMap[key].Topic,
 			Partition: processedHighestMetadataMap[key].Partition,
 			Offset:    processedHighestMetadataMap[key].Offset + 1,

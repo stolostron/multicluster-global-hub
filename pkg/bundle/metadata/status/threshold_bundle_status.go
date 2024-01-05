@@ -5,9 +5,9 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
@@ -21,7 +21,7 @@ type ThresholdBundleStatus struct {
 	count    int
 
 	// transport position
-	kafkaPosition *kafka.TopicPartition
+	kafkaPosition *metadata.TransportPosition
 }
 
 // the retry times(max) when the bundle has been failed processed
@@ -51,15 +51,15 @@ func NewThresholdBundleStatus(max int, evt cloudevents.Event) *ThresholdBundleSt
 		maxRetry: max,
 		count:    0,
 
-		kafkaPosition: &kafka.TopicPartition{
-			Topic:     &topic,
+		kafkaPosition: &metadata.TransportPosition{
+			Topic:     topic,
 			Partition: partition,
-			Offset:    kafka.Offset(offset),
+			Offset:    offset,
 		},
 	}
 }
 
-func NewThresholdBundleStatusFromPosition(max int, pos *kafka.TopicPartition) *ThresholdBundleStatus {
+func NewThresholdBundleStatusFromPosition(max int, pos *metadata.TransportPosition) *ThresholdBundleStatus {
 	return &ThresholdBundleStatus{
 		maxRetry:      max,
 		count:         0,
@@ -82,6 +82,6 @@ func (s *ThresholdBundleStatus) MarkAsUnprocessed() {
 	s.count++
 }
 
-func (s *ThresholdBundleStatus) GetTransportMetadata() *kafka.TopicPartition {
+func (s *ThresholdBundleStatus) GetTransportMetadata() *metadata.TransportPosition {
 	return s.kafkaPosition
 }

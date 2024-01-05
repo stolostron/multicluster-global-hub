@@ -63,12 +63,6 @@ func (a AggregatedCompliance) TableName() string {
 	return "status.aggregated_compliance"
 }
 
-type KafkaPosition struct {
-	Topic     string `json:"-"`
-	Partition int32  `json:"partition"`
-	Offset    int64  `json:"offset"`
-}
-
 type Transport struct {
 	Name      string         `gorm:"column:name;primaryKey"`
 	Payload   datatypes.JSON `gorm:"column:payload;type:jsonb"` // KafkaPosition

@@ -16,6 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -146,7 +147,7 @@ func (c *GenericConsumer) getInitedOffset() ([]kafka.TopicPartition, error) {
 		}
 		offsetToStart := []kafka.TopicPartition{}
 		for i, pos := range positions {
-			var kafkaPosition models.KafkaPosition
+			var kafkaPosition metadata.TransportPosition
 			err := json.Unmarshal(pos.Payload, &kafkaPosition)
 			if err != nil {
 				return nil, err

@@ -34,19 +34,19 @@ func getTransportMetadatas(topic string, processedOffsets []int64, unprocessedOf
 	for _, offset := range unprocessedOffsets {
 		transportMetadatas = append(transportMetadatas,
 			status.NewThresholdBundleStatusFromPosition(3,
-				&kafka.TopicPartition{
-					Topic:     &topic,
+				&metadata.TransportPosition{
+					Topic:     topic,
 					Partition: 0,
-					Offset:    kafka.Offset(offset),
+					Offset:    offset,
 				}))
 	}
 	for _, offset := range processedOffsets {
 		transportMetadatas = append(transportMetadatas,
 			status.NewThresholdBundleStatusFromPosition(0,
-				&kafka.TopicPartition{
-					Topic:     &topic,
+				&metadata.TransportPosition{
+					Topic:     topic,
 					Partition: 0,
-					Offset:    kafka.Offset(offset),
+					Offset:    offset,
 				}))
 	}
 	return transportMetadatas
