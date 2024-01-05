@@ -12,7 +12,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -24,16 +23,16 @@ func positionKey(topic string, partition int32) string {
 }
 
 type ConflationCommitter struct {
-	log                logr.Logger
-	conflationManager  *ConflationManager
-	committedPositions map[string]int64
+	log                    logr.Logger
+	transportMetadatasFunc metadata.GetBundleStatusesFunc
+	committedPositions     map[string]int64
 }
 
-func NewKafkaConflationCommitter(cm *ConflationManager) *ConflationCommitter {
+func NewKafkaConflationCommitter(getTransportMetadatasFunc metadata.GetBundleStatusesFunc) *ConflationCommitter {
 	return &ConflationCommitter{
-		log:                ctrl.Log.WithName("kafka-conflation-committer"),
-		conflationManager:  cm,
-		committedPositions: map[string]int64{},
+		log:                    ctrl.Log.WithName("kafka-conflation-committer"),
+		transportMetadatasFunc: getTransportMetadatasFunc,
+		committedPositions:     map[string]int64{},
 	}
 }
 
@@ -61,19 +60,12 @@ func (k *ConflationCommitter) Start(ctx context.Context) error {
 
 func (k *ConflationCommitter) commit() error {
 	// get metadata (both pending and processed)
-	transportMetadatas := k.conflationManager.GetTransportMetadatas()
+	transportMetadatas := k.transportMetadatasFunc()
 
-	// extract the lowest per partition in the pending bundles, the highest per partition in the processed bundles
-	pendingMetadataToCommit, processedMetadataToCommit := k.filterMetadata(transportMetadatas)
-
-	// patch the processed offsets map with that of the pending ones, so that if a topic@partition
-	// has both types, the pending bundle gains priority (overwrites).
-	for key, metadata := range pendingMetadataToCommit {
-		processedMetadataToCommit[key] = metadata
-	}
+	metadatas := metadataToCommit(transportMetadatas)
 
 	databaseTransports := []models.Transport{}
-	for key, metadata := range processedMetadataToCommit {
+	for key, metadata := range metadatas {
 		// skip request if already committed this offset
 		committedOffset, found := k.committedPositions[key]
 		if found && committedOffset >= int64(metadata.Offset) {
@@ -108,16 +100,13 @@ func (k *ConflationCommitter) commit() error {
 	return nil
 }
 
-func (c *ConflationCommitter) filterMetadata(metadataArray []metadata.BundleStatus) (
-	map[string]*kafka.TopicPartition,
-	map[string]*kafka.TopicPartition,
-) {
-	// assumes all are in the same topic.
+func metadataToCommit(metadataArray []metadata.BundleStatus) map[string]*kafka.TopicPartition {
+	// extract the lowest per partition in the pending bundles, the highest per partition in the processed bundles
 	pendingLowestMetadataMap := make(map[string]*kafka.TopicPartition)
 	processedHighestMetadataMap := make(map[string]*kafka.TopicPartition)
 
 	for _, transportMetadata := range metadataArray {
-		bundleStatus, ok := transportMetadata.(*status.ThresholdBundleStatus)
+		bundleStatus, ok := transportMetadata.(metadata.TransportMetadata)
 		if !ok {
 			continue // shouldn't happen
 		}
@@ -153,5 +142,11 @@ func (c *ConflationCommitter) filterMetadata(metadataArray []metadata.BundleStat
 		}
 	}
 
-	return pendingLowestMetadataMap, processedHighestMetadataMap
+	// patch the processed offsets map with that of the pending ones, so that if a topic@partition
+	// has both types, the pending bundle gains priority (overwrites).
+	for key, metadata := range pendingLowestMetadataMap {
+		processedHighestMetadataMap[key] = metadata
+	}
+
+	return processedHighestMetadataMap
 }

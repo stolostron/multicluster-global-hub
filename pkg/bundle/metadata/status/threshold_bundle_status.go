@@ -59,6 +59,14 @@ func NewThresholdBundleStatus(max int, evt cloudevents.Event) *ThresholdBundleSt
 	}
 }
 
+func NewThresholdBundleStatusFromPosition(max int, pos *kafka.TopicPartition) *ThresholdBundleStatus {
+	return &ThresholdBundleStatus{
+		maxRetry:      max,
+		count:         0,
+		kafkaPosition: pos,
+	}
+}
+
 // MarkAsProcessed function that marks the metadata as processed.
 func (s *ThresholdBundleStatus) MarkAsProcessed() {
 	s.count = -1

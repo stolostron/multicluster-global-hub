@@ -35,7 +35,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 	conflationManager := conflator.NewConflationManager(conflationReadyQueue, stats)
 
 	// add kafka offset to the database periodically
-	committer := conflator.NewKafkaConflationCommitter(conflationManager)
+	committer := conflator.NewKafkaConflationCommitter(conflationManager.GetTransportMetadatas)
 	if err := mgr.Add(committer); err != nil {
 		return nil, fmt.Errorf("failed to add DB worker pool: %w", err)
 	}
