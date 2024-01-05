@@ -3,7 +3,6 @@ package conflator
 import (
 	"testing"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata/status"
 	"github.com/stretchr/testify/assert"
@@ -24,9 +23,9 @@ func TestCommitOffset(t *testing.T) {
 	assert.Contains(t, metadatas, positionKey("topic3", 0))
 
 	// get the offset to commit
-	assert.Equal(t, metadatas[positionKey("topic1", 0)].Offset, kafka.Offset(4))
-	assert.Equal(t, metadatas[positionKey("topic2", 0)].Offset, kafka.Offset(14))
-	assert.Equal(t, metadatas[positionKey("topic3", 0)].Offset, kafka.Offset(6))
+	assert.Equal(t, metadatas[positionKey("topic1", 0)].Offset, int64(4))
+	assert.Equal(t, metadatas[positionKey("topic2", 0)].Offset, int64(14))
+	assert.Equal(t, metadatas[positionKey("topic3", 0)].Offset, int64(6))
 }
 
 func getTransportMetadatas(topic string, processedOffsets []int64, unprocessedOffsets []int64) []metadata.BundleStatus {
