@@ -133,13 +133,13 @@ type ResourceRequirements struct {
 	// Limits describes the maximum amount of compute resources allowed.
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	// +optional
-	Limits corev1.ResourceList `json:"limits,omitempty" protobuf:"bytes,1,rep,name=limits,casttype=ResourceList,castkey=ResourceName"`
+	Limits corev1.ResourceList `json:"limits,omitempty"`
 	// Requests describes the minimum amount of compute resources required.
 	// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
 	// otherwise to an implementation-defined value.
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	// +optional
-	Requests corev1.ResourceList `json:"requests,omitempty" protobuf:"bytes,2,rep,name=requests,casttype=ResourceList,castkey=ResourceName"`
+	Requests corev1.ResourceList `json:"requests,omitempty"`
 }
 
 // DataLayerConfig is a discriminated union of data layer specific configuration.
