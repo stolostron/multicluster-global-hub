@@ -974,7 +974,19 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should delete the MGH instance", func() {
+			namespacedName := client.ObjectKeyFromObject(mcgh)
 			Expect(k8sClient.Delete(ctx, mcgh)).Should(Succeed())
+			// ensure the mcgh is deleted
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, namespacedName, &globalhubv1alpha4.MulticlusterGlobalHub{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						return nil
+					}
+					return err
+				}
+				return fmt.Errorf("mcgh is being deleted.")
+			}, timeout, interval).Should(Succeed())
 		})
 	})
 
