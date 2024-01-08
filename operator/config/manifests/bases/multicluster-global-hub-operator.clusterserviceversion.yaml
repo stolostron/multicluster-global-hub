@@ -8,6 +8,7 @@ metadata:
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
     description: Manages the installation and upgrade of the Multicluster Global Hub.
+    olm.skipRange: '>=1.0.0 <1.1.0'
     operatorframework.io/suggested-namespace: multicluster-global-hub
     operators.operatorframework.io/builder: operator-sdk-v1.23.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
@@ -117,7 +118,7 @@ spec:
   maintainers:
   - email: acm-contact@redhat.com
     name: acm-contact
-  maturity: release-1.0
+  maturity: release-1.1
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
