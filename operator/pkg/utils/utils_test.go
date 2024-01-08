@@ -360,7 +360,7 @@ func Test_GetResources(t *testing.T) {
 	tests := []struct {
 		name          string
 		component     string
-		advanced      func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig
+		advanced      func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig
 		cpuRequest    string
 		cpuLimit      string
 		memoryRequest string
@@ -378,7 +378,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Grafana with customized values",
 			component: constants.Grafana,
-			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
 				return &globalhubv1alpha4.AdvancedConfig{
 					Grafana: &globalhubv1alpha4.CommonSpec{
 						Resources: resReq,
@@ -398,7 +398,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Postgres with customized values",
 			component: constants.Postgres,
-			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
 				return &globalhubv1alpha4.AdvancedConfig{
 					Postgres: &globalhubv1alpha4.CommonSpec{
 						Resources: resReq,
@@ -418,7 +418,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Agent with customized values",
 			component: constants.Agent,
-			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
 				return &globalhubv1alpha4.AdvancedConfig{
 					Agent: &globalhubv1alpha4.CommonSpec{
 						Resources: resReq,
@@ -438,7 +438,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Manager with customized values",
 			component: constants.Manager,
-			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
 				return &globalhubv1alpha4.AdvancedConfig{
 					Manager: &globalhubv1alpha4.CommonSpec{
 						Resources: resReq,
@@ -458,7 +458,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Kafka with customized values",
 			component: constants.Kafka,
-			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
 				return &globalhubv1alpha4.AdvancedConfig{
 					Kafka: &globalhubv1alpha4.CommonSpec{
 						Resources: resReq,
@@ -478,7 +478,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Zookeeper with customized values",
 			component: constants.Zookeeper,
-			advanced: func(resReq *corev1.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
+			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
 				return &globalhubv1alpha4.AdvancedConfig{
 					Zookeeper: &globalhubv1alpha4.CommonSpec{
 						Resources: resReq,
@@ -489,7 +489,7 @@ func Test_GetResources(t *testing.T) {
 		},
 	}
 
-	resReq := &corev1.ResourceRequirements{
+	resReq := &globalhubv1alpha4.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
 			corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),

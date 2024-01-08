@@ -355,7 +355,7 @@ func GetResources(component string, advanced *globalhubv1alpha4.AdvancedConfig) 
 	return &resourceReq
 }
 
-func setResourcesFromCR(res *corev1.ResourceRequirements, requests, limits corev1.ResourceList) {
+func setResourcesFromCR(res *globalhubv1alpha4.ResourceRequirements, requests, limits corev1.ResourceList) {
 	if res != nil {
 		if res.Requests.Memory().String() != "0" {
 			requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(res.Requests.Memory().String())
