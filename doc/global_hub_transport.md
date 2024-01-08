@@ -196,7 +196,7 @@ The whole process can be divided into 2 steps:
 
 1. Backup the unprocessed message position(offset)
 
-    The conflation committer will first get the lowest unprocessed message from the conflation manager. Then it synchronizes the offset database periodically. To minimize the workload on the database, the committer holds the max offset it persisted, so it's necessary for the cached offset greater than the max to sync itself.
+    The conflation committer will first get the lowest unprocessed message from the conflation manager. Then it synchronizes the offset database periodically. To minimize the workload on the database, the committer holds the max offset it persisted into database and only interact with database when the new larger offset is cached.
     ```pgsql
     hoh=# select * from status.transport ;
           name       |            payload             |        created_at         |         updated_at
@@ -205,9 +205,10 @@ The whole process can be divided into 2 steps:
     status.kind-hub2 | {"offset": 15, "partition": 0} | 2024-01-04 02:37:05.56802 | 2024-01-05 01:04:27.245368
     (2 rows)
     ```
+
 2. Initialize the consumer from the persisted position
 
-    Actually, The kafka itself has such feature to start consumption from the last commit offset. But that means the message process and message commit are asynchronous. Then we can start a goroutine to commit the message offset the transport(kafka). This is also another option to achieve the above goal. Since the Global Hub has its own database, so we treat it as the source of truth and commit the offset the database. The consumer will choose to replay the message from the persisted offset each time it restarting.
+    Actually, The kafka itself has such feature to start consumption from the last commit offset. Then we can start a goroutine to commit the message offset into the transport(kafka) manually. That means we have to save the offset on the kafka and it's also a good option for the message confirmation. However, since the postgres database is the source of truth for the Global Hub, We choose another option to commit the offset into the database. The consumer will choose to replay the message from the persisted offset each time it restarting.
 
 
 ### Additional Aspects (TBD)
