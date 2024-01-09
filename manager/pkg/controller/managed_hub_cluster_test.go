@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Red Hat, Inc.
+// Copyright (c) 2024 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
 package controller_test
@@ -34,6 +34,19 @@ var _ = Describe("managed hub controller", Ordered, func() {
 
 		By("create managed hub")
 		Expect(kubeClient.Create(ctx, managedHub, &client.CreateOptions{})).Should(Succeed())
+
+		By("update the status to available")
+		Expect(kubeClient.Get(ctx, client.ObjectKeyFromObject(managedHub), managedHub)).Should(Succeed())
+		managedHub.Status.Conditions = []metav1.Condition{
+			{
+				Type:               clusterv1.ManagedClusterConditionAvailable,
+				Reason:             "ManagedClusterAvailable",
+				Message:            "Managed cluster is available",
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+		Expect(kubeClient.Status().Update(ctx, managedHub)).Should(Succeed())
 
 		Eventually(func() error {
 			err := kubeClient.Get(ctx, client.ObjectKeyFromObject(managedHub), managedHub)

@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/controller"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector"
 	globalhubmetrics "github.com/stolostron/multicluster-global-hub/manager/pkg/metrics"
@@ -243,6 +244,11 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	if err != nil {
 		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
 	}
+
+	if err := controller.AddControllers(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add controllers: %w", err)
+	}
+
 	if managerConfig.EnableGlobalResource {
 		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
 			return nil, fmt.Errorf("failed to add global resource spec syncers: %w", err)
@@ -250,10 +256,8 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	}
 
 	//Send the resend message when manager start.
-	err = specsyncer.SendSyncAllMsgInfo(producer)
-
-	if err := specsyncer.AddBasicSpecSyncers(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add basic spec syncers: %w", err)
+	if err := specsyncer.SendSyncAllMsgInfo(producer); err != nil {
+		return nil, fmt.Errorf("failed to add resyncer: %w", err)
 	}
 
 	if _, err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {

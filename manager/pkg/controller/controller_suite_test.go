@@ -11,8 +11,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -22,11 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/controller"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -57,7 +54,7 @@ var _ = BeforeSuite(func() {
 	var err error
 	testenv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "..", "pkg", "testdata", "crds"),
+			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -102,7 +99,7 @@ var _ = BeforeSuite(func() {
 	Expect(postgresSQL).NotTo(BeNil())
 
 	By("Adding the controllers to the manager")
-	Expect(spec2db.AddSpec2DBControllers(mgr)).Should(Succeed())
+	Expect(controller.AddManagedHubClusterController(mgr)).Should(Succeed())
 	go func() {
 		defer GinkgoRecover()
 		err = mgr.Start(ctx)
@@ -111,20 +108,6 @@ var _ = BeforeSuite(func() {
 
 	By("Waiting for the manager to be ready")
 	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
-
-	By("Create MGH instance")
-	multiclusterhub = &mchv1.MultiClusterHub{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "multiclusterhub",
-			Namespace: utils.GetDefaultNamespace(),
-		},
-		Spec: mchv1.MultiClusterHubSpec{},
-	}
-	Expect(kubeClient.Create(ctx, multiclusterhub)).Should(Succeed())
-	Expect(kubeClient.Get(ctx, types.NamespacedName{
-		Namespace: multiclusterhub.GetNamespace(),
-		Name:      multiclusterhub.GetName(),
-	}, multiclusterhub)).Should(Succeed())
 })
 
 var _ = AfterSuite(func() {

@@ -10,7 +10,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -34,10 +33,6 @@ func AddGlobalResourceSpecSyncers(mgr ctrl.Manager,
 	return nil
 }
 
-func AddBasicSpecSyncers(mgr ctrl.Manager) error {
-	return controller.AddManagedHubController(mgr)
-}
-
 // SendSyncAllMsgInfo send a constants.ResyncMsgKey bundle in manager start.
 // When agent get the bundle, it will resend the "resendMsgKeys" bundles to transport
 // It is mainly used to handle data lost in upgade scenario.
@@ -48,13 +43,10 @@ func SendSyncAllMsgInfo(producer transport.Producer) error {
 	if err != nil {
 		return err
 	}
-	if err := producer.Send(ctx, &transport.Message{
+	return producer.Send(ctx, &transport.Message{
 		Key:         constants.ResyncMsgKey,
 		Destination: transport.Broadcast,
 		MsgType:     constants.SpecBundle,
 		Payload:     payloadBytes,
-	}); err != nil {
-		return fmt.Errorf("Failed to resend resendbundle")
-	}
-	return nil
+	})
 }
