@@ -6,6 +6,11 @@ const (
 	GHDefaultNamespace = "multicluster-global-hub"
 	// GHAgentNamespace defines global hub agent namespace
 	GHAgentNamespace = "multicluster-global-hub-agent"
+	// ManagerDeploymentName define the global hub manager deployment name
+	ManagerDeploymentName = "multicluster-global-hub-manager"
+	// AgentDeploymentName define the global hub agent deployment name
+	AgentDeploymentName = "multicluster-global-hub-agent"
+
 	// GHAgentConfigCMName is the name of configmap that stores important global hub settings
 	// eg. aggregationLevel and enableLocalPolicy.
 	GHAgentConfigCMName = "multicluster-global-hub-agent-config"
@@ -31,12 +36,14 @@ const (
 	BackupGlobalHubValue  = "globalhub"
 )
 
-// global hub transport and storage secret names
+// global hub transport and storage secret and configmap names
 const (
 	GHTransportSecretName      = "multicluster-global-hub-transport" // #nosec G101
 	GHStorageSecretName        = "multicluster-global-hub-storage"   // #nosec G101
 	GHBuiltInStorageSecretName = "multicluster-global-hub-postgres"  // #nosec G101
+	KafkaCertSecretName        = "kafka-certs-secret"                // #nosec G101
 	GHDefaultStorageRetention  = "18m"                               // 18 months
+	PostgresCAConfigMap        = "multicluster-global-hub-postgres-ca"
 )
 
 // global hub console secret/configmap names

@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -236,14 +237,21 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
-
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubeclient: %w", err)
+	}
 	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
 	// we use the value to decide whether install the ACM or not
-	if err := controllers.StartHubClusterClaimController(mgr); err != nil {
+	if err := controllers.AddHubClusterClaimController(mgr); err != nil {
 		return nil, fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
 	}
 
-	if err := controllers.StartCRDController(mgr, restConfig, agentConfig); err != nil {
+	if err := controllers.AddCRDController(mgr, restConfig, agentConfig); err != nil {
+		return nil, fmt.Errorf("failed to add crd controller: %w", err)
+	}
+
+	if err := controllers.AddCertController(mgr, kubeClient); err != nil {
 		return nil, fmt.Errorf("failed to add crd controller: %w", err)
 	}
 
@@ -273,6 +281,9 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		},
 		&corev1.Event{}: {
 			Field: fields.OneTermEqualSelector("involvedObject.kind", policyv1.Kind),
+		},
+		&corev1.Secret{}: {
+			Field: fields.OneTermEqualSelector("metadata.namespace", constants.GHAgentNamespace),
 		},
 	}
 	return cache.New(config, cacheOpts)

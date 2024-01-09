@@ -336,46 +336,6 @@ policies:
 	}
 }
 
-func TestRestartGrafanaPod(t *testing.T) {
-	ctx := context.Background()
-	configNamespace := utils.GetDefaultNamespace()
-
-	tests := []struct {
-		name        string
-		initObjects []runtime.Object
-		wantErr     bool
-	}{
-		{
-			name:        "no grafana pods",
-			initObjects: []runtime.Object{},
-			wantErr:     false,
-		},
-		{
-			name: "has grafana pods",
-			initObjects: []runtime.Object{
-				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: configNamespace,
-						Name:      grafanaDeploymentName + "xxx",
-						Labels: map[string]string{
-							"name": grafanaDeploymentName,
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
-		t.Run(tt.name, func(t *testing.T) {
-			if err := restartGrafanaPod(ctx, kubeClient); (err != nil) != tt.wantErr {
-				t.Errorf("RestartGrafanaPod() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func Test_generateGranafaIni(t *testing.T) {
 	configNamespace := utils.GetDefaultNamespace()
 	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{

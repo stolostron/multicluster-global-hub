@@ -44,7 +44,7 @@ func (c *versionClusterClaimController) Reconcile(ctx context.Context, request c
 	return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 }
 
-func StartVersionClusterClaimController(mgr ctrl.Manager) error {
+func AddVersionClusterClaimController(mgr ctrl.Manager) error {
 	clusterClaimPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			constants.GlobalHubOwnerLabelKey: constants.GHAgentOwnerLabelValue,

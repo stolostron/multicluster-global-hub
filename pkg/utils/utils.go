@@ -12,10 +12,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	uberzap "go.uber.org/zap"
 	uberzapcore "go.uber.org/zap/zapcore"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -80,4 +82,24 @@ func ListMCH(ctx context.Context, k8sClient client.Client) (*mchv1.MultiClusterH
 	}
 
 	return &mch.Items[0], nil
+}
+
+func RestartPod(ctx context.Context, kubeClient kubernetes.Interface, podNamespace, deploymentName string) error {
+	labelSelector := fmt.Sprintf("name=%s", deploymentName)
+	poList, err := kubeClient.CoreV1().Pods(podNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	for _, po := range poList.Items {
+		err := kubeClient.CoreV1().Pods(podNamespace).Delete(ctx, po.Name, metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
 }
