@@ -269,12 +269,13 @@ func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		}
 		return false
 	}
+
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return secretCond(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return secretCond(e.ObjectNew) && e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+			return secretCond(e.ObjectNew)
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false

@@ -6,9 +6,7 @@ import (
 	"strings"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,26 +16,6 @@ const (
 	controllerName      = "leaf-hub-agent-sync"
 	notFoundErrorSuffix = "not found"
 )
-
-// UpdateObject function updates a given k8s object.
-func UpdateObject(ctx context.Context, runtimeClient client.Client, obj *unstructured.Unstructured) error {
-	objectBytes, err := obj.MarshalJSON()
-	if err != nil {
-		return fmt.Errorf("failed to update object - %w", err)
-	}
-	forceChanges := true
-	if err := runtimeClient.Patch(ctx, obj, client.RawPatch(types.ApplyPatchType, objectBytes), &client.PatchOptions{
-		FieldManager: controllerName,
-		Force:        &forceChanges,
-		Raw: &metav1.PatchOptions{
-			FieldValidation: metav1.FieldValidationIgnore,
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to update object - %w", err)
-	}
-
-	return nil
-}
 
 // DeleteObject tries to delete the given object from k8s. returns error and true/false if object was deleted or not.
 func DeleteObject(ctx context.Context, k8sClient client.Client, obj *unstructured.Unstructured) (bool, error) {

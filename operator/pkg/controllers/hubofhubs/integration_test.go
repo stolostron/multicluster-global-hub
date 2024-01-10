@@ -60,6 +60,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
+	utils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
 
@@ -303,7 +304,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					condition.CONDITION_STATUS_FALSE {
 					return fmt.Errorf("the grafana available condition is not set")
 				}
-				if !operatorutils.Contains(createdMGH.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
+				if !utils.Contains(createdMGH.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
 					return fmt.Errorf("the finalizer(%s) should be added if mgh controller has no error occurred",
 						constants.GlobalHubCleanupFinalizer)
 				}
@@ -782,7 +783,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range placements.Items {
-					if operatorutils.Contains(placements.Items[idx].GetFinalizers(),
+					if utils.Contains(placements.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the placements finalizer has not been removed")
 					}
@@ -797,7 +798,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range applications.Items {
-					if operatorutils.Contains(applications.Items[idx].GetFinalizers(),
+					if utils.Contains(applications.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the applications finalizer has not been removed")
 					}
@@ -812,7 +813,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range placementrules.Items {
-					if operatorutils.Contains(placementrules.Items[idx].GetFinalizers(),
+					if utils.Contains(placementrules.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the placementrules finalizer has not been removed")
 					}
@@ -827,7 +828,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range managedclustersetbindings.Items {
-					if operatorutils.Contains(managedclustersetbindings.Items[idx].GetFinalizers(),
+					if utils.Contains(managedclustersetbindings.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the managedclustersetbindings finalizer has not been removed")
 					}
@@ -842,7 +843,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range channels.Items {
-					if operatorutils.Contains(channels.Items[idx].GetFinalizers(),
+					if utils.Contains(channels.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the channels finalizer has not been removed")
 					}
@@ -857,7 +858,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					return err
 				}
 				for idx := range policies.Items {
-					if operatorutils.Contains(policies.Items[idx].GetFinalizers(),
+					if utils.Contains(policies.Items[idx].GetFinalizers(),
 						constants.GlobalHubCleanupFinalizer) {
 						return fmt.Errorf("the policies finalizer has not been removed")
 					}

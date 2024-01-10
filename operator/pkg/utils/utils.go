@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -43,57 +42,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
-
-// Remove is used to remove string from a string array
-func Remove(list []string, s string) []string {
-	result := []string{}
-	for _, v := range list {
-		if v != s {
-			result = append(result, v)
-		}
-	}
-	return result
-}
-
-// Contains is used to check whether a list contains string s
-func Contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
-}
-
-// GetAnnotation returns the annotation value for a given key, or an empty string if not set
-func GetAnnotation(annotations map[string]string, key string) string {
-	if annotations == nil {
-		return ""
-	}
-	return annotations[key]
-}
-
-func RemoveDuplicates(elements []string) []string {
-	// Use map to record duplicates as we find them.
-	encountered := map[string]struct{}{}
-	result := []string{}
-
-	for _, v := range elements {
-		if _, found := encountered[v]; found {
-			continue
-		}
-		encountered[v] = struct{}{}
-		result = append(result, v)
-	}
-	// Return the new slice.
-	return result
-}
-
-func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.Object) error {
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		return runtimeClient.Update(ctx, obj, &client.UpdateOptions{})
-	})
-}
 
 // Finds subscription by name. Returns nil if none found.
 func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, name string) (

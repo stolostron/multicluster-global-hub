@@ -55,10 +55,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed manifests
@@ -296,7 +296,11 @@ var ownPred = predicate.Funcs{
 		return false
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() // only requeue when spec change
+		// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+		if e.ObjectOld.GetGeneration() == 0 {
+			return true
+		}
+		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return true
@@ -308,16 +312,17 @@ var resPred = predicate.Funcs{
 		return false
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal &&
-			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+		if !utils.HasLabel(e.ObjectNew.GetLabels(), constants.GlobalHubOwnerLabelKey, constants.GHOperatorOwnerLabelVal) {
+			return false
+		}
+		// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+		if e.ObjectOld.GetGeneration() == 0 {
 			return true
 		}
-		return false
+		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal
+		return utils.HasLabel(e.Object.GetLabels(), constants.GlobalHubOwnerLabelKey, constants.GHOperatorOwnerLabelVal)
 	},
 }
 
@@ -326,7 +331,7 @@ var secretPred = predicate.Funcs{
 		return secretCond(e.Object)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return secretCond(e.ObjectNew) && e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+		return secretCond(e.ObjectNew)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetName() == constants.CustomGrafanaIniName
@@ -350,16 +355,13 @@ var configmappred = predicate.Funcs{
 		return e.Object.GetName() == constants.CustomAlertName
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal &&
-			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+		if utils.HasLabel(e.ObjectNew.GetLabels(), constants.GlobalHubOwnerLabelKey, constants.GHOperatorOwnerLabelVal) {
 			return true
 		}
 		return e.ObjectNew.GetName() == constants.CustomAlertName
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal {
+		if utils.HasLabel(e.Object.GetLabels(), constants.GlobalHubOwnerLabelKey, constants.GHOperatorOwnerLabelVal) {
 			return true
 		}
 		return e.Object.GetName() == constants.CustomAlertName
@@ -393,7 +395,7 @@ var webhookPred = predicate.Funcs{
 					old.Webhooks[0].AdmissionReviewVersions) ||
 				!reflect.DeepEqual(new.Webhooks[0].Rules, old.Webhooks[0].Rules) ||
 				!reflect.DeepEqual(new.Webhooks[0].ClientConfig.Service, old.Webhooks[0].ClientConfig.Service) {
-				return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+				return true
 			}
 			return false
 		}
