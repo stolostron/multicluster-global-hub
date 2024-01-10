@@ -172,6 +172,7 @@ The following CU management functions are implemented
 
 
 **Concurrency Control**
+
 CUs are used by the dispatcher (read bundles), DB workers (report status) and one or more TRs (write bundles). To ensure correctness each CU includes a lock, and all CU functions are called holding this lock. Since CU functions are short this has no impact on performance. When the dispatcher obtains a bundle (GetBundle) it is provided with a copy (of the bundle or its reference) so the CU data can continue to be updated.
 The CU-Lookup implements a read-write lock that is used to create new CUs. A TR attempts to FindCU under the read lock and only if the CU is not found it obtains a write lock and creates a new CU (the rw-lock is actually required only for multiple TRs). 
 
@@ -184,6 +185,31 @@ The bundles are used to transfer the status from the Managed Hubs to the Global 
 - `Generation`: Every time the Global Hub Agent sends a message, the generation of the corresponding bundle will be incremented by 1.
 
 This Bundle Version are used to determine whether a given bundle is newer than a different bundle on the Global Hub Manager.
+
+### Conflation Committer
+
+The conflation committer, it's only for the kafka transport protocol, is introduced to improve the robustness of the message consumption for the Global Hub Manager. Specifically, it means that when the manager crashes due to the some reason and reconnect afterward, it can continue consuming the message that was not processed before the crash, without duplicate consumption or data loss.
+
+![global-hub-conflation-committer](./images/global-hub-conflation-committer.png)
+
+The whole process can be divided into 2 steps:
+
+1. Backup the unprocessed message position(offset)
+
+    The conflation committer will first get the lowest unprocessed message from the conflation manager. Then it synchronizes the offset database periodically. To minimize the workload on the database, the committer holds the max offset it persisted into database and only interact with database when the new larger offset is cached.
+    ```pgsql
+    hoh=# select * from status.transport ;
+          name       |            payload             |        created_at         |         updated_at
+    ------------------+--------------------------------+---------------------------+----------------------------
+    status.kind-hub1 | {"offset": 15, "partition": 0} | 2024-01-04 02:37:05.56802 | 2024-01-05 01:04:12.245678
+    status.kind-hub2 | {"offset": 15, "partition": 0} | 2024-01-04 02:37:05.56802 | 2024-01-05 01:04:27.245368
+    (2 rows)
+    ```
+
+2. Initialize the consumer from the persisted position
+
+    Actually, The kafka itself has such feature to start consumption from the last commit offset. Then we can start a goroutine to commit the message offset into the transport(kafka) manually. That means we have to save the offset on the kafka and it's also a good option for the message confirmation. However, since the postgres database is the source of truth for the Global Hub, We choose another option to commit the offset into the database. The consumer will choose to replay the message from the persisted offset each time it restarting.
+
 
 ### Additional Aspects (TBD)
 
