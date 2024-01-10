@@ -11,15 +11,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/gorm"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer/dbsyncer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 // AddDB2TransportSyncers adds the controllers that send info from DB to transport layer to the Manager.
-func AddDB2TransportSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) error {
-	producer, err := producer.NewGenericProducer(managerConfig.TransportConfig)
-	if err != nil {
-		return fmt.Errorf("failed to init spec transport bridge: %w", err)
-	}
+func AddDB2TransportSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig, producer transport.Producer) error {
+
 	specSyncInterval := managerConfig.SyncerConfig.SpecSyncInterval
 
 	addDBSyncerFunctions := []func(ctrl.Manager, db.SpecDB, transport.Producer, time.Duration) error{
@@ -41,7 +37,6 @@ func AddDB2TransportSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 			return fmt.Errorf("failed to add DB Syncer: %w", err)
 		}
 	}
-
 	return nil
 }
 

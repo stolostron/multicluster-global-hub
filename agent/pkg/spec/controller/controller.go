@@ -35,9 +35,14 @@ func AddToManager(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
 	}
 
 	// register syncer to the dispatcher
-	dispatcher.RegisterSyncer(syncers.GenericMessageKey,
-		syncers.NewGenericSyncer(workers, agentConfig))
-	dispatcher.RegisterSyncer(constants.ManagedClustersLabelsMsgKey,
-		syncers.NewManagedClusterLabelSyncer(workers))
+	if agentConfig.EnableGlobalResource {
+		dispatcher.RegisterSyncer(syncers.GenericMessageKey,
+			syncers.NewGenericSyncer(workers, agentConfig))
+		dispatcher.RegisterSyncer(constants.ManagedClustersLabelsMsgKey,
+			syncers.NewManagedClusterLabelSyncer(workers))
+	}
+
+	dispatcher.RegisterSyncer(constants.ResyncMsgKey,
+		syncers.NewResyncSyncer())
 	return nil
 }

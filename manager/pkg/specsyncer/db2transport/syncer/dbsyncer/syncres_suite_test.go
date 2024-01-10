@@ -23,12 +23,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	sycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -41,6 +44,7 @@ var (
 	kubeClient      client.Client
 	testPostgres    *testpostgres.TestPostgres
 	genericConsumer *consumer.GenericConsumer
+	producer        transport.Producer
 )
 
 func TestSpecSyncer(t *testing.T) {
@@ -107,8 +111,9 @@ var _ = BeforeSuite(func() {
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
+	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
 
-	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig)).Should(Succeed())
+	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig, producer)).Should(Succeed())
 	Expect(specsycner.AddManagedClusterLabelSyncer(mgr,
 		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval)).Should(Succeed())
 
@@ -117,6 +122,9 @@ var _ = BeforeSuite(func() {
 	genericConsumer, err = consumer.NewGenericConsumer(managerConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(genericConsumer)).Should(Succeed())
+
+	Expect(err).NotTo(HaveOccurred())
+	sycner.SendSyncAllMsgInfo(producer)
 
 	By("Start the manager")
 	go func() {

@@ -20,7 +20,7 @@ type HubClusterInfoBundle struct {
 }
 
 // LeafHubClusterInfoStatusBundle creates a new instance of LeafHubClusterInfoStatusBundle.
-func NewAgentHubClusterInfoBundle(leafHubName string) bundle.BaseAgentBundle {
+func NewAgentHubClusterInfoBundle(leafHubName string) *HubClusterInfoBundle {
 	return &HubClusterInfoBundle{
 		BaseHubClusterInfoBundle: base.BaseHubClusterInfoBundle{
 			Objects:       make([]*base.HubClusterInfo, 0),

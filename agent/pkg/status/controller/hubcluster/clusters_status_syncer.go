@@ -5,6 +5,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/cache"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
@@ -18,16 +19,17 @@ import (
 // right now, it only syncs the openshift console url.
 func AddHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) error {
 	leafHubName := config.GetLeafHubName()
-
 	clusterInfoBundle := cluster.NewAgentHubClusterInfoBundle(leafHubName)
+
 	transportKey := fmt.Sprintf("%s.%s", leafHubName, constants.HubClusterInfoMsgKey)
 	bundlePredicate := func() bool { return true }
 	bundleEntry := generic.NewSharedBundleEntry(transportKey, clusterInfoBundle, bundlePredicate)
-
 	objectCollection := []bundle.SharedBundleObject{
 		cluster.NewHubClusterInfoClaimObject(),
 		cluster.NewHubClusterInfoRouteObject(),
 	}
+
+	cache.RegistToCache(constants.HubClusterInfoMsgKey, clusterInfoBundle)
 	return generic.NewGenericSharedBundleSyncer(mgr, producer, bundleEntry, objectCollection,
 		config.GetHubClusterInfoDuration)
 }
