@@ -249,8 +249,10 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		}
 	}
 
-	//Send the resend message when manager start.
-	err = specsyncer.SendSyncAllMsgInfo(producer)
+	// Send the resend message when manager start.
+	if err = specsyncer.SendSyncAllMsgInfo(producer); err != nil {
+		return nil, fmt.Errorf("failed to add resyncer: %w", err)
+	}
 
 	if err := specsyncer.AddBasicSpecSyncers(mgr); err != nil {
 		return nil, fmt.Errorf("failed to add basic spec syncers: %w", err)

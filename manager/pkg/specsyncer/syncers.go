@@ -17,7 +17,8 @@ import (
 
 func AddGlobalResourceSpecSyncers(mgr ctrl.Manager,
 	managerConfig *config.ManagerConfig,
-	producer transport.Producer) error {
+	producer transport.Producer,
+) error {
 	if err := spec2db.AddSpec2DBControllers(mgr); err != nil {
 		return fmt.Errorf("failed to add spec-to-db controllers: %w", err)
 	}
