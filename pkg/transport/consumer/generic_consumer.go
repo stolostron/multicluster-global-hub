@@ -96,7 +96,7 @@ func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	receiveContext := ctx
 	if c.withDatabasePosition {
-		offsets, err := c.getInitedOffset()
+		offsets, err := getInitOffset()
 		if err != nil {
 			return err
 		}
@@ -137,30 +137,27 @@ func (c *GenericConsumer) MessageChan() chan *transport.Message {
 	return c.messageChan
 }
 
-func (c *GenericConsumer) getInitedOffset() ([]kafka.TopicPartition, error) {
-	if c.withDatabasePosition {
-		db := database.GetGorm()
-		var positions []models.Transport
-		err := db.Find(&positions).Error
+func getInitOffset() ([]kafka.TopicPartition, error) {
+	db := database.GetGorm()
+	var positions []models.Transport
+	err := db.Where("name ~ ?", "^status*").Find(&positions).Error
+	if err != nil {
+		return nil, err
+	}
+	offsetToStart := []kafka.TopicPartition{}
+	for i, pos := range positions {
+		var kafkaPosition metadata.TransportPosition
+		err := json.Unmarshal(pos.Payload, &kafkaPosition)
 		if err != nil {
 			return nil, err
 		}
-		offsetToStart := []kafka.TopicPartition{}
-		for i, pos := range positions {
-			var kafkaPosition metadata.TransportPosition
-			err := json.Unmarshal(pos.Payload, &kafkaPosition)
-			if err != nil {
-				return nil, err
-			}
-			offsetToStart = append(offsetToStart, kafka.TopicPartition{
-				Topic:     &positions[i].Name,
-				Partition: kafkaPosition.Partition,
-				Offset:    kafka.Offset(kafkaPosition.Offset),
-			})
-		}
-		return offsetToStart, nil
+		offsetToStart = append(offsetToStart, kafka.TopicPartition{
+			Topic:     &positions[i].Name,
+			Partition: kafkaPosition.Partition,
+			Offset:    kafka.Offset(kafkaPosition.Offset),
+		})
 	}
-	return nil, nil
+	return offsetToStart, nil
 }
 
 // func getSaramaReceiverProtocol(transportConfig *transport.TransportConfig) (interface{}, error) {
