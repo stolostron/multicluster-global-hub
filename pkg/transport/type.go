@@ -2,6 +2,8 @@ package transport
 
 import (
 	"time"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
 
 const (
@@ -79,10 +81,11 @@ type ClusterTopic struct {
 
 // Message abstracts a message object to be used by different transport components.
 type Message struct {
-	Key         string `json:"key"`
-	Destination string `json:"destination"`
-	MsgType     string `json:"msgType"`
-	Payload     []byte `json:"payload"`
+	Key          string                `json:"key"`
+	Destination  string                `json:"destination"`
+	MsgType      string                `json:"msgType"`
+	Payload      []byte                `json:"payload"`
+	BundleStatus metadata.BundleStatus // the manager to mark the processing status of the bundle
 }
 
 // ConnCredential is used to connect the transporter instance

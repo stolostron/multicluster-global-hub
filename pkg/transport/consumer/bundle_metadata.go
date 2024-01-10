@@ -3,13 +3,13 @@ package consumer
 import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata/status"
 )
 
 // NewBundleMetadata returns a new instance of BundleMetadata.
 func NewBundleMetadata(partition int32, offset kafka.Offset) *bundleMetadata {
 	return &bundleMetadata{
-		GenericBundleStatus: metadata.NewGenericBundleStatus(),
+		GenericBundleStatus: status.NewGenericBundleStatus(),
 		partition:           partition,
 		offset:              offset,
 	}
@@ -17,7 +17,7 @@ func NewBundleMetadata(partition int32, offset kafka.Offset) *bundleMetadata {
 
 // bundleMetadata wraps the info required for the associated bundle to be used for committing purposes.
 type bundleMetadata struct {
-	*metadata.GenericBundleStatus
+	*status.GenericBundleStatus
 	partition int32
 	offset    kafka.Offset
 }

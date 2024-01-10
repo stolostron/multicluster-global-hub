@@ -34,6 +34,12 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 	// manage all Conflation Units
 	conflationManager := conflator.NewConflationManager(conflationReadyQueue, stats)
 
+	// add kafka offset to the database periodically
+	committer := conflator.NewKafkaConflationCommitter(conflationManager.GetTransportMetadatas)
+	if err := mgr.Add(committer); err != nil {
+		return nil, fmt.Errorf("failed to add DB worker pool: %w", err)
+	}
+
 	// database layer initialization - worker pool + connection pool
 	dbWorkerPool, err := workerpool.NewDBWorkerPool(stats)
 	if err != nil {
@@ -90,7 +96,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
 	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
 ) (dbsyncer.BundleRegisterable, error) {
-	consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig)
+	consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig, consumer.WithDatabasePosition(true))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
 	}
