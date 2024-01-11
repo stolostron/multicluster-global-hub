@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS local_status.compliance (
 
 CREATE TABLE IF NOT EXISTS status.leaf_hub_heartbeats (
     leaf_hub_name character varying(254) NOT NULL,
-    last_timestamp timestamp without time zone DEFAULT now() NOT NULL,
+    last_timestamp timestamp without time zone DEFAULT now() NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats (leaf_hub_name);
 
