@@ -8,6 +8,7 @@ metadata:
 data:
   managedClusters: "5s"
   policies: "5s"
-  controlInfo: "60m"
+  hubClusterInfo: "60s"
+  hubClusterHeartbeat: {{.AgentHeartbeatInteval}}
   aggregationLevel: {{ .AggregationLevel }}
   enableLocalPolicies: "{{ .EnableLocalPolicies }}"
