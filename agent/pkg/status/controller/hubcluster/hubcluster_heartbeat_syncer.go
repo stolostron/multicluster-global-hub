@@ -23,7 +23,7 @@ type heartbeatStatusSyncer struct {
 
 	transportBundleKey    string
 	lastSentBundleVersion metadata.BundleVersion // not pointer so it does not point to the bundle's internal version
-	heartbeatBundle       bundle.AgentBundle
+	heartbeatBundle       bundle.BaseAgentBundle
 
 	transport    transport.Producer
 	intervalFunc config.ResolveSyncIntervalFunc
@@ -56,7 +56,7 @@ func (s *heartbeatStatusSyncer) Start(ctx context.Context) error {
 
 func (s *heartbeatStatusSyncer) periodicSync(ctx context.Context) {
 	currentSyncInterval := s.intervalFunc()
-	s.log.Info(fmt.Sprintf("sync interval has been reset to %s", currentSyncInterval.String()))
+	s.log.Info("sync interval has been set to", "interval", currentSyncInterval.String())
 
 	ticker := time.NewTicker(currentSyncInterval)
 
@@ -72,7 +72,7 @@ func (s *heartbeatStatusSyncer) periodicSync(ctx context.Context) {
 		if resolvedInterval != currentSyncInterval {
 			currentSyncInterval = resolvedInterval
 			ticker.Reset(currentSyncInterval)
-			s.log.Info(fmt.Sprintf("sync interval has been reset to %s", currentSyncInterval.String()))
+			s.log.Info("sync interval has been reset to", "interval", currentSyncInterval.String())
 		}
 	}
 }

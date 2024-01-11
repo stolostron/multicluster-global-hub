@@ -7,7 +7,7 @@ import (
 )
 
 var _ bundle.ManagerBundle = (*HubClusterHeartbeatBundle)(nil)
-var _ bundle.AgentBundle = (*HubClusterHeartbeatBundle)(nil)
+var _ bundle.BaseAgentBundle = (*HubClusterHeartbeatBundle)(nil)
 
 // LocalPolicyBundle abstracts management of local policies spec bundle.
 type HubClusterHeartbeatBundle struct {
@@ -32,12 +32,4 @@ func NewAgentHubClusterHeartbeatBundle(leafHubName string) *HubClusterHeartbeatB
 // GetObjects returns the objects in the bundle.
 func (bundle *HubClusterHeartbeatBundle) GetObjects() []interface{} {
 	return nil
-}
-
-// agent
-func (bundle *HubClusterHeartbeatBundle) UpdateObject(object bundle.Object) {
-}
-
-// agent
-func (bundle *HubClusterHeartbeatBundle) DeleteObject(object bundle.Object) {
 }

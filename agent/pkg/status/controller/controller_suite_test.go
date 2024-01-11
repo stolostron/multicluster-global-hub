@@ -93,6 +93,18 @@ var _ = BeforeSuite(func() {
 	mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHAgentNamespace}}
 	Expect(kubeClient.Create(ctx, mghSystemNamespace)).Should(Succeed())
 
+	By("create the configmap to disable the heartbeat on the suite test")
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: constants.GHAgentNamespace,
+			Name:      constants.GHAgentConfigCMName,
+		},
+		Data: map[string]string{
+			"hubClusterHeartbeat": "5m",
+		},
+	}
+	Expect(kubeClient.Create(ctx, configMap)).Should(Succeed())
+
 	By("Add controllers to manager")
 	err = statusController.AddControllers(ctx, mgr, agentConfig)
 	Expect(err).NotTo(HaveOccurred())
