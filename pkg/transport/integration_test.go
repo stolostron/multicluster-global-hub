@@ -182,6 +182,17 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
 		conflationManager := conflator.NewConflationManager(
 			conflationReadyQueue, stats) // manage all Conflation Units
+
+		// register the heartbeat
+		conflationManager.Register(conflator.NewConflationRegistration(
+			conflator.HubClusterHeartbeatPriority,
+			metadata.CompleteStateMode,
+			bundle.GetBundleType(cluster.NewManagerHubClusterHeartbeatBundle()),
+			func(ctx context.Context, bundle bundle.ManagerBundle) error {
+				return nil
+			},
+		))
+
 		conflationManager.Register(conflator.NewConflationRegistration(
 			conflator.ManagedClustersPriority,
 			metadata.CompleteStateMode,
