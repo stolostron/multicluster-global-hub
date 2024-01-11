@@ -62,6 +62,8 @@ func (s *heartbeatStatusSyncer) periodicSync(ctx context.Context) {
 
 	for {
 		<-ticker.C // wait for next time interval
+
+		s.heartbeatBundle.GetVersion().Incr()
 		s.syncBundle(ctx)
 
 		resolvedInterval := s.intervalFunc()

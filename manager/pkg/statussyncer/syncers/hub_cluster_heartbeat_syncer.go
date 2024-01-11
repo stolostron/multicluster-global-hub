@@ -49,20 +49,21 @@ func (syncer *hubHeartbeatSyncer) RegisterBundleHandlerFunctions(conflationManag
 func (syncer *hubHeartbeatSyncer) handleLocalObjectsBundleWrapper() func(ctx context.Context,
 	bundle bundle.ManagerBundle) error {
 	return func(ctx context.Context, bundle bundle.ManagerBundle) error {
-		return syncer.handleHeartbeatBundle(ctx, bundle)
+		return handleHeartbeatBundle(ctx, bundle)
 	}
 }
 
-func (syncer *hubHeartbeatSyncer) handleHeartbeatBundle(ctx context.Context, bundle bundle.ManagerBundle,
+func handleHeartbeatBundle(ctx context.Context, bundle bundle.ManagerBundle,
 ) error {
 	leafHubName := bundle.GetLeafHubName()
 
-	heartbeat := models.LeafHubHeartbeats{
+	heartbeat := models.LeafHubHeartbeat{
 		Name:         leafHubName,
 		LastUpdateAt: time.Now(),
 	}
 
 	db := database.GetGorm()
 
-	return db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&heartbeat).Error
+	ret := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&heartbeat)
+	return ret.Error
 }
