@@ -274,7 +274,7 @@ func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 			return secretCond(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return secretCond(e.ObjectNew) && e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+			return secretCond(e.ObjectNew)
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
