@@ -22,6 +22,6 @@ spec:
       operator: "{{.Operator}}"
       value: "{{.Value}}"
       effect: "{{.Effect}}"
-      tolerationSeconds: {{.TolerationSeconds}}
+      {{ if .TolerationSeconds }} tolerationSeconds: {{ .TolerationSeconds }} {{- end }}
     {{- end}}
 {{ end }}
