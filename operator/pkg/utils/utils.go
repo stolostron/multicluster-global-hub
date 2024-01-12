@@ -40,6 +40,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -63,6 +64,21 @@ func Contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// Contains is used to check whether a list contains string s
+func ListEquals(list1 []string, list2 []string) bool {
+	for _, l1 := range list1 {
+		if ok := Contains(list2, l1); !ok {
+			return false
+		}
+	}
+	for _, l2 := range list2 {
+		if ok := Contains(list1, l2); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // GetAnnotation returns the annotation value for a given key, or an empty string if not set
@@ -370,4 +386,15 @@ func setResourcesFromCR(res *globalhubv1alpha4.ResourceRequirements, requests, l
 			limits[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(res.Limits.Cpu().String())
 		}
 	}
+}
+
+func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
+	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true,
+		func(ctx context.Context) (bool, error) {
+			if config.GetTransporter() == nil {
+				klog.Info("Wait transporter ready")
+				return false, nil
+			}
+			return true, nil
+		})
 }

@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -45,19 +44,10 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	// wait the transport to be ready
-	err = wait.PollUntilContextTimeout(ctx, 1*time.Second, 10*time.Minute, true,
-		func(ctx context.Context) (bool, error) {
-			if config.GetTransporter() == nil {
-				r.Log.Info("waiting transport ready...")
-				return false, nil
-			}
-			return true, nil
-		})
+	err = utils.WaitTransporterReady(ctx, 10*time.Minute)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	transporter := config.GetTransporter()
 
 	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
@@ -80,7 +70,6 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			Name: req.NamespacedName.Name,
 		},
 	}
-
 	err = r.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -89,62 +78,137 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	userName := transporter.GenerateUserName(cluster.Name)
-	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
-
-	if !cluster.DeletionTimestamp.IsZero() {
-		r.Log.Info("cluster is deleting, delete the kafkaUser, skip addon deployment", "cluster", cluster.Name)
+	// delete the resources
+	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
+	if !cluster.DeletionTimestamp.IsZero() ||
+		deployMode == operatorconstants.GHAgentDeployModeNone {
+		r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "deployMode", deployMode)
+		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to remove resources and addon %s: %v", cluster.Name, err)
+		}
 		config.DeleteManagedCluster(cluster.Name)
-		return ctrl.Result{}, transporter.DeleteUser(userName)
-	}
-	config.AppendManagedCluster(cluster.Name)
-
-	// create transport user
-	err = transporter.CreateUser(userName)
-	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
-	// create transport topic
-	err = transporter.CreateTopic(clusterTopic)
+	return ctrl.Result{}, r.reconclieAddonAndResources(ctx, cluster)
+}
+
+func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+	existingAddon := &v1alpha1.ManagedClusterAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorconstants.GHManagedClusterAddonName,
+			Namespace: cluster.Name,
+		},
+	}
+
+	err := r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
+	// create
+	if err != nil && errors.IsNotFound(err) {
+		r.Log.Info("creating resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
+		config.AppendManagedCluster(cluster.Name)
+		if e := r.createResourcesAndAddon(ctx, cluster); e != nil {
+			return e
+		}
+	} else if err != nil {
+		return err
+	}
+
+	// delete
+	if err == nil && !existingAddon.DeletionTimestamp.IsZero() {
+		r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
+		config.DeleteManagedCluster(cluster.Name)
+		return r.removeResourcesAndAddon(ctx, cluster)
+	}
+
+	// update
+	expectedAddon, err := expectedManagedClusterAddon(cluster)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
+	}
+	if !reflect.DeepEqual(expectedAddon.Annotations, existingAddon.Annotations) ||
+		!utils.ListEquals(expectedAddon.Finalizers, existingAddon.Finalizers) ||
+		existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
+		existingAddon.SetAnnotations(expectedAddon.Annotations)
+		existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
+		existingAddon.Finalizers = expectedAddon.Finalizers
+		r.Log.Info("updating addon", "cluster", cluster.Name, "addon", expectedAddon.Name)
+		return r.Update(ctx, existingAddon)
+	}
+	return nil
+}
+
+func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+	transporter := config.GetTransporter()
+	clusterUser := transporter.GenerateUserName(cluster.Name)
+	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
+	// create the resources
+	if err := transporter.CreateUser(clusterUser); err != nil {
+		return fmt.Errorf("failed to create transport user %s: %v", clusterUser, err)
+	}
+	if err := transporter.CreateTopic(clusterTopic); err != nil {
+		return fmt.Errorf("failed to create transport topics %s: %v", cluster.Name, err)
 	}
 
 	// grant spec/event with readable, status with writable
-	err = transporter.GrantRead(userName, clusterTopic.SpecTopic)
-	if err != nil {
-		return ctrl.Result{}, err
+	if err := transporter.GrantRead(clusterUser, clusterTopic.SpecTopic); err != nil {
+		return err
 	}
-	err = transporter.GrantWrite(userName, clusterTopic.EventTopic)
-	if err != nil {
-		return ctrl.Result{}, err
+	if err := transporter.GrantWrite(clusterUser, clusterTopic.EventTopic); err != nil {
+		return err
 	}
-	err = transporter.GrantWrite(userName, clusterTopic.StatusTopic)
-	if err != nil {
-		return ctrl.Result{}, err
+	if err := transporter.GrantWrite(clusterUser, clusterTopic.StatusTopic); err != nil {
+		return err
 	}
 
-	addon := &v1alpha1.ManagedClusterAddOn{}
-	err = r.Get(ctx, types.NamespacedName{
-		Namespace: cluster.Name,
-		Name:      operatorconstants.GHManagedClusterAddonName,
-	}, addon)
-	if err != nil && !errors.IsNotFound(err) {
-		return ctrl.Result{}, err
+	expectedAddon, err := expectedManagedClusterAddon(cluster)
+	if err != nil {
+		return err
+	}
+	return r.Create(ctx, expectedAddon)
+}
+
+func (r *HoHAddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+	transporter := config.GetTransporter()
+	clusterUser := transporter.GenerateUserName(cluster.Name)
+	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
+	if err := transporter.DeleteUser(clusterUser); err != nil {
+		return err
+	}
+	if err := transporter.DeleteTopic(clusterTopic); err != nil {
+		return err
+	}
+	existingAddon := &v1alpha1.ManagedClusterAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorconstants.GHManagedClusterAddonName,
+			Namespace: cluster.Name,
+		},
+	}
+	err := r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
+	if err != nil && errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
 	}
 
-	if err == nil && !addon.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, transporter.DeleteUser(userName)
+	if len(existingAddon.Finalizers) > 0 {
+		existingAddon.Finalizers = []string{}
+		if err := r.Update(ctx, existingAddon); err != nil {
+			return err
+		}
 	}
+	return r.Delete(ctx, existingAddon)
+}
 
-	// create/update the addon
+func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.ManagedClusterAddOn, error) {
 	expectedAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
 			Namespace: cluster.Name,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+			Finalizers: []string{
+				constants.GlobalHubCleanupFinalizer, // clean the resources
 			},
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{
@@ -160,8 +224,8 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			expectedAddonAnnotations[operatorconstants.AnnotationAddonHostingClusterName] = hostingCluster
 			expectedAddon.Spec.InstallNamespace = fmt.Sprintf("klusterlet-%s", cluster.Name)
 		} else {
-			return ctrl.Result{}, fmt.Errorf("failed to get hosting cluster name "+
-				"when addon in %s is installed in hosted mode", cluster.Name)
+			return nil, fmt.Errorf("failed to get %s when addon in %s is installed in hosted mode",
+				operatorconstants.AnnotationClusterHostingClusterName, cluster.Name)
 		}
 	}
 
@@ -171,37 +235,7 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if len(expectedAddonAnnotations) > 0 {
 		expectedAddon.SetAnnotations(expectedAddonAnnotations)
 	}
-
-	existingAddon := &v1alpha1.ManagedClusterAddOn{}
-	err = r.Get(ctx, types.NamespacedName{
-		Namespace: cluster.Name,
-		Name:      operatorconstants.GHManagedClusterAddonName,
-	}, existingAddon)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return ctrl.Result{}, err
-		}
-		if deployMode == operatorconstants.GHAgentDeployModeNone {
-			return ctrl.Result{}, nil
-		}
-
-		r.Log.Info("creating addon for cluster", "cluster", cluster.Name, "addon", expectedAddon.Name)
-		return ctrl.Result{}, r.Create(ctx, expectedAddon)
-	}
-
-	if deployMode == operatorconstants.GHAgentDeployModeNone {
-		return ctrl.Result{}, r.Delete(ctx, expectedAddon)
-	}
-
-	if !reflect.DeepEqual(expectedAddon.Annotations, existingAddon.Annotations) ||
-		existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
-		existingAddon.SetAnnotations(expectedAddon.Annotations)
-		existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
-		r.Log.Info("updating addon for cluster", "cluster", cluster.Name, "addon", expectedAddon.Name)
-		return ctrl.Result{}, r.Update(ctx, existingAddon)
-	}
-
-	return ctrl.Result{}, nil
+	return expectedAddon, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

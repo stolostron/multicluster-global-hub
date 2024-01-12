@@ -13,7 +13,6 @@ import (
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
@@ -186,19 +185,12 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 
 	agentQPS, agentBurst := a.getAgentRestConfig(a.ControllerConfig)
 
-	var transporter transport.Transporter
-	err = wait.PollUntilContextTimeout(a.ctx, 1*time.Second, 5*time.Minute, true,
-		func(ctx context.Context) (bool, error) {
-			transporter = config.GetTransporter()
-			if transporter == nil {
-				log.Info("transporter is not ready, waiting...")
-				return false, nil
-			}
-			return true, nil
-		})
+	err = utils.WaitTransporterReady(a.ctx, 10*time.Minute)
 	if err != nil {
-		log.Error(err, "failed to get the transporter")
+		log.Error(err, "failed to wait transporter")
 	}
+	transporter := config.GetTransporter()
+
 	// will block until the credential is ready
 	kafkaConnection, err := transporter.GetConnCredential(transporter.GenerateUserName(cluster.Name))
 	if err != nil {

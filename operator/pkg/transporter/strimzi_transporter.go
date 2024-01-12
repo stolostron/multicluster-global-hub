@@ -57,6 +57,10 @@ const (
 	StatusTopicRegex     = "^status.*"
 	StatusTopicPrefix    = "status"
 	GlobalHubClusterName = "global"
+
+	GenericSpecTopic   = "spec"
+	GenericStatusTopic = "status"
+	GenericEventTopic  = "event"
 )
 
 var (
@@ -231,9 +235,9 @@ func (k *strimziTransporter) DeleteUser(topicName string) error {
 
 func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *transport.ClusterTopic {
 	topic := &transport.ClusterTopic{
-		SpecTopic:   "spec",
-		StatusTopic: "status",
-		EventTopic:  "event",
+		SpecTopic:   GenericSpecTopic,
+		StatusTopic: GenericStatusTopic,
+		EventTopic:  GenericEventTopic,
 	}
 	if k.multiTopic {
 		topic.StatusTopic = fmt.Sprintf(StatusTopicTemplate, clusterIdentity)
