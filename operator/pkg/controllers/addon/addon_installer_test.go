@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -299,6 +300,11 @@ func TestHoHAddonReconciler(t *testing.T) {
 			}
 
 			_, err = r.Reconcile(context.TODO(), tc.req)
+			for err != nil && strings.Contains(err.Error(), "object was modified") {
+				fmt.Println("error message:", err.Error())
+				_, err = r.Reconcile(context.TODO(), tc.req)
+			}
+
 			if err != nil {
 				tc.validateFunc(t, nil, err)
 			} else {
