@@ -65,7 +65,7 @@ func SyncLocalCompliance(ctx context.Context, enableSimulation bool, job gocron.
 
 	historyDate := startTime.AddDate(0, 0, -interval)
 	log = ctrl.Log.WithName(LocalComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
-	log.Info("start running", "currentRun", job.LastRun().Format(timeFormat))
+	log.V(2).Info("start running", "currentRun", job.LastRun().Format(timeFormat))
 
 	// insert or update with local_status.compliance
 	var statusTotal, statusInsert int64
@@ -75,7 +75,7 @@ func SyncLocalCompliance(ctx context.Context, enableSimulation bool, job gocron.
 		log.Error(err, "sync from local_status.compliance to history.local_compliance failed")
 		return
 	}
-	log.Info("with local_status.compliance", "totalCount", statusTotal, "insertedCount", statusInsert)
+	log.V(2).Info("with local_status.compliance", "totalCount", statusTotal, "insertedCount", statusInsert)
 
 	if enableSimulation {
 		return
@@ -88,9 +88,9 @@ func SyncLocalCompliance(ctx context.Context, enableSimulation bool, job gocron.
 		log.Error(err, "sync from history.local_policies to history.local_compliance failed")
 		return
 	}
-	log.Info("with event.local_policies", "totalCount", eventTotal, "insertedCount", eventInsert)
+	log.V(2).Info("with event.local_policies", "totalCount", eventTotal, "insertedCount", eventInsert)
 
-	log.Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
+	log.V(2).Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
 }
 
 func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, batchSize int64, interval int,
