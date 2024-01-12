@@ -66,21 +66,6 @@ func Contains(list []string, s string) bool {
 	return false
 }
 
-// Contains is used to check whether a list contains string s
-func ListEquals(list1 []string, list2 []string) bool {
-	for _, l1 := range list1 {
-		if ok := Contains(list2, l1); !ok {
-			return false
-		}
-	}
-	for _, l2 := range list2 {
-		if ok := Contains(list1, l2); !ok {
-			return false
-		}
-	}
-	return true
-}
-
 // GetAnnotation returns the annotation value for a given key, or an empty string if not set
 func GetAnnotation(annotations map[string]string, key string) string {
 	if annotations == nil {

@@ -78,8 +78,8 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	// delete the resources
 	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
+	// delete the resources
 	if !cluster.DeletionTimestamp.IsZero() ||
 		deployMode == operatorconstants.GHAgentDeployModeNone {
 		r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "deployMode", deployMode)
@@ -126,11 +126,9 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 		return err
 	}
 	if !reflect.DeepEqual(expectedAddon.Annotations, existingAddon.Annotations) ||
-		!utils.ListEquals(expectedAddon.Finalizers, existingAddon.Finalizers) ||
 		existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
 		existingAddon.SetAnnotations(expectedAddon.Annotations)
 		existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
-		existingAddon.Finalizers = expectedAddon.Finalizers
 		r.Log.Info("updating addon", "cluster", cluster.Name, "addon", expectedAddon.Name)
 		return r.Update(ctx, existingAddon)
 	}
@@ -190,12 +188,6 @@ func (r *HoHAddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster
 		return err
 	}
 
-	if len(existingAddon.Finalizers) > 0 {
-		existingAddon.Finalizers = []string{}
-		if err := r.Update(ctx, existingAddon); err != nil {
-			return err
-		}
-	}
 	return r.Delete(ctx, existingAddon)
 }
 
@@ -206,9 +198,6 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.M
 			Namespace: cluster.Name,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-			},
-			Finalizers: []string{
-				constants.GlobalHubCleanupFinalizer, // clean the resources
 			},
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{
