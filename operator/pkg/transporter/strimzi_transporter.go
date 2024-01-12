@@ -183,7 +183,7 @@ func (k *strimziTransporter) initialize(mgh *operatorv1alpha4.MulticlusterGlobal
 	k.log.Info("reconcile global hub kafka instance")
 	err = wait.PollUntilContextTimeout(k.ctx, 2*time.Second, 30*time.Second, true,
 		func(ctx context.Context) (bool, error) {
-			err = k.createKafkaCluster(mgh)
+			err, _ = k.createUpdateKafkaCluster(mgh)
 			if err != nil {
 				k.log.Info("the kafka instance is not created, retrying...", "message", err.Error())
 				return false, nil
@@ -576,20 +576,56 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 	return err
 }
 
-func (k *strimziTransporter) createKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
+func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) (error, bool) {
 	existingKafka := &kafkav1beta2.Kafka{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      k.name,
 		Namespace: mgh.Namespace,
 	}, existingKafka)
 	if err != nil && !errors.IsNotFound(err) {
-		return err
+		return err, false
 	} else if errors.IsNotFound(err) {
-		if e := k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh)); e != nil {
-			return e
-		}
+		return k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh)), true
 	}
-	return nil
+
+	runtimeKafka := existingKafka.DeepCopy()
+	kafkaCluster := k.newKafkaCluster(mgh)
+	// update the kafka custom resource
+	if runtimeKafka.Spec.Kafka.Template == nil {
+		runtimeKafka.Spec.Kafka.Template = kafkaCluster.Spec.Kafka.Template
+	}
+	if runtimeKafka.Spec.Kafka.Template.Pod == nil {
+		runtimeKafka.Spec.Kafka.Template.Pod = kafkaCluster.Spec.Kafka.Template.Pod
+	}
+	runtimeKafka.Spec.Kafka.Template.Pod.Tolerations = kafkaCluster.Spec.Kafka.Template.Pod.Tolerations
+	runtimeKafka.Spec.Kafka.Template.Pod.Affinity = kafkaCluster.Spec.Kafka.Template.Pod.Affinity
+	runtimeKafka.Spec.Kafka.Resources = kafkaCluster.Spec.Kafka.Resources
+
+	// update the zookeeper custom resource
+	if runtimeKafka.Spec.Zookeeper.Template == nil {
+		runtimeKafka.Spec.Zookeeper.Template = kafkaCluster.Spec.Zookeeper.Template
+	}
+	if runtimeKafka.Spec.Zookeeper.Template.Pod == nil {
+		runtimeKafka.Spec.Zookeeper.Template.Pod = kafkaCluster.Spec.Zookeeper.Template.Pod
+	}
+	runtimeKafka.Spec.Zookeeper.Template.Pod.Tolerations = kafkaCluster.Spec.Zookeeper.Template.Pod.Tolerations
+	runtimeKafka.Spec.Zookeeper.Template.Pod.Affinity = kafkaCluster.Spec.Zookeeper.Template.Pod.Affinity
+	runtimeKafka.Spec.Zookeeper.Resources = kafkaCluster.Spec.Zookeeper.Resources
+
+	// update the entity operator custom resource
+	if runtimeKafka.Spec.EntityOperator.Template == nil {
+		runtimeKafka.Spec.EntityOperator.Template = kafkaCluster.Spec.EntityOperator.Template
+	}
+	if runtimeKafka.Spec.EntityOperator.Template.Pod == nil {
+		runtimeKafka.Spec.EntityOperator.Template.Pod = kafkaCluster.Spec.EntityOperator.Template.Pod
+	}
+	runtimeKafka.Spec.EntityOperator.Template.Pod.Tolerations = kafkaCluster.Spec.EntityOperator.Template.Pod.Tolerations
+	runtimeKafka.Spec.EntityOperator.Template.Pod.Affinity = kafkaCluster.Spec.EntityOperator.Template.Pod.Affinity
+
+	if !equality.Semantic.DeepDerivative(runtimeKafka.Spec, existingKafka.Spec) {
+		return k.runtimeClient.Update(k.ctx, runtimeKafka), true
+	}
+	return nil, false
 }
 
 func (k *strimziTransporter) getKafkaResources(
@@ -601,7 +637,7 @@ func (k *strimziTransporter) getKafkaResources(
 	if err != nil {
 		k.log.Error(err, "failed to marshal kafka resources")
 	}
-	err = json.Unmarshal(jsonData, kafkaRes)
+	err = json.Unmarshal(jsonData, kafkaSpecRes)
 	if err != nil {
 		k.log.Error(err, "failed to unmarshal to KafkaSpecKafkaResources")
 	}

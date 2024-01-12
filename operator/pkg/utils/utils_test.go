@@ -352,8 +352,8 @@ func TestWaitGlobalHubReady(t *testing.T) {
 }
 
 func Test_GetResources(t *testing.T) {
-	customCPURequest := "2m"
-	customCPULimit := "1m"
+	customCPURequest := "1m"
+	customCPULimit := "2m"
 	customMemoryRequest := "1Mi"
 	customMemoryLimit := "2Mi"
 

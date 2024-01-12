@@ -14,6 +14,8 @@ import (
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -124,6 +126,74 @@ func TestStrimziTransporter(t *testing.T) {
 	}, kafka)
 	assert.Nil(t, err)
 	assert.Equal(t, bootServer, *kafka.Status.Listeners[0].BootstrapServers)
+
+	customCPURequest := "1m"
+	customCPULimit := "2m"
+	customMemoryRequest := "1Mi"
+	customMemoryLimit := "2Mi"
+
+	mgh.Spec.AdvancedConfig = &v1alpha4.AdvancedConfig{
+		Kafka: &v1alpha4.CommonSpec{
+			Resources: &v1alpha4.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
+					corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
+					corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),
+				},
+			},
+		},
+		Zookeeper: &v1alpha4.CommonSpec{
+			Resources: &v1alpha4.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
+					corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
+					corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),
+				},
+			},
+		},
+	}
+
+	mgh.Spec.NodeSelector = map[string]string{
+		"node-role.kubernetes.io/worker": "",
+	}
+	mgh.Spec.Tolerations = []corev1.Toleration{
+		{
+			Key:      "node-role.kubernetes.io/worker",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+
+	err, updated := trans.createUpdateKafkaCluster(mgh)
+	assert.Nil(t, err)
+	assert.True(t, updated)
+
+	err, updated = trans.createUpdateKafkaCluster(mgh)
+	assert.Nil(t, err)
+	assert.False(t, updated)
+
+	kafka = &kafkav1beta2.Kafka{}
+	err = runtimeClient.Get(context.TODO(), types.NamespacedName{
+		Namespace: "default",
+		Name:      KafkaClusterName,
+	}, kafka)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, kafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity)
+	assert.NotEmpty(t, kafka.Spec.Kafka.Template.Pod.Tolerations)
+	assert.Contains(t, string(kafka.Spec.Kafka.Resources.Requests.Raw), `{"cpu":"1m","memory":"1Mi"}`)
+	assert.Contains(t, string(kafka.Spec.Kafka.Resources.Limits.Raw), `{"cpu":"2m","memory":"2Mi"}`)
+	assert.NotEmpty(t, kafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity)
+	assert.NotEmpty(t, kafka.Spec.Zookeeper.Template.Pod.Tolerations)
+	assert.Contains(t, string(kafka.Spec.Zookeeper.Resources.Requests.Raw), `{"cpu":"1m","memory":"1Mi"}`)
+	assert.Contains(t, string(kafka.Spec.Zookeeper.Resources.Limits.Raw), `{"cpu":"2m","memory":"2Mi"}`)
+	assert.NotEmpty(t, kafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity)
+	assert.NotEmpty(t, kafka.Spec.EntityOperator.Template.Pod.Tolerations)
 
 	// simulate to create a cluster named: hub1
 	clusterName := "hub1"

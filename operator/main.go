@@ -31,6 +31,7 @@ import (
 	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -209,7 +210,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
-	if err = (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
+	r := &hubofhubscontrollers.MulticlusterGlobalHubReconciler{
 		Manager:              mgr,
 		Client:               mgr.GetClient(),
 		RouteV1Client:        routeV1Client,
@@ -221,7 +222,9 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		MiddlewareConfig:     middlewareCfg,
 		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
 		LogLevel:             operatorConfig.LogLevel,
-	}).SetupWithManager(mgr); err != nil {
+	}
+
+	if err = r.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
 		return 1
 	}
@@ -236,7 +239,11 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
-	// +kubebuilder:scaffold:builder
+	// start crd controller
+	if err = hubofhubscontrollers.StartCRDController(mgr, r); err != nil {
+		setupLog.Error(err, "unable to start crd controller")
+		return 1
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
