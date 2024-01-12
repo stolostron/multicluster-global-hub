@@ -23,11 +23,11 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-01-08T08:57:55Z"
+    createdAt: "2024-01-12T03:29:22Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.0.0 <1.1.0'
     operatorframework.io/suggested-namespace: multicluster-global-hub
-    operators.operatorframework.io/builder: operator-sdk-v1.31.0
+    operators.operatorframework.io/builder: operator-sdk-v1.32.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/stolostron/multicluster-global-hub
     support: Red Hat
@@ -534,6 +534,7 @@ spec:
           - kafkausers
           verbs:
           - create
+          - delete
           - get
           - list
           - update

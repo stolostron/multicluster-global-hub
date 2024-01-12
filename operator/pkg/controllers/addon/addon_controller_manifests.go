@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
@@ -184,7 +185,12 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 
 	agentQPS, agentBurst := a.getAgentRestConfig(a.ControllerConfig)
 
+	err = utils.WaitTransporterReady(a.ctx, 10*time.Minute)
+	if err != nil {
+		log.Error(err, "failed to wait transporter")
+	}
 	transporter := config.GetTransporter()
+
 	// will block until the credential is ready
 	kafkaConnection, err := transporter.GetConnCredential(transporter.GenerateUserName(cluster.Name))
 	if err != nil {

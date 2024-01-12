@@ -113,7 +113,6 @@ const (
 var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	var storageSecret *corev1.Secret
 	BeforeAll(func() {
-
 		storageSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      StorageSecretName,

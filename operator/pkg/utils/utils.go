@@ -40,6 +40,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -370,4 +371,15 @@ func setResourcesFromCR(res *globalhubv1alpha4.ResourceRequirements, requests, l
 			limits[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(res.Limits.Cpu().String())
 		}
 	}
+}
+
+func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
+	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true,
+		func(ctx context.Context) (bool, error) {
+			if config.GetTransporter() == nil {
+				klog.Info("Wait transporter ready")
+				return false, nil
+			}
+			return true, nil
+		})
 }
