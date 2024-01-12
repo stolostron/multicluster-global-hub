@@ -299,6 +299,7 @@ rules:
   - kafkausers
   verbs:
   - create
+  - delete
   - get
   - list
   - update
