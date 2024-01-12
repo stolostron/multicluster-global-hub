@@ -82,6 +82,18 @@ waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-
 #need the following labels to enable deploying agent in leaf hub cluster
 for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
     kubectl label managedcluster kind-$LEAF_HUB_NAME$i vendor=OpenShift --overwrite 2>&1 >> $LOG
+    # add clusterclaim 
+    cat <<EOF | kubectl --context kind-$LEAF_HUB_NAME$i apply -f -
+apiVersion: cluster.open-cluster-management.io/v1alpha1
+kind: ClusterClaim
+metadata:
+  labels:
+    open-cluster-management.io/hub-managed: ""
+    velero.io/exclude-from-backup: "true"
+  name: id.k8s.io
+spec:
+  value: $(uuidgen)
+EOF
 done
 export KUBECONFIG=$KUBECONFIG
 # TODO: think about readinessCheck
