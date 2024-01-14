@@ -5,6 +5,7 @@ package transporter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -186,14 +187,58 @@ func TestStrimziTransporter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEmpty(t, kafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity)
 	assert.NotEmpty(t, kafka.Spec.Kafka.Template.Pod.Tolerations)
-	assert.Contains(t, string(kafka.Spec.Kafka.Resources.Requests.Raw), `{"cpu":"1m","memory":"1Mi"}`)
-	assert.Contains(t, string(kafka.Spec.Kafka.Resources.Limits.Raw), `{"cpu":"2m","memory":"2Mi"}`)
+	assert.Equal(t, string(kafka.Spec.Kafka.Resources.Requests.Raw), `{"cpu":"1m","memory":"1Mi"}`)
+	assert.Equal(t, string(kafka.Spec.Kafka.Resources.Limits.Raw), `{"cpu":"2m","memory":"2Mi"}`)
 	assert.NotEmpty(t, kafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity)
 	assert.NotEmpty(t, kafka.Spec.Zookeeper.Template.Pod.Tolerations)
-	assert.Contains(t, string(kafka.Spec.Zookeeper.Resources.Requests.Raw), `{"cpu":"1m","memory":"1Mi"}`)
-	assert.Contains(t, string(kafka.Spec.Zookeeper.Resources.Limits.Raw), `{"cpu":"2m","memory":"2Mi"}`)
+	assert.Equal(t, string(kafka.Spec.Zookeeper.Resources.Requests.Raw), `{"cpu":"1m","memory":"1Mi"}`)
+	assert.Equal(t, string(kafka.Spec.Zookeeper.Resources.Limits.Raw), `{"cpu":"2m","memory":"2Mi"}`)
 	assert.NotEmpty(t, kafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity)
 	assert.NotEmpty(t, kafka.Spec.EntityOperator.Template.Pod.Tolerations)
+
+	mgh.Spec.NodeSelector = map[string]string{
+		"node-role.kubernetes.io/worker": "",
+		"topology.kubernetes.io/zone":    "east1",
+	}
+	mgh.Spec.Tolerations = []corev1.Toleration{
+		{
+			Key:      "node.kubernetes.io/not-ready",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "node-role.kubernetes.io/worker",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+
+	err, updated = trans.createUpdateKafkaCluster(mgh)
+	assert.Nil(t, err)
+	assert.True(t, updated)
+
+	kafka = &kafkav1beta2.Kafka{}
+	err = runtimeClient.Get(context.TODO(), types.NamespacedName{
+		Namespace: "default",
+		Name:      KafkaClusterName,
+	}, kafka)
+
+	entityOperatorToleration, _ := json.Marshal(kafka.Spec.EntityOperator.Template.Pod.Tolerations)
+	kafkaToleration, _ := json.Marshal(kafka.Spec.Kafka.Template.Pod.Tolerations)
+	zookeeperToleration, _ := json.Marshal(kafka.Spec.Zookeeper.Template.Pod.Tolerations)
+	entityOperatorNodeAffinity, _ := json.Marshal(kafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity)
+	kafkaNodeAffinity, _ := json.Marshal(kafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity)
+	zookeeperNodeAffinity, _ := json.Marshal(kafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity)
+
+	toleration := `[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready","operator":"Exists"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/worker","operator":"Exists"}]`
+	nodeAffinity := `{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node-role.kubernetes.io/worker","operator":"In","values":[""]},{"key":"topology.kubernetes.io/zone","operator":"In","values":["east1"]}]}]}}`
+	assert.Nil(t, err)
+	assert.Equal(t, string(entityOperatorToleration), toleration)
+	assert.Equal(t, string(kafkaToleration), toleration)
+	assert.Equal(t, string(zookeeperToleration), toleration)
+	assert.Equal(t, string(entityOperatorNodeAffinity), nodeAffinity)
+	assert.Equal(t, string(kafkaNodeAffinity), nodeAffinity)
+	assert.Equal(t, string(zookeeperNodeAffinity), nodeAffinity)
 
 	// simulate to create a cluster named: hub1
 	clusterName := "hub1"
