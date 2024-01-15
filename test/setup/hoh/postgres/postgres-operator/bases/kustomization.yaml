@@ -3,7 +3,7 @@ namespace: postgres-operator
 commonLabels:
   postgres-operator.crunchydata.com/control-plane: postgres-operator
 
-bases:
+resources:
 - crd
 - rbac/cluster
 - manager
