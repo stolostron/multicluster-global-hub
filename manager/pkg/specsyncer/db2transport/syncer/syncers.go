@@ -15,7 +15,6 @@ import (
 
 // AddDB2TransportSyncers adds the controllers that send info from DB to transport layer to the Manager.
 func AddDB2TransportSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig, producer transport.Producer) error {
-
 	specSyncInterval := managerConfig.SyncerConfig.SpecSyncInterval
 
 	addDBSyncerFunctions := []func(ctrl.Manager, db.SpecDB, transport.Producer, time.Duration) error{

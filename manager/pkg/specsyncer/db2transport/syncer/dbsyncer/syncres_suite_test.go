@@ -25,7 +25,6 @@ import (
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	sycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
-
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -112,6 +111,7 @@ var _ = BeforeSuite(func() {
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
+	Expect(err).NotTo(HaveOccurred())
 
 	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig, producer)).Should(Succeed())
 	Expect(specsycner.AddManagedClusterLabelSyncer(mgr,
@@ -123,8 +123,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(genericConsumer)).Should(Succeed())
 
+	err = sycner.SendSyncAllMsgInfo(producer)
 	Expect(err).NotTo(HaveOccurred())
-	sycner.SendSyncAllMsgInfo(producer)
 
 	By("Start the manager")
 	go func() {

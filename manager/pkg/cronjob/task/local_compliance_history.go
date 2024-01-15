@@ -65,7 +65,7 @@ func SyncLocalCompliance(ctx context.Context, enableSimulation bool, job gocron.
 
 	historyDate := startTime.AddDate(0, 0, -interval)
 	log = ctrl.Log.WithName(LocalComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
-	log.Info("start running", "currentRun", job.LastRun().Format(timeFormat))
+	log.V(2).Info("start running", "currentRun", job.LastRun().Format(timeFormat))
 
 	// insert or update with local_status.compliance
 	var statusTotal, statusInsert int64
