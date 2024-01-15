@@ -44,8 +44,8 @@ import (
 )
 
 var (
-	kafkaPvcLabelKey      = "strimzi.io/cluster"
-	kafkaPvcLabelValue    = "kafka"
+	kafkaPvcLabelKey      = "strimzi.io/kind"
+	kafkaPvcLabelValue    = "Kafka"
 	postgresPvcLabelKey   = "component"
 	postgresPvcLabelValue = "multicluster-global-hub-operator"
 )
@@ -106,7 +106,8 @@ func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			objEventHandler,
 			builder.WithPredicates(pvcPred)).
 		Watches(&mchv1.MultiClusterHub{},
-			mchEventHandler).
+			mchEventHandler,
+			builder.WithPredicates(mchPred)).
 		Complete(r)
 }
 
@@ -181,6 +182,22 @@ var commonPred = predicate.Funcs{
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
+	},
+}
+
+var mchPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+		if e.ObjectNew.GetGeneration() == 0 {
+			return true
+		}
+		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return true
 	},
 }
 
