@@ -7,12 +7,14 @@ import (
 	"context"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -22,7 +24,14 @@ type middlewareController struct {
 }
 
 func (m *middlewareController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	// trigger the globalhub reconciler
+	// get the mcgh cr name and then trigger the globalhub reconciler
+	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
+	err := m.mgr.GetClient().List(ctx, mghList)
+	if err != nil {
+		klog.Error(err, "Failed to list MulticlusterGlobalHub")
+		return ctrl.Result{}, err
+	}
+	request.Name = mghList.Items[0].Name
 	return m.reconciler.Reconcile(ctx, request)
 }
 
@@ -41,6 +50,7 @@ var kafkaPred = predicate.Funcs{
 // this controller is used to watch the Kafka/KafkaTopic/KafkaUser custom resource
 func StartMiddlewareController(mgr ctrl.Manager, reconciler *MulticlusterGlobalHubReconciler) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("kafka_middleware_controller").
 		Watches(&kafkav1beta2.Kafka{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.KafkaUser{},
