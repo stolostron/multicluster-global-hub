@@ -461,9 +461,8 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 )
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) (*builder.Builder, error) {
-	controller := ctrl.NewControllerManagedBy(mgr)
-	return controller, controller.
+func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
 		Owns(&appsv1.StatefulSet{}, builder.WithPredicates(ownPred)).

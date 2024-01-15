@@ -210,7 +210,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
-	globalhubController, err := (&hubofhubscontrollers.MulticlusterGlobalHubReconciler{
+	r := &hubofhubscontrollers.MulticlusterGlobalHubReconciler{
 		Manager:              mgr,
 		Client:               mgr.GetClient(),
 		RouteV1Client:        routeV1Client,
@@ -222,8 +222,9 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		MiddlewareConfig:     middlewareCfg,
 		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
 		LogLevel:             operatorConfig.LogLevel,
-	}).SetupWithManager(mgr)
-	if err != nil {
+	}
+
+	if err = r.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
 		return 1
 	}
@@ -239,7 +240,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	}
 
 	// start crd controller
-	if err = hubofhubscontrollers.StartCRDController(mgr, globalhubController); err != nil {
+	if err = hubofhubscontrollers.StartCRDController(mgr, r); err != nil {
 		setupLog.Error(err, "unable to start crd controller")
 		return 1
 	}
