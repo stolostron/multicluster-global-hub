@@ -166,15 +166,7 @@ func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster
 }
 
 func (r *HoHAddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
-	transporter := config.GetTransporter()
-	clusterUser := transporter.GenerateUserName(cluster.Name)
-	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
-	if err := transporter.DeleteUser(clusterUser); err != nil {
-		return err
-	}
-	if err := transporter.DeleteTopic(clusterTopic); err != nil {
-		return err
-	}
+	// should remove the addon first, otherwise it mightn't update the mainfiest work for the addon
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
@@ -183,12 +175,27 @@ func (r *HoHAddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster
 	}
 	err := r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
 	if err != nil && errors.IsNotFound(err) {
-		return nil
+		return r.removeResources(ctx, cluster)
 	} else if err != nil {
-		return err
+		return fmt.Errorf("failed go get the addon %v", err)
 	}
+	if err = r.Delete(ctx, existingAddon); err != nil {
+		return fmt.Errorf("failed to delete the addon %v", err)
+	}
+	return nil
+}
 
-	return r.Delete(ctx, existingAddon)
+func (r *HoHAddonInstaller) removeResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+	transporter := config.GetTransporter()
+	clusterUser := transporter.GenerateUserName(cluster.Name)
+	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
+	if err := transporter.DeleteUser(clusterUser); err != nil {
+		return fmt.Errorf("failed to remove user %v", err)
+	}
+	if err := transporter.DeleteTopic(clusterTopic); err != nil {
+		return fmt.Errorf("failed to remove topic %v", err)
+	}
+	return nil
 }
 
 func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.ManagedClusterAddOn, error) {
