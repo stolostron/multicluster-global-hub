@@ -63,4 +63,3 @@ func StartCRDController(mgr ctrl.Manager, reconciler *MulticlusterGlobalHubRecon
 			reconciler: reconciler,
 		})
 }
-

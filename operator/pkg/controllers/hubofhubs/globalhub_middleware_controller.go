@@ -74,4 +74,3 @@ func StartMiddlewareController(ctx context.Context, mgr ctrl.Manager, reconciler
 	}
 	return nil
 }
-
