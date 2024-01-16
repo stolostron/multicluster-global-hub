@@ -17,6 +17,7 @@ limitations under the License.
 package backup_test
 
 import (
+	"encoding/json"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -322,16 +324,65 @@ var _ = Describe("Backup controller", Ordered, func() {
 					Name:      "kafka",
 					Namespace: mghNamespace,
 				},
+				Spec: &kafkav1beta2.KafkaSpec{
+					Kafka: kafkav1beta2.KafkaSpecKafka{
+						Replicas: 1,
+						Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
+							{
+								Name: "plain",
+								Port: 9092,
+								Tls:  false,
+								Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeInternal,
+							},
+						},
+						Storage: kafkav1beta2.KafkaSpecKafkaStorage{
+							Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
+						},
+					},
+					Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
+						Replicas: 1,
+						Storage: kafkav1beta2.KafkaSpecZookeeperStorage{
+							Type: kafkav1beta2.KafkaSpecZookeeperStorageTypePersistentClaim,
+						},
+					},
+				},
 			}
 			Expect(k8sClient.Create(ctx, kafka)).Should(Succeed())
 
 			Eventually(func() bool {
+				var kafkaPVCLabels map[string]string
+				var zookeeperPVCLabels map[string]string
+
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: mghNamespace,
 					Name:      "kafka",
 				}, kafka, &client.GetOptions{})).Should(Succeed())
 
-				return utils.HasLabel(kafka.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
+				if !utils.HasLabel(kafka.Labels, constants.BackupKey, constants.BackupGlobalHubValue) {
+					return false
+				}
+				kafkaPVCLabelsJson := kafka.Spec.Kafka.Template.PersistentVolumeClaim.Metadata.Labels
+
+				err := json.Unmarshal(kafkaPVCLabelsJson.Raw, &kafkaPVCLabels)
+				if err != nil {
+					klog.Errorf("Failed to unmarshal kafkapvc labels, error:%v", err)
+					return false
+				}
+				if !utils.HasLabel(kafkaPVCLabels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+					return false
+				}
+
+				zookeeperPVCLabelsJson := kafka.Spec.Zookeeper.Template.PersistentVolumeClaim.Metadata.Labels
+
+				err = json.Unmarshal(zookeeperPVCLabelsJson.Raw, &zookeeperPVCLabels)
+				if err != nil {
+					return false
+				}
+				if !utils.HasLabel(zookeeperPVCLabels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+					return false
+				}
+
+				return true
 			}, timeout, interval).Should(BeTrue())
 		})
 
@@ -481,7 +532,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 					Name:      "pvc",
 					Namespace: mghNamespace,
 					Labels: map[string]string{
-						"strimzi.io/cluster": "kafka",
+						"strimzi.io/kind": "Kafka",
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
@@ -502,7 +553,6 @@ var _ = Describe("Backup controller", Ordered, func() {
 					Namespace: mghNamespace,
 					Name:      "pvc",
 				}, pvc, &client.GetOptions{})).Should(Succeed())
-
 				return utils.HasLabel(pvc.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue)
 			}, timeout, interval).Should(BeTrue())
 		})

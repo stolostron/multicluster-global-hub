@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -77,7 +76,6 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancel = context.WithCancel(context.TODO())
-	klog.Errorf("####")
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -120,7 +118,6 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-	klog.Errorf("####")
 
 	leaseDuration := 137 * time.Second
 	renewDeadline := 126 * time.Second
@@ -136,7 +133,6 @@ var _ = BeforeSuite(func() {
 		RetryPeriod:             &retryPeriod,
 	})
 	Expect(err).ToNot(HaveOccurred())
-	klog.Errorf("####")
 
 	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
@@ -147,11 +143,9 @@ var _ = BeforeSuite(func() {
 		Log:     ctrl.Log.WithName("backup-reconciler"),
 	}
 	Expect(backupReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
-	klog.Errorf("####")
 
 	go func() {
 		defer GinkgoRecover()
-		klog.Errorf("####")
 
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
