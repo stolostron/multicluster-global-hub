@@ -25,11 +25,11 @@ var once sync.Once
 func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	once.Do(func() {
 		// start to watch kafka/kafkatopic/kafkauser custom resource controller
-		c.crdErr = StartMiddlewareController(c.mgr, c.reconciler)
+		c.crdErr = StartMiddlewareController(ctx, c.mgr, c.reconciler)
 	})
 	if c.crdErr != nil {
-		// if the crd controller fails to start, then retry
-		c.crdErr = StartMiddlewareController(c.mgr, c.reconciler)
+		// if the crd controller fails to start, then return the error
+		c.crdErr = StartMiddlewareController(ctx, c.mgr, c.reconciler)
 		return ctrl.Result{}, c.crdErr
 	}
 	return ctrl.Result{}, nil
@@ -63,3 +63,4 @@ func StartCRDController(mgr ctrl.Manager, reconciler *MulticlusterGlobalHubRecon
 			reconciler: reconciler,
 		})
 }
+

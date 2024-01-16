@@ -15,6 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -25,13 +27,13 @@ type middlewareController struct {
 
 func (m *middlewareController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	// get the mcgh cr name and then trigger the globalhub reconciler
-	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
-	err := m.mgr.GetClient().List(ctx, mghList)
+	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
+	err := m.mgr.GetClient().Get(ctx, config.GetMGHNamespacedName(), mgh)
 	if err != nil {
-		klog.Error(err, "Failed to list MulticlusterGlobalHub")
+		klog.Error(err, "Failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
-	_, err = m.reconciler.ReconcileTransport(ctx, &mghList.Items[0])
+	_, err = m.reconciler.ReconcileTransport(ctx, mgh)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -51,17 +53,25 @@ var kafkaPred = predicate.Funcs{
 }
 
 // this controller is used to watch the Kafka/KafkaTopic/KafkaUser custom resource
-func StartMiddlewareController(mgr ctrl.Manager, reconciler *MulticlusterGlobalHubReconciler) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		Named("kafka_middleware_controller").
-		Watches(&kafkav1beta2.Kafka{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
-		Watches(&kafkav1beta2.KafkaUser{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
-		Watches(&kafkav1beta2.KafkaTopic{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
-		Complete(&middlewareController{
-			mgr:        mgr,
-			reconciler: reconciler,
-		})
+func StartMiddlewareController(ctx context.Context, mgr ctrl.Manager, reconciler *MulticlusterGlobalHubReconciler) error {
+	transProtocol, err := detectTransportProtocol(ctx, mgr.GetClient())
+	if err != nil {
+		return err
+	}
+	if transProtocol == transport.StrimziTransporter {
+		return ctrl.NewControllerManagedBy(mgr).
+			Named("kafka_middleware_controller").
+			Watches(&kafkav1beta2.Kafka{},
+				&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
+			Watches(&kafkav1beta2.KafkaUser{},
+				&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
+			Watches(&kafkav1beta2.KafkaTopic{},
+				&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
+			Complete(&middlewareController{
+				mgr:        mgr,
+				reconciler: reconciler,
+			})
+	}
+	return nil
 }
+

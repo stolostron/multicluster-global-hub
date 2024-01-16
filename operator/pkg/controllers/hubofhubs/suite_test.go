@@ -172,7 +172,7 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(mghReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
-	err = hubofhubscontroller.StartMiddlewareController(k8sManager, mghReconciler)
+	err = hubofhubscontroller.StartMiddlewareController(ctx, k8sManager, mghReconciler)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&hubofhubscontroller.GlobalHubConditionReconciler{
@@ -203,3 +203,4 @@ var _ = AfterSuite(func() {
 	err = testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
