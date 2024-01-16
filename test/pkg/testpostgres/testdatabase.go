@@ -53,6 +53,25 @@ func InitDatabase(uri string) error {
 		fmt.Printf("script %s executed successfully.\n", file.Name())
 	}
 
+	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "upgrade")
+	upgradeFiles, err := os.ReadDir(sqlDir)
+	if err != nil {
+		return err
+	}
+	for _, file := range upgradeFiles {
+		filePath := filepath.Join(sqlDir, file.Name())
+		fileContent, err := os.ReadFile(filePath)
+		if err != nil {
+			return err
+		}
+
+		result := db.Exec(string(fileContent))
+		if result.Error != nil {
+			return result.Error
+		}
+		fmt.Printf("script %s executed successfully.\n", file.Name())
+	}
+
 	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "database.old")
 	oldfiles, err := os.ReadDir(sqlDir)
 	if err != nil {

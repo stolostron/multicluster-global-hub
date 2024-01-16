@@ -5,6 +5,7 @@ type ConflationPriority uint8
 
 // priority list of conflation unit.
 const (
+	HubClusterHeartbeatPriority        ConflationPriority = iota
 	ManagedClustersPriority            ConflationPriority = iota
 	CompliancePriority                 ConflationPriority = iota
 	CompleteCompliancePriority         ConflationPriority = iota

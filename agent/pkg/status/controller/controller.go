@@ -53,6 +53,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		localpolicies.AddLocalRootPolicySyncer,
 		localpolicies.AddLocalReplicatedPolicySyncer,
 		hubcluster.AddHubClusterInfoSyncer,
+		hubcluster.AddHeartbeatStatusSyncer,
 	}
 
 	if agentConfig.EnableGlobalResource {

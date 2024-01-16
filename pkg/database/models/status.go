@@ -73,3 +73,13 @@ type Transport struct {
 func (Transport) TableName() string {
 	return "status.transport"
 }
+
+type LeafHubHeartbeat struct {
+	Name         string    `gorm:"column:leaf_hub_name;primaryKey"`
+	Status       string    `gorm:"column:status;default:active"`
+	LastUpdateAt time.Time `gorm:"column:last_timestamp;autoUpdateTime:true"`
+}
+
+func (LeafHubHeartbeat) TableName() string {
+	return "status.leaf_hub_heartbeats"
+}

@@ -58,6 +58,7 @@ func (c *genericSharedBundleSyncer) init() {
 
 func (c *genericSharedBundleSyncer) periodicSync() {
 	currentSyncInterval := c.syncIntervalFunc()
+	c.log.Info(fmt.Sprintf("sync interval has been reset to %s", currentSyncInterval.String()))
 	ticker := time.NewTicker(currentSyncInterval)
 
 	for {

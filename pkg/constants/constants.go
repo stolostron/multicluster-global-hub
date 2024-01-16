@@ -109,6 +109,9 @@ const (
 	// HubClusterInfoMsgKey - hub cluster info message key.
 	HubClusterInfoMsgKey = "HubClusterInfo"
 
+	// HubClusterInfoMsgKey - hub cluster heartbeat message key.
+	HubClusterHeartbeatMsgKey = "HubClusterHeartbeat"
+
 	ResyncMsgKey = "Resync"
 
 	// ManagedClustersMsgKey - managed clusters message key.

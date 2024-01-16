@@ -62,6 +62,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 	}
 	// register db syncers create bundle functions within transport and handler functions within dispatcher
 	dbSyncers := []dbsyncer.Syncer{
+		dbsyncer.NewHubClusterHeartbeatSyncer(ctrl.Log.WithName("hub-heartbeat-syncer")),
 		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-info-syncer")),
 		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-cluster-syncer")),
 		dbsyncer.NewCompliancesDBSyncer(ctrl.Log.WithName("compliances-syncer")),

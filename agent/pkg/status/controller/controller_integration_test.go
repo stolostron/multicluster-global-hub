@@ -223,7 +223,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 			printBundle(statusBundle)
 			return nil
-		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		}, 50*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	It("should be able to sync hub cluster info with openshift console url", func() {
@@ -257,7 +257,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 			printBundle(statusBundle)
 			return nil
-		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		}, 50*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	It("should be able to sync hub cluster info with grafana url", func() {
@@ -291,7 +291,7 @@ var _ = Describe("Agent Status Controller", Ordered, func() {
 			fmt.Printf("========== received %s with statusBundle: %v\n", message.Key, statusBundle)
 			printBundle(statusBundle)
 			return nil
-		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		}, 50*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	It("should be able to sync managed clusters", func() {

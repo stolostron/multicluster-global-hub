@@ -60,8 +60,9 @@ const (
 	GHPostgresDefaultStorageSize = "25Gi"
 	// default values for the global hub configured by the operator
 	// We may expose these as CRD fields in the future
-	AggregationLevel    = "full"
-	EnableLocalPolicies = "true"
+	AggregationLevel       = "full"
+	EnableLocalPolicies    = "true"
+	AgentHeartbeatInterval = "60s"
 )
 
 var (

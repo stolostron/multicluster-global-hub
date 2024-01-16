@@ -71,7 +71,8 @@ type ManifestsConfig struct {
 	AgentBurst             int
 	LogLevel               string
 	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
-	Resources *Resources
+	Resources              *Resources
+	AgentHeartbeatInterval string
 }
 
 type Resources struct {
@@ -232,6 +233,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		AgentBurst:             agentBurst,
 		LogLevel:               a.LogLevel,
 		Resources:              agentRes,
+		AgentHeartbeatInterval: config.AgentHeartbeatInterval,
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {

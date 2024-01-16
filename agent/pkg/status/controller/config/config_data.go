@@ -7,9 +7,10 @@ import (
 var (
 	leafHubName   = "leaf-hub"
 	syncIntervals = map[AgentConfigKey]time.Duration{
-		ManagedClusterIntervalKey: 5 * time.Second,
-		PolicyIntervalKey:         5 * time.Second,
-		HubClusterInfoIntervalKey: 60 * time.Second,
+		ManagedClusterIntervalKey:      5 * time.Second,
+		PolicyIntervalKey:              5 * time.Second,
+		HubClusterInfoIntervalKey:      60 * time.Second,
+		HubClusterHeartBeatIntervalKey: 60 * time.Second,
 	}
 	agentConfigs = map[AgentConfigKey]AgentConfigValue{
 		AgentAggregationKey:  AggregationFull,
@@ -20,11 +21,12 @@ var (
 type AgentConfigKey string
 
 const (
-	PolicyIntervalKey         AgentConfigKey = "policies"
-	ManagedClusterIntervalKey AgentConfigKey = "managedClusters"
-	HubClusterInfoIntervalKey AgentConfigKey = "hubClusterInfo"
-	AgentAggregationKey       AgentConfigKey = "aggregationLevel"
-	EnableLocalPolicyKey      AgentConfigKey = "enableLocalPolicies"
+	PolicyIntervalKey              AgentConfigKey = "policies"
+	ManagedClusterIntervalKey      AgentConfigKey = "managedClusters"
+	HubClusterInfoIntervalKey      AgentConfigKey = "hubClusterInfo"
+	HubClusterHeartBeatIntervalKey AgentConfigKey = "hubClusterHeartbeat"
+	AgentAggregationKey            AgentConfigKey = "aggregationLevel"
+	EnableLocalPolicyKey           AgentConfigKey = "enableLocalPolicies"
 )
 
 type AgentConfigValue string
@@ -52,6 +54,10 @@ func GetPolicyDuration() time.Duration {
 // GetHubClusterInfoDuration returns control info sync interval.
 func GetHubClusterInfoDuration() time.Duration {
 	return syncIntervals[HubClusterInfoIntervalKey]
+}
+
+func GetHeartbeatDuration() time.Duration {
+	return syncIntervals[HubClusterHeartBeatIntervalKey]
 }
 
 func GetLeafHubName() string {
