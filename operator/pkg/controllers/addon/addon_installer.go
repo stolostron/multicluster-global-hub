@@ -103,18 +103,18 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 
 	err := r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
 	// create
-	if err != nil && errors.IsNotFound(err) {
-		r.Log.Info("creating resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
-		config.AppendManagedCluster(cluster.Name)
-		if e := r.createResourcesAndAddon(ctx, cluster); e != nil {
-			return e
+	if err != nil {
+		if errors.IsNotFound(err) {
+			r.Log.Info("creating resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
+			config.AppendManagedCluster(cluster.Name)
+			return r.createResourcesAndAddon(ctx, cluster)
+		} else {
+			return fmt.Errorf("failed to get the addon: %v", err)
 		}
-	} else if err != nil {
-		return err
 	}
 
 	// delete
-	if err == nil && !existingAddon.DeletionTimestamp.IsZero() {
+	if !existingAddon.DeletionTimestamp.IsZero() {
 		r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
 		config.DeleteManagedCluster(cluster.Name)
 		return r.removeResourcesAndAddon(ctx, cluster)
@@ -162,7 +162,11 @@ func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster
 	if err != nil {
 		return err
 	}
-	return r.Create(ctx, expectedAddon)
+
+	if err := r.Create(ctx, expectedAddon); err != nil {
+		return fmt.Errorf("failed to create the managedclusteraddon: %v", err)
+	}
+	return nil
 }
 
 func (r *HoHAddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
