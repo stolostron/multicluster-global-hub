@@ -64,6 +64,7 @@ func (s *heartbeatStatusSyncer) periodicSync(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			s.log.Info("ctx is done, and exiting the heartbeat loop!")
+			ticker.Stop()
 			return
 		case <-ticker.C: // wait for next time interval
 			s.heartbeatBundle.GetVersion().Incr()
