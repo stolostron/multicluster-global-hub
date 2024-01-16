@@ -12,6 +12,7 @@ rules:
   resources:
   - pods
   - events
+  - secrets
   verbs:
   - create
   - delete

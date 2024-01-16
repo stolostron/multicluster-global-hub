@@ -96,6 +96,7 @@ rules:
   - pods
   - configmaps
   - events
+  - secrets
   verbs:
   - create
   - delete

@@ -43,7 +43,7 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	}
 
 	// Need this controller to update the value of clusterclaim version.open-cluster-management.io
-	if err := StartVersionClusterClaimController(c.mgr); err != nil {
+	if err := AddVersionClusterClaimController(c.mgr); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
@@ -57,7 +57,7 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 
 // this controller is used to watch the multiclusterhub crd or clustermanager crd
 // if the crd exists, then add controllers to the manager dynamically
-func StartCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *config.AgentConfig) error {
+func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *config.AgentConfig) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&apiextensionsv1.CustomResourceDefinition{}, builder.WithPredicates(predicate.Funcs{
 			// trigger the reconciler only if the crd is created

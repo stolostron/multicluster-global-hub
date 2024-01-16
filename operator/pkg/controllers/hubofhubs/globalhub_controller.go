@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
@@ -55,7 +56,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
+	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -65,6 +68,20 @@ import (
 var fs embed.FS
 
 // var isPackageManifestControllerRunnning = false
+var watchedSecret = sets.NewString(
+	constants.GHTransportSecretName,
+	constants.GHStorageSecretName,
+	constants.GHBuiltInStorageSecretName,
+	postgres.PostgresCertName,
+	constants.CustomGrafanaIniName,
+	config.GetImagePullSecretName(),
+	transportprotocol.DefaultGlobalHubKafkaUser,
+)
+
+var watchedConfigmap = sets.NewString(
+	constants.PostgresCAConfigMap,
+	constants.CustomAlertName,
+)
 
 // MulticlusterGlobalHubReconciler reconciles a MulticlusterGlobalHub object
 type MulticlusterGlobalHubReconciler struct {
@@ -173,7 +190,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-
 	result, err := r.ReconcileMiddleware(ctx, mgh)
 	if err != nil {
 		r.Log.V(2).Info("ReconcileMiddleware error", "error", err)
@@ -328,6 +344,17 @@ var resPred = predicate.Funcs{
 	},
 }
 
+var secretCond = func(obj client.Object) bool {
+	if watchedSecret.Has(obj.GetName()) {
+		return true
+	}
+	if obj.GetLabels()["strimzi.io/cluster"] == transportprotocol.KafkaClusterName &&
+		obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
+		return true
+	}
+	return false
+}
+
 var secretPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return secretCond(e.Object)
@@ -336,7 +363,7 @@ var secretPred = predicate.Funcs{
 		return secretCond(e.ObjectNew)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetName() == constants.CustomGrafanaIniName
+		return secretCond(e.Object)
 	},
 }
 
@@ -354,21 +381,21 @@ var deletePred = predicate.Funcs{
 
 var configmappred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetName() == constants.CustomAlertName
+		return watchedConfigmap.Has(e.Object.GetName())
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
 			constants.GHOperatorOwnerLabelVal {
 			return true
 		}
-		return e.ObjectNew.GetName() == constants.CustomAlertName
+		return watchedConfigmap.Has(e.ObjectNew.GetName())
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
 			constants.GHOperatorOwnerLabelVal {
 			return true
 		}
-		return e.Object.GetName() == constants.CustomAlertName
+		return watchedConfigmap.Has(e.Object.GetName())
 	},
 }
 
@@ -432,14 +459,6 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 		}
 	},
 )
-
-func secretCond(obj client.Object) bool {
-	return obj.GetName() == constants.GHTransportSecretName ||
-		obj.GetName() == constants.GHStorageSecretName ||
-		obj.GetName() == constants.GHBuiltInStorageSecretName ||
-		obj.GetName() == constants.CustomGrafanaIniName ||
-		obj.GetName() == config.GetImagePullSecretName()
-}
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {

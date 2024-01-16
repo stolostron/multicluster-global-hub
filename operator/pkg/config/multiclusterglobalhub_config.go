@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -24,11 +25,17 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // ManifestImage contains details for a specific image version
@@ -246,4 +253,70 @@ func SetTransporter(p transport.Transporter) {
 
 func GetTransporter() transport.Transporter {
 	return transporter
+}
+
+// GeneratePGConnectionFromGHStorageSecret returns a postgres connection from the GH storage secret
+func GetPGConnectionFromGHStorageSecret(ctx context.Context, client client.Client) (
+	*postgres.PostgresConnection, error,
+) {
+	pgSecret := &corev1.Secret{}
+	err := client.Get(ctx, types.NamespacedName{
+		Name:      constants.GHStorageSecretName,
+		Namespace: utils.GetDefaultNamespace(),
+	}, pgSecret)
+	if err != nil {
+		return nil, err
+	}
+	return &postgres.PostgresConnection{
+		SuperuserDatabaseURI:    string(pgSecret.Data["database_uri"]),
+		ReadonlyUserDatabaseURI: string(pgSecret.Data["database_uri_with_readonlyuser"]),
+		CACert:                  pgSecret.Data["ca.crt"],
+	}, nil
+}
+
+func GetPGConnectionFromBuildInPostgres(ctx context.Context, client client.Client) (
+	*postgres.PostgresConnection, error,
+) {
+	// wait for postgres guest user secret to be ready
+	guestPostgresSecret := &corev1.Secret{}
+	err := client.Get(ctx, types.NamespacedName{
+		Name:      postgres.PostgresGuestUserSecretName,
+		Namespace: utils.GetDefaultNamespace(),
+	}, guestPostgresSecret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, fmt.Errorf("postgres guest user secret %s is nil", postgres.PostgresGuestUserSecretName)
+		}
+		return nil, err
+	}
+	// wait for postgres super user secret to be ready
+	superuserPostgresSecret := &corev1.Secret{}
+	err = client.Get(ctx, types.NamespacedName{
+		Name:      postgres.PostgresSuperUserSecretName,
+		Namespace: utils.GetDefaultNamespace(),
+	}, superuserPostgresSecret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, fmt.Errorf("postgres super user secret %s is nil", postgres.PostgresSuperUserSecretName)
+		}
+		return nil, err
+	}
+	// wait for postgres cert secret to be ready
+	postgresCertName := &corev1.Secret{}
+	err = client.Get(ctx, types.NamespacedName{
+		Name:      postgres.PostgresCertName,
+		Namespace: utils.GetDefaultNamespace(),
+	}, postgresCertName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, fmt.Errorf("postgres cert secret %s is nil", postgres.PostgresCertName)
+		}
+		return nil, err
+	}
+
+	return &postgres.PostgresConnection{
+		SuperuserDatabaseURI:    string(superuserPostgresSecret.Data["uri"]) + postgres.PostgresURIWithSslmode,
+		ReadonlyUserDatabaseURI: string(guestPostgresSecret.Data["uri"]) + postgres.PostgresURIWithSslmode,
+		CACert:                  postgresCertName.Data["ca.crt"],
+	}, nil
 }

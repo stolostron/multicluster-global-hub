@@ -26,10 +26,8 @@ import (
 )
 
 const (
-	secretNilErrorMsg        = "postgres secret %s is nil"
 	postgresAdminUsername    = "postgres"
 	postgresReadonlyUsername = "global-hub-readonly-user" // #nosec G101
-	postgresCA               = "multicluster-global-hub-postgres-ca"
 )
 
 type postgresCredential struct {
@@ -91,73 +89,6 @@ func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgres(ctx context.Cont
 		return r.Client.Create(ctx, postgres.NewPostgres(postgres.PostgresName, utils.GetDefaultNamespace()))
 	}
 	return err
-}
-
-// WaitForPostgresReady waits for postgres to be ready and returns a postgres connection
-func (r *MulticlusterGlobalHubReconciler) WaitForPostgresReady(ctx context.Context) (
-	*postgres.PostgresConnection, error,
-) {
-	// wait for postgres guest user secret to be ready
-	guestPostgresSecret := &corev1.Secret{}
-	err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      postgres.PostgresGuestUserSecretName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, guestPostgresSecret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresGuestUserSecretName)
-		}
-		return nil, err
-	}
-	// wait for postgres super user secret to be ready
-	superuserPostgresSecret := &corev1.Secret{}
-	err = r.Client.Get(ctx, types.NamespacedName{
-		Name:      postgres.PostgresSuperUserSecretName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, superuserPostgresSecret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresSuperUserSecretName)
-		}
-		return nil, err
-	}
-	// wait for postgres cert secret to be ready
-	postgresCertName := &corev1.Secret{}
-	err = r.Client.Get(ctx, types.NamespacedName{
-		Name:      postgres.PostgresCertName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, postgresCertName)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf(secretNilErrorMsg, postgres.PostgresCertName)
-		}
-		return nil, err
-	}
-
-	return &postgres.PostgresConnection{
-		SuperuserDatabaseURI:    string(superuserPostgresSecret.Data["uri"]) + postgres.PostgresURIWithSslmode,
-		ReadonlyUserDatabaseURI: string(guestPostgresSecret.Data["uri"]) + postgres.PostgresURIWithSslmode,
-		CACert:                  postgresCertName.Data["ca.crt"],
-	}, nil
-}
-
-// GeneratePGConnectionFromGHStorageSecret returns a postgres connection from the GH storage secret
-func (r *MulticlusterGlobalHubReconciler) GeneratePGConnectionFromGHStorageSecret(ctx context.Context) (
-	*postgres.PostgresConnection, error,
-) {
-	pgSecret := &corev1.Secret{}
-	err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      constants.GHStorageSecretName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, pgSecret)
-	if err != nil {
-		return nil, err
-	}
-	return &postgres.PostgresConnection{
-		SuperuserDatabaseURI:    string(pgSecret.Data["database_uri"]),
-		ReadonlyUserDatabaseURI: string(pgSecret.Data["database_uri_with_readonlyuser"]),
-		CACert:                  pgSecret.Data["ca.crt"],
-	}, nil
 }
 
 func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.Context,
@@ -264,7 +195,7 @@ func getPostgresCA(ctx context.Context,
 ) (string, error) {
 	ca := &corev1.ConfigMap{}
 	if err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      postgresCA,
+		Name:      constants.PostgresCAConfigMap,
 		Namespace: mgh.Namespace,
 	}, ca); err != nil {
 		return "", err

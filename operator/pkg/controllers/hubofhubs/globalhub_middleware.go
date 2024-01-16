@@ -64,6 +64,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
 		conn, e := r.ReconcileStorage(ctx, mgh)
 		if e != nil {
 			errorChan <- e
@@ -157,7 +158,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 func (r *MulticlusterGlobalHubReconciler) ReconcileStorage(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 ) (*postgres.PostgresConnection, error) {
 	// support BYO postgres
-	pgConnection, err := r.GeneratePGConnectionFromGHStorageSecret(ctx)
+	pgConnection, err := config.GetPGConnectionFromGHStorageSecret(ctx, r.Client)
 	if err == nil {
 		return pgConnection, nil
 	} else if err != nil && !errors.IsNotFound(err) {
@@ -193,7 +194,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileStorage(ctx context.Context, 
 					return false, nil
 				}
 
-				pgConnection, err = r.WaitForPostgresReady(ctx)
+				pgConnection, err = config.GetPGConnectionFromBuildInPostgres(ctx, r.Client)
 				if err != nil {
 					r.Log.Info("waiting the postgres connection credential to be ready...", "message", err.Error())
 					return false, nil

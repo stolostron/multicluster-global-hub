@@ -29,7 +29,7 @@ func (c *hubClusterClaimController) Reconcile(ctx context.Context, request ctrl.
 	return ctrl.Result{}, err
 }
 
-func StartHubClusterClaimController(mgr ctrl.Manager) error {
+func AddHubClusterClaimController(mgr ctrl.Manager) error {
 	// the controller is only to trigger create hub clusterClaim at the beginning
 	// do nothing if the hub clusterClaim existed
 	clusterClaimPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {

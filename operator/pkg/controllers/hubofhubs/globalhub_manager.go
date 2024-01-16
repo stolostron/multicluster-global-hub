@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -20,6 +21,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -27,6 +29,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+var storageConnectionCache *postgres.PostgresConnection
+var transportConnectionCache *transport.ConnCredential
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	mgh *v1alpha4.MulticlusterGlobalHub,
@@ -79,7 +84,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
 		replicas = 2
 	}
-
 	trans := config.GetTransporter()
 
 	transportTopic := trans.GenerateClusterTopic(transportprotocol.GlobalHubClusterName)
@@ -91,7 +95,12 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	if r.MiddlewareConfig.StorageConn == nil {
 		return fmt.Errorf("failed to get storage connection")
 	}
-
+	if isMiddlewareUpdated(r.MiddlewareConfig) {
+		err = commonutils.RestartPod(ctx, r.KubeClient, commonutils.GetDefaultNamespace(), constants.ManagerDeploymentName)
+		if err != nil {
+			return fmt.Errorf("failed to restart manager pod: %v", err)
+		}
+	}
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
@@ -137,6 +146,42 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 	log.Info("manager objects are created/updated successfully")
 	return nil
+}
+
+func isMiddlewareUpdated(curMiddlewareConfig *MiddlewareConfig) bool {
+	if curMiddlewareConfig == nil {
+		return false
+	}
+	if transportConnectionCache == nil || storageConnectionCache == nil {
+		setMiddlewareCache(curMiddlewareConfig)
+		return false
+	}
+
+	if !reflect.DeepEqual(curMiddlewareConfig.TransportConn, transportConnectionCache) {
+		setMiddlewareCache(curMiddlewareConfig)
+		return true
+	}
+	if !reflect.DeepEqual(curMiddlewareConfig.StorageConn, storageConnectionCache) {
+		setMiddlewareCache(curMiddlewareConfig)
+		return true
+	}
+	return false
+}
+
+func setMiddlewareCache(curMiddlewareConfig *MiddlewareConfig) {
+	if curMiddlewareConfig == nil {
+		return
+	}
+
+	if curMiddlewareConfig.TransportConn != nil {
+		tmpKafkaConn := *curMiddlewareConfig.TransportConn
+		transportConnectionCache = &tmpKafkaConn
+	}
+
+	if curMiddlewareConfig.StorageConn != nil {
+		tmpPgConn := *curMiddlewareConfig.StorageConn
+		storageConnectionCache = &tmpPgConn
+	}
 }
 
 func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,

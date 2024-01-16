@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -153,7 +152,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 
 	if changedAlert || changedGrafanaIni || changedDatasourceSecret {
-		err = restartGrafanaPod(ctx, r.KubeClient)
+		err = utils.RestartPod(ctx, r.KubeClient, utils.GetDefaultNamespace(), grafanaDeploymentName)
 		if err != nil {
 			return fmt.Errorf("failed to restart grafana pod. err:%v", err)
 		}
@@ -421,28 +420,6 @@ func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.Con
 		alertConfigMapKey: string(mergedAlertYaml),
 	}
 	return &mergedAlertConfigMap, nil
-}
-
-func restartGrafanaPod(ctx context.Context, kubeClient kubernetes.Interface) error {
-	configNamespace := utils.GetDefaultNamespace()
-	labelSelector := fmt.Sprintf("name=%s", grafanaDeploymentName)
-
-	poList, err := kubeClient.CoreV1().Pods(configNamespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labelSelector,
-	})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	for _, po := range poList.Items {
-		err := kubeClient.CoreV1().Pods(configNamespace).Delete(ctx, po.Name, metav1.DeleteOptions{})
-		if err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-	}
-	return nil
 }
 
 // GenerateGrafanaDataSource is used to generate the GrafanaDatasource as a secret.
