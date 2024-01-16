@@ -378,6 +378,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					LaunchJobNames:       config.GetLaunchJobNames(mgh),
 					LogLevel:             "info",
 					Resources:            operatorutils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
+					AgentSessionTimeout:  config.AgentSessionTimeout,
 				}, nil
 			})
 			Expect(err).NotTo(HaveOccurred())

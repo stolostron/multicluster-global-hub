@@ -61,6 +61,9 @@ spec:
             {{- if eq .SkipAuth true}}
             - --cluster-api-url=
             {{- end}}
+            {{- if .AgentSessionTimeout}}
+            - --agent-session-timeout={{.AgentSessionTimeout}}
+            {{- end}}
           env:
             - name: POD_NAMESPACE
               valueFrom:
