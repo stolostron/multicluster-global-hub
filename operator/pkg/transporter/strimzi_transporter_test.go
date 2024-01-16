@@ -231,14 +231,17 @@ func TestStrimziTransporter(t *testing.T) {
 	zookeeperNodeAffinity, _ := json.Marshal(kafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity)
 
 	toleration := `[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready","operator":"Exists"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/worker","operator":"Exists"}]`
-	nodeAffinity := `{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node-role.kubernetes.io/worker","operator":"In","values":[""]},{"key":"topology.kubernetes.io/zone","operator":"In","values":["east1"]}]}]}}`
 	assert.Nil(t, err)
 	assert.Equal(t, string(entityOperatorToleration), toleration)
 	assert.Equal(t, string(kafkaToleration), toleration)
 	assert.Equal(t, string(zookeeperToleration), toleration)
-	assert.Equal(t, string(entityOperatorNodeAffinity), nodeAffinity)
-	assert.Equal(t, string(kafkaNodeAffinity), nodeAffinity)
-	assert.Equal(t, string(zookeeperNodeAffinity), nodeAffinity)
+	// cannot compare the string, because the order is random
+	assert.Contains(t, string(entityOperatorNodeAffinity), `node-role.kubernetes.io/worker`)
+	assert.Contains(t, string(entityOperatorNodeAffinity), `topology.kubernetes.io/zone`)
+	assert.Contains(t, string(kafkaNodeAffinity), `node-role.kubernetes.io/worker`)
+	assert.Contains(t, string(kafkaNodeAffinity), `topology.kubernetes.io/zone`)
+	assert.Contains(t, string(zookeeperNodeAffinity), `node-role.kubernetes.io/worker`)
+	assert.Contains(t, string(zookeeperNodeAffinity), `topology.kubernetes.io/zone`)
 
 	// simulate to create a cluster named: hub1
 	clusterName := "hub1"
