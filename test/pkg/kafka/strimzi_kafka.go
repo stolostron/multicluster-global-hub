@@ -31,6 +31,14 @@ func UpdateKafkaClusterReady(client client.Client, ns string) error {
 			Namespace: ns,
 			Name:      KafkaClusterName,
 		},
+		Spec: &kafkav1beta2.KafkaSpec{
+			Kafka: kafkav1beta2.KafkaSpecKafka{
+				Replicas: 1,
+			},
+			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
+				Replicas: 1,
+			},
+		},
 		Status: &kafkav1beta2.KafkaStatus{
 			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
 				{
