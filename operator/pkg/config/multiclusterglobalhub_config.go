@@ -63,6 +63,7 @@ const (
 	AggregationLevel       = "full"
 	EnableLocalPolicies    = "true"
 	AgentHeartbeatInterval = "60s"
+	AgentSessionTimeout    = "90s"
 )
 
 var (
