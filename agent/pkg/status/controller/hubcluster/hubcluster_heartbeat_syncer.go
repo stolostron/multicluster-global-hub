@@ -61,18 +61,20 @@ func (s *heartbeatStatusSyncer) periodicSync(ctx context.Context) {
 	ticker := time.NewTicker(currentSyncInterval)
 
 	for {
-		<-ticker.C // wait for next time interval
-
-		s.heartbeatBundle.GetVersion().Incr()
-		s.syncBundle(ctx)
-
-		resolvedInterval := s.intervalFunc()
-
-		// reset ticker if sync interval has changed
-		if resolvedInterval != currentSyncInterval {
-			currentSyncInterval = resolvedInterval
-			ticker.Reset(currentSyncInterval)
-			s.log.Info("sync interval has been reset to", "interval", currentSyncInterval.String())
+		select {
+		case <-ctx.Done():
+			s.log.Info("ctx is done, and exiting the heartbeat loop!")
+			return
+		case <-ticker.C: // wait for next time interval
+			s.heartbeatBundle.GetVersion().Incr()
+			s.syncBundle(ctx)
+			resolvedInterval := s.intervalFunc()
+			// reset ticker if sync interval has changed
+			if resolvedInterval != currentSyncInterval {
+				currentSyncInterval = resolvedInterval
+				ticker.Reset(currentSyncInterval)
+				s.log.Info("sync interval has been reset to", "interval", currentSyncInterval.String())
+			}
 		}
 	}
 }
