@@ -84,6 +84,7 @@ var _ = BeforeSuite(func() {
 			LogInterval: "10s",
 		},
 		EnableGlobalResource: true,
+		AgentSessionTimeout:  "90s",
 	}
 	Expect(err).NotTo(HaveOccurred())
 	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
