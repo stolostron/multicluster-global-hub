@@ -1099,7 +1099,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				kafka := &kafkav1beta2.Kafka{}
 				err := k8sClient.Get(ctx, kafkaNamespacedName, kafka)
 				Expect(err).ToNot(HaveOccurred())
-				if len(kafka.Spec.Kafka.Template.Pod.Tolerations) == 0 {
+				if kafka.Spec.Kafka.Template == nil || kafka.Spec.Kafka.Template.Pod == nil ||
+					len(kafka.Spec.Kafka.Template.Pod.Tolerations) == 0 {
 					return fmt.Errorf("kafka resource is not updated")
 				}
 				return nil
