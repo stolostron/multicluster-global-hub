@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package hubcluster
+package hubmanagement
 
 import (
 	"context"
@@ -64,7 +64,7 @@ func (h *hubManagement) update(ctx context.Context) error {
 	lastTime := time.Now().Add(-h.probeInterval)
 	db := database.GetGorm()
 	var expiredHubs []models.LeafHubHeartbeat
-	err := db.Where("last_timestamp > ? AND status = ?", lastTime, HubActive).Find(&expiredHubs).Error
+	err := db.Where("last_timestamp < ? AND status = ?", lastTime, HubActive).Find(&expiredHubs).Error
 	if err != nil || len(expiredHubs) == 0 {
 		return err
 	}
@@ -79,6 +79,9 @@ func (h *hubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeart
 
 	// mark the status as inactive
 	db := database.GetGorm()
+	for i := range hubs {
+		hubs[i].Status = HubInactive
+	}
 	err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(hubs, 100).Error
 	if err != nil {
 		return fmt.Errorf("failed to update the hubs to inactive: %v", err)

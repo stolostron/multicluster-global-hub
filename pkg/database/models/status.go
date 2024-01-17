@@ -77,7 +77,7 @@ func (Transport) TableName() string {
 type LeafHubHeartbeat struct {
 	Name         string    `gorm:"column:leaf_hub_name;primaryKey"`
 	Status       string    `gorm:"column:status;default:active"`
-	LastUpdateAt time.Time `gorm:"column:last_timestamp;autoUpdateTime:true"`
+	LastUpdateAt time.Time `gorm:"column:last_timestamp;autoUpdateTime:false"`
 }
 
 func (LeafHubHeartbeat) TableName() string {
