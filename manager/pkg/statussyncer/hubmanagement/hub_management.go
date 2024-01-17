@@ -33,11 +33,7 @@ func AddHubManagement(mgr ctrl.Manager, managerConfig *config.ManagerConfig) err
 	if err != nil {
 		return err
 	}
-	hub := &hubManagement{
-		log:           ctrl.Log.WithName("hub-management"),
-		probeInterval: interval,
-	}
-	return mgr.Add(hub)
+	return mgr.Add(&hubManagement{log: ctrl.Log.WithName("hub-management"), probeInterval: interval})
 }
 
 func (h *hubManagement) Start(ctx context.Context) error {
@@ -47,7 +43,6 @@ func (h *hubManagement) Start(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				h.log.Info("ctx is done, and exiting the hub management loop!")
 				ticker.Stop()
 				return
 			case <-ticker.C:

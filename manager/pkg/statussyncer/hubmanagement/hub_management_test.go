@@ -19,11 +19,14 @@ import (
 )
 
 func TestHubManagement(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	testPostgres, err := testpostgres.NewTestPostgres()
 	assert.Nil(t, err)
 	err = testpostgres.InitDatabase(testPostgres.URI)
 	assert.Nil(t, err)
 
+	// insert data
 	hubs := []models.LeafHubHeartbeat{
 		{
 			Name:         "heartbeat-hub01",
@@ -49,13 +52,13 @@ func TestHubManagement(t *testing.T) {
 		fmt.Println(heartbeatHub.Name, heartbeatHub.LastUpdateAt, heartbeatHub.Status)
 	}
 
+	// update
 	hubManagement := &hubManagement{
 		log:           ctrl.Log.WithName("hub-management"),
 		probeInterval: 90 * time.Second,
 	}
-	time.Sleep(1 * time.Second)
-
-	err = hubManagement.update(context.Background())
+	assert.Nil(t, hubManagement.Start(ctx))
+	err = hubManagement.update(ctx)
 	assert.Nil(t, err)
 
 	fmt.Println("hub management updated")
@@ -70,4 +73,8 @@ func TestHubManagement(t *testing.T) {
 		}
 	}
 	assert.Equal(t, 1, inactiveCount)
+
+	// close
+	cancel()
+	testPostgres.Stop()
 }
