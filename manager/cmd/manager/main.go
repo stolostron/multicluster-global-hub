@@ -262,6 +262,10 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
+	if err := mgr.Add(globalhubmetrics.NewGlobalHubMetrics()); err != nil {
+		return nil, fmt.Errorf("failed to add metrics to manager: %w", err)
+	}
+
 	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
@@ -270,10 +274,6 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
 	if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig); err != nil {
 		return nil, fmt.Errorf("failed to add event collector: %w", err)
-	}
-
-	if err := mgr.Add(globalhubmetrics.NewGlobalHubMetrics()); err != nil {
-		return nil, fmt.Errorf("failed to add metrics to manager: %w", err)
 	}
 
 	return mgr, nil

@@ -56,6 +56,8 @@ const (
 	MGHOperandImagePrefix = "RELATED_IMAGE_"
 	// AnnotationStatisticInterval to log the interval of statistic log
 	AnnotationStatisticInterval = "mgh-statistic-interval"
+	// AnnotationMetricsScrapeInterval to set the scrape interval for metrics
+	AnnotationMetricsScrapeInterval = "mgh-metrics-scrape-interval"
 	// AnnotationONMulticlusterHub indicates the addons are running on a hub cluster
 	AnnotationONMulticlusterHub = "addon.open-cluster-management.io/on-multicluster-hub"
 	// AnnotationPolicyONMulticlusterHub indicates the policy spec sync is running on a hub cluster

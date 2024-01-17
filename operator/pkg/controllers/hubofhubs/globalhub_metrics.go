@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -67,7 +68,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 				{
 					Port:     "metrics",
 					Path:     "/metrics",
-					Interval: promv1.Duration("12h"),
+					Interval: promv1.Duration(config.GetMetricsScrapeInterval()),
 				},
 			},
 		},

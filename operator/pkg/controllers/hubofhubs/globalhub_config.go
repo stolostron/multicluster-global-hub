@@ -33,5 +33,10 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	if err := config.SetStatisticLogInterval(mgh); err != nil {
 		return err
 	}
+
+	// set metrics scrape interval
+	if err := config.SetMetricsScrapeInterval(mgh); err != nil {
+		return err
+	}
 	return nil
 }
