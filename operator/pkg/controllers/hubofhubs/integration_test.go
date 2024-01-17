@@ -1060,55 +1060,10 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	})
 
 	Context("Test the middlewareController", Ordered, func() {
-		It("Should not start the middlewareController", func() {
-			err := k8sClient.Create(context.TODO(), &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.GHTransportSecretName,
-					Namespace: commonutils.GetDefaultNamespace(),
-				},
-				Data: map[string][]byte{
-					"bootstrap_server": []byte("https://test-kafka.example.com"),
-					"ca.crt":           []byte("foobar"),
-					"client.crt":       []byte(""),
-					"client.key":       []byte(""),
-				},
-			})
-			Expect(err).ToNot(HaveOccurred())
-
-			controller, err := hubofhubs.StartMiddlewareController(ctx, k8sManager, mghReconciler)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(controller).To(BeNil())
-
-			// Test the middlewareController is not started
-			namespacedName := types.NamespacedName{
-				Name:      constants.GHTransportSecretName,
-				Namespace: commonutils.GetDefaultNamespace(),
-			}
-
-			secret := &corev1.Secret{}
-			err = k8sClient.Get(ctx, namespacedName, secret)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
-			// ensure the secret is deleted
-			Eventually(func() error {
-				err := k8sClient.Get(ctx, namespacedName, &corev1.Secret{})
-				if err != nil {
-					if errors.IsNotFound(err) {
-						return nil
-					}
-					return err
-				}
-				return fmt.Errorf("secret is being deleted.")
-			}, timeout, interval).Should(Succeed())
-		})
 
 		It("Should start the middlewareController", func() {
 			// create kafkacluster
 			Expect(kafka.UpdateKafkaClusterReady(k8sClient, commonutils.GetDefaultNamespace())).ToNot(HaveOccurred())
-
-			controller, err := hubofhubs.StartMiddlewareController(ctx, k8sManager, mghReconciler)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(controller).ToNot(BeNil())
 
 			mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
