@@ -224,22 +224,12 @@ func GetStatisticLogInterval() string {
 	return statisticLogInterval
 }
 
-func SetMetricsScrapeInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func GetMetricsScrapeInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
 	interval := getAnnotation(mgh, operatorconstants.AnnotationMetricsScrapeInterval)
 	if interval == "" {
-		return nil
+		interval = metricsScrapeInterval
 	}
-
-	_, err := time.ParseDuration(interval)
-	if err != nil {
-		return err
-	}
-	metricsScrapeInterval = interval
-	return nil
-}
-
-func GetMetricsScrapeInterval() string {
-	return metricsScrapeInterval
+	return interval
 }
 
 func GetPostgresStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
