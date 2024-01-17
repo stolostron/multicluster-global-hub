@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1021,7 +1022,93 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return nil
 			}, timeout, interval).ShouldNot(HaveOccurred())
 		})
+		It("Should delete the Kafka instance", func() {
+			namespacedName := types.NamespacedName{
+				Name:      kafka.KafkaClusterName,
+				Namespace: commonutils.GetDefaultNamespace(),
+			}
+			kafka := &kafkav1beta2.Kafka{}
+			Expect(k8sClient.Get(ctx, namespacedName, kafka)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, kafka)).Should(Succeed())
+			// ensure the kafka instance is deleted
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, namespacedName, &kafkav1beta2.Kafka{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						return nil
+					}
+					return err
+				}
+				return fmt.Errorf("kafka instance is being deleted.")
+			}, timeout, interval).Should(Succeed())
+		})
+		It("Should delete the MGH instance", func() {
+			namespacedName := client.ObjectKeyFromObject(mcgh)
+			Expect(k8sClient.Delete(ctx, mcgh)).Should(Succeed())
+			// ensure the mcgh is deleted
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, namespacedName, &globalhubv1alpha4.MulticlusterGlobalHub{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						return nil
+					}
+					return err
+				}
+				return fmt.Errorf("mcgh is being deleted.")
+			}, timeout, interval).Should(Succeed())
+		})
 	})
+
+	Context("Test the middlewareController", Ordered, func() {
+
+		It("Should start the middlewareController", func() {
+			// create kafkacluster
+			Expect(kafka.UpdateKafkaClusterReady(k8sClient, commonutils.GetDefaultNamespace())).ToNot(HaveOccurred())
+
+			mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      MGHName,
+					Namespace: commonutils.GetDefaultNamespace(),
+				},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "dedicated",
+							Operator: corev1.TolerationOpEqual,
+							Effect:   corev1.TaintEffectNoSchedule,
+							Value:    "infra",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, mcgh)).Should(Succeed())
+
+			kafkaNamespacedName := types.NamespacedName{
+				Name:      kafka.KafkaClusterName,
+				Namespace: commonutils.GetDefaultNamespace(),
+			}
+			runtimeKafka := &kafkav1beta2.Kafka{}
+			Expect(k8sClient.Get(ctx, kafkaNamespacedName, runtimeKafka)).ToNot(HaveOccurred())
+
+			Eventually(func() error {
+				runtimeKafka.Spec.Kafka.Replicas = 2
+				return k8sClient.Update(ctx, runtimeKafka)
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func() error {
+				kafka := &kafkav1beta2.Kafka{}
+				err := k8sClient.Get(ctx, kafkaNamespacedName, kafka)
+				Expect(err).ToNot(HaveOccurred())
+				if kafka.Spec.Kafka.Template == nil || kafka.Spec.Kafka.Template.Pod == nil ||
+					len(kafka.Spec.Kafka.Template.Pod.Tolerations) == 0 {
+					return fmt.Errorf("kafka resource is not updated")
+				}
+				return nil
+			}, timeout, interval).Should(Succeed())
+		})
+
+	})
+
 })
 
 func prettyPrint(v interface{}) error {

@@ -172,6 +172,9 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(mghReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
+	err = hubofhubscontroller.StartCRDController(k8sManager, mghReconciler)
+	Expect(err).ToNot(HaveOccurred())
+
 	err = (&hubofhubscontroller.GlobalHubConditionReconciler{
 		Client: k8sManager.GetClient(),
 		Log:    ctrl.Log.WithName("status-condition-reconciler"),
