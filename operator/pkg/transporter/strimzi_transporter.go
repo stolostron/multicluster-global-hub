@@ -590,15 +590,19 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 
 	updatedKafka := existingKafka.DeepCopy()
 	desiredKafka := k.newKafkaCluster(mgh)
+	needUpdated := false
 	// update the kafka custom resource
 	if updatedKafka.Spec.Kafka.Template == nil {
 		updatedKafka.Spec.Kafka.Template = desiredKafka.Spec.Kafka.Template
+		needUpdated = true
 	}
 	if updatedKafka.Spec.Kafka.Template.Pod == nil {
 		updatedKafka.Spec.Kafka.Template.Pod = desiredKafka.Spec.Kafka.Template.Pod
+		needUpdated = true
 	}
 	if updatedKafka.Spec.Kafka.Template.Pod.Affinity == nil {
 		updatedKafka.Spec.Kafka.Template.Pod.Affinity = desiredKafka.Spec.Kafka.Template.Pod.Affinity
+		needUpdated = true
 	}
 	updatedKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity = desiredKafka.Spec.Kafka.Template.Pod.
 		Affinity.NodeAffinity
@@ -608,12 +612,15 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 	// update the zookeeper custom resource
 	if updatedKafka.Spec.Zookeeper.Template == nil {
 		updatedKafka.Spec.Zookeeper.Template = desiredKafka.Spec.Zookeeper.Template
+		needUpdated = true
 	}
 	if updatedKafka.Spec.Zookeeper.Template.Pod == nil {
 		updatedKafka.Spec.Zookeeper.Template.Pod = desiredKafka.Spec.Zookeeper.Template.Pod
+		needUpdated = true
 	}
 	if updatedKafka.Spec.Zookeeper.Template.Pod.Affinity == nil {
 		updatedKafka.Spec.Zookeeper.Template.Pod.Affinity = desiredKafka.Spec.Zookeeper.Template.Pod.Affinity
+		needUpdated = true
 	}
 	updatedKafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity = desiredKafka.Spec.Zookeeper.Template.Pod.
 		Affinity.NodeAffinity
@@ -621,22 +628,29 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 	updatedKafka.Spec.Zookeeper.Resources = desiredKafka.Spec.Zookeeper.Resources
 
 	// update the entity operator custom resource
+	if updatedKafka.Spec.EntityOperator == nil {
+		updatedKafka.Spec.EntityOperator = desiredKafka.Spec.EntityOperator
+		needUpdated = true
+	}
 	if updatedKafka.Spec.EntityOperator.Template == nil {
 		updatedKafka.Spec.EntityOperator.Template = desiredKafka.Spec.EntityOperator.Template
+		needUpdated = true
 	}
 	if updatedKafka.Spec.EntityOperator.Template.Pod == nil {
 		updatedKafka.Spec.EntityOperator.Template.Pod = desiredKafka.Spec.EntityOperator.Template.Pod
+		needUpdated = true
 	}
 	if updatedKafka.Spec.EntityOperator.Template.Pod.Affinity == nil {
 		updatedKafka.Spec.EntityOperator.Template.Pod.Affinity = desiredKafka.Spec.EntityOperator.Template.Pod.
 			Affinity
+		needUpdated = true
 	}
 	updatedKafka.Spec.EntityOperator.Template.Pod.Tolerations = desiredKafka.Spec.EntityOperator.Template.Pod.
 		Tolerations
 	updatedKafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity = desiredKafka.Spec.EntityOperator.Template.
 		Pod.Affinity.NodeAffinity
 
-	if !equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity,
+	if needUpdated || !equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity,
 		existingKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity) ||
 		!equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Template.Pod.Tolerations,
 			existingKafka.Spec.Kafka.Template.Pod.Tolerations) ||

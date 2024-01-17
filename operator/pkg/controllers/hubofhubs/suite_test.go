@@ -69,6 +69,7 @@ var (
 	cancel        context.CancelFunc
 	mghReconciler *hubofhubscontroller.MulticlusterGlobalHubReconciler
 	testNamespace = "default"
+	k8sManager    ctrl.Manager
 )
 
 func TestControllers(t *testing.T) {
@@ -134,7 +135,7 @@ var _ = BeforeSuite(func() {
 	leaseDuration := 137 * time.Second
 	renewDeadline := 126 * time.Second
 	retryPeriod := 16 * time.Second
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      "0", // disable the metrics serving
 		Scheme:                  scheme.Scheme,
 		LeaderElection:          true,
@@ -171,9 +172,6 @@ var _ = BeforeSuite(func() {
 		EnableGlobalResource: true,
 	}
 	Expect(mghReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
-
-	err = hubofhubscontroller.StartMiddlewareController(ctx, k8sManager, mghReconciler)
-	Expect(err).ToNot(HaveOccurred())
 
 	err = (&hubofhubscontroller.GlobalHubConditionReconciler{
 		Client: k8sManager.GetClient(),

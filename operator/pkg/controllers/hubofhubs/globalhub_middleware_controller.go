@@ -53,13 +53,15 @@ var kafkaPred = predicate.Funcs{
 }
 
 // this controller is used to watch the Kafka/KafkaTopic/KafkaUser custom resource
-func StartMiddlewareController(ctx context.Context, mgr ctrl.Manager, reconciler *MulticlusterGlobalHubReconciler) error {
+func StartMiddlewareController(ctx context.Context, mgr ctrl.Manager, reconciler *MulticlusterGlobalHubReconciler) (
+	*builder.Builder, error) {
 	transProtocol, err := detectTransportProtocol(ctx, mgr.GetClient())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if transProtocol == transport.StrimziTransporter {
-		return ctrl.NewControllerManagedBy(mgr).
+		controller := ctrl.NewControllerManagedBy(mgr)
+		return controller, controller.
 			Named("kafka_middleware_controller").
 			Watches(&kafkav1beta2.Kafka{},
 				&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
@@ -72,5 +74,5 @@ func StartMiddlewareController(ctx context.Context, mgr ctrl.Manager, reconciler
 				reconciler: reconciler,
 			})
 	}
-	return nil
+	return nil, nil
 }
