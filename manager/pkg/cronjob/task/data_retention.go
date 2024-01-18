@@ -42,10 +42,6 @@ var (
 	retentionLog = ctrl.Log.WithName(RetentionTaskName)
 )
 
-func init() {
-	monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(0)
-}
-
 func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 	currentTime := time.Now()
 

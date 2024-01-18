@@ -35,10 +35,6 @@ var (
 	// sizes and measure the performance of the queries.
 )
 
-func init() {
-	monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(LocalComplianceTaskName).Set(0)
-}
-
 func SyncLocalCompliance(ctx context.Context, enableSimulation bool, job gocron.Job) {
 	startTime = time.Now()
 
