@@ -5,7 +5,6 @@ package hubmanagement
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,10 +16,12 @@ import (
 )
 
 const (
-	HubActive      = "active"
-	HubInactive    = "inactive"
-	SessionTimeout = 5 * time.Minute // 5 * heartbeat: if heartbeat < now - SessionTimeout, then status = inactive
-	ProbeDuration  = 1 * time.Minute // 1 * heartbeat: the frequency to detect run the updating
+	HubActive   = "active"
+	HubInactive = "inactive"
+
+	// heartbeatInterval = 1 * time.Minute
+	SessionTimeout = 5 * time.Minute // if heartbeat < (now - SessionTimeout), then status = inactive, vice versa
+	ProbeDuration  = 2 * time.Minute // the duration to detect run the updating
 )
 
 // manage the leaf hub lifecycle based on the heartbeat
@@ -58,24 +59,28 @@ func (h *hubManagement) update(ctx context.Context) error {
 	lastTime := time.Now().Add(-h.sessionTimeout)
 	db := database.GetGorm()
 
-	// filter the inactive hubs
 	var expiredHubs []models.LeafHubHeartbeat
-	err := db.Where("last_timestamp < ? AND status = ?", lastTime, HubActive).Find(&expiredHubs).Error
-	if err != nil || len(expiredHubs) == 0 {
+	err := db.Model(&expiredHubs).
+		Clauses(clause.Returning{Columns: []clause.Column{{Name: "leaf_hub_name"}}}).
+		Where("last_timestamp < ? AND status = ?", lastTime, HubActive).
+		Update("status", HubInactive).Error
+	if err != nil {
 		return err
 	}
 	if err := h.inactive(ctx, expiredHubs); err != nil {
-		return fmt.Errorf("inactive the hubs with error: %v", err)
-	}
-
-	// filter the reactive hubs
-	var reactiveHubs []models.LeafHubHeartbeat
-	err = db.Where("last_timestamp > ? AND status = ?", lastTime, HubInactive).Find(&reactiveHubs).Error
-	if err != nil || len(reactiveHubs) == 0 {
 		return err
 	}
-	if err := h.active(ctx, reactiveHubs); err != nil {
-		return fmt.Errorf("reactive the hubs with error: %v", err)
+
+	var reactiveHubs []models.LeafHubHeartbeat
+	err = db.Model(&reactiveHubs).
+		Clauses(clause.Returning{Columns: []clause.Column{{Name: "leaf_hub_name"}}}).
+		Where("last_timestamp > ? AND status = ?", lastTime, HubInactive).
+		Update("status", HubActive).Error
+	if err != nil {
+		return err
+	}
+	if err := h.reactive(ctx, reactiveHubs); err != nil {
+		return err
 	}
 
 	return nil
@@ -84,29 +89,11 @@ func (h *hubManagement) update(ctx context.Context) error {
 func (h *hubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeartbeat) error {
 	// TODO: cleanup the database resources
 
-	// mark the status as inactive
-	db := database.GetGorm()
-	for i := range hubs {
-		hubs[i].Status = HubInactive
-	}
-	err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(hubs, 100).Error
-	if err != nil {
-		return fmt.Errorf("failed to update the hubs to inactive: %v", err)
-	}
 	return nil
 }
 
-func (h *hubManagement) active(ctx context.Context, hubs []models.LeafHubHeartbeat) error {
+func (h *hubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeartbeat) error {
 	// TODO: resync the resources has been cleanup
 
-	// mark the status as active
-	db := database.GetGorm()
-	for i := range hubs {
-		hubs[i].Status = HubActive
-	}
-	err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(hubs, 100).Error
-	if err != nil {
-		return fmt.Errorf("failed to update the hubs to active: %v", err)
-	}
 	return nil
 }

@@ -2,6 +2,7 @@ package dbsyncer
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -53,17 +54,18 @@ func (syncer *hubHeartbeatSyncer) handleLocalObjectsBundleWrapper() func(ctx con
 	}
 }
 
-func handleHeartbeatBundle(ctx context.Context, bundle bundle.ManagerBundle,
-) error {
-	leafHubName := bundle.GetLeafHubName()
+func handleHeartbeatBundle(ctx context.Context, bundle bundle.ManagerBundle) error {
+	db := database.GetGorm()
 
 	heartbeat := models.LeafHubHeartbeat{
-		Name:         leafHubName,
+		Name:         bundle.GetLeafHubName(),
 		LastUpdateAt: time.Now(),
 	}
 
-	db := database.GetGorm()
+	err := db.Model(&heartbeat).Clauses(clause.OnConflict{UpdateAll: true}).Create(&heartbeat)
+	if err != nil {
+		return fmt.Errorf("failed to update heartbeat %v", err)
+	}
 
-	ret := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&heartbeat)
-	return ret.Error
+	return nil
 }
