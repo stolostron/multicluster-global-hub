@@ -20,20 +20,20 @@ const (
 	HubInactive = "inactive"
 
 	// heartbeatInterval = 1 * time.Minute
-	SessionTimeout = 5 * time.Minute // if heartbeat < (now - SessionTimeout), then status = inactive, vice versa
-	ProbeDuration  = 2 * time.Minute // the duration to detect run the updating
+	ActiveTimeout = 5 * time.Minute // if heartbeat < (now - ActiveTimeout), then status = inactive, vice versa
+	ProbeDuration = 2 * time.Minute // the duration to detect run the updating
 )
 
 // manage the leaf hub lifecycle based on the heartbeat
 type hubManagement struct {
-	log            logr.Logger
-	probeDuration  time.Duration
-	sessionTimeout time.Duration
+	log           logr.Logger
+	probeDuration time.Duration
+	activeTimeout time.Duration
 }
 
 func AddHubManagement(mgr ctrl.Manager) error {
 	return mgr.Add(&hubManagement{log: ctrl.Log.WithName("hub-management"),
-		probeDuration: ProbeDuration, sessionTimeout: SessionTimeout})
+		probeDuration: ProbeDuration, activeTimeout: ActiveTimeout})
 }
 
 func (h *hubManagement) Start(ctx context.Context) error {
@@ -56,13 +56,13 @@ func (h *hubManagement) Start(ctx context.Context) error {
 }
 
 func (h *hubManagement) update(ctx context.Context) error {
-	lastTime := time.Now().Add(-h.sessionTimeout)
+	thresholdTime := time.Now().Add(-h.activeTimeout)
 	db := database.GetGorm()
 
 	var expiredHubs []models.LeafHubHeartbeat
 	err := db.Model(&expiredHubs).
 		Clauses(clause.Returning{Columns: []clause.Column{{Name: "leaf_hub_name"}}}).
-		Where("last_timestamp < ? AND status = ?", lastTime, HubActive).
+		Where("last_timestamp < ? AND status = ?", thresholdTime, HubActive).
 		Update("status", HubInactive).Error
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (h *hubManagement) update(ctx context.Context) error {
 	var reactiveHubs []models.LeafHubHeartbeat
 	err = db.Model(&reactiveHubs).
 		Clauses(clause.Returning{Columns: []clause.Column{{Name: "leaf_hub_name"}}}).
-		Where("last_timestamp > ? AND status = ?", lastTime, HubInactive).
+		Where("last_timestamp > ? AND status = ?", thresholdTime, HubInactive).
 		Update("status", HubActive).Error
 	if err != nil {
 		return err

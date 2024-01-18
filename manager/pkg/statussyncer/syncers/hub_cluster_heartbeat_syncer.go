@@ -62,7 +62,7 @@ func handleHeartbeatBundle(ctx context.Context, bundle bundle.ManagerBundle) err
 		LastUpdateAt: time.Now(),
 	}
 
-	err := db.Model(&heartbeat).Clauses(clause.OnConflict{UpdateAll: true}).Create(&heartbeat)
+	err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&heartbeat)
 	if err != nil {
 		return fmt.Errorf("failed to update heartbeat %v", err)
 	}

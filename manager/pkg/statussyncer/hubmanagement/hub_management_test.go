@@ -26,7 +26,7 @@ func TestHubManagement(t *testing.T) {
 	err = testpostgres.InitDatabase(testPostgres.URI)
 	assert.Nil(t, err)
 
-	// insert data
+	// prepare data
 	now := time.Now()
 	hubs := []models.LeafHubHeartbeat{
 		{
@@ -73,7 +73,7 @@ func TestHubManagement(t *testing.T) {
 		LastUpdateAt: now.Add(-60 * time.Second),
 	}
 	fmt.Println(">> heartbeat: heartbeat-hub04 ")
-	err = db.Model(&hub4).Clauses(clause.OnConflict{UpdateAll: true}).Create(&hub4).Error
+	err = db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&hub4).Error
 	assert.Nil(t, err)
 
 	var updatedHub4 models.LeafHubHeartbeat
@@ -86,15 +86,14 @@ func TestHubManagement(t *testing.T) {
 
 	// update
 	hubManagement := &hubManagement{
-		log:            ctrl.Log.WithName("hub-management"),
-		probeDuration:  2 * time.Second,
-		sessionTimeout: 90 * time.Second,
+		log:           ctrl.Log.WithName("hub-management"),
+		probeDuration: 2 * time.Second,
+		activeTimeout: 90 * time.Second,
 	}
-	fmt.Println(">> hub management: heartbeat-hub02 -> inactive, heartbeat-hub04 -> active")
 	assert.Nil(t, hubManagement.Start(ctx))
 	time.Sleep(3 * time.Second)
 
-	fmt.Println(">> hub management[2s|90s]: heartbeat-hub02 -> inactive, heartbeat-hub04 -> active")
+	fmt.Println(">> hub management[90s]: heartbeat-hub02 -> inactive, heartbeat-hub04 -> active")
 	var updatedHubs []models.LeafHubHeartbeat
 	err = db.Find(&updatedHubs).Error
 	assert.Nil(t, err)
