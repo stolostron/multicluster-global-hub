@@ -25,7 +25,6 @@ type ManagerConfig struct {
 	ElectionConfig        *commonobjects.LeaderElectionConfig
 	EnableGlobalResource  bool
 	LaunchJobNames        string
-	AgentSessionTimeout   string
 }
 
 type SyncerConfig struct {

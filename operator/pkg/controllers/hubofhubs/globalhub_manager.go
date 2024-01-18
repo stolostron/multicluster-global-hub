@@ -135,7 +135,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			EnableGlobalResource:   r.EnableGlobalResource,
 			LogLevel:               r.LogLevel,
 			Resources:              utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
-			AgentSessionTimeout:    config.AgentSessionTimeout,
 		}, nil
 	})
 	if err != nil {
@@ -255,5 +254,4 @@ type ManagerVariables struct {
 	EnableGlobalResource   bool
 	LogLevel               string
 	Resources              *corev1.ResourceRequirements
-	AgentSessionTimeout    string
 }

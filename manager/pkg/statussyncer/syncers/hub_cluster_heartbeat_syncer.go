@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	"gorm.io/gorm/clause"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
@@ -61,11 +60,10 @@ func handleHeartbeatBundle(ctx context.Context, bundle bundle.ManagerBundle,
 	heartbeat := models.LeafHubHeartbeat{
 		Name:         leafHubName,
 		LastUpdateAt: time.Now(),
-		Status:       hubmanagement.HubActive,
 	}
 
 	db := database.GetGorm()
 
-	ret := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&heartbeat)
+	ret := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&heartbeat)
 	return ret.Error
 }

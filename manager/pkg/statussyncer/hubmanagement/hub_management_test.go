@@ -27,18 +27,24 @@ func TestHubManagement(t *testing.T) {
 	assert.Nil(t, err)
 
 	// insert data
+	now := time.Now()
 	hubs := []models.LeafHubHeartbeat{
 		{
 			Name:         "heartbeat-hub01",
-			LastUpdateAt: time.Now(),
+			LastUpdateAt: now,
 		},
 		{
 			Name:         "heartbeat-hub02",
-			LastUpdateAt: time.Now().Add(-100 * time.Second),
+			LastUpdateAt: now.Add(-120 * time.Second),
 		},
 		{
 			Name:         "heartbeat-hub03",
-			LastUpdateAt: time.Now().Add(-20 * time.Second),
+			LastUpdateAt: now.Add(-20 * time.Second),
+		},
+		{
+			Name:         "heartbeat-hub04",
+			LastUpdateAt: now.Add(-180 * time.Second),
+			Status:       HubInactive,
 		},
 	}
 	db := database.GetGorm()
@@ -48,31 +54,54 @@ func TestHubManagement(t *testing.T) {
 	var heartbeatHubs []models.LeafHubHeartbeat
 	err = db.Find(&heartbeatHubs).Error
 	assert.Nil(t, err)
+
+	assert.Greater(t, len(heartbeatHubs), 0)
 	for _, heartbeatHub := range heartbeatHubs {
 		fmt.Println(heartbeatHub.Name, heartbeatHub.LastUpdateAt, heartbeatHub.Status)
+		if heartbeatHub.Name == "heartbeat-hub04" {
+			assert.Equal(t, HubInactive, heartbeatHub.Status)
+			continue
+		}
+		assert.Equal(t, heartbeatHub.Status, HubActive)
 	}
+
+	// only update the heartbeat Time
+	hub4 := models.LeafHubHeartbeat{
+		Name:         "heartbeat-hub04",
+		LastUpdateAt: now.Add(-60 * time.Second),
+	}
+	err = db.Clauses(clause.OnConflict{DoNothing: true}).Create(&hub4).Error
+	assert.Nil(t, err)
+
+	var updatedHub4 models.LeafHubHeartbeat
+	err = db.Where("name = ?", "heartbeat-hub04").Find(&updatedHub4).Error
+	assert.Nil(t, err)
+	fmt.Println("updatedHeartbeat", hub4.Name, hub4.LastUpdateAt, hub4.Status)
+	assert.Equal(t, HubInactive, hub4.Status)              // status not update
+	assert.Equal(t, now.Add(-60*time.Second), updatedHub4) // time updated
 
 	// update
 	hubManagement := &hubManagement{
-		log:           ctrl.Log.WithName("hub-management"),
-		probeInterval: 90 * time.Second,
+		log:            ctrl.Log.WithName("hub-management"),
+		probeDuration:  2 * time.Second,
+		sessionTimeout: 90 * time.Second,
 	}
 	assert.Nil(t, hubManagement.Start(ctx))
-	err = hubManagement.update(ctx)
-	assert.Nil(t, err)
+	time.Sleep(3 * time.Second)
 
 	fmt.Println("hub management updated")
 	var updatedHubs []models.LeafHubHeartbeat
 	err = db.Find(&updatedHubs).Error
 	assert.Nil(t, err)
-	inactiveCount := 0
+	assert.Greater(t, len(updatedHubs), 0)
 	for _, updatedHub := range updatedHubs {
 		fmt.Println(updatedHub.Name, updatedHub.LastUpdateAt, updatedHub.Status)
-		if updatedHub.Status == HubInactive {
-			inactiveCount++
+		if updatedHub.Name == "heartbeat-hub02" {
+			assert.Equal(t, HubInactive, updatedHub.Status)
+			continue
 		}
+		assert.Equal(t, HubActive, updatedHub.Status)
 	}
-	assert.Equal(t, 1, inactiveCount)
 
 	// close
 	cancel()

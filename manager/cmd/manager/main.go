@@ -91,7 +91,6 @@ func parseFlags() *managerconfig.ManagerConfig {
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 		LaunchJobNames:        "",
-		AgentSessionTimeout:   "",
 	}
 
 	// add zap flags
@@ -161,8 +160,6 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
 		"enable the global resource feature.")
-	pflag.StringVar(&managerConfig.AgentSessionTimeout, "agent-session-timeout", "90s",
-		"The interval to detect/update the managed hub status")
 
 	pflag.Parse()
 	// set zap logger

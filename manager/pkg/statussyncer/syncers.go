@@ -31,7 +31,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 	}
 
 	// add hub management
-	if err := hubmanagement.AddHubManagement(mgr, managerConfig); err != nil {
+	if err := hubmanagement.AddHubManagement(mgr); err != nil {
 		return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 	}
 
