@@ -92,7 +92,7 @@ func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(configmapPred)).
 		Watches(&kafkav1beta2.Kafka{},
 			objEventHandler,
-			builder.WithPredicates(commonPred)).
+			builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.KafkaUser{},
 			objEventHandler,
 			builder.WithPredicates(commonPred)).
@@ -167,6 +167,24 @@ var configmapPred = predicate.Funcs{
 			return false
 		}
 		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return false
+	},
+}
+
+var kafkaPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue) {
+			return true
+		}
+		if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+			return true
+		}
+		return false
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false

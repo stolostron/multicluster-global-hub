@@ -379,3 +379,125 @@ func TestAddBackupLabelToZookeeperTemplate(t *testing.T) {
 		})
 	}
 }
+
+func TestAddBackupLabelToOperatorDeployTemplate(t *testing.T) {
+	namespace := "default"
+	tests := []struct {
+		name          string
+		existingKafka *kafkav1beta2.Kafka
+		wantUpdate    bool
+		wantErr       bool
+	}{
+		{
+			name:          "kafka is nil",
+			existingKafka: &kafkav1beta2.Kafka{},
+			wantUpdate:    false,
+			wantErr:       true,
+		},
+		{
+			name:          "kafka spec is nil",
+			existingKafka: &kafkav1beta2.Kafka{},
+			wantUpdate:    false,
+			wantErr:       true,
+		},
+		{
+			name: "kafka do not have backup label",
+			existingKafka: &kafkav1beta2.Kafka{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kafka",
+					Namespace: namespace,
+				},
+				Spec: &kafkav1beta2.KafkaSpec{
+					EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{},
+				},
+			},
+			wantUpdate: true,
+			wantErr:    false,
+		},
+		{
+			name: "kafka do not have backup label with template",
+			existingKafka: &kafkav1beta2.Kafka{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kafka",
+					Namespace: namespace,
+				},
+				Spec: &kafkav1beta2.KafkaSpec{
+					EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
+						Template: &kafkav1beta2.KafkaSpecEntityOperatorTemplate{},
+					},
+				},
+			},
+			wantUpdate: true,
+			wantErr:    false,
+		},
+		{
+			name: "kafka do not have backup label with metadata template",
+			existingKafka: &kafkav1beta2.Kafka{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kafka",
+					Namespace: namespace,
+				},
+				Spec: &kafkav1beta2.KafkaSpec{
+					EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
+						Template: &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
+							Deployment: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeployment{
+								Metadata: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeploymentMetadata{},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate: true,
+			wantErr:    false,
+		},
+		{
+			name: "kafka have backup label with metadata template",
+			existingKafka: &kafkav1beta2.Kafka{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kafka",
+					Namespace: namespace,
+				},
+				Spec: &kafkav1beta2.KafkaSpec{
+					EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
+						Template: &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
+							Deployment: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeployment{
+								Metadata: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeploymentMetadata{
+									Labels: &apiextensions.JSON{
+										Raw: []byte(BackupVolumnLabelRaw),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantUpdate: true,
+			wantErr:    false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var kafkaOperatorLabels map[string]string
+			returnedKafka, updated, err := AddExcludeLabelToEntityOperatorDeploymentTemplate(tt.existingKafka)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Should have error, err: %v", err)
+				}
+				return
+			}
+
+			if !reflect.DeepEqual(updated, tt.wantUpdate) {
+				t.Errorf("AddExcludeLabelToEntityOperatorDeploymentTemplate() got = %v, want %v", updated, tt.wantUpdate)
+			}
+			operatorLabelsJson := returnedKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels
+
+			err = json.Unmarshal(operatorLabelsJson.Raw, &kafkaOperatorLabels)
+			if err != nil {
+				t.Errorf("Should not have error, err: %v", err)
+			}
+			if !utils.HasLabel(kafkaOperatorLabels, constants.ExcludeBackupKey, "true") {
+				t.Errorf("Should have exclude label, labels: %v", kafkaOperatorLabels)
+			}
+		})
+	}
+}

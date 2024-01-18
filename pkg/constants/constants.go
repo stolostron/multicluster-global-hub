@@ -34,6 +34,7 @@ const (
 	BackupVolumnKey       = "cluster.open-cluster-management.io/volsync"
 	BackupActivationValue = "cluster-activation"
 	BackupGlobalHubValue  = "globalhub"
+	ExcludeBackupKey      = "velero.io/exclude-from-backup"
 )
 
 // global hub transport and storage secret and configmap names

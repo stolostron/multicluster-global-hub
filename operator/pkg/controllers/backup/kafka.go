@@ -37,6 +37,9 @@ const (
 	BackupVolumnLabelRaw = `{
 		"cluster.open-cluster-management.io/volsync": "globalhub"
 	}`
+	ExcludeBackupLabelRaw = `{
+		"velero.io/exclude-from-backup": "true"
+	}`
 )
 
 type kafkaBackup struct {
@@ -92,7 +95,15 @@ func AddBackupLabelToTemplate(ctx context.Context,
 			return err
 		}
 
-		if !updateBackupLabelInZookeeperPVC && !updateBackupLabelInKafkaPVC {
+		updatedKafka, updateExcludLabelInOperatorDeploy, err := AddExcludeLabelToEntityOperatorDeploymentTemplate(
+			updatedKafka)
+		if err != nil {
+			return err
+		}
+
+		if !updateBackupLabelInZookeeperPVC &&
+			!updateBackupLabelInKafkaPVC &&
+			!updateExcludLabelInOperatorDeploy {
 			return nil
 		}
 
@@ -234,6 +245,82 @@ func AddBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafk
 	return updatedKafka, true, nil
 }
 
+func AddExcludeLabelToEntityOperatorDeploymentTemplate(existingKafka *kafkav1beta2.Kafka) (
+	*kafkav1beta2.Kafka,
+	bool,
+	error) {
+	var operatorLabels map[string]string
+	if existingKafka == nil || existingKafka.Spec == nil {
+		return nil, false, fmt.Errorf("kafka spec should not be nil")
+	}
+	var desiredOperator = &kafkav1beta2.KafkaSpecEntityOperator{
+		Template: &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
+			Deployment: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeployment{
+				Metadata: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeploymentMetadata{
+					Labels: &apiextensions.JSON{
+						Raw: []byte(ExcludeBackupLabelRaw),
+					},
+				},
+			},
+		},
+	}
+
+	updatedKafka := existingKafka.DeepCopy()
+
+	if existingKafka.Spec.EntityOperator == nil {
+		updatedKafka.Spec.EntityOperator = desiredOperator
+		return updatedKafka, true, nil
+	}
+
+	if existingKafka.Spec.EntityOperator.Template == nil {
+		updatedKafka.Spec.EntityOperator.Template = desiredOperator.Template
+		return updatedKafka, true, nil
+	}
+
+	if existingKafka.Spec.EntityOperator.Template.Deployment == nil {
+		updatedKafka.Spec.EntityOperator.Template.Deployment =
+			desiredOperator.Template.Deployment
+		return updatedKafka, true, nil
+	}
+
+	if existingKafka.Spec.EntityOperator.Template.Deployment.Metadata == nil {
+		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata =
+			desiredOperator.Template.Deployment.Metadata
+		return updatedKafka, true, nil
+	}
+
+	if existingKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels == nil {
+		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels =
+			desiredOperator.Template.Deployment.Metadata.Labels
+		return updatedKafka, true, nil
+	}
+
+	operatorLabelsJson := existingKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels
+
+	err := json.Unmarshal(operatorLabelsJson.Raw, &operatorLabels)
+	if err != nil {
+		return nil, true, err
+	}
+	if utils.HasLabel(operatorLabels, constants.ExcludeBackupKey, "true") {
+		return updatedKafka, false, nil
+	}
+
+	if operatorLabels == nil {
+		operatorLabels = make(map[string]string)
+	}
+
+	operatorLabels[constants.ExcludeBackupKey] = "true"
+
+	operatorLabelJSON, err := json.Marshal(operatorLabels)
+	if err != nil {
+		return nil, true, err
+	}
+	updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels = &apiextensions.JSON{
+		Raw: operatorLabelJSON,
+	}
+	return updatedKafka, true, nil
+}
+
 func DeleteBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1beta2.Kafka, bool, error) {
 	var kafkaPVCLabels map[string]string
 
@@ -344,6 +431,7 @@ func DeleteTemplateBackupLabels(ctx context.Context,
 
 func (r *kafkaBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, namespace string) error {
 	objList := &kafkav1beta2.KafkaList{}
+
 	err := c.List(ctx, objList, &client.ListOptions{
 		Namespace: namespace,
 	})
@@ -351,6 +439,7 @@ func (r *kafkaBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, na
 		return err
 	}
 	for _, obj := range objList.Items {
+
 		if utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
 			continue
 		}
