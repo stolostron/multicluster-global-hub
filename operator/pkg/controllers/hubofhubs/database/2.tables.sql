@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS status.leaf_hub_heartbeats (
     last_timestamp timestamp without time zone DEFAULT now() NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats (leaf_hub_name);
+CREATE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_timestamp_idx ON status.leaf_hub_heartbeats(last_timestamp);
 
 CREATE TABLE IF NOT EXISTS status.managed_clusters (
     leaf_hub_name character varying(254) NOT NULL,
