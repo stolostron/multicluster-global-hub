@@ -33,6 +33,5 @@ func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Cont
 	if err := config.SetStatisticLogInterval(mgh); err != nil {
 		return err
 	}
-
 	return nil
 }
