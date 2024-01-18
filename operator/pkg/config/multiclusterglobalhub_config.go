@@ -76,9 +76,10 @@ var (
 		GrafanaImageKey:          "quay.io/stolostron/grafana:globalhub-1.0",
 		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
 	}
-	statisticLogInterval = "1m"
-	imagePullSecretName  = ""
-	transporter          transport.Transporter
+	statisticLogInterval  = "1m"
+	metricsScrapeInterval = "12h"
+	imagePullSecretName   = ""
+	transporter           transport.Transporter
 )
 
 func SetMGHNamespacedName(namespacedName types.NamespacedName) {
@@ -221,6 +222,14 @@ func SetStatisticLogInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error
 
 func GetStatisticLogInterval() string {
 	return statisticLogInterval
+}
+
+func GetMetricsScrapeInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+	interval := getAnnotation(mgh, operatorconstants.AnnotationMetricsScrapeInterval)
+	if interval == "" {
+		interval = metricsScrapeInterval
+	}
+	return interval
 }
 
 func GetPostgresStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {

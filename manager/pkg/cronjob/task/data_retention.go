@@ -9,7 +9,7 @@ import (
 	"github.com/go-co-op/gocron"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/metrics"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -42,19 +42,15 @@ var (
 	retentionLog = ctrl.Log.WithName(RetentionTaskName)
 )
 
-func init() {
-	metrics.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(0)
-}
-
 func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 	currentTime := time.Now()
 
 	var err error
 	defer func() {
 		if err != nil {
-			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(1)
+			monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(1)
 		} else {
-			metrics.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(0)
+			monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(0)
 		}
 	}()
 

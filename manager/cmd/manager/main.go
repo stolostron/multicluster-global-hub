@@ -37,7 +37,7 @@ import (
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector"
-	globalhubmetrics "github.com/stolostron/multicluster-global-hub/manager/pkg/metrics"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
@@ -73,6 +73,7 @@ var (
 
 func init() {
 	managerscheme.AddToScheme(scheme)
+	monitoring.RegisterMetrics()
 }
 
 func parseFlags() *managerconfig.ManagerConfig {
@@ -270,10 +271,6 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 	eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
 	if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig); err != nil {
 		return nil, fmt.Errorf("failed to add event collector: %w", err)
-	}
-
-	if err := mgr.Add(globalhubmetrics.NewGlobalHubMetrics()); err != nil {
-		return nil, fmt.Errorf("failed to add metrics to manager: %w", err)
 	}
 
 	return mgr, nil

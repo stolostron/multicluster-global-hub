@@ -11,6 +11,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
 )
 
 const (
@@ -73,6 +74,9 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 
 func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
 	s.log.Info("start job scheduler")
+	// Set the status of the job to 0 (success) when the job is started.
+	monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(task.RetentionTaskName).Set(0)
+	monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(task.LocalComplianceTaskName).Set(0)
 	s.scheduler.StartAsync()
 	if err := s.execJobs(ctx); err != nil {
 		return err
