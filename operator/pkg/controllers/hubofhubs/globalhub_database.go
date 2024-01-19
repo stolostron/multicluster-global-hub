@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -72,7 +71,10 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 			return err
 		}
 	}
-	err = handleUpgrade(ctx, conn, log, upgradeFS, readonlyUsername)
+	//Run upgrade
+	if err := applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername); err != nil {
+		return err
+	}
 	if err != nil {
 		log.Error(err, "Failed to upgrade db schema")
 		return err
@@ -82,27 +84,6 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 	err = condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE)
 	if err != nil {
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
-	}
-	return nil
-}
-
-func handleUpgrade(ctx context.Context, conn *pgx.Conn, log logr.Logger, upgradeFS embed.FS, username string) error {
-	log.V(2).Info("Handle upgrade db schema")
-	rows, err := conn.Query(ctx,
-		"SELECT column_name FROM information_schema.columns WHERE table_name = 'leaf_hubs' AND column_name = 'cluster_id';",
-	)
-	if err != nil {
-		return err
-	}
-	hasNext := rows.Next()
-	log.V(2).Info("Query rows :", "has value:", hasNext)
-	defer rows.Close()
-	if !hasNext {
-		log.Info("Db shcema will be upgraded")
-		if err := applySQL(ctx, conn, upgradeFS, "upgrade", username); err != nil {
-			return err
-		}
-		log.Info("Db shcema upgrade success")
 	}
 	return nil
 }

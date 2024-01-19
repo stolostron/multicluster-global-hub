@@ -1,3 +1,4 @@
+--- Only handle Upgrade from 1.0.x to 1.1.x, Should remove this file after 1.1
 ALTER TABLE status.leaf_hubs ADD IF NOT EXISTS cluster_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
 
 ALTER TABLE status.leaf_hubs DROP CONSTRAINT leaf_hubs_pkey;
