@@ -77,7 +77,7 @@ var (
 		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
 	}
 	statisticLogInterval  = "1m"
-	metricsScrapeInterval = "12h"
+	metricsScrapeInterval = "1m"
 	imagePullSecretName   = ""
 	transporter           transport.Transporter
 )
