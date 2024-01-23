@@ -7,7 +7,7 @@ require (
 	github.com/Shopify/sarama v1.38.1
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cloudevents/sdk-go/v2 v2.13.0
-	github.com/confluentinc/confluent-kafka-go/v2 v2.0.2
+	github.com/confluentinc/confluent-kafka-go/v2 v2.3.0
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
 	github.com/fergusstrange/embedded-postgres v1.17.0
@@ -72,7 +72,6 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
-	github.com/Microsoft/hcsshim v0.9.3 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/apache/arrow/go/v11 v11.0.0 // indirect
 	github.com/apache/thrift v0.16.0 // indirect
