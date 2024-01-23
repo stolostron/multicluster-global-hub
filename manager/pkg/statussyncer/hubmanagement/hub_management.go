@@ -32,8 +32,10 @@ type hubManagement struct {
 }
 
 func AddHubManagement(mgr ctrl.Manager) error {
-	return mgr.Add(&hubManagement{log: ctrl.Log.WithName("hub-management"),
-		probeDuration: ProbeDuration, activeTimeout: ActiveTimeout})
+	return mgr.Add(&hubManagement{
+		log:           ctrl.Log.WithName("hub-management"),
+		probeDuration: ProbeDuration, activeTimeout: ActiveTimeout,
+	})
 }
 
 func (h *hubManagement) Start(ctx context.Context) error {

@@ -30,8 +30,10 @@ import (
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var storageConnectionCache *postgres.PostgresConnection
-var transportConnectionCache *transport.ConnCredential
+var (
+	storageConnectionCache   *postgres.PostgresConnection
+	transportConnectionCache *transport.ConnCredential
+)
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	mgh *v1alpha4.MulticlusterGlobalHub,

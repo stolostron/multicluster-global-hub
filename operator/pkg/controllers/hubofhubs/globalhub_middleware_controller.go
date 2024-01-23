@@ -54,7 +54,8 @@ var kafkaPred = predicate.Funcs{
 
 // this controller is used to watch the Kafka/KafkaTopic/KafkaUser custom resource
 func StartMiddlewareController(ctx context.Context, mgr ctrl.Manager, reconciler *MulticlusterGlobalHubReconciler) (
-	*builder.Builder, error) {
+	*builder.Builder, error,
+) {
 	transProtocol, err := detectTransportProtocol(ctx, mgr.GetClient())
 	if err != nil {
 		return nil, err

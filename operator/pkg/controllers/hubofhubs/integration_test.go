@@ -1060,7 +1060,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	})
 
 	Context("Test the middlewareController", Ordered, func() {
-
 		It("Should start the middlewareController", func() {
 			// create kafkacluster
 			Expect(kafka.UpdateKafkaClusterReady(k8sClient, commonutils.GetDefaultNamespace())).ToNot(HaveOccurred())
@@ -1106,9 +1105,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return nil
 			}, timeout, interval).Should(Succeed())
 		})
-
 	})
-
 })
 
 func prettyPrint(v interface{}) error {

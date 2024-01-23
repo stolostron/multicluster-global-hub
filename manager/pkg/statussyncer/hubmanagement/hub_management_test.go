@@ -109,5 +109,6 @@ func TestHubManagement(t *testing.T) {
 
 	// close
 	cancel()
-	testPostgres.Stop()
+	err = testPostgres.Stop()
+	assert.Nil(t, err)
 }
