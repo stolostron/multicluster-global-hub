@@ -7,6 +7,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/dispatcher"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/hubmanagement"
 	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
@@ -27,6 +28,11 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 	stats, err := addStatisticController(mgr, managerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add statistics to manager - %w", err)
+	}
+
+	// add hub management
+	if err := hubmanagement.AddHubManagement(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 	}
 
 	// conflationReadyQueue is shared between conflation manager and dispatcher

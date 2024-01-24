@@ -23,7 +23,6 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
@@ -70,9 +69,9 @@ func (r *kafkaBackup) AddLabelToOneObj(ctx context.Context,
 // AddTemplateBackupLabels add backup label to kafka pvc template
 func AddBackupLabelToTemplate(ctx context.Context,
 	client client.Client,
-	namespace, name string) error {
+	namespace, name string,
+) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-
 		existingKafka := &kafkav1beta2.Kafka{}
 		err := client.Get(ctx, types.NamespacedName{
 			Name:      name,
@@ -111,7 +110,7 @@ func AddBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1b
 		return nil, false, fmt.Errorf("kafka spec should not be nil, name: %s}", existingKafka.Name)
 	}
 
-	var desiredTemplate = &kafkav1beta2.KafkaSpecKafkaTemplate{
+	desiredTemplate := &kafkav1beta2.KafkaSpecKafkaTemplate{
 		PersistentVolumeClaim: &kafkav1beta2.KafkaSpecKafkaTemplatePersistentVolumeClaim{
 			Metadata: &kafkav1beta2.KafkaSpecKafkaTemplatePersistentVolumeClaimMetadata{
 				Labels: &apiextensions.JSON{
@@ -131,14 +130,12 @@ func AddBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1b
 	}
 
 	if existingKafka.Spec.Kafka.Template.PersistentVolumeClaim.Metadata == nil {
-		updatedKafka.Spec.Kafka.Template.PersistentVolumeClaim.Metadata =
-			desiredTemplate.PersistentVolumeClaim.Metadata
+		updatedKafka.Spec.Kafka.Template.PersistentVolumeClaim.Metadata = desiredTemplate.PersistentVolumeClaim.Metadata
 		return updatedKafka, true, nil
 	}
 
 	if existingKafka.Spec.Kafka.Template.PersistentVolumeClaim.Metadata.Labels == nil {
-		updatedKafka.Spec.Kafka.Template.PersistentVolumeClaim.Metadata.Labels =
-			desiredTemplate.PersistentVolumeClaim.Metadata.Labels
+		updatedKafka.Spec.Kafka.Template.PersistentVolumeClaim.Metadata.Labels = desiredTemplate.PersistentVolumeClaim.Metadata.Labels
 		return updatedKafka, true, nil
 	}
 
@@ -173,7 +170,7 @@ func AddBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafk
 	if existingKafka == nil || existingKafka.Spec == nil {
 		return nil, false, fmt.Errorf("kafka spec should not be nil")
 	}
-	var desiredTemplate = &kafkav1beta2.KafkaSpecZookeeperTemplate{
+	desiredTemplate := &kafkav1beta2.KafkaSpecZookeeperTemplate{
 		PersistentVolumeClaim: &kafkav1beta2.KafkaSpecZookeeperTemplatePersistentVolumeClaim{
 			Metadata: &kafkav1beta2.KafkaSpecZookeeperTemplatePersistentVolumeClaimMetadata{
 				Labels: &apiextensions.JSON{
@@ -191,20 +188,17 @@ func AddBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafk
 	}
 
 	if existingKafka.Spec.Zookeeper.Template.PersistentVolumeClaim == nil {
-		updatedKafka.Spec.Zookeeper.Template.PersistentVolumeClaim =
-			desiredTemplate.PersistentVolumeClaim
+		updatedKafka.Spec.Zookeeper.Template.PersistentVolumeClaim = desiredTemplate.PersistentVolumeClaim
 		return updatedKafka, true, nil
 	}
 
 	if existingKafka.Spec.Zookeeper.Template.PersistentVolumeClaim.Metadata == nil {
-		updatedKafka.Spec.Zookeeper.Template.PersistentVolumeClaim.Metadata =
-			desiredTemplate.PersistentVolumeClaim.Metadata
+		updatedKafka.Spec.Zookeeper.Template.PersistentVolumeClaim.Metadata = desiredTemplate.PersistentVolumeClaim.Metadata
 		return updatedKafka, true, nil
 	}
 
 	if existingKafka.Spec.Zookeeper.Template.PersistentVolumeClaim.Metadata.Labels == nil {
-		updatedKafka.Spec.Zookeeper.Template.PersistentVolumeClaim.Metadata.Labels =
-			desiredTemplate.PersistentVolumeClaim.Metadata.Labels
+		updatedKafka.Spec.Zookeeper.Template.PersistentVolumeClaim.Metadata.Labels = desiredTemplate.PersistentVolumeClaim.Metadata.Labels
 		return updatedKafka, true, nil
 	}
 
@@ -307,8 +301,8 @@ func DeleteBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*k
 // DeleteTemplateBackupLabels delete backup label to kafka pvc template
 func DeleteTemplateBackupLabels(ctx context.Context,
 	client client.Client,
-	namespace, name string) error {
-
+	namespace, name string,
+) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		existingKafka := &kafkav1beta2.Kafka{}
 

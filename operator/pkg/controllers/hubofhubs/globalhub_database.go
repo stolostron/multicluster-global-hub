@@ -71,7 +71,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 			return err
 		}
 	}
-	//Run upgrade
+	// Run upgrade
 	if err := applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername); err != nil {
 		return err
 	}

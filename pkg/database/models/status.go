@@ -76,10 +76,16 @@ func (Transport) TableName() string {
 
 type LeafHubHeartbeat struct {
 	Name         string    `gorm:"column:leaf_hub_name;primaryKey"`
-	Status       string    `gorm:"column:status;default:active"`
-	LastUpdateAt time.Time `gorm:"column:last_timestamp;autoUpdateTime:true"`
+	Status       string    `gorm:"column:status;default:(-)"`
+	LastUpdateAt time.Time `gorm:"column:last_timestamp;autoUpdateTime:false"`
 }
 
 func (LeafHubHeartbeat) TableName() string {
 	return "status.leaf_hub_heartbeats"
+}
+
+func (h LeafHubHeartbeat) UpInsertHeartBeat(db *gorm.DB) error {
+	tmp := `INSERT INTO status.leaf_hub_heartbeats (leaf_hub_name, status, last_timestamp)
+		VALUES ($1, $2, $3) ON CONFLICT (leaf_hub_name) DO UPDATE SET last_timestamp = $3;`
+	return db.Exec(tmp, h.Name, h.Status, h.LastUpdateAt).Error
 }
