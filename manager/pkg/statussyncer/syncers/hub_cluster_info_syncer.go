@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/go-logr/logr"
+	"gorm.io/gorm/clause"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
@@ -104,12 +105,17 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 
 		syncer.log.V(2).Info("Existing objs", "existingObjs", existingObjs)
 		if len(existingObjs) == 0 {
-			syncer.log.Info("Create LeafHub", "leaf_hub_name", leafHubName, "cluster_id", specificObj.ClusterId)
-			err := db.Create(&models.LeafHub{
+			err := db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "cluster_id"}, {Name: "leaf_hub_name"}},
+				UpdateAll: true,
+			}).Create(&models.LeafHub{
 				LeafHubName: leafHubName,
 				ClusterID:   clusterId,
 				Payload:     payload,
 			}).Error
+			if err != nil {
+				syncer.log.Error(err, "failed to upinsert hubinfo", "name", leafHubName, "id", clusterId)
+			}
 			return err
 		}
 		err = db.Model(&models.LeafHub{}).
@@ -122,6 +128,7 @@ func (syncer *hubClusterInfoDBSyncer) handleLocalObjectsBundle(ctx context.Conte
 				Payload:     payload,
 			}).Error
 		if err != nil {
+			syncer.log.Error(err, "failed to update the existing hubinfo", "name", leafHubName, "id", clusterId)
 			return err
 		}
 	}
