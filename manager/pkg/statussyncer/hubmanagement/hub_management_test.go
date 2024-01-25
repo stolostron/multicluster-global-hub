@@ -15,6 +15,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -87,7 +88,8 @@ func TestHubManagement(t *testing.T) {
 	// update
 	hubManagement := &hubManagement{
 		log:           ctrl.Log.WithName("hub-management"),
-		probeDuration: 2 * time.Second,
+		producer:      &tmpProducer{},
+		probeDuration: 1 * time.Second,
 		activeTimeout: 90 * time.Second,
 	}
 	assert.Nil(t, hubManagement.Start(ctx))
@@ -111,4 +113,10 @@ func TestHubManagement(t *testing.T) {
 	cancel()
 	err = testPostgres.Stop()
 	assert.Nil(t, err)
+}
+
+type tmpProducer struct{}
+
+func (*tmpProducer) Send(ctx context.Context, msg *transport.Message) error {
+	return nil
 }

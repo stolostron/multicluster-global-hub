@@ -186,9 +186,9 @@ func (b *ComplianceBundle) updateObjectIfChanged(objectIndex int, policy *polici
 	// check if any cluster was added or removed
 	if len(oldPolicyStatus.CompliantClusters)+len(oldPolicyStatus.NonCompliantClusters)+
 		len(oldPolicyStatus.UnknownComplianceClusters) != len(allClusters) ||
-		!b.clusterListContains(oldPolicyStatus.CompliantClusters, allClusters) ||
-		!b.clusterListContains(oldPolicyStatus.NonCompliantClusters, allClusters) ||
-		!b.clusterListContains(oldPolicyStatus.UnknownComplianceClusters, allClusters) {
+		!b.containClusters(allClusters, oldPolicyStatus.CompliantClusters) ||
+		!b.containClusters(allClusters, oldPolicyStatus.NonCompliantClusters) ||
+		!b.containClusters(allClusters, oldPolicyStatus.UnknownComplianceClusters) {
 		clusterListChanged = true // at least one cluster was added/removed
 	}
 
@@ -200,7 +200,7 @@ func (b *ComplianceBundle) updateObjectIfChanged(objectIndex int, policy *polici
 	return clusterListChanged
 }
 
-func (b *ComplianceBundle) clusterListContains(subsetClusters []string, allClusters []string) bool {
+func (b *ComplianceBundle) containClusters(allClusters []string, subsetClusters []string) bool {
 	for _, clusterName := range subsetClusters {
 		if !utils.ContainsString(allClusters, clusterName) {
 			return false
