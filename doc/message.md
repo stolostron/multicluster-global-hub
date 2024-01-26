@@ -25,8 +25,8 @@ Will list the supported resources later.
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.LocalPolicySpec",
-    "source": "reg-112",
+    "id": "1c93bc16-bc17-11ee-9604-b7917fdadaab",
+    "source": "managed_hub1",
     "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localspec",
     "datacontenttype": "application/json",
     "time": "2024-01-25T07:34:59.740351049Z",
@@ -105,8 +105,8 @@ Will list the supported resources later.
     },
     "kafkaoffset": "223",
     "kafkapartition": "0",
-    "kafkatopic": "status.reg-112",
-    "kafkamessagekey": "reg-112.LocalPolicySpec",
+    "kafkatopic": "status.managed_hub1",
+    "kafkamessagekey": "managed_hub1.LocalPolicySpec",
     "size": "4758",
     "offset": "0"
 }
@@ -115,9 +115,9 @@ Will list the supported resources later.
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.LocalCompliance",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.status",
+    "id": "2c13b7fe-bc17-11ee-95b7-b72b1f90ea91",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompliance",
     "datacontenttype": "application/json",
     "time": "2024-01-25T07:34:59.542609025Z",
     "data": {
@@ -144,8 +144,8 @@ Will list the supported resources later.
             "Value": 2
         }
     },
-    "kafkatopic": "status.reg-112",
-    "kafkamessagekey": "reg-112.LocalCompliance",
+    "kafkatopic": "status.managed_hub1",
+    "kafkamessagekey": "managed_hub1.LocalCompliance",
     "offset": "0",
     "kafkapartition": "0",
     "size": "390",
@@ -156,9 +156,9 @@ Will list the supported resources later.
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.LocalCompleteCompliance",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.status",
+    "id": "509f6c76-bc17-11ee-b75f-73c1fcc519c1",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompletecompliance",
     "datacontenttype": "application/json",
     "time": "2024-01-25T07:34:59.689719771Z",
     "data": {
@@ -181,8 +181,8 @@ Will list the supported resources later.
         }
     },
     "kafkapartition": "0",
-    "kafkatopic": "status.reg-112",
-    "kafkamessagekey": "reg-112.LocalCompleteCompliance",
+    "kafkatopic": "status.managed_hub1",
+    "kafkamessagekey": "managed_hub1.LocalCompleteCompliance",
     "size": "259",
     "offset": "0",
     "kafkaoffset": "222"
@@ -192,8 +192,8 @@ Will list the supported resources later.
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.ManagedClusters",
-    "source": "reg-112",
+    "id": "633e7b9c-bc17-11ee-af2d-df6d2ef823d8",
+    "source": "managed_hub1",
     "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.localspec",
     "datacontenttype": "application/json",
     "time": "2024-01-25T07:34:54.540333196Z",
@@ -211,7 +211,7 @@ Will list the supported resources later.
                         "vendor": "IKS"
                     },
                     "annotations": {
-                        "global-hub.open-cluster-management.io/managed-by": "reg-112",
+                        "global-hub.open-cluster-management.io/managed-by": "managed_hub1",
                         "open-cluster-management/created-via": "other"
                     }
                 },
@@ -264,9 +264,9 @@ Will list the supported resources later.
             "Value": 1
         }
     },
-    "kafkamessagekey": "reg-112.ManagedClusters",
+    "kafkamessagekey": "managed_hub1.ManagedClusters",
     "kafkapartition": "0",
-    "kafkatopic": "status.reg-112",
+    "kafkatopic": "status.managed_hub1",
     "size": "2928",
     "offset": "0",
     "kafkaoffset": "219"
@@ -277,9 +277,9 @@ Will list the supported resources later.
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.HubClusterHeartbeat",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.status",
+    "id": "8eda9722-bc17-11ee-812e-f7ec30debe33",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat",
     "datacontenttype": "application/json",
     "time": "2024-01-25T08:12:49.543071482Z",
     "data": {
@@ -288,10 +288,10 @@ Will list the supported resources later.
             "Value": 38
         }
     },
-    "kafkatopic": "status.reg-112",
+    "kafkatopic": "status.managed_hub1",
     "size": "70",
     "kafkapartition": "0",
-    "kafkamessagekey": "reg-112.HubClusterHeartbeat",
+    "kafkamessagekey": "managed_hub1.HubClusterHeartbeat",
     "offset": "0",
     "kafkaoffset": "262"
 }
@@ -300,9 +300,9 @@ Will list the supported resources later.
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.HubClusterInfo",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.status",
+    "id": "946bba7c-bc17-11ee-9f8b-fbf106bac19c",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.info",
     "datacontenttype": "application/json",
     "time": "2024-01-25T07:35:49.542703828Z",
     "data": {
@@ -321,8 +321,8 @@ Will list the supported resources later.
     "kafkaoffset": "224",
     "size": "253",
     "kafkapartition": "0",
-    "kafkatopic": "status.reg-112",
-    "kafkamessagekey": "reg-112.HubClusterInfo",
+    "kafkatopic": "status.managed_hub1",
+    "kafkamessagekey": "managed_hub1.HubClusterInfo",
     "offset": "0"
 }
 ```
@@ -337,26 +337,24 @@ Currently, the following resource events are supported:
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.PolicyPropagation",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.event",
+    "id": "a3120afe-bc17-11ee-a707-3326cba39e32",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.propagate",
     "datacontenttype": "application/json",
     "time": "2024-01-25T07:34:54.942302988Z",
     "data": {
-        "events": {
-            "6b9b8545-1a84-4b55-8423-a9b28a1a4967": [
-                {
-                    "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
-                    "policyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
-                    "eventName": "mem-limit.175d21cdaba3ef7e",
-                    "message": Policy default/mem-limit was propagated to cluster hub2/hub2",
-                    "reason": "PolicyPropagation",
-                    "count": 1,
-                    "source": "policy-propagator",
-                    "createdAt": "2024-01-25T04:07:07Z"
-                }
-            ]
-        }
+        "objects": [
+            {
+                "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
+                "policyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
+                "eventName": "mem-limit.175d21cdaba3ef7e",
+                "message": Policy default/mem-limit was propagated to cluster hub2/hub2",
+                "reason": "PolicyPropagation",
+                "count": 1,
+                "source": "policy-propagator",
+                "createdAt": "2024-01-25T04:07:07Z"
+            }
+        ]
     }
 }
 ```
@@ -364,51 +362,38 @@ Currently, the following resource events are supported:
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.LocalPolicyHistoryEvents",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.event",
+    "id": "2d05f502-bc29-11ee-9964-b36883b3456b",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.replicatedpolicy.update",
     "datacontenttype": "application/json",
     "time": "2024-01-25T07:34:54.942302988Z",
     "data": {
-        "policyStatusEvents": {
-            "6b9b8545-1a84-4b55-8423-a9b28a1a4967": [
-                {
-                    "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
-                    "policyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
-                    "compliance": "NonCompliant",
-                    "eventName": "kube-system.test-role-policy-1705906106.17ad7b80d4e6f6a4",
-                    "message": "NonCompliant; violation - roles [deployments-role-1705906106] not found in namespace default",
-                    "reason": "PolicyStatusSync",
-                    "count": 1,
-                    "source": null,
-                    "createdAt": "2024-01-25T04:07:07Z"
-                }
-            ],
-            "b71adfc1-87f9-40d9-9b15-2221095a2bbd": [
-                {
-                    "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
-                    "policyId": "9cf86cb6-b8ca-4752-bad1-a481ae35aa07",
-                    "compliance": "Compliant",
-                    "eventName": "default.test-enforce-pod-1705906106.17ad7b83028892b6",
-                    "message": "Compliant; notification - pods [pod-test-1705906106] found as specified in namespace default",
-                    "reason": "PolicyStatusSync",
-                    "count": 1,
-                    "source": null,
-                    "createdAt": "2024-01-25T04:07:16Z"
-                },
-                {
-                    "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
-                    "policyId": "9cf86cb6-b8ca-4752-bad1-a481ae35aa07",
-                    "compliance": "Compliant",
-                    "eventName": "default.test-enforce-pod-1705906106.17ad7b80e1f0088a",
-                    "message": "Compliant; notification - pods [pod-test-1705906106] was created successfully in namespace default",
-                    "reason": "PolicyStatusSync",
-                    "count": 1,
-                    "source": null,
-                    "createdAt": "2024-01-25T04:07:07Z"
-                }
-            ]
-        },
+        "objects": [
+            {
+                "policyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
+                "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
+                "replicatedpolicyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
+                "compliance": "NonCompliant",
+                "eventName": "kube-system.test-role-policy-1705906106.17ad7b80d4e6f6a4",
+                "message": "NonCompliant; violation - roles [deployments-role-1705906106] not found in namespace default",
+                "reason": "PolicyStatusSync",
+                "count": 1,
+                "source": null,
+                "createdAt": "2024-01-25T04:07:07Z"
+            },
+            {
+                "policyId": "b71adfc1-87f9-40d9-9b15-2221095a2bbd",
+                "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
+                "replicatedpolicyId": "9cf86cb6-b8ca-4752-bad1-a481ae35aa07",
+                "compliance": "Compliant",
+                "eventName": "default.test-enforce-pod-1705906106.17ad7b83028892b6",
+                "message": "Compliant; notification - pods [pod-test-1705906106] found as specified in namespace default",
+                "reason": "PolicyStatusSync",
+                "count": 1,
+                "source": null,
+                "createdAt": "2024-01-25T04:07:16Z"
+            }
+        ]
         "bundleVersion": {
             "Generation": 0,
             "Value": 2
@@ -418,34 +403,32 @@ Currently, the following resource events are supported:
     "kafkaoffset": "220",
     "kafkapartition": "0",
     "size": "1728",
-    "kafkatopic": "status.reg-112",
-    "kafkamessagekey": "reg-112.LocalPolicyHistoryEvents"
+    "kafkatopic": "status.managed_hub1",
+    "kafkamessagekey": "managed_hub1.LocalPolicyHistoryEvents"
 }
 ```
 #### Delete
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.PolicyPropagation",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.event",
+    "id": "66aebdac-bc29-11ee-a7ea-031122cb170e",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.delete",
     "datacontenttype": "application/json",
     "time": "2024-01-25T07:34:54.942302988Z",
     "data": {
-        "events": {
-            "6b9b8545-1a84-4b55-8423-a9b28a1a4967": [
-                {
-                    "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
-                    "policyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
-                    "eventName": "mem-limit.175d21cdaba3ef7e",
-                    "message": Policy default/mem-limit was deleted from cluster hub2/hub2",
-                    "reason": "PolicyPropagation",
-                    "count": 1,
-                    "source": "policy-propagator",
-                    "createdAt": "2024-01-25T04:07:07Z"
-                }
-            ]
-        }
+        "objects": [
+            {
+                "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
+                "policyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
+                "eventName": "mem-limit.175d21cdaba3ef7e",
+                "message": Policy default/mem-limit was deleted from cluster hub2/hub2",
+                "reason": "PolicyPropagation",
+                "count": 1,
+                "source": "policy-propagator",
+                "createdAt": "2024-01-25T04:07:07Z"
+            }
+        ]
     }
 }
 ```
@@ -454,32 +437,23 @@ Currently, the following resource events are supported:
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.ManagedClusterProvision",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.event",
+    "id": "60d3e292-bc18-11ee-b1ad-e79256e13892",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.provision",
     "datacontenttype": "application/json",
     "time": "2024-01-25T04:06:16.542703828Z",
     "data": {
-        "events": {
-            "6b9b8545-1a84-4b55-8423-a9b28a1a4967": [
-                {
-                    "eventName": "kube-system.provision.17ad7b80d4e6f6a4",
-                    "message": "The cluster (cluster1) is being provisioned now",
-                    "reason": "ManagedClusterProvisioning",
-                    "count": 1,
-                    "source": "hive",
-                    "createdAt": "2024-01-25T04:07:07Z"
-                },
-                {
-                    "eventName": "kube-system.provision.17ad7b80d4e6f6a4",
-                    "message": "The cluster (cluster1) is provisioned successfully",
-                    "reason": "ManagedClusterProvisioned",
-                    "count": 1,
-                    "source": "hive",
-                    "createdAt": "2024-01-25T05:07:07Z"
-                }  
-            ]
-        }
+        "objects": [
+            {
+                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+                "eventName": "kube-system.provision.17ad7b80d4e6f6a4",
+                "message": "The cluster (cluster1) is being provisioned now",
+                "reason": "Provisioning",
+                "count": 1,
+                "source": "hive",
+                "createdAt": "2024-01-25T04:07:07Z"
+            }
+        ]
     }
 }
 ```
@@ -487,32 +461,23 @@ Currently, the following resource events are supported:
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.ManagedClusterImport",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.event",
+    "id": "c006d9b2-bc2d-11ee-90e9-8feab4dd9214",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.import",
     "datacontenttype": "application/json",
     "time": "2024-01-25T04:06:16.542703828Z",
     "data": {
-        "events": {
-            "6b9b8545-1a84-4b55-8423-a9b28a1a4967": [
-                {
-                    "eventName": "kube-system.import.17ad7b80d4e6f6a4",
-                    "message": "The cluster (cluster1) is being imported now",
-                    "reason": "ManagedClusterImporting",
-                    "count": 1,
-                    "source": "import-controller",
-                    "createdAt": "2024-01-25T05:08:07Z"
-                },
-                {
-                    "eventName": "kube-system.import.17ad7b80d4e6f6a4",
-                    "message": "The cluster (cluster1) is imported successfully",
-                    "reason": "ManagedClusterImported",
-                    "count": 1,
-                    "source": "import-controller",
-                    "createdAt": "2024-01-25T05:09:07Z"
-                }  
-            ]
-        }
+        "objects": [
+            {
+                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+                "eventName": "kube-system.import.17ad7b80d4e6f6a4",
+                "message": "The cluster (cluster1) is being imported now",
+                "reason": "Importing",
+                "count": 1,
+                "source": "import-controller",
+                "createdAt": "2024-01-25T05:08:07Z"
+            } 
+        ]
     }
 }
 ```
@@ -520,98 +485,72 @@ Currently, the following resource events are supported:
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.ManagedClusterStatus",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.event",
+    "id": "18b775ee-bc2e-11ee-a014-2f5782d1c2cc",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.update",
     "datacontenttype": "application/json",
     "time": "2024-01-25T04:06:16.542703828Z",
     "data": {
-        "events": {
-            "6b9b8545-1a84-4b55-8423-a9b28a1a4967": [
-                {
-                    "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-                    "message": "The cluster (cluster1) is available now",
-                    "reason": "ManagedClusterAvailable",
-                    "count": 1,
-                    "source": "addon-framework",
-                    "createdAt": "2024-01-25T05:08:07Z"
-                },
-                {
-                    "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-                    "message": "Search addon is unavailable now",
-                    "reason": "AddonUnavailable",
-                    "count": 1,
-                    "source": "addon-framework",
-                    "createdAt": "2024-01-25T05:09:07Z"
-                }  
-            ]
-        }
+        "objects": [
+            {
+                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+                "eventName": "kube-system.status.17ad7b80d4e6f6a4",
+                "message": "The cluster (cluster1) is available now",
+                "reason": "Available",
+                "count": 1,
+                "source": "addon-framework",
+                "createdAt": "2024-01-25T05:08:07Z"
+            }  
+        ]
     }
 }
 ```
-#### Update
+#### Detach
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.ManagedClusterStatus",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.event",
+    "id": "a59375e4-bc2e-11ee-98bb-035b5cb373d3",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.detach",
     "datacontenttype": "application/json",
     "time": "2024-01-25T04:06:16.542703828Z",
     "data": {
-        "events": {
-            "6b9b8545-1a84-4b55-8423-a9b28a1a4967": [
-                {
-                    "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-                    "message": "The cluster (cluster1) is available now",
-                    "reason": "ManagedClusterAvailable",
-                    "count": 1,
-                    "source": "addon-framework",
-                    "createdAt": "2024-01-25T05:08:07Z"
-                },
-                {
-                    "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-                    "message": "Search addon is unavailable now",
-                    "reason": "AddonUnavailable",
-                    "count": 1,
-                    "source": "addon-framework",
-                    "createdAt": "2024-01-25T05:09:07Z"
-                }  
-            ]
-        }
+        "objects": [
+            {
+                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+                "eventName": "kube-system.status.17ad7b80d4e6f6a4",
+                "message": "The cluster (cluster1) is being detached now",
+                "reason": "Detaching",
+                "count": 1,
+                "source": "klusterlet",
+                "createdAt": "2024-01-25T05:08:07Z"
+            } 
+        ]
     }
 }
 ```
-### Delete
+
+#### Destory
 ```
 {
     "specversion": "1.0",
-    "id": "reg-112.ManagedClusterStatus",
-    "source": "reg-112",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.event",
+    "id": "a12abe36-bc2e-11ee-98d9-a752ab52434d",
+    "source": "managed_hub1",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.destroy",
     "datacontenttype": "application/json",
     "time": "2024-01-25T04:06:16.542703828Z",
     "data": {
-        "events": {
-            "6b9b8545-1a84-4b55-8423-a9b28a1a4967": [
-                {
-                    "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-                    "message": "The cluster (cluster1) is being detached now",
-                    "reason": "ManagedClusterDetaching",
-                    "count": 1,
-                    "source": "klusterlet",
-                    "createdAt": "2024-01-25T05:08:07Z"
-                },
-                {
-                    "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-                    "message": "The cluster (cluster1) is detached now",
-                    "reason": "ManagedClusterDetached",
-                    "count": 1,
-                    "source": "klusterlet",
-                    "createdAt": "2024-01-25T05:09:07Z"
-                }  
-            ]
-        }
+        "objects": [
+            {
+                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+                "eventName": "kube-system.status.17ad7b80d4e6f6a4",
+                "message": "The cluster (cluster1) is destoryed successfully",
+                "reason": "Destroyed",
+                "count": 1,
+                "source": "-",
+                "createdAt": "2024-01-25T05:08:07Z"
+            } 
+        ]
     }
 }
 ```
