@@ -526,3 +526,51 @@ func Test_GetResources(t *testing.T) {
 		})
 	}
 }
+
+func Test_MergeJson(t *testing.T) {
+	tests := []struct {
+		name string
+		a    []byte
+		b    []byte
+		want []byte
+	}{
+		{
+			name: "should merge two json",
+			a: []byte(`{  
+				"number": 1,
+				"string": "value",
+				"foo": "bar",
+				"object": {
+					"number": 1,
+					"string": "value",
+					"nested object": {
+						"number": 2
+					},
+				  	"array": [1, 2, 3]
+				}
+			  }`),
+			b: []byte(`{
+				"number": 2,
+				"string": "value1",
+				"nonexitent": "woot",
+				"object": {
+					"number": 3,
+					"string": "value2",
+					"nested object": {
+						"number": 4
+					},
+					"array": [3, 2, 1]
+				}
+			}`),
+			want: []byte(`{"foo":"bar","nonexitent":"woot","number":2,"object":{"array":[3,2,1],"nested object":{"number":4},"number":3,"string":"value2"},"string":"value1"}`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _ := MergeJSON(tt.a, tt.b)
+			if string(got) != string(tt.want) {
+				t.Errorf("MergeJSON() = %v, want %v", string(got), string(tt.want))
+			}
+		})
+	}
+}
