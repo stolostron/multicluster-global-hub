@@ -659,8 +659,8 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 			k.log.Error(err, "failed to merge kafka config")
 		} else {
 			updatedKafka.Spec.Kafka.Config.Raw = updatedRaw
+			needUpdated = true
 		}
-		needUpdated = true
 	}
 
 	if needUpdated || !equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity,
