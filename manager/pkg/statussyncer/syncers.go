@@ -16,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
@@ -23,7 +24,9 @@ import (
 // adds controllers and/or runnables to the manager, registers handler functions within the dispatcher
 //
 //	and create bundle functions within the bundle.
-func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (dbsyncer.BundleRegisterable, error) {
+func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
+	producer transport.Producer,
+) (dbsyncer.BundleRegisterable, error) {
 	// register statistics within the runtime manager
 	stats, err := addStatisticController(mgr, managerConfig)
 	if err != nil {
@@ -31,7 +34,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) (db
 	}
 
 	// add hub management
-	if err := hubmanagement.AddHubManagement(mgr); err != nil {
+	if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
 		return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 	}
 

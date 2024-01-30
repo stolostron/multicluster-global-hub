@@ -37,10 +37,12 @@ type hubManagement struct {
 	activeTimeout time.Duration
 }
 
-func AddHubManagement(mgr ctrl.Manager) error {
+func AddHubManagement(mgr ctrl.Manager, producer transport.Producer) error {
 	return mgr.Add(&hubManagement{
 		log:           ctrl.Log.WithName("hub-management"),
-		probeDuration: ProbeDuration, activeTimeout: ActiveTimeout,
+		producer:      producer,
+		probeDuration: ProbeDuration,
+		activeTimeout: ActiveTimeout,
 	})
 }
 
