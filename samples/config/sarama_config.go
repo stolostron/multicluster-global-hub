@@ -61,7 +61,7 @@ func GetSaramaConfig() (string, *sarama.Config, error) {
 }
 
 func GetSaramaConfigFromKafkaUser() (string, *sarama.Config, error) {
-	userName := KAFkA_USER
+	userName := KAFKA_USER
 	kubeconfig, err := loadDynamicKubeConfig(EnvKubconfig)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get kubeconfig")
