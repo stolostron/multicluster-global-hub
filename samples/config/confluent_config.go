@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	KAFkA_USER      = "global-hub-kafka-user"
+	KAFKA_USER      = "global-hub-kafka-user"
 	KAFKA_CLUSTER   = "kafka"
 	KAFKA_NAMESPACE = "multicluster-global-hub"
 )
@@ -72,10 +72,15 @@ func GetConfluentConfigMapByKafkaUser(isProducer bool) (*kafka.ConfigMap, error)
 		return nil, fmt.Errorf("failed to get kubeconfig")
 	}
 
-	userName := KAFkA_USER
-	name := os.Getenv("KAFkA_USER")
+	userName := KAFKA_USER
+	name := os.Getenv("KAFKA_USER")
 	if name != "" {
 		userName = name
+	}
+	consumerGroupID := userName
+	groupID := os.Getenv("CONSUMER_GROUP_ID")
+	if groupID != "" {
+		consumerGroupID = groupID
 	}
 
 	kafkav1beta2.AddToScheme(scheme.Scheme)
@@ -132,7 +137,7 @@ func GetConfluentConfigMapByKafkaUser(isProducer bool) (*kafka.ConfigMap, error)
 		ClientCertPath:  clientCrtPath,
 		ClientKeyPath:   clientKeyPath,
 		ConsumerConfig: &transport.KafkaConsumerConfig{
-			ConsumerID: userName,
+			ConsumerID: consumerGroupID,
 		},
 	}
 	configMap, err := config.GetConfluentConfigMap(kafkaConfig, isProducer)
