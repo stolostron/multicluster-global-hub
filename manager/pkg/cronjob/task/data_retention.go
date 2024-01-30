@@ -10,6 +10,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -55,10 +56,10 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 		}
 	}()
 
-	creationPartitionTime := currentMonth.AddDate(0, 1, 0)
-	deletionPartitionTime := currentMonth.AddDate(0, -(retentionMonth + 1), 0)
+	createMonth := currentMonth.AddDate(0, 1, 0)
+	deleteMonth := currentMonth.AddDate(0, -(retentionMonth + 1), 0)
 	for _, tableName := range partitionTables {
-		err = updatePartitionTables(tableName, creationPartitionTime, deletionPartitionTime)
+		err = updatePartitionTables(tableName, createMonth, deleteMonth)
 		if e := traceDataRetentionLog(tableName, currentMonth, err, true); e != nil {
 			retentionLog.Error(e, "failed to trace data retention log")
 		}
@@ -69,8 +70,9 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 	}
 
 	// delete the soft deleted records from database
+	minTime := currentMonth.AddDate(0, -retentionMonth, 0)
 	for _, tableName := range retentionTables {
-		err = deleteExpiredRecords(tableName, deletionPartitionTime)
+		err = deleteExpiredRecords(tableName, minTime)
 		if e := traceDataRetentionLog(tableName, currentMonth, err, false); e != nil {
 			retentionLog.Error(e, "failed to trace data retention log")
 		}
@@ -79,7 +81,14 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 			return
 		}
 	}
-
+	// delete the inactive heartbeat records
+	db := database.GetGorm()
+	err = db.Where("last_timestamp < ? AND status = ?", minTime, hubmanagement.HubInactive).
+		Delete(&models.LeafHubHeartbeat{}).Error
+	if err != nil {
+		retentionLog.Error(err, "failed to delete the expired leaf hub heartbeat")
+		return
+	}
 	retentionLog.Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
 }
 
@@ -109,9 +118,8 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 	return nil
 }
 
-func deleteExpiredRecords(tableName string, deletedPartitionTime time.Time) error {
-	minTime := deletedPartitionTime.AddDate(0, 1, 0)
-	minDate := time.Date(minTime.Year(), minTime.Month(), 1, 0, 0, 0, 0, minTime.Location())
+func deleteExpiredRecords(tableName string, minDate time.Time) error {
+
 	sql := fmt.Sprintf("DELETE FROM %s WHERE deleted_at < '%s'", tableName, minDate.Format(dateFormat))
 	db := database.GetGorm()
 	if result := db.Exec(sql); result.Error != nil {
