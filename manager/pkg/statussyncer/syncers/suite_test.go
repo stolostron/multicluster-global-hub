@@ -114,7 +114,7 @@ var _ = BeforeSuite(func() {
 	Expect(kubeClient).NotTo(BeNil())
 
 	By("Add controllers to manager")
-	transportDispatcher, err = statussyncer.AddStatusSyncers(mgr, managerConfig)
+	transportDispatcher, err = statussyncer.AddStatusSyncers(mgr, managerConfig, nil)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")

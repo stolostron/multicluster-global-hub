@@ -259,7 +259,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add basic spec syncers: %w", err)
 	}
 
-	if _, err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {
+	if _, err := statussyncer.AddStatusSyncers(mgr, managerConfig, producer); err != nil {
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
