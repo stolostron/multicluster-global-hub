@@ -32,8 +32,17 @@ const (
 
 	BackupKey             = "cluster.open-cluster-management.io/backup"
 	BackupVolumnKey       = "cluster.open-cluster-management.io/volsync"
+	BackupExcludeKey      = "velero.io/exclude-from-backup"
 	BackupActivationValue = "cluster-activation"
 	BackupGlobalHubValue  = "globalhub"
+
+	PostgresPvcLabelKey   = "component"
+	PostgresPvcLabelValue = "multicluster-global-hub-operator"
+)
+
+const (
+	//lock the database
+	LockId = "1"
 )
 
 // global hub transport and storage secret and configmap names

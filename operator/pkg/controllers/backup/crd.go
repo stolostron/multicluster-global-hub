@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var crdList = sets.NewString(
@@ -53,13 +54,13 @@ func (r *crdBackup) AddLabelToOneObj(ctx context.Context,
 	namespace, name string,
 ) error {
 	obj := &apiextensionsv1.CustomResourceDefinition{}
-	return addLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
+	return utils.AddLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
 }
 
 func (r *crdBackup) AddLabelToAllObjs(ctx context.Context, client client.Client, namespace string) error {
 	for name := range crdList {
 		obj := &apiextensionsv1.CustomResourceDefinition{}
-		err := addLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
+		err := utils.AddLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
 		if err != nil {
 			return err
 		}
@@ -70,7 +71,7 @@ func (r *crdBackup) AddLabelToAllObjs(ctx context.Context, client client.Client,
 func (r *crdBackup) DeleteLabelOfAllObjs(ctx context.Context, client client.Client, namespace string) error {
 	for name := range crdList {
 		obj := &apiextensionsv1.CustomResourceDefinition{}
-		err := deleteLabel(ctx, client, obj, namespace, name, r.labelKey)
+		err := utils.DeleteLabel(ctx, client, obj, namespace, name, r.labelKey)
 		if err != nil {
 			return err
 		}

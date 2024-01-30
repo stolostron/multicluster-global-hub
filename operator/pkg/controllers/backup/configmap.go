@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var configmapList = sets.NewString(
@@ -51,13 +52,13 @@ func (r *configmapBackup) AddLabelToOneObj(ctx context.Context,
 	namespace, name string,
 ) error {
 	obj := &corev1.ConfigMap{}
-	return addLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
+	return utils.AddLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
 }
 
 func (r *configmapBackup) AddLabelToAllObjs(ctx context.Context, client client.Client, namespace string) error {
 	for name := range configmapList {
 		obj := &corev1.ConfigMap{}
-		err := addLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
+		err := utils.AddLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
 		if err != nil {
 			return err
 		}
@@ -68,7 +69,7 @@ func (r *configmapBackup) AddLabelToAllObjs(ctx context.Context, client client.C
 func (r *configmapBackup) DeleteLabelOfAllObjs(ctx context.Context, client client.Client, namespace string) error {
 	for name := range configmapList {
 		obj := &corev1.ConfigMap{}
-		err := deleteLabel(ctx, client, obj, namespace, name, r.labelKey)
+		err := utils.DeleteLabel(ctx, client, obj, namespace, name, r.labelKey)
 		if err != nil {
 			return err
 		}

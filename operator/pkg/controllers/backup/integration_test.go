@@ -361,6 +361,12 @@ var _ = Describe("Backup controller", Ordered, func() {
 				if !utils.HasLabel(kafka.Labels, constants.BackupKey, constants.BackupGlobalHubValue) {
 					return false
 				}
+				if kafka.Spec.Kafka.Template == nil {
+					return false
+				}
+				if kafka.Spec.Kafka.Template.PersistentVolumeClaim == nil {
+					return false
+				}
 				kafkaPVCLabelsJson := kafka.Spec.Kafka.Template.PersistentVolumeClaim.Metadata.Labels
 
 				err := json.Unmarshal(kafkaPVCLabelsJson.Raw, &kafkaPVCLabels)
@@ -368,7 +374,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 					klog.Errorf("Failed to unmarshal kafkapvc labels, error:%v", err)
 					return false
 				}
-				if !utils.HasLabel(kafkaPVCLabels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+				if !utils.HasLabel(kafkaPVCLabels, constants.BackupExcludeKey, "true") {
 					return false
 				}
 
@@ -378,7 +384,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 				if err != nil {
 					return false
 				}
-				if !utils.HasLabel(zookeeperPVCLabels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+				if !utils.HasLabel(zookeeperPVCLabels, constants.BackupExcludeKey, "true") {
 					return false
 				}
 
@@ -521,70 +527,6 @@ var _ = Describe("Backup controller", Ordered, func() {
 					Name:      "kafkatopic",
 				}, kafkaTopic, &client.GetOptions{})).Should(Succeed())
 				return !utils.HasLabel(kafkaTopic.Labels, constants.BackupKey, constants.BackupGlobalHubValue)
-			}, timeout, interval).Should(BeTrue())
-		})
-	})
-
-	Context("add backup label to kafka PVC", Ordered, func() {
-		It("Should create the PVC with backup label", func() {
-			pvc := &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pvc",
-					Namespace: mghNamespace,
-					Labels: map[string]string{
-						"strimzi.io/kind": "Kafka",
-					},
-				},
-				Spec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse("5Gi"),
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
-
-			Eventually(func() bool {
-				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: mghNamespace,
-					Name:      "pvc",
-				}, pvc, &client.GetOptions{})).Should(Succeed())
-				return utils.HasLabel(pvc.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue)
-			}, timeout, interval).Should(BeTrue())
-		})
-
-		It("update the pvc backup label, it should be reconciled", func() {
-			pvc := &corev1.PersistentVolumeClaim{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Namespace: mghNamespace,
-				Name:      "pvc",
-			}, pvc, &client.GetOptions{})).Should(Succeed())
-
-			delete(pvc.Labels, constants.BackupVolumnKey)
-			Expect(k8sClient.Update(ctx, pvc, &client.UpdateOptions{}))
-
-			Eventually(func() bool {
-				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: mghNamespace,
-					Name:      "pvc",
-				}, pvc, &client.GetOptions{})).Should(Succeed())
-				return utils.HasLabel(pvc.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue)
-			}, timeout, interval).Should(BeTrue())
-		})
-
-		It("Disable backup, backup label should be deleted from pvc", func() {
-			disableBackup()
-			Eventually(func() bool {
-				pvc := &corev1.PersistentVolumeClaim{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: mghNamespace,
-					Name:      "pvc",
-				}, pvc, &client.GetOptions{})).Should(Succeed())
-				return !utils.HasLabel(pvc.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue)
 			}, timeout, interval).Should(BeTrue())
 		})
 	})

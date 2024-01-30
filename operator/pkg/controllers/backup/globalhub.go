@@ -47,7 +47,7 @@ func (r *mghBackup) AddLabelToOneObj(ctx context.Context,
 	namespace, name string,
 ) error {
 	obj := &globalhubv1alpha4.MulticlusterGlobalHub{}
-	return addLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
+	return utils.AddLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
 }
 
 func (r *mghBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, namespace string) error {
@@ -63,7 +63,7 @@ func (r *mghBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, name
 			continue
 		}
 		obj := &globalhubv1alpha4.MulticlusterGlobalHub{}
-		err := addLabel(ctx, c, obj, namespace, mgh.Name, r.labelKey, r.labelValue)
+		err := utils.AddLabel(ctx, c, obj, namespace, mgh.Name, r.labelKey, r.labelValue)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func (r *mghBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, n
 			continue
 		}
 		obj := &globalhubv1alpha4.MulticlusterGlobalHub{}
-		err := deleteLabel(ctx, c, obj, namespace, mgh.Name, r.labelKey)
+		err := utils.DeleteLabel(ctx, c, obj, namespace, mgh.Name, r.labelKey)
 		if err != nil {
 			return err
 		}

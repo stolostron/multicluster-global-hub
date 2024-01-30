@@ -20,11 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -147,77 +144,6 @@ func addBackupCondition(ctx context.Context, client client.Client,
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
-}
-
-func addLabel(
-	ctx context.Context, client client.Client, obj client.Object,
-	namespace, name string,
-	labelKey string, labelValue string,
-) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		err := client.Get(ctx, types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		}, obj)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil
-			}
-			klog.Errorf("Failed to get %v/%v, err:%v", namespace, name, err)
-			return err
-		}
-
-		if utils.HasLabel(obj.GetLabels(), labelKey, labelValue) {
-			return nil
-		}
-
-		objNewLabels := obj.GetLabels()
-		if objNewLabels == nil {
-			objNewLabels = make(map[string]string)
-		}
-		objNewLabels[labelKey] = labelValue
-		obj.SetLabels(objNewLabels)
-
-		if err := client.Update(ctx, obj); err != nil {
-			klog.Errorf("Failed to update %v/%v, err:%v", namespace, name, err)
-			return err
-		}
-		return nil
-	})
-}
-
-func deleteLabel(
-	ctx context.Context, client client.Client, obj client.Object,
-	namespace, name string,
-	labelKey string,
-) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		err := client.Get(ctx, types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		}, obj)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil
-			}
-			klog.Errorf("Failed to get %v/%v, err:%v", namespace, name, err)
-			return err
-		}
-
-		if !utils.HasLabelKey(obj.GetLabels(), labelKey) {
-			return nil
-		}
-
-		objNewLabels := obj.GetLabels()
-		delete(objNewLabels, labelKey)
-		obj.SetLabels(objNewLabels)
-
-		if err := client.Update(ctx, obj); err != nil {
-			klog.Errorf("Failed to update %v/%v, err:%v", namespace, name, err)
-			return err
-		}
-		return nil
-	})
 }
 
 func (r *BackupReconciler) addLableToAllResources(ctx context.Context) error {

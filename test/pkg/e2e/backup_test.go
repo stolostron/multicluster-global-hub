@@ -138,7 +138,7 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 					continue
 				}
 				klog.Errorf("pvc:%v, label:%v", v.Name, v.Labels)
-				if !utils.HasLabel(v.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+				if !utils.HasLabel(v.Labels, constants.BackupExcludeKey, "true") {
 					return false
 				}
 			}

@@ -46,29 +46,16 @@ func (r *pvcBackup) AddLabelToOneObj(ctx context.Context,
 	namespace, name string,
 ) error {
 	obj := &corev1.PersistentVolumeClaim{}
-	return addLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
+	return utils.AddLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
 }
 
 func (r *pvcBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, namespace string) error {
-	kafkaList := &corev1.PersistentVolumeClaimList{}
-	err := c.List(ctx, kafkaList, &client.ListOptions{
-		Namespace: namespace,
-		LabelSelector: labels.SelectorFromSet(
-			labels.Set{
-				kafkaPvcLabelKey: kafkaPvcLabelValue,
-			},
-		),
-	})
-	if err != nil {
-		return err
-	}
-
 	postgresList := &corev1.PersistentVolumeClaimList{}
-	err = c.List(ctx, postgresList, &client.ListOptions{
+	err := c.List(ctx, postgresList, &client.ListOptions{
 		Namespace: namespace,
 		LabelSelector: labels.SelectorFromSet(
 			labels.Set{
-				postgresPvcLabelKey: postgresPvcLabelValue,
+				constants.PostgresPvcLabelKey: constants.PostgresPvcLabelValue,
 			},
 		),
 	})
@@ -78,14 +65,13 @@ func (r *pvcBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, name
 
 	var objs []corev1.PersistentVolumeClaim
 	objs = append(objs, postgresList.Items...)
-	objs = append(objs, kafkaList.Items...)
 
 	for _, obj := range objs {
 		if utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
 			continue
 		}
 		pvc := &corev1.PersistentVolumeClaim{}
-		err := addLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey, r.labelValue)
+		err := utils.AddLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey, r.labelValue)
 		if err != nil {
 			return err
 		}
@@ -94,27 +80,13 @@ func (r *pvcBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, name
 }
 
 func (r *pvcBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, namespace string) error {
-	kafkaList := &corev1.PersistentVolumeClaimList{}
-	err := c.List(ctx, kafkaList, &client.ListOptions{
-		Namespace: namespace,
-		LabelSelector: labels.SelectorFromSet(
-			labels.Set{
-				kafkaPvcLabelKey: kafkaPvcLabelValue,
-				r.labelKey:       r.labelValue,
-			},
-		),
-	})
-	if err != nil {
-		return err
-	}
-
 	postgresList := &corev1.PersistentVolumeClaimList{}
-	err = c.List(ctx, postgresList, &client.ListOptions{
+	err := c.List(ctx, postgresList, &client.ListOptions{
 		Namespace: namespace,
 		LabelSelector: labels.SelectorFromSet(
 			labels.Set{
-				postgresPvcLabelKey: postgresPvcLabelValue,
-				r.labelKey:          r.labelValue,
+				constants.PostgresPvcLabelKey: constants.PostgresPvcLabelValue,
+				r.labelKey:                    r.labelValue,
 			},
 		),
 	})
@@ -124,14 +96,13 @@ func (r *pvcBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, n
 
 	var objs []corev1.PersistentVolumeClaim
 	objs = append(objs, postgresList.Items...)
-	objs = append(objs, kafkaList.Items...)
 
 	for _, obj := range objs {
 		if !utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
 			continue
 		}
 		pvc := &corev1.PersistentVolumeClaim{}
-		err := deleteLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey)
+		err := utils.DeleteLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey)
 		if err != nil {
 			return err
 		}

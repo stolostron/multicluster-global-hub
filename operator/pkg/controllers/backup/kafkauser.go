@@ -47,7 +47,7 @@ func (r *kafkaUserBackup) AddLabelToOneObj(ctx context.Context,
 	namespace, name string,
 ) error {
 	obj := &kafkav1beta2.KafkaUser{}
-	return addLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
+	return utils.AddLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
 }
 
 func (r *kafkaUserBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, namespace string) error {
@@ -63,7 +63,7 @@ func (r *kafkaUserBackup) AddLabelToAllObjs(ctx context.Context, c client.Client
 			continue
 		}
 		kafkaUser := &kafkav1beta2.KafkaUser{}
-		err := addLabel(ctx, c, kafkaUser, namespace, obj.Name, r.labelKey, r.labelValue)
+		err := utils.AddLabel(ctx, c, kafkaUser, namespace, obj.Name, r.labelKey, r.labelValue)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func (r *kafkaUserBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Cli
 			continue
 		}
 		kafkaUser := &kafkav1beta2.KafkaUser{}
-		err := deleteLabel(ctx, c, kafkaUser, namespace, obj.Name, r.labelKey)
+		err := utils.DeleteLabel(ctx, c, kafkaUser, namespace, obj.Name, r.labelKey)
 		if err != nil {
 			return err
 		}
