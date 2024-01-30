@@ -651,15 +651,16 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 		Pod.Affinity.NodeAffinity
 
 	// support upgrade the kafka cluster
-	if updatedKafka.Spec.Kafka.Version != desiredKafka.Spec.Kafka.Version {
+	if updatedKafka.Spec.Kafka.Version != nil &&
+		*updatedKafka.Spec.Kafka.Version != *desiredKafka.Spec.Kafka.Version {
 		updatedKafka.Spec.Kafka.Version = desiredKafka.Spec.Kafka.Version
 		updatedRaw, err := utils.MergeJSON(updatedKafka.Spec.Kafka.Config.Raw, desiredKafka.Spec.Kafka.Config.Raw)
 		if err != nil {
 			k.log.Error(err, "failed to merge kafka config")
 		} else {
 			updatedKafka.Spec.Kafka.Config.Raw = updatedRaw
-			needUpdated = true
 		}
+		needUpdated = true
 	}
 
 	if needUpdated || !equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity,
