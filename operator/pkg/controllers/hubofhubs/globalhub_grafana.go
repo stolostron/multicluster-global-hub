@@ -3,7 +3,6 @@ package hubofhubs
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"net/url"
 	"strings"
@@ -437,7 +436,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		return false, fmt.Errorf("middleware PgConnection config is null")
 	}
 
-	saToken := []byte{}
+	saToken := ""
 	if mgh.Spec.EnableMetrics {
 		saSecret := &corev1.Secret{}
 		err := r.Client.Get(ctx, types.NamespacedName{
@@ -447,17 +446,14 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		if err != nil {
 			return false, err
 		}
-		saToken, err = base64.StdEncoding.DecodeString(string(saSecret.Data["token"]))
-		if err != nil {
-			return false, err
-		}
+		saToken = string(saSecret.Data["token"])
 	}
 
 	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI,
-		r.MiddlewareConfig.StorageConn.CACert, string(saToken))
+		r.MiddlewareConfig.StorageConn.CACert, saToken)
 	if err != nil {
 		datasourceVal, err = GrafanaDataSource(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI,
-			r.MiddlewareConfig.StorageConn.CACert, string(saToken))
+			r.MiddlewareConfig.StorageConn.CACert, saToken)
 		if err != nil {
 			return false, err
 		}

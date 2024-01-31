@@ -812,7 +812,7 @@ data:
               "expr": "sum(increase(strimzi_reconciliations_successful_total[1h])) by (kind)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kind"` }}",
+              "legendFormat": "{{ `{{kind}}` }}",
               "refId": "A"
             }
           ],
@@ -906,7 +906,7 @@ data:
               "expr": "sum(increase(strimzi_reconciliations_failed_total[1h])) by (kind)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kind"` }}",
+              "legendFormat": "{{ `{{kind}}` }}",
               "refId": "A"
             }
           ],
@@ -1000,7 +1000,7 @@ data:
               "expr": "sum(increase(strimzi_reconciliations_locked_total[1h])) by (kind)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kind"` }}",
+              "legendFormat": "{{ `{{kind}}` }}",
               "refId": "A"
             }
           ],
@@ -1094,7 +1094,7 @@ data:
               "expr": "sum(increase(strimzi_reconciliations_total[1h])) by (kind)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kind"` }}",
+              "legendFormat": "{{ `{{kind}}` }}",
               "refId": "A"
             }
           ],
@@ -1188,7 +1188,7 @@ data:
               "expr": "sum(increase(strimzi_reconciliations_periodical_total[1h])) by (kind)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kind"` }}",
+              "legendFormat": "{{ `{{kind}}` }}",
               "refId": "A"
             }
           ],
@@ -1284,7 +1284,7 @@ data:
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kind"` }}",
+              "legendFormat": "{{ `{{kind}}` }}",
               "refId": "A"
             }
           ],
@@ -1403,7 +1403,7 @@ data:
               "expr": "sum(jvm_memory_used_bytes{container=~\"user-operator|topic-operator|strimzi-cluster-operator\"}) by (container)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"container"` }}",
+              "legendFormat": "{{ `{{container}}` }}",
               "refId": "A"
             }
           ],
@@ -1495,7 +1495,7 @@ data:
               "expr": "sum(rate(jvm_gc_pause_seconds_sum{container=~\"user-operator|topic-operator|strimzi-cluster-operator\"}[5m])) by (container)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"container"` }}",
+              "legendFormat": "{{ `{{container}}` }}",
               "refId": "A"
             }
           ],
@@ -1587,7 +1587,7 @@ data:
               "expr": "sum(rate(jvm_gc_pause_seconds_count{container=~\"user-operator|topic-operator|strimzi-cluster-operator\"}[5m])) by (container)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"container"` }}",
+              "legendFormat": "{{ `{{container}}` }}",
               "refId": "A"
             }
           ],

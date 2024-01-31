@@ -266,7 +266,7 @@ data:
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kubernetes_pod_name"` }}",
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
@@ -352,7 +352,7 @@ data:
               "expr": "sum(zookeeper_avgrequestlatency{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$zk_node\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kubernetes_pod_name"` }}",
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
@@ -598,7 +598,7 @@ data:
               "expr": "sum(container_memory_usage_bytes{namespace=\"$kubernetes_namespace\",container=\"zookeeper\",pod=~\"$strimzi_cluster_name-$zk_node\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"pod"` }}",
+              "legendFormat": "{{ `{{pod}}` }}",
               "refId": "A"
             }
           ],
@@ -684,7 +684,7 @@ data:
               "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$kubernetes_namespace\",container=\"zookeeper\",pod=~\"$strimzi_cluster_name-$zk_node\"}[5m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"pod"` }}",
+              "legendFormat": "{{ `{{pod}}` }}",
               "refId": "A"
             }
           ],
@@ -770,7 +770,7 @@ data:
               "expr": "sum(kubelet_volume_stats_available_bytes{namespace=\"$kubernetes_namespace\",persistentvolumeclaim=~\"data(-[0-9]+)?-$strimzi_cluster_name-zookeeper-[0-9]+\"}) by (persistentvolumeclaim)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"persistentvolumeclaim"` }}",
+              "legendFormat": "{{ `{{persistentvolumeclaim}}` }}",
               "refId": "A"
             }
           ],
@@ -858,7 +858,7 @@ data:
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kubernetes_pod_name"` }}",
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
@@ -943,7 +943,7 @@ data:
               "expr": "sum(jvm_memory_bytes_used{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$zk_node\",strimzi_io_name=\"$strimzi_cluster_name-zookeeper\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kubernetes_pod_name"` }}",
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
@@ -1028,7 +1028,7 @@ data:
               "expr": "sum(rate(jvm_gc_collection_seconds_sum{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$zk_node\",strimzi_io_name=\"$strimzi_cluster_name-zookeeper\"}[5m])) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kubernetes_pod_name"` }}",
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
@@ -1113,7 +1113,7 @@ data:
               "expr": "sum(rate(jvm_gc_collection_seconds_count{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$zk_node\",strimzi_io_name=\"$strimzi_cluster_name-zookeeper\"}[5m])) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kubernetes_pod_name"` }}",
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
@@ -1200,7 +1200,7 @@ data:
               "expr": "sum(jvm_threads_current{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-zookeeper-[0-9+]\",strimzi_io_name=\"$strimzi_cluster_name-zookeeper\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `"kubernetes_pod_name"` }}",
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
