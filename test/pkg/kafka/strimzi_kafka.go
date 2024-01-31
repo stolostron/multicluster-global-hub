@@ -6,6 +6,7 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	corev1 "k8s.io/api/core/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,6 +27,7 @@ var (
 )
 
 func UpdateKafkaClusterReady(client client.Client, ns string) error {
+	kafkaVersion := "3.5.0"
 	statusKafkaCluster := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
@@ -44,6 +46,10 @@ func UpdateKafkaClusterReady(client client.Client, ns string) error {
 						Type: "internal",
 					},
 				},
+				Config: &apiextensions.JSON{Raw: []byte(`{
+"default.replication.factor": 3
+}`)},
+				Version: &kafkaVersion,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
 				Replicas: 1,
