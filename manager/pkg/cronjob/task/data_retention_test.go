@@ -21,29 +21,33 @@ import (
 
 var _ = Describe("data retention job", Ordered, func() {
 	expiredPartitionTables := map[string]bool{}
-	currentTime := time.Now()
+	minPartitionTables := map[string]bool{}
+
+	now := time.Now()
+	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	retentionMonth := 18
 
-	minTime := currentTime.AddDate(0, -retentionMonth, 0)
+	minTime := currentMonth.AddDate(0, -retentionMonth, 0)
 	expirationTime := minTime.AddDate(0, -1, 0)
-	maxTime := currentTime.AddDate(0, 1, 0)
+	maxTime := currentMonth.AddDate(0, 1, 0)
 
 	BeforeAll(func() {
+		fmt.Println("Time", "max", maxTime, "min", minTime, "expiredTime", expirationTime)
 		By("Creating expired partition table in the database")
 		for _, tableName := range partitionTables {
 			err := createPartitionTable(tableName, expirationTime)
 			Expect(err).ToNot(HaveOccurred())
-			expiredPartitionTables[fmt.Sprintf("%s_%s", tableName,
-				expirationTime.Format(partitionDateFormat))] = false
+			expiredPartitionTables[fmt.Sprintf("%s_%s", tableName, expirationTime.Format(partitionDateFormat))] = false
 		}
 
 		By("Create the min partition table in the database")
 		for _, tableName := range partitionTables {
 			err := createPartitionTable(tableName, minTime)
 			Expect(err).ToNot(HaveOccurred())
+			minPartitionTables[fmt.Sprintf("%s_%s", tableName, minTime.Format(partitionDateFormat))] = false
 		}
 
-		By("Check whether the expired tables are created")
+		By("Check whether the expired/min tables are created")
 		Eventually(func() error {
 			var tables []models.Table
 			result := db.Raw("SELECT schemaname as schema_name, tablename as table_name FROM pg_tables").Find(&tables)
@@ -52,12 +56,23 @@ var _ = Describe("data retention job", Ordered, func() {
 			}
 			for _, table := range tables {
 				gotTable := fmt.Sprintf("%s.%s", table.Schema, table.Table)
+				// expired partition tables
 				if _, ok := expiredPartitionTables[gotTable]; ok {
 					fmt.Println("the expired partition table is created: ", gotTable)
 					expiredPartitionTables[gotTable] = true
 				}
+				// min partition tables
+				if _, ok := minPartitionTables[gotTable]; ok {
+					fmt.Println("the min partition table is created: ", gotTable)
+					minPartitionTables[gotTable] = true
+				}
 			}
 			for key, val := range expiredPartitionTables {
+				if !val {
+					return fmt.Errorf("table %s is not created", key)
+				}
+			}
+			for key, val := range minPartitionTables {
 				if !val {
 					return fmt.Errorf("table %s is not created", key)
 				}
@@ -154,9 +169,10 @@ var _ = Describe("data retention job", Ordered, func() {
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		fmt.Println("Time", "Min", minTime.Format(partitionDateFormat), "Max", maxTime.Format(partitionDateFormat))
 		for _, log := range logs {
-			fmt.Printf("table_name(%s) | min(%s) | max(%s) | min_deletion(%s) \n", log.Name, log.MinPartition,
-				log.MaxPartition, log.MinDeletion.Format(dateFormat))
+			fmt.Printf("table_name(%s) | min(%s) | max(%s) | min_deletion(%s) \n",
+				log.Name, log.MinPartition, log.MaxPartition, log.MinDeletion.Format(dateFormat))
 			for _, tableName := range partitionTables {
 				if log.Name == tableName {
 					Expect(log.MinPartition).To(ContainSubstring(minTime.Format(partitionDateFormat)))
