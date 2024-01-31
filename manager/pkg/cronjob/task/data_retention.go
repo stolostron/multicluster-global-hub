@@ -43,7 +43,8 @@ var (
 )
 
 func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
-	currentTime := time.Now()
+	now := time.Now()
+	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
 	var err error
 	defer func() {
@@ -54,11 +55,11 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 		}
 	}()
 
-	creationPartitionTime := currentTime.AddDate(0, 1, 0)
-	deletionPartitionTime := currentTime.AddDate(0, -(retentionMonth + 1), 0)
+	creationPartitionTime := currentMonth.AddDate(0, 1, 0)
+	deletionPartitionTime := currentMonth.AddDate(0, -(retentionMonth + 1), 0)
 	for _, tableName := range partitionTables {
 		err = updatePartitionTables(tableName, creationPartitionTime, deletionPartitionTime)
-		if e := traceDataRetentionLog(tableName, currentTime, err, true); e != nil {
+		if e := traceDataRetentionLog(tableName, currentMonth, err, true); e != nil {
 			retentionLog.Error(e, "failed to trace data retention log")
 		}
 		if err != nil {
@@ -70,7 +71,7 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 	// delete the soft deleted records from database
 	for _, tableName := range retentionTables {
 		err = deleteExpiredRecords(tableName, deletionPartitionTime)
-		if e := traceDataRetentionLog(tableName, currentTime, err, false); e != nil {
+		if e := traceDataRetentionLog(tableName, currentMonth, err, false); e != nil {
 			retentionLog.Error(e, "failed to trace data retention log")
 		}
 		if err != nil {
