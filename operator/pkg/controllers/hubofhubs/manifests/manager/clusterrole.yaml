@@ -70,11 +70,22 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - operator.open-cluster-management.io
+  resources:
+  - multiclusterhubs
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - ""
   resources:
   - pods
   - configmaps
   - events
+  - persistentvolumeclaims
   verbs:
   - create
   - delete

@@ -53,7 +53,7 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	database.CloseGorm()
+	database.CloseGorm(database.GetSqlDb())
 	pool.Close()
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 })

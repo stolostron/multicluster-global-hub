@@ -144,7 +144,6 @@ var _ = BeforeSuite(func() {
 
 	go func() {
 		defer GinkgoRecover()
-
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()

@@ -392,7 +392,6 @@ var _ = Describe("Backup controller", Ordered, func() {
 				}
 
 				zookeeperPVCLabelsJson := kafka.Spec.Zookeeper.Template.PersistentVolumeClaim.Metadata.Labels
-
 				err = json.Unmarshal(zookeeperPVCLabelsJson.Raw, &zookeeperPVCLabels)
 				if err != nil {
 					klog.Errorf("Failed to unmarshal kafkapvc labels, error:%v", err)
@@ -402,7 +401,6 @@ var _ = Describe("Backup controller", Ordered, func() {
 					klog.Errorf("kafka zookeeper do not have excludd label:%v", kafkaPVCLabels)
 					return false
 				}
-
 				return true
 			}, timeout, interval).Should(BeTrue())
 		})
@@ -603,7 +601,13 @@ var _ = Describe("Backup controller", Ordered, func() {
 					Namespace: mghNamespace,
 					Name:      "postgrespvc",
 				}, pvc, &client.GetOptions{})).Should(Succeed())
-				return utils.HasLabel(pvc.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue)
+				if !utils.HasLabel(pvc.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+					return false
+				}
+				if !utils.HasLabel(pvc.Labels, constants.BackupPvcUserCopyTrigger, constants.BackupGlobalHubValue) {
+					return false
+				}
+				return true
 			}, timeout, interval).Should(BeTrue())
 		})
 

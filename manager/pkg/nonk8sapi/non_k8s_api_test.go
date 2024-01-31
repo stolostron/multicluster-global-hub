@@ -1443,6 +1443,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		database.CloseGorm()
+		database.CloseGorm(database.GetSqlDb())
 	})
 })

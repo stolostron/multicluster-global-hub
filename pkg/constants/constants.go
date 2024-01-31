@@ -31,13 +31,21 @@ const (
 	DefaultClusterId = "00000000-0000-0000-0000-000000000000"
 
 	BackupKey             = "cluster.open-cluster-management.io/backup"
-	BackupVolumnKey       = "cluster.open-cluster-management.io/volsync"
+	BackupVolumnKey       = "cluster.open-cluster-management.io/backup-hub-pvc"
 	BackupExcludeKey      = "velero.io/exclude-from-backup"
 	BackupActivationValue = "cluster-activation"
 	BackupGlobalHubValue  = "globalhub"
 
 	PostgresPvcLabelKey   = "component"
 	PostgresPvcLabelValue = "multicluster-global-hub-operator"
+
+	//These annotation used to do prehook when backup pvc, which is provided by volsync
+	BackupPvcCopyTrigger       = "volsync.backube/copy-trigger"
+	BackupPvcUserCopyTrigger   = "volsync.backube/use-copy-trigger"
+	BackupPvcLatestCopyStatus  = "volsync.backube/latest-copy-status"
+	BackupPvcWaitingForTrigger = "WaitingForTrigger"
+	BackupPvcCompletedTrigger  = "Completed"
+	BackupPvcLatestCopyTrigger = "volsync.backube/latest-copy-trigger"
 )
 
 const (
