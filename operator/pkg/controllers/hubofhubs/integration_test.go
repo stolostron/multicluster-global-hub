@@ -905,7 +905,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should get the datasource config", func() {
-			_, err := hubofhubs.GrafanaDataSource(testPostgres.URI, []byte("test"))
+			_, err := hubofhubs.GrafanaDataSource(testPostgres.URI, []byte("test"), "test")
 			Expect(err).Should(Succeed())
 		})
 	})

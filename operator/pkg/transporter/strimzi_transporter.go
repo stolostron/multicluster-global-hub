@@ -69,6 +69,10 @@ var (
 	KafkaVersion                   = "3.6.0"
 	DefaultPartition         int32 = 1
 	DefaultPartitionReplicas int32 = 2
+	// kafka metrics constants
+	KakfaMetricsConfigmapName       = "kafka-metrics"
+	KafkaMetricsConfigmapKeyRef     = "kafka-metrics-config.yml"
+	ZooKeeperMetricsConfigmapKeyRef = "zookeeper-metrics-config.yml"
 )
 
 // install the strimzi kafka cluster by operator
@@ -819,6 +823,28 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 			},
 		}
 	}
+	kafkaMetricsConfig := &kafkav1beta2.KafkaSpecKafkaMetricsConfig{}
+	zookeeperMetricsConfig := &kafkav1beta2.KafkaSpecZookeeperMetricsConfig{}
+	if mgh.Spec.EnableMetrics {
+		kafkaMetricsConfig = &kafkav1beta2.KafkaSpecKafkaMetricsConfig{
+			Type: kafkav1beta2.KafkaSpecKafkaMetricsConfigTypeJmxPrometheusExporter,
+			ValueFrom: kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFrom{
+				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFromConfigMapKeyRef{
+					Name: &KakfaMetricsConfigmapName,
+					Key:  &KafkaMetricsConfigmapKeyRef,
+				},
+			},
+		}
+		zookeeperMetricsConfig = &kafkav1beta2.KafkaSpecZookeeperMetricsConfig{
+			Type: kafkav1beta2.KafkaSpecZookeeperMetricsConfigTypeJmxPrometheusExporter,
+			ValueFrom: kafkav1beta2.KafkaSpecZookeeperMetricsConfigValueFrom{
+				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecZookeeperMetricsConfigValueFromConfigMapKeyRef{
+					Name: &KakfaMetricsConfigmapName,
+					Key:  &ZooKeeperMetricsConfigmapKeyRef,
+				},
+			},
+		}
+	}
 
 	return &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
@@ -870,6 +896,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 						Affinity:    kafkaPodAffinity,
 					},
 				},
+				MetricsConfig: kafkaMetricsConfig,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
 				Replicas:  3,
@@ -881,6 +908,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 						Affinity:    zookeeperPodAffinity,
 					},
 				},
+				MetricsConfig: zookeeperMetricsConfig,
 			},
 			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
 				TopicOperator: &kafkav1beta2.KafkaSpecEntityOperatorTopicOperator{},

@@ -273,6 +273,10 @@ spec:
                     description: Specify the storageClass for storage.
                     type: string
                 type: object
+              enableMetrics:
+                description: EnableMetrics enables the metrics for the global hub
+                  kafka components
+                type: boolean
               imagePullPolicy:
                 description: Pull policy of the multicluster global hub images
                 type: string

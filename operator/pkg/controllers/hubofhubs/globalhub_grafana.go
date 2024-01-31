@@ -3,6 +3,7 @@ package hubofhubs
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"strings"
@@ -81,12 +82,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		return fmt.Errorf("failed to generate random session secret for grafana oauth-proxy: %v", err)
 	}
 
-	// generate datasource secret: must before the grafana objects
-	changedDatasourceSecret, err := r.GenerateGrafanaDataSourceSecret(ctx, mgh)
-	if err != nil {
-		return fmt.Errorf("failed to generate grafana datasource secret: %v", err)
-	}
-
 	imagePullPolicy := corev1.PullAlways
 	if mgh.Spec.ImagePullPolicy != "" {
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
@@ -97,9 +92,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		replicas = 2
 	}
 
+	filterOut := ""
+	if mgh.Spec.EnableMetrics {
+		filterOut = "strimzi"
+	}
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
-	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
+	grafanaObjects, err := grafanaRenderer.RenderWithFilter("manifests/grafana", "", filterOut, func(profile string) (interface{}, error) {
 		return struct {
 			Namespace            string
 			Replicas             int32
@@ -139,6 +138,12 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 
 	if err = r.manipulateObj(ctx, grafanaDeployer, mapper, grafanaObjects, mgh, log); err != nil {
 		return fmt.Errorf("failed to create/update grafana objects: %w", err)
+	}
+
+	// generate datasource secret: must before the grafana objects
+	changedDatasourceSecret, err := r.GenerateGrafanaDataSourceSecret(ctx, mgh)
+	if err != nil {
+		return fmt.Errorf("failed to generate grafana datasource secret: %v", err)
 	}
 
 	changedAlert, err := r.generateAlertConfigMap(ctx, mgh)
@@ -431,11 +436,28 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	if r.MiddlewareConfig == nil || r.MiddlewareConfig.StorageConn == nil {
 		return false, fmt.Errorf("middleware PgConnection config is null")
 	}
+
+	saToken := []byte{}
+	if mgh.Spec.EnableMetrics {
+		saSecret := &corev1.Secret{}
+		err := r.Client.Get(ctx, types.NamespacedName{
+			Name:      "multicluster-global-hub-grafana-sa-secret",
+			Namespace: utils.GetDefaultNamespace(),
+		}, saSecret)
+		if err != nil {
+			return false, err
+		}
+		saToken, err = base64.StdEncoding.DecodeString(string(saSecret.Data["token"]))
+		if err != nil {
+			return false, err
+		}
+	}
+
 	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI,
-		r.MiddlewareConfig.StorageConn.CACert)
+		r.MiddlewareConfig.StorageConn.CACert, string(saToken))
 	if err != nil {
 		datasourceVal, err = GrafanaDataSource(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI,
-			r.MiddlewareConfig.StorageConn.CACert)
+			r.MiddlewareConfig.StorageConn.CACert, string(saToken))
 		if err != nil {
 			return false, err
 		}
@@ -484,7 +506,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	return false, nil
 }
 
-func GrafanaDataSource(databaseURI string, cert []byte) ([]byte, error) {
+func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken string) ([]byte, error) {
 	postgresURI := string(databaseURI)
 	objURI, err := url.Parse(postgresURI)
 	if err != nil {
@@ -502,7 +524,7 @@ func GrafanaDataSource(databaseURI string, cert []byte) ([]byte, error) {
 		database = paths[1]
 	}
 
-	ds := &GrafanaDatasource{
+	postgresDS := &GrafanaDatasource{
 		Name:      "Global-Hub-DataSource",
 		Type:      "postgres",
 		Access:    "proxy",
@@ -519,18 +541,41 @@ func GrafanaDataSource(databaseURI string, cert []byte) ([]byte, error) {
 			Password: password,
 		},
 	}
+	datasource := []*GrafanaDatasource{postgresDS}
+
+	if serviceAccountToken != "" {
+		prometheusDS := &GrafanaDatasource{
+			Name:      "Prometheus",
+			Type:      "prometheus",
+			Access:    "proxy",
+			IsDefault: false,
+			URL:       "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091",
+			BasicAuth: false,
+			Editable:  false,
+			JSONData: &JsonData{
+				QueryTimeout:                "300s",
+				TimeInterval:                "30s",
+				TLSSkipVerify:               true,
+				HttpHeaderAuthorizationName: "Authorization",
+			},
+			SecureJSONData: &SecureJsonData{
+				HttpHeaderAuthorizationValue: "Bearer " + serviceAccountToken,
+			},
+		}
+		datasource = append(datasource, prometheusDS)
+	}
 
 	if len(cert) > 0 {
-		ds.JSONData.SSLMode = objURI.Query().Get("sslmode") // sslmode == "verify-full" || sslmode == "verify-ca"
-		ds.JSONData.TLSAuth = true
-		ds.JSONData.TLSAuthWithCACert = true
-		ds.JSONData.TLSSkipVerify = true
-		ds.JSONData.TLSConfigurationMethod = "file-content"
-		ds.SecureJSONData.TLSCACert = string(cert)
+		postgresDS.JSONData.SSLMode = objURI.Query().Get("sslmode") // sslmode == "verify-full" || sslmode == "verify-ca"
+		postgresDS.JSONData.TLSAuth = true
+		postgresDS.JSONData.TLSAuthWithCACert = true
+		postgresDS.JSONData.TLSSkipVerify = true
+		postgresDS.JSONData.TLSConfigurationMethod = "file-content"
+		postgresDS.SecureJSONData.TLSCACert = string(cert)
 	}
 	grafanaDatasources, err := yaml.Marshal(GrafanaDatasources{
 		APIVersion:  1,
-		Datasources: []*GrafanaDatasource{ds},
+		Datasources: datasource,
 	})
 	if err != nil {
 		return nil, err
@@ -562,19 +607,21 @@ type GrafanaDatasource struct {
 }
 
 type JsonData struct {
-	SSLMode                string `yaml:"sslmode,omitempty"`
-	TLSAuth                bool   `yaml:"tlsAuth,omitempty"`
-	TLSAuthWithCACert      bool   `yaml:"tlsAuthWithCACert,omitempty"`
-	TLSConfigurationMethod string `yaml:"tlsConfigurationMethod,omitempty"`
-	TLSSkipVerify          bool   `yaml:"tlsSkipVerify,omitempty"`
-	QueryTimeout           string `yaml:"queryTimeout,omitempty"`
-	HttpMethod             string `yaml:"httpMethod,omitempty"`
-	TimeInterval           string `yaml:"timeInterval,omitempty"`
+	SSLMode                     string `yaml:"sslmode,omitempty"`
+	TLSAuth                     bool   `yaml:"tlsAuth,omitempty"`
+	TLSAuthWithCACert           bool   `yaml:"tlsAuthWithCACert,omitempty"`
+	TLSConfigurationMethod      string `yaml:"tlsConfigurationMethod,omitempty"`
+	TLSSkipVerify               bool   `yaml:"tlsSkipVerify,omitempty"`
+	QueryTimeout                string `yaml:"queryTimeout,omitempty"`
+	HttpMethod                  string `yaml:"httpMethod,omitempty"`
+	TimeInterval                string `yaml:"timeInterval,omitempty"`
+	HttpHeaderAuthorizationName string `yaml:"httpHeaderAuthorizationName,omitempty"`
 }
 
 type SecureJsonData struct {
-	Password      string `yaml:"password,omitempty"`
-	TLSCACert     string `yaml:"tlsCACert,omitempty"`
-	TLSClientCert string `yaml:"tlsClientCert,omitempty"`
-	TLSClientKey  string `yaml:"tlsClientKey,omitempty"`
+	Password                     string `yaml:"password,omitempty"`
+	TLSCACert                    string `yaml:"tlsCACert,omitempty"`
+	TLSClientCert                string `yaml:"tlsClientCert,omitempty"`
+	TLSClientKey                 string `yaml:"tlsClientKey,omitempty"`
+	HttpHeaderAuthorizationValue string `yaml:"httpHeaderAuthorizationValue,omitempty"`
 }

@@ -10,6 +10,6 @@ type GetConfigValuesFunc func(profile string) (interface{}, error)
 // Renderer is the interface for the template renderer
 type Renderer interface {
 	Render(component, profile string, getConfigValuesFunc GetConfigValuesFunc) ([]*unstructured.Unstructured, error)
-	RenderWithFilter(component, profile, filter string, getConfigValuesFunc GetConfigValuesFunc) (
+	RenderWithFilter(component, profile, filterOut string, getConfigValuesFunc GetConfigValuesFunc) (
 		[]*unstructured.Unstructured, error)
 }

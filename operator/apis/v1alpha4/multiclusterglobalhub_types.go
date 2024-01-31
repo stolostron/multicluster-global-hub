@@ -93,6 +93,9 @@ type MulticlusterGlobalHubSpec struct {
 	// Advanced configurations for global hub
 	// +optional
 	AdvancedConfig *AdvancedConfig `json:"advanced,omitempty"`
+	// EnableMetrics enables the metrics for the global hub kafka components
+	// +optional
+	EnableMetrics bool `json:"enableMetrics,omitempty"`
 }
 
 type AdvancedConfig struct {

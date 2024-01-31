@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -42,6 +43,7 @@ func NewHoHDeployer(client client.Client) Deployer {
 		"RoleBinding":        deployer.deployRoleBinding,
 		"ClusterRole":        deployer.deployClusterRole,
 		"ClusterRoleBinding": deployer.deployClusterRoleBinding,
+		"PodMonitor":         deployer.deployPodMonitor,
 	}
 	return deployer
 }
@@ -177,6 +179,30 @@ func (d *HoHDeployer) deployServiceAccount(desiredObj, existingObj *unstructured
 
 	if !apiequality.Semantic.DeepDerivative(desiredSA.Secrets, existingSA.Secrets) ||
 		!apiequality.Semantic.DeepDerivative(desiredSA.ImagePullSecrets, existingSA.ImagePullSecrets) ||
+		!apiequality.Semantic.DeepDerivative(desiredSA.GetLabels(), existingSA.GetLabels()) ||
+		!apiequality.Semantic.DeepDerivative(desiredSA.GetAnnotations(), existingSA.GetAnnotations()) {
+		return d.client.Update(context.TODO(), desiredSA)
+	}
+
+	return nil
+}
+
+func (d *HoHDeployer) deployPodMonitor(desiredObj, existingObj *unstructured.Unstructured) error {
+	existingJSON, _ := existingObj.MarshalJSON()
+	existingSA := &monitoringv1.PodMonitor{}
+	err := json.Unmarshal(existingJSON, existingSA)
+	if err != nil {
+		return err
+	}
+
+	desiredJSON, _ := desiredObj.MarshalJSON()
+	desiredSA := &monitoringv1.PodMonitor{}
+	err = json.Unmarshal(desiredJSON, desiredSA)
+	if err != nil {
+		return err
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredSA.Spec, existingSA.Spec) ||
 		!apiequality.Semantic.DeepDerivative(desiredSA.GetLabels(), existingSA.GetLabels()) ||
 		!apiequality.Semantic.DeepDerivative(desiredSA.GetAnnotations(), existingSA.GetAnnotations()) {
 		return d.client.Update(context.TODO(), desiredSA)
