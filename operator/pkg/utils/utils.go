@@ -18,6 +18,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -382,4 +383,34 @@ func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
 			}
 			return true, nil
 		})
+}
+
+// MergeJSON merges two JSON objects
+func MergeJSON(a, b []byte) ([]byte, error) {
+	var originalJson map[string]interface{}
+	var modifiedJson map[string]interface{}
+
+	err := json.Unmarshal(a, &originalJson)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(b, &modifiedJson)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]interface{})
+
+	// Copy values from the first map
+	for key, value := range originalJson {
+		result[key] = value
+	}
+
+	// Copy values from the second map, overwriting existing keys
+	for key, value := range modifiedJson {
+		result[key] = value
+	}
+
+	return json.Marshal(result)
 }

@@ -40,12 +40,12 @@ const (
 	DefaultCatalogSourceNamespace = "openshift-marketplace"
 
 	// subscription - production
-	DefaultAMQChannel        = "amq-streams-2.5.x"
+	DefaultAMQChannel        = "amq-streams-2.6.x"
 	DefaultAMQPackageName    = "amq-streams"
 	DefaultCatalogSourceName = "redhat-operators"
 
 	// subscription - community
-	CommunityChannel           = "strimzi-0.36.x"
+	CommunityChannel           = "strimzi-0.38.x"
 	CommunityPackageName       = "strimzi-kafka-operator"
 	CommunityCatalogSourceName = "community-operators"
 
@@ -66,7 +66,7 @@ const (
 var (
 	KafkaStorageIdentifier   int32 = 0
 	KafkaStorageDeleteClaim        = false
-	KafkaVersion                   = "3.5.0"
+	KafkaVersion                   = "3.6.0"
 	DefaultPartition         int32 = 1
 	DefaultPartitionReplicas int32 = 2
 )
@@ -650,6 +650,19 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 	updatedKafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity = desiredKafka.Spec.EntityOperator.Template.
 		Pod.Affinity.NodeAffinity
 
+	// support upgrade the kafka cluster
+	if updatedKafka.Spec.Kafka.Version != nil &&
+		*updatedKafka.Spec.Kafka.Version != *desiredKafka.Spec.Kafka.Version {
+		updatedKafka.Spec.Kafka.Version = desiredKafka.Spec.Kafka.Version
+		updatedRaw, err := utils.MergeJSON(updatedKafka.Spec.Kafka.Config.Raw, desiredKafka.Spec.Kafka.Config.Raw)
+		if err != nil {
+			k.log.Error(err, "failed to merge kafka config")
+		} else {
+			updatedKafka.Spec.Kafka.Config.Raw = updatedRaw
+		}
+		needUpdated = true
+	}
+
 	if needUpdated || !equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity,
 		existingKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity) ||
 		!equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Template.Pod.Tolerations,
@@ -770,7 +783,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 
 		jsonData, err := json.Marshal(nodeSelectorTerms)
 		if err != nil {
-			k.log.Error(err, "failed to nodeSelector terms")
+			k.log.Error(err, "failed to marshall nodeSelector terms")
 		}
 
 		kafkaNodeSelectorTermsElem := make([]kafkav1beta2.KafkaSpecKafkaTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)                   // #nosec S103
@@ -816,7 +829,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 			Kafka: kafkav1beta2.KafkaSpecKafka{
 				Config: &apiextensions.JSON{Raw: []byte(`{
 "default.replication.factor": 3,
-"inter.broker.protocol.version": "3.5",
+"inter.broker.protocol.version": "3.6",
 "min.insync.replicas": 2,
 "offsets.topic.replication.factor": 3,
 "transaction.state.log.min.isr": 2,
