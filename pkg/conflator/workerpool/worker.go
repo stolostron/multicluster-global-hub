@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -56,7 +57,15 @@ func (worker *Worker) start(ctx context.Context) {
 
 		case job := <-worker.jobsQueue: // DBWorker received a job request.
 			startTime := time.Now()
-			err := job.handlerFunc(ctx, job.bundle) // db connection released to pool when done
+			err := database.Lock(database.GetConn())
+			if err != nil {
+				worker.log.Error(err, "failed to get db lock")
+				database.Unlock(database.GetConn())
+				continue
+			}
+			err = job.handlerFunc(ctx, job.bundle) // db connection released to pool when done
+			database.Unlock(database.GetConn())
+
 			worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
 			job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
 

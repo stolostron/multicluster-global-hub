@@ -40,6 +40,7 @@ func (k *ConflationCommitter) Start(ctx context.Context) error {
 		ticker := time.NewTicker(time.Second * 5)
 
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ticker.C: // wait for next time interval
@@ -88,6 +89,12 @@ func (k *ConflationCommitter) commit() error {
 	}
 
 	db := database.GetGorm()
+
+	err := database.Lock(database.GetConn())
+	defer database.Unlock(database.GetConn())
+	if err != nil {
+		return err
+	}
 	if len(databaseTransports) > 0 {
 		err := db.Clauses(clause.OnConflict{
 			UpdateAll: true,

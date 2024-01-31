@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
@@ -34,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/backup"
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector"
@@ -60,6 +62,7 @@ const (
 	kafkaTransportType         = "kafka"
 	leaderElectionLockID       = "multicluster-global-hub-manager-lock"
 	launchJobNamesEnv          = "LAUNCH_JOB_NAMES"
+	namespacePath              = "metadata.namespace"
 )
 
 var (
@@ -191,7 +194,10 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	return nil
 }
 
-func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *managerconfig.ManagerConfig,
+func createManager(ctx context.Context,
+	restConfig *rest.Config,
+	managerConfig *managerconfig.ManagerConfig,
+	sqlConn *sql.Conn,
 ) (ctrl.Manager, error) {
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
@@ -267,6 +273,11 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
 
+	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
+	err = backupPVC.SetupWithManager(mgr)
+	if err != nil {
+		return nil, err
+	}
 	eventKafkaConfig := deepcopy.Copy(managerConfig.TransportConfig.KafkaConfig).(*transport.KafkaConfig)
 	eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
 	if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig); err != nil {
@@ -284,19 +295,34 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 1
 	}
 	utils.PrintVersion(setupLog)
-	err := database.InitGormInstance(&database.DatabaseConfig{
+	databaseConfig := &database.DatabaseConfig{
 		URL:        managerConfig.DatabaseConfig.ProcessDatabaseURL,
 		Dialect:    database.PostgresDialect,
 		CaCertPath: managerConfig.DatabaseConfig.CACertPath,
 		PoolSize:   managerConfig.DatabaseConfig.MaxOpenConns,
-	})
+	}
+	//Init the default gorm instance, it's used to sync data to db
+	err := database.InitGormInstance(databaseConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize GORM instance")
 		return 1
 	}
-	defer database.CloseGorm()
+	defer database.CloseGorm(database.GetSqlDb())
 
-	mgr, err := createManager(ctx, restConfig, managerConfig)
+	//Init the backup gorm instance, it's used to add lock when backup database
+	_, sqlBackupConn, err := database.NewGormConn(databaseConfig)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize GORM instance")
+		return 1
+	}
+	defer database.CloseGorm(sqlBackupConn)
+
+	sqlConn, err := sqlBackupConn.Conn(ctx)
+	if err != nil {
+		setupLog.Error(err, "failed to get db connection")
+		return 1
+	}
+	mgr, err := createManager(ctx, restConfig, managerConfig, sqlConn)
 	if err != nil {
 		setupLog.Error(err, "failed to create manager")
 		return 1
@@ -326,10 +352,10 @@ func main() {
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		&corev1.Secret{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", managerNamespace),
+			Field: fields.OneTermEqualSelector(namespacePath, managerNamespace),
 		},
 		&corev1.ConfigMap{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", managerNamespace),
+			Field: fields.OneTermEqualSelector(namespacePath, managerNamespace),
 		},
 		&applicationv1beta1.Application{}:          {},
 		&channelv1.Channel{}:                       {},
@@ -341,6 +367,9 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&placementrulev1.PlacementRule{}:           {},
 		&policyv1.Policy{}:                         {},
 		&subscriptionv1.Subscription{}:             {},
+		&corev1.PersistentVolumeClaim{}: {
+			Field: fields.OneTermEqualSelector(namespacePath, managerNamespace),
+		},
 	}
 	return cache.New(config, cacheOpts)
 }

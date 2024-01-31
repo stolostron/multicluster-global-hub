@@ -14,7 +14,9 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var DatabaseReconcileCounter = 0
@@ -55,6 +57,28 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 			log.Error(err, "failed to close connection to database")
 		}
 	}()
+
+	// Check if backup is enabled
+	backupEnabled, err := utils.IsBackupEnabled(ctx, r.Client)
+	if err != nil {
+		log.Error(err, "failed to get backup status")
+		return err
+	}
+	if backupEnabled {
+		lockSql := fmt.Sprintf("select pg_advisory_lock(%s)", constants.LockId)
+		unLockSql := fmt.Sprintf("select pg_advisory_unlock(%s)", constants.LockId)
+		defer func() {
+			_, err = conn.Exec(ctx, unLockSql)
+			if err != nil {
+				log.Error(err, "failed to unlock db")
+			}
+		}()
+		_, err = conn.Exec(ctx, lockSql)
+		if err != nil {
+			log.Error(err, "failed to parse database_uri_with_readonlyuser")
+			return err
+		}
+	}
 
 	objURI, err := url.Parse(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI)
 	if err != nil {

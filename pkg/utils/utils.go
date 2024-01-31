@@ -103,3 +103,22 @@ func RestartPod(ctx context.Context, kubeClient kubernetes.Interface, podNamespa
 	}
 	return nil
 }
+
+func IsBackupEnabled(ctx context.Context, client client.Client) (bool, error) {
+	mch, err := ListMCH(ctx, client)
+	if err != nil {
+		return false, err
+	}
+	if mch == nil {
+		return false, nil
+	}
+	if mch.Spec.Overrides == nil {
+		return false, nil
+	}
+	for _, c := range mch.Spec.Overrides.Components {
+		if c.Name == "cluster-backup" && c.Enabled {
+			return true, nil
+		}
+	}
+	return false, nil
+}

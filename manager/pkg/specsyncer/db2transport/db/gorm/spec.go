@@ -61,6 +61,12 @@ func (p *gormSpecDB) QuerySpecObject(ctx context.Context, tableName, objUID stri
 // InsertSpecObject insets new object to given table with object UID and payload
 func (p *gormSpecDB) InsertSpecObject(ctx context.Context, tableName, objUID string, object *client.Object) error {
 	db := database.GetGorm()
+
+	err := database.Lock(database.GetConn())
+	if err != nil {
+		return err
+	}
+	defer database.Unlock(database.GetConn())
 	query := fmt.Sprintf("INSERT INTO spec.%s (id, payload) values(?, ?)", tableName)
 	payload, err := json.Marshal(object)
 	if err != nil {
@@ -72,6 +78,12 @@ func (p *gormSpecDB) InsertSpecObject(ctx context.Context, tableName, objUID str
 // UpdateSpecObject updates object payload in given table with object UID
 func (p *gormSpecDB) UpdateSpecObject(ctx context.Context, tableName, objUID string, object *client.Object) error {
 	db := database.GetGorm()
+
+	err := database.Lock(database.GetConn())
+	if err != nil {
+		return err
+	}
+	defer database.Unlock(database.GetConn())
 	payload, err := json.Marshal(object)
 	if err != nil {
 		return err
@@ -83,6 +95,12 @@ func (p *gormSpecDB) UpdateSpecObject(ctx context.Context, tableName, objUID str
 // DeleteSpecObject deletes object with name and namespace from given table
 func (p *gormSpecDB) DeleteSpecObject(ctx context.Context, tableName, name, namespace string) error {
 	db := database.GetGorm()
+
+	err := database.Lock(database.GetConn())
+	if err != nil {
+		return err
+	}
+	defer database.Unlock(database.GetConn())
 	updateTemplate := fmt.Sprintf(`UPDATE spec.%s SET deleted = true WHERE payload -> 'metadata' ->> 'name' = '%s' AND
 	deleted = false`, tableName, name)
 	namespaceCondition := " AND payload -> 'metadata' ->> 'namespace' IS NULL"

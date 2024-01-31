@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -31,6 +32,7 @@ type pvcBackup struct {
 	backupType string
 	labelKey   string
 	labelValue string
+	prehookKey string
 }
 
 func NewPvcBackup() *pvcBackup {
@@ -38,6 +40,7 @@ func NewPvcBackup() *pvcBackup {
 		backupType: pvcType,
 		labelKey:   constants.BackupVolumnKey,
 		labelValue: constants.BackupGlobalHubValue,
+		prehookKey: constants.BackupPvcUserCopyTrigger,
 	}
 }
 
@@ -46,6 +49,20 @@ func (r *pvcBackup) AddLabelToOneObj(ctx context.Context,
 	namespace, name string,
 ) error {
 	obj := &corev1.PersistentVolumeClaim{}
+	err := client.Get(ctx, types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}, obj)
+	if err != nil {
+		return err
+	}
+
+	if !utils.HasLabel(obj.GetLabels(), r.prehookKey, r.labelValue) {
+		err := utils.AddLabel(ctx, client, obj, namespace, name, r.prehookKey, r.labelValue)
+		if err != nil {
+			return err
+		}
+	}
 	return utils.AddLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
 }
 
@@ -67,13 +84,19 @@ func (r *pvcBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, name
 	objs = append(objs, postgresList.Items...)
 
 	for _, obj := range objs {
-		if utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
-			continue
-		}
 		pvc := &corev1.PersistentVolumeClaim{}
-		err := utils.AddLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey, r.labelValue)
-		if err != nil {
-			return err
+		if !utils.HasLabel(obj.GetLabels(), r.prehookKey, r.labelValue) {
+			err := utils.AddLabel(ctx, c, pvc, namespace, obj.Name, r.prehookKey, r.labelValue)
+			if err != nil {
+				return err
+			}
+		}
+
+		if !utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
+			err = utils.AddLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey, r.labelValue)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -98,13 +121,18 @@ func (r *pvcBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, n
 	objs = append(objs, postgresList.Items...)
 
 	for _, obj := range objs {
-		if !utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
-			continue
-		}
 		pvc := &corev1.PersistentVolumeClaim{}
-		err := utils.DeleteLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey)
-		if err != nil {
-			return err
+		if utils.HasLabelKey(obj.GetLabels(), r.prehookKey) {
+			err := utils.DeleteLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey)
+			if err != nil {
+				return err
+			}
+		}
+		if utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
+			err := utils.DeleteLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

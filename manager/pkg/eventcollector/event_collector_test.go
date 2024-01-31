@@ -78,7 +78,7 @@ func TestAddEventCollector(t *testing.T) {
 		PoolSize:   2,
 	})
 	assert.Nil(t, err, "Error should be nil")
-	defer database.CloseGorm()
+	defer database.CloseGorm(database.GetSqlDb())
 
 	// By("Prepare kafka cluster")
 	val, err := json.Marshal(getEvent())

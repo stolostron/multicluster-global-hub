@@ -108,8 +108,14 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 	}
 	db := database.GetGorm()
 
+	err := database.Lock(database.GetConn())
+	if err != nil {
+		return err
+	}
+	defer database.Unlock(database.GetConn())
+
 	managedClusterLabels := []models.ManagedClusterLabel{}
-	err := db.Where(models.ManagedClusterLabel{ID: clusterID}).Find(&managedClusterLabels).Error
+	err = db.Where(models.ManagedClusterLabel{ID: clusterID}).Find(&managedClusterLabels).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return fmt.Errorf("failed to read from managed_clusters_labels: %w", err)
 	}

@@ -219,16 +219,11 @@ var mchPred = predicate.Funcs{
 
 var pvcPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		if !utils.HasLabel(e.Object.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue) {
-			return false
-		}
-		return !utils.HasLabel(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		//only watch postgres pvc
+		return utils.HasLabel(e.Object.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		if !utils.HasLabel(e.ObjectNew.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue) {
-			return false
-		}
-		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		return utils.HasLabel(e.ObjectNew.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false

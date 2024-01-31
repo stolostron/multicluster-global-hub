@@ -133,7 +133,7 @@ var _ = AfterSuite(func() {
 		transportPostgreSQL.Stop()
 	}
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
-	database.CloseGorm()
+	database.CloseGorm(database.GetSqlDb())
 
 	By("Tearing down the test environment")
 	err := testenv.Stop()

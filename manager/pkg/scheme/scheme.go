@@ -4,6 +4,7 @@
 package scheme
 
 import (
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -31,4 +32,5 @@ func AddToScheme(scheme *runtime.Scheme) {
 	utilruntime.Must(subscriptionv1alpha1.SchemeBuilder.AddToScheme(scheme))
 	utilruntime.Must(channelv1.AddToScheme(scheme))
 	utilruntime.Must(applicationv1beta1.AddToScheme(scheme))
+	utilruntime.Must(mchv1.AddToScheme(scheme))
 }

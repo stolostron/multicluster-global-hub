@@ -63,6 +63,13 @@ func SyncLocalCompliance(ctx context.Context, enableSimulation bool, job gocron.
 	log = ctrl.Log.WithName(LocalComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
 	log.V(2).Info("start running", "currentRun", job.LastRun().Format(timeFormat))
 
+	err = database.Lock(database.GetConn())
+	if err != nil {
+		retentionLog.Error(err, "failed to run SyncLocalCompliance job")
+		return
+	}
+	defer database.Unlock(database.GetConn())
+
 	// insert or update with local_status.compliance
 	var statusTotal, statusInsert int64
 	statusTotal, statusInsert, err = syncToLocalComplianceHistoryByLocalStatus(ctx, batchSize, interval,
@@ -105,6 +112,7 @@ func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, batchSize in
 	`
 
 	db := database.GetGorm()
+
 	err = db.Exec(fmt.Sprintf(createViewTemplate, viewName, viewName)).Error
 	if err != nil {
 		return totalCount, insertedCount, err
@@ -180,6 +188,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 			`
 			}
 			db := database.GetGorm()
+
 			selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, interval, tableName, batchSize, offset)
 			result := db.Exec(selectInsertSQL)
 			if result.Error != nil {

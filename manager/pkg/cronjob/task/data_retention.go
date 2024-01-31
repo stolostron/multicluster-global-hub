@@ -48,6 +48,14 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
 	var err error
+	db := database.GetGorm()
+	err = database.Lock(database.GetConn())
+	if err != nil {
+		retentionLog.Error(err, "failed to run data retention")
+		return
+	}
+	defer database.Unlock(database.GetConn())
+
 	defer func() {
 		if err != nil {
 			monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(1)
@@ -81,8 +89,6 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 			return
 		}
 	}
-	// delete the inactive heartbeat records
-	db := database.GetGorm()
 	err = db.Where("last_timestamp < ? AND status = ?", minTime, hubmanagement.HubInactive).
 		Delete(&models.LeafHubHeartbeat{}).Error
 	if err != nil {
@@ -119,7 +125,6 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 }
 
 func deleteExpiredRecords(tableName string, minDate time.Time) error {
-
 	sql := fmt.Sprintf("DELETE FROM %s WHERE deleted_at < '%s'", tableName, minDate.Format(dateFormat))
 	db := database.GetGorm()
 	if result := db.Exec(sql); result.Error != nil {
@@ -159,6 +164,7 @@ func traceDataRetentionLog(tableName string, startTime time.Time, err error, par
 
 func getMinMaxPartitions(tableName string) (string, string, error) {
 	db := database.GetGorm()
+
 	schemaTable := strings.Split(tableName, ".")
 	if len(schemaTable) != 2 {
 		return "", "", fmt.Errorf("invalid table name: %s", tableName)
@@ -195,6 +201,7 @@ func getMinMaxPartitions(tableName string) (string, string, error) {
 func getMinDeletionTime(tableName string) (time.Time, error) {
 	db := database.GetGorm()
 	minDeletion := &models.Time{}
+
 	result := db.Raw(fmt.Sprintf("SELECT MIN(deleted_at) as time FROM %s", tableName)).Find(minDeletion)
 	if result.Error != nil {
 		return minDeletion.Time, fmt.Errorf("failed to get min deletion time: %w", result.Error)
