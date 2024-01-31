@@ -44,8 +44,6 @@ import (
 )
 
 var (
-	kafkaPvcLabelKey      = "strimzi.io/kind"
-	kafkaPvcLabelValue    = "Kafka"
 	postgresPvcLabelKey   = "component"
 	postgresPvcLabelValue = "multicluster-global-hub-operator"
 )
@@ -92,7 +90,7 @@ func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(configmapPred)).
 		Watches(&kafkav1beta2.Kafka{},
 			objEventHandler,
-			builder.WithPredicates(commonPred)).
+			builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.KafkaUser{},
 			objEventHandler,
 			builder.WithPredicates(commonPred)).
@@ -131,6 +129,24 @@ var mghPred = predicate.Funcs{
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return false
+	},
+}
+
+var kafkaPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue) {
+			return true
+		}
+		if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+			return true
+		}
+		return false
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -203,15 +219,13 @@ var mchPred = predicate.Funcs{
 
 var pvcPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		if !utils.HasLabel(e.Object.GetLabels(), kafkaPvcLabelKey, kafkaPvcLabelValue) &&
-			!utils.HasLabel(e.Object.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue) {
+		if !utils.HasLabel(e.Object.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue) {
 			return false
 		}
 		return !utils.HasLabel(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		if !utils.HasLabel(e.ObjectNew.GetLabels(), kafkaPvcLabelKey, kafkaPvcLabelValue) &&
-			!utils.HasLabel(e.ObjectNew.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue) {
+		if !utils.HasLabel(e.ObjectNew.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue) {
 			return false
 		}
 		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)

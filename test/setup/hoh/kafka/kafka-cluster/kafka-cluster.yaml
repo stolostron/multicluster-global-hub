@@ -60,10 +60,6 @@ spec:
     storage:
       type: ephemeral
     template:
-      persistentVolumeClaim:
-        metadata:
-          labels:
-            cluster.open-cluster-management.io/volsync: globalhub
       pod:
         affinity: {}
     version: 3.5.1
@@ -82,9 +78,5 @@ spec:
     storage:
       type: ephemeral
     template:
-      persistentVolumeClaim:
-        metadata:
-          labels:
-            cluster.open-cluster-management.io/volsync: globalhub
       pod:
         affinity: {}

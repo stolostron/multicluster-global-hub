@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	BackupVolumnLabelRaw = `{
-		"cluster.open-cluster-management.io/volsync": "globalhub"
+	ExcludeBackupLabelRaw = `{
+		"velero.io/exclude-from-backup": "true"
 	}`
 )
 
@@ -58,7 +58,7 @@ func (r *kafkaBackup) AddLabelToOneObj(ctx context.Context,
 	namespace, name string,
 ) error {
 	obj := &kafkav1beta2.Kafka{}
-	err := addLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
+	err := utils.AddLabel(ctx, client, obj, namespace, name, r.labelKey, r.labelValue)
 	if err != nil {
 		return err
 	}
@@ -81,17 +81,25 @@ func AddBackupLabelToTemplate(ctx context.Context,
 			return err
 		}
 
-		updatedKafka, updateBackupLabelInKafkaPVC, err := AddBackupLabelToKafkaTemplate(existingKafka)
+		updatedKafka, updateBackupLabelInKafkaPVC, err := AddExcludeLabelToKafkaTemplate(existingKafka)
 		if err != nil {
 			return err
 		}
 
-		updatedKafka, updateBackupLabelInZookeeperPVC, err := AddBackupLabelToZookeeperTemplate(updatedKafka)
+		updatedKafka, updateBackupLabelInZookeeperPVC, err := AddExcludeLabelToZookeeperTemplate(updatedKafka)
 		if err != nil {
 			return err
 		}
 
-		if !updateBackupLabelInZookeeperPVC && !updateBackupLabelInKafkaPVC {
+		updatedKafka, updateExcludLabelInOperatorDeploy, err := AddExcludeLabelToEntityOperatorDeploymentTemplate(
+			updatedKafka)
+		if err != nil {
+			return err
+		}
+
+		if !updateBackupLabelInZookeeperPVC &&
+			!updateBackupLabelInKafkaPVC &&
+			!updateExcludLabelInOperatorDeploy {
 			return nil
 		}
 
@@ -103,7 +111,83 @@ func AddBackupLabelToTemplate(ctx context.Context,
 	})
 }
 
-func AddBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1beta2.Kafka, bool, error) {
+func AddExcludeLabelToEntityOperatorDeploymentTemplate(existingKafka *kafkav1beta2.Kafka) (
+	*kafkav1beta2.Kafka,
+	bool,
+	error) {
+	var operatorLabels map[string]string
+	if existingKafka == nil || existingKafka.Spec == nil {
+		return nil, false, fmt.Errorf("kafka spec should not be nil")
+	}
+	var desiredOperator = &kafkav1beta2.KafkaSpecEntityOperator{
+		Template: &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
+			Deployment: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeployment{
+				Metadata: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeploymentMetadata{
+					Labels: &apiextensions.JSON{
+						Raw: []byte(ExcludeBackupLabelRaw),
+					},
+				},
+			},
+		},
+	}
+
+	updatedKafka := existingKafka.DeepCopy()
+
+	if existingKafka.Spec.EntityOperator == nil {
+		updatedKafka.Spec.EntityOperator = desiredOperator
+		return updatedKafka, true, nil
+	}
+
+	if existingKafka.Spec.EntityOperator.Template == nil {
+		updatedKafka.Spec.EntityOperator.Template = desiredOperator.Template
+		return updatedKafka, true, nil
+	}
+
+	if existingKafka.Spec.EntityOperator.Template.Deployment == nil {
+		updatedKafka.Spec.EntityOperator.Template.Deployment =
+			desiredOperator.Template.Deployment
+		return updatedKafka, true, nil
+	}
+
+	if existingKafka.Spec.EntityOperator.Template.Deployment.Metadata == nil {
+		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata =
+			desiredOperator.Template.Deployment.Metadata
+		return updatedKafka, true, nil
+	}
+
+	if existingKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels == nil {
+		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels =
+			desiredOperator.Template.Deployment.Metadata.Labels
+		return updatedKafka, true, nil
+	}
+
+	operatorLabelsJson := existingKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels
+
+	err := json.Unmarshal(operatorLabelsJson.Raw, &operatorLabels)
+	if err != nil {
+		return nil, true, err
+	}
+	if utils.HasLabel(operatorLabels, constants.BackupExcludeKey, "true") {
+		return updatedKafka, false, nil
+	}
+
+	if operatorLabels == nil {
+		operatorLabels = make(map[string]string)
+	}
+
+	operatorLabels[constants.BackupExcludeKey] = "true"
+
+	operatorLabelJSON, err := json.Marshal(operatorLabels)
+	if err != nil {
+		return nil, true, err
+	}
+	updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels = &apiextensions.JSON{
+		Raw: operatorLabelJSON,
+	}
+	return updatedKafka, true, nil
+}
+
+func AddExcludeLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1beta2.Kafka, bool, error) {
 	var kafkaPVCLabels map[string]string
 	updatedKafka := existingKafka.DeepCopy()
 	if existingKafka == nil || existingKafka.Spec == nil {
@@ -114,7 +198,7 @@ func AddBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1b
 		PersistentVolumeClaim: &kafkav1beta2.KafkaSpecKafkaTemplatePersistentVolumeClaim{
 			Metadata: &kafkav1beta2.KafkaSpecKafkaTemplatePersistentVolumeClaimMetadata{
 				Labels: &apiextensions.JSON{
-					Raw: []byte(BackupVolumnLabelRaw),
+					Raw: []byte(ExcludeBackupLabelRaw),
 				},
 			},
 		},
@@ -145,7 +229,7 @@ func AddBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1b
 	if err != nil {
 		return nil, true, err
 	}
-	if utils.HasLabel(kafkaPVCLabels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+	if utils.HasLabel(kafkaPVCLabels, constants.BackupExcludeKey, "true") {
 		return updatedKafka, false, nil
 	}
 
@@ -153,7 +237,7 @@ func AddBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1b
 		kafkaPVCLabels = make(map[string]string)
 	}
 
-	kafkaPVCLabels[constants.BackupVolumnKey] = constants.BackupGlobalHubValue
+	kafkaPVCLabels[constants.BackupExcludeKey] = "true"
 
 	kafkaLabelJSON, err := json.Marshal(kafkaPVCLabels)
 	if err != nil {
@@ -165,7 +249,7 @@ func AddBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1b
 	return updatedKafka, true, nil
 }
 
-func AddBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1beta2.Kafka, bool, error) {
+func AddExcludeLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1beta2.Kafka, bool, error) {
 	var zookeeperPVCLabels map[string]string
 	if existingKafka == nil || existingKafka.Spec == nil {
 		return nil, false, fmt.Errorf("kafka spec should not be nil")
@@ -174,7 +258,7 @@ func AddBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafk
 		PersistentVolumeClaim: &kafkav1beta2.KafkaSpecZookeeperTemplatePersistentVolumeClaim{
 			Metadata: &kafkav1beta2.KafkaSpecZookeeperTemplatePersistentVolumeClaimMetadata{
 				Labels: &apiextensions.JSON{
-					Raw: []byte(BackupVolumnLabelRaw),
+					Raw: []byte(ExcludeBackupLabelRaw),
 				},
 			},
 		},
@@ -208,7 +292,7 @@ func AddBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafk
 	if err != nil {
 		return nil, true, err
 	}
-	if utils.HasLabel(zookeeperPVCLabels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+	if utils.HasLabel(zookeeperPVCLabels, constants.BackupExcludeKey, "true") {
 		return updatedKafka, false, nil
 	}
 
@@ -216,7 +300,7 @@ func AddBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafk
 		zookeeperPVCLabels = make(map[string]string)
 	}
 
-	zookeeperPVCLabels[constants.BackupVolumnKey] = constants.BackupGlobalHubValue
+	zookeeperPVCLabels[constants.BackupExcludeKey] = "true"
 
 	zookeeperLabelJSON, err := json.Marshal(zookeeperPVCLabels)
 	if err != nil {
@@ -228,7 +312,7 @@ func AddBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafk
 	return updatedKafka, true, nil
 }
 
-func DeleteBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1beta2.Kafka, bool, error) {
+func DeleteExcludeLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1beta2.Kafka, bool, error) {
 	var kafkaPVCLabels map[string]string
 
 	updatedKafka := existingKafka.DeepCopy()
@@ -248,11 +332,11 @@ func DeleteBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafka
 	if err != nil {
 		return updatedKafka, false, err
 	}
-	if !utils.HasLabel(kafkaPVCLabels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+	if !utils.HasLabel(kafkaPVCLabels, constants.BackupExcludeKey, "true") {
 		return updatedKafka, false, nil
 	}
 
-	delete(kafkaPVCLabels, constants.BackupVolumnKey)
+	delete(kafkaPVCLabels, constants.BackupExcludeKey)
 	kafkaLabelJSON, err := json.Marshal(kafkaPVCLabels)
 	if err != nil {
 		return updatedKafka, false, err
@@ -263,7 +347,7 @@ func DeleteBackupLabelToKafkaTemplate(existingKafka *kafkav1beta2.Kafka) (*kafka
 	return updatedKafka, true, err
 }
 
-func DeleteBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1beta2.Kafka, bool, error) {
+func DeleteExcludeLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*kafkav1beta2.Kafka, bool, error) {
 	var zookeeperPVCLabels map[string]string
 
 	updatedKafka := existingKafka.DeepCopy()
@@ -283,11 +367,11 @@ func DeleteBackupLabelToZookeeperTemplate(existingKafka *kafkav1beta2.Kafka) (*k
 	if err != nil {
 		return updatedKafka, false, err
 	}
-	if !utils.HasLabel(zookeeperPVCLabels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+	if !utils.HasLabel(zookeeperPVCLabels, constants.BackupExcludeKey, "true") {
 		return updatedKafka, false, nil
 	}
 
-	delete(zookeeperPVCLabels, constants.BackupVolumnKey)
+	delete(zookeeperPVCLabels, constants.BackupExcludeKey)
 	zookeeperLabelJSON, err := json.Marshal(zookeeperPVCLabels)
 	if err != nil {
 		return updatedKafka, false, err
@@ -314,12 +398,12 @@ func DeleteTemplateBackupLabels(ctx context.Context,
 			return err
 		}
 
-		updatedKafka, updateBackupLabelInKafkaPVC, err := DeleteBackupLabelToKafkaTemplate(existingKafka)
+		updatedKafka, updateBackupLabelInKafkaPVC, err := DeleteExcludeLabelToKafkaTemplate(existingKafka)
 		if err != nil {
 			return err
 		}
 
-		updatedKafka, updateBackupLabelInZookeeperPVC, err := DeleteBackupLabelToZookeeperTemplate(updatedKafka)
+		updatedKafka, updateBackupLabelInZookeeperPVC, err := DeleteExcludeLabelToZookeeperTemplate(updatedKafka)
 		if err != nil {
 			return err
 		}
@@ -349,12 +433,10 @@ func (r *kafkaBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, na
 			continue
 		}
 		kafka := &kafkav1beta2.Kafka{}
-		err := addLabel(ctx, c, kafka, namespace, obj.Name, r.labelKey, r.labelValue)
+		err := utils.AddLabel(ctx, c, kafka, namespace, obj.Name, r.labelKey, r.labelValue)
 		if err != nil {
 			return err
 		}
-		err = AddBackupLabelToTemplate(ctx, c, namespace, obj.Name)
-		return err
 	}
 	return nil
 }
@@ -372,12 +454,10 @@ func (r *kafkaBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client,
 			continue
 		}
 		kafka := &kafkav1beta2.Kafka{}
-		err := deleteLabel(ctx, c, kafka, namespace, obj.Name, r.labelKey)
+		err := utils.DeleteLabel(ctx, c, kafka, namespace, obj.Name, r.labelKey)
 		if err != nil {
 			return err
 		}
-		err = DeleteTemplateBackupLabels(ctx, c, namespace, obj.Name)
-		return err
 	}
 	return nil
 }
