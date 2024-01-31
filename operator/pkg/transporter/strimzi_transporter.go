@@ -8,6 +8,7 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -594,94 +595,21 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 
 	updatedKafka := existingKafka.DeepCopy()
 	desiredKafka := k.newKafkaCluster(mgh)
-	needUpdated := false
-	// update the kafka custom resource
-	if updatedKafka.Spec.Kafka.Template == nil {
-		updatedKafka.Spec.Kafka.Template = desiredKafka.Spec.Kafka.Template
-		needUpdated = true
-	}
-	if updatedKafka.Spec.Kafka.Template.Pod == nil {
-		updatedKafka.Spec.Kafka.Template.Pod = desiredKafka.Spec.Kafka.Template.Pod
-		needUpdated = true
-	}
-	if updatedKafka.Spec.Kafka.Template.Pod.Affinity == nil {
-		updatedKafka.Spec.Kafka.Template.Pod.Affinity = desiredKafka.Spec.Kafka.Template.Pod.Affinity
-		needUpdated = true
-	}
-	updatedKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity = desiredKafka.Spec.Kafka.Template.Pod.
-		Affinity.NodeAffinity
-	updatedKafka.Spec.Kafka.Template.Pod.Tolerations = desiredKafka.Spec.Kafka.Template.Pod.Tolerations
-	updatedKafka.Spec.Kafka.Resources = desiredKafka.Spec.Kafka.Resources
 
-	// update the zookeeper custom resource
-	if updatedKafka.Spec.Zookeeper.Template == nil {
-		updatedKafka.Spec.Zookeeper.Template = desiredKafka.Spec.Zookeeper.Template
-		needUpdated = true
-	}
-	if updatedKafka.Spec.Zookeeper.Template.Pod == nil {
-		updatedKafka.Spec.Zookeeper.Template.Pod = desiredKafka.Spec.Zookeeper.Template.Pod
-		needUpdated = true
-	}
-	if updatedKafka.Spec.Zookeeper.Template.Pod.Affinity == nil {
-		updatedKafka.Spec.Zookeeper.Template.Pod.Affinity = desiredKafka.Spec.Zookeeper.Template.Pod.Affinity
-		needUpdated = true
-	}
-	updatedKafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity = desiredKafka.Spec.Zookeeper.Template.Pod.
-		Affinity.NodeAffinity
-	updatedKafka.Spec.Zookeeper.Template.Pod.Tolerations = desiredKafka.Spec.Zookeeper.Template.Pod.Tolerations
-	updatedKafka.Spec.Zookeeper.Resources = desiredKafka.Spec.Zookeeper.Resources
+	// marshal to json
+	updateKafkaJson, _ := json.Marshal(updatedKafka)
+	desiredKafkaJson, _ := json.Marshal(desiredKafka)
 
-	// update the entity operator custom resource
-	if updatedKafka.Spec.EntityOperator == nil {
-		updatedKafka.Spec.EntityOperator = desiredKafka.Spec.EntityOperator
-		needUpdated = true
+	patchedData, err := jsonpatch.MergePatch(updateKafkaJson, desiredKafkaJson)
+	if err != nil {
+		return err, false
 	}
-	if updatedKafka.Spec.EntityOperator.Template == nil {
-		updatedKafka.Spec.EntityOperator.Template = desiredKafka.Spec.EntityOperator.Template
-		needUpdated = true
-	}
-	if updatedKafka.Spec.EntityOperator.Template.Pod == nil {
-		updatedKafka.Spec.EntityOperator.Template.Pod = desiredKafka.Spec.EntityOperator.Template.Pod
-		needUpdated = true
-	}
-	if updatedKafka.Spec.EntityOperator.Template.Pod.Affinity == nil {
-		updatedKafka.Spec.EntityOperator.Template.Pod.Affinity = desiredKafka.Spec.EntityOperator.Template.Pod.
-			Affinity
-		needUpdated = true
-	}
-	updatedKafka.Spec.EntityOperator.Template.Pod.Tolerations = desiredKafka.Spec.EntityOperator.Template.Pod.
-		Tolerations
-	updatedKafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity = desiredKafka.Spec.EntityOperator.Template.
-		Pod.Affinity.NodeAffinity
 
-	// support upgrade the kafka cluster
-	if updatedKafka.Spec.Kafka.Version != nil &&
-		*updatedKafka.Spec.Kafka.Version != *desiredKafka.Spec.Kafka.Version {
-		updatedKafka.Spec.Kafka.Version = desiredKafka.Spec.Kafka.Version
-		updatedRaw, err := utils.MergeJSON(updatedKafka.Spec.Kafka.Config.Raw, desiredKafka.Spec.Kafka.Config.Raw)
+	if string(patchedData) != string(updateKafkaJson) {
+		err := json.Unmarshal(patchedData, updatedKafka)
 		if err != nil {
-			k.log.Error(err, "failed to merge kafka config")
-		} else {
-			updatedKafka.Spec.Kafka.Config.Raw = updatedRaw
+			return err, false
 		}
-		needUpdated = true
-	}
-
-	if needUpdated || !equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity,
-		existingKafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity) ||
-		!equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Template.Pod.Tolerations,
-			existingKafka.Spec.Kafka.Template.Pod.Tolerations) ||
-		!equality.Semantic.DeepDerivative(updatedKafka.Spec.Kafka.Resources, existingKafka.Spec.Kafka.Resources) ||
-		!equality.Semantic.DeepDerivative(updatedKafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity,
-			existingKafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity) ||
-		!equality.Semantic.DeepDerivative(updatedKafka.Spec.Zookeeper.Template.Pod.Tolerations,
-			existingKafka.Spec.Zookeeper.Template.Pod.Tolerations) ||
-		!equality.Semantic.DeepDerivative(updatedKafka.Spec.Zookeeper.Resources,
-			existingKafka.Spec.Zookeeper.Resources) ||
-		!equality.Semantic.DeepDerivative(updatedKafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity,
-			existingKafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity) ||
-		!equality.Semantic.DeepDerivative(updatedKafka.Spec.EntityOperator.Template.Pod.Tolerations,
-			existingKafka.Spec.EntityOperator.Template.Pod.Tolerations) {
 		return k.runtimeClient.Update(k.ctx, updatedKafka), true
 	}
 	return nil, false
@@ -741,29 +669,102 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayer.StorageClass
 	}
 
-	kafkaTolerationsElem := make([]kafkav1beta2.KafkaSpecKafkaTemplatePodTolerationsElem, 0)
-	zookeeperTolerationsElem := make([]kafkav1beta2.KafkaSpecZookeeperTemplatePodTolerationsElem, 0)
-	entityOperatorTolerationsElem := make([]kafkav1beta2.KafkaSpecEntityOperatorTemplatePodTolerationsElem, 0)
-
-	if mgh.Spec.Tolerations != nil {
-		jsonData, err := json.Marshal(mgh.Spec.Tolerations)
-		if err != nil {
-			k.log.Error(err, "failed to marshal tolerations")
-		}
-		err = json.Unmarshal(jsonData, &kafkaTolerationsElem)
-		if err != nil {
-			k.log.Error(err, "failed to unmarshal to KafkaSpecruntimeKafkaTemplatePodTolerationsElem")
-		}
-		err = json.Unmarshal(jsonData, &zookeeperTolerationsElem)
-		if err != nil {
-			k.log.Error(err, "failed to unmarshal to KafkaSpecZookeeperTemplatePodTolerationsElem")
-		}
-		err = json.Unmarshal(jsonData, &entityOperatorTolerationsElem)
-		if err != nil {
-			k.log.Error(err, "failed to unmarshal to KafkaSpecEntityOperatorTemplatePodTolerationsElem")
-		}
+	kafkaCluster := &kafkav1beta2.Kafka{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k.name,
+			Namespace: k.namespace,
+		},
+		Spec: &kafkav1beta2.KafkaSpec{
+			Kafka: kafkav1beta2.KafkaSpecKafka{
+				Config: &apiextensions.JSON{Raw: []byte(`{
+"default.replication.factor": 3,
+"inter.broker.protocol.version": "3.6",
+"min.insync.replicas": 2,
+"offsets.topic.replication.factor": 3,
+"transaction.state.log.min.isr": 2,
+"transaction.state.log.replication.factor": 3
+}`)},
+				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
+					{
+						Name: "plain",
+						Port: 9092,
+						Tls:  false,
+						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeInternal,
+					},
+					{
+						Name: "tls",
+						Port: 9093,
+						Tls:  true,
+						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
+						Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
+							Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
+						},
+					},
+				},
+				Resources: k.getKafkaResources(mgh),
+				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
+					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
+				},
+				Replicas: 3,
+				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
+					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
+					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
+						kafkaSpecKafkaStorageVolumesElem,
+					},
+				},
+				Version: &KafkaVersion,
+			},
+			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
+				Replicas:  3,
+				Storage:   kafkaSpecZookeeperStorage,
+				Resources: k.getZookeeperResources(mgh),
+			},
+			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
+				TopicOperator: &kafkav1beta2.KafkaSpecEntityOperatorTopicOperator{},
+				UserOperator:  &kafkav1beta2.KafkaSpecEntityOperatorUserOperator{},
+			},
+		},
 	}
 
+	k.setAffinity(mgh, kafkaCluster)
+	k.setTolerations(mgh, kafkaCluster)
+	k.setMetricsConfig(mgh, kafkaCluster)
+
+	return kafkaCluster
+}
+
+// set metricsConfig for kafka cluster based on the mgh enableMetrics
+func (k *strimziTransporter) setMetricsConfig(mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	kafkaCluster *kafkav1beta2.Kafka) {
+	kafkaMetricsConfig := &kafkav1beta2.KafkaSpecKafkaMetricsConfig{}
+	zookeeperMetricsConfig := &kafkav1beta2.KafkaSpecZookeeperMetricsConfig{}
+	if mgh.Spec.EnableMetrics {
+		kafkaMetricsConfig = &kafkav1beta2.KafkaSpecKafkaMetricsConfig{
+			Type: kafkav1beta2.KafkaSpecKafkaMetricsConfigTypeJmxPrometheusExporter,
+			ValueFrom: kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFrom{
+				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFromConfigMapKeyRef{
+					Name: &KakfaMetricsConfigmapName,
+					Key:  &KafkaMetricsConfigmapKeyRef,
+				},
+			},
+		}
+		zookeeperMetricsConfig = &kafkav1beta2.KafkaSpecZookeeperMetricsConfig{
+			Type: kafkav1beta2.KafkaSpecZookeeperMetricsConfigTypeJmxPrometheusExporter,
+			ValueFrom: kafkav1beta2.KafkaSpecZookeeperMetricsConfigValueFrom{
+				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecZookeeperMetricsConfigValueFromConfigMapKeyRef{
+					Name: &KakfaMetricsConfigmapName,
+					Key:  &ZooKeeperMetricsConfigmapKeyRef,
+				},
+			},
+		}
+		kafkaCluster.Spec.Kafka.MetricsConfig = kafkaMetricsConfig
+		kafkaCluster.Spec.Zookeeper.MetricsConfig = zookeeperMetricsConfig
+	}
+}
+
+// set affinity for kafka cluster based on the mgh nodeSelector
+func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	kafkaCluster *kafkav1beta2.Kafka) {
 	kafkaPodAffinity := &kafkav1beta2.KafkaSpecKafkaTemplatePodAffinity{}
 	zookeeperPodAffinity := &kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinity{}
 	entityOperatorPodAffinity := &kafkav1beta2.KafkaSpecEntityOperatorTemplatePodAffinity{}
@@ -822,105 +823,77 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				NodeSelectorTerms: entityOperatorNodeSelectorTermsElem,
 			},
 		}
-	}
-	kafkaMetricsConfig := &kafkav1beta2.KafkaSpecKafkaMetricsConfig{}
-	zookeeperMetricsConfig := &kafkav1beta2.KafkaSpecZookeeperMetricsConfig{}
-	if mgh.Spec.EnableMetrics {
-		kafkaMetricsConfig = &kafkav1beta2.KafkaSpecKafkaMetricsConfig{
-			Type: kafkav1beta2.KafkaSpecKafkaMetricsConfigTypeJmxPrometheusExporter,
-			ValueFrom: kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFrom{
-				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFromConfigMapKeyRef{
-					Name: &KakfaMetricsConfigmapName,
-					Key:  &KafkaMetricsConfigmapKeyRef,
-				},
-			},
-		}
-		zookeeperMetricsConfig = &kafkav1beta2.KafkaSpecZookeeperMetricsConfig{
-			Type: kafkav1beta2.KafkaSpecZookeeperMetricsConfigTypeJmxPrometheusExporter,
-			ValueFrom: kafkav1beta2.KafkaSpecZookeeperMetricsConfigValueFrom{
-				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecZookeeperMetricsConfigValueFromConfigMapKeyRef{
-					Name: &KakfaMetricsConfigmapName,
-					Key:  &ZooKeeperMetricsConfigmapKeyRef,
-				},
-			},
-		}
-	}
 
-	return &kafkav1beta2.Kafka{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      k.name,
-			Namespace: k.namespace,
-		},
-		Spec: &kafkav1beta2.KafkaSpec{
-			Kafka: kafkav1beta2.KafkaSpecKafka{
-				Config: &apiextensions.JSON{Raw: []byte(`{
-"default.replication.factor": 3,
-"inter.broker.protocol.version": "3.6",
-"min.insync.replicas": 2,
-"offsets.topic.replication.factor": 3,
-"transaction.state.log.min.isr": 2,
-"transaction.state.log.replication.factor": 3
-}`)},
-				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
-					{
-						Name: "plain",
-						Port: 9092,
-						Tls:  false,
-						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeInternal,
-					},
-					{
-						Name: "tls",
-						Port: 9093,
-						Tls:  true,
-						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
-						Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
-							Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
-						},
-					},
+		if kafkaCluster.Spec.Kafka.Template == nil {
+			kafkaCluster.Spec.Kafka.Template = &kafkav1beta2.KafkaSpecKafkaTemplate{
+				Pod: &kafkav1beta2.KafkaSpecKafkaTemplatePod{
+					Affinity: kafkaPodAffinity,
 				},
-				Resources: k.getKafkaResources(mgh),
-				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
-					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
+			}
+			kafkaCluster.Spec.Zookeeper.Template = &kafkav1beta2.KafkaSpecZookeeperTemplate{
+				Pod: &kafkav1beta2.KafkaSpecZookeeperTemplatePod{
+					Affinity: zookeeperPodAffinity,
 				},
-				Replicas: 3,
-				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
-					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
-					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
-						kafkaSpecKafkaStorageVolumesElem,
-					},
+			}
+			kafkaCluster.Spec.EntityOperator.Template = &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
+				Pod: &kafkav1beta2.KafkaSpecEntityOperatorTemplatePod{
+					Affinity: entityOperatorPodAffinity,
 				},
-				Version: &KafkaVersion,
-				Template: &kafkav1beta2.KafkaSpecKafkaTemplate{
-					Pod: &kafkav1beta2.KafkaSpecKafkaTemplatePod{
-						Tolerations: kafkaTolerationsElem,
-						Affinity:    kafkaPodAffinity,
-					},
+			}
+		} else {
+			kafkaCluster.Spec.Kafka.Template.Pod.Affinity = kafkaPodAffinity
+			kafkaCluster.Spec.Zookeeper.Template.Pod.Affinity = zookeeperPodAffinity
+			kafkaCluster.Spec.EntityOperator.Template.Pod.Affinity = entityOperatorPodAffinity
+		}
+	}
+}
+
+// setTolerations sets the kafka tolerations based on the mgh tolerations
+func (k *strimziTransporter) setTolerations(mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	kafkaCluster *kafkav1beta2.Kafka) {
+	kafkaTolerationsElem := make([]kafkav1beta2.KafkaSpecKafkaTemplatePodTolerationsElem, 0)
+	zookeeperTolerationsElem := make([]kafkav1beta2.KafkaSpecZookeeperTemplatePodTolerationsElem, 0)
+	entityOperatorTolerationsElem := make([]kafkav1beta2.KafkaSpecEntityOperatorTemplatePodTolerationsElem, 0)
+
+	if mgh.Spec.Tolerations != nil {
+		jsonData, err := json.Marshal(mgh.Spec.Tolerations)
+		if err != nil {
+			k.log.Error(err, "failed to marshal tolerations")
+		}
+		err = json.Unmarshal(jsonData, &kafkaTolerationsElem)
+		if err != nil {
+			k.log.Error(err, "failed to unmarshal to KafkaSpecruntimeKafkaTemplatePodTolerationsElem")
+		}
+		err = json.Unmarshal(jsonData, &zookeeperTolerationsElem)
+		if err != nil {
+			k.log.Error(err, "failed to unmarshal to KafkaSpecZookeeperTemplatePodTolerationsElem")
+		}
+		err = json.Unmarshal(jsonData, &entityOperatorTolerationsElem)
+		if err != nil {
+			k.log.Error(err, "failed to unmarshal to KafkaSpecEntityOperatorTemplatePodTolerationsElem")
+		}
+
+		if kafkaCluster.Spec.Kafka.Template == nil {
+			kafkaCluster.Spec.Kafka.Template = &kafkav1beta2.KafkaSpecKafkaTemplate{
+				Pod: &kafkav1beta2.KafkaSpecKafkaTemplatePod{
+					Tolerations: kafkaTolerationsElem,
 				},
-				MetricsConfig: kafkaMetricsConfig,
-			},
-			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
-				Replicas:  3,
-				Storage:   kafkaSpecZookeeperStorage,
-				Resources: k.getZookeeperResources(mgh),
-				Template: &kafkav1beta2.KafkaSpecZookeeperTemplate{
-					Pod: &kafkav1beta2.KafkaSpecZookeeperTemplatePod{
-						Tolerations: zookeeperTolerationsElem,
-						Affinity:    zookeeperPodAffinity,
-					},
+			}
+			kafkaCluster.Spec.Zookeeper.Template = &kafkav1beta2.KafkaSpecZookeeperTemplate{
+				Pod: &kafkav1beta2.KafkaSpecZookeeperTemplatePod{
+					Tolerations: zookeeperTolerationsElem,
 				},
-				MetricsConfig: zookeeperMetricsConfig,
-			},
-			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
-				TopicOperator: &kafkav1beta2.KafkaSpecEntityOperatorTopicOperator{},
-				UserOperator:  &kafkav1beta2.KafkaSpecEntityOperatorUserOperator{},
-				Template: &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
-					Pod: &kafkav1beta2.KafkaSpecEntityOperatorTemplatePod{
-						Tolerations: entityOperatorTolerationsElem,
-						Affinity:    entityOperatorPodAffinity,
-					},
+			}
+			kafkaCluster.Spec.EntityOperator.Template = &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
+				Pod: &kafkav1beta2.KafkaSpecEntityOperatorTemplatePod{
+					Tolerations: entityOperatorTolerationsElem,
 				},
-			},
-		},
+			}
+		} else {
+			kafkaCluster.Spec.Kafka.Template.Pod.Tolerations = kafkaTolerationsElem
+			kafkaCluster.Spec.Zookeeper.Template.Pod.Tolerations = zookeeperTolerationsElem
+			kafkaCluster.Spec.EntityOperator.Template.Pod.Tolerations = entityOperatorTolerationsElem
+		}
 	}
 }
 

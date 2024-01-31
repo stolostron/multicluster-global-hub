@@ -92,9 +92,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		replicas = 2
 	}
 
-	filterOut := ""
+	filterOut := "strimzi"
 	if mgh.Spec.EnableMetrics {
-		filterOut = "strimzi"
+		filterOut = ""
 	}
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
