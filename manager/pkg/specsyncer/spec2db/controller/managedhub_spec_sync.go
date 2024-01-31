@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/api/errors"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,8 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 // this controller is outside the global resource.
@@ -67,34 +64,6 @@ func (r *managedHubReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 
 	// the managed hub is deleting then delete the data from database and then remove the finalizer
 	if !cluster.DeletionTimestamp.IsZero() {
-		db := database.GetGorm()
-		err = db.Transaction(func(tx *gorm.DB) error {
-			e := tx.Where(&models.ManagedCluster{
-				LeafHubName: cluster.Name,
-			}).Delete(&models.ManagedCluster{}).Error
-			if e != nil {
-				return e
-			}
-			e = tx.Where(&models.LeafHub{
-				LeafHubName: cluster.Name,
-			}).Delete(&models.LeafHub{}).Error
-			if e != nil {
-				return e
-			}
-			e = tx.Where(&models.LocalSpecPolicy{
-				LeafHubName: cluster.Name,
-			}).Delete(&models.LocalSpecPolicy{}).Error
-			if e != nil {
-				return e
-			}
-			e = tx.Where(&models.LocalStatusCompliance{
-				LeafHubName: cluster.Name,
-			}).Delete(&models.LocalStatusCompliance{}).Error
-			return e
-		})
-		if err != nil {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
-		}
 		reqLogger.V(2).Info("remove finalizer from the cluster")
 		if controllerutil.RemoveFinalizer(cluster, r.finalizerName) {
 			if err = r.client.Update(ctx, cluster); err != nil {
