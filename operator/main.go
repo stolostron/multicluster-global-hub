@@ -26,11 +26,11 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	routev1 "github.com/openshift/api/route/v1"
 	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -120,8 +120,6 @@ func init() {
 	utilruntime.Must(promv1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 
-	// Add postgres-operator scheme
-	utilruntime.Must(postgresv1beta1.AddToScheme(scheme))
 	// add Kafka scheme
 	utilruntime.Must(kafkav1beta2.AddToScheme(scheme))
 
@@ -412,11 +410,16 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&promv1.ServiceMonitor{}: {
 			Label: labelSelector,
 		},
-		&subv1alpha1.Subscription{}:        {},
-		&kafkav1beta2.Kafka{}:              {},
-		&kafkav1beta2.KafkaTopic{}:         {},
-		&kafkav1beta2.KafkaUser{}:          {},
-		&postgresv1beta1.PostgresCluster{}: {},
+		&subv1alpha1.Subscription{}: {},
+		&kafkav1beta2.Kafka{}: {
+			Label: labelSelector,
+		},
+		&kafkav1beta2.KafkaTopic{}: {
+			Label: labelSelector,
+		},
+		&kafkav1beta2.KafkaUser{}: {
+			Label: labelSelector,
+		},
 		&apiextensionsv1.CustomResourceDefinition{}: {
 			Label: kafkaLabelSelector,
 		},

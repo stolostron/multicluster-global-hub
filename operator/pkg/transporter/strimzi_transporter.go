@@ -506,7 +506,7 @@ func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.Kafka
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the topic will not be ready
 				"strimzi.io/cluster":             k.name,
-				constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
+				constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
 			},
 		},
 		Spec: &kafkav1beta2.KafkaTopicSpec{
@@ -527,7 +527,7 @@ func (k *strimziTransporter) newKafkaUser(username string) *kafkav1beta2.KafkaUs
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the user will not be ready
 				"strimzi.io/cluster":             k.name,
-				constants.GlobalHubOwnerLabelKey: constants.GlobalHubAddonOwnerLabelVal,
+				constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
 			},
 		},
 		Spec: &kafkav1beta2.KafkaUserSpec{
@@ -674,6 +674,9 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.name,
 			Namespace: k.namespace,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
+			},
 		},
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
