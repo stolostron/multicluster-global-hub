@@ -593,6 +593,11 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 		return k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh)), true
 	}
 
+	// this is only for e2e test. patch the kafka needs more time to be ready
+	if _, ok := existingKafka.Annotations["skip-patch-if-exist"]; ok {
+		return nil, false
+	}
+
 	desiredKafka := k.newKafkaCluster(mgh)
 	// marshal to json
 	existingKafkaJson, _ := json.Marshal(existingKafka)

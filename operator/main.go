@@ -412,13 +412,13 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		},
 		&subv1alpha1.Subscription{}: {},
 		&kafkav1beta2.Kafka{}: {
-			Label: labelSelector,
+			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
 		&kafkav1beta2.KafkaTopic{}: {
-			Label: labelSelector,
+			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
 		&kafkav1beta2.KafkaUser{}: {
-			Label: labelSelector,
+			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
 		&apiextensionsv1.CustomResourceDefinition{}: {
 			Label: kafkaLabelSelector,
