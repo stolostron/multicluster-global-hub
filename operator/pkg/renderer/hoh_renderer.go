@@ -36,7 +36,7 @@ func (r *HoHRenderer) Render(component, profile string, getConfigValuesFunc GetC
 	return r.RenderWithFilter(component, profile, "", getConfigValuesFunc)
 }
 
-func (r *HoHRenderer) RenderWithFilter(component, profile, filterOut string, getConfigValuesFunc GetConfigValuesFunc) (
+func (r *HoHRenderer) RenderWithFilter(component, profile, filter string, getConfigValuesFunc GetConfigValuesFunc) (
 	[]*unstructured.Unstructured, error,
 ) {
 	var unstructuredObjs []*unstructured.Unstructured
@@ -46,7 +46,7 @@ func (r *HoHRenderer) RenderWithFilter(component, profile, filterOut string, get
 		return unstructuredObjs, err
 	}
 
-	templateFiles, err := getTemplateFiles(r.manifestFS, component, filterOut)
+	templateFiles, err := getTemplateFiles(r.manifestFS, component, filter)
 	if err != nil {
 		return unstructuredObjs, err
 	}
@@ -97,7 +97,7 @@ func (r *HoHRenderer) RenderWithFilter(component, profile, filterOut string, get
 	return unstructuredObjs, nil
 }
 
-func getTemplateFiles(manifestFS embed.FS, dir, filterOut string) ([]string, error) {
+func getTemplateFiles(manifestFS embed.FS, dir, filter string) ([]string, error) {
 	files, err := getFiles(manifestFS)
 	if err != nil {
 		return nil, err
@@ -108,11 +108,7 @@ func getTemplateFiles(manifestFS embed.FS, dir, filterOut string) ([]string, err
 
 	var templateFiles []string
 	for _, file := range files {
-		if filterOut == "" {
-			if strings.HasPrefix(file, dir) {
-				templateFiles = append(templateFiles, file)
-			}
-		} else if strings.HasPrefix(file, dir) && !strings.Contains(file, filterOut) {
+		if strings.HasPrefix(file, dir) && strings.Contains(file, filter) {
 			templateFiles = append(templateFiles, file)
 		}
 	}

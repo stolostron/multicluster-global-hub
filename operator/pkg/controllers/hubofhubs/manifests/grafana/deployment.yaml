@@ -92,6 +92,14 @@ spec:
           name: grafana-dashboard-acm-global-whats-changed-clusters
         - mountPath: /grafana-dashboards/0/acm-global-whats-changed-policies
           name: grafana-dashboard-acm-global-whats-changed-policies
+        {{- if .EnableMetrics }}
+        - mountPath: /grafana-dashboards/1/global-hub-strimzi-kafka
+          name: grafana-dashboard-acm-strimzi-kafka
+        - mountPath: /grafana-dashboards/1/global-hub-strimzi-operator
+          name: grafana-dashboard-acm-strimzi-operator
+        - mountPath: /grafana-dashboards/1/global-hub-strimzi-zookeeper
+          name: grafana-dashboard-acm-strimzi-zookeeper
+        {{- end }}
         - mountPath: /etc/grafana
           name: grafana-config
       - readinessProbe:
@@ -198,6 +206,20 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-global-overview
         name: grafana-dashboard-acm-global-overview
+      {{- if .EnableMetrics }}
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-strimzi-kafka
+        name: grafana-dashboard-acm-strimzi-kafka
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-strimzi-operator
+        name: grafana-dashboard-acm-strimzi-operator
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-strimzi-zookeeper
+        name: grafana-dashboard-acm-strimzi-zookeeper
+      {{- end }}
       - name: grafana-config
         secret:
           defaultMode: 420

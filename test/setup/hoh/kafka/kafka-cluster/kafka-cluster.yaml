@@ -56,11 +56,6 @@ spec:
         memory: 128Mi
     storage:
       type: ephemeral
-    template:
-      persistentVolumeClaim:
-        metadata:
-          labels:
-            cluster.open-cluster-management.io/volsync: globalhub
     version: 3.6.0
   zookeeper:
     logging:
@@ -76,8 +71,3 @@ spec:
         memory: 500Mi
     storage:
       type: ephemeral
-    template:
-      persistentVolumeClaim:
-        metadata:
-          labels:
-            cluster.open-cluster-management.io/volsync: globalhub

@@ -1,3 +1,4 @@
+{{- if .EnableMetrics }}
 apiVersion: v1
 data:
   global-hub-strimzi-operator.json: |
@@ -1622,7 +1623,7 @@ data:
           }
         }
       ],
-      "refresh": "5s",
+      "refresh": "30s",
       "schemaVersion": 38,
       "style": "dark",
       "tags": [
@@ -1690,3 +1691,4 @@ kind: ConfigMap
 metadata:
   name: grafana-dashboard-acm-strimzi-operator
   namespace: {{ .Namespace }}
+{{- end }}

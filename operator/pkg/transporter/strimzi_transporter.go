@@ -593,23 +593,24 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 		return k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh)), true
 	}
 
-	updatedKafka := existingKafka.DeepCopy()
 	desiredKafka := k.newKafkaCluster(mgh)
-
 	// marshal to json
-	updateKafkaJson, _ := json.Marshal(updatedKafka)
+	existingKafkaJson, _ := json.Marshal(existingKafka)
 	desiredKafkaJson, _ := json.Marshal(desiredKafka)
 
-	patchedData, err := jsonpatch.MergePatch(updateKafkaJson, desiredKafkaJson)
+	// patch the desired kafka cluster to the existing kafka cluster
+	patchedData, err := jsonpatch.MergePatch(existingKafkaJson, desiredKafkaJson)
 	if err != nil {
 		return err, false
 	}
 
-	if string(patchedData) != string(updateKafkaJson) {
-		err := json.Unmarshal(patchedData, updatedKafka)
-		if err != nil {
-			return err, false
-		}
+	updatedKafka := &kafkav1beta2.Kafka{}
+	err = json.Unmarshal(patchedData, updatedKafka)
+	if err != nil {
+		return err, false
+	}
+
+	if !equality.Semantic.DeepDerivative(updatedKafka.Spec, existingKafka.Spec) {
 		return k.runtimeClient.Update(k.ctx, updatedKafka), true
 	}
 	return nil, false

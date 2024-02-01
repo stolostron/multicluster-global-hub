@@ -12,6 +12,15 @@ data:
                 },
                 "orgId": 1,
                 "type": "file"
+            },
+            {
+                "folder": "Strimzi",
+                "name": "1",
+                "options": {
+                    "path": "/grafana-dashboards/1"
+                },
+                "orgId": 1,
+                "type": "file"
             }
         ]
     }

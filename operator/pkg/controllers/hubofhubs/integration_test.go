@@ -421,6 +421,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Tolerations          []corev1.Toleration
 					LogLevel             string
 					Resources            *corev1.ResourceRequirements
+					EnableMetrics        bool
 				}{
 					Namespace:            commonutils.GetDefaultNamespace(),
 					Replicas:             2,
@@ -439,8 +440,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
-					LogLevel:  "info",
-					Resources: operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
+					EnableMetrics: false,
+					LogLevel:      "info",
+					Resources:     operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
 				}, nil
 			})
 

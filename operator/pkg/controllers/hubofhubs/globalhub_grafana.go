@@ -91,13 +91,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		replicas = 2
 	}
 
-	filterOut := "strimzi"
-	if mgh.Spec.EnableMetrics {
-		filterOut = ""
-	}
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
-	grafanaObjects, err := grafanaRenderer.RenderWithFilter("manifests/grafana", "", filterOut, func(profile string) (interface{}, error) {
+	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 		return struct {
 			Namespace            string
 			Replicas             int32
@@ -110,6 +106,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			NodeSelector         map[string]string
 			Tolerations          []corev1.Toleration
 			Resources            *corev1.ResourceRequirements
+			EnableMetrics        bool
 		}{
 			Namespace:            utils.GetDefaultNamespace(),
 			Replicas:             replicas,
@@ -121,6 +118,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			DatasourceSecretName: datasourceName,
 			NodeSelector:         mgh.Spec.NodeSelector,
 			Tolerations:          mgh.Spec.Tolerations,
+			EnableMetrics:        mgh.Spec.EnableMetrics,
 			Resources:            operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
 		}, nil
 	})
@@ -549,13 +547,13 @@ func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken stri
 			BasicAuth: false,
 			Editable:  false,
 			JSONData: &JsonData{
-				QueryTimeout:                "300s",
-				TimeInterval:                "30s",
-				TLSSkipVerify:               true,
-				HttpHeaderAuthorizationName: "Authorization",
+				QueryTimeout:    "300s",
+				TimeInterval:    "30s",
+				TLSSkipVerify:   true,
+				HttpHeaderName1: "Authorization",
 			},
 			SecureJSONData: &SecureJsonData{
-				HttpHeaderAuthorizationValue: "Bearer " + serviceAccountToken,
+				HttpHeaderValue1: "Bearer " + serviceAccountToken,
 			},
 		}
 		datasource = append(datasource, prometheusDS)
@@ -603,21 +601,21 @@ type GrafanaDatasource struct {
 }
 
 type JsonData struct {
-	SSLMode                     string `yaml:"sslmode,omitempty"`
-	TLSAuth                     bool   `yaml:"tlsAuth,omitempty"`
-	TLSAuthWithCACert           bool   `yaml:"tlsAuthWithCACert,omitempty"`
-	TLSConfigurationMethod      string `yaml:"tlsConfigurationMethod,omitempty"`
-	TLSSkipVerify               bool   `yaml:"tlsSkipVerify,omitempty"`
-	QueryTimeout                string `yaml:"queryTimeout,omitempty"`
-	HttpMethod                  string `yaml:"httpMethod,omitempty"`
-	TimeInterval                string `yaml:"timeInterval,omitempty"`
-	HttpHeaderAuthorizationName string `yaml:"httpHeaderAuthorizationName,omitempty"`
+	SSLMode                string `yaml:"sslmode,omitempty"`
+	TLSAuth                bool   `yaml:"tlsAuth,omitempty"`
+	TLSAuthWithCACert      bool   `yaml:"tlsAuthWithCACert,omitempty"`
+	TLSConfigurationMethod string `yaml:"tlsConfigurationMethod,omitempty"`
+	TLSSkipVerify          bool   `yaml:"tlsSkipVerify,omitempty"`
+	QueryTimeout           string `yaml:"queryTimeout,omitempty"`
+	HttpMethod             string `yaml:"httpMethod,omitempty"`
+	TimeInterval           string `yaml:"timeInterval,omitempty"`
+	HttpHeaderName1        string `yaml:"httpHeaderName1,omitempty"`
 }
 
 type SecureJsonData struct {
-	Password                     string `yaml:"password,omitempty"`
-	TLSCACert                    string `yaml:"tlsCACert,omitempty"`
-	TLSClientCert                string `yaml:"tlsClientCert,omitempty"`
-	TLSClientKey                 string `yaml:"tlsClientKey,omitempty"`
-	HttpHeaderAuthorizationValue string `yaml:"httpHeaderAuthorizationValue,omitempty"`
+	Password         string `yaml:"password,omitempty"`
+	TLSCACert        string `yaml:"tlsCACert,omitempty"`
+	TLSClientCert    string `yaml:"tlsClientCert,omitempty"`
+	TLSClientKey     string `yaml:"tlsClientKey,omitempty"`
+	HttpHeaderValue1 string `yaml:"httpHeaderValue1,omitempty"`
 }
