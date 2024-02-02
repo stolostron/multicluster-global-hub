@@ -63,6 +63,7 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 	c.setSyncInterval(agentConfigMap, PolicyIntervalKey)
 	c.setSyncInterval(agentConfigMap, HubClusterInfoIntervalKey)
 	c.setSyncInterval(agentConfigMap, HubClusterHeartBeatIntervalKey)
+	c.setSyncInterval(agentConfigMap, EventIntervalKey)
 
 	c.setAgentConfig(agentConfigMap, AgentAggregationKey)
 	c.setAgentConfig(agentConfigMap, EnableLocalPolicyKey)

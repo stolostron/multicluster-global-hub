@@ -96,6 +96,29 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 	return nil
 }
 
+func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	payloadBytes := evt.Data()
+	chunks := p.splitPayloadIntoChunks(payloadBytes)
+	if len(chunks) == 1 {
+		if ret := p.client.Send(ctx, evt); cloudevents.IsUndelivered(ret) {
+			return fmt.Errorf("failed to send event to transport: %v", ret)
+		}
+		return nil
+	}
+
+	for index, chunk := range chunks {
+		evt.SetExtension(transport.ChunkSizeKey, len(payloadBytes))
+		evt.SetExtension(transport.ChunkOffsetKey, index*p.messageSizeLimit)
+		if err := evt.SetData(cloudevents.ApplicationJSON, chunk); err != nil {
+			return fmt.Errorf("failed to set cloudevents data: %v", evt)
+		}
+		if result := p.client.Send(ctx, evt); cloudevents.IsUndelivered(result) {
+			return fmt.Errorf("failed to send events to transport: %v", result)
+		}
+	}
+	return nil
+}
+
 func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 	var chunk []byte
 	chunks := make([][]byte, 0, len(payload)/(p.messageSizeLimit)+1)

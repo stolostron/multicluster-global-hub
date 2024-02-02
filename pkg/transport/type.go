@@ -10,9 +10,9 @@ const (
 	// Broadcast can be used as destination when a bundle should be broadcasted.
 	Broadcast = "broadcast"
 	// ChunkSizeKey is the key used for total bundle size header.
-	ChunkSizeKey = "size"
+	ChunkSizeKey = "extsize"
 	// ChunkOffsetKey is the key used for message fragment offset header.
-	ChunkOffsetKey = "offset"
+	ChunkOffsetKey = "extoffset"
 
 	// Deprecated
 	// CompressionType is the key used for compression type header.
