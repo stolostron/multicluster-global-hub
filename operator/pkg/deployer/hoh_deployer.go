@@ -189,23 +189,24 @@ func (d *HoHDeployer) deployServiceAccount(desiredObj, existingObj *unstructured
 
 func (d *HoHDeployer) deployPodMonitor(desiredObj, existingObj *unstructured.Unstructured) error {
 	existingJSON, _ := existingObj.MarshalJSON()
-	existingSA := &monitoringv1.PodMonitor{}
-	err := json.Unmarshal(existingJSON, existingSA)
+	existingMonitor := &monitoringv1.PodMonitor{}
+	err := json.Unmarshal(existingJSON, existingMonitor)
 	if err != nil {
 		return err
 	}
 
 	desiredJSON, _ := desiredObj.MarshalJSON()
-	desiredSA := &monitoringv1.PodMonitor{}
-	err = json.Unmarshal(desiredJSON, desiredSA)
+	desiredMonitor := &monitoringv1.PodMonitor{}
+	err = json.Unmarshal(desiredJSON, desiredMonitor)
 	if err != nil {
 		return err
 	}
 
-	if !apiequality.Semantic.DeepDerivative(desiredSA.Spec, existingSA.Spec) ||
-		!apiequality.Semantic.DeepDerivative(desiredSA.GetLabels(), existingSA.GetLabels()) ||
-		!apiequality.Semantic.DeepDerivative(desiredSA.GetAnnotations(), existingSA.GetAnnotations()) {
-		return d.client.Update(context.TODO(), desiredSA)
+	if !apiequality.Semantic.DeepDerivative(desiredMonitor.Spec, existingMonitor.Spec) ||
+		!apiequality.Semantic.DeepDerivative(desiredMonitor.GetLabels(), existingMonitor.GetLabels()) ||
+		!apiequality.Semantic.DeepDerivative(desiredMonitor.GetAnnotations(), existingMonitor.GetAnnotations()) {
+		desiredMonitor.ObjectMeta.ResourceVersion = existingMonitor.ObjectMeta.ResourceVersion
+		return d.client.Update(context.TODO(), desiredMonitor)
 	}
 
 	return nil
