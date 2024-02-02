@@ -15,8 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -28,13 +26,8 @@ const (
 )
 
 // Object is an interface for a single object inside a bundle.
-type Object interface {
-	metav1.Object
-	runtime.Object
-}
-
 type ObjectSyncer interface {
-	Instance() Object
+	Instance() client.Object
 	Predicate() predicate.Predicate
 	Interval() func() time.Duration
 	EnableFinalizer() bool
@@ -42,16 +35,14 @@ type ObjectSyncer interface {
 }
 
 type ObjectHandler interface {
-	// Used to assert the event is the target resource
-	Predicate(Object) bool
 	// Update a single object inside a handler
-	Update(Object)
+	Update(client.Object)
 	// Delete a single object inside a handler
-	Delete(Object)
+	Delete(client.Object)
 	// GetVersion to get inside the handler
 	GetVersion() *metadata.BundleVersion
 	// Covert the current payload to a cloud event
-	ToCloudEvent() cloudevents.Event
+	ToCloudEvent() *cloudevents.Event
 	// triggered after sending the event, incr generate, clean payload, ...
 	PostSend()
 }
@@ -141,34 +132,7 @@ func (c *genericObjectSyncer) Reconcile(ctx context.Context, request ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-func (c *genericObjectSyncer) updateObjectAndFinalizer(ctx context.Context, object Object) error {
-	// only add finalizer for the global resources an
-	// _, globalLabelResource := object.GetLabels()[constants.GlobalHubGlobalResourceLabel]
-	// if globalLabelResource || utils.HasAnnotation(object,
-	// 	constants.OriginOwnerReferenceAnnotation) {
-	// 	if err := addFinalizer(ctx, c.client, object, c.finalizerName); err != nil {
-	// 		return fmt.Errorf("failed to add finalizer - %w", err)
-	// 	}
-	// }
-	if c.objectSyncer.EnableFinalizer() {
-		if err := addFinalizer(ctx, c.client, object, FinalizerName); err != nil {
-			return fmt.Errorf("failed to add finalizer - %w", err)
-		}
-	}
-
-	cleanObject(object)
-
-	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-	defer c.lock.Unlock()
-
-	for _, entry := range c.orderedBundleCollection {
-		// update in each bundle from the collection according to their order.
-		entry.bundle.UpdateObject(object)
-	}
-	return nil
-}
-
-func (c *genericObjectSyncer) updateObject(object Object) {
+func (c *genericObjectSyncer) updateObject(object client.Object) {
 	c.lock.Lock() // make sure handler are not updated if we're during bundles sync
 	defer c.lock.Unlock()
 	for _, entry := range c.eventEntries {
@@ -177,7 +141,7 @@ func (c *genericObjectSyncer) updateObject(object Object) {
 	}
 }
 
-func (c *genericObjectSyncer) deleteObject(object Object) {
+func (c *genericObjectSyncer) deleteObject(object client.Object) {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	for _, entry := range c.eventEntries {
 		entry.eventHandler.Delete(object)
@@ -219,14 +183,14 @@ func (c *genericObjectSyncer) syncEvents() {
 
 			topicCtx := cecontext.WithTopic(context.TODO(), c.objectSyncer.Topic())
 			evtCtx := kafka_confluent.WithMessageKey(topicCtx, c.leafHubName)
-			if err := c.producer.SendEvent(evtCtx, evt); err != nil {
+			if err := c.producer.SendEvent(evtCtx, *evt); err != nil {
 				c.log.Error(err, "failed to send event", "evt", evt)
 				continue
 			}
-			// // 1. get into the next generation
-			// // 2. set the lastSentBundleVersion to first version of next generation
-			// entry.bundle.GetVersion().Next()
-			// entry.lastSentBundleVersion = *entry.bundle.GetVersion()
+			// 1. get into the next generation
+			// 2. set the lastSentBundleVersion to first version of next generation
+			eventEntry.eventHandler.GetVersion().Next()
+			eventEntry.lastSentVersion = *eventEntry.eventHandler.GetVersion()
 			eventEntry.eventHandler.PostSend()
 		}
 	}
