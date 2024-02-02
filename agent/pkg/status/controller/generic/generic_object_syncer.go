@@ -180,6 +180,7 @@ func (c *genericObjectSyncer) syncEvents() {
 		if currentVersion.NewerThan(&eventEntry.lastSentVersion) {
 
 			evt := eventEntry.eventHandler.ToCloudEvent()
+			evt.SetSource(c.leafHubName)
 
 			topicCtx := cecontext.WithTopic(context.TODO(), c.objectSyncer.Topic())
 			evtCtx := kafka_confluent.WithMessageKey(topicCtx, c.leafHubName)
@@ -189,9 +190,8 @@ func (c *genericObjectSyncer) syncEvents() {
 			}
 			// 1. get into the next generation
 			// 2. set the lastSentBundleVersion to first version of next generation
-			eventEntry.eventHandler.GetVersion().Next()
-			eventEntry.lastSentVersion = *eventEntry.eventHandler.GetVersion()
 			eventEntry.eventHandler.PostSend()
+			eventEntry.lastSentVersion = *eventEntry.eventHandler.GetVersion()
 		}
 	}
 }
