@@ -10,6 +10,7 @@ require (
 	github.com/confluentinc/confluent-kafka-go/v2 v2.3.0
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
+	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fergusstrange/embedded-postgres v1.17.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-co-op/gocron v1.23.0
@@ -59,7 +60,6 @@ require (
 	sigs.k8s.io/kustomize/api v0.12.1
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 	sigs.k8s.io/yaml v1.3.0
-	github.com/evanphx/json-patch v5.6.0+incompatible
 )
 
 require (
