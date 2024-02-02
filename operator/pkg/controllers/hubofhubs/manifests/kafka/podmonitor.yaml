@@ -1,7 +1,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
-  name: cluster-operator-metrics
+  name: amq-streams-cluster-operator-metrics
   namespace: {{.Namespace}}
   labels:
     app: strimzi
