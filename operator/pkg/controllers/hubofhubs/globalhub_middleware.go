@@ -26,12 +26,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -53,7 +58,14 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		conn, e := r.ReconcileTransport(ctx, mgh)
+		transProtocol, err := detectTransportProtocol(ctx, r.Client)
+		if err != nil {
+			errorChan <- err
+		}
+		if err := r.renderKafkaMetricsResources(ctx, mgh, transProtocol); err != nil {
+			errorChan <- err
+		}
+		conn, e := r.ReconcileTransport(ctx, mgh, transProtocol)
 		if e != nil {
 			errorChan <- e
 		}
@@ -86,15 +98,43 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
-) (*transport.ConnCredential, error) {
-	transProtocol, err := detectTransportProtocol(ctx, r.Client)
-	if err != nil {
-		return nil, err
-	}
+// renderKafkaMetricsResources renders the kafka podmonitor and metrics
+func (r *MulticlusterGlobalHubReconciler) renderKafkaMetricsResources(ctx context.Context,
+	mgh *v1alpha4.MulticlusterGlobalHub, transProtocol transport.TransportProtocol) error {
+	log := r.Log.WithName("middleware")
+	if mgh.Spec.EnableMetrics && transProtocol == transport.StrimziTransporter {
+		// render the kafka objects
+		kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
+		kafkaObjects, err := kafkaRenderer.Render("manifests/kafka", "",
+			func(profile string) (interface{}, error) {
+				return struct {
+					Namespace string
+				}{
+					Namespace: utils.GetDefaultNamespace(),
+				}, nil
+			})
+		if err != nil {
+			return fmt.Errorf("failed to render kafka manifests: %w", err)
+		}
+		// create restmapper for deployer to find GVR
+		dc, err := discovery.NewDiscoveryClientForConfig(r.GetConfig())
+		if err != nil {
+			return err
+		}
+		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
+		if err = r.manipulateObj(ctx, kafkaDeployer, mapper, kafkaObjects, mgh, log); err != nil {
+			return fmt.Errorf("failed to create/update kafka objects: %w", err)
+		}
+	}
+	return nil
+}
+
+func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+	transProtocol transport.TransportProtocol) (*transport.ConnCredential, error) {
 	// create the transport instance
 	var trans transport.Transporter
+	var err error
 	switch transProtocol {
 	case transport.StrimziTransporter:
 		trans, err = transportprotocol.NewStrimziTransporter(

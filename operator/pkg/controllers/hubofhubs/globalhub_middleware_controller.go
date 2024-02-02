@@ -7,7 +7,6 @@ import (
 	"context"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -26,14 +25,23 @@ type middlewareController struct {
 }
 
 func (m *middlewareController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+	log := m.reconciler.Log.WithName("middleware")
 	// get the mcgh cr name and then trigger the globalhub reconciler
 	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 	err := m.mgr.GetClient().Get(ctx, config.GetMGHNamespacedName(), mgh)
 	if err != nil {
-		klog.Error(err, "Failed to get MulticlusterGlobalHub")
+		log.Error(err, "failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
-	_, err = m.reconciler.ReconcileTransport(ctx, mgh)
+	transProtocol, err := detectTransportProtocol(ctx, m.mgr.GetClient())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	err = m.reconciler.renderKafkaMetricsResources(ctx, mgh, transProtocol)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	_, err = m.reconciler.ReconcileTransport(ctx, mgh, transProtocol)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

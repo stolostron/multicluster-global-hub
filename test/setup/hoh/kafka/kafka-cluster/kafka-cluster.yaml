@@ -2,14 +2,13 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: kafka
+  annotations:
+    skip-patch-if-exist: ""
   labels:
     cluster.open-cluster-management.io/backup: globalhub
     strimzi.io/cluster: kafka
 spec:
   entityOperator:
-    template:
-      pod:
-        affinity: {}
     topicOperator: {}
     userOperator: {}
   kafka:
@@ -51,17 +50,8 @@ spec:
       initialDelaySeconds: 15
       timeoutSeconds: 5
     replicas: 1
-    resources:
-      limits:
-        memory: 4Gi
-      requests:
-        cpu: 25m
-        memory: 128Mi
     storage:
       type: ephemeral
-    template:
-      pod:
-        affinity: {}
     version: 3.6.0
   zookeeper:
     logging:
@@ -69,14 +59,5 @@ spec:
         zookeeper.root.logger: INFO
       type: inline
     replicas: 1
-    resources:
-      limits:
-        memory: 3Gi
-      requests:
-        cpu: 20m
-        memory: 500Mi
     storage:
       type: ephemeral
-    template:
-      pod:
-        affinity: {}
