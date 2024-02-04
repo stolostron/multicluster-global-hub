@@ -19,6 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -42,7 +43,7 @@ func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client) *localRootP
 		ctx:             ctx,
 		log:             ctrl.Log.WithName("policy-event-sycner/local-root-policy"),
 		eventType:       string(enum.LocalRootPolicyEventType),
-		topic:           "event",
+		topic:           transport.GenericEventTopic,
 		runtimeClient:   c,
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),
@@ -103,7 +104,6 @@ func (h *localRootPolicyEmitter) ToCloudEvent() *cloudevents.Event {
 		return nil
 	}
 	e := cloudevents.NewEvent()
-	e.SetID(h.events[0].PolicyID)
 	e.SetType(h.eventType)
 	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
 	err := e.SetData(cloudevents.ApplicationJSON, h.events)

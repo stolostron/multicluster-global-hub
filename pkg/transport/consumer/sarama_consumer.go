@@ -70,13 +70,13 @@ func (c *saramaConsumer) MarkOffset(topic string, partition int32, offset int64)
 
 func (c *saramaConsumer) Start(ctx context.Context) error {
 	for {
-		err := c.client.Consume(ctx, []string{c.kafkaConfig.ConsumerConfig.ConsumerTopic}, &consumeGroupHandler{
+		err := c.client.Consume(ctx, []string{c.kafkaConfig.ConsumerConfig.StatusTopic}, &consumeGroupHandler{
 			log:           c.log.WithName("handler"),
 			messageChan:   c.messageChan,
 			processedChan: c.processedChan,
 		})
 		if err != nil {
-			c.log.Error(err, "Error from sarama consumer", "topic", c.kafkaConfig.ConsumerConfig.ConsumerTopic)
+			c.log.Error(err, "Error from sarama consumer", "topic", c.kafkaConfig.ConsumerConfig.StatusTopic)
 		}
 		// check if context was cancelled, signaling that the consumer should stop
 		if ctx.Err() != nil {

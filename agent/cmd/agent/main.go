@@ -135,7 +135,7 @@ func parseFlags() *config.AgentConfig {
 		"status", "Topic for the kafka producer.")
 	pflag.IntVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic",
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.StatusTopic, "kafka-consumer-topic",
 		"spec", "Topic for the kafka consumer.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kafka-consumer-id",
 		"multicluster-global-hub-agent", "ID for the kafka consumer.")

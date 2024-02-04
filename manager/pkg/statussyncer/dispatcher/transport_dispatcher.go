@@ -6,9 +6,12 @@ import (
 	"errors"
 	"strings"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/handler"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
@@ -19,6 +22,7 @@ type TransportDispatcher struct {
 	log                 logr.Logger
 	consumer            transport.Consumer
 	bundleRegistrations map[string]*registration.BundleRegistration // msgID: BundleRegistration
+	eventHandler        map[enum.EventType]handler.EventHandler
 	statistics          *statistics.Statistics
 	conflationManager   *conflator.ConflationManager
 }
@@ -30,9 +34,14 @@ func NewTransportDispatcher(log logr.Logger, consumer transport.Consumer,
 		log:                 log,
 		consumer:            consumer,
 		bundleRegistrations: make(map[string]*registration.BundleRegistration),
+		eventHandler:        make(map[enum.EventType]handler.EventHandler),
 		statistics:          stats,
 		conflationManager:   conflationManager,
 	}
+}
+
+func (d *TransportDispatcher) RegisterEventHandler(eventType enum.EventType, h handler.EventHandler) {
+	d.eventHandler[eventType] = h
 }
 
 func (d *TransportDispatcher) BundleRegister(registration *registration.BundleRegistration) {
@@ -56,6 +65,9 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case evt := <-d.consumer.EventChan():
+			//TODO: need to be intergrate to conflation in the next step
+			d.process(evt)
 		case message := <-d.consumer.MessageChan():
 
 			// get msgID
@@ -91,5 +103,18 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			d.log.V(2).Info("forward received bundle to conflation", "messageID", msgID)
 			d.conflationManager.Insert(receivedBundle, message.BundleStatus)
 		}
+	}
+}
+
+func (d *TransportDispatcher) process(evt cloudevents.Event) {
+	h, ok := d.eventHandler[enum.EventType(evt.Type())]
+	if !ok {
+		d.log.Error(errors.New("not found type of the cloudevent"), "no handler available", "event", evt)
+		return
+	}
+
+	err := h.ToDatabase(evt)
+	if err != nil {
+		d.log.Error(err, "failed to save event to database", "event", evt)
 	}
 }

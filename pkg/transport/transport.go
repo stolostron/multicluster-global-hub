@@ -39,4 +39,5 @@ type Consumer interface {
 	Start(ctx context.Context) error
 	// provide a blocking message to get the message
 	MessageChan() chan *Message
+	EventChan() chan cloudevents.Event
 }

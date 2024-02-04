@@ -2,6 +2,8 @@ package metadata
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 const ExtVersion = "extversion"
@@ -12,6 +14,26 @@ func NewBundleVersion() *BundleVersion {
 		Generation: 0,
 		Value:      0,
 	}
+}
+
+func BundleVersionFrom(strVersion string) (*BundleVersion, error) {
+	vals := strings.Split(strVersion, ".")
+	if len(vals) != 2 {
+		return nil, fmt.Errorf("malformed version string: %s", strVersion)
+	}
+	generation, err := strconv.ParseUint(vals[0], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	val, err := strconv.ParseUint(vals[1], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return &BundleVersion{
+		Generation: generation,
+		Value:      val,
+	}, nil
+
 }
 
 // BundleVersion holds the information necessary for the consumers of status bundles to compare versions correctly.

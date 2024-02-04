@@ -30,6 +30,7 @@ type GenericConsumer struct {
 	client               cloudevents.Client
 	assembler            *messageAssembler
 	messageChan          chan *transport.Message
+	eventChan            chan cloudevents.Event
 	withDatabasePosition bool
 }
 
@@ -75,6 +76,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, opts ...GenericCo
 		log:                  log,
 		client:               client,
 		messageChan:          make(chan *transport.Message),
+		eventChan:            make(chan cloudevents.Event),
 		assembler:            newMessageAssembler(),
 		withDatabasePosition: false,
 	}
@@ -109,6 +111,12 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	err := c.client.StartReceiver(receiveContext, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
 		c.log.V(2).Info("received message and forward to bundle channel", "event.ID", event.ID())
 
+		topic, ok := event.Extensions()[kafka_confluent.KafkaTopicKey]
+		if ok && topic == transport.GenericEventTopic {
+			c.eventChan <- event
+			return ceprotocol.ResultACK
+		}
+
 		transportMessage := &transport.Message{}
 		transportMessage.Key = event.ID()
 		transportMessage.MsgType = event.Type()
@@ -124,7 +132,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 			transportMessage.Payload = payload
 			c.messageChan <- transportMessage
 		}
-		return ceprotocol.ResultNACK
+		return ceprotocol.ResultACK
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start Receiver: %w", err)
@@ -135,6 +143,10 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 func (c *GenericConsumer) MessageChan() chan *transport.Message {
 	return c.messageChan
+}
+
+func (c *GenericConsumer) EventChan() chan cloudevents.Event {
+	return c.eventChan
 }
 
 func getInitOffset() ([]kafka.TopicPartition, error) {
@@ -181,5 +193,8 @@ func getConfluentReceiverProtocol(transportConfig *transport.TransportConfig) (i
 	}
 
 	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
-		kafka_confluent.WithReceiverTopics([]string{transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic}))
+		kafka_confluent.WithReceiverTopics([]string{
+			transportConfig.KafkaConfig.ConsumerConfig.StatusTopic,
+			transportConfig.KafkaConfig.ConsumerConfig.EventTopic,
+		}))
 }

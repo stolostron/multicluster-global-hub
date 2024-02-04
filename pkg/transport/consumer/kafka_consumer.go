@@ -88,7 +88,7 @@ func NewKafkaConsumer(kafkaConfig *transport.KafkaConfig, log logr.Logger,
 		messageAssembler: newKafkaMessageAssembler(),
 		stopChan:         make(chan struct{}, 1),
 		compressorsMap:   make(map[compressor.CompressionType]compressor.Compressor),
-		topic:            kafkaConfig.ConsumerConfig.ConsumerTopic,
+		topic:            kafkaConfig.ConsumerConfig.StatusTopic,
 		messageChan:      messageChan,
 
 		genericBundlesChan:         make(chan *spec.GenericSpecBundle),
@@ -98,11 +98,11 @@ func NewKafkaConsumer(kafkaConfig *transport.KafkaConfig, log logr.Logger,
 		partitionToOffsetToCommitMap:    make(map[int32]kafka.Offset),
 	}
 
-	if err := kafkaConsumer.Subscribe(kafkaConfig.ConsumerConfig.ConsumerTopic); err != nil {
+	if err := kafkaConsumer.Subscribe(kafkaConfig.ConsumerConfig.StatusTopic); err != nil {
 		close(messageChan)
 		kafkaConsumer.log.Info(kafkaConsumer.consumer.Close().Error())
 		return nil, fmt.Errorf("failed to subscribe to requested topic - %v: %w",
-			kafkaConfig.ConsumerConfig.ConsumerTopic, err)
+			kafkaConfig.ConsumerConfig.StatusTopic, err)
 	}
 
 	return kafkaConsumer, nil

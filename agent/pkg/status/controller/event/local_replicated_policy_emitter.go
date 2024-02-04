@@ -17,6 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -73,7 +74,7 @@ func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.C
 		ctx:             ctx,
 		log:             ctrl.Log.WithName("policy-event-syncer/replicated-policy"),
 		eventType:       string(enum.LocalReplicatedPolicyEvent),
-		topic:           "event",
+		topic:           transport.GenericEventTopic,
 		runtimeClient:   runtimeClient,
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),
@@ -162,7 +163,6 @@ func (h *localReplicatedPolicyEmitter) ToCloudEvent() *cloudevents.Event {
 		return nil
 	}
 	e := cloudevents.NewEvent()
-	e.SetID(h.events[0].PolicyID)
 	e.SetType(h.eventType)
 	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
 	err := e.SetData(cloudevents.ApplicationJSON, h.events)
