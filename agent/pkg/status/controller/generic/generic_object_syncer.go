@@ -6,18 +6,16 @@ import (
 	"sync"
 	"time"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	"github.com/go-logr/logr"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
 const (
@@ -25,70 +23,33 @@ const (
 	FinalizerName = constants.GlobalHubCleanupFinalizer
 )
 
-// Object is an interface for a single object inside a bundle.
-type ObjectSyncer interface {
-	Instance() client.Object
-	Predicate() predicate.Predicate
-	Interval() func() time.Duration
-	EnableFinalizer() bool
-	Topic() string
-}
-
-type ObjectHandler interface {
-	// Update a single object inside a handler
-	Update(client.Object)
-	// Delete a single object inside a handler
-	Delete(client.Object)
-	// GetVersion to get inside the handler
-	GetVersion() *metadata.BundleVersion
-	// Covert the current payload to a cloud event
-	ToCloudEvent() *cloudevents.Event
-	// triggered after sending the event, incr generate, clean payload, ...
-	PostSend()
-}
-
-// 1 Object -> n EventEntry -> n CloudEvent
-type EventEntry struct {
-	eventType       string
-	eventHandler    ObjectHandler
-	lastSentVersion metadata.BundleVersion // not pointer so it does not point to the bundle's internal version
-}
-
-func NewEventEntry(eventType string, handler ObjectHandler) *EventEntry {
-	return &EventEntry{
-		eventType:       eventType,
-		eventHandler:    handler,
-		lastSentVersion: *handler.GetVersion(),
-	}
-}
-
 type genericObjectSyncer struct {
-	log          logr.Logger
-	client       client.Client
-	producer     transport.Producer
-	objectSyncer ObjectSyncer
-	eventEntries []*EventEntry
-	leafHubName  string
-	startOnce    sync.Once
-	lock         sync.Mutex
+	log           logr.Logger
+	client        client.Client
+	producer      transport.Producer
+	objectSyncer  ObjectSyncer
+	eventEmitters []EventEmitter
+	leafHubName   string
+	startOnce     sync.Once
+	lock          sync.Mutex
 }
 
 // AddPolicyStatusSyncer adds policies status controller to the manager.
-func LaunchGenericObjectSyncer(mgr ctrl.Manager, logName string, producer transport.Producer,
-	objectSyncer ObjectSyncer, eventEntries []*EventEntry,
+func LaunchGenericObjectSyncer(mgr ctrl.Manager, objectSyncer ObjectSyncer, producer transport.Producer,
+	eventEmitters []EventEmitter,
 ) error {
 	syncer := &genericObjectSyncer{
-		log:          ctrl.Log.WithName(logName),
-		client:       mgr.GetClient(),
-		producer:     producer,
-		objectSyncer: objectSyncer,
-		eventEntries: eventEntries,
-		leafHubName:  config.GetLeafHubName(),
+		log:           ctrl.Log.WithName(objectSyncer.Name()),
+		client:        mgr.GetClient(),
+		producer:      producer,
+		objectSyncer:  objectSyncer,
+		eventEmitters: eventEmitters,
+		leafHubName:   config.GetLeafHubName(),
 	}
 
 	// start the periodic syncer
 	syncer.startOnce.Do(func() {
-		// go c.periodicSync()
+		go syncer.periodicSync()
 	})
 
 	return ctrl.NewControllerManagedBy(mgr).For(objectSyncer.Instance()).
@@ -135,16 +96,16 @@ func (c *genericObjectSyncer) Reconcile(ctx context.Context, request ctrl.Reques
 func (c *genericObjectSyncer) updateObject(object client.Object) {
 	c.lock.Lock() // make sure handler are not updated if we're during bundles sync
 	defer c.lock.Unlock()
-	for _, entry := range c.eventEntries {
+	for _, emitter := range c.eventEmitters {
 		// update in each handler from the collection according to their order.
-		entry.eventHandler.Update(object)
+		emitter.Update(object)
 	}
 }
 
 func (c *genericObjectSyncer) deleteObject(object client.Object) {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-	for _, entry := range c.eventEntries {
-		entry.eventHandler.Delete(object)
+	for _, emitter := range c.eventEmitters {
+		emitter.Delete(object)
 	}
 	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
 }
@@ -172,14 +133,11 @@ func (c *genericObjectSyncer) syncEvents() {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer c.lock.Unlock()
 
-	for i := range c.eventEntries {
-		eventEntry := c.eventEntries[i]
+	for i := range c.eventEmitters {
+		emitter := c.eventEmitters[i]
 
-		currentVersion := eventEntry.eventHandler.GetVersion()
-		// send to transport only if bundle has changed.
-		if currentVersion.NewerThan(&eventEntry.lastSentVersion) {
-
-			evt := eventEntry.eventHandler.ToCloudEvent()
+		if emitter.Emit() {
+			evt := emitter.ToCloudEvent()
 			evt.SetSource(c.leafHubName)
 
 			topicCtx := cecontext.WithTopic(context.TODO(), c.objectSyncer.Topic())
@@ -188,10 +146,7 @@ func (c *genericObjectSyncer) syncEvents() {
 				c.log.Error(err, "failed to send event", "evt", evt)
 				continue
 			}
-			// 1. get into the next generation
-			// 2. set the lastSentBundleVersion to first version of next generation
-			eventEntry.eventHandler.PostSend()
-			eventEntry.lastSentVersion = *eventEntry.eventHandler.GetVersion()
+			emitter.PostSend()
 		}
 	}
 }

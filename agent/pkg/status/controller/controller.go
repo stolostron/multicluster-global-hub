@@ -12,6 +12,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
 	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/event"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/hubcluster"
 	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/localplacement"
@@ -70,6 +72,15 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		if err := addControllerFunction(mgr, producer); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
+	}
+
+	err = generic.LaunchGenericObjectSyncer(mgr, event.NewPolicyEventSyncer(), producer,
+		[]generic.EventEmitter{
+			event.NewRootPolicyEventEmitter(ctx, mgr.GetClient()),
+			event.NewReplicatedPolicyEventEmitter(ctx, mgr.GetClient()),
+		})
+	if err != nil {
+		return fmt.Errorf("failed to launch policyEvent syncer: %w", err)
 	}
 	return nil
 }

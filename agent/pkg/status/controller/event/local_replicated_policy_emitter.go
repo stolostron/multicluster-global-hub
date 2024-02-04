@@ -6,35 +6,46 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	corev1 "k8s.io/api/core/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type replicatedPolicyEventHandler struct {
-	ctx           context.Context
-	log           logr.Logger
-	runtimeClient client.Client
-	version       *metadata.BundleVersion
-	events        map[string]*event.ReplicatedPolicyEvent
+var _ generic.EventEmitter = &replicatedPolicyEventEmitter{}
+
+type replicatedPolicyEventEmitter struct {
+	ctx             context.Context
+	log             logr.Logger
+	eventType       string
+	runtimeClient   client.Client
+	currentVersion  *metadata.BundleVersion
+	lastSentVersion metadata.BundleVersion
+	events          map[string]*event.ReplicatedPolicyEvent
 }
 
-func NewPolicyEventHandler(ctx context.Context, runtimeClient client.Client) generic.ObjectHandler {
-	return &replicatedPolicyEventHandler{
-		ctx:           ctx,
-		log:           ctrl.Log.WithName("replicated-policy-event"),
-		runtimeClient: runtimeClient,
-		version:       metadata.NewBundleVersion(),
-		events:        make(map[string]*event.ReplicatedPolicyEvent),
+func NewReplicatedPolicyEventEmitter(ctx context.Context, runtimeClient client.Client) generic.EventEmitter {
+	return &replicatedPolicyEventEmitter{
+		ctx:             ctx,
+		log:             ctrl.Log.WithName("policyevent-syncer/replicatedpolicy"),
+		eventType:       LocalReplicatedPolicyEventType,
+		runtimeClient:   runtimeClient,
+		currentVersion:  metadata.NewBundleVersion(),
+		lastSentVersion: *metadata.NewBundleVersion(),
+		events:          make(map[string]*event.ReplicatedPolicyEvent),
 	}
 }
 
-func (h *replicatedPolicyEventHandler) Update(obj client.Object) {
+func (h *replicatedPolicyEventEmitter) Emit() bool {
+	return h.currentVersion.NewerThan(&h.lastSentVersion)
+}
+
+func (h *replicatedPolicyEventEmitter) Update(obj client.Object) {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
 		return
@@ -53,7 +64,7 @@ func (h *replicatedPolicyEventHandler) Update(obj client.Object) {
 
 	// global resource || root policy
 	if utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) ||
-		!utils.HasLabelKey(policy.GetLabels(), RootPolicyLabel) {
+		!utils.HasLabelKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey) {
 		return
 	}
 
@@ -93,18 +104,14 @@ func (h *replicatedPolicyEventHandler) Update(obj client.Object) {
 	}
 	// cache to events and update version
 	h.events[evtKey] = replicatedPolicyEvent
-	h.version.Incr()
+	h.currentVersion.Incr()
 }
 
-func (*replicatedPolicyEventHandler) Delete(client.Object) {
+func (*replicatedPolicyEventEmitter) Delete(client.Object) {
 	// do nothing
 }
 
-func (h *replicatedPolicyEventHandler) GetVersion() *metadata.BundleVersion {
-	return h.version
-}
-
-func (h *replicatedPolicyEventHandler) ToCloudEvent() *cloudevents.Event {
+func (h *replicatedPolicyEventEmitter) ToCloudEvent() *cloudevents.Event {
 	if len(h.events) < 1 {
 		return nil
 	}
@@ -114,15 +121,19 @@ func (h *replicatedPolicyEventHandler) ToCloudEvent() *cloudevents.Event {
 		values = append(values, *val)
 	}
 	e.SetID(values[0].PolicyID)
-	e.SetType(RootEventType)
-	e.SetData(cloudevents.ApplicationJSON, values)
+	e.SetType(h.eventType)
+	err := e.SetData(cloudevents.ApplicationJSON, values)
+	if err != nil {
+		h.log.Error(err, "failed to set the payload to cloudvents.Data")
+	}
 	return &e
 }
 
-func (h *replicatedPolicyEventHandler) PostSend() {
+func (h *replicatedPolicyEventEmitter) PostSend() {
 	// update version and clean the cache
-	h.version.Next()
 	for key := range h.events {
 		delete(h.events, key)
 	}
+	h.currentVersion.Next()
+	h.lastSentVersion = *h.currentVersion
 }

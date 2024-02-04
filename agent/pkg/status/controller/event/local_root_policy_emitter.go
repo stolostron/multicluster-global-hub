@@ -3,49 +3,47 @@ package event
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-const (
-	RootPolicyLabel        = "policy.open-cluster-management.io/root-policy"
-	UnknownComplianceState = "Unknown"
-	RootEventType          = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.propagate"
-)
+var _ generic.EventEmitter = &rootPolicyEventEmitter{}
 
-var PolicyMessageStatusRe = regexp.MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
-
-type rootPolicyEventHandler struct {
-	ctx           context.Context
-	log           logr.Logger
-	runtimeClient client.Client
-	version       *metadata.BundleVersion
-	events        map[string]*event.RootPolicyEvent
+type rootPolicyEventEmitter struct {
+	ctx             context.Context
+	log             logr.Logger
+	runtimeClient   client.Client
+	eventType       string
+	currentVersion  *metadata.BundleVersion
+	lastSentVersion metadata.BundleVersion
+	events          map[string]*event.RootPolicyEvent
 }
 
-func NewRootPolicyEventHandler(ctx context.Context, runtimeClient client.Client) generic.ObjectHandler {
-	return &rootPolicyEventHandler{
-		ctx:           ctx,
-		log:           ctrl.Log.WithName("root-policy-event"),
-		runtimeClient: runtimeClient,
-		version:       metadata.NewBundleVersion(),
-		events:        make(map[string]*event.RootPolicyEvent),
+func NewRootPolicyEventEmitter(ctx context.Context, c client.Client) *rootPolicyEventEmitter {
+	return &rootPolicyEventEmitter{
+		ctx:             ctx,
+		log:             ctrl.Log.WithName("policyevent-sycner/localrootpolicy"),
+		eventType:       LocalRootPolicyEventType,
+		runtimeClient:   c,
+		currentVersion:  metadata.NewBundleVersion(),
+		lastSentVersion: *metadata.NewBundleVersion(),
+		events:          make(map[string]*event.RootPolicyEvent),
 	}
 }
 
-func (h *rootPolicyEventHandler) Update(obj client.Object) {
+func (h *rootPolicyEventEmitter) Update(obj client.Object) {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
 		return
@@ -64,7 +62,7 @@ func (h *rootPolicyEventHandler) Update(obj client.Object) {
 
 	// global resource || replicated policy
 	if utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) ||
-		utils.HasLabelKey(policy.GetLabels(), RootPolicyLabel) {
+		utils.HasLabelKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey) {
 		return
 	}
 
@@ -84,18 +82,14 @@ func (h *rootPolicyEventHandler) Update(obj client.Object) {
 	}
 	// cache to events and update version
 	h.events[evtKey] = rootPolicyEvent
-	h.version.Incr()
+	h.currentVersion.Incr()
 }
 
-func (*rootPolicyEventHandler) Delete(client.Object) {
+func (*rootPolicyEventEmitter) Delete(client.Object) {
 	// do nothing
 }
 
-func (h *rootPolicyEventHandler) GetVersion() *metadata.BundleVersion {
-	return h.version
-}
-
-func (h *rootPolicyEventHandler) ToCloudEvent() *cloudevents.Event {
+func (h *rootPolicyEventEmitter) ToCloudEvent() *cloudevents.Event {
 	if len(h.events) < 1 {
 		return nil
 	}
@@ -105,21 +99,32 @@ func (h *rootPolicyEventHandler) ToCloudEvent() *cloudevents.Event {
 		values = append(values, *value)
 	}
 	e.SetID(values[0].PolicyID)
-	e.SetType(RootEventType)
-	e.SetData(cloudevents.ApplicationJSON, values)
+	e.SetType(h.eventType)
+	err := e.SetData(cloudevents.ApplicationJSON, values)
+	if err != nil {
+		h.log.Error(err, "failed to set the payload to cloudvents.Data")
+	}
 	return &e
 }
 
-func (h *rootPolicyEventHandler) PostSend() {
+// to assert whether emit the current cloudevent
+func (h *rootPolicyEventEmitter) Emit() bool {
+	return h.currentVersion.NewerThan(&h.lastSentVersion)
+}
+
+func (h *rootPolicyEventEmitter) PostSend() {
 	// update version and clean the cache
-	h.version.Next()
 	for key := range h.events {
 		delete(h.events, key)
 	}
+	// 1. the version get into the next generation
+	// 2. set the lastSenteVersion to current version
+	h.currentVersion.Next()
+	h.lastSentVersion = *h.currentVersion
 }
 
 func getEventKey(event *corev1.Event) string {
-	return fmt.Sprintf("%s-%s-%s", event.Namespace, event.Name, event.Count)
+	return fmt.Sprintf("%s-%s-%d", event.Namespace, event.Name, event.Count)
 }
 
 func policyCompliance(policy *policiesv1.Policy, evt *corev1.Event) string {

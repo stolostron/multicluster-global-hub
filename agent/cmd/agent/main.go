@@ -30,7 +30,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/event"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
@@ -255,10 +254,10 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 		return nil, fmt.Errorf("failed to add crd controller: %w", err)
 	}
 
-	if err := event.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath,
-		agentConfig.LeafHubName); err != nil {
-		return nil, fmt.Errorf("failed to add event exporter: %w", err)
-	}
+	// if err := event.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath,
+	// 	agentConfig.LeafHubName); err != nil {
+	// 	return nil, fmt.Errorf("failed to add event exporter: %w", err)
+	// }
 
 	return mgr, nil
 }

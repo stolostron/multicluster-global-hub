@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/cache"
 )
 
 // resyncSyncer resync the bundle info.
