@@ -13,6 +13,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
@@ -39,7 +40,7 @@ func NewLocalRootPolicyEventEmitter(ctx context.Context, c client.Client) *local
 	cache, _ := lru.New(20)
 	return &localRootPolicyEmitter{
 		ctx:             ctx,
-		log:             ctrl.Log.WithName("policyevent-sycner/localrootpolicy"),
+		log:             ctrl.Log.WithName("policy-event-sycner/local-root-policy"),
 		eventType:       string(enum.LocalRootPolicyEventType),
 		topic:           "event",
 		runtimeClient:   c,
@@ -104,6 +105,7 @@ func (h *localRootPolicyEmitter) ToCloudEvent() *cloudevents.Event {
 	e := cloudevents.NewEvent()
 	e.SetID(h.events[0].PolicyID)
 	e.SetType(h.eventType)
+	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
 	err := e.SetData(cloudevents.ApplicationJSON, h.events)
 	if err != nil {
 		h.log.Error(err, "failed to set the payload to cloudvents.Data")
@@ -113,7 +115,7 @@ func (h *localRootPolicyEmitter) ToCloudEvent() *cloudevents.Event {
 
 // to assert whether emit the current cloudevent
 func (h *localRootPolicyEmitter) Emit() bool {
-	return h.currentVersion.NewerThan(&h.lastSentVersion)
+	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue && h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
 func (h *localRootPolicyEmitter) Topic() string {

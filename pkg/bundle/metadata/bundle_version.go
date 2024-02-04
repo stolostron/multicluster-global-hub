@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+const ExtVersion = "extversion"
+
 // NewBundleVersion returns a new instance of BundleVersion.
 func NewBundleVersion() *BundleVersion {
 	return &BundleVersion{

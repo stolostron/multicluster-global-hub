@@ -3,14 +3,19 @@ package localpolicies
 import (
 	"context"
 	"errors"
+	"fmt"
+	"regexp"
+	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
 	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
@@ -20,6 +25,7 @@ import (
 )
 
 var _ generic.EventEmitter = &statusEventEmitter{}
+var MessageCompliaceStateRegex = regexp.MustCompile(`(\w+);`)
 
 type statusEventEmitter struct {
 	ctx             context.Context
@@ -34,10 +40,10 @@ type statusEventEmitter struct {
 }
 
 func StatusEventEmitter(ctx context.Context, runtimeClient client.Client) generic.EventEmitter {
-	cache, _ := lru.New(20)
+	cache, _ := lru.New(30)
 	return &statusEventEmitter{
 		ctx:             ctx,
-		log:             ctrl.Log.WithName("localpolicy-syncer/status-event"),
+		log:             ctrl.Log.WithName("local-replicated-policy-syncer/status-event"),
 		eventType:       string(enum.LocalReplicatedPolicyEvent),
 		topic:           "event",
 		runtimeClient:   runtimeClient,
@@ -49,7 +55,7 @@ func StatusEventEmitter(ctx context.Context, runtimeClient client.Client) generi
 }
 
 func (h *statusEventEmitter) Emit() bool {
-	return h.currentVersion.NewerThan(&h.lastSentVersion)
+	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue && h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
 func (h *statusEventEmitter) Topic() string {
@@ -57,30 +63,15 @@ func (h *statusEventEmitter) Topic() string {
 }
 
 func (h *statusEventEmitter) Update(obj client.Object) {
-	evt, ok := obj.(*corev1.Event)
+	policy, ok := obj.(*policiesv1.Policy)
 	if !ok {
-		return
+		return // do not handle objects other than policy
 	}
-	// if exist, then return
-	evtKey := getEventKey(evt)
-	if h.cache.Contains(evtKey) {
-		return
+	if policy.Status.Details == nil {
+		return // no status to update
 	}
 
-	// get policy
-	policy, err := getInvolvePolicy(h.ctx, h.runtimeClient, evt)
-	if err != nil {
-		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name)
-	}
-
-	// global resource || root policy
-	if utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) ||
-		!utils.HasLabelKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey) {
-		return
-	}
-
-	// add root policy id
-	rootPolicyNamespacedName := policy.GetLabels()[constants.PolicyEventRootPolicyNameLabelKey]
+	rootPolicyNamespacedName := policy.Labels[constants.PolicyEventRootPolicyNameLabelKey]
 	rootPolicy, err := utils.GetRootPolicy(h.ctx, h.runtimeClient, rootPolicyNamespacedName)
 	if err != nil {
 		h.log.Error(err, "failed to get root policy", "namespacedName", rootPolicyNamespacedName)
@@ -98,25 +89,38 @@ func (h *statusEventEmitter) Update(obj client.Object) {
 		return
 	}
 
-	// update
-	replicatedPolicyEvent := event.ReplicatedPolicyEvent{
-		BaseEvent: event.BaseEvent{
-			EventName:      evt.Name,
-			EventNamespace: evt.Namespace,
-			Message:        evt.Message,
-			Reason:         evt.Reason,
-			Count:          evt.Count,
-			Source:         evt.Source,
-			CreatedAt:      evt.CreationTimestamp,
-		},
-		PolicyID:   string(rootPolicy.GetUID()),
-		ClusterID:  clusterId,
-		Compliance: policyCompliance(rootPolicy, evt),
+	updated := false
+	for _, detail := range policy.Status.Details {
+		if detail.History != nil {
+			for _, evt := range detail.History {
+				key := fmt.Sprintf("%s.%s", evt.EventName, evt.LastTimestamp)
+				if h.cache.Contains(key) {
+					continue
+				}
+
+				h.events = append(h.events, event.ReplicatedPolicyEvent{
+					BaseEvent: event.BaseEvent{
+						EventName:      evt.EventName,
+						EventNamespace: policy.Namespace,
+						Message:        evt.Message,
+						Reason:         "PolicyStatusSync",
+						Count:          1,
+						Source: corev1.EventSource{
+							Component: "policy-status-history-sync",
+						},
+						CreatedAt: evt.LastTimestamp,
+					},
+					PolicyID:   string(rootPolicy.GetUID()),
+					ClusterID:  clusterId,
+					Compliance: GetComplianceState(MessageCompliaceStateRegex, evt.Message, string(detail.ComplianceState)),
+				})
+				h.cache.Add(key, nil)
+			}
+		}
 	}
-	// cache to events and update version
-	h.events = append(h.events, replicatedPolicyEvent)
-	h.cache.Add(evtKey, nil)
-	h.currentVersion.Incr()
+	if updated {
+		h.currentVersion.Incr()
+	}
 }
 
 func (*statusEventEmitter) Delete(client.Object) {
@@ -130,6 +134,7 @@ func (h *statusEventEmitter) ToCloudEvent() *cloudevents.Event {
 	e := cloudevents.NewEvent()
 	e.SetID(h.events[0].PolicyID)
 	e.SetType(h.eventType)
+	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
 	err := e.SetData(cloudevents.ApplicationJSON, h.events)
 	if err != nil {
 		h.log.Error(err, "failed to set the payload to cloudvents.Data")
@@ -142,4 +147,13 @@ func (h *statusEventEmitter) PostSend() {
 	h.events = make([]event.ReplicatedPolicyEvent, 0)
 	h.currentVersion.Next()
 	h.lastSentVersion = *h.currentVersion
+}
+
+func GetComplianceState(regex *regexp.Regexp, message, defaultVal string) string {
+	match := regex.FindStringSubmatch(message)
+	if len(match) > 1 {
+		firstWord := strings.TrimSpace(match[1])
+		return firstWord
+	}
+	return defaultVal
 }

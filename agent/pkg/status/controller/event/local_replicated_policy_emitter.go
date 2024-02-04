@@ -11,6 +11,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
@@ -70,7 +71,7 @@ func NewLocalReplicatedPolicyEventEmitter(ctx context.Context, runtimeClient cli
 	cache, _ := lru.New(20)
 	return &localReplicatedPolicyEmitter{
 		ctx:             ctx,
-		log:             ctrl.Log.WithName("policy-event-syncer/replicatedpolicy"),
+		log:             ctrl.Log.WithName("policy-event-syncer/replicated-policy"),
 		eventType:       string(enum.LocalReplicatedPolicyEvent),
 		topic:           "event",
 		runtimeClient:   runtimeClient,
@@ -82,7 +83,7 @@ func NewLocalReplicatedPolicyEventEmitter(ctx context.Context, runtimeClient cli
 }
 
 func (h *localReplicatedPolicyEmitter) Emit() bool {
-	return h.currentVersion.NewerThan(&h.lastSentVersion)
+	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue && h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
 func (h *localReplicatedPolicyEmitter) Topic() string {
@@ -163,6 +164,7 @@ func (h *localReplicatedPolicyEmitter) ToCloudEvent() *cloudevents.Event {
 	e := cloudevents.NewEvent()
 	e.SetID(h.events[0].PolicyID)
 	e.SetType(h.eventType)
+	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
 	err := e.SetData(cloudevents.ApplicationJSON, h.events)
 	if err != nil {
 		h.log.Error(err, "failed to set the payload to cloudvents.Data")

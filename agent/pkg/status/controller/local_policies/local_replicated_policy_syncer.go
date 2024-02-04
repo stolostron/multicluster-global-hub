@@ -22,7 +22,7 @@ type localPolicySyncer struct {
 
 func NewLocalPolicySyncer() *localPolicySyncer {
 	return &localPolicySyncer{
-		name:      "local-policy-syncer",
+		name:      "local-replicated-policy-syncer",
 		interval:  config.GetPolicyDuration,
 		finalizer: false,
 	}

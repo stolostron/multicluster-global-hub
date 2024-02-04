@@ -53,7 +53,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		managedclusters.AddMangedClusterSyncer,
 		// apps.AddSubscriptionStatusesController,
 		localpolicies.AddLocalRootPolicySyncer,
-		localpolicies.AddLocalReplicatedPolicySyncer,
+		// localpolicies.AddLocalReplicatedPolicySyncer,
 		hubcluster.AddHubClusterInfoSyncer,
 		hubcluster.AddHeartbeatStatusSyncer,
 	}
@@ -74,6 +74,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		}
 	}
 
+	// event syncer
 	err = generic.LaunchGenericObjectSyncer(mgr, event.NewPolicyEventSyncer(), producer,
 		[]generic.EventEmitter{
 			event.NewLocalRootPolicyEventEmitter(ctx, mgr.GetClient()),
@@ -82,5 +83,11 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	if err != nil {
 		return fmt.Errorf("failed to launch policyEvent syncer: %w", err)
 	}
+
+	// local policy syncer
+	err = generic.LaunchGenericObjectSyncer(mgr, localpolicies.NewLocalPolicySyncer(), producer,
+		[]generic.EventEmitter{
+			localpolicies.StatusEventEmitter(ctx, mgr.GetClient()),
+		})
 	return nil
 }
