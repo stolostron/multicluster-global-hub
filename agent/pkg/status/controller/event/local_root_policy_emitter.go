@@ -6,6 +6,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
+	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -16,41 +17,47 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ generic.EventEmitter = &rootPolicyEventEmitter{}
+var _ generic.EventEmitter = &localRootPolicyEmitter{}
 
-type rootPolicyEventEmitter struct {
+type localRootPolicyEmitter struct {
 	ctx             context.Context
 	log             logr.Logger
 	runtimeClient   client.Client
 	eventType       string
+	topic           string
 	currentVersion  *metadata.BundleVersion
 	lastSentVersion metadata.BundleVersion
-	events          map[string]*event.RootPolicyEvent
+	cache           *lru.Cache
+	events          []event.RootPolicyEvent
 }
 
-func NewRootPolicyEventEmitter(ctx context.Context, c client.Client) *rootPolicyEventEmitter {
-	return &rootPolicyEventEmitter{
+func NewLocalRootPolicyEventEmitter(ctx context.Context, c client.Client) *localRootPolicyEmitter {
+	cache, _ := lru.New(20)
+	return &localRootPolicyEmitter{
 		ctx:             ctx,
 		log:             ctrl.Log.WithName("policyevent-sycner/localrootpolicy"),
-		eventType:       LocalRootPolicyEventType,
+		eventType:       string(enum.LocalRootPolicyEventType),
+		topic:           "event",
 		runtimeClient:   c,
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),
-		events:          make(map[string]*event.RootPolicyEvent),
+		cache:           cache,
+		events:          make([]event.RootPolicyEvent, 0),
 	}
 }
 
-func (h *rootPolicyEventEmitter) Update(obj client.Object) {
+func (h *localRootPolicyEmitter) Update(obj client.Object) {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
 		return
 	}
 	// if exist, then return
 	evtKey := getEventKey(evt)
-	if _, ok = h.events[evtKey]; ok {
+	if ok = h.cache.Contains(evtKey); ok {
 		return
 	}
 
@@ -67,7 +74,7 @@ func (h *rootPolicyEventEmitter) Update(obj client.Object) {
 	}
 
 	// update
-	rootPolicyEvent := &event.RootPolicyEvent{
+	rootPolicyEvent := event.RootPolicyEvent{
 		BaseEvent: event.BaseEvent{
 			EventName:      evt.Name,
 			EventNamespace: evt.Namespace,
@@ -81,26 +88,23 @@ func (h *rootPolicyEventEmitter) Update(obj client.Object) {
 		Compliance: policyCompliance(policy, evt),
 	}
 	// cache to events and update version
-	h.events[evtKey] = rootPolicyEvent
+	h.events = append(h.events, rootPolicyEvent)
+	h.cache.Add(evtKey, nil)
 	h.currentVersion.Incr()
 }
 
-func (*rootPolicyEventEmitter) Delete(client.Object) {
+func (*localRootPolicyEmitter) Delete(client.Object) {
 	// do nothing
 }
 
-func (h *rootPolicyEventEmitter) ToCloudEvent() *cloudevents.Event {
+func (h *localRootPolicyEmitter) ToCloudEvent() *cloudevents.Event {
 	if len(h.events) < 1 {
 		return nil
 	}
 	e := cloudevents.NewEvent()
-	values := []event.RootPolicyEvent{}
-	for _, value := range h.events {
-		values = append(values, *value)
-	}
-	e.SetID(values[0].PolicyID)
+	e.SetID(h.events[0].PolicyID)
 	e.SetType(h.eventType)
-	err := e.SetData(cloudevents.ApplicationJSON, values)
+	err := e.SetData(cloudevents.ApplicationJSON, h.events)
 	if err != nil {
 		h.log.Error(err, "failed to set the payload to cloudvents.Data")
 	}
@@ -108,15 +112,17 @@ func (h *rootPolicyEventEmitter) ToCloudEvent() *cloudevents.Event {
 }
 
 // to assert whether emit the current cloudevent
-func (h *rootPolicyEventEmitter) Emit() bool {
+func (h *localRootPolicyEmitter) Emit() bool {
 	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
-func (h *rootPolicyEventEmitter) PostSend() {
+func (h *localRootPolicyEmitter) Topic() string {
+	return h.topic
+}
+
+func (h *localRootPolicyEmitter) PostSend() {
 	// update version and clean the cache
-	for key := range h.events {
-		delete(h.events, key)
-	}
+	h.events = make([]event.RootPolicyEvent, 0)
 	// 1. the version get into the next generation
 	// 2. set the lastSenteVersion to current version
 	h.currentVersion.Next()

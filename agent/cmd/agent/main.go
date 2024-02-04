@@ -254,11 +254,6 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 		return nil, fmt.Errorf("failed to add crd controller: %w", err)
 	}
 
-	// if err := event.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath,
-	// 	agentConfig.LeafHubName); err != nil {
-	// 	return nil, fmt.Errorf("failed to add event exporter: %w", err)
-	// }
-
 	return mgr, nil
 }
 

@@ -17,6 +17,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/gonvenience/ytbx v1.4.4
 	github.com/google/uuid v1.3.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/homeport/dyff v1.5.5
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/kylelemons/godebug v1.1.0

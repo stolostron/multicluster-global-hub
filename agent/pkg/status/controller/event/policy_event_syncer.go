@@ -1,7 +1,6 @@
 package event
 
 import (
-	"fmt"
 	"regexp"
 	"time"
 
@@ -14,31 +13,25 @@ import (
 )
 
 const (
-	CloudEventTypePrefix   = "io.open-cluster-management.operator.multiclusterglobalhubs"
 	UnknownComplianceState = "Unknown"
 )
 
 var (
-	PolicyMessageStatusRe = regexp.MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
-
-	LocalReplicatedPolicyEventType = fmt.Sprintf("%s.local.replicatedpolicy.update", CloudEventTypePrefix)
-	LocalRootPolicyEventType       = fmt.Sprintf("%s.local.policy.propagate", CloudEventTypePrefix)
+	_                     generic.ObjectSyncer = &policyEventSyncer{}
+	PolicyMessageStatusRe                      = regexp.MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 )
-var _ generic.ObjectSyncer = &policyEventSyncer{}
 
 type policyEventSyncer struct {
 	name      string
 	interval  func() time.Duration
 	finalizer bool
-	topic     string
 }
 
 func NewPolicyEventSyncer() *policyEventSyncer {
 	return &policyEventSyncer{
-		name:      "policyevent-syncer",
+		name:      "policy-event-syncer",
 		interval:  config.GetEventDuration,
 		finalizer: false,
-		topic:     "event",
 	}
 }
 
@@ -67,8 +60,4 @@ func (s *policyEventSyncer) Interval() func() time.Duration {
 
 func (s *policyEventSyncer) EnableFinalizer() bool {
 	return s.finalizer
-}
-
-func (s *policyEventSyncer) Topic() string {
-	return s.topic
 }

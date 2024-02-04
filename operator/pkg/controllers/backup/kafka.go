@@ -114,12 +114,13 @@ func AddBackupLabelToTemplate(ctx context.Context,
 func AddExcludeLabelToEntityOperatorDeploymentTemplate(existingKafka *kafkav1beta2.Kafka) (
 	*kafkav1beta2.Kafka,
 	bool,
-	error) {
+	error,
+) {
 	var operatorLabels map[string]string
 	if existingKafka == nil || existingKafka.Spec == nil {
 		return nil, false, fmt.Errorf("kafka spec should not be nil")
 	}
-	var desiredOperator = &kafkav1beta2.KafkaSpecEntityOperator{
+	desiredOperator := &kafkav1beta2.KafkaSpecEntityOperator{
 		Template: &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
 			Deployment: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeployment{
 				Metadata: &kafkav1beta2.KafkaSpecEntityOperatorTemplateDeploymentMetadata{
@@ -144,20 +145,17 @@ func AddExcludeLabelToEntityOperatorDeploymentTemplate(existingKafka *kafkav1bet
 	}
 
 	if existingKafka.Spec.EntityOperator.Template.Deployment == nil {
-		updatedKafka.Spec.EntityOperator.Template.Deployment =
-			desiredOperator.Template.Deployment
+		updatedKafka.Spec.EntityOperator.Template.Deployment = desiredOperator.Template.Deployment
 		return updatedKafka, true, nil
 	}
 
 	if existingKafka.Spec.EntityOperator.Template.Deployment.Metadata == nil {
-		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata =
-			desiredOperator.Template.Deployment.Metadata
+		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata = desiredOperator.Template.Deployment.Metadata
 		return updatedKafka, true, nil
 	}
 
 	if existingKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels == nil {
-		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels =
-			desiredOperator.Template.Deployment.Metadata.Labels
+		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels = desiredOperator.Template.Deployment.Metadata.Labels
 		return updatedKafka, true, nil
 	}
 

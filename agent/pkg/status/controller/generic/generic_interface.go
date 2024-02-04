@@ -15,7 +15,6 @@ type ObjectSyncer interface {
 	Predicate() predicate.Predicate
 	Interval() func() time.Duration
 	EnableFinalizer() bool
-	Topic() string
 }
 
 type EventEmitter interface {
@@ -29,6 +28,9 @@ type EventEmitter interface {
 
 	// to assert whether emit the current cloudevent
 	Emit() bool
+
+	// topic
+	Topic() string
 
 	// triggered after sending the event, incr generate, clean payload, ...
 	PostSend()

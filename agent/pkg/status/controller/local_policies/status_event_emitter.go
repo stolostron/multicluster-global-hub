@@ -1,4 +1,4 @@
-package event
+package localpolicies
 
 import (
 	"context"
@@ -19,42 +19,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ generic.EventEmitter = &localReplicatedPolicyEmitter{}
+var _ generic.EventEmitter = &statusEventEmitter{}
 
-// TODO: the current replicated policy event will also emit such message,
-// it has contain concrete reason why the state of the compliance change to another.
-// I will disable the replicated policy event until it contain some valuable message.
-//
-//	{
-//	  "specversion": "1.0",
-//	  "id": "9ff85324-a1a3-44c1-9dbf-e965cbee507c",
-//	  "source": "kind-hub1",
-//	  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.local.replicatedpolicy.update",
-//	  "datacontenttype": "application/json",
-//	  "time": "2024-02-04T08:02:30.670142334Z",
-//	  "data": [
-//	    {
-//	      "eventName": "local-policy-namespace.policy-limitrange.17b098ec20742ecc",
-//	      "eventNamespace": "kind-hub1-cluster1",
-//	      "message": "Policy local-policy-namespace.policy-limitrange status was updated in cluster namespace kind-hub1-cluster1",
-//	      "reason": "PolicyStatusSync",
-//	      "count": 2,
-//	      "source": {
-//	        "component": "policy-status-sync"
-//	      },
-//	      "createdAt": "2024-02-04T07:39:58Z",
-//	      "policyId": "9ff85324-a1a3-44c1-9dbf-e965cbee507c",
-//	      "clusterId": "cef103c3-fe2c-4fbc-a3fb-a96492caa049",
-//	      "compliance": "NonCompliant"
-//	    }
-//	  ],
-//	  "kafkapartition": "0",
-//	  "kafkatopic": "event",
-//	  "kafkamessagekey": "kind-hub1",
-//	  "kafkaoffset": "13"
-//	}
-
-type localReplicatedPolicyEmitter struct {
+type statusEventEmitter struct {
 	ctx             context.Context
 	log             logr.Logger
 	eventType       string
@@ -66,11 +33,11 @@ type localReplicatedPolicyEmitter struct {
 	topic           string
 }
 
-func NewLocalReplicatedPolicyEventEmitter(ctx context.Context, runtimeClient client.Client) generic.EventEmitter {
+func StatusEventEmitter(ctx context.Context, runtimeClient client.Client) generic.EventEmitter {
 	cache, _ := lru.New(20)
-	return &localReplicatedPolicyEmitter{
+	return &statusEventEmitter{
 		ctx:             ctx,
-		log:             ctrl.Log.WithName("policy-event-syncer/replicatedpolicy"),
+		log:             ctrl.Log.WithName("localpolicy-syncer/status-event"),
 		eventType:       string(enum.LocalReplicatedPolicyEvent),
 		topic:           "event",
 		runtimeClient:   runtimeClient,
@@ -81,15 +48,15 @@ func NewLocalReplicatedPolicyEventEmitter(ctx context.Context, runtimeClient cli
 	}
 }
 
-func (h *localReplicatedPolicyEmitter) Emit() bool {
+func (h *statusEventEmitter) Emit() bool {
 	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
-func (h *localReplicatedPolicyEmitter) Topic() string {
+func (h *statusEventEmitter) Topic() string {
 	return h.topic
 }
 
-func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
+func (h *statusEventEmitter) Update(obj client.Object) {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
 		return
@@ -152,11 +119,11 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
 	h.currentVersion.Incr()
 }
 
-func (*localReplicatedPolicyEmitter) Delete(client.Object) {
+func (*statusEventEmitter) Delete(client.Object) {
 	// do nothing
 }
 
-func (h *localReplicatedPolicyEmitter) ToCloudEvent() *cloudevents.Event {
+func (h *statusEventEmitter) ToCloudEvent() *cloudevents.Event {
 	if len(h.events) < 1 {
 		return nil
 	}
@@ -170,7 +137,7 @@ func (h *localReplicatedPolicyEmitter) ToCloudEvent() *cloudevents.Event {
 	return &e
 }
 
-func (h *localReplicatedPolicyEmitter) PostSend() {
+func (h *statusEventEmitter) PostSend() {
 	// update version and clean the cache
 	h.events = make([]event.ReplicatedPolicyEvent, 0)
 	h.currentVersion.Next()

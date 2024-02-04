@@ -119,7 +119,6 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 }
 
 func deleteExpiredRecords(tableName string, minDate time.Time) error {
-
 	sql := fmt.Sprintf("DELETE FROM %s WHERE deleted_at < '%s'", tableName, minDate.Format(dateFormat))
 	db := database.GetGorm()
 	if result := db.Exec(sql); result.Error != nil {

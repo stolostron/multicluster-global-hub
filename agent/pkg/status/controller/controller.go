@@ -76,8 +76,8 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 
 	err = generic.LaunchGenericObjectSyncer(mgr, event.NewPolicyEventSyncer(), producer,
 		[]generic.EventEmitter{
-			event.NewRootPolicyEventEmitter(ctx, mgr.GetClient()),
-			event.NewReplicatedPolicyEventEmitter(ctx, mgr.GetClient()),
+			event.NewLocalRootPolicyEventEmitter(ctx, mgr.GetClient()),
+			// event.NewReplicatedPolicyEventEmitter(ctx, mgr.GetClient()),
 		})
 	if err != nil {
 		return fmt.Errorf("failed to launch policyEvent syncer: %w", err)

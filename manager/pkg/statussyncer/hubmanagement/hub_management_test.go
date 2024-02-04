@@ -121,6 +121,7 @@ type tmpProducer struct{}
 func (*tmpProducer) Send(ctx context.Context, msg *transport.Message) error {
 	return nil
 }
+
 func (p *tmpProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
 	return nil
 }

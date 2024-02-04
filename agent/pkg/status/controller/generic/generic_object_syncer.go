@@ -140,7 +140,7 @@ func (c *genericObjectSyncer) syncEvents() {
 			evt := emitter.ToCloudEvent()
 			evt.SetSource(c.leafHubName)
 
-			topicCtx := cecontext.WithTopic(context.TODO(), c.objectSyncer.Topic())
+			topicCtx := cecontext.WithTopic(context.TODO(), emitter.Topic())
 			evtCtx := kafka_confluent.WithMessageKey(topicCtx, c.leafHubName)
 			if err := c.producer.SendEvent(evtCtx, *evt); err != nil {
 				c.log.Error(err, "failed to send event", "evt", evt)
