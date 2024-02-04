@@ -10,7 +10,7 @@ import (
 )
 
 func TestVersion(t *testing.T) {
-	emitter := NewLocalRootPolicyEventEmitter(context.TODO(), nil)
+	emitter := NewLocalRootPolicyEmitter(context.TODO(), nil)
 	assert.Equal(t, "0.0", emitter.currentVersion.String())
 	assert.Equal(t, "0.0", emitter.lastSentVersion.String())
 	assert.False(t, emitter.Emit())

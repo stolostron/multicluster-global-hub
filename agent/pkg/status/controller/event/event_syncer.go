@@ -17,33 +17,33 @@ const (
 )
 
 var (
-	_                     generic.ObjectSyncer = &policyEventSyncer{}
+	_                     generic.ObjectSyncer = &eventSyncer{}
 	PolicyMessageStatusRe                      = regexp.MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 )
 
-type policyEventSyncer struct {
+type eventSyncer struct {
 	name      string
 	interval  func() time.Duration
 	finalizer bool
 }
 
-func NewPolicyEventSyncer() *policyEventSyncer {
-	return &policyEventSyncer{
+func NewEventSyncer() *eventSyncer {
+	return &eventSyncer{
 		name:      "policy-event-syncer",
 		interval:  config.GetEventDuration,
 		finalizer: false,
 	}
 }
 
-func (s *policyEventSyncer) Name() string {
+func (s *eventSyncer) Name() string {
 	return s.name
 }
 
-func (s *policyEventSyncer) Instance() client.Object {
+func (s *eventSyncer) Instance() client.Object {
 	return &corev1.Event{}
 }
 
-func (s *policyEventSyncer) Predicate() predicate.Predicate {
+func (s *eventSyncer) Predicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
 		event, ok := obj.(*corev1.Event)
 		if !ok {
@@ -54,10 +54,10 @@ func (s *policyEventSyncer) Predicate() predicate.Predicate {
 	})
 }
 
-func (s *policyEventSyncer) Interval() func() time.Duration {
+func (s *eventSyncer) Interval() func() time.Duration {
 	return s.interval
 }
 
-func (s *policyEventSyncer) EnableFinalizer() bool {
+func (s *eventSyncer) EnableFinalizer() bool {
 	return s.finalizer
 }

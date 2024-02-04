@@ -36,7 +36,7 @@ type localRootPolicyEmitter struct {
 	events          []event.RootPolicyEvent
 }
 
-func NewLocalRootPolicyEventEmitter(ctx context.Context, c client.Client) *localRootPolicyEmitter {
+func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client) *localRootPolicyEmitter {
 	cache, _ := lru.New(20)
 	return &localRootPolicyEmitter{
 		ctx:             ctx,
