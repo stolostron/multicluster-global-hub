@@ -13,7 +13,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,6 +41,7 @@ func NewRootPolicyEventHandler(ctx context.Context, runtimeClient client.Client)
 		log:           ctrl.Log.WithName("root-policy-event"),
 		runtimeClient: runtimeClient,
 		version:       metadata.NewBundleVersion(),
+		events:        make(map[string]*event.RootPolicyEvent),
 	}
 }
 
@@ -57,17 +57,9 @@ func (h *rootPolicyEventHandler) Update(obj client.Object) {
 	}
 
 	// get policy
-	policy := &policiesv1.Policy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      evt.InvolvedObject.Name,
-			Namespace: evt.InvolvedObject.Namespace,
-		},
-	}
-	err := h.runtimeClient.Get(h.ctx, client.ObjectKeyFromObject(policy), policy)
-	if errors.IsNotFound(err) {
-		h.log.Error(err, "failed to get involved object", "event", evt.Namespace+"/"+evt.Name,
-			"policy", policy.Namespace+"/"+policy.Name)
-		return
+	policy, err := getInvolvePolicy(h.ctx, h.runtimeClient, evt)
+	if err != nil {
+		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name)
 	}
 
 	// global resource || replicated policy
@@ -144,4 +136,15 @@ func policyCompliance(policy *policiesv1.Policy, evt *corev1.Event) string {
 		compliance = matches[2]
 	}
 	return compliance
+}
+
+func getInvolvePolicy(ctx context.Context, c client.Client, evt *corev1.Event) (*policiesv1.Policy, error) {
+	policy := &policiesv1.Policy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      evt.InvolvedObject.Name,
+			Namespace: evt.InvolvedObject.Namespace,
+		},
+	}
+	err := c.Get(ctx, client.ObjectKeyFromObject(policy), policy)
+	return policy, err
 }
