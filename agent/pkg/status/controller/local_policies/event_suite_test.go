@@ -1,4 +1,4 @@
-package event
+package localpolicies
 
 import (
 	"context"
@@ -28,15 +28,14 @@ import (
 )
 
 var (
-	leafHubName = "hub1"
-	testenv     *envtest.Environment
-	cfg         *rest.Config
-	ctx         context.Context
-	cancel      context.CancelFunc
-	consumer    transport.Consumer
-	producer    transport.Producer
-	kubeClient  client.Client
-	mgr         ctrl.Manager
+	testenv    *envtest.Environment
+	cfg        *rest.Config
+	ctx        context.Context
+	cancel     context.CancelFunc
+	consumer   transport.Consumer
+	producer   transport.Producer
+	kubeClient client.Client
+	mgr        ctrl.Manager
 )
 
 func TestControllers(t *testing.T) {
@@ -61,7 +60,7 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	agentConfig := &config.AgentConfig{
-		LeafHubName: leafHubName,
+		LeafHubName: "hub1",
 		TransportConfig: &transport.TransportConfig{
 			CommitterInterval: 1 * time.Second,
 			TransportType:     string(transport.Chan),
@@ -98,11 +97,10 @@ var _ = BeforeSuite(func() {
 	By("Mock the consumer receive message from global hub manager")
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
-	By("Launch event syncer")
-	err = generic.LaunchGenericObjectSyncer(mgr, NewEventSyncer(), producer,
+	By("Launch policy syncer")
+	err = generic.LaunchGenericObjectSyncer(mgr, NewLocalPolicySyncer(), producer,
 		[]generic.EventEmitter{
-			NewLocalRootPolicyEmitter(ctx, mgr.GetClient()),
-			NewLocalReplicatedPolicyEmitter(ctx, mgr.GetClient()),
+			StatusEventEmitter(ctx, mgr.GetClient()),
 		})
 	Expect(err).NotTo(HaveOccurred())
 
