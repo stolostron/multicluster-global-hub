@@ -31,15 +31,23 @@ type GenericConsumer struct {
 	assembler            *messageAssembler
 	messageChan          chan *transport.Message
 	eventChan            chan cloudevents.Event
-	withDatabasePosition bool
 	consumeTopics        []string
+	enableDatabaseOffset bool
+	enableEventChan      bool
 }
 
 type GenericConsumeOption func(*GenericConsumer) error
 
-func WithDatabasePosition(fromPosition bool) GenericConsumeOption {
+func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
 	return func(c *GenericConsumer) error {
-		c.withDatabasePosition = fromPosition
+		c.enableDatabaseOffset = enableOffset
+		return nil
+	}
+}
+
+func EnableEventChan(enableEvent bool) GenericConsumeOption {
+	return func(c *GenericConsumer) error {
+		c.enableEventChan = enableEvent
 		return nil
 	}
 }
@@ -80,7 +88,8 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 		messageChan:          make(chan *transport.Message),
 		eventChan:            make(chan cloudevents.Event),
 		assembler:            newMessageAssembler(),
-		withDatabasePosition: false,
+		enableDatabaseOffset: false,
+		enableEventChan:      true,
 		consumeTopics:        topics,
 	}
 	if err := c.applyOptions(opts...); err != nil {
@@ -100,7 +109,7 @@ func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
 
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	receiveContext := ctx
-	if c.withDatabasePosition {
+	if c.enableDatabaseOffset {
 		offsets, err := getInitOffset()
 		if err != nil {
 			return err
@@ -114,11 +123,13 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	err := c.client.StartReceiver(receiveContext, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
 		c.log.V(2).Info("received message and forward to bundle channel", "event.ID", event.ID())
 
-		topic, ok := event.Extensions()[kafka_confluent.KafkaTopicKey]
-		// topic not exist(e2e) or event topic
-		if !ok || topic == transport.GenericEventTopic {
-			c.eventChan <- event
-			return ceprotocol.ResultACK
+		if c.enableEventChan {
+			topic, ok := event.Extensions()[kafka_confluent.KafkaTopicKey]
+			// topic not exist(e2e) or event topic
+			if ok && topic == transport.GenericEventTopic {
+				c.eventChan <- event
+				return ceprotocol.ResultACK
+			}
 		}
 
 		transportMessage := &transport.Message{}
