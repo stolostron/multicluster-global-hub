@@ -79,6 +79,12 @@ var _ = BeforeSuite(func() {
 		},
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),
+			KafkaConfig: &transport.KafkaConfig{
+				ConsumerConfig: &transport.KafkaConsumerConfig{
+					EventTopic:  "event",
+					StatusTopic: "status",
+				},
+			},
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{
 			LogInterval: "10s",

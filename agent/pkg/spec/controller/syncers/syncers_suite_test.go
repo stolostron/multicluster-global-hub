@@ -65,6 +65,11 @@ var _ = BeforeSuite(func() {
 	agentConfig = &config.AgentConfig{
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),
+			KafkaConfig: &transport.KafkaConfig{
+				ConsumerConfig: &transport.KafkaConsumerConfig{
+					SpecTopic: "spec",
+				},
+			},
 		},
 		SpecWorkPoolSize:     2,
 		LeafHubName:          "leaf-hub1",
