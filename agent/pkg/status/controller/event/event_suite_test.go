@@ -36,7 +36,6 @@ var (
 	consumer    transport.Consumer
 	producer    transport.Producer
 	kubeClient  client.Client
-	mgr         ctrl.Manager
 )
 
 func TestControllers(t *testing.T) {

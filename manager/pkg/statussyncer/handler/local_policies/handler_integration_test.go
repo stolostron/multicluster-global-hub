@@ -8,14 +8,15 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -24,7 +25,6 @@ var (
 )
 
 func TestMain(m *testing.M) {
-
 	ctx, cancel = context.WithCancel(context.Background())
 	testPostgres, err := testpostgres.NewTestPostgres()
 	if err != nil {
@@ -52,7 +52,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestRootPolicyEventHandler(t *testing.T) {
-
 	h := NewLocalRootPolicyEventHandler()
 	assert.Equal(t, enum.LocalRootPolicyEventType, h.eventType)
 
@@ -64,8 +63,8 @@ func TestRootPolicyEventHandler(t *testing.T) {
 	evt.SetExtension("kafkapartition", "0")
 	evt.SetExtension("kafkamessagekey", "hub1")
 	evt.SetExtension("extversion", "0.1")
-	evt.SetData(cloudevents.ApplicationJSON, []event.RootPolicyEvent{
-		event.RootPolicyEvent{
+	_ = evt.SetData(cloudevents.ApplicationJSON, []event.RootPolicyEvent{
+		{
 			BaseEvent: event.BaseEvent{
 				EventName:      "policy-limitrange.17b0db23b941f40b",
 				EventNamespace: "local-policy-namespace",
@@ -80,7 +79,8 @@ func TestRootPolicyEventHandler(t *testing.T) {
 			},
 			PolicyID:   "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d",
 			Compliance: "NonCompliant",
-		}})
+		},
+	})
 
 	err := h.ToDatabase(evt)
 	assert.Nil(t, err)
@@ -95,7 +95,6 @@ func TestRootPolicyEventHandler(t *testing.T) {
 }
 
 func TestReplicatedPolicyEventHandler(t *testing.T) {
-
 	h := NewLocalReplicatedPolicyEventHandler()
 	assert.Equal(t, enum.LocalReplicatedPolicyEventType, h.eventType)
 
@@ -107,8 +106,8 @@ func TestReplicatedPolicyEventHandler(t *testing.T) {
 	evt.SetExtension("kafkapartition", "0")
 	evt.SetExtension("kafkamessagekey", "hub1")
 	evt.SetExtension("extversion", "0.1")
-	evt.SetData(cloudevents.ApplicationJSON, []event.ReplicatedPolicyEvent{
-		event.ReplicatedPolicyEvent{
+	_ = evt.SetData(cloudevents.ApplicationJSON, []event.ReplicatedPolicyEvent{
+		{
 			BaseEvent: event.BaseEvent{
 				EventName:      "local-policy-namespace.policy-limitrange.17b0db2427432200",
 				EventNamespace: "kind-hub1-cluster1",
@@ -124,7 +123,8 @@ func TestReplicatedPolicyEventHandler(t *testing.T) {
 			PolicyID:   "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d",
 			ClusterID:  "f302ce61-98e7-4d63-8dd2-65951e32fd95",
 			Compliance: "NonCompliant",
-		}})
+		},
+	})
 
 	err := h.ToDatabase(evt)
 	assert.Nil(t, err)
