@@ -18,7 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // AddStatusSyncers performs the initial setup required before starting the runtime manager.
@@ -112,9 +112,9 @@ func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.Confl
 	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
 ) (*dispatcher.TransportDispatcher, error) {
 	consumeConfig := managerConfig.TransportConfig.KafkaConfig.ConsumerConfig
-	consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig,
+	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
 		[]string{consumeConfig.EventTopic, consumeConfig.StatusTopic},
-		consumer.EnableDatabaseOffset(true))
+		genericconsumer.EnableDatabaseOffset(true), genericconsumer.EnableEventChan(false))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
 	}

@@ -62,6 +62,8 @@ type KafkaConsumerConfig struct {
 	StatusTopic string
 	EventTopic  string
 	SpecTopic   string
+	// Deprecated: will be removed once all the message are formatted to cloudevent
+	EnableEventChan bool
 }
 
 // transport protocol

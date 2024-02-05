@@ -81,8 +81,9 @@ var _ = BeforeSuite(func() {
 			TransportType: string(transport.Chan),
 			KafkaConfig: &transport.KafkaConfig{
 				ConsumerConfig: &transport.KafkaConsumerConfig{
-					EventTopic:  "event",
-					StatusTopic: "status",
+					EventTopic:      "event",
+					StatusTopic:     "status",
+					EnableEventChan: false,
 				},
 			},
 		},
