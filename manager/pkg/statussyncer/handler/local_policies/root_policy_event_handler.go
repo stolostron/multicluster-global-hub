@@ -20,13 +20,14 @@ import (
 var _ handler.EventHandler = &localRootPolicyEventHanlder{}
 
 type localRootPolicyEventHanlder struct {
-	lastProcessedVersion metadata.BundleVersion
-	eventType            enum.EventType
+	lastProcessedVersions map[string]metadata.BundleVersion
+	eventType             enum.EventType
 }
 
 func NewLocalRootPolicyEventHandler() *localRootPolicyEventHanlder {
 	return &localRootPolicyEventHanlder{
-		eventType: enum.LocalRootPolicyEventType,
+		eventType:             enum.LocalRootPolicyEventType,
+		lastProcessedVersions: make(map[string]metadata.BundleVersion),
 	}
 }
 
@@ -39,13 +40,14 @@ func (h *localRootPolicyEventHanlder) ToDatabase(evt cloudevents.Event) error {
 	if err != nil {
 		return err
 	}
-	version, err := metadata.BundleVersionFrom(versionStr)
+	eventVersion, err := metadata.BundleVersionFrom(versionStr)
 	if err != nil {
 		return err
 	}
 
 	// TODO: reset the lastProcessedVersion when agent restart
-	if !version.NewerThan(&h.lastProcessedVersion) {
+	lastProcessedVersion, ok := h.lastProcessedVersions[evt.Source()]
+	if ok && !eventVersion.NewerThan(&lastProcessedVersion) {
 		return nil
 	}
 
@@ -83,6 +85,6 @@ func (h *localRootPolicyEventHanlder) ToDatabase(evt cloudevents.Event) error {
 	if err != nil {
 		return fmt.Errorf("failed to handle the event to database %v", err)
 	}
-	h.lastProcessedVersion = *version
+	h.lastProcessedVersions[evt.Source()] = *eventVersion
 	return nil
 }

@@ -20,13 +20,14 @@ import (
 var _ handler.EventHandler = &localReplicatedPolicyEventHanlder{}
 
 type localReplicatedPolicyEventHanlder struct {
-	lastProcessedVersion metadata.BundleVersion
-	eventType            enum.EventType
+	lastProcessedVersions map[string]metadata.BundleVersion
+	eventType             enum.EventType
 }
 
 func NewLocalReplicatedPolicyEventHanlder() *localReplicatedPolicyEventHanlder {
 	return &localReplicatedPolicyEventHanlder{
-		eventType: enum.LocalReplicatedPolicyEvent,
+		eventType:             enum.LocalReplicatedPolicyEvent,
+		lastProcessedVersions: make(map[string]metadata.BundleVersion),
 	}
 }
 
@@ -39,12 +40,13 @@ func (h *localReplicatedPolicyEventHanlder) ToDatabase(evt cloudevents.Event) er
 	if err != nil {
 		return err
 	}
-	version, err := metadata.BundleVersionFrom(versionStr)
+	eventVersion, err := metadata.BundleVersionFrom(versionStr)
 	if err != nil {
 		return err
 	}
 
-	if !version.NewerThan(&h.lastProcessedVersion) {
+	lastProcessedVersion, ok := h.lastProcessedVersions[evt.Source()]
+	if ok && !eventVersion.NewerThan(&lastProcessedVersion) {
 		return nil
 	}
 
@@ -83,6 +85,6 @@ func (h *localReplicatedPolicyEventHanlder) ToDatabase(evt cloudevents.Event) er
 	if err != nil {
 		return fmt.Errorf("failed to handle the event to database %v", err)
 	}
-	h.lastProcessedVersion = *version
+	h.lastProcessedVersions[evt.Source()] = *eventVersion
 	return nil
 }
