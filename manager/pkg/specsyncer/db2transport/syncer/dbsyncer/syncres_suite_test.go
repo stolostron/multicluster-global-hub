@@ -119,7 +119,7 @@ var _ = BeforeSuite(func() {
 
 	// mock consume message from agent
 	By("Create kafka consumer")
-	genericConsumer, err = consumer.NewGenericConsumer(managerConfig.TransportConfig)
+	genericConsumer, err = consumer.NewGenericConsumer(managerConfig.TransportConfig, nil)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(genericConsumer)).Should(Succeed())
 

@@ -32,7 +32,7 @@ func TestGenerateConsumer(t *testing.T) {
 			},
 		},
 	}
-	_, err = NewGenericConsumer(transportConfig)
+	_, err = NewGenericConsumer(transportConfig, []string{"test-topic"})
 	if err != nil && !strings.Contains(err.Error(), "client has run out of available brokers") {
 		t.Errorf("failed to generate consumer - %v", err)
 	}

@@ -32,6 +32,7 @@ type GenericConsumer struct {
 	messageChan          chan *transport.Message
 	eventChan            chan cloudevents.Event
 	withDatabasePosition bool
+	consumeTopics        []string
 }
 
 type GenericConsumeOption func(*GenericConsumer) error
@@ -43,14 +44,15 @@ func WithDatabasePosition(fromPosition bool) GenericConsumeOption {
 	}
 }
 
-func NewGenericConsumer(tranConfig *transport.TransportConfig, opts ...GenericConsumeOption) (*GenericConsumer, error) {
+func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
+	opts ...GenericConsumeOption) (*GenericConsumer, error) {
 	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", tranConfig.TransportType))
 	var receiver interface{}
 	var err error
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
 		log.Info("transport consumer with cloudevents-kafka receiver")
-		receiver, err = getConfluentReceiverProtocol(tranConfig)
+		receiver, err = getConfluentReceiverProtocol(tranConfig, topics)
 		if err != nil {
 			return nil, err
 		}
@@ -79,6 +81,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, opts ...GenericCo
 		eventChan:            make(chan cloudevents.Event),
 		assembler:            newMessageAssembler(),
 		withDatabasePosition: false,
+		consumeTopics:        topics,
 	}
 	if err := c.applyOptions(opts...); err != nil {
 		return nil, err
@@ -186,15 +189,12 @@ func getInitOffset() ([]kafka.TopicPartition, error) {
 // 		transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic)
 // }
 
-func getConfluentReceiverProtocol(transportConfig *transport.TransportConfig) (interface{}, error) {
+func getConfluentReceiverProtocol(transportConfig *transport.TransportConfig, topics []string) (interface{}, error) {
 	configMap, err := config.GetConfluentConfigMap(transportConfig.KafkaConfig, false)
 	if err != nil {
 		return nil, err
 	}
 
 	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
-		kafka_confluent.WithReceiverTopics([]string{
-			transportConfig.KafkaConfig.ConsumerConfig.StatusTopic,
-			transportConfig.KafkaConfig.ConsumerConfig.EventTopic,
-		}))
+		kafka_confluent.WithReceiverTopics(topics))
 }

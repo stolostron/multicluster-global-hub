@@ -25,8 +25,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ generic.EventEmitter = &statusEventEmitter{}
-var MessageCompliaceStateRegex = regexp.MustCompile(`(\w+);`)
+var (
+	_                          generic.EventEmitter = &statusEventEmitter{}
+	MessageCompliaceStateRegex                      = regexp.MustCompile(`(\w+);`)
+)
 
 type statusEventEmitter struct {
 	ctx             context.Context
@@ -116,6 +118,7 @@ func (h *statusEventEmitter) Update(obj client.Object) {
 					Compliance: GetComplianceState(MessageCompliaceStateRegex, evt.Message, string(detail.ComplianceState)),
 				})
 				h.cache.Add(key, nil)
+				updated = true
 			}
 		}
 	}

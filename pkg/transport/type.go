@@ -61,6 +61,7 @@ type KafkaConsumerConfig struct {
 	ConsumerID  string
 	StatusTopic string
 	EventTopic  string
+	SpecTopic   string
 }
 
 // transport protocol

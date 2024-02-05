@@ -81,7 +81,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 			// event.NewReplicatedPolicyEventEmitter(ctx, mgr.GetClient()),
 		})
 	if err != nil {
-		return fmt.Errorf("failed to launch policyEvent syncer: %w", err)
+		return fmt.Errorf("failed to launch event syncer: %w", err)
 	}
 
 	// local policy syncer
@@ -89,5 +89,8 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		[]generic.EventEmitter{
 			localpolicies.StatusEventEmitter(ctx, mgr.GetClient()),
 		})
+	if err != nil {
+		return fmt.Errorf("failed to launch local policy syncer: %w", err)
+	}
 	return nil
 }

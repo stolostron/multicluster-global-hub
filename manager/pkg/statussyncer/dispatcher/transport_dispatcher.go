@@ -40,8 +40,8 @@ func NewTransportDispatcher(log logr.Logger, consumer transport.Consumer,
 	}
 }
 
-func (d *TransportDispatcher) RegisterEventHandler(eventType enum.EventType, h handler.EventHandler) {
-	d.eventHandler[eventType] = h
+func (d *TransportDispatcher) RegisterEventHandler(h handler.EventHandler) {
+	d.eventHandler[h.EventType()] = h
 }
 
 func (d *TransportDispatcher) BundleRegister(registration *registration.BundleRegistration) {
@@ -66,7 +66,7 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case evt := <-d.consumer.EventChan():
-			//TODO: need to be intergrate to conflation in the next step
+			// TODO: need to be intergrate to conflation in the next step
 			d.process(evt)
 		case message := <-d.consumer.MessageChan():
 

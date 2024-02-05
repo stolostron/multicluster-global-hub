@@ -3,13 +3,14 @@ package localpolicies
 import (
 	"time"
 
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 var _ generic.ObjectSyncer = &localPolicySyncer{}
@@ -41,7 +42,6 @@ func (s *localPolicySyncer) Predicate() predicate.Predicate {
 		return !utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) &&
 			utils.HasLabelKey(object.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
 	})
-
 }
 
 func (s *localPolicySyncer) Interval() func() time.Duration {
