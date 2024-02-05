@@ -115,7 +115,8 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		c.log.V(2).Info("received message and forward to bundle channel", "event.ID", event.ID())
 
 		topic, ok := event.Extensions()[kafka_confluent.KafkaTopicKey]
-		if ok && topic == transport.GenericEventTopic {
+		// topic not exist(e2e) or event topic
+		if !ok || topic == transport.GenericEventTopic {
 			c.eventChan <- event
 			return ceprotocol.ResultACK
 		}

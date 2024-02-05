@@ -26,6 +26,7 @@ var _ generic.EventEmitter = &localReplicatedPolicyEmitter{}
 // TODO: the current replicated policy event will also emit such message,
 // it has contain concrete reason why the state of the compliance change to another.
 // I will disable the replicated policy event until it contain some valuable message.
+// disable it by setting the emit() return false
 //
 //	{
 //	  "specversion": "1.0",
@@ -84,7 +85,8 @@ func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.C
 }
 
 func (h *localReplicatedPolicyEmitter) Emit() bool {
-	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue && h.currentVersion.NewerThan(&h.lastSentVersion)
+	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue &&
+		h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
 func (h *localReplicatedPolicyEmitter) Topic() string {
