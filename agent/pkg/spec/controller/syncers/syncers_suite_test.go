@@ -67,7 +67,8 @@ var _ = BeforeSuite(func() {
 			TransportType: string(transport.Chan),
 			KafkaConfig: &transport.KafkaConfig{
 				ConsumerConfig: &transport.KafkaConsumerConfig{
-					SpecTopic: "spec",
+					SpecTopic:       "spec",
+					EnableEventChan: false,
 				},
 			},
 		},
