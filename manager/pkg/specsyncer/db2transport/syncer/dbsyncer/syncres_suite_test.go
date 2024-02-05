@@ -110,15 +110,16 @@ var _ = BeforeSuite(func() {
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
+
+	By("Create kafka consumer/producer")
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig, producer)).Should(Succeed())
 	Expect(specsycner.AddManagedClusterLabelSyncer(mgr,
 		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval)).Should(Succeed())
 
-	// mock consume message from agent
-	By("Create kafka consumer")
-	consumer, err = genericconsumer.NewGenericConsumer(managerConfig.TransportConfig, []string{"spec"})
+	consumer, err = genericconsumer.NewGenericConsumer(managerConfig.TransportConfig, []string{"spec"},
+		genericconsumer.EnableEventChan(false))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(consumer)).Should(Succeed())
 

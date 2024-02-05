@@ -70,7 +70,8 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Create cloudevents consumer and producer")
-	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig, nil)
+	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig, nil,
+		genericconsumer.EnableEventChan(true))
 	Expect(err).NotTo(HaveOccurred())
 	producer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
