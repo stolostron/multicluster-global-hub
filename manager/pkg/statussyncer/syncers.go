@@ -101,7 +101,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
 
 	// TODO: the handler will be process on the confaltion
 	transportDispatcher.RegisterEventHandler(localpolicies.NewLocalRootPolicyEventHandler())
-	transportDispatcher.RegisterEventHandler(localpolicies.NewLocalReplicatedPolicyEventHanlder())
+	transportDispatcher.RegisterEventHandler(localpolicies.NewLocalReplicatedPolicyEventHandler())
 
 	return transportDispatcher, nil
 }

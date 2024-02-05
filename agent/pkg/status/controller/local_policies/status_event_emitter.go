@@ -47,7 +47,7 @@ func StatusEventEmitter(ctx context.Context, runtimeClient client.Client) generi
 	return &statusEventEmitter{
 		ctx:             ctx,
 		log:             ctrl.Log.WithName("local-replicated-policy-syncer/status-event"),
-		eventType:       string(enum.LocalReplicatedPolicyEvent),
+		eventType:       string(enum.LocalReplicatedPolicyEventType),
 		topic:           transport.GenericEventTopic,
 		runtimeClient:   runtimeClient,
 		currentVersion:  metadata.NewBundleVersion(),

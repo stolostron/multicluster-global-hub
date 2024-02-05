@@ -102,7 +102,7 @@ var _ = Describe("test the local policy emitters", Ordered, func() {
 
 		receivedEvent := <-consumer.EventChan()
 		fmt.Sprintln(receivedEvent)
-		Expect(string(enum.LocalReplicatedPolicyEvent)).To(Equal(receivedEvent.Type()))
+		Expect(string(enum.LocalReplicatedPolicyEventType)).To(Equal(receivedEvent.Type()))
 
 		replicatedPolicyEvents := []event.ReplicatedPolicyEvent{}
 		err = json.Unmarshal(receivedEvent.Data(), &replicatedPolicyEvents)

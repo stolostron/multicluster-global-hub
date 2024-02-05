@@ -17,25 +17,25 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-var _ handler.EventHandler = &localReplicatedPolicyEventHanlder{}
+var _ handler.EventHandler = &localReplicatedPolicyEventHandler{}
 
-type localReplicatedPolicyEventHanlder struct {
+type localReplicatedPolicyEventHandler struct {
 	lastProcessedVersions map[string]metadata.BundleVersion
 	eventType             enum.EventType
 }
 
-func NewLocalReplicatedPolicyEventHanlder() *localReplicatedPolicyEventHanlder {
-	return &localReplicatedPolicyEventHanlder{
-		eventType:             enum.LocalReplicatedPolicyEvent,
+func NewLocalReplicatedPolicyEventHandler() *localReplicatedPolicyEventHandler {
+	return &localReplicatedPolicyEventHandler{
+		eventType:             enum.LocalReplicatedPolicyEventType,
 		lastProcessedVersions: make(map[string]metadata.BundleVersion),
 	}
 }
 
-func (h *localReplicatedPolicyEventHanlder) EventType() enum.EventType {
+func (h *localReplicatedPolicyEventHandler) EventType() enum.EventType {
 	return h.eventType
 }
 
-func (h *localReplicatedPolicyEventHanlder) ToDatabase(evt cloudevents.Event) error {
+func (h *localReplicatedPolicyEventHandler) ToDatabase(evt cloudevents.Event) error {
 	versionStr, err := types.ToString(evt.Extensions()[metadata.ExtVersion])
 	if err != nil {
 		return err

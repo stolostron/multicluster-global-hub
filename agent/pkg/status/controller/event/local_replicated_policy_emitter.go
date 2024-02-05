@@ -74,7 +74,7 @@ func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.C
 	return &localReplicatedPolicyEmitter{
 		ctx:             ctx,
 		log:             ctrl.Log.WithName("policy-event-syncer/replicated-policy"),
-		eventType:       string(enum.LocalReplicatedPolicyEvent),
+		eventType:       string(enum.LocalReplicatedPolicyEventType),
 		topic:           transport.GenericEventTopic,
 		runtimeClient:   runtimeClient,
 		currentVersion:  metadata.NewBundleVersion(),
