@@ -6,7 +6,7 @@ require (
 	github.com/RedHatInsights/strimzi-client-go v0.34.2
 	github.com/Shopify/sarama v1.38.1
 	github.com/cenkalti/backoff/v4 v4.2.1
-	github.com/cloudevents/sdk-go/v2 v2.13.0
+	github.com/cloudevents/sdk-go/v2 v2.14.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.3.0
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
@@ -50,8 +50,8 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.27.4
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
-	open-cluster-management.io/addon-framework v0.7.1-0.20230814013922-f2fcbdd7e05f
-	open-cluster-management.io/api v0.11.1-0.20230731134013-26e75df27f50
+	open-cluster-management.io/addon-framework v0.8.0
+	open-cluster-management.io/api v0.12.0
 	open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
 	open-cluster-management.io/multicloud-operators-channel v0.11.0
 	open-cluster-management.io/multicloud-operators-subscription v0.11.0
