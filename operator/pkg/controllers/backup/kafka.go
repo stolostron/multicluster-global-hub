@@ -155,7 +155,8 @@ func AddExcludeLabelToEntityOperatorDeploymentTemplate(existingKafka *kafkav1bet
 	}
 
 	if existingKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels == nil {
-		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels = desiredOperator.Template.Deployment.Metadata.Labels
+		updatedKafka.Spec.EntityOperator.Template.Deployment.Metadata.Labels = desiredOperator.Template.Deployment.
+			Metadata.Labels
 		return updatedKafka, true, nil
 	}
 

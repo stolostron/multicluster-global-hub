@@ -125,7 +125,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 		if c.enableEventChan {
 			topic, ok := event.Extensions()[kafka_confluent.KafkaTopicKey]
-			if ok && topic == transport.GenericEventTopic {
+			if !ok || topic == transport.GenericEventTopic {
 				c.eventChan <- event
 				return ceprotocol.ResultACK
 			}

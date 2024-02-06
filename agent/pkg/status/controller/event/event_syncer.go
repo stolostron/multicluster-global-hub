@@ -18,7 +18,8 @@ const (
 
 var (
 	_                     generic.ObjectSyncer = &eventSyncer{}
-	PolicyMessageStatusRe                      = regexp.MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
+	PolicyMessageStatusRe                      = regexp.
+				MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 )
 
 type eventSyncer struct {

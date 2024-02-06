@@ -39,7 +39,8 @@ var _ generic.EventEmitter = &localReplicatedPolicyEmitter{}
 //	    {
 //	      "eventName": "local-policy-namespace.policy-limitrange.17b098ec20742ecc",
 //	      "eventNamespace": "kind-hub1-cluster1",
-//	      "message": "Policy local-policy-namespace.policy-limitrange status was updated in cluster namespace kind-hub1-cluster1",
+//	      "message": "Policy local-policy-namespace.policy-limitrange status was updated in cluster
+// message": "Policy local-policy-namespace.policy-limitrange status was updatednamespace kind-hub1-cluster1",
 //	      "reason": "PolicyStatusSync",
 //	      "count": 2,
 //	      "source": {
