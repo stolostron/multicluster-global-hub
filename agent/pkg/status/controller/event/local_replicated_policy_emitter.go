@@ -2,7 +2,6 @@ package event
 
 import (
 	"context"
-	"errors"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -116,25 +116,11 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
 		return
 	}
 
-	// add root policy id
-	rootPolicyNamespacedName := policy.GetLabels()[constants.PolicyEventRootPolicyNameLabelKey]
-	rootPolicy, err := utils.GetRootPolicy(h.ctx, h.runtimeClient, rootPolicyNamespacedName)
+	rootPolicy, clusterID, err := localpolicies.GetRootPolicyAndClusterID(h.ctx, policy, h.runtimeClient)
 	if err != nil {
-		h.log.Error(err, "failed to get root policy", "namespacedName", rootPolicyNamespacedName)
+		h.log.Error(err, "failed to get get rootPolicy/clusterID by replicatedPolicy")
 		return
 	}
-
-	clusterName, ok := policy.Labels[constants.PolicyEventClusterNameLabelKey]
-	if !ok {
-		h.log.Error(errors.New("cluster name not found in replicated policy"), "policy", policy.Namespace+"/"+policy.Name)
-		return
-	}
-	clusterId, err := utils.GetClusterId(h.ctx, h.runtimeClient, clusterName)
-	if err != nil {
-		h.log.Error(err, "failed to get cluster id by cluster", "clusterName", clusterName)
-		return
-	}
-
 	// update
 	replicatedPolicyEvent := event.ReplicatedPolicyEvent{
 		BaseEvent: event.BaseEvent{
@@ -147,7 +133,7 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
 			CreatedAt:      evt.CreationTimestamp,
 		},
 		PolicyID:   string(rootPolicy.GetUID()),
-		ClusterID:  clusterId,
+		ClusterID:  clusterID,
 		Compliance: policyCompliance(rootPolicy, evt),
 	}
 	// cache to events and update version

@@ -2,7 +2,6 @@ package localpolicies
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -74,21 +73,9 @@ func (h *statusEventEmitter) Update(obj client.Object) {
 		return // no status to update
 	}
 
-	rootPolicyNamespacedName := policy.Labels[constants.PolicyEventRootPolicyNameLabelKey]
-	rootPolicy, err := utils.GetRootPolicy(h.ctx, h.runtimeClient, rootPolicyNamespacedName)
+	rootPolicy, clusterID, err := GetRootPolicyAndClusterID(h.ctx, policy, h.runtimeClient)
 	if err != nil {
-		h.log.Error(err, "failed to get root policy", "namespacedName", rootPolicyNamespacedName)
-		return
-	}
-
-	clusterName, ok := policy.Labels[constants.PolicyEventClusterNameLabelKey]
-	if !ok {
-		h.log.Error(errors.New("cluster name not found in replicated policy"), "policy", policy.Namespace+"/"+policy.Name)
-		return
-	}
-	clusterId, err := utils.GetClusterId(h.ctx, h.runtimeClient, clusterName)
-	if err != nil {
-		h.log.Error(err, "failed to get cluster id by cluster", "clusterName", clusterName)
+		h.log.Error(err, "failed to get get rootPolicy/clusterID by replicatedPolicy")
 		return
 	}
 
@@ -114,7 +101,7 @@ func (h *statusEventEmitter) Update(obj client.Object) {
 						CreatedAt: evt.LastTimestamp,
 					},
 					PolicyID:   string(rootPolicy.GetUID()),
-					ClusterID:  clusterId,
+					ClusterID:  clusterID,
 					Compliance: GetComplianceState(MessageCompliaceStateRegex, evt.Message, string(detail.ComplianceState)),
 				})
 				h.cache.Add(key, nil)
@@ -159,4 +146,22 @@ func GetComplianceState(regex *regexp.Regexp, message, defaultVal string) string
 		return firstWord
 	}
 	return defaultVal
+}
+
+func GetRootPolicyAndClusterID(ctx context.Context, replicatedPolicy *policiesv1.Policy, c client.Client) (
+	rootPolicy *policiesv1.Policy, clusterID string, err error) {
+	rootPolicyNamespacedName := replicatedPolicy.Labels[constants.PolicyEventRootPolicyNameLabelKey]
+	rootPolicy, err = utils.GetRootPolicy(ctx, c, rootPolicyNamespacedName)
+	if err != nil {
+		return nil, "", err
+	}
+
+	clusterName, ok := replicatedPolicy.Labels[constants.PolicyEventClusterNameLabelKey]
+	if !ok {
+		return rootPolicy, clusterID,
+			fmt.Errorf("label %s not found in policy %s/%s",
+				constants.PolicyEventClusterNameLabelKey, replicatedPolicy.Namespace, replicatedPolicy.Name)
+	}
+	clusterID, err = utils.GetClusterId(ctx, c, clusterName)
+	return rootPolicy, clusterID, err
 }
