@@ -50,20 +50,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	backupcontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg           *rest.Config
-	k8sClient     client.Client // You'll be using this client in your tests.
-	kubeClient    *kubernetes.Clientset
-	testEnv       *envtest.Environment
-	ctx           context.Context
-	cancel        context.CancelFunc
-	testNamespace = "default"
+	cfg              *rest.Config
+	k8sClient        client.Client // You'll be using this client in your tests.
+	kubeClient       *kubernetes.Clientset
+	testEnv          *envtest.Environment
+	ctx              context.Context
+	cancel           context.CancelFunc
+	testNamespace    = "default"
+	backupReconciler *backup.BackupReconciler
+	log              = ctrl.Log.WithName("backup-reconciler")
 )
 
 func TestControllers(t *testing.T) {
@@ -136,12 +138,8 @@ var _ = BeforeSuite(func() {
 
 	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
+	backupReconciler = backup.NewBackupReconciler(k8sManager, log)
 
-	backupReconciler := &backupcontrollers.BackupReconciler{
-		Manager: k8sManager,
-		Client:  k8sManager.GetClient(),
-		Log:     ctrl.Log.WithName("backup-reconciler"),
-	}
 	Expect(backupReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 
 	go func() {
@@ -150,6 +148,7 @@ var _ = BeforeSuite(func() {
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
+	Expect(k8sManager.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 })
 
 var _ = AfterSuite(func() {
