@@ -114,7 +114,8 @@ func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.Confl
 	consumeConfig := managerConfig.TransportConfig.KafkaConfig.ConsumerConfig
 	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
 		[]string{consumeConfig.EventTopic, consumeConfig.StatusTopic},
-		genericconsumer.EnableDatabaseOffset(true), genericconsumer.EnableEventChan(false))
+		genericconsumer.EnableDatabaseOffset(true),
+		genericconsumer.EnableEventChan(managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.EnableEventChan))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
 	}
