@@ -49,7 +49,7 @@ var _ = BeforeSuite(func() {
 	err = globalhubv1alpha4.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	//add podmonitor schema
+	// add podmonitor schema
 	Expect(promv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme

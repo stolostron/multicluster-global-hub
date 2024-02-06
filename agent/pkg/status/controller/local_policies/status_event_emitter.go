@@ -149,7 +149,8 @@ func GetComplianceState(regex *regexp.Regexp, message, defaultVal string) string
 }
 
 func GetRootPolicyAndClusterID(ctx context.Context, replicatedPolicy *policiesv1.Policy, c client.Client) (
-	rootPolicy *policiesv1.Policy, clusterID string, err error) {
+	rootPolicy *policiesv1.Policy, clusterID string, err error,
+) {
 	rootPolicyNamespacedName := replicatedPolicy.Labels[constants.PolicyEventRootPolicyNameLabelKey]
 	rootPolicy, err = utils.GetRootPolicy(ctx, c, rootPolicyNamespacedName)
 	if err != nil {

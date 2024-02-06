@@ -740,7 +740,8 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 
 // set metricsConfig for kafka cluster based on the mgh enableMetrics
 func (k *strimziTransporter) setMetricsConfig(mgh *operatorv1alpha4.MulticlusterGlobalHub,
-	kafkaCluster *kafkav1beta2.Kafka) {
+	kafkaCluster *kafkav1beta2.Kafka,
+) {
 	kafkaMetricsConfig := &kafkav1beta2.KafkaSpecKafkaMetricsConfig{}
 	zookeeperMetricsConfig := &kafkav1beta2.KafkaSpecZookeeperMetricsConfig{}
 	if mgh.Spec.EnableMetrics {
@@ -769,7 +770,8 @@ func (k *strimziTransporter) setMetricsConfig(mgh *operatorv1alpha4.Multicluster
 
 // set affinity for kafka cluster based on the mgh nodeSelector
 func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGlobalHub,
-	kafkaCluster *kafkav1beta2.Kafka) {
+	kafkaCluster *kafkav1beta2.Kafka,
+) {
 	kafkaPodAffinity := &kafkav1beta2.KafkaSpecKafkaTemplatePodAffinity{}
 	zookeeperPodAffinity := &kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinity{}
 	entityOperatorPodAffinity := &kafkav1beta2.KafkaSpecEntityOperatorTemplatePodAffinity{}
@@ -855,7 +857,8 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 
 // setTolerations sets the kafka tolerations based on the mgh tolerations
 func (k *strimziTransporter) setTolerations(mgh *operatorv1alpha4.MulticlusterGlobalHub,
-	kafkaCluster *kafkav1beta2.Kafka) {
+	kafkaCluster *kafkav1beta2.Kafka,
+) {
 	kafkaTolerationsElem := make([]kafkav1beta2.KafkaSpecKafkaTemplatePodTolerationsElem, 0)
 	zookeeperTolerationsElem := make([]kafkav1beta2.KafkaSpecZookeeperTemplatePodTolerationsElem, 0)
 	entityOperatorTolerationsElem := make([]kafkav1beta2.KafkaSpecEntityOperatorTemplatePodTolerationsElem, 0)
