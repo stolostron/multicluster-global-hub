@@ -63,7 +63,7 @@ func main() {
 					continue
 				}
 				if err := processEvent(consumer, ev); err != nil {
-					log.Printf("## failed to process event: %s \n", ev)
+					log.Printf("failed to process event: %s \n", ev)
 				}
 
 			}

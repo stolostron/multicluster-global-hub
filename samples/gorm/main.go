@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer database.CloseGorm()
+	defer database.CloseGorm(database.GetSqlDb())
 
 	g2 := database.GetGorm()
 

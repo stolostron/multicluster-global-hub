@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -22,15 +21,14 @@ import (
 type policyProcessor struct {
 	log           logr.Logger
 	ctx           context.Context
-	db            *gorm.DB
 	offsetManager OffsetManager
 }
 
 func NewPolicyProcessor(ctx context.Context, offsetManager OffsetManager) *policyProcessor {
+
 	return &policyProcessor{
 		log:           ctrl.Log.WithName("policy-event-processor"),
 		ctx:           ctx,
-		db:            database.GetGorm(),
 		offsetManager: offsetManager,
 	}
 }
@@ -81,7 +79,14 @@ func (p *policyProcessor) Process(event *kube.EnhancedEvent, eventOffset *EventO
 
 	err = wait.PollUntilContextTimeout(p.ctx, 10*time.Second, 1*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
-			result := p.db.Clauses(clause.OnConflict{
+			db := database.GetGorm()
+			conn := database.GetConn()
+			err := database.Lock(conn)
+			if err != nil {
+				return false, nil
+			}
+			defer database.Unlock(conn)
+			result := db.Clauses(clause.OnConflict{
 				Columns:   conflictColumns,
 				UpdateAll: true,
 			}).Create(insertEvent)

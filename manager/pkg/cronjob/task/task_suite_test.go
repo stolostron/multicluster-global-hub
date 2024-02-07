@@ -77,7 +77,7 @@ var _ = AfterSuite(func() {
 		time.Sleep(4 * time.Second)
 		Expect(testenv.Stop()).NotTo(HaveOccurred())
 	}
-	database.CloseGorm()
+	database.CloseGorm(database.GetSqlDb())
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 	cancel()
 })

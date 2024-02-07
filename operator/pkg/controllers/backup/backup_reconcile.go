@@ -73,7 +73,7 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	backuped := meta.IsStatusConditionTrue(mgh.Status.Conditions, condition.CONDITION_TYPE_BACKUP)
 
 	// Check if backup is enabled
-	backupEnabled, err := isBackupEnabled(ctx, r.Client)
+	backupEnabled, err := utils.IsBackupEnabled(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -171,23 +171,4 @@ func (r *BackupReconciler) deleteLableOfAllResources(ctx context.Context) error 
 		}
 	}
 	return utilerrors.NewAggregate(errs)
-}
-
-func isBackupEnabled(ctx context.Context, client client.Client) (bool, error) {
-	mch, err := utils.ListMCH(ctx, client)
-	if err != nil {
-		return false, err
-	}
-	if mch == nil {
-		return false, nil
-	}
-	if mch.Spec.Overrides == nil {
-		return false, nil
-	}
-	for _, c := range mch.Spec.Overrides.Components {
-		if c.Name == "cluster-backup" && c.Enabled {
-			return true, nil
-		}
-	}
-	return false, nil
 }
