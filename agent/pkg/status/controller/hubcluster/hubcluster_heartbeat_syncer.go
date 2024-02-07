@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/go-logr/logr"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
@@ -31,7 +31,6 @@ type heartbeatStatusSyncer struct {
 }
 
 func AddHeartbeatStatusSyncer(mgr ctrl.Manager, producer transport.Producer) error {
-
 	leafHubName := config.GetLeafHubName()
 	clusterHeartbeatBundle := cluster.NewAgentHubClusterHeartbeatBundle(leafHubName)
 

@@ -11,6 +11,7 @@ var (
 		PolicyIntervalKey:              5 * time.Second,
 		HubClusterInfoIntervalKey:      60 * time.Second,
 		HubClusterHeartBeatIntervalKey: 60 * time.Second,
+		EventIntervalKey:               5 * time.Second,
 	}
 	agentConfigs = map[AgentConfigKey]AgentConfigValue{
 		AgentAggregationKey:  AggregationFull,
@@ -25,8 +26,10 @@ const (
 	ManagedClusterIntervalKey      AgentConfigKey = "managedClusters"
 	HubClusterInfoIntervalKey      AgentConfigKey = "hubClusterInfo"
 	HubClusterHeartBeatIntervalKey AgentConfigKey = "hubClusterHeartbeat"
-	AgentAggregationKey            AgentConfigKey = "aggregationLevel"
-	EnableLocalPolicyKey           AgentConfigKey = "enableLocalPolicies"
+	EventIntervalKey               AgentConfigKey = "events"
+
+	AgentAggregationKey  AgentConfigKey = "aggregationLevel"
+	EnableLocalPolicyKey AgentConfigKey = "enableLocalPolicies"
 )
 
 type AgentConfigValue string
@@ -58,6 +61,10 @@ func GetHubClusterInfoDuration() time.Duration {
 
 func GetHeartbeatDuration() time.Duration {
 	return syncIntervals[HubClusterHeartBeatIntervalKey]
+}
+
+func GetEventDuration() time.Duration {
+	return syncIntervals[EventIntervalKey]
 }
 
 func GetLeafHubName() string {

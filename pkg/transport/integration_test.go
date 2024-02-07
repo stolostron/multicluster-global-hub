@@ -47,8 +47,8 @@ var _ = Describe("Transport Integration", Ordered, func() {
 			BootstrapServer: mockCluster.BootstrapServers(),
 			EnableTLS:       false,
 			ConsumerConfig: &transport.KafkaConsumerConfig{
-				ConsumerTopic: "spec",
-				ConsumerID:    "spec-consumer",
+				StatusTopic: "spec",
+				ConsumerID:  "spec-consumer",
 			},
 		}, ctrl.Log.WithName("kafka-consumer"))
 		Expect(err).NotTo(HaveOccurred())
@@ -172,8 +172,8 @@ var _ = Describe("Transport Integration", Ordered, func() {
 			BootstrapServer: mockCluster.BootstrapServers(),
 			EnableTLS:       false,
 			ConsumerConfig: &transport.KafkaConsumerConfig{
-				ConsumerTopic: "status",
-				ConsumerID:    "status-consumer",
+				StatusTopic: "status",
+				ConsumerID:  "status-consumer",
 			},
 		}, ctrl.Log.WithName("kafka-consumer"))
 		Expect(err).NotTo(HaveOccurred())

@@ -90,8 +90,8 @@ func TestAddEventCollector(t *testing.T) {
 		BootstrapServer: kafkaCluster.Addr(),
 		EnableTLS:       false,
 		ConsumerConfig: &transport.KafkaConsumerConfig{
-			ConsumerID:    "test-consumer",
-			ConsumerTopic: "my_topic",
+			ConsumerID:  "test-consumer",
+			StatusTopic: "my_topic",
 		},
 	}
 

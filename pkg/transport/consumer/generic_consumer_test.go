@@ -27,12 +27,12 @@ func TestGenerateConsumer(t *testing.T) {
 			BootstrapServer: mockKafkaCluster.BootstrapServers(),
 			EnableTLS:       false,
 			ConsumerConfig: &transport.KafkaConsumerConfig{
-				ConsumerID:    "test-consumer",
-				ConsumerTopic: "test-topic",
+				ConsumerID:  "test-consumer",
+				StatusTopic: "test-topic",
 			},
 		},
 	}
-	_, err = NewGenericConsumer(transportConfig)
+	_, err = NewGenericConsumer(transportConfig, []string{"test-topic"})
 	if err != nil && !strings.Contains(err.Error(), "client has run out of available brokers") {
 		t.Errorf("failed to generate consumer - %v", err)
 	}

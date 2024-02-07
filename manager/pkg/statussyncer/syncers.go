@@ -7,6 +7,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/dispatcher"
+	localpolicies "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/handler/local_policies"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/hubmanagement"
 	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
@@ -17,7 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // AddStatusSyncers performs the initial setup required before starting the runtime manager.
@@ -98,6 +99,10 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
 		dbsyncerObj.RegisterBundleHandlerFunctions(conflationManager)
 	}
 
+	// TODO: the handler will be process on the confaltion
+	transportDispatcher.RegisterEventHandler(localpolicies.NewLocalRootPolicyEventHandler())
+	transportDispatcher.RegisterEventHandler(localpolicies.NewLocalReplicatedPolicyEventHandler())
+
 	return transportDispatcher, nil
 }
 
@@ -105,8 +110,12 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
 // both kafkaConsumer and Cloudevents transport dispatcher will forward message to conflation manager
 func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
 	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
-) (dbsyncer.BundleRegisterable, error) {
-	consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig, consumer.WithDatabasePosition(true))
+) (*dispatcher.TransportDispatcher, error) {
+	consumeConfig := managerConfig.TransportConfig.KafkaConfig.ConsumerConfig
+	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
+		[]string{consumeConfig.EventTopic, consumeConfig.StatusTopic},
+		genericconsumer.EnableDatabaseOffset(true),
+		genericconsumer.EnableEventChan(managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.EnableEventChan))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize transport consumer: %w", err)
 	}
@@ -131,7 +140,7 @@ func addStatisticController(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 		bundle.GetBundleType(&grc.LocalPolicyBundle{}),
 		bundle.GetBundleType(&grc.LocalComplianceBundle{}),
 		bundle.GetBundleType(&grc.LocalCompleteComplianceBundle{}),
-		bundle.GetBundleType(&grc.LocalReplicatedPolicyEventBundle{}),
+		// bundle.GetBundleType(&grc.LocalReplicatedPolicyEventBundle{}),
 		// bundle.GetBundleType(&placement.LocalPlacementRulesBundle{}),
 	}
 

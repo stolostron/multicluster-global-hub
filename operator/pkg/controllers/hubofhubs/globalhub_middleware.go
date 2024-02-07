@@ -100,7 +100,8 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics
 func (r *MulticlusterGlobalHubReconciler) renderKafkaMetricsResources(ctx context.Context,
-	mgh *v1alpha4.MulticlusterGlobalHub, transProtocol transport.TransportProtocol) error {
+	mgh *v1alpha4.MulticlusterGlobalHub, transProtocol transport.TransportProtocol,
+) error {
 	log := r.Log.WithName("middleware")
 	if mgh.Spec.EnableMetrics && transProtocol == transport.StrimziTransporter {
 		// render the kafka objects
@@ -131,7 +132,8 @@ func (r *MulticlusterGlobalHubReconciler) renderKafkaMetricsResources(ctx contex
 }
 
 func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
-	transProtocol transport.TransportProtocol) (*transport.ConnCredential, error) {
+	transProtocol transport.TransportProtocol,
+) (*transport.ConnCredential, error) {
 	// create the transport instance
 	var trans transport.Transporter
 	var err error

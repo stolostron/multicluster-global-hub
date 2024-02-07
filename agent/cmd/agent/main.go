@@ -30,7 +30,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/event"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
@@ -136,7 +135,7 @@ func parseFlags() *config.AgentConfig {
 		"status", "Topic for the kafka producer.")
 	pflag.IntVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic, "kafka-consumer-topic",
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.SpecTopic, "kafka-consumer-topic",
 		"spec", "Topic for the kafka consumer.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kafka-consumer-id",
 		"multicluster-global-hub-agent", "ID for the kafka consumer.")
@@ -253,11 +252,6 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 
 	if err := controllers.AddCertController(mgr, kubeClient); err != nil {
 		return nil, fmt.Errorf("failed to add crd controller: %w", err)
-	}
-
-	if err := event.AddEventExporter(mgr, agentConfig.KubeEventExporterConfigPath,
-		agentConfig.LeafHubName); err != nil {
-		return nil, fmt.Errorf("failed to add event exporter: %w", err)
 	}
 
 	return mgr, nil

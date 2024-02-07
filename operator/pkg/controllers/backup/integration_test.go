@@ -362,7 +362,8 @@ var _ = Describe("Backup controller", Ordered, func() {
 					NamespacedName: types.NamespacedName{
 						Namespace: "Kafka",
 						Name:      "kafka",
-					}})
+					},
+				})
 				if err != nil {
 					return false
 				}
@@ -421,7 +422,8 @@ var _ = Describe("Backup controller", Ordered, func() {
 				NamespacedName: types.NamespacedName{
 					Namespace: "Kafka",
 					Name:      "kafka",
-				}})
+				},
+			})
 
 			Expect(err).Should(BeNil())
 			Eventually(func() bool {

@@ -8,10 +8,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var certSecret = &corev1.Secret{
@@ -23,6 +24,7 @@ var certSecret = &corev1.Secret{
 		"service.crt": []byte("testcert"),
 	},
 }
+
 var _ = Describe("cert controllers", Ordered, func() {
 	It("create cert secret when cache is null", func() {
 		Eventually(func() error {

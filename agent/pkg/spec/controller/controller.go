@@ -9,12 +9,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 func AddToManager(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
 	// add consumer to manager
-	consumer, err := consumer.NewGenericConsumer(agentConfig.TransportConfig)
+	consumer, err := genericconsumer.NewGenericConsumer(agentConfig.TransportConfig,
+		[]string{agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.SpecTopic},
+		genericconsumer.EnableEventChan(agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.EnableEventChan),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to initialize transport consumer: %w", err)
 	}

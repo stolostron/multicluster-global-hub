@@ -200,8 +200,7 @@ var _ = Describe("Apply local policy to the managed clusters", Ordered,
 
 				By("Verify the local policy events is synchronized to the global hub event.local_policies table")
 				Eventually(func() error {
-					rows, err := postgresConn.Query(context.TODO(),
-						"select policy_id,cluster_id,leaf_hub_name from event.local_policies")
+					rows, err := postgresConn.Query(ctx, "select policy_id,cluster_id,leaf_hub_name from event.local_policies")
 					if err != nil {
 						return err
 					}

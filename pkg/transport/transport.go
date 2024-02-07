@@ -5,6 +5,8 @@ package transport
 
 import (
 	"context"
+
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
 // init the transport with different implementation/protocol: secret, strimzi operator or plain deployment
@@ -29,6 +31,7 @@ type Transporter interface {
 
 type Producer interface {
 	Send(ctx context.Context, msg *Message) error
+	SendEvent(ctx context.Context, evt cloudevents.Event) error
 }
 
 type Consumer interface {
@@ -36,4 +39,5 @@ type Consumer interface {
 	Start(ctx context.Context) error
 	// provide a blocking message to get the message
 	MessageChan() chan *Message
+	EventChan() chan cloudevents.Event
 }

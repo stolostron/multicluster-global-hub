@@ -107,7 +107,10 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 		By("verify the result from transport")
 		Eventually(func() error {
-			message := waitForChannel(genericConsumer.MessageChan())
+			message := waitForChannel(consumer.MessageChan())
+			if message == nil {
+				return fmt.Errorf("the message shouldn't be nil")
+			}
 			if val, ok := ExpectedMessageIDs[message.Key]; ok && strings.Contains(string(message.Payload), val) {
 				fmt.Println("receive the expected message", message.Key)
 				delete(ExpectedMessageIDs, message.Key)

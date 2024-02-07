@@ -12,6 +12,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
 	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/event"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/hubcluster"
 	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/localplacement"
@@ -51,7 +53,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		managedclusters.AddMangedClusterSyncer,
 		// apps.AddSubscriptionStatusesController,
 		localpolicies.AddLocalRootPolicySyncer,
-		localpolicies.AddLocalReplicatedPolicySyncer,
+		// localpolicies.AddLocalReplicatedPolicySyncer,
 		hubcluster.AddHubClusterInfoSyncer,
 		hubcluster.AddHeartbeatStatusSyncer,
 	}
@@ -70,6 +72,25 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		if err := addControllerFunction(mgr, producer); err != nil {
 			return fmt.Errorf("failed to add controller: %w", err)
 		}
+	}
+
+	// event syncer
+	err = generic.LaunchGenericObjectSyncer(mgr, event.NewEventSyncer(), producer,
+		[]generic.EventEmitter{
+			event.NewLocalRootPolicyEmitter(ctx, mgr.GetClient()),
+			// event.NewLocalReplicatedPolicyEmitter(ctx, mgr.GetClient()),
+		})
+	if err != nil {
+		return fmt.Errorf("failed to launch event syncer: %w", err)
+	}
+
+	// local policy syncer
+	err = generic.LaunchGenericObjectSyncer(mgr, localpolicies.NewLocalPolicySyncer(), producer,
+		[]generic.EventEmitter{
+			localpolicies.StatusEventEmitter(ctx, mgr.GetClient()),
+		})
+	if err != nil {
+		return fmt.Errorf("failed to launch local policy syncer: %w", err)
 	}
 	return nil
 }

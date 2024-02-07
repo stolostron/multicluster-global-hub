@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mohae/deepcopy"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -36,7 +35,6 @@ import (
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/eventcollector"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
@@ -138,13 +136,14 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"multicluster-global-hub-manager", "ID for the kafka producer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
 		"spec", "Topic for the kafka producer.")
-	pflag.StringVar(&managerConfig.EventExporterTopic, "event-exporter-topic", "event", "Topic for the event exporter.")
 	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
 		"kafka-consumer-id", "multicluster-global-hub-manager", "ID for the kafka consumer.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic,
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.StatusTopic,
 		"kafka-consumer-topic", "status", "Topic for the kafka consumer.")
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.EventTopic,
+		"kafka-event-topic", "event", "Event topic for the event message")
 	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "1m",
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
@@ -188,6 +187,7 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	if ok && val != "" {
 		managerConfig.LaunchJobNames = val
 	}
+	managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.EnableEventChan = true
 	return nil
 }
 
@@ -267,11 +267,11 @@ func createManager(ctx context.Context, restConfig *rest.Config, managerConfig *
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
 
-	eventKafkaConfig := deepcopy.Copy(managerConfig.TransportConfig.KafkaConfig).(*transport.KafkaConfig)
-	eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
-	if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig); err != nil {
-		return nil, fmt.Errorf("failed to add event collector: %w", err)
-	}
+	// eventKafkaConfig := deepcopy.Copy(managerConfig.TransportConfig.KafkaConfig).(*transport.KafkaConfig)
+	// eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
+	// if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig); err != nil {
+	// 	return nil, fmt.Errorf("failed to add event collector: %w", err)
+	// }
 
 	return mgr, nil
 }

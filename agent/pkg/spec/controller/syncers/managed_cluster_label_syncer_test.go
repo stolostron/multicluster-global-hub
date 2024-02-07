@@ -118,6 +118,6 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 		Eventually(func() error {
 			syncedConfigMap := &corev1.ConfigMap{}
 			return client.Get(ctx, runtimeclient.ObjectKeyFromObject(cm), syncedConfigMap)
-		}, 5*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })

@@ -7,12 +7,13 @@ import (
 )
 
 const (
-	// Broadcast can be used as destination when a bundle should be broadcasted.
-	Broadcast = "broadcast"
-	// ChunkSizeKey is the key used for total bundle size header.
-	ChunkSizeKey = "size"
-	// ChunkOffsetKey is the key used for message fragment offset header.
-	ChunkOffsetKey = "offset"
+	GenericSpecTopic   = "spec"
+	GenericStatusTopic = "status"
+	GenericEventTopic  = "event"
+
+	Broadcast      = "broadcast" // Broadcast can be used as destination when a bundle should be broadcasted.
+	ChunkSizeKey   = "extsize"   // ChunkSizeKey is the key used for total bundle size header.
+	ChunkOffsetKey = "extoffset" // ChunkOffsetKey is the key used for message fragment offset header.
 
 	// Deprecated
 	// CompressionType is the key used for compression type header.
@@ -57,8 +58,12 @@ type KafkaProducerConfig struct {
 }
 
 type KafkaConsumerConfig struct {
-	ConsumerID    string
-	ConsumerTopic string
+	ConsumerID  string
+	StatusTopic string
+	EventTopic  string
+	SpecTopic   string
+	// Deprecated: will be removed once all the message are formatted to cloudevent
+	EnableEventChan bool
 }
 
 // transport protocol

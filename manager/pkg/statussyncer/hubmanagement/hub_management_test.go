@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm/clause"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -118,5 +119,9 @@ func TestHubManagement(t *testing.T) {
 type tmpProducer struct{}
 
 func (*tmpProducer) Send(ctx context.Context, msg *transport.Message) error {
+	return nil
+}
+
+func (p *tmpProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
 	return nil
 }

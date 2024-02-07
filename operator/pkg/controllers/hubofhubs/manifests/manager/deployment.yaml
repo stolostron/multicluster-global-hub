@@ -41,7 +41,7 @@ spec:
             - --kafka-bootstrap-server={{.KafkaBootstrapServer}}
             - --kafka-consumer-topic={{.KafkaConsumerTopic}}
             - --kafka-producer-topic={{.KafkaProducerTopic}}
-            - --event-exporter-topic={{.KafkaEventTopic}}
+            - --kafka-event-topic={{.KafkaEventTopic}}
             - --kafka-ca-cert-path=/kafka-certs/ca.crt
             - --kafka-client-cert-path=/kafka-certs/client.crt
             - --kafka-client-key-path=/kafka-certs/client.key

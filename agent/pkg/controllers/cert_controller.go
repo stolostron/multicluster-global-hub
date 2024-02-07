@@ -49,11 +49,8 @@ func AddCertController(mgr ctrl.Manager, kubeClient kubernetes.Interface) error 
 				}
 				newSecret := e.ObjectNew.(*corev1.Secret)
 				oldSecret := e.ObjectOld.(*corev1.Secret)
-				//only enqueue the obj when secret data changed
-				if !reflect.DeepEqual(newSecret.Data, oldSecret.Data) {
-					return true
-				}
-				return false
+				// only enqueue the obj when secret data changed
+				return !reflect.DeepEqual(newSecret.Data, oldSecret.Data)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				return true

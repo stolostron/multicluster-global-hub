@@ -29,21 +29,21 @@ import (
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
 var (
-	testenv         *envtest.Environment
-	cfg             *rest.Config
-	ctx             context.Context
-	cancel          context.CancelFunc
-	mgr             ctrl.Manager
-	kubeClient      client.Client
-	testPostgres    *testpostgres.TestPostgres
-	genericConsumer *consumer.GenericConsumer
-	producer        transport.Producer
+	testenv      *envtest.Environment
+	cfg          *rest.Config
+	ctx          context.Context
+	cancel       context.CancelFunc
+	mgr          ctrl.Manager
+	kubeClient   client.Client
+	testPostgres *testpostgres.TestPostgres
+	consumer     transport.Consumer
+	producer     transport.Producer
 )
 
 func TestSpecSyncer(t *testing.T) {
@@ -110,18 +110,18 @@ var _ = BeforeSuite(func() {
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
 	}
+
+	By("Create kafka consumer/producer")
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
-
 	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig, producer)).Should(Succeed())
 	Expect(specsycner.AddManagedClusterLabelSyncer(mgr,
 		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval)).Should(Succeed())
 
-	// mock consume message from agent
-	By("Create kafka consumer")
-	genericConsumer, err = consumer.NewGenericConsumer(managerConfig.TransportConfig)
+	consumer, err = genericconsumer.NewGenericConsumer(managerConfig.TransportConfig, []string{"spec"},
+		genericconsumer.EnableEventChan(false))
 	Expect(err).NotTo(HaveOccurred())
-	Expect(mgr.Add(genericConsumer)).Should(Succeed())
+	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	err = sycner.SendSyncAllMsgInfo(producer)
 	Expect(err).NotTo(HaveOccurred())
