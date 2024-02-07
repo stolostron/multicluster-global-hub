@@ -100,8 +100,12 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 			Namespace: cluster.Name,
 		},
 	}
+	err := r.updateKafkaResource(cluster)
+	if err != nil {
+		return fmt.Errorf("failed to update kafka resources: %v", err)
+	}
 
-	err := r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
+	err = r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
 	// create
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -132,10 +136,11 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 		r.Log.Info("updating addon", "cluster", cluster.Name, "addon", expectedAddon.Name)
 		return r.Update(ctx, existingAddon)
 	}
+
 	return nil
 }
 
-func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *HoHAddonInstaller) updateKafkaResource(cluster *clusterv1.ManagedCluster) error {
 	transporter := config.GetTransporter()
 	clusterUser := transporter.GenerateUserName(cluster.Name)
 	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
@@ -157,7 +162,10 @@ func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster
 	if err := transporter.GrantWrite(clusterUser, clusterTopic.StatusTopic); err != nil {
 		return err
 	}
+	return nil
+}
 
+func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	expectedAddon, err := expectedManagedClusterAddon(cluster)
 	if err != nil {
 		return err
