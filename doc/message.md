@@ -328,110 +328,75 @@ Will list the supported resources later.
 ```
 ## Topic: event
 Currently, the following resource events are supported:
-- **Policy**: create, update, delete
+- **Policy**: propagate, update
 - **ManagedCluster**: provision, import, update, delete
 - **ManagedHubCluster**: create, update, delete
 
 ### Policy
-#### Create
+#### Propagate
 ```
 {
-    "specversion": "1.0",
-    "id": "a3120afe-bc17-11ee-a707-3326cba39e32",
-    "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.propagate",
-    "datacontenttype": "application/json",
-    "time": "2024-01-25T07:34:54.942302988Z",
-    "data": {
-        "objects": [
-            {
-                "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
-                "policyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
-                "eventName": "mem-limit.175d21cdaba3ef7e",
-                "message": Policy default/mem-limit was propagated to cluster hub2/hub2",
-                "reason": "PolicyPropagation",
-                "count": 1,
-                "source": "policy-propagator",
-                "createdAt": "2024-01-25T04:07:07Z"
-            }
-        ]
+  "specversion": "1.0",
+  "id": "725892db-a1fc-4d5c-8626-4482f181b14e",
+  "source": "kind-hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.local.policy.propagate",
+  "datacontenttype": "application/json",
+  "time": "2024-02-05T04:44:19.698187849Z",
+  "data": [
+    {
+      "eventName": "policy-limitrange.17b0db23b941f40b",
+      "eventNamespace": "local-policy-namespace",
+      "message": "Policy local-policy-namespace/policy-limitrange was propagated to cluster kind-hub1-cluster1/kind-hub1-cluster1",
+      "reason": "PolicyPropagation",
+      "count": 1,
+      "source": {
+        "component": "policy-propagator"
+      },
+      "createdAt": "2024-02-05T03:53:25Z",
+      "policyId": "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d",
+      "compliance": "NonCompliant"
     }
+  ],
+  "kafkatopic": "event",
+  "kafkaoffset": "8",
+  "kafkapartition": "0",
+  "kafkamessagekey": "kind-hub1",
+  "extversion": "0.1"
 }
 ```
 #### Update
 ```
 {
-    "specversion": "1.0",
-    "id": "2d05f502-bc29-11ee-9964-b36883b3456b",
-    "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.replicatedpolicy.update",
-    "datacontenttype": "application/json",
-    "time": "2024-01-25T07:34:54.942302988Z",
-    "data": {
-        "objects": [
-            {
-                "policyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
-                "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
-                "replicatedpolicyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
-                "compliance": "NonCompliant",
-                "eventName": "kube-system.test-role-policy-1705906106.17ad7b80d4e6f6a4",
-                "message": "NonCompliant; violation - roles [deployments-role-1705906106] not found in namespace default",
-                "reason": "PolicyStatusSync",
-                "count": 1,
-                "source": null,
-                "createdAt": "2024-01-25T04:07:07Z"
-            },
-            {
-                "policyId": "b71adfc1-87f9-40d9-9b15-2221095a2bbd",
-                "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
-                "replicatedpolicyId": "9cf86cb6-b8ca-4752-bad1-a481ae35aa07",
-                "compliance": "Compliant",
-                "eventName": "default.test-enforce-pod-1705906106.17ad7b83028892b6",
-                "message": "Compliant; notification - pods [pod-test-1705906106] found as specified in namespace default",
-                "reason": "PolicyStatusSync",
-                "count": 1,
-                "source": null,
-                "createdAt": "2024-01-25T04:07:16Z"
-            }
-        ]
-        "bundleVersion": {
-            "Generation": 0,
-            "Value": 2
-        }
-    },
-    "offset": "0",
-    "kafkaoffset": "220",
-    "kafkapartition": "0",
-    "size": "1728",
-    "kafkatopic": "status.managed_hub1",
-    "kafkamessagekey": "managed_hub1.LocalPolicyHistoryEvents"
-}
-```
-#### Delete
-```
-{
-    "specversion": "1.0",
-    "id": "66aebdac-bc29-11ee-a7ea-031122cb170e",
-    "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.delete",
-    "datacontenttype": "application/json",
-    "time": "2024-01-25T07:34:54.942302988Z",
-    "data": {
-        "objects": [
-            {
-                "clusterId": "23d77b87-7637-411f-af89-9e1c1a18f694",
-                "policyId": "9b86154b-cc49-407e-b9f5-1112fb6a3e56",
-                "eventName": "mem-limit.175d21cdaba3ef7e",
-                "message": Policy default/mem-limit was deleted from cluster hub2/hub2",
-                "reason": "PolicyPropagation",
-                "count": 1,
-                "source": "policy-propagator",
-                "createdAt": "2024-01-25T04:07:07Z"
-            }
-        ]
+  "specversion": "1.0",
+  "id": "3dc23865-fb4f-4b25-8d25-6f0e70424dc8",
+  "source": "kind-hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.local.replicatedpolicy.update",
+  "datacontenttype": "application/json",
+  "time": "2024-02-05T04:44:19.698269266Z",
+  "data": [
+    {
+      "eventName": "local-policy-namespace.policy-limitrange.17b0db2427432200",
+      "eventNamespace": "kind-hub1-cluster1",
+      "message": "NonCompliant; violation - limitranges [container-mem-limit-range] not found in namespace default",
+      "reason": "PolicyStatusSync",
+      "count": 1,
+      "source": {
+        "component": "policy-status-history-sync"
+      },
+      "createdAt": "2024-02-05T03:53:27Z",
+      "policyId": "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d",
+      "clusterId": "f302ce61-98e7-4d63-8dd2-65951e32fd95",
+      "compliance": "NonCompliant"
     }
+  ],
+  "kafkapartition": "0",
+  "kafkatopic": "event",
+  "extversion": "0.1",
+  "kafkamessagekey": "kind-hub1",
+  "kafkaoffset": "9"
 }
 ```
+
 ### ManagedCluster
 #### Provision
 ```
