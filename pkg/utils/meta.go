@@ -30,8 +30,8 @@ func HasAnnotation(obj metav1.Object, annotation string) bool {
 	return found
 }
 
-// HasLabel returns a bool if the given label exists in labels.
-func HasLabelKey(labels map[string]string, label string) bool {
+// HasItem returns a bool if the given label exists in labels.
+func HasItemKey(labels map[string]string, label string) bool {
 	if len(labels) == 0 {
 		return false
 	}
@@ -39,8 +39,8 @@ func HasLabelKey(labels map[string]string, label string) bool {
 	return found
 }
 
-// HasLabel check if the labels has key=value label
-func HasLabel(labels map[string]string, key, value string) bool {
+// HasItem check if the labels has key=value label
+func HasItem(labels map[string]string, key, value string) bool {
 	if len(labels) == 0 {
 		return false
 	}
@@ -52,8 +52,8 @@ func HasLabel(labels map[string]string, key, value string) bool {
 	return false
 }
 
-// AddAnnotations adds the given annotations to the given object. if obj is nil or annotations are nil, it's a no-op.
-func AddAnnotations(obj metav1.Object, annotations map[string]string) {
+// MergeAnnotations adds the given annotations to the given object. if obj is nil or annotations are nil, it's a no-op.
+func MergeAnnotations(obj metav1.Object, annotations map[string]string) {
 	if obj == nil || annotations == nil {
 		return
 	}
@@ -69,6 +69,74 @@ func AddAnnotations(obj metav1.Object, annotations map[string]string) {
 	}
 
 	obj.SetAnnotations(mergedAnnotations)
+}
+
+func AddAnnotation(
+	ctx context.Context, client client.Client, obj client.Object,
+	namespace, name string,
+	key string, value string,
+) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		err := client.Get(ctx, types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		}, obj)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			klog.Errorf("Failed to get %v/%v, err:%v", namespace, name, err)
+			return err
+		}
+		if HasItem(obj.GetAnnotations(), key, value) {
+			return nil
+		}
+
+		objNewAnnotation := obj.GetAnnotations()
+
+		if objNewAnnotation == nil {
+			objNewAnnotation = make(map[string]string)
+		}
+		objNewAnnotation[key] = value
+		obj.SetAnnotations(objNewAnnotation)
+		if err := client.Update(ctx, obj); err != nil {
+			klog.Errorf("Failed to update %v/%v with err:%v", namespace, name, err)
+			return err
+		}
+		return nil
+	})
+}
+
+func DeleteAnnotation(
+	ctx context.Context, client client.Client, obj client.Object,
+	namespace, name string,
+	key string,
+) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		err := client.Get(ctx, types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		}, obj)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			klog.Errorf("Failed to get %v/%v, err:%v", namespace, name, err)
+			return err
+		}
+		if !HasItemKey(obj.GetAnnotations(), key) {
+			return nil
+		}
+
+		objNewAnnotations := obj.GetAnnotations()
+		delete(objNewAnnotations, key)
+		obj.SetAnnotations(objNewAnnotations)
+		if err := client.Update(ctx, obj); err != nil {
+			klog.Errorf("Failed to update obj %v/%v with err:%v", namespace, name, err)
+			return err
+		}
+		return nil
+	})
 }
 
 func AddLabel(
@@ -88,7 +156,7 @@ func AddLabel(
 			klog.Errorf("Failed to get %v/%v, err:%v", namespace, name, err)
 			return err
 		}
-		if HasLabel(obj.GetLabels(), labelKey, labelValue) {
+		if HasItem(obj.GetLabels(), labelKey, labelValue) {
 			return nil
 		}
 
@@ -100,7 +168,7 @@ func AddLabel(
 		objNewLabels[labelKey] = labelValue
 		obj.SetLabels(objNewLabels)
 		if err := client.Update(ctx, obj); err != nil {
-			klog.Errorf("Failed to update %v/%v, err:%v", namespace, name, err)
+			klog.Errorf("Failed to update obj %v/%v, err:%v", namespace, name, err)
 			return err
 		}
 		return nil
@@ -125,7 +193,7 @@ func DeleteLabel(
 			return err
 		}
 
-		if !HasLabelKey(obj.GetLabels(), labelKey) {
+		if !HasItemKey(obj.GetLabels(), labelKey) {
 			return nil
 		}
 

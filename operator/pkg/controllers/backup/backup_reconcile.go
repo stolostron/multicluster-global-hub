@@ -33,25 +33,17 @@ import (
 )
 
 const (
-	secretType     = "Secret"
-	configmapType  = "ConfigMap"
-	mghType        = "MulticlusterGlobalHub"
-	kafkaType      = "Kafka"
-	kafkaUserType  = "KafkaUser"
-	kafkaTopicType = "KafkaTopic"
-	crdType        = "CustomResourceDefinition"
-	pvcType        = "PersistentVolumeClaim"
+	secretType    = "Secret"
+	configmapType = "ConfigMap"
+	mghType       = "MulticlusterGlobalHub"
+	pvcType       = "PersistentVolumeClaim"
 )
 
 var allResourcesBackup = map[string]Backup{
-	secretType:     NewSecretBackup(),
-	configmapType:  NewConfigmapBackup(),
-	mghType:        NewMghBackup(),
-	kafkaType:      NewKafkaBackup(),
-	kafkaUserType:  NewKafkaUserBackup(),
-	kafkaTopicType: NewKafkaTopicBackup(),
-	crdType:        NewCrdBackup(),
-	pvcType:        NewPvcBackup(),
+	secretType:    NewSecretBackup(),
+	configmapType: NewConfigmapBackup(),
+	mghType:       NewMghBackup(),
+	pvcType:       NewPvcBackup(),
 }
 
 // As we need to watch mgh, secret, configmap. they should be in the same namespace.

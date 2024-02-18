@@ -21,11 +21,9 @@ import (
 	"reflect"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/go-logr/logr"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -88,18 +86,6 @@ func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.ConfigMap{},
 			objEventHandler,
 			builder.WithPredicates(configmapPred)).
-		Watches(&kafkav1beta2.Kafka{},
-			objEventHandler,
-			builder.WithPredicates(kafkaPred)).
-		Watches(&kafkav1beta2.KafkaUser{},
-			objEventHandler,
-			builder.WithPredicates(commonPred)).
-		Watches(&kafkav1beta2.KafkaTopic{},
-			objEventHandler,
-			builder.WithPredicates(commonPred)).
-		Watches(&apiextensionsv1.CustomResourceDefinition{},
-			objEventHandler,
-			builder.WithPredicates(crdPred)).
 		Watches(&corev1.PersistentVolumeClaim{},
 			objEventHandler,
 			builder.WithPredicates(pvcPred)).
@@ -125,28 +111,10 @@ var mchEventHandler = handler.EnqueueRequestsFromMapFunc(
 
 var mghPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return !utils.HasLabel(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		return !utils.HasItem(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-var kafkaPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue) {
-			return true
-		}
-		if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
-			return true
-		}
-		return false
+		return !utils.HasItem(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -158,13 +126,13 @@ var secretPred = predicate.Funcs{
 		if !secretList.Has(e.Object.GetName()) {
 			return false
 		}
-		return !utils.HasLabel(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		return !utils.HasItem(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		if !secretList.Has(e.ObjectNew.GetName()) {
 			return false
 		}
-		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		return !utils.HasItem(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -176,13 +144,13 @@ var configmapPred = predicate.Funcs{
 		if !configmapList.Has(e.Object.GetName()) {
 			return false
 		}
-		return !utils.HasLabel(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		return !utils.HasItem(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		if !configmapList.Has(e.ObjectNew.GetName()) {
 			return false
 		}
-		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		return !utils.HasItem(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -191,10 +159,10 @@ var configmapPred = predicate.Funcs{
 
 var commonPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return !utils.HasLabel(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		return !utils.HasItem(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		return !utils.HasItem(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -220,28 +188,10 @@ var mchPred = predicate.Funcs{
 var pvcPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		//only watch postgres pvc
-		return utils.HasLabel(e.Object.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue)
+		return utils.HasItem(e.Object.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return utils.HasLabel(e.ObjectNew.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue)
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-var crdPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		if !crdList.Has(e.Object.GetName()) {
-			return false
-		}
-		return !utils.HasLabel(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if !crdList.Has(e.ObjectNew.GetName()) {
-			return false
-		}
-		return !utils.HasLabel(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
+		return utils.HasItem(e.ObjectNew.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false

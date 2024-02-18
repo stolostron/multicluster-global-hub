@@ -24,8 +24,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,15 +77,15 @@ var pvcPred = predicate.Funcs{
 
 func IfPvcNeedBackup(pvc client.Object) bool {
 	//Only watch pvcs which need backup
-	if !utils.HasLabel(pvc.GetLabels(), constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
+	if !utils.HasItem(pvc.GetLabels(), constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
 		return false
 	}
 	//Only run backup when volsync is waiting for trigger
-	if !utils.HasLabel(pvc.GetAnnotations(), constants.BackupPvcLatestCopyStatus, constants.BackupPvcWaitingForTrigger) {
+	if !utils.HasItem(pvc.GetAnnotations(), constants.BackupPvcLatestCopyStatus, constants.BackupPvcWaitingForTrigger) {
 		return false
 	}
 	//If volsync is in progress, just wait volsync finish
-	if utils.HasLabelKey(pvc.GetAnnotations(), constants.BackupPvcLatestCopyTrigger) {
+	if utils.HasItemKey(pvc.GetAnnotations(), constants.BackupPvcLatestCopyTrigger) {
 		//Wait volsync process
 		if pvc.GetAnnotations()[constants.BackupPvcLatestCopyTrigger] !=
 			pvc.GetAnnotations()[constants.BackupPvcCopyTrigger] {
@@ -121,22 +119,17 @@ func (r *BackupPVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	triggerTime := time.Now().Format(time.RFC3339)
 	formatTriggerTime := strings.ReplaceAll(triggerTime, ":", ".")
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		pvc := &corev1.PersistentVolumeClaim{}
-		err = r.Client.Get(ctx, req.NamespacedName, pvc)
-		if err != nil {
-			return err
-		}
-		updatePvc := pvc.DeepCopy()
-		utils.AddAnnotations(updatePvc, map[string]string{
-			constants.BackupPvcCopyTrigger: formatTriggerTime,
-		})
-		if err := r.Client.Update(ctx, updatePvc); err != nil {
-			klog.Errorf("Failed to update pvc %v, err:%v", req.NamespacedName, err)
-			return err
-		}
-		return nil
-	})
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = r.Client.Get(ctx, req.NamespacedName, pvc)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = utils.AddAnnotation(ctx,
+		r.Client, pvc, pvc.Namespace, pvc.Name,
+		constants.BackupPvcCopyTrigger,
+		formatTriggerTime)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -147,10 +140,10 @@ func (r *BackupPVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil {
 			return false, nil
 		}
-		if !utils.HasLabel(pvc.GetAnnotations(), constants.BackupPvcLatestCopyStatus, constants.BackupPvcCompletedTrigger) {
+		if !utils.HasItem(pvc.GetAnnotations(), constants.BackupPvcLatestCopyStatus, constants.BackupPvcCompletedTrigger) {
 			return false, nil
 		}
-		if !utils.HasLabel(pvc.GetAnnotations(), constants.BackupPvcLatestCopyTrigger, formatTriggerTime) {
+		if !utils.HasItem(pvc.GetAnnotations(), constants.BackupPvcLatestCopyTrigger, formatTriggerTime) {
 			return false, nil
 		}
 		return true, nil

@@ -59,7 +59,7 @@ func (r *mghBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, name
 		return err
 	}
 	for _, mgh := range mghList.Items {
-		if utils.HasLabel(mgh.GetLabels(), r.labelKey, r.labelValue) {
+		if utils.HasItem(mgh.GetLabels(), r.labelKey, r.labelValue) {
 			continue
 		}
 		obj := &globalhubv1alpha4.MulticlusterGlobalHub{}
@@ -80,7 +80,7 @@ func (r *mghBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, n
 		return err
 	}
 	for _, mgh := range mghList.Items {
-		if !utils.HasLabel(mgh.GetLabels(), r.labelKey, r.labelValue) {
+		if !utils.HasItem(mgh.GetLabels(), r.labelKey, r.labelValue) {
 			continue
 		}
 		obj := &globalhubv1alpha4.MulticlusterGlobalHub{}

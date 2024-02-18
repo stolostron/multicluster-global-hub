@@ -67,7 +67,7 @@ var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
 			LeafHubName:   leafHubName,
 			BundleVersion: metadata.NewBundleVersion(),
 			manipulateObjFunc: func(object Object) {
-				utils.AddAnnotations(object, map[string]string{
+				utils.MergeAnnotations(object, map[string]string{
 					constants.ManagedClusterManagedByAnnotation: leafHubName,
 				})
 			},

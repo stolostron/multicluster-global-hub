@@ -118,7 +118,7 @@ var _ = Describe("backup pvc", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			utils.AddAnnotations(postgresPvc, map[string]string{
+			utils.MergeAnnotations(postgresPvc, map[string]string{
 				constants.BackupPvcCopyTrigger:       "now",
 				constants.BackupPvcLatestCopyTrigger: "now",
 				constants.BackupPvcLatestCopyStatus:  constants.BackupPvcWaitingForTrigger,
@@ -129,7 +129,6 @@ var _ = Describe("backup pvc", Ordered, func() {
 			}
 			return err
 		}, timeout, interval).Should(Succeed())
-
 		go func() {
 			for {
 				err := mgr.GetClient().Get(ctx, types.NamespacedName{
@@ -150,7 +149,7 @@ var _ = Describe("backup pvc", Ordered, func() {
 						return err
 					}
 
-					utils.AddAnnotations(postgresPvc, map[string]string{
+					utils.MergeAnnotations(postgresPvc, map[string]string{
 						constants.BackupPvcLatestCopyTrigger: postgresPvc.Annotations[constants.BackupPvcCopyTrigger],
 						constants.BackupPvcLatestCopyStatus:  constants.BackupPvcCompletedTrigger,
 					})
