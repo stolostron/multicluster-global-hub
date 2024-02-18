@@ -72,7 +72,7 @@ func (k *ConflationCommitter) commit() error {
 			continue
 		}
 
-		k.log.Info("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
+		k.log.V(2).Info("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
 		payload, err := json.Marshal(metadata.TransportPosition{
 			Topic:     transPosition.Topic,
 			Partition: transPosition.Partition,
