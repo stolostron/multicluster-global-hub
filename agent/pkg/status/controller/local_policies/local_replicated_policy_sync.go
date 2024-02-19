@@ -35,7 +35,7 @@ func AddLocalReplicatedPolicySyncer(mgr ctrl.Manager, producer transport.Produce
 
 	localClusterPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return !utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) &&
-			utils.HasLabelKey(object.GetLabels(), rootPolicyLabel)
+			utils.HasItemKey(object.GetLabels(), rootPolicyLabel)
 	})
 
 	return generic.NewGenericStatusSyncer(mgr, "local-replicas-policies-status-sync", producer,

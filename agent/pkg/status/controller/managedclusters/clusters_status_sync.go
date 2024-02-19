@@ -24,7 +24,7 @@ func AddMangedClusterSyncer(mgr ctrl.Manager, producer transport.Producer) error
 
 	// update bundle object
 	manipulateObjFunc := func(object bundle.Object) {
-		utils.AddAnnotations(object, map[string]string{
+		utils.MergeAnnotations(object, map[string]string{
 			constants.ManagedClusterManagedByAnnotation: leafHubName,
 		})
 	}

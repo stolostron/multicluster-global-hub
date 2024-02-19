@@ -40,7 +40,7 @@ func (s *localPolicySyncer) Instance() client.Object {
 func (s *localPolicySyncer) Predicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return !utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) &&
-			utils.HasLabelKey(object.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+			utils.HasItemKey(object.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
 	})
 }
 

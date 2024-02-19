@@ -57,8 +57,8 @@ func (r *pvcBackup) AddLabelToOneObj(ctx context.Context,
 		return err
 	}
 
-	if !utils.HasLabel(obj.GetLabels(), r.prehookKey, r.labelValue) {
-		err := utils.AddLabel(ctx, client, obj, namespace, name, r.prehookKey, r.labelValue)
+	if !utils.HasItem(obj.GetAnnotations(), r.prehookKey, r.labelValue) {
+		err := utils.AddAnnotation(ctx, client, obj, namespace, name, r.prehookKey, r.labelValue)
 		if err != nil {
 			return err
 		}
@@ -85,14 +85,14 @@ func (r *pvcBackup) AddLabelToAllObjs(ctx context.Context, c client.Client, name
 
 	for _, obj := range objs {
 		pvc := &corev1.PersistentVolumeClaim{}
-		if !utils.HasLabel(obj.GetLabels(), r.prehookKey, r.labelValue) {
-			err := utils.AddLabel(ctx, c, pvc, namespace, obj.Name, r.prehookKey, r.labelValue)
+		if !utils.HasItem(obj.GetLabels(), r.prehookKey, r.labelValue) {
+			err := utils.AddAnnotation(ctx, c, pvc, namespace, obj.Name, r.prehookKey, r.labelValue)
 			if err != nil {
 				return err
 			}
 		}
 
-		if !utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
+		if !utils.HasItem(obj.GetLabels(), r.labelKey, r.labelValue) {
 			err = utils.AddLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey, r.labelValue)
 			if err != nil {
 				return err
@@ -122,13 +122,13 @@ func (r *pvcBackup) DeleteLabelOfAllObjs(ctx context.Context, c client.Client, n
 
 	for _, obj := range objs {
 		pvc := &corev1.PersistentVolumeClaim{}
-		if utils.HasLabelKey(obj.GetLabels(), r.prehookKey) {
-			err := utils.DeleteLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey)
+		if utils.HasItemKey(obj.GetLabels(), r.prehookKey) {
+			err := utils.DeleteAnnotation(ctx, c, pvc, namespace, obj.Name, r.prehookKey)
 			if err != nil {
 				return err
 			}
 		}
-		if utils.HasLabel(obj.GetLabels(), r.labelKey, r.labelValue) {
+		if utils.HasItem(obj.GetLabels(), r.labelKey, r.labelValue) {
 			err := utils.DeleteLabel(ctx, c, pvc, namespace, obj.Name, r.labelKey)
 			if err != nil {
 				return err

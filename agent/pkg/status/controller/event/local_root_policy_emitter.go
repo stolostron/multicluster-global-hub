@@ -71,7 +71,7 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) {
 
 	// global resource || replicated policy
 	if utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) ||
-		utils.HasLabelKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey) {
+		utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey) {
 		return
 	}
 

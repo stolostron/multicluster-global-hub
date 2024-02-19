@@ -33,7 +33,7 @@ func AddPolicyStatusSyncer(mgr ctrl.Manager, producer transport.Producer) (*gene
 	}
 
 	rootPolicyPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return !utils.HasLabelKey(object.GetLabels(), rootPolicyLabel)
+		return !utils.HasItemKey(object.GetLabels(), rootPolicyLabel)
 	})
 
 	ownerRefAnnotationPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
