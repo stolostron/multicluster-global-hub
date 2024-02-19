@@ -3,8 +3,6 @@ package localpolicies
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
@@ -20,15 +18,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
-	_                          generic.EventEmitter = &statusEventEmitter{}
-	MessageCompliaceStateRegex                      = regexp.MustCompile(`(\w+);`)
+	_ generic.EventEmitter = &policySpecEmitter{}
 )
 
-type statusEventEmitter struct {
+type policySpecEmitter struct {
 	ctx             context.Context
 	log             logr.Logger
 	eventType       string
@@ -40,13 +38,13 @@ type statusEventEmitter struct {
 	topic           string
 }
 
-func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic string) generic.EventEmitter {
+func PolicySpecEmitter(ctx context.Context, runtimeClient client.Client) generic.EventEmitter {
 	cache, _ := lru.New(30)
 	return &statusEventEmitter{
 		ctx:             ctx,
-		log:             ctrl.Log.WithName("local-policy-syncer/status-event"),
+		log:             ctrl.Log.WithName("local-policy-syncer/policy-spec"),
 		eventType:       string(enum.LocalReplicatedPolicyEventType),
-		topic:           topic,
+		topic:           transport.GenericEventTopic,
 		runtimeClient:   runtimeClient,
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),
@@ -55,21 +53,20 @@ func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic 
 	}
 }
 
-// enable local policy and is replicated policy
-func (h *statusEventEmitter) Predicate(obj client.Object) bool {
+func (h *policySpecEmitter) Predicate(obj client.Object) bool {
 	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue &&
 		utils.HasItemKey(obj.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
 }
 
-func (h *statusEventEmitter) PreSend() bool {
+func (h *policySpecEmitter) PreSend() bool {
 	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
-func (h *statusEventEmitter) Topic() string {
+func (h *policySpecEmitter) Topic() string {
 	return h.topic
 }
 
-func (h *statusEventEmitter) Update(obj client.Object) {
+func (h *policySpecEmitter) Update(obj client.Object) {
 	policy, ok := obj.(*policiesv1.Policy)
 	if !ok {
 		return // do not handle objects other than policy
@@ -119,11 +116,11 @@ func (h *statusEventEmitter) Update(obj client.Object) {
 	}
 }
 
-func (*statusEventEmitter) Delete(client.Object) {
+func (*policySpecEmitter) Delete(client.Object) {
 	// do nothing
 }
 
-func (h *statusEventEmitter) ToCloudEvent() *cloudevents.Event {
+func (h *policySpecEmitter) ToCloudEvent() *cloudevents.Event {
 	if len(h.events) < 1 {
 		return nil
 	}
@@ -137,37 +134,9 @@ func (h *statusEventEmitter) ToCloudEvent() *cloudevents.Event {
 	return &e
 }
 
-func (h *statusEventEmitter) PostSend() {
+func (h *policySpecEmitter) PostSend() {
 	// update version and clean the cache
 	h.events = make([]event.ReplicatedPolicyEvent, 0)
 	h.currentVersion.Next()
 	h.lastSentVersion = *h.currentVersion
-}
-
-func GetComplianceState(regex *regexp.Regexp, message, defaultVal string) string {
-	match := regex.FindStringSubmatch(message)
-	if len(match) > 1 {
-		firstWord := strings.TrimSpace(match[1])
-		return firstWord
-	}
-	return defaultVal
-}
-
-func GetRootPolicyAndClusterID(ctx context.Context, replicatedPolicy *policiesv1.Policy, c client.Client) (
-	rootPolicy *policiesv1.Policy, clusterID string, err error,
-) {
-	rootPolicyNamespacedName := replicatedPolicy.Labels[constants.PolicyEventRootPolicyNameLabelKey]
-	rootPolicy, err = utils.GetRootPolicy(ctx, c, rootPolicyNamespacedName)
-	if err != nil {
-		return nil, "", err
-	}
-
-	clusterName, ok := replicatedPolicy.Labels[constants.PolicyEventClusterNameLabelKey]
-	if !ok {
-		return rootPolicy, clusterID,
-			fmt.Errorf("label %s not found in policy %s/%s",
-				constants.PolicyEventClusterNameLabelKey, replicatedPolicy.Namespace, replicatedPolicy.Name)
-	}
-	clusterID, err = utils.GetClusterId(ctx, c, clusterName)
-	return rootPolicy, clusterID, err
 }

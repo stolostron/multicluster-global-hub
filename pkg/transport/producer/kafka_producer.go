@@ -41,6 +41,7 @@ type KafkaProducer struct {
 
 // NewProducer returns a new instance of Producer object.
 func NewKafkaProducer(compressor compressor.Compressor, kafkaConfig *transport.KafkaConfig, log logr.Logger,
+	topic string,
 ) (*KafkaProducer, error) {
 	kafkaConfigMap, err := config.GetConfluentConfigMap(kafkaConfig, true)
 	if err != nil {
@@ -59,7 +60,7 @@ func NewKafkaProducer(compressor compressor.Compressor, kafkaConfig *transport.K
 		log:                  log,
 		producer:             producer,
 		messageSizeLimit:     kafkaConfig.ProducerConfig.MessageSizeLimitKB * kiloBytesToBytes,
-		topic:                kafkaConfig.ProducerConfig.ProducerTopic,
+		topic:                topic,
 		eventSubscriptionMap: make(map[string]map[EventType]EventCallback),
 		compressor:           compressor,
 		deliveryChan:         make(chan kafka.Event),

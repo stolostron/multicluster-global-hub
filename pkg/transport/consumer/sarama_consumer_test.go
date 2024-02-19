@@ -24,8 +24,7 @@ func TestConsumerGroup(t *testing.T) {
 		BootstrapServer: kafkaCluster.Addr(),
 		EnableTLS:       false,
 		ConsumerConfig: &transport.KafkaConsumerConfig{
-			ConsumerID:  "test-consumer",
-			StatusTopic: "my_topic",
+			ConsumerID: "test-consumer",
 		},
 	}
 

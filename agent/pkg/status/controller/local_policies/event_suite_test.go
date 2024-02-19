@@ -70,7 +70,7 @@ var _ = BeforeSuite(func() {
 	By("Create cloudevents consumer and producer")
 	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig, nil)
 	Expect(err).NotTo(HaveOccurred())
-	producer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig)
+	producer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig, "status")
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add to Scheme")
@@ -99,7 +99,7 @@ var _ = BeforeSuite(func() {
 	By("Launch policy syncer")
 	err = generic.LaunchGenericObjectSyncer(mgr, NewLocalPolicySyncer(), producer,
 		[]generic.EventEmitter{
-			StatusEventEmitter(ctx, mgr.GetClient()),
+			StatusEventEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
 		})
 	Expect(err).NotTo(HaveOccurred())
 

@@ -47,21 +47,18 @@ type KafkaConfig struct {
 	ClientCertPath  string
 	ClientKeyPath   string
 	EnableTLS       bool
+	Topics          *ClusterTopic
 	ProducerConfig  *KafkaProducerConfig
 	ConsumerConfig  *KafkaConsumerConfig
 }
 
 type KafkaProducerConfig struct {
 	ProducerID         string
-	ProducerTopic      string
 	MessageSizeLimitKB int
 }
 
 type KafkaConsumerConfig struct {
-	ConsumerID  string
-	StatusTopic string
-	EventTopic  string
-	SpecTopic   string
+	ConsumerID string
 	// Deprecated: will be removed once all the message are formatted to cloudevent
 	EnableEventChan bool
 }
