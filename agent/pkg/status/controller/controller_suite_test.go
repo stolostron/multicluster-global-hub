@@ -65,6 +65,13 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportConfig{
 			CommitterInterval: 1 * time.Second,
 			TransportType:     string(transport.Chan),
+			KafkaConfig: &transport.KafkaConfig{
+				Topics: &transport.ClusterTopic{
+					SpecTopic:   "spec",
+					StatusTopic: "status",
+					EventTopic:  "event",
+				},
+			},
 		},
 		EnableGlobalResource: true,
 	}
