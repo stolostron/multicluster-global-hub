@@ -52,6 +52,28 @@ func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client, topic strin
 	}
 }
 
+// enable local policy and is replicated policy
+func (h *localRootPolicyEmitter) Predicate(obj client.Object) bool {
+	if config.GetEnableLocalPolicy() != config.EnableLocalPolicyTrue {
+		return false
+	}
+
+	evt, ok := obj.(*corev1.Event)
+	if !ok {
+		return false
+	}
+
+	// get policy
+	policy, err := getInvolvePolicy(h.ctx, h.runtimeClient, evt)
+	if err != nil {
+		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name)
+		return false
+	}
+
+	return !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
+		!utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+}
+
 func (h *localRootPolicyEmitter) Update(obj client.Object) {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
@@ -68,12 +90,6 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) {
 	if err != nil {
 		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name,
 			"policy", evt.InvolvedObject.Namespace+"/"+evt.InvolvedObject.Name)
-		return
-	}
-
-	// global resource || replicated policy
-	if utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) ||
-		utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey) {
 		return
 	}
 
@@ -116,8 +132,8 @@ func (h *localRootPolicyEmitter) ToCloudEvent() *cloudevents.Event {
 }
 
 // to assert whether emit the current cloudevent
-func (h *localRootPolicyEmitter) Emit() bool {
-	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue && h.currentVersion.NewerThan(&h.lastSentVersion)
+func (h *localRootPolicyEmitter) PreSend() bool {
+	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
 func (h *localRootPolicyEmitter) Topic() string {

@@ -18,6 +18,9 @@ type ObjectSyncer interface {
 }
 
 type EventEmitter interface {
+	// assert whether to get into the emitter
+	Predicate(client.Object) bool
+
 	// to update the cloudevent payload by the updated object
 	Update(client.Object)
 	// to update the cloudevent payload by the deleting object
@@ -26,11 +29,11 @@ type EventEmitter interface {
 	// covert the current payload to a cloudevent
 	ToCloudEvent() *cloudevents.Event
 
-	// to assert whether emit the current cloudevent
-	Emit() bool
-
 	// topic
 	Topic() string
+
+	// to assert whether send the current cloudevent
+	PreSend() bool
 
 	// triggered after sending the event, incr generate, clean payload, ...
 	PostSend()
