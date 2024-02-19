@@ -90,19 +90,9 @@ func (h *localReplicatedPolicyEmitter) Predicate(obj client.Object) bool {
 	if config.GetEnableLocalPolicy() != config.EnableLocalPolicyTrue {
 		return false
 	}
-	evt, ok := obj.(*corev1.Event)
-	if !ok {
-		return false
-	}
+	policy, ok := policyEventPredicate(h.ctx, obj, h.runtimeClient, h.log)
 
-	// get policy
-	policy, err := getInvolvePolicy(h.ctx, h.runtimeClient, evt)
-	if err != nil {
-		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name)
-		return false
-	}
-
-	return !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
+	return ok && !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
 		utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
 }
 
