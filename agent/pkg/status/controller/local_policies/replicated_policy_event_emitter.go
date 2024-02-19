@@ -56,8 +56,14 @@ func StatusEventEmitter(ctx context.Context, runtimeClient client.Client) generi
 	}
 }
 
-func (h *statusEventEmitter) Emit() bool {
-	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue && h.currentVersion.NewerThan(&h.lastSentVersion)
+// enable local policy and is replicated policy
+func (h *statusEventEmitter) Predicate(obj client.Object) bool {
+	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue &&
+		utils.HasLabelKey(obj.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+}
+
+func (h *statusEventEmitter) PreSend() bool {
+	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
 func (h *statusEventEmitter) Topic() string {
