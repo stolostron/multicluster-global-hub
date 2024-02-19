@@ -58,20 +58,30 @@ func (h *localRootPolicyEmitter) Predicate(obj client.Object) bool {
 		return false
 	}
 
+	policy, ok := policyEventPredicate(h.ctx, obj, h.runtimeClient, h.log)
+
+	return ok && !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
+		!utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+}
+
+func policyEventPredicate(ctx context.Context, obj client.Object, c client.Client, log logr.Logger) (
+	*policiesv1.Policy, bool) {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
-		return false
+		return nil, false
+	}
+
+	if evt.InvolvedObject.Kind != policiesv1.Kind {
+		return nil, false
 	}
 
 	// get policy
-	policy, err := getInvolvePolicy(h.ctx, h.runtimeClient, evt)
+	policy, err := getInvolvePolicy(ctx, c, evt)
 	if err != nil {
-		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name)
-		return false
+		log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name)
+		return nil, false
 	}
-
-	return !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
-		!utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+	return policy, true
 }
 
 func (h *localRootPolicyEmitter) Update(obj client.Object) {
