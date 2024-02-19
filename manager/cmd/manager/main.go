@@ -273,11 +273,6 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
 
-	// eventKafkaConfig := deepcopy.Copy(managerConfig.TransportConfig.KafkaConfig).(*transport.KafkaConfig)
-	// eventKafkaConfig.ConsumerConfig.ConsumerTopic = managerConfig.EventExporterTopic
-	// if err := eventcollector.AddEventCollector(ctx, mgr, eventKafkaConfig); err != nil {
-	// 	return nil, fmt.Errorf("failed to add event collector: %w", err)
-	// }
 	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
 	err = backupPVC.SetupWithManager(mgr)
 	if err != nil {
