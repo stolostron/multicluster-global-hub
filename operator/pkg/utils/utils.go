@@ -265,36 +265,48 @@ func WaitGlobalHubReady(ctx context.Context,
 	client client.Client,
 	interval time.Duration,
 ) (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
-	mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{}
-	klog.Info("Wait MulticlusterGlobalHub ready")
-
-	if err := wait.PollImmediate(interval, 10*time.Minute, func() (bool, error) {
+	mghNamespacedName := types.NamespacedName{}
+	klog.Info("Wait MulticlusterGlobalHub created")
+	//If there is no mgh created, we should always wait instead of return err after 10 mins
+	//If we return err after 10 mins, the operator pod will restart every 10 mins.
+	if err := wait.PollImmediateInfinite(interval, func() (bool, error) {
 		mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
 		err := client.List(ctx, mghList)
 		if err != nil {
 			klog.Error(err, "Failed to list MulticlusterGlobalHub")
 			return false, nil
 		}
-		if len(mghList.Items) != 1 {
-			klog.V(2).Info("the count of the mgh instance is not 1 in the cluster.", "count", len(mghList.Items))
+		if len(mghList.Items) == 0 {
 			return false, nil
 		}
-		mghInstance = &mghList.Items[0]
-		if !mghList.Items[0].DeletionTimestamp.IsZero() {
-			klog.V(2).Info("MulticlusterGlobalHub is deleting")
+		mghNamespacedName = types.NamespacedName{
+			Name:      mghList.Items[0].Name,
+			Namespace: mghList.Items[0].Namespace,
+		}
+		return true, nil
+	}); err != nil {
+		return nil, err
+	}
+
+	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
+	klog.Info("Wait MulticlusterGlobalHub ready")
+	if err := wait.PollImmediate(interval, 10*time.Minute, func() (bool, error) {
+		err := client.Get(ctx, mghNamespacedName, mgh)
+		if err != nil {
+			klog.Error(err, "Failed to Get MulticlusterGlobalHub")
 			return false, nil
 		}
 
-		if meta.IsStatusConditionTrue(mghInstance.Status.Conditions, condition.CONDITION_TYPE_GLOBALHUB_READY) {
+		if meta.IsStatusConditionTrue(mgh.Status.Conditions, condition.CONDITION_TYPE_GLOBALHUB_READY) {
 			klog.V(2).Info("MulticlusterGlobalHub ready condition is not true")
 			return true, nil
 		}
 		return false, nil
 	}); err != nil {
-		return mghInstance, err
+		return nil, err
 	}
 	klog.Info("MulticlusterGlobalHub is ready")
-	return mghInstance, nil
+	return mgh, nil
 }
 
 func GetResources(component string, advanced *globalhubv1alpha4.AdvancedConfig) *corev1.ResourceRequirements {
