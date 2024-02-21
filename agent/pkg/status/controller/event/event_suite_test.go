@@ -20,6 +20,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
+	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -100,8 +101,9 @@ var _ = BeforeSuite(func() {
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	By("Launch event syncer")
-	err = generic.LaunchGenericObjectSyncer(mgr, NewEventSyncer(), producer,
-		[]generic.EventEmitter{
+	err = generic.LaunchGenericObjectSyncer("event-syncer", mgr, NewEventController(), producer,
+		statusconfig.GetEventDuration,
+		[]generic.MultiEventEmitter{
 			NewLocalRootPolicyEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
 			NewLocalReplicatedPolicyEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
 		})

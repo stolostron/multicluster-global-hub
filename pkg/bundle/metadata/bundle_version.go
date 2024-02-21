@@ -7,6 +7,7 @@ import (
 )
 
 const ExtVersion = "extversion"
+const ExtDependencyVersion = "extdependencyversion"
 
 // NewBundleVersion returns a new instance of BundleVersion.
 func NewBundleVersion() *BundleVersion {

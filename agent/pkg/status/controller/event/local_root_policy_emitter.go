@@ -23,7 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ generic.EventEmitter = &localRootPolicyEmitter{}
+var _ generic.MultiEventEmitter = &localRootPolicyEmitter{}
 
 type localRootPolicyEmitter struct {
 	ctx             context.Context
@@ -34,7 +34,7 @@ type localRootPolicyEmitter struct {
 	currentVersion  *metadata.BundleVersion
 	lastSentVersion metadata.BundleVersion
 	cache           *lru.Cache
-	events          []event.RootPolicyEvent
+	payload         event.PolicyEventPayload
 }
 
 func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client, topic string) *localRootPolicyEmitter {
@@ -48,7 +48,7 @@ func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client, topic strin
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),
 		cache:           cache,
-		events:          make([]event.RootPolicyEvent, 0),
+		payload:         make([]event.RootPolicyEvent, 0),
 	}
 }
 
@@ -118,7 +118,7 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) {
 		Compliance: policyCompliance(policy, evt),
 	}
 	// cache to events and update version
-	h.events = append(h.events, rootPolicyEvent)
+	h.payload = append(h.payload, rootPolicyEvent)
 	h.cache.Add(evtKey, nil)
 	h.currentVersion.Incr()
 }
@@ -128,13 +128,13 @@ func (*localRootPolicyEmitter) Delete(client.Object) {
 }
 
 func (h *localRootPolicyEmitter) ToCloudEvent() *cloudevents.Event {
-	if len(h.events) < 1 {
+	if len(h.payload) < 1 {
 		return nil
 	}
 	e := cloudevents.NewEvent()
 	e.SetType(h.eventType)
 	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
-	err := e.SetData(cloudevents.ApplicationJSON, h.events)
+	err := e.SetData(cloudevents.ApplicationJSON, h.payload)
 	if err != nil {
 		h.log.Error(err, "failed to set the payload to cloudvents.Data")
 	}
@@ -152,7 +152,7 @@ func (h *localRootPolicyEmitter) Topic() string {
 
 func (h *localRootPolicyEmitter) PostSend() {
 	// update version and clean the cache
-	h.events = make([]event.RootPolicyEvent, 0)
+	h.payload = make([]event.RootPolicyEvent, 0)
 	// 1. the version get into the next generation
 	// 2. set the lastSenteVersion to current version
 	h.currentVersion.Next()

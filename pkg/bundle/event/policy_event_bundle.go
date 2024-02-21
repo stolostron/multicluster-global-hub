@@ -12,3 +12,7 @@ type ReplicatedPolicyEvent struct {
 	ClusterID  string `json:"clusterId"`
 	Compliance string `json:"compliance"`
 }
+
+type ReplicatedPolicyEventPayload []ReplicatedPolicyEvent
+
+type PolicyEventPayload []RootPolicyEvent
