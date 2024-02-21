@@ -143,7 +143,6 @@ rules:
   - services
   - services/finalizers
   - endpoints
-  - persistentvolumeclaims
   - events
   - configmaps
   - secrets
