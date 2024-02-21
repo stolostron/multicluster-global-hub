@@ -159,6 +159,11 @@ func TestStrimziTransporter(t *testing.T) {
 			},
 		},
 	}
+	mgh.Spec.ImagePullSecret = "mgh-image-pull"
+
+	err, updated := trans.createUpdateKafkaCluster(mgh)
+	assert.Nil(t, err)
+	assert.True(t, updated)
 
 	mgh.Spec.NodeSelector = map[string]string{
 		"node-role.kubernetes.io/worker": "",
@@ -170,14 +175,18 @@ func TestStrimziTransporter(t *testing.T) {
 			Effect:   corev1.TaintEffectNoSchedule,
 		},
 	}
-
-	err, updated := trans.createUpdateKafkaCluster(mgh)
+	err, updated = trans.createUpdateKafkaCluster(mgh)
 	assert.Nil(t, err)
 	assert.True(t, updated)
 
 	err, updated = trans.createUpdateKafkaCluster(mgh)
 	assert.Nil(t, err)
 	assert.False(t, updated)
+
+	mgh.Spec.ImagePullSecret = "mgh-image-pull-update"
+	err, updated = trans.createUpdateKafkaCluster(mgh)
+	assert.Nil(t, err)
+	assert.True(t, updated)
 
 	kafka = &kafkav1beta2.Kafka{}
 	err = runtimeClient.Get(context.TODO(), types.NamespacedName{
@@ -187,14 +196,19 @@ func TestStrimziTransporter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEmpty(t, kafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity)
 	assert.NotEmpty(t, kafka.Spec.Kafka.Template.Pod.Tolerations)
+	assert.NotEmpty(t, kafka.Spec.Kafka.Template.Pod.ImagePullSecrets)
+
 	assert.Equal(t, string(kafka.Spec.Kafka.Resources.Requests.Raw), `{"cpu":"1m","memory":"1Mi"}`)
 	assert.Equal(t, string(kafka.Spec.Kafka.Resources.Limits.Raw), `{"cpu":"2m","memory":"2Mi"}`)
 	assert.NotEmpty(t, kafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity)
 	assert.NotEmpty(t, kafka.Spec.Zookeeper.Template.Pod.Tolerations)
+	assert.NotEmpty(t, kafka.Spec.Zookeeper.Template.Pod.ImagePullSecrets)
+
 	assert.Equal(t, string(kafka.Spec.Zookeeper.Resources.Requests.Raw), `{"cpu":"1m","memory":"1Mi"}`)
 	assert.Equal(t, string(kafka.Spec.Zookeeper.Resources.Limits.Raw), `{"cpu":"2m","memory":"2Mi"}`)
 	assert.NotEmpty(t, kafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity)
 	assert.NotEmpty(t, kafka.Spec.EntityOperator.Template.Pod.Tolerations)
+	assert.NotEmpty(t, kafka.Spec.EntityOperator.Template.Pod.ImagePullSecrets)
 
 	mgh.Spec.NodeSelector = map[string]string{
 		"node-role.kubernetes.io/worker": "",
