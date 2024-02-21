@@ -9,6 +9,9 @@ metadata:
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.0.0 <1.1.0'
+    operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
+      "kind":"MulticlusterGlobalHub","metadata":{"name":"multiclusterglobalhub","namespace":"multicluster-global-hub"},
+      "spec": {}}'
     operatorframework.io/suggested-namespace: multicluster-global-hub
     operators.operatorframework.io/builder: operator-sdk-v1.23.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
