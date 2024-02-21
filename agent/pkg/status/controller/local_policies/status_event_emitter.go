@@ -14,7 +14,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
@@ -24,8 +23,8 @@ import (
 )
 
 var (
-	_                          generic.EventEmitter = &statusEventEmitter{}
-	MessageCompliaceStateRegex                      = regexp.MustCompile(`(\w+);`)
+	_                          generic.MultiEventEmitter = &statusEventEmitter{}
+	MessageCompliaceStateRegex                           = regexp.MustCompile(`(\w+);`)
 )
 
 type statusEventEmitter struct {
@@ -35,12 +34,12 @@ type statusEventEmitter struct {
 	runtimeClient   client.Client
 	currentVersion  *metadata.BundleVersion
 	lastSentVersion metadata.BundleVersion
-	events          []event.ReplicatedPolicyEvent
+	payload         event.ReplicatedPolicyEventPayload
 	cache           *lru.Cache
 	topic           string
 }
 
-func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic string) generic.EventEmitter {
+func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic string) generic.MultiEventEmitter {
 	cache, _ := lru.New(30)
 	return &statusEventEmitter{
 		ctx:             ctx,
@@ -51,14 +50,13 @@ func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic 
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),
 		cache:           cache,
-		events:          make([]event.ReplicatedPolicyEvent, 0),
+		payload:         make([]event.ReplicatedPolicyEvent, 0),
 	}
 }
 
-// enable local policy and is replicated policy
+// replicated policy
 func (h *statusEventEmitter) Predicate(obj client.Object) bool {
-	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue &&
-		utils.HasItemKey(obj.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+	return utils.HasItemKey(obj.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
 }
 
 func (h *statusEventEmitter) PreSend() bool {
@@ -93,7 +91,7 @@ func (h *statusEventEmitter) Update(obj client.Object) {
 					continue
 				}
 
-				h.events = append(h.events, event.ReplicatedPolicyEvent{
+				h.payload = append(h.payload, event.ReplicatedPolicyEvent{
 					BaseEvent: event.BaseEvent{
 						EventName:      evt.EventName,
 						EventNamespace: policy.Namespace,
@@ -124,13 +122,13 @@ func (*statusEventEmitter) Delete(client.Object) {
 }
 
 func (h *statusEventEmitter) ToCloudEvent() *cloudevents.Event {
-	if len(h.events) < 1 {
+	if len(h.payload) < 1 {
 		return nil
 	}
 	e := cloudevents.NewEvent()
 	e.SetType(h.eventType)
 	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
-	err := e.SetData(cloudevents.ApplicationJSON, h.events)
+	err := e.SetData(cloudevents.ApplicationJSON, h.payload)
 	if err != nil {
 		h.log.Error(err, "failed to set the payload to cloudvents.Data")
 	}
@@ -139,7 +137,7 @@ func (h *statusEventEmitter) ToCloudEvent() *cloudevents.Event {
 
 func (h *statusEventEmitter) PostSend() {
 	// update version and clean the cache
-	h.events = make([]event.ReplicatedPolicyEvent, 0)
+	h.payload = make([]event.ReplicatedPolicyEvent, 0)
 	h.currentVersion.Next()
 	h.lastSentVersion = *h.currentVersion
 }

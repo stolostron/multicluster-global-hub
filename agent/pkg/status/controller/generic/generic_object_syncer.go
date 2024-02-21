@@ -24,27 +24,28 @@ const (
 )
 
 type genericObjectSyncer struct {
-	log           logr.Logger
-	client        client.Client
-	producer      transport.Producer
-	objectSyncer  ObjectSyncer
-	eventEmitters []EventEmitter
-	leafHubName   string
-	startOnce     sync.Once
-	lock          sync.Mutex
+	log              logr.Logger
+	client           client.Client
+	producer         transport.Producer
+	objectController ObjectController
+	eventEmitters    []MultiEventEmitter
+	leafHubName      string
+	syncIntervalFunc func() time.Duration
+	startOnce        sync.Once
+	lock             sync.Mutex
 }
 
-// AddPolicyStatusSyncer adds policies status controller to the manager.
-func LaunchGenericObjectSyncer(mgr ctrl.Manager, objectSyncer ObjectSyncer, producer transport.Producer,
-	eventEmitters []EventEmitter,
+// LaunchGenericObjectSyncer is used to send multi event(by the eventEmitter) by a specific client.Object
+func LaunchGenericObjectSyncer(name string, mgr ctrl.Manager, objectController ObjectController,
+	producer transport.Producer, intervalFunc func() time.Duration, eventEmitters []MultiEventEmitter,
 ) error {
 	syncer := &genericObjectSyncer{
-		log:           ctrl.Log.WithName(objectSyncer.Name()),
-		client:        mgr.GetClient(),
-		producer:      producer,
-		objectSyncer:  objectSyncer,
-		eventEmitters: eventEmitters,
-		leafHubName:   config.GetLeafHubName(),
+		log:              ctrl.Log.WithName(name),
+		client:           mgr.GetClient(),
+		producer:         producer,
+		objectController: objectController,
+		eventEmitters:    eventEmitters,
+		leafHubName:      config.GetLeafHubName(),
 	}
 
 	// start the periodic syncer
@@ -52,12 +53,12 @@ func LaunchGenericObjectSyncer(mgr ctrl.Manager, objectSyncer ObjectSyncer, prod
 		go syncer.periodicSync()
 	})
 
-	return ctrl.NewControllerManagedBy(mgr).For(objectSyncer.Instance()).
-		WithEventFilter(objectSyncer.Predicate()).Complete(syncer)
+	return ctrl.NewControllerManagedBy(mgr).For(objectController.Instance()).
+		WithEventFilter(objectController.Predicate()).Complete(syncer)
 }
 
 func (c *genericObjectSyncer) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	object := c.objectSyncer.Instance()
+	object := c.objectController.Instance()
 	if err := c.client.Get(ctx, request.NamespacedName, object); errors.IsNotFound(err) {
 		// the instance was deleted and it had no finalizer on it.
 		// for the local resources, there is no finalizer so we need to delete the object from the entry handler
@@ -81,7 +82,7 @@ func (c *genericObjectSyncer) Reconcile(ctx context.Context, request ctrl.Reques
 	}
 
 	// update/insert
-	if c.objectSyncer.EnableFinalizer() {
+	if c.objectController.EnableFinalizer() {
 		if err := addFinalizer(ctx, c.client, object, FinalizerName); err != nil {
 			c.log.Error(err, "failed to add finalizer to object", "namespace", request.Namespace, "name", request.Name)
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
@@ -115,14 +116,14 @@ func (c *genericObjectSyncer) deleteObject(object client.Object) {
 }
 
 func (c *genericObjectSyncer) periodicSync() {
-	currentSyncInterval := c.objectSyncer.Interval()()
+	currentSyncInterval := c.syncIntervalFunc()
 	ticker := time.NewTicker(currentSyncInterval)
 
 	for {
 		<-ticker.C // wait for next time interval
 		c.syncEvents()
 
-		resolvedInterval := c.objectSyncer.Interval()()
+		resolvedInterval := c.syncIntervalFunc()
 
 		// reset ticker if sync interval has changed
 		if resolvedInterval != currentSyncInterval {
@@ -144,8 +145,11 @@ func (c *genericObjectSyncer) syncEvents() {
 			evt := emitter.ToCloudEvent()
 			evt.SetSource(c.leafHubName)
 
-			topicCtx := cecontext.WithTopic(context.TODO(), emitter.Topic())
-			evtCtx := kafka_confluent.WithMessageKey(topicCtx, c.leafHubName)
+			ctx := context.TODO()
+			if emitter.Topic() != "" {
+				ctx = cecontext.WithTopic(ctx, emitter.Topic())
+			}
+			evtCtx := kafka_confluent.WithMessageKey(ctx, c.leafHubName)
 			if err := c.producer.SendEvent(evtCtx, *evt); err != nil {
 				c.log.Error(err, "failed to send event", "evt", evt)
 				continue

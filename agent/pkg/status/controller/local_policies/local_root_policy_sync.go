@@ -54,7 +54,7 @@ func createBundleCollection(mgr ctrl.Manager) []*generic.BundleEntry {
 
 	// local spec policy bundle
 	localPolicySpecTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalPolicySpecMsgKey)
-	localPolicySpecBundle := genericbundle.NewGenericStatusBundle(leafHubName, cleanPolicy)
+	localPolicySpecBundle := genericbundle.NewGenericStatusBundle(leafHubName, nil)
 
 	// check for full information
 	localPolicyStatusPredicate := func() bool {
@@ -70,13 +70,4 @@ func createBundleCollection(mgr ctrl.Manager) []*generic.BundleEntry {
 		generic.NewBundleEntry(localPolicySpecTransportKey, localPolicySpecBundle,
 			func() bool { return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue }),
 	}
-}
-
-// status will be sent in the policy status bundles.
-func cleanPolicy(object bundle.Object) {
-	policy, ok := object.(*policiesv1.Policy)
-	if !ok {
-		panic("Wrong instance passed to clean policy function, not a Policy")
-	}
-	policy.Status = policiesv1.PolicyStatus{}
 }

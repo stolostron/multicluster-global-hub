@@ -20,7 +20,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ generic.EventEmitter = &localReplicatedPolicyEmitter{}
+var _ generic.MultiEventEmitter = &localReplicatedPolicyEmitter{}
 
 // TODO: the current replicated policy event will also emit such message,
 // it has contain concrete reason why the state of the compliance change to another.
@@ -64,13 +64,13 @@ type localReplicatedPolicyEmitter struct {
 	runtimeClient   client.Client
 	currentVersion  *metadata.BundleVersion
 	lastSentVersion metadata.BundleVersion
-	events          []event.ReplicatedPolicyEvent
+	payload         event.ReplicatedPolicyEventPayload
 	cache           *lru.Cache
 	topic           string
 }
 
 func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.Client,
-	topic string) generic.EventEmitter {
+	topic string) generic.MultiEventEmitter {
 	cache, _ := lru.New(20)
 	return &localReplicatedPolicyEmitter{
 		ctx:             ctx,
@@ -81,7 +81,7 @@ func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.C
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),
 		cache:           cache,
-		events:          make([]event.ReplicatedPolicyEvent, 0),
+		payload:         make([]event.ReplicatedPolicyEvent, 0),
 	}
 }
 
@@ -144,7 +144,7 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
 		Compliance: policyCompliance(rootPolicy, evt),
 	}
 	// cache to events and update version
-	h.events = append(h.events, replicatedPolicyEvent)
+	h.payload = append(h.payload, replicatedPolicyEvent)
 	h.cache.Add(evtKey, nil)
 	h.currentVersion.Incr()
 }
@@ -154,13 +154,13 @@ func (*localReplicatedPolicyEmitter) Delete(client.Object) {
 }
 
 func (h *localReplicatedPolicyEmitter) ToCloudEvent() *cloudevents.Event {
-	if len(h.events) < 1 {
+	if len(h.payload) < 1 {
 		return nil
 	}
 	e := cloudevents.NewEvent()
 	e.SetType(h.eventType)
 	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
-	err := e.SetData(cloudevents.ApplicationJSON, h.events)
+	err := e.SetData(cloudevents.ApplicationJSON, h.payload)
 	if err != nil {
 		h.log.Error(err, "failed to set the payload to cloudvents.Data")
 	}
@@ -169,7 +169,7 @@ func (h *localReplicatedPolicyEmitter) ToCloudEvent() *cloudevents.Event {
 
 func (h *localReplicatedPolicyEmitter) PostSend() {
 	// update version and clean the cache
-	h.events = make([]event.ReplicatedPolicyEvent, 0)
+	h.payload = make([]event.ReplicatedPolicyEvent, 0)
 	h.currentVersion.Next()
 	h.lastSentVersion = *h.currentVersion
 }

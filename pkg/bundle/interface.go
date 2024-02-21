@@ -6,6 +6,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
@@ -88,4 +89,12 @@ type ManagerDeltaBundle interface {
 func GetBundleType(bundle ManagerBundle) string {
 	array := strings.Split(fmt.Sprintf("%T", bundle), ".")
 	return array[len(array)-1]
+}
+
+type Payload interface {
+	// Update is used to update the cloudevents payload by the object, if updated then return true, otherwise false
+	Update(object client.Object) bool
+
+	// Update is used to update the cloudevents payload by the object, if updated then return true, otherwise false
+	Delete(object client.Object) bool
 }

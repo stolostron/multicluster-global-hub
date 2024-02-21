@@ -13,40 +13,32 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ generic.ObjectSyncer = &localPolicySyncer{}
+var _ generic.ObjectController = &localPolicyController{}
 
-type localPolicySyncer struct {
-	name      string
+type localPolicyController struct {
 	interval  func() time.Duration
 	finalizer bool
 }
 
-func NewLocalPolicySyncer() *localPolicySyncer {
-	return &localPolicySyncer{
-		name:      "local-policy-syncer",
+func NewLocalPolicyController() *localPolicyController {
+	return &localPolicyController{
 		interval:  config.GetPolicyDuration,
 		finalizer: false,
 	}
 }
 
-func (s *localPolicySyncer) Name() string {
-	return s.name
-}
-
-func (s *localPolicySyncer) Instance() client.Object {
+func (s *localPolicyController) Instance() client.Object {
 	return &policiesv1.Policy{}
 }
 
-func (s *localPolicySyncer) Predicate() predicate.Predicate {
+// enable the local policy and only for local policy
+func (s *localPolicyController) Predicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return !utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
+		return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue &&
+			!utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
 	})
 }
 
-func (s *localPolicySyncer) Interval() func() time.Duration {
-	return s.interval
-}
-
-func (s *localPolicySyncer) EnableFinalizer() bool {
+func (s *localPolicyController) EnableFinalizer() bool {
 	return s.finalizer
 }
