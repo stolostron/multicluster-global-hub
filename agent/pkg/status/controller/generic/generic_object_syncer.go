@@ -27,8 +27,8 @@ type genericObjectSyncer struct {
 	log              logr.Logger
 	client           client.Client
 	producer         transport.Producer
-	objectController ObjectController
-	eventEmitters    []MultiEventEmitter
+	controller       Controller
+	eventEmitters    []ObjectEmitter
 	leafHubName      string
 	syncIntervalFunc func() time.Duration
 	startOnce        sync.Once
@@ -36,16 +36,16 @@ type genericObjectSyncer struct {
 }
 
 // LaunchGenericObjectSyncer is used to send multi event(by the eventEmitter) by a specific client.Object
-func LaunchGenericObjectSyncer(name string, mgr ctrl.Manager, objectController ObjectController,
-	producer transport.Producer, intervalFunc func() time.Duration, eventEmitters []MultiEventEmitter,
+func LaunchGenericObjectSyncer(name string, mgr ctrl.Manager, controller Controller,
+	producer transport.Producer, intervalFunc func() time.Duration, eventEmitters []ObjectEmitter,
 ) error {
 	syncer := &genericObjectSyncer{
-		log:              ctrl.Log.WithName(name),
-		client:           mgr.GetClient(),
-		producer:         producer,
-		objectController: objectController,
-		eventEmitters:    eventEmitters,
-		leafHubName:      config.GetLeafHubName(),
+		log:           ctrl.Log.WithName(name),
+		client:        mgr.GetClient(),
+		producer:      producer,
+		controller:    controller,
+		eventEmitters: eventEmitters,
+		leafHubName:   config.GetLeafHubName(),
 	}
 
 	// start the periodic syncer
@@ -53,12 +53,12 @@ func LaunchGenericObjectSyncer(name string, mgr ctrl.Manager, objectController O
 		go syncer.periodicSync()
 	})
 
-	return ctrl.NewControllerManagedBy(mgr).For(objectController.Instance()).
-		WithEventFilter(objectController.Predicate()).Complete(syncer)
+	return ctrl.NewControllerManagedBy(mgr).For(controller.Instance()).
+		WithEventFilter(controller.Predicate()).Complete(syncer)
 }
 
 func (c *genericObjectSyncer) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	object := c.objectController.Instance()
+	object := c.controller.Instance()
 	if err := c.client.Get(ctx, request.NamespacedName, object); errors.IsNotFound(err) {
 		// the instance was deleted and it had no finalizer on it.
 		// for the local resources, there is no finalizer so we need to delete the object from the entry handler
@@ -74,45 +74,50 @@ func (c *genericObjectSyncer) Reconcile(ctx context.Context, request ctrl.Reques
 	// delete
 	if !object.GetDeletionTimestamp().IsZero() {
 		c.deleteObject(object)
-		if err := removeFinalizer(ctx, c.client, object, FinalizerName); err != nil {
-			c.log.Error(err, "failed to remove finalizer from object", "namespace", request.Namespace, "name", request.Name)
+		if !enableCleanUpFinalizer(object) {
+			return ctrl.Result{}, nil
+		}
+		err := removeFinalizer(ctx, c.client, object, FinalizerName)
+		if err != nil {
+			c.log.Error(err, "failed to remove cleanup fianlizer", "namespace", request.Namespace, "name", request.Name)
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
 		}
 		return ctrl.Result{}, nil
 	}
 
 	// update/insert
-	if c.objectController.EnableFinalizer() {
-		if err := addFinalizer(ctx, c.client, object, FinalizerName); err != nil {
-			c.log.Error(err, "failed to add finalizer to object", "namespace", request.Namespace, "name", request.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
-		}
-	}
 	cleanObject(object)
 	c.updateObject(object)
-
+	if !enableCleanUpFinalizer(object) {
+		return ctrl.Result{}, nil
+	}
+	err := addFinalizer(ctx, c.client, object, FinalizerName)
+	if err != nil {
+		c.log.Error(err, "failed to add finalizer", "namespace", request.Namespace, "name", request.Name)
+		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
+	}
 	return ctrl.Result{}, nil
 }
 
 func (c *genericObjectSyncer) updateObject(object client.Object) {
 	c.lock.Lock() // make sure handler are not updated if we're during bundles sync
 	defer c.lock.Unlock()
-	for _, emitter := range c.eventEmitters {
+	for _, eventEmitter := range c.eventEmitters {
 		// update in each handler from the collection according to their order.
-		if emitter.Predicate(object) {
-			emitter.Update(object)
+		if eventEmitter.PreUpdate(object) && eventEmitter.Update(object) {
+			eventEmitter.PostUpdate()
 		}
 	}
 }
 
 func (c *genericObjectSyncer) deleteObject(object client.Object) {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-	for _, emitter := range c.eventEmitters {
-		if emitter.Predicate(object) {
-			emitter.Delete(object)
+	defer c.lock.Lock()
+	for _, eventEmitter := range c.eventEmitters {
+		if eventEmitter.PreUpdate(object) && eventEmitter.Delete(object) {
+			eventEmitter.PostUpdate()
 		}
 	}
-	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
 }
 
 func (c *genericObjectSyncer) periodicSync() {
@@ -142,7 +147,10 @@ func (c *genericObjectSyncer) syncEvents() {
 		emitter := c.eventEmitters[i]
 
 		if emitter.PreSend() {
-			evt := emitter.ToCloudEvent()
+			evt, err := emitter.ToCloudEvent()
+			if err != nil {
+				c.log.Error(err, "failed to get CloudEvent instance", "evt", evt)
+			}
 			evt.SetSource(c.leafHubName)
 
 			ctx := context.TODO()

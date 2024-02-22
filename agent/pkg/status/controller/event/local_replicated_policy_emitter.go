@@ -2,6 +2,7 @@ package event
 
 import (
 	"context"
+	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
@@ -20,7 +21,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ generic.MultiEventEmitter = &localReplicatedPolicyEmitter{}
+var _ generic.ObjectEmitter = &localReplicatedPolicyEmitter{}
 
 // TODO: the current replicated policy event will also emit such message,
 // it has contain concrete reason why the state of the compliance change to another.
@@ -70,7 +71,7 @@ type localReplicatedPolicyEmitter struct {
 }
 
 func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.Client,
-	topic string) generic.MultiEventEmitter {
+	topic string) generic.ObjectEmitter {
 	cache, _ := lru.New(20)
 	return &localReplicatedPolicyEmitter{
 		ctx:             ctx,
@@ -85,8 +86,12 @@ func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.C
 	}
 }
 
+func (h *localReplicatedPolicyEmitter) PostUpdate() {
+	h.currentVersion.Incr()
+}
+
 // enable local policy and is replicated policy
-func (h *localReplicatedPolicyEmitter) Predicate(obj client.Object) bool {
+func (h *localReplicatedPolicyEmitter) PreUpdate(obj client.Object) bool {
 	if config.GetEnableLocalPolicy() != config.EnableLocalPolicyTrue {
 		return false
 	}
@@ -104,15 +109,15 @@ func (h *localReplicatedPolicyEmitter) Topic() string {
 	return h.topic
 }
 
-func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
+func (h *localReplicatedPolicyEmitter) Update(obj client.Object) bool {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
-		return
+		return false
 	}
 	// if exist, then return
 	evtKey := getEventKey(evt)
 	if h.cache.Contains(evtKey) {
-		return
+		return false
 	}
 
 	// get policy
@@ -126,7 +131,7 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
 	rootPolicy, clusterID, err := localpolicies.GetRootPolicyAndClusterID(h.ctx, policy, h.runtimeClient)
 	if err != nil {
 		h.log.Error(err, "failed to get get rootPolicy/clusterID by replicatedPolicy")
-		return
+		return false
 	}
 	// update
 	replicatedPolicyEvent := event.ReplicatedPolicyEvent{
@@ -146,25 +151,24 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
 	// cache to events and update version
 	h.payload = append(h.payload, replicatedPolicyEvent)
 	h.cache.Add(evtKey, nil)
-	h.currentVersion.Incr()
+	return true
 }
 
-func (*localReplicatedPolicyEmitter) Delete(client.Object) {
+func (*localReplicatedPolicyEmitter) Delete(client.Object) bool {
 	// do nothing
+	return false
 }
 
-func (h *localReplicatedPolicyEmitter) ToCloudEvent() *cloudevents.Event {
+func (h *localReplicatedPolicyEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 	if len(h.payload) < 1 {
-		return nil
+		return nil, fmt.Errorf("the cloudevent instance shouldn't be nil")
 	}
 	e := cloudevents.NewEvent()
 	e.SetType(h.eventType)
+	e.SetSource(config.GetLeafHubName())
 	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
 	err := e.SetData(cloudevents.ApplicationJSON, h.payload)
-	if err != nil {
-		h.log.Error(err, "failed to set the payload to cloudvents.Data")
-	}
-	return &e
+	return &e, err
 }
 
 func (h *localReplicatedPolicyEmitter) PostSend() {

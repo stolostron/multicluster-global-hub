@@ -11,18 +11,17 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func NewPolicySpecEmitter(runtimeClient client.Client, topic string) generic.MultiEventEmitter {
+func NewPolicySpecEmitter(topic string) generic.ObjectEmitter {
 	predicate := func(obj client.Object) bool {
-		return !utils.HasItemKey(obj.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+		return !utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey)
 	}
-
-	return generic.NewGenericMultiEventEmitter(
-		"local-policy-syncer/policy-spec",
+	eventData := genericpayload.GenericObjectData{}
+	return generic.NewGenericObjectEmitter(
 		enum.LocalPolicySpecType,
-		runtimeClient,
-		predicate,
-		&genericpayload.GenericPayload{},
+		eventData,
+		generic.NewGenericObjectHandler(eventData),
 		generic.WithTopic(topic),
+		generic.WithPredicate(predicate),
 		generic.WithTweakFunc(cleanPolicy),
 	)
 }

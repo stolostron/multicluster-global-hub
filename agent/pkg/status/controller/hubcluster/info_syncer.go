@@ -11,6 +11,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -32,4 +33,23 @@ func AddHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) erro
 	cache.RegistToCache(constants.HubClusterInfoMsgKey, clusterInfoBundle)
 	return generic.NewGenericSharedBundleSyncer(mgr, producer, bundleEntry, objectCollection,
 		config.GetHubClusterInfoDuration)
+}
+
+// func LaunchGenericEventSyncer(name string, mgr ctrl.Manager, eventControllers []EventController,
+// 	producer transport.Producer, intervalFunc func() time.Duration, emitter Emitter,
+// )
+
+func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) error {
+	eventData := &cluster.HubClusterInfo{}
+	return generic.LaunchGenericEventSyncer(
+		"status.hub_cluster_info",
+		mgr,
+		[]generic.EventController{
+			NewInfoClusterClaimController(eventData),
+			NewInfoRouteController(eventData),
+		},
+		producer,
+		config.GetHubClusterInfoDuration,
+		generic.NewGenericEmitter(enum.HubClusterInfoType, eventData),
+	)
 }

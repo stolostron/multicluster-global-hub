@@ -22,11 +22,20 @@ type MetadataField struct {
 }
 
 // HasAnnotation returns a bool if the given annotation exists in annotations.
-func HasAnnotation(obj metav1.Object, annotation string) bool {
+func HasAnnotation(obj metav1.Object, key string) bool {
 	if obj == nil || obj.GetAnnotations() == nil {
 		return false
 	}
-	_, found := obj.GetAnnotations()[annotation]
+	_, found := obj.GetAnnotations()[key]
+	return found
+}
+
+// HasAnnotation returns a bool if the given annotation exists in annotations.
+func HasLabel(obj metav1.Object, key string) bool {
+	if obj == nil || obj.GetLabels() == nil {
+		return false
+	}
+	_, found := obj.GetLabels()[key]
 	return found
 }
 

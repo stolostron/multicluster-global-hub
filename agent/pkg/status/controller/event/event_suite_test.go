@@ -12,11 +12,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
@@ -101,9 +103,26 @@ var _ = BeforeSuite(func() {
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	By("Launch event syncer")
-	err = generic.LaunchGenericObjectSyncer("event-syncer", mgr, NewEventController(), producer,
+	instance := func() client.Object {
+		return &corev1.Event{}
+	}
+
+	predicate := predicate.NewPredicateFuncs(func(obj client.Object) bool {
+		event, ok := obj.(*corev1.Event)
+		if !ok {
+			return false
+		}
+		// only sync the policy event || extend other InvolvedObject kind
+		return event.InvolvedObject.Kind == policiesv1.Kind
+	})
+
+	err = generic.LaunchGenericObjectSyncer(
+		"status.event",
+		mgr,
+		generic.NewGenericController(instance, predicate),
+		producer,
 		statusconfig.GetEventDuration,
-		[]generic.MultiEventEmitter{
+		[]generic.ObjectEmitter{
 			NewLocalRootPolicyEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
 			NewLocalReplicatedPolicyEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
 		})
