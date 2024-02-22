@@ -14,6 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
@@ -23,8 +24,8 @@ import (
 )
 
 var (
-	_                          generic.MultiEventEmitter = &statusEventEmitter{}
-	MessageCompliaceStateRegex                           = regexp.MustCompile(`(\w+);`)
+	_                          generic.ObjectEmitter = &statusEventEmitter{}
+	MessageCompliaceStateRegex                       = regexp.MustCompile(`(\w+);`)
 )
 
 type statusEventEmitter struct {
@@ -39,7 +40,7 @@ type statusEventEmitter struct {
 	topic           string
 }
 
-func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic string) generic.MultiEventEmitter {
+func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic string) generic.ObjectEmitter {
 	cache, _ := lru.New(30)
 	return &statusEventEmitter{
 		ctx:             ctx,
@@ -55,8 +56,12 @@ func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic 
 }
 
 // replicated policy
-func (h *statusEventEmitter) Predicate(obj client.Object) bool {
-	return utils.HasItemKey(obj.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+func (h *statusEventEmitter) PreUpdate(obj client.Object) bool {
+	return utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey)
+}
+
+func (h *statusEventEmitter) PostUpdate() {
+	h.currentVersion.Incr()
 }
 
 func (h *statusEventEmitter) PreSend() bool {
@@ -67,19 +72,19 @@ func (h *statusEventEmitter) Topic() string {
 	return h.topic
 }
 
-func (h *statusEventEmitter) Update(obj client.Object) {
+func (h *statusEventEmitter) Update(obj client.Object) bool {
 	policy, ok := obj.(*policiesv1.Policy)
 	if !ok {
-		return // do not handle objects other than policy
+		return false // do not handle objects other than policy
 	}
 	if policy.Status.Details == nil {
-		return // no status to update
+		return false // no status to update
 	}
 
 	rootPolicy, clusterID, err := GetRootPolicyAndClusterID(h.ctx, policy, h.runtimeClient)
 	if err != nil {
 		h.log.Error(err, "failed to get get rootPolicy/clusterID by replicatedPolicy")
-		return
+		return false
 	}
 
 	updated := false
@@ -112,27 +117,24 @@ func (h *statusEventEmitter) Update(obj client.Object) {
 			}
 		}
 	}
-	if updated {
-		h.currentVersion.Incr()
-	}
+	return updated
 }
 
-func (*statusEventEmitter) Delete(client.Object) {
+func (*statusEventEmitter) Delete(client.Object) bool {
 	// do nothing
+	return false
 }
 
-func (h *statusEventEmitter) ToCloudEvent() *cloudevents.Event {
+func (h *statusEventEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 	if len(h.payload) < 1 {
-		return nil
+		return nil, fmt.Errorf("the payload shouldn't be nil")
 	}
 	e := cloudevents.NewEvent()
+	e.SetSource(config.GetLeafHubName())
 	e.SetType(h.eventType)
 	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
 	err := e.SetData(cloudevents.ApplicationJSON, h.payload)
-	if err != nil {
-		h.log.Error(err, "failed to set the payload to cloudvents.Data")
-	}
-	return &e
+	return &e, err
 }
 
 func (h *statusEventEmitter) PostSend() {

@@ -23,7 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ generic.MultiEventEmitter = &localRootPolicyEmitter{}
+var _ generic.ObjectEmitter = &localRootPolicyEmitter{}
 
 type localRootPolicyEmitter struct {
 	ctx             context.Context
@@ -52,8 +52,11 @@ func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client, topic strin
 	}
 }
 
-// enable local policy and is replicated policy
-func (h *localRootPolicyEmitter) Predicate(obj client.Object) bool {
+func (h *localRootPolicyEmitter) PostUpdate() {
+	h.currentVersion.Incr()
+}
+
+func (h *localRootPolicyEmitter) PreUpdate(obj client.Object) bool {
 	if config.GetEnableLocalPolicy() != config.EnableLocalPolicyTrue {
 		return false
 	}
@@ -61,7 +64,7 @@ func (h *localRootPolicyEmitter) Predicate(obj client.Object) bool {
 	policy, ok := policyEventPredicate(h.ctx, obj, h.runtimeClient, h.log)
 
 	return ok && !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
-		!utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+		!utils.HasLabel(policy, constants.PolicyEventRootPolicyNameLabelKey)
 }
 
 func policyEventPredicate(ctx context.Context, obj client.Object, c client.Client, log logr.Logger) (
@@ -84,15 +87,15 @@ func policyEventPredicate(ctx context.Context, obj client.Object, c client.Clien
 	return policy, true
 }
 
-func (h *localRootPolicyEmitter) Update(obj client.Object) {
+func (h *localRootPolicyEmitter) Update(obj client.Object) bool {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
-		return
+		return false
 	}
 	// if exist, then return
 	evtKey := getEventKey(evt)
 	if ok = h.cache.Contains(evtKey); ok {
-		return
+		return false
 	}
 
 	// get policy
@@ -120,25 +123,24 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) {
 	// cache to events and update version
 	h.payload = append(h.payload, rootPolicyEvent)
 	h.cache.Add(evtKey, nil)
-	h.currentVersion.Incr()
+	return true
 }
 
-func (*localRootPolicyEmitter) Delete(client.Object) {
+func (*localRootPolicyEmitter) Delete(client.Object) bool {
 	// do nothing
+	return false
 }
 
-func (h *localRootPolicyEmitter) ToCloudEvent() *cloudevents.Event {
+func (h *localRootPolicyEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 	if len(h.payload) < 1 {
-		return nil
+		return nil, fmt.Errorf("the cloudevent instance shouldn't be nil")
 	}
 	e := cloudevents.NewEvent()
 	e.SetType(h.eventType)
+	e.SetSource(config.GetLeafHubName())
 	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
 	err := e.SetData(cloudevents.ApplicationJSON, h.payload)
-	if err != nil {
-		h.log.Error(err, "failed to set the payload to cloudvents.Data")
-	}
-	return &e
+	return &e, err
 }
 
 // to assert whether emit the current cloudevent

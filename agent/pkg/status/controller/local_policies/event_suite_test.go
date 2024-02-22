@@ -98,10 +98,14 @@ var _ = BeforeSuite(func() {
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	By("Launch policy syncer")
-	err = generic.LaunchGenericObjectSyncer("localpolicy-syncer", mgr, NewLocalPolicyController(), producer,
+	err = generic.LaunchGenericObjectSyncer(
+		"status.local_policy",
+		mgr,
+		generic.NewGenericController(policyInstance, localPolicyPredicate()),
+		producer,
 		statusconfig.GetPolicyDuration,
-		[]generic.MultiEventEmitter{
-			StatusEventEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
+		[]generic.ObjectEmitter{
+			StatusEventEmitter(ctx, mgr.GetClient(), "event"),
 		})
 	Expect(err).NotTo(HaveOccurred())
 

@@ -16,33 +16,33 @@ import (
 )
 
 type genericEventSyncer struct {
-	log               logr.Logger
-	runtimeClient     client.Client
-	producer          transport.Producer
-	objectControllers []ObjectController
-	eventEmitter      EventEmitter
-	leafHubName       string
-	syncIntervalFunc  func() time.Duration
-
-	startOnce sync.Once
+	log              logr.Logger
+	runtimeClient    client.Client
+	producer         transport.Producer
+	eventControllers []EventController
+	emitter          Emitter
+	leafHubName      string
+	syncIntervalFunc func() time.Duration
+	startOnce        sync.Once
 
 	// share properties with multi-object-controller
 	lock *sync.Mutex
 }
 
 // LaunchGenericObjectSyncer is used to send multi event(by the eventEmitter) by a specific client.Object
-func LaunchGenericEventSyncer(name string, mgr ctrl.Manager, producer transport.Producer,
-	intervalFunc func() time.Duration, eventEmitter EventEmitter, objectControllers []ObjectController,
+func LaunchGenericEventSyncer(name string, mgr ctrl.Manager, eventControllers []EventController,
+	producer transport.Producer, intervalFunc func() time.Duration, emitter Emitter,
 ) error {
 	syncer := &genericEventSyncer{
-		log:               ctrl.Log.WithName(name),
-		runtimeClient:     mgr.GetClient(),
-		objectControllers: objectControllers,
-		eventEmitter:      eventEmitter,
-		producer:          producer,
-		leafHubName:       config.GetLeafHubName(),
-		syncIntervalFunc:  intervalFunc,
-		lock:              &sync.Mutex{},
+		log:           ctrl.Log.WithName(name),
+		leafHubName:   config.GetLeafHubName(),
+		runtimeClient: mgr.GetClient(),
+
+		eventControllers: eventControllers,
+		emitter:          emitter,
+		producer:         producer,
+		syncIntervalFunc: intervalFunc,
+		lock:             &sync.Mutex{},
 	}
 
 	// start the periodic syncer
@@ -51,11 +51,12 @@ func LaunchGenericEventSyncer(name string, mgr ctrl.Manager, producer transport.
 	})
 
 	// start all the controllers to update the payload
-	// return ctrl.NewControllerManagedBy(mgr).For(objectSyncer.Instance()).
-	// 	WithEventFilter(objectSyncer.Predicate()).Complete(syncer)
-	// for _, controller := range objectControllers {
-	// 	genericEventContrller()
-	// }
+	for _, eventController := range eventControllers {
+		err := AddEventController(mgr, eventController, emitter, syncer.lock)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -83,19 +84,21 @@ func (s *genericEventSyncer) syncEvent() {
 	s.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer s.lock.Unlock()
 
-	if s.eventEmitter.PreSend() {
-		evt := s.eventEmitter.ToCloudEvent()
-		evt.SetSource(s.leafHubName)
+	if s.emitter.PreSend() {
+		evt, err := s.emitter.ToCloudEvent()
+		if err != nil {
+			s.log.Error(err, "failed to get CloudEvent instance", "evt", evt)
+		}
 
 		ctx := context.TODO()
-		if s.eventEmitter.Topic() != "" {
-			ctx = cecontext.WithTopic(ctx, s.eventEmitter.Topic())
+		if s.emitter.Topic() != "" {
+			ctx = cecontext.WithTopic(ctx, s.emitter.Topic())
 		}
 		evtCtx := kafka_confluent.WithMessageKey(ctx, s.leafHubName)
 		if err := s.producer.SendEvent(evtCtx, *evt); err != nil {
 			s.log.Error(err, "failed to send event", "evt", evt)
 			return
 		}
-		s.eventEmitter.PostSend()
+		s.emitter.PostSend()
 	}
 }

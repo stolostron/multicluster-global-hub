@@ -11,19 +11,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func NewManagedClusterEmitter(runtimeClient client.Client, topic string) generic.MultiEventEmitter {
-	predicate := func(obj client.Object) bool {
-		return true
-	}
-
-	return generic.NewGenericMultiEventEmitter(
-		"managedCluster-syncer/emitter",
-		enum.ManagedClusterType,
-		runtimeClient,
-		predicate,
-		&genericpayload.GenericPayload{},
-		generic.WithTopic(topic),
+func NewManagedClusterEmitter(topic string) generic.ObjectEmitter {
+	eventData := genericpayload.GenericObjectData{}
+	return generic.NewGenericObjectEmitter(
+		enum.LocalPolicySpecType,
+		eventData,
+		generic.NewGenericObjectHandler(eventData),
 		generic.WithTweakFunc(managedClusterTweakFunc),
+		generic.WithTopic(topic),
+		// default predicate return true
 	)
 }
 

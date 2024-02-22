@@ -3,6 +3,7 @@ package enum
 type EventType string
 
 const (
+	HubClusterInfoType                EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.info"
 	ManagedClusterType                EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
 	LocalPolicyComplianceType         EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompliance"
 	LocalPolicyCompleteComplianceType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompletecompliance"
