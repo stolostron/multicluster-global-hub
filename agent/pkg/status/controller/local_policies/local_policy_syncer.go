@@ -11,7 +11,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -21,9 +20,6 @@ func LaunchLocalPolicySyncer(ctx context.Context, mgr ctrl.Manager,
 	agentConfig *config.AgentConfig, producer transport.Producer) error {
 
 	eventTopic := agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic
-	statusTopic := agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic
-	complianceVersion := metadata.NewBundleVersion()
-
 	return generic.LaunchGenericObjectSyncer(
 		"status.local_policy",
 		mgr,
@@ -31,10 +27,7 @@ func LaunchLocalPolicySyncer(ctx context.Context, mgr ctrl.Manager,
 		producer,
 		statusconfig.GetPolicyDuration,
 		[]generic.ObjectEmitter{
-			NewComplianceEmitter(statusTopic, complianceVersion),
-			NewCompleteComplianceEmitter(statusTopic, complianceVersion),
 			StatusEventEmitter(ctx, mgr.GetClient(), eventTopic),
-			NewPolicySpecEmitter(statusTopic),
 		})
 }
 
