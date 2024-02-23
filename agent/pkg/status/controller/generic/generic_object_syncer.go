@@ -40,12 +40,13 @@ func LaunchGenericObjectSyncer(name string, mgr ctrl.Manager, controller Control
 	producer transport.Producer, intervalFunc func() time.Duration, eventEmitters []ObjectEmitter,
 ) error {
 	syncer := &genericObjectSyncer{
-		log:           ctrl.Log.WithName(name),
-		client:        mgr.GetClient(),
-		producer:      producer,
-		controller:    controller,
-		eventEmitters: eventEmitters,
-		leafHubName:   config.GetLeafHubName(),
+		log:              ctrl.Log.WithName(name),
+		client:           mgr.GetClient(),
+		producer:         producer,
+		syncIntervalFunc: intervalFunc,
+		controller:       controller,
+		eventEmitters:    eventEmitters,
+		leafHubName:      config.GetLeafHubName(),
 	}
 
 	// start the periodic syncer
