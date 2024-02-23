@@ -27,6 +27,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 	controller := generic.NewGenericController(instance, predicate)
 
 	// emitters
+	// 1. local compliance
 	localComplianceVersion := metadata.NewBundleVersion()
 	localCompliancePredicate := func(obj client.Object) bool {
 		return statusconfig.GetAggregationLevel() == statusconfig.AggregationFull && // full level
@@ -40,12 +41,14 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 		localCompliancePredicate,
 	)
 
+	// 2. local complete compliance
 	localCompleteEmitter := CompleteComplianceEmitterWrapper(
 		enum.LocalPolicyCompleteComplianceType,
 		localComplianceVersion,
 		localCompliancePredicate,
 	)
 
+	// 3. local policy event
 	eventTopic := agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic
 	localStatusEventEmitter := StatusEventEmitter(ctx, enum.LocalReplicatedPolicyEventType,
 		func(obj client.Object) bool {
@@ -57,6 +60,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 		eventTopic,
 	)
 
+	// 4. local policy spec
 	localPolicySpecEmitter := generic.ObjectEmitterWrapper(enum.LocalPolicySpecType,
 		func(obj client.Object) bool {
 			return statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue && // enable local policy
@@ -67,6 +71,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 	)
 
 	// global policy emitters
+	// 5. global compliance
 	complianceVersion := metadata.NewBundleVersion()
 	compliancePredicate := func(obj client.Object) bool {
 		return statusconfig.GetAggregationLevel() == statusconfig.AggregationFull && // full level
@@ -79,6 +84,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 		compliancePredicate,
 	)
 
+	// 6. global complete compliance
 	completeEmitter := CompleteComplianceEmitterWrapper(
 		enum.PolicyCompleteComplianceType,
 		complianceVersion,
