@@ -1,5 +1,7 @@
 package enum
 
+const EventTypePrefix = "io.open-cluster-management.operator.multiclusterglobalhubs."
+
 type EventType string
 
 const (
