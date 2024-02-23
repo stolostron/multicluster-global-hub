@@ -79,10 +79,16 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		return fmt.Errorf("failed to launch event syncer: %w", err)
 	}
 
-	// local policy syncer
-	err = localpolicies.LaunchLocalPolicySyncer(ctx, mgr, agentConfig, producer)
+	// policy syncer(local and global)
+	err = policies.LaunchPolicySyncer(ctx, mgr, agentConfig, producer)
 	if err != nil {
-		return fmt.Errorf("failed to launch local policy syncer: %w", err)
+		return fmt.Errorf("failed to launch policy syncer: %w", err)
+	}
+
+	// hub cluster info
+	err = hubcluster.LaunchHubClusterInfoSyncer(mgr, producer)
+	if err != nil {
+		return fmt.Errorf("failed to launch hub cluster info syncer: %w", err)
 	}
 	return nil
 }

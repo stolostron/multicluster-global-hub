@@ -11,30 +11,34 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func LaunchManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager,
-	agentConfig *config.AgentConfig, producer transport.Producer) error {
+func LaunchManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
+	producer transport.Producer) error {
 
-	statusConfig := agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic
+	// controller config
+	instance := func() client.Object { return &clusterv1.ManagedCluster{} }
+	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
+
+	// emitter config
+	tweakFunc := func(object client.Object) {
+		utils.MergeAnnotations(object, map[string]string{
+			constants.ManagedClusterManagedByAnnotation: statusconfig.GetLeafHubName(),
+		})
+	}
+	emitter := generic.ObjectEmitterWrapper(enum.ManagedClusterType, nil, tweakFunc)
+
 	return generic.LaunchGenericObjectSyncer(
 		"status.managed_cluster",
 		mgr,
-		generic.NewGenericController(clusterInstance, clusterPredicate()),
+		generic.NewGenericController(instance, predicate),
 		producer,
-		statusconfig.GetPolicyDuration,
+		statusconfig.GetManagerClusterDuration,
 		[]generic.ObjectEmitter{
-			NewManagedClusterEmitter(statusConfig),
+			emitter,
 		})
-}
-
-func clusterInstance() client.Object {
-	return &clusterv1.ManagedCluster{}
-}
-
-func clusterPredicate() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return true
-	})
 }
