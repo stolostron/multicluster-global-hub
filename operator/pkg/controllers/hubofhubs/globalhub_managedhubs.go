@@ -6,9 +6,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func (r *MulticlusterGlobalHubReconciler) reconcileManagedHubs(ctx context.Context) error {
@@ -60,6 +62,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) 
 
 		delete(orgAnnotations, constants.AnnotationONMulticlusterHub)
 		delete(orgAnnotations, constants.AnnotationPolicyONMulticlusterHub)
+		_ = controllerutil.RemoveFinalizer(&clusters.Items[idx], commonconstants.GlobalHubCleanupFinalizer)
 		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
 			if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
 				return err
