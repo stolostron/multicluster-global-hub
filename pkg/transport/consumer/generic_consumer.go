@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
@@ -20,6 +21,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
@@ -134,6 +136,10 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 				c.eventChan <- event
 				return ceprotocol.ResultACK
 			}
+		}
+		if strings.HasPrefix(event.Type(), enum.EventTypePrefix) {
+			c.eventChan <- event
+			return ceprotocol.ResultACK
 		}
 
 		transportMessage := &transport.Message{}

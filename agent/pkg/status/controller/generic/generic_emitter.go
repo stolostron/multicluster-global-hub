@@ -91,7 +91,7 @@ func (h *genericEmitter) Topic() string {
 
 func (h *genericEmitter) PreUpdate(obj client.Object) bool {
 	toUpdate := true
-	if h.predicate == nil {
+	if h.predicate != nil {
 		toUpdate = h.predicate(obj)
 	}
 
