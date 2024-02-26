@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -653,7 +654,6 @@ func (k *strimziTransporter) getZookeeperResources(
 
 func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
 	storageSize := config.GetKafkaStorageSize(mgh)
-
 	kafkaSpecKafkaStorageVolumesElem := kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
 		Id:          &KafkaStorageIdentifier,
 		Size:        &storageSize,
@@ -734,6 +734,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 	k.setAffinity(mgh, kafkaCluster)
 	k.setTolerations(mgh, kafkaCluster)
 	k.setMetricsConfig(mgh, kafkaCluster)
+	k.setImagePullSecret(mgh, kafkaCluster)
 
 	return kafkaCluster
 }
@@ -902,6 +903,61 @@ func (k *strimziTransporter) setTolerations(mgh *operatorv1alpha4.MulticlusterGl
 			kafkaCluster.Spec.Zookeeper.Template.Pod.Tolerations = zookeeperTolerationsElem
 			kafkaCluster.Spec.EntityOperator.Template.Pod.Tolerations = entityOperatorTolerationsElem
 		}
+	}
+}
+
+// setImagePullSecret sets the kafka image pull secret based on the mgh imagepullsecret
+func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	kafkaCluster *kafkav1beta2.Kafka,
+) {
+	if mgh.Spec.ImagePullSecret != "" {
+		existingKafkaSpec := kafkaCluster.Spec
+		desiredKafkaSpec := kafkaCluster.Spec.DeepCopy()
+		desiredKafkaSpec.EntityOperator.Template = &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
+			Pod: &kafkav1beta2.KafkaSpecEntityOperatorTemplatePod{
+				ImagePullSecrets: []kafkav1beta2.KafkaSpecEntityOperatorTemplatePodImagePullSecretsElem{
+					{
+						Name: &mgh.Spec.ImagePullSecret,
+					},
+				},
+			},
+		}
+		desiredKafkaSpec.Kafka.Template = &kafkav1beta2.KafkaSpecKafkaTemplate{
+			Pod: &kafkav1beta2.KafkaSpecKafkaTemplatePod{
+				ImagePullSecrets: []kafkav1beta2.KafkaSpecKafkaTemplatePodImagePullSecretsElem{
+					{
+						Name: &mgh.Spec.ImagePullSecret,
+					},
+				},
+			},
+		}
+		desiredKafkaSpec.Zookeeper.Template = &kafkav1beta2.KafkaSpecZookeeperTemplate{
+			Pod: &kafkav1beta2.KafkaSpecZookeeperTemplatePod{
+				ImagePullSecrets: []kafkav1beta2.KafkaSpecZookeeperTemplatePodImagePullSecretsElem{
+					{
+						Name: &mgh.Spec.ImagePullSecret,
+					},
+				},
+			},
+		}
+		// marshal to json
+		existingKafkaJson, _ := json.Marshal(existingKafkaSpec)
+		desiredKafkaJson, _ := json.Marshal(desiredKafkaSpec)
+
+		// patch the desired kafka cluster to the existing kafka cluster
+		patchedData, err := jsonpatch.MergePatch(existingKafkaJson, desiredKafkaJson)
+		if err != nil {
+			klog.Errorf("failed to merge patch, error: %v", err)
+			return
+		}
+
+		updatedKafkaSpec := &kafkav1beta2.KafkaSpec{}
+		err = json.Unmarshal(patchedData, updatedKafkaSpec)
+		if err != nil {
+			klog.Errorf("failed to umarshal kafkaspec, error: %v", err)
+			return
+		}
+		kafkaCluster.Spec = updatedKafkaSpec
 	}
 }
 
