@@ -108,7 +108,9 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
 	// get policy
 	policy, err := getInvolvePolicy(h.ctx, h.runtimeClient, evt)
 	if err != nil {
-		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name)
+		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name,
+			"policy", evt.InvolvedObject.Namespace+"/"+evt.InvolvedObject.Name)
+		return
 	}
 
 	// global resource || root policy
@@ -137,6 +139,13 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
 		ClusterID:  clusterID,
 		Compliance: policyCompliance(rootPolicy, evt),
 	}
+
+	if replicatedPolicyEvent.PolicyID == "" {
+		h.log.Error(err, "the policyID of the replicated policy event is not retrieved", "event",
+			evt.Namespace+"/"+evt.Name)
+		return
+	}
+
 	// cache to events and update version
 	h.events = append(h.events, replicatedPolicyEvent)
 	h.cache.Add(evtKey, nil)
