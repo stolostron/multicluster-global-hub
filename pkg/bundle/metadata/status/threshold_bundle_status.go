@@ -25,7 +25,7 @@ type ThresholdBundleStatus struct {
 }
 
 // the retry times(max) when the bundle has been failed processed
-func NewThresholdBundleStatus(max int, evt cloudevents.Event) *ThresholdBundleStatus {
+func NewThresholdBundleStatus(clusterIdentity string, max int, evt cloudevents.Event) *ThresholdBundleStatus {
 	log := ctrl.Log.WithName("threshold-bundle-status")
 
 	topic, err := types.ToString(evt.Extensions()[kafka_confluent.KafkaTopicKey])
@@ -52,9 +52,10 @@ func NewThresholdBundleStatus(max int, evt cloudevents.Event) *ThresholdBundleSt
 		count:    0,
 
 		kafkaPosition: &metadata.TransportPosition{
-			Topic:     topic,
-			Partition: partition,
-			Offset:    offset,
+			ClusterIdentity: clusterIdentity,
+			Topic:           topic,
+			Partition:       partition,
+			Offset:          offset,
 		},
 	}
 }

@@ -448,6 +448,7 @@ func (k *strimziTransporter) GetConnCredential(username string) (*transport.Conn
 	for _, condition := range kafkaCluster.Status.Conditions {
 		if *condition.Type == "Ready" && *condition.Status == "True" {
 			credential := &transport.ConnCredential{
+				Identity:        *kafkaCluster.Status.ClusterId,
 				BootstrapServer: *kafkaCluster.Status.Listeners[1].BootstrapServers,
 				CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
 			}

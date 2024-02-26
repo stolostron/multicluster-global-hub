@@ -127,6 +127,8 @@ func parseFlags() *managerconfig.ManagerConfig {
 		40*time.Second, "The committer interval for transport layer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server",
 		"kafka-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ClusterIdentity, "kafka-cluster-identity",
+		"", "The identity for kafka cluster.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.CaCertPath, "kafka-ca-cert-path", "",
 		"The path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ClientCertPath, "kafka-client-cert-path", "",
