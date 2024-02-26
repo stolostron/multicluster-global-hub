@@ -43,8 +43,8 @@ func NewThresholdBundleStatus(clusterIdentity string, max int, evt cloudevents.E
 	}
 
 	offset, err := strconv.ParseInt(offsetStr, 10, 64)
-	if !ok {
-		log.Info("failed to parse offset from event", "offset", offsetStr)
+	if err != nil {
+		log.Info("failed to parse offset into int64 from event", "offset", offsetStr, "error", err)
 	}
 
 	return &ThresholdBundleStatus{
@@ -52,10 +52,10 @@ func NewThresholdBundleStatus(clusterIdentity string, max int, evt cloudevents.E
 		count:    0,
 
 		kafkaPosition: &metadata.TransportPosition{
-			ClusterIdentity: clusterIdentity,
-			Topic:           topic,
-			Partition:       partition,
-			Offset:          offset,
+			OwnerIdentiy: clusterIdentity,
+			Topic:        topic,
+			Partition:    partition,
+			Offset:       offset,
 		},
 	}
 }
