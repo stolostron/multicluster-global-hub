@@ -58,6 +58,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", tranConfig.TransportType))
 	var receiver interface{}
 	var err error
+	var clusterIdentity string
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
 		log.Info("transport consumer with cloudevents-kafka receiver")
@@ -65,6 +66,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 		if err != nil {
 			return nil, err
 		}
+		clusterIdentity = tranConfig.KafkaConfig.ClusterIdentity
 	case string(transport.Chan):
 		log.Info("transport consumer with go chan receiver")
 		if tranConfig.Extends == nil {
@@ -74,6 +76,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 			tranConfig.Extends[string(transport.Chan)] = gochan.New()
 		}
 		receiver = tranConfig.Extends[string(transport.Chan)]
+		clusterIdentity = "kafka-cluster-chan"
 	default:
 		return nil, fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
 	}
@@ -85,8 +88,8 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 
 	c := &GenericConsumer{
 		log:                  log,
-		clusterIdentity:      tranConfig.KafkaConfig.ClusterIdentity,
 		client:               client,
+		clusterIdentity:      clusterIdentity,
 		messageChan:          make(chan *transport.Message),
 		eventChan:            make(chan cloudevents.Event),
 		assembler:            newMessageAssembler(),
