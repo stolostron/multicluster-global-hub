@@ -56,7 +56,7 @@ func TestGetInitOffset(t *testing.T) {
 		UpdateAll: true,
 	}).CreateInBatches(databaseTransports, 100).Error
 	assert.Nil(t, err)
-	offsets, err := getInitOffset()
+	offsets, err := getInitOffset("")
 	assert.Nil(t, err)
 
 	count := 0

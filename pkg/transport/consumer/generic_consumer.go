@@ -32,6 +32,7 @@ type GenericConsumer struct {
 	messageChan          chan *transport.Message
 	eventChan            chan cloudevents.Event
 	consumeTopics        []string
+	clusterIdentity      string
 	enableDatabaseOffset bool
 	enableEventChan      bool
 }
@@ -84,6 +85,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 
 	c := &GenericConsumer{
 		log:                  log,
+		clusterIdentity:      tranConfig.KafkaConfig.ClusterIdentity,
 		client:               client,
 		messageChan:          make(chan *transport.Message),
 		eventChan:            make(chan cloudevents.Event),
@@ -110,7 +112,7 @@ func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	receiveContext := ctx
 	if c.enableDatabaseOffset {
-		offsets, err := getInitOffset()
+		offsets, err := getInitOffset(c.clusterIdentity)
 		if err != nil {
 			return err
 		}
@@ -135,7 +137,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		transportMessage.Key = event.ID()
 		transportMessage.MsgType = event.Type()
 		transportMessage.Destination = event.Source()
-		transportMessage.BundleStatus = status.NewThresholdBundleStatus(3, event)
+		transportMessage.BundleStatus = status.NewThresholdBundleStatus(c.clusterIdentity, 3, event)
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
@@ -163,7 +165,7 @@ func (c *GenericConsumer) EventChan() chan cloudevents.Event {
 	return c.eventChan
 }
 
-func getInitOffset() ([]kafka.TopicPartition, error) {
+func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) {
 	db := database.GetGorm()
 	var positions []models.Transport
 	err := db.Where("name ~ ?", "^status*").Find(&positions).Error
@@ -176,6 +178,10 @@ func getInitOffset() ([]kafka.TopicPartition, error) {
 		err := json.Unmarshal(pos.Payload, &kafkaPosition)
 		if err != nil {
 			return nil, err
+		}
+		// the offset is not owned by the current transport instance
+		if kafkaPosition.OwnerIdentiy == "" || kafkaPosition.OwnerIdentiy != kafkaClusterIdentity {
+			continue
 		}
 		offsetToStart = append(offsetToStart, kafka.TopicPartition{
 			Topic:     &positions[i].Name,

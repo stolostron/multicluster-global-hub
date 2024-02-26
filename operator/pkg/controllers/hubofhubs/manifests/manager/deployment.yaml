@@ -39,6 +39,7 @@ spec:
             - --watch-namespace=$(WATCH_NAMESPACE)
             - --transport-type={{.TransportType}}
             - --kafka-bootstrap-server={{.KafkaBootstrapServer}}
+            - --kafka-cluster-identity={{.KafkaClusterIdentity}}
             - --kafka-consumer-topic={{.KafkaConsumerTopic}}
             - --kafka-producer-topic={{.KafkaProducerTopic}}
             - --kafka-event-topic={{.KafkaEventTopic}}

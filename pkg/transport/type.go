@@ -42,6 +42,7 @@ type TransportConfig struct {
 
 // Kafka Config
 type KafkaConfig struct {
+	ClusterIdentity string
 	BootstrapServer string
 	CaCertPath      string
 	ClientCertPath  string
@@ -95,6 +96,7 @@ type Message struct {
 
 // ConnCredential is used to connect the transporter instance
 type ConnCredential struct {
+	Identity        string
 	BootstrapServer string
 	CACert          string
 	ClientCert      string
