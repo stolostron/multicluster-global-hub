@@ -91,7 +91,6 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) {
 		PolicyID:   string(policy.GetUID()),
 		Compliance: policyCompliance(policy, evt),
 	}
-
 	// cache to events and update version
 	h.events = append(h.events, rootPolicyEvent)
 	h.cache.Add(evtKey, nil)

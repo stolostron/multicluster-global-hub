@@ -139,13 +139,6 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) {
 		ClusterID:  clusterID,
 		Compliance: policyCompliance(rootPolicy, evt),
 	}
-
-	if replicatedPolicyEvent.PolicyID == "" {
-		h.log.Error(err, "the policyID of the replicated policy event is not retrieved", "event",
-			evt.Namespace+"/"+evt.Name)
-		return
-	}
-
 	// cache to events and update version
 	h.events = append(h.events, replicatedPolicyEvent)
 	h.cache.Add(evtKey, nil)
