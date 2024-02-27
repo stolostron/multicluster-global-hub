@@ -80,6 +80,10 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 		}
 	}
 
+	if r.MiddlewareConfig.StorageConn == nil {
+		return fmt.Errorf("the storage connection shouldn't be nil when reconcile database")
+	}
+
 	objURI, err := url.Parse(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI)
 	if err != nil {
 		log.Error(err, "failed to parse database_uri_with_readonlyuser")

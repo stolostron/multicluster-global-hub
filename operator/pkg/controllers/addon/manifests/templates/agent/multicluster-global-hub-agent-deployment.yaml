@@ -51,7 +51,6 @@ spec:
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
-            - --kubernetes-event-exporter-config=/kube-event/config.yaml
             - --enable-global-resource={{.EnableGlobalResource}}
             - --qps={{.AgentQPS}}
             - --burst={{.AgentBurst}}
@@ -70,8 +69,6 @@ spec:
           - mountPath: /kafka-certs
             name: kafka-certs
             readOnly: true
-          - mountPath: /kube-event
-            name: kubernetes-event-exporter-config
       {{- if .ImagePullSecretName }}
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
@@ -94,7 +91,4 @@ spec:
       - name: kafka-certs
         secret:
           secretName: kafka-certs-secret
-      - name: kubernetes-event-exporter-config
-        configMap:
-          name: kubernetes-event-exporter-config
 {{ end }}
