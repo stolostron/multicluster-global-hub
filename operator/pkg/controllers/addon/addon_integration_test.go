@@ -249,7 +249,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(8))
 		})
 
 		It("Should create HoH agent and ACM when an OCP is imported", func() {
@@ -293,7 +293,7 @@ var _ = Describe("addon integration", Ordered, func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			// contains both the ACM and the Global Hub manifests
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(18))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(17))
 		})
 
 		It("Should create HoH addon when an OCP with deploy mode = default is imported in hosted mode", func() {
@@ -338,7 +338,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, work)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
+			Expect(len(work.Spec.Workload.Manifests)).Should(Equal(8))
 		})
 
 		It("Should create HoH addon when an OCP with deploy mode = Hosted is imported in hosted mode", func() {
@@ -398,7 +398,7 @@ var _ = Describe("addon integration", Ordered, func() {
 				}, hostingWork)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
-			Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(7))
+			Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(6))
 		})
 
 		It("Should create HoH agent and ACM when an OCP with deploy mode = Hosted is imported in hosted mode", func() {
@@ -463,7 +463,7 @@ var _ = Describe("addon integration", Ordered, func() {
 					Namespace: hostingClusterName,
 				}, hostingWork)
 			}, timeout, interval).ShouldNot(HaveOccurred())
-			Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(7))
+			Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(6))
 		})
 		It("Should not create HoH addon in these cases", func() {
 			By("By preparing a non-OCP with deployMode label Managed Clusters")
