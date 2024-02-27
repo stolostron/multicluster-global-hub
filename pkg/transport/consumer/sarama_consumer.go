@@ -24,9 +24,11 @@ type saramaConsumer struct {
 	client        sarama.ConsumerGroup
 	messageChan   chan *sarama.ConsumerMessage
 	processedChan chan *sarama.ConsumerMessage
+	topics        []string
 }
 
-func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig) (SaramaConsumer, error) {
+func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig,
+	topics []string) (SaramaConsumer, error) {
 	log := ctrl.Log.WithName("sarama-consumer")
 	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
 	if err != nil {
@@ -52,6 +54,7 @@ func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig) 
 		client:        client,
 		messageChan:   messageChan,
 		processedChan: processedChan,
+		topics:        topics,
 	}
 	return consumer, nil
 }
@@ -70,13 +73,13 @@ func (c *saramaConsumer) MarkOffset(topic string, partition int32, offset int64)
 
 func (c *saramaConsumer) Start(ctx context.Context) error {
 	for {
-		err := c.client.Consume(ctx, []string{c.kafkaConfig.ConsumerConfig.StatusTopic}, &consumeGroupHandler{
+		err := c.client.Consume(ctx, c.topics, &consumeGroupHandler{
 			log:           c.log.WithName("handler"),
 			messageChan:   c.messageChan,
 			processedChan: c.processedChan,
 		})
 		if err != nil {
-			c.log.Error(err, "Error from sarama consumer", "topic", c.kafkaConfig.ConsumerConfig.StatusTopic)
+			c.log.Error(err, "Error from sarama consumer", "topic", c.topics)
 		}
 		// check if context was cancelled, signaling that the consumer should stop
 		if ctx.Err() != nil {

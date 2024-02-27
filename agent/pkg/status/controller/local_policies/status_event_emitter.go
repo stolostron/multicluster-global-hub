@@ -20,7 +20,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -41,13 +40,13 @@ type statusEventEmitter struct {
 	topic           string
 }
 
-func StatusEventEmitter(ctx context.Context, runtimeClient client.Client) generic.EventEmitter {
+func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic string) generic.EventEmitter {
 	cache, _ := lru.New(30)
 	return &statusEventEmitter{
 		ctx:             ctx,
 		log:             ctrl.Log.WithName("local-replicated-policy-syncer/status-event"),
 		eventType:       string(enum.LocalReplicatedPolicyEventType),
-		topic:           transport.GenericEventTopic,
+		topic:           topic,
 		runtimeClient:   runtimeClient,
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),

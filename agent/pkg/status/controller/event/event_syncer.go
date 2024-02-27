@@ -5,6 +5,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -50,8 +51,8 @@ func (s *eventSyncer) Predicate() predicate.Predicate {
 		if !ok {
 			return false
 		}
-		// only sync the policy event
-		return event.InvolvedObject.Kind == "Policy"
+		// only sync the policy event || extend other InvolvedObject kind
+		return event.InvolvedObject.Kind == policiesv1.Kind
 	})
 }
 

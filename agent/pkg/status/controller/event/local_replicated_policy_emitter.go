@@ -17,7 +17,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -70,13 +69,14 @@ type localReplicatedPolicyEmitter struct {
 	topic           string
 }
 
-func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.Client) generic.EventEmitter {
+func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.Client,
+	topic string) generic.EventEmitter {
 	cache, _ := lru.New(20)
 	return &localReplicatedPolicyEmitter{
 		ctx:             ctx,
 		log:             ctrl.Log.WithName("policy-event-syncer/replicated-policy"),
 		eventType:       string(enum.LocalReplicatedPolicyEventType),
-		topic:           transport.GenericEventTopic,
+		topic:           topic,
 		runtimeClient:   runtimeClient,
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),

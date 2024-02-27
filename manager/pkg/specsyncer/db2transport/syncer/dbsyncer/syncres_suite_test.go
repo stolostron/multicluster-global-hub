@@ -112,7 +112,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Create kafka consumer/producer")
-	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
+	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig, "spec")
 	Expect(err).NotTo(HaveOccurred())
 	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig, producer)).Should(Succeed())
 	Expect(specsycner.AddManagedClusterLabelSyncer(mgr,
