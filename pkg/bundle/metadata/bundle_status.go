@@ -27,5 +27,5 @@ type TransportPosition struct {
 	// define the kafka cluster identiy:
 	// 1. built in kafka, use the kafka cluster id
 	// 2. byo kafka, use the kafka bootstrapserver as the identity
-	OwnerIdentiy string `json:"ownerIdentity"`
+	OwnerIdentity string `json:"ownerIdentity"`
 }

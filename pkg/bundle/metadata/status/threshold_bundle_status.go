@@ -52,10 +52,10 @@ func NewThresholdBundleStatus(clusterIdentity string, max int, evt cloudevents.E
 		count:    0,
 
 		kafkaPosition: &metadata.TransportPosition{
-			OwnerIdentiy: clusterIdentity,
-			Topic:        topic,
-			Partition:    partition,
-			Offset:       offset,
+			OwnerIdentity: clusterIdentity,
+			Topic:         topic,
+			Partition:     partition,
+			Offset:        offset,
 		},
 	}
 }

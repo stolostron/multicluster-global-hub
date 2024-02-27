@@ -72,10 +72,10 @@ func TestGetInitOffset(t *testing.T) {
 
 func generateTransport(ownerIdentity string, topic string, offset int64) models.Transport {
 	payload, _ := json.Marshal(metadata.TransportPosition{
-		OwnerIdentiy: ownerIdentity,
-		Topic:        topic,
-		Partition:    0,
-		Offset:       int64(offset),
+		OwnerIdentity: ownerIdentity,
+		Topic:         topic,
+		Partition:     0,
+		Offset:        int64(offset),
 	})
 	return models.Transport{
 		Name:    topic,
