@@ -74,9 +74,10 @@ func (k *ConflationCommitter) commit() error {
 
 		k.log.V(2).Info("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
 		payload, err := json.Marshal(metadata.TransportPosition{
-			Topic:     transPosition.Topic,
-			Partition: transPosition.Partition,
-			Offset:    int64(transPosition.Offset),
+			OwnerIdentity: transPosition.OwnerIdentity,
+			Topic:         transPosition.Topic,
+			Partition:     transPosition.Partition,
+			Offset:        int64(transPosition.Offset),
 		})
 		if err != nil {
 			return err
@@ -143,9 +144,10 @@ func metadataToCommit(metadataArray []metadata.BundleStatus) map[string]*metadat
 	// increment processed offsets so they are not re-read on kafka consumer restart
 	for key := range processedHighestMetadataMap {
 		processedHighestMetadataMap[key] = &metadata.TransportPosition{
-			Topic:     processedHighestMetadataMap[key].Topic,
-			Partition: processedHighestMetadataMap[key].Partition,
-			Offset:    processedHighestMetadataMap[key].Offset + 1,
+			OwnerIdentity: processedHighestMetadataMap[key].OwnerIdentity,
+			Topic:         processedHighestMetadataMap[key].Topic,
+			Partition:     processedHighestMetadataMap[key].Partition,
+			Offset:        processedHighestMetadataMap[key].Offset + 1,
 		}
 	}
 

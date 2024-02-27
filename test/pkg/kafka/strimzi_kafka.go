@@ -21,9 +21,10 @@ const (
 )
 
 var (
-	readyCondition = "Ready"
-	trueCondition  = "True"
-	bootServer     = "kafka-kafka-bootstrap.multicluster-global-hub.svc:9092"
+	readyCondition  = "Ready"
+	trueCondition   = "True"
+	bootServer      = "kafka-kafka-bootstrap.multicluster-global-hub.svc:9092"
+	statusClusterId = "MXpoZsJTRD2DDiVUh3Rsqg"
 )
 
 func UpdateKafkaClusterReady(client client.Client, ns string) error {
@@ -59,6 +60,7 @@ func UpdateKafkaClusterReady(client client.Client, ns string) error {
 			},
 		},
 		Status: &kafkav1beta2.KafkaStatus{
+			ClusterId: &statusClusterId,
 			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
 				{
 					BootstrapServers: &bootServer,

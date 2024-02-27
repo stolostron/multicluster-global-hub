@@ -32,6 +32,7 @@ type GenericConsumer struct {
 	messageChan          chan *transport.Message
 	eventChan            chan cloudevents.Event
 	consumeTopics        []string
+	clusterIdentity      string
 	enableDatabaseOffset bool
 	enableEventChan      bool
 }
@@ -57,6 +58,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", tranConfig.TransportType))
 	var receiver interface{}
 	var err error
+	var clusterIdentity string
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
 		log.Info("transport consumer with cloudevents-kafka receiver")
@@ -64,6 +66,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 		if err != nil {
 			return nil, err
 		}
+		clusterIdentity = tranConfig.KafkaConfig.ClusterIdentity
 	case string(transport.Chan):
 		log.Info("transport consumer with go chan receiver")
 		if tranConfig.Extends == nil {
@@ -73,6 +76,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 			tranConfig.Extends[string(transport.Chan)] = gochan.New()
 		}
 		receiver = tranConfig.Extends[string(transport.Chan)]
+		clusterIdentity = "kafka-cluster-chan"
 	default:
 		return nil, fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
 	}
@@ -85,6 +89,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 	c := &GenericConsumer{
 		log:                  log,
 		client:               client,
+		clusterIdentity:      clusterIdentity,
 		messageChan:          make(chan *transport.Message),
 		eventChan:            make(chan cloudevents.Event),
 		assembler:            newMessageAssembler(),
@@ -110,7 +115,7 @@ func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	receiveContext := ctx
 	if c.enableDatabaseOffset {
-		offsets, err := getInitOffset()
+		offsets, err := getInitOffset(c.clusterIdentity)
 		if err != nil {
 			return err
 		}
@@ -135,7 +140,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		transportMessage.Key = event.ID()
 		transportMessage.MsgType = event.Type()
 		transportMessage.Destination = event.Source()
-		transportMessage.BundleStatus = status.NewThresholdBundleStatus(3, event)
+		transportMessage.BundleStatus = status.NewThresholdBundleStatus(c.clusterIdentity, 3, event)
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
@@ -163,10 +168,12 @@ func (c *GenericConsumer) EventChan() chan cloudevents.Event {
 	return c.eventChan
 }
 
-func getInitOffset() ([]kafka.TopicPartition, error) {
+func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) {
 	db := database.GetGorm()
 	var positions []models.Transport
-	err := db.Where("name ~ ?", "^status*").Find(&positions).Error
+	err := db.Where("name ~ ?", "^status*").
+		Where("payload->>'ownerIdentity' <> ? AND payload->>'ownerIdentity' = ?", "", kafkaClusterIdentity).
+		Find(&positions).Error
 	if err != nil {
 		return nil, err
 	}

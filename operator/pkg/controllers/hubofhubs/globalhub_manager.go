@@ -114,6 +114,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
 				[]byte(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI)),
 			PostgresCACert:         base64.StdEncoding.EncodeToString(r.MiddlewareConfig.StorageConn.CACert),
+			KafkaClusterIdentity:   transportConn.Identity,
 			KafkaCACert:            transportConn.CACert,
 			KafkaClientCert:        transportConn.ClientCert,
 			KafkaClientKey:         transportConn.ClientKey,
@@ -233,6 +234,7 @@ type ManagerVariables struct {
 	ProxySessionSecret     string
 	DatabaseURL            string
 	PostgresCACert         string
+	KafkaClusterIdentity   string
 	KafkaCACert            string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
