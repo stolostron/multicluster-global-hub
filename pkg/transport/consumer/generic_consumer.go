@@ -183,7 +183,7 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 			return nil, err
 		}
 		// the offset is not owned by the current transport instance
-		if kafkaPosition.OwnerIdentiy == "" || kafkaPosition.OwnerIdentiy != kafkaClusterIdentity {
+		if kafkaPosition.OwnerIdentity == "" || kafkaPosition.OwnerIdentity != kafkaClusterIdentity {
 			continue
 		}
 		offsetToStart = append(offsetToStart, kafka.TopicPartition{
