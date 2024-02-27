@@ -14,7 +14,6 @@ type AgentConfig struct {
 	TransportConfig              *transport.TransportConfig
 	ElectionConfig               *commonobjects.LeaderElectionConfig
 	Terminating                  bool
-	KubeEventExporterConfigPath  string
 	MetricsAddress               string
 	EnableGlobalResource         bool
 	QPS                          float32
