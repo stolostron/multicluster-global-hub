@@ -171,7 +171,9 @@ func (c *GenericConsumer) EventChan() chan cloudevents.Event {
 func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) {
 	db := database.GetGorm()
 	var positions []models.Transport
-	err := db.Where("name ~ ?", "^status*").Find(&positions).Error
+	err := db.Where("name ~ ?", "^status*").
+		Where("payload->>'ownerIdentity' <> ? AND payload->>'ownerIdentity' = ?", "", kafkaClusterIdentity).
+		Find(&positions).Error
 	if err != nil {
 		return nil, err
 	}
@@ -181,10 +183,6 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 		err := json.Unmarshal(pos.Payload, &kafkaPosition)
 		if err != nil {
 			return nil, err
-		}
-		// the offset is not owned by the current transport instance
-		if kafkaPosition.OwnerIdentity == "" || kafkaPosition.OwnerIdentity != kafkaClusterIdentity {
-			continue
 		}
 		offsetToStart = append(offsetToStart, kafka.TopicPartition{
 			Topic:     &positions[i].Name,
