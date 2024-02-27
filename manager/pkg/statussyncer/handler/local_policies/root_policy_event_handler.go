@@ -63,6 +63,9 @@ func (h *localRootPolicyEventHandler) ToDatabase(evt cloudevents.Event) error {
 
 	upsertEvents := []models.LocalRootPolicyEvent{}
 	for _, element := range rootPolicyEvents {
+		if element.PolicyID == "" {
+			continue
+		}
 		upsertEvents = append(upsertEvents, models.LocalRootPolicyEvent{
 			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
 				LeafHubName: evt.Source(),
