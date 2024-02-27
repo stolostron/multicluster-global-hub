@@ -97,7 +97,6 @@ func (c *genericObjectSyncer) updateObject(object client.Object) {
 	c.lock.Lock() // make sure handler are not updated if we're during bundles sync
 	defer c.lock.Unlock()
 	for _, emitter := range c.eventEmitters {
-		// update in each handler from the collection according to their order.
 		emitter.Update(object)
 	}
 }

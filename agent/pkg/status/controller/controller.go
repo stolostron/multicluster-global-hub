@@ -31,7 +31,8 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	}
 
 	// only use the cloudevents
-	producer, err := transportproducer.NewGenericProducer(agentConfig.TransportConfig)
+	producer, err := transportproducer.NewGenericProducer(agentConfig.TransportConfig,
+		agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic)
 	if err != nil {
 		return fmt.Errorf("failed to init status transport producer: %w", err)
 	}
@@ -53,7 +54,6 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		managedclusters.AddMangedClusterSyncer,
 		// apps.AddSubscriptionStatusesController,
 		localpolicies.AddLocalRootPolicySyncer,
-		// localpolicies.AddLocalReplicatedPolicySyncer,
 		hubcluster.AddHubClusterInfoSyncer,
 		hubcluster.AddHeartbeatStatusSyncer,
 	}
@@ -77,7 +77,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	// event syncer
 	err = generic.LaunchGenericObjectSyncer(mgr, event.NewEventSyncer(), producer,
 		[]generic.EventEmitter{
-			event.NewLocalRootPolicyEmitter(ctx, mgr.GetClient()),
+			event.NewLocalRootPolicyEmitter(ctx, mgr.GetClient(), agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic),
 			// event.NewLocalReplicatedPolicyEmitter(ctx, mgr.GetClient()),
 		})
 	if err != nil {
@@ -87,7 +87,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	// local policy syncer
 	err = generic.LaunchGenericObjectSyncer(mgr, localpolicies.NewLocalPolicySyncer(), producer,
 		[]generic.EventEmitter{
-			localpolicies.StatusEventEmitter(ctx, mgr.GetClient()),
+			localpolicies.StatusEventEmitter(ctx, mgr.GetClient(), agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic),
 		})
 	if err != nil {
 		return fmt.Errorf("failed to launch local policy syncer: %w", err)

@@ -80,9 +80,11 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),
 			KafkaConfig: &transport.KafkaConfig{
+				Topics: &transport.ClusterTopic{
+					EventTopic:  "event",
+					StatusTopic: "status",
+				},
 				ConsumerConfig: &transport.KafkaConsumerConfig{
-					EventTopic:      "event",
-					StatusTopic:     "status",
 					EnableEventChan: false,
 				},
 			},
@@ -103,7 +105,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Start cloudevents producer")
-	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
+	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig, "spec")
 	Expect(err).NotTo(HaveOccurred())
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{

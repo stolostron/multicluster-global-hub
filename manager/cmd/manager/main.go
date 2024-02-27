@@ -84,6 +84,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 		TransportConfig: &transport.TransportConfig{
 			KafkaConfig: &transport.KafkaConfig{
 				EnableTLS:      true,
+				Topics:         &transport.ClusterTopic{},
 				ProducerConfig: &transport.KafkaProducerConfig{},
 				ConsumerConfig: &transport.KafkaConsumerConfig{},
 			},
@@ -139,15 +140,15 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"The path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kafka-producer-id",
 		"multicluster-global-hub-manager", "ID for the kafka producer.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.Topics.SpecTopic, "kafka-producer-topic",
 		"spec", "Topic for the kafka producer.")
 	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
 		"kafka-consumer-id", "multicluster-global-hub-manager", "ID for the kafka consumer.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.StatusTopic,
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.Topics.StatusTopic,
 		"kafka-consumer-topic", "status", "Topic for the kafka consumer.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.EventTopic,
+	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.Topics.EventTopic,
 		"kafka-event-topic", "event", "Event topic for the event message")
 	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "1m",
 		"The log interval for statistics.")
@@ -248,7 +249,8 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 	}
 
-	producer, err := producer.NewGenericProducer(managerConfig.TransportConfig)
+	producer, err := producer.NewGenericProducer(managerConfig.TransportConfig,
+		managerConfig.TransportConfig.KafkaConfig.Topics.SpecTopic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
 	}

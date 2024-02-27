@@ -93,8 +93,9 @@ func UpdateKafkaClusterReady(client client.Client, ns string) error {
 					klog.Errorf("Failed to create kafka cluster, error: %v", e)
 					return false, nil
 				}
+			} else {
+				klog.Errorf("Failed to get Kafka cluster, error:%v", err)
 			}
-			klog.Errorf("Failed to get Kafka cluster, error:%v", err)
 			return false, nil
 		}
 		existkafkaCluster.Status = &kafkav1beta2.KafkaStatus{

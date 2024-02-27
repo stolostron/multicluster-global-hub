@@ -28,8 +28,7 @@ func TestGenerateConsumer(t *testing.T) {
 			BootstrapServer: mockKafkaCluster.BootstrapServers(),
 			EnableTLS:       false,
 			ConsumerConfig: &transport.KafkaConsumerConfig{
-				ConsumerID:  "test-consumer",
-				StatusTopic: "test-topic",
+				ConsumerID: "test-consumer",
 			},
 		},
 	}

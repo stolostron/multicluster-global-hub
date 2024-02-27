@@ -66,8 +66,10 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),
 			KafkaConfig: &transport.KafkaConfig{
+				Topics: &transport.ClusterTopic{
+					SpecTopic: "spec",
+				},
 				ConsumerConfig: &transport.KafkaConsumerConfig{
-					SpecTopic:       "spec",
 					EnableEventChan: false,
 				},
 			},
@@ -90,7 +92,7 @@ var _ = BeforeSuite(func() {
 
 	client = mgr.GetClient()
 
-	producer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig)
+	producer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig, "spec")
 	Expect(err).NotTo(HaveOccurred())
 })
 

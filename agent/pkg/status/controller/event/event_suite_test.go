@@ -72,7 +72,8 @@ var _ = BeforeSuite(func() {
 	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig, nil,
 		genericconsumer.EnableEventChan(true))
 	Expect(err).NotTo(HaveOccurred())
-	producer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig)
+	producer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig,
+		"status")
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add to Scheme")
@@ -101,8 +102,8 @@ var _ = BeforeSuite(func() {
 	By("Launch event syncer")
 	err = generic.LaunchGenericObjectSyncer(mgr, NewEventSyncer(), producer,
 		[]generic.EventEmitter{
-			NewLocalRootPolicyEmitter(ctx, mgr.GetClient()),
-			NewLocalReplicatedPolicyEmitter(ctx, mgr.GetClient()),
+			NewLocalRootPolicyEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
+			NewLocalReplicatedPolicyEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
 		})
 	Expect(err).NotTo(HaveOccurred())
 
