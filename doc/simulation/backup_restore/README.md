@@ -76,9 +76,3 @@ NAMESPACE                 NAME                                                  
 multicluster-global-hub   postgresdb-multicluster-global-hub-postgres-0                      Bound    pvc-a7aebea3-8d86-40df-a61e-fdf2ac95d0ef   25Gi       RWO            gp3-csi        7m9s
 multicluster-global-hub   volsync-b-multicluster-global-hub-postgres-020240105091547-cache   Bound    pvc-2376eeaf-dc32-4326-9c7b-d5ede983dfe1   1Gi        RWO            gp3-csi        6m59s
 ```
-
-## Start restore (activity)
-oc delete -f restore/restore.yaml
-oc apply -f restore/restore-active.yaml
-
-
