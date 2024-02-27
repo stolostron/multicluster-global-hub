@@ -44,7 +44,7 @@ func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic 
 	cache, _ := lru.New(30)
 	return &statusEventEmitter{
 		ctx:             ctx,
-		log:             ctrl.Log.WithName("local-policy-syncer/status-event"),
+		log:             ctrl.Log.WithName("local-replicated-policy-syncer/status-event"),
 		eventType:       string(enum.LocalReplicatedPolicyEventType),
 		topic:           topic,
 		runtimeClient:   runtimeClient,
@@ -55,14 +55,8 @@ func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic 
 	}
 }
 
-// enable local policy and is replicated policy
-func (h *statusEventEmitter) Predicate(obj client.Object) bool {
-	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue &&
-		utils.HasItemKey(obj.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
-}
-
-func (h *statusEventEmitter) PreSend() bool {
-	return h.currentVersion.NewerThan(&h.lastSentVersion)
+func (h *statusEventEmitter) Emit() bool {
+	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue && h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
 func (h *statusEventEmitter) Topic() string {

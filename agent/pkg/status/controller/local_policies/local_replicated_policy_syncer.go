@@ -23,7 +23,7 @@ type localPolicySyncer struct {
 
 func NewLocalPolicySyncer() *localPolicySyncer {
 	return &localPolicySyncer{
-		name:      "local-policy-syncer",
+		name:      "local-replicated-policy-syncer",
 		interval:  config.GetPolicyDuration,
 		finalizer: false,
 	}
@@ -39,7 +39,8 @@ func (s *localPolicySyncer) Instance() client.Object {
 
 func (s *localPolicySyncer) Predicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return !utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation)
+		return !utils.HasAnnotation(object, constants.OriginOwnerReferenceAnnotation) &&
+			utils.HasItemKey(object.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
 	})
 }
 

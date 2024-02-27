@@ -97,19 +97,14 @@ func (c *genericObjectSyncer) updateObject(object client.Object) {
 	c.lock.Lock() // make sure handler are not updated if we're during bundles sync
 	defer c.lock.Unlock()
 	for _, emitter := range c.eventEmitters {
-		// update in each handler from the collection according to their order.
-		if emitter.Predicate(object) {
-			emitter.Update(object)
-		}
+		emitter.Update(object)
 	}
 }
 
 func (c *genericObjectSyncer) deleteObject(object client.Object) {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	for _, emitter := range c.eventEmitters {
-		if emitter.Predicate(object) {
-			emitter.Delete(object)
-		}
+		emitter.Delete(object)
 	}
 	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
 }
@@ -140,7 +135,7 @@ func (c *genericObjectSyncer) syncEvents() {
 	for i := range c.eventEmitters {
 		emitter := c.eventEmitters[i]
 
-		if emitter.PreSend() {
+		if emitter.Emit() {
 			evt := emitter.ToCloudEvent()
 			evt.SetSource(c.leafHubName)
 
