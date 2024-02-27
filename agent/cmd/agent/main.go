@@ -161,9 +161,6 @@ func parseFlags() *config.AgentConfig {
 		"leader election retry period")
 	pflag.BoolVar(&agentConfig.Terminating, "terminating", false,
 		"true is to trigger the PreStop hook to do cleanup. For example: removing finalizer")
-	pflag.StringVar(&agentConfig.KubeEventExporterConfigPath,
-		"kubernetes-event-exporter-config", "",
-		"The configuration file for the kubernetes event exporter")
 	pflag.BoolVar(&agentConfig.EnableGlobalResource, "enable-global-resource", false,
 		"Enable the global resource feature.")
 	pflag.Float32Var(&agentConfig.QPS, "qps", 150,
