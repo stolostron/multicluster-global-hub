@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -51,6 +52,8 @@ func TestGetInitOffset(t *testing.T) {
 	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "status.hub2", 11))
 	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "status", 9))
 	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "spec", 9))
+	databaseTransports = append(databaseTransports, generateTransport("", "status.hub3", 8))
+	databaseTransports = append(databaseTransports, generateTransport("another", "status.hub4", 7))
 
 	db := database.GetGorm()
 	err = db.Clauses(clause.OnConflict{
@@ -62,6 +65,7 @@ func TestGetInitOffset(t *testing.T) {
 
 	count := 0
 	for _, offset := range offsets {
+		fmt.Println(*offset.Topic, offset.Partition, offset.Offset)
 		if *offset.Topic == "spec" {
 			t.Fatalf("the topic %s shouldn't be selected", "spec")
 		}
