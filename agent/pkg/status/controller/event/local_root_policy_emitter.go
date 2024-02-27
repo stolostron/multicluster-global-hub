@@ -66,7 +66,9 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) {
 	// get policy
 	policy, err := getInvolvePolicy(h.ctx, h.runtimeClient, evt)
 	if err != nil {
-		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name)
+		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name,
+			"policy", evt.InvolvedObject.Namespace+"/"+evt.InvolvedObject.Name)
+		return
 	}
 
 	// global resource || replicated policy
