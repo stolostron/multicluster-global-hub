@@ -34,11 +34,10 @@ var _ = Describe("Transport Integration", Ordered, func() {
 				BootstrapServer: mockCluster.BootstrapServers(),
 				EnableTLS:       false,
 				ProducerConfig: &transport.KafkaProducerConfig{
-					ProducerTopic:      "spec",
 					ProducerID:         "spec-producer",
 					MessageSizeLimitKB: 100,
 				},
-			}, ctrl.Log.WithName("kafka-producer"))
+			}, ctrl.Log.WithName("kafka-producer"), "spec")
 		Expect(err).NotTo(HaveOccurred())
 		go kafkaProducer.Start(ctx)
 
@@ -46,11 +45,15 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		kafkaConsumer, err := consumer.NewKafkaConsumer(&transport.KafkaConfig{
 			BootstrapServer: mockCluster.BootstrapServers(),
 			EnableTLS:       false,
-			ConsumerConfig: &transport.KafkaConsumerConfig{
-				StatusTopic: "spec",
-				ConsumerID:  "spec-consumer",
+			Topics: &transport.ClusterTopic{
+				SpecTopic:   "spec",
+				StatusTopic: "status",
+				EventTopic:  "event",
 			},
-		}, ctrl.Log.WithName("kafka-consumer"))
+			ConsumerConfig: &transport.KafkaConsumerConfig{
+				ConsumerID: "spec-consumer",
+			},
+		}, ctrl.Log.WithName("kafka-consumer"), "spec")
 		Expect(err).NotTo(HaveOccurred())
 		kafkaConsumer.SetLeafHubName("hub1")
 		go kafkaConsumer.Start(ctx)
@@ -159,11 +162,10 @@ var _ = Describe("Transport Integration", Ordered, func() {
 				BootstrapServer: mockCluster.BootstrapServers(),
 				EnableTLS:       false,
 				ProducerConfig: &transport.KafkaProducerConfig{
-					ProducerTopic:      "status",
 					ProducerID:         "status-producer",
 					MessageSizeLimitKB: 1,
 				},
-			}, ctrl.Log.WithName("kafka-producer"))
+			}, ctrl.Log.WithName("kafka-producer"), "status")
 		Expect(err).NotTo(HaveOccurred())
 		go kafkaProducer.Start(ctx)
 
@@ -172,10 +174,9 @@ var _ = Describe("Transport Integration", Ordered, func() {
 			BootstrapServer: mockCluster.BootstrapServers(),
 			EnableTLS:       false,
 			ConsumerConfig: &transport.KafkaConsumerConfig{
-				StatusTopic: "status",
-				ConsumerID:  "status-consumer",
+				ConsumerID: "status-consumer",
 			},
-		}, ctrl.Log.WithName("kafka-consumer"))
+		}, ctrl.Log.WithName("kafka-consumer"), "status")
 		Expect(err).NotTo(HaveOccurred())
 
 		stats := statistics.NewStatistics(&statistics.StatisticsConfig{}, []string{"ManagedClustersStatusBundle"})

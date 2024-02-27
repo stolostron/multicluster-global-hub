@@ -15,7 +15,7 @@ import (
 func AddToManager(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
 	// add consumer to manager
 	consumer, err := genericconsumer.NewGenericConsumer(agentConfig.TransportConfig,
-		[]string{agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.SpecTopic},
+		[]string{agentConfig.TransportConfig.KafkaConfig.Topics.SpecTopic},
 		genericconsumer.EnableEventChan(agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.EnableEventChan),
 	)
 	if err != nil {

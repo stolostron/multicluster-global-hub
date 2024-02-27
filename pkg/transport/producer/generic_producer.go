@@ -31,7 +31,7 @@ type GenericProducer struct {
 	messageSizeLimit int
 }
 
-func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.Producer, error) {
+func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic string) (transport.Producer, error) {
 	var sender interface{}
 	var err error
 	messageSize := DefaultMessageKBSize * 1000
@@ -41,7 +41,7 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (transport.P
 		if transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > 0 {
 			messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
 		}
-		sender, err = getConfluentSenderProtocol(transportConfig)
+		sender, err = getConfluentSenderProtocol(transportConfig, defaultTopic)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +132,7 @@ func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 	return chunks
 }
 
-func getSaramaSenderProtocol(transportConfig *transport.TransportConfig) (interface{}, error) {
+func getSaramaSenderProtocol(transportConfig *transport.TransportConfig, defaultTopic string) (interface{}, error) {
 	saramaConfig, err := config.GetSaramaConfig(transportConfig.KafkaConfig)
 	if err != nil {
 		return nil, err
@@ -141,18 +141,18 @@ func getSaramaSenderProtocol(transportConfig *transport.TransportConfig) (interf
 	saramaConfig.Producer.MaxMessageBytes = MaxMessageKBLimit * 1000
 	saramaConfig.Producer.Return.Successes = true
 	sender, err := kafka_sarama.NewSender([]string{transportConfig.KafkaConfig.BootstrapServer},
-		saramaConfig, transportConfig.KafkaConfig.ProducerConfig.ProducerTopic)
+		saramaConfig, defaultTopic)
 	if err != nil {
 		return nil, err
 	}
 	return sender, nil
 }
 
-func getConfluentSenderProtocol(transportConfig *transport.TransportConfig) (interface{}, error) {
+func getConfluentSenderProtocol(transportConfig *transport.TransportConfig,
+	defaultTopic string) (interface{}, error) {
 	configMap, err := config.GetConfluentConfigMap(transportConfig.KafkaConfig, true)
 	if err != nil {
 		return nil, err
 	}
-	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
-		kafka_confluent.WithSenderTopic(transportConfig.KafkaConfig.ProducerConfig.ProducerTopic))
+	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap), kafka_confluent.WithSenderTopic(defaultTopic))
 }

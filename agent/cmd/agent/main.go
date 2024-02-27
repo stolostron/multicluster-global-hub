@@ -108,6 +108,7 @@ func parseFlags() *config.AgentConfig {
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
 		TransportConfig: &transport.TransportConfig{
 			KafkaConfig: &transport.KafkaConfig{
+				Topics:         &transport.ClusterTopic{},
 				ProducerConfig: &transport.KafkaProducerConfig{},
 				ConsumerConfig: &transport.KafkaConsumerConfig{},
 			},
@@ -131,12 +132,14 @@ func parseFlags() *config.AgentConfig {
 		"The path of client key for kafka bootstrap server.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kafka-producer-id", "",
 		"Producer Id for the kafka, default is the leaf hub name.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerTopic, "kafka-producer-topic",
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic, "kafka-producer-topic",
 		"status", "Topic for the kafka producer.")
 	pflag.IntVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
 		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.SpecTopic, "kafka-consumer-topic",
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.Topics.SpecTopic, "kafka-consumer-topic",
 		"spec", "Topic for the kafka consumer.")
+	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic, "kafka-event-topic",
+		"event", "Topic for the kafka events.")
 	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kafka-consumer-id",
 		"multicluster-global-hub-agent", "ID for the kafka consumer.")
 	pflag.StringVar(&agentConfig.PodNameSpace, "pod-namespace", constants.GHAgentNamespace,

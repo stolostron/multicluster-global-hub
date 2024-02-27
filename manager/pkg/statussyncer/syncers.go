@@ -111,9 +111,9 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
 func getTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
 	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
 ) (*dispatcher.TransportDispatcher, error) {
-	consumeConfig := managerConfig.TransportConfig.KafkaConfig.ConsumerConfig
+	topics := managerConfig.TransportConfig.KafkaConfig.Topics
 	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
-		[]string{consumeConfig.EventTopic, consumeConfig.StatusTopic},
+		[]string{topics.EventTopic, topics.StatusTopic},
 		genericconsumer.EnableDatabaseOffset(true),
 		genericconsumer.EnableEventChan(managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.EnableEventChan))
 	if err != nil {
