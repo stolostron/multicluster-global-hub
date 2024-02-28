@@ -64,7 +64,7 @@ func StatusEventEmitter(
 }
 
 // replicated policy
-func (h *statusEventEmitter) PreUpdate(obj client.Object) bool {
+func (h *statusEventEmitter) ShouldUpdate(obj client.Object) bool {
 	return h.predicate(obj)
 }
 
@@ -72,7 +72,7 @@ func (h *statusEventEmitter) PostUpdate() {
 	h.currentVersion.Incr()
 }
 
-func (h *statusEventEmitter) PreSend() bool {
+func (h *statusEventEmitter) ShouldSend() bool {
 	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 

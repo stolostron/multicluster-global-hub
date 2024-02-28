@@ -31,7 +31,7 @@ func (e *genericObjectEmitter) Delete(object client.Object) bool {
 }
 
 func ObjectEmitterWrapper(eventType enum.EventType,
-	predicate func(client.Object) bool,
+	shouldUpdate func(client.Object) bool,
 	tweakFunc func(client.Object)) ObjectEmitter {
 
 	eventData := genericpayload.GenericObjectData{}
@@ -39,7 +39,7 @@ func ObjectEmitterWrapper(eventType enum.EventType,
 		enum.PlacementDecisionType,
 		eventData,
 		NewGenericObjectHandler(eventData),
-		WithPredicate(predicate),
+		WithShouldUpdate(shouldUpdate),
 		WithTweakFunc(tweakFunc),
 	)
 }

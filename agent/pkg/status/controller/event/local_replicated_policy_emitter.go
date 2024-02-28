@@ -91,7 +91,7 @@ func (h *localReplicatedPolicyEmitter) PostUpdate() {
 }
 
 // enable local policy and is replicated policy
-func (h *localReplicatedPolicyEmitter) PreUpdate(obj client.Object) bool {
+func (h *localReplicatedPolicyEmitter) ShouldUpdate(obj client.Object) bool {
 	if config.GetEnableLocalPolicy() != config.EnableLocalPolicyTrue {
 		return false
 	}
@@ -101,7 +101,7 @@ func (h *localReplicatedPolicyEmitter) PreUpdate(obj client.Object) bool {
 		utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
 }
 
-func (h *localReplicatedPolicyEmitter) PreSend() bool {
+func (h *localReplicatedPolicyEmitter) ShouldSend() bool {
 	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 

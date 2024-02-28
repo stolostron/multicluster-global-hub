@@ -23,7 +23,7 @@ func CompleteComplianceEmitterWrapper(
 		eventType,
 		eventData,
 		NewCompleteComplianceHandler(eventData),
-		generic.WithPredicate(predicate),
+		generic.WithShouldUpdate(predicate),
 		generic.WithDependencyVersion(dependencyVersion),
 	)
 }

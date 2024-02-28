@@ -25,9 +25,9 @@ func WithTweakFunc(tweakFunc func(client.Object)) EmitterOption {
 	}
 }
 
-func WithPredicate(predicate func(client.Object) bool) EmitterOption {
+func WithShouldUpdate(shouldUpdate func(client.Object) bool) EmitterOption {
 	return func(g *genericEmitter) {
-		g.predicate = predicate
+		g.shouldUpdate = shouldUpdate
 	}
 }
 
@@ -52,7 +52,7 @@ type genericEmitter struct {
 	topic             string
 	dependencyVersion *metadata.BundleVersion
 	tweakFunc         func(client.Object)
-	predicate         func(client.Object) bool
+	shouldUpdate      func(client.Object) bool
 }
 
 func NewGenericEmitter(
@@ -76,7 +76,7 @@ func (e *genericEmitter) applyOptions(opts ...EmitterOption) {
 	}
 }
 
-func (h *genericEmitter) PreSend() bool {
+func (h *genericEmitter) ShouldSend() bool {
 	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
@@ -89,10 +89,10 @@ func (h *genericEmitter) Topic() string {
 	return h.topic
 }
 
-func (h *genericEmitter) PreUpdate(obj client.Object) bool {
+func (h *genericEmitter) ShouldUpdate(obj client.Object) bool {
 	toUpdate := true
-	if h.predicate != nil {
-		toUpdate = h.predicate(obj)
+	if h.shouldUpdate != nil {
+		toUpdate = h.shouldUpdate(obj)
 	}
 
 	if toUpdate && h.tweakFunc != nil {
