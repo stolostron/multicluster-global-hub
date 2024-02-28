@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func CompleteComplianceEmitterWrapper(
@@ -140,24 +140,4 @@ func getPayloadIndexByUID(uid string, completeCompliances []grc.CompleteComplian
 		}
 	}
 	return -1
-}
-
-// returns a list of non compliant clusters and a list of unknown compliance clusters.
-func getNonCompliantAndUnknownClusters(policy *policiesv1.Policy) ([]string, []string) {
-	nonCompliantClusters := make([]string, 0)
-	unknownComplianceClusters := make([]string, 0)
-
-	for _, clusterCompliance := range policy.Status.Status {
-		if clusterCompliance.ComplianceState == policiesv1.Compliant {
-			continue
-		}
-
-		if clusterCompliance.ComplianceState == policiesv1.NonCompliant {
-			nonCompliantClusters = append(nonCompliantClusters, clusterCompliance.ClusterName)
-		} else { // not compliant not non compliant -> means unknown
-			unknownComplianceClusters = append(unknownComplianceClusters, clusterCompliance.ClusterName)
-		}
-	}
-
-	return nonCompliantClusters, unknownComplianceClusters
 }

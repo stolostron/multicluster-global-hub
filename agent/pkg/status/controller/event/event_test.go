@@ -6,8 +6,9 @@ import (
 	"testing"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestVersion(t *testing.T) {

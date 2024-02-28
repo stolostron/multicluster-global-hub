@@ -49,8 +49,8 @@ func cleanPlacementRule(object bundle.Object) {
 }
 
 func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
-	producer transport.Producer) error {
-
+	producer transport.Producer,
+) error {
 	// controller config
 	instance := func() client.Object { return &placementrulesv1.PlacementRule{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })

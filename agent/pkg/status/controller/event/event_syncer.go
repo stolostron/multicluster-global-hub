@@ -20,14 +20,12 @@ const (
 	UnknownComplianceState = "Unknown"
 )
 
-var (
-	PolicyMessageStatusRe = regexp.
-		MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
-)
+var PolicyMessageStatusRe = regexp.
+	MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 
 func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
-	agentConfig *config.AgentConfig, producer transport.Producer) error {
-
+	agentConfig *config.AgentConfig, producer transport.Producer,
+) error {
 	eventTopic := agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic
 
 	instance := func() client.Object {

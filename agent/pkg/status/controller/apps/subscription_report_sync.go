@@ -39,8 +39,8 @@ func AddSubscriptionReportsSyncer(mgr ctrl.Manager, producer transport.Producer)
 }
 
 func LaunchSubscriptionReportSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
-	producer transport.Producer) error {
-
+	producer transport.Producer,
+) error {
 	// controller config
 	instance := func() client.Object { return &appsv1alpha1.SubscriptionReport{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })

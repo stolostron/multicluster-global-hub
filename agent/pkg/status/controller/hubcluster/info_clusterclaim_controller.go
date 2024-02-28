@@ -28,7 +28,6 @@ func NewInfoClusterClaimController(eventData cluster.HubClusterInfoData) generic
 }
 
 func (p *infoClusterClaimController) Update(obj client.Object) bool {
-
 	clusterClaim, ok := obj.(*clustersv1alpha1.ClusterClaim)
 	if !ok {
 		return false

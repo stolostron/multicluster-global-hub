@@ -17,8 +17,8 @@ import (
 )
 
 func LaunchLocalPolicySyncer(ctx context.Context, mgr ctrl.Manager,
-	agentConfig *config.AgentConfig, producer transport.Producer) error {
-
+	agentConfig *config.AgentConfig, producer transport.Producer,
+) error {
 	eventTopic := agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic
 	return generic.LaunchGenericObjectSyncer(
 		"status.local_policy",

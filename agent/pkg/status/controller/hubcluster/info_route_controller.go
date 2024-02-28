@@ -38,7 +38,6 @@ func NewInfoRouteController(eventData cluster.HubClusterInfoData) generic.EventC
 }
 
 func (p *infoRouteController) Update(obj client.Object) bool {
-
 	route, ok := obj.(*routev1.Route)
 	if !ok {
 		return false

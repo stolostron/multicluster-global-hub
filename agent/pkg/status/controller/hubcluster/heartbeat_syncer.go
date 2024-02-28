@@ -145,7 +145,10 @@ type heartbeatEmitter struct {
 
 // assert whether to update the payload by the current handler
 func (s *heartbeatEmitter) ShouldUpdate(object client.Object) bool { return true }
-func (s *heartbeatEmitter) PostUpdate()                            {}
+
+func (s *heartbeatEmitter) PostUpdate() {
+	s.currentVersion.Incr()
+}
 
 func (s *heartbeatEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 	e := cloudevents.NewEvent()

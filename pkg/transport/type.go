@@ -60,6 +60,7 @@ type KafkaProducerConfig struct {
 
 type KafkaConsumerConfig struct {
 	ConsumerID string
+	// nolint:staticcheck
 	// Deprecated: will be removed once all the message are formatted to cloudevent
 	EnableEventChan bool
 }

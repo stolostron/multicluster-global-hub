@@ -49,8 +49,8 @@ func cleanPlacement(object bundle.Object) {
 }
 
 func LaunchPlacementSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
-	producer transport.Producer) error {
-
+	producer transport.Producer,
+) error {
 	// controller config
 	instance := func() client.Object { return &clustersv1beta1.Placement{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
