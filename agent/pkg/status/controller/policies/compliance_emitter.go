@@ -24,7 +24,7 @@ func ComplianceEmitterWrapper(
 		eventType,
 		eventData,
 		NewComplianceHandler(eventData),
-		generic.WithPredicate(predicate),
+		generic.WithShouldUpdate(predicate),
 		generic.WithVersion(version),
 	)
 }

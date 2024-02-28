@@ -29,27 +29,26 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 	// emitters
 	// 1. local compliance
 	localComplianceVersion := metadata.NewBundleVersion()
-	localCompliancePredicate := func(obj client.Object) bool {
+	localComplianceShouldUpdate := func(obj client.Object) bool {
 		return statusconfig.GetAggregationLevel() == statusconfig.AggregationFull && // full level
 			statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue && // enable local policy
 			!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
 			!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
 	}
 	localComplianceEmitter := ComplianceEmitterWrapper(
-		enum.LocalPolicyComplianceType,
+		enum.LocalComplianceType,
 		localComplianceVersion,
-		localCompliancePredicate,
+		localComplianceShouldUpdate,
 	)
 
 	// 2. local complete compliance
 	localCompleteEmitter := CompleteComplianceEmitterWrapper(
-		enum.LocalPolicyCompleteComplianceType,
+		enum.LocalCompleteComplianceType,
 		localComplianceVersion,
-		localCompliancePredicate,
+		localComplianceShouldUpdate,
 	)
 
 	// 3. local policy event
-	eventTopic := agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic
 	localStatusEventEmitter := StatusEventEmitter(ctx, enum.LocalReplicatedPolicyEventType,
 		func(obj client.Object) bool {
 			return statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue &&
@@ -57,7 +56,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 				utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // replicated policy
 		},
 		mgr.GetClient(),
-		eventTopic,
+		agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic,
 	)
 
 	// 4. local policy spec
@@ -79,14 +78,14 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 			!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
 	}
 	complianceEmitter := ComplianceEmitterWrapper(
-		enum.PolicyComplianceType,
+		enum.ComplianceType,
 		complianceVersion,
 		compliancePredicate,
 	)
 
 	// 6. global complete compliance
 	completeEmitter := CompleteComplianceEmitterWrapper(
-		enum.PolicyCompleteComplianceType,
+		enum.CompleteComplianceType,
 		complianceVersion,
 		compliancePredicate,
 	)

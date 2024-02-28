@@ -7,14 +7,18 @@ import (
 	"sync"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -109,4 +113,52 @@ func (s *heartbeatStatusSyncer) syncBundle(ctx context.Context) {
 		s.heartbeatBundle.GetVersion().Next()
 		s.lastSentBundleVersion = *s.heartbeatBundle.GetVersion()
 	}
+}
+
+func LaunchHubClusterHeartbeatSyncer(mgr ctrl.Manager, producer transport.Producer) error {
+	return generic.LaunchGenericEventSyncer(
+		"status.hub_cluster_heartbeat",
+		mgr,
+		nil,
+		producer,
+		config.GetHeartbeatDuration,
+		NewHeartbeatEmitter(),
+	)
+}
+
+var _ generic.Emitter = &heartbeatEmitter{}
+
+func NewHeartbeatEmitter() *heartbeatEmitter {
+	emitter := &heartbeatEmitter{
+		eventType:       enum.HubClusterHeartbeatType,
+		currentVersion:  metadata.NewBundleVersion(),
+		lastSentVersion: *metadata.NewBundleVersion(),
+	}
+	return emitter
+}
+
+type heartbeatEmitter struct {
+	eventType       enum.EventType
+	currentVersion  *metadata.BundleVersion
+	lastSentVersion metadata.BundleVersion
+}
+
+// assert whether to update the payload by the current handler
+func (s *heartbeatEmitter) ShouldUpdate(object client.Object) bool { return true }
+func (s *heartbeatEmitter) PostUpdate()                            {}
+
+func (s *heartbeatEmitter) ToCloudEvent() (*cloudevents.Event, error) {
+	e := cloudevents.NewEvent()
+	e.SetSource(config.GetLeafHubName())
+	e.SetType(string(s.eventType))
+	e.SetExtension(metadata.ExtVersion, s.currentVersion.String())
+	err := e.SetData(cloudevents.ApplicationJSON, nil)
+	return &e, err
+}
+
+func (s *heartbeatEmitter) Topic() string    { return "" }
+func (s *heartbeatEmitter) ShouldSend() bool { return true }
+func (s *heartbeatEmitter) PostSend() {
+	s.currentVersion.Next()
+	s.lastSentVersion = *s.currentVersion
 }

@@ -105,7 +105,7 @@ func (c *genericObjectSyncer) updateObject(object client.Object) {
 	defer c.lock.Unlock()
 	for _, eventEmitter := range c.eventEmitters {
 		// update in each handler from the collection according to their order.
-		if eventEmitter.PreUpdate(object) && eventEmitter.Update(object) {
+		if eventEmitter.ShouldUpdate(object) && eventEmitter.Update(object) {
 			eventEmitter.PostUpdate()
 		}
 	}
@@ -115,7 +115,7 @@ func (c *genericObjectSyncer) deleteObject(object client.Object) {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer c.lock.Lock()
 	for _, eventEmitter := range c.eventEmitters {
-		if eventEmitter.PreUpdate(object) && eventEmitter.Delete(object) {
+		if eventEmitter.ShouldUpdate(object) && eventEmitter.Delete(object) {
 			eventEmitter.PostUpdate()
 		}
 	}
@@ -147,7 +147,7 @@ func (c *genericObjectSyncer) syncEvents() {
 	for i := range c.eventEmitters {
 		emitter := c.eventEmitters[i]
 
-		if emitter.PreSend() {
+		if emitter.ShouldSend() {
 			evt, err := emitter.ToCloudEvent()
 			if err != nil {
 				c.log.Error(err, "failed to get CloudEvent instance", "evt", evt)

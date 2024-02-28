@@ -84,7 +84,7 @@ func (s *genericEventSyncer) syncEvent() {
 	s.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer s.lock.Unlock()
 
-	if s.emitter.PreSend() {
+	if s.emitter.ShouldSend() {
 		evt, err := s.emitter.ToCloudEvent()
 		if err != nil {
 			s.log.Error(err, "failed to get CloudEvent instance", "evt", evt)

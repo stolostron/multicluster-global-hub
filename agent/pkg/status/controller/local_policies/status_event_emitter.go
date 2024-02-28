@@ -56,7 +56,7 @@ func StatusEventEmitter(ctx context.Context, runtimeClient client.Client, topic 
 }
 
 // replicated policy
-func (h *statusEventEmitter) PreUpdate(obj client.Object) bool {
+func (h *statusEventEmitter) ShouldUpdate(obj client.Object) bool {
 	return utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey)
 }
 
@@ -64,7 +64,7 @@ func (h *statusEventEmitter) PostUpdate() {
 	h.currentVersion.Incr()
 }
 
-func (h *statusEventEmitter) PreSend() bool {
+func (h *statusEventEmitter) ShouldSend() bool {
 	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
@@ -73,6 +73,11 @@ func (h *statusEventEmitter) Topic() string {
 }
 
 func (h *statusEventEmitter) Update(obj client.Object) bool {
+	// only process the replicated policy
+	if !utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) {
+		return false
+	}
+
 	policy, ok := obj.(*policiesv1.Policy)
 	if !ok {
 		return false // do not handle objects other than policy

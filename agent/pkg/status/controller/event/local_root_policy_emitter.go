@@ -56,7 +56,7 @@ func (h *localRootPolicyEmitter) PostUpdate() {
 	h.currentVersion.Incr()
 }
 
-func (h *localRootPolicyEmitter) PreUpdate(obj client.Object) bool {
+func (h *localRootPolicyEmitter) ShouldUpdate(obj client.Object) bool {
 	if config.GetEnableLocalPolicy() != config.EnableLocalPolicyTrue {
 		return false
 	}
@@ -144,7 +144,7 @@ func (h *localRootPolicyEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 }
 
 // to assert whether emit the current cloudevent
-func (h *localRootPolicyEmitter) PreSend() bool {
+func (h *localRootPolicyEmitter) ShouldSend() bool {
 	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 

@@ -84,7 +84,7 @@ func (c *genericEventController) updateObjectAndFinalizer(ctx context.Context, o
 	cleanObject(object)
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer c.lock.Unlock()
-	if c.emitter.PreUpdate(object) && c.eventController.Update(object) {
+	if c.emitter.ShouldUpdate(object) && c.eventController.Update(object) {
 		c.emitter.PostUpdate()
 	}
 	return nil
@@ -92,7 +92,7 @@ func (c *genericEventController) updateObjectAndFinalizer(ctx context.Context, o
 
 func (c *genericEventController) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object) error {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-	if c.emitter.PreUpdate(object) && c.eventController.Delete(object) {
+	if c.emitter.ShouldUpdate(object) && c.eventController.Delete(object) {
 		c.emitter.PostUpdate()
 	}
 	c.lock.Unlock()

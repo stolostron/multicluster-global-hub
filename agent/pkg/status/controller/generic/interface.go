@@ -15,7 +15,7 @@ type Controller interface {
 // Use the event emitter to control the flow of the event syncer
 type Emitter interface {
 	// assert whether to update the payload by the current handler
-	PreUpdate(object client.Object) bool
+	ShouldUpdate(object client.Object) bool
 
 	PostUpdate()
 
@@ -25,7 +25,7 @@ type Emitter interface {
 	Topic() string
 
 	// to assert whether send the current cloudevent
-	PreSend() bool
+	ShouldSend() bool
 
 	// triggered after sending the event, incr generate, clean payload, ...
 	PostSend()
