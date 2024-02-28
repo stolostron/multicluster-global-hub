@@ -103,7 +103,7 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) bool {
 	if err != nil {
 		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name,
 			"policy", evt.InvolvedObject.Namespace+"/"+evt.InvolvedObject.Name)
-		return
+		return false
 	}
 
 	// update
