@@ -50,7 +50,3 @@ func (p *infoClusterClaimController) Delete(obj client.Object) bool {
 	// do nothing
 	return false
 }
-
-func (p *infoClusterClaimController) Data() interface{} {
-	return p.evtData
-}

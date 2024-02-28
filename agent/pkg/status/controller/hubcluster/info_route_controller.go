@@ -71,7 +71,3 @@ func (p *infoRouteController) Delete(obj client.Object) bool {
 	}
 	return updated
 }
-
-func (p *infoRouteController) Data() interface{} {
-	return p.evtData
-}

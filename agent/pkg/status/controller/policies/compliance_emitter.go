@@ -22,18 +22,18 @@ func ComplianceEmitterWrapper(
 	eventData := grc.ComplianceData{}
 	return generic.NewGenericObjectEmitter(
 		eventType,
-		eventData,
-		NewComplianceHandler(eventData),
+		&eventData,
+		NewComplianceHandler(&eventData),
 		generic.WithShouldUpdate(predicate),
 		generic.WithVersion(version),
 	)
 }
 
 type complianceHandler struct {
-	eventData grc.ComplianceData
+	eventData *grc.ComplianceData
 }
 
-func NewComplianceHandler(eventData grc.ComplianceData) generic.Handler {
+func NewComplianceHandler(eventData *grc.ComplianceData) generic.Handler {
 	return &complianceHandler{
 		eventData: eventData,
 	}
@@ -44,11 +44,19 @@ func (h *complianceHandler) Update(obj client.Object) bool {
 	if !isPolicy {
 		return false // do not handle objects other than policy
 	}
+	if policy.Status.Status == nil {
+		return false
+	}
 
 	policyID := extractPolicyIdentity(obj)
-	index := getIndexByPolicyID(policyID, h.eventData)
+	index := getIndexByPolicyID(policyID, *h.eventData)
 	if index == -1 { // object not found, need to add it to the bundle
-		h.eventData = append(h.eventData, *getNewCompliance(policyID, policy))
+		compliance := getNewCompliance(policyID, policy)
+		if len(compliance.CompliantClusters) == 0 && len(compliance.NonCompliantClusters) == 0 &&
+			len(compliance.UnknownComplianceClusters) == 0 {
+			return false
+		}
+		*h.eventData = append(*h.eventData, *compliance)
 		return true
 	}
 
@@ -68,7 +76,7 @@ func (h *complianceHandler) updatePayloadIfChanged(objectIndex int, policy *poli
 	newCompliantClusters, newNonCompliantClusters, newUnknownClusters := getClusterStatus(policy)
 	allClusters := utils.Merge(newCompliantClusters, newNonCompliantClusters, newUnknownClusters)
 
-	payloadCompliance := h.eventData[objectIndex]
+	payloadCompliance := (*h.eventData)[objectIndex]
 	clusterListChanged := false
 
 	// check if any cluster was added or removed
@@ -89,12 +97,12 @@ func (h *complianceHandler) updatePayloadIfChanged(objectIndex int, policy *poli
 }
 
 func (h *complianceHandler) Delete(obj client.Object) bool {
-	index := getCompliancesIndexByObj(obj, h.eventData)
+	index := getCompliancesIndexByObj(obj, *h.eventData)
 	if index == -1 { // trying to delete object which doesn't exist
 		return false
 	}
 
-	h.eventData = append(h.eventData[:index], h.eventData[index+1:]...) // remove from objects
+	*h.eventData = append((*h.eventData)[:index], (*h.eventData)[index+1:]...) // remove from objects
 	return true
 }
 
