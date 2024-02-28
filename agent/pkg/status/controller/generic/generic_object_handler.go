@@ -8,38 +8,38 @@ import (
 )
 
 type genericObjectHandler struct {
-	eventData genericpayload.GenericObjectData
+	eventData *genericpayload.GenericObjectData
 }
 
-func NewGenericObjectHandler(eventData genericpayload.GenericObjectData) Handler {
+func NewGenericObjectHandler(eventData *genericpayload.GenericObjectData) Handler {
 	return &genericObjectHandler{
 		eventData: eventData,
 	}
 }
 
 func (h *genericObjectHandler) Update(obj client.Object) bool {
-	index := getObjectIndexByUID(obj.GetUID(), h.eventData)
+	index := getObjectIndexByUID(obj.GetUID(), (*h.eventData))
 	if index == -1 { // object not found, need to add it to the bundle
-		h.eventData = append(h.eventData, obj)
+		(*h.eventData) = append((*h.eventData), obj)
 		return true
 	}
 
 	// if we reached here, object already exists in the bundle. check if we need to update the object
-	if obj.GetResourceVersion() == h.eventData[index].GetResourceVersion() {
+	if obj.GetResourceVersion() == (*h.eventData)[index].GetResourceVersion() {
 		return false // update in bundle only if object changed. check for changes using resourceVersion field
 	}
 
-	h.eventData[index] = obj
+	(*h.eventData)[index] = obj
 	return true
 }
 
 func (h *genericObjectHandler) Delete(obj client.Object) bool {
-	index := getObjectIndexByObj(obj, h.eventData)
+	index := getObjectIndexByObj(obj, (*h.eventData))
 	if index == -1 { // trying to delete object which doesn't exist
 		return false
 	}
 
-	h.eventData = append(h.eventData[:index], h.eventData[index+1:]...) // remove from objects
+	(*h.eventData) = append((*h.eventData)[:index], (*h.eventData)[index+1:]...) // remove from objects
 	return true
 }
 

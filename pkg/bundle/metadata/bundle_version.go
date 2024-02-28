@@ -51,6 +51,9 @@ func (this *BundleVersion) NewerThan(other *BundleVersion) bool {
 	if other == nil {
 		return true
 	}
+	if this.Equals(other) {
+		return false
+	}
 	if this.Generation > other.Generation {
 		return true
 	} else if this.Generation < other.Generation {

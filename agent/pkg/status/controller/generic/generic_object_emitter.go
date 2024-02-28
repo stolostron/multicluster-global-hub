@@ -37,9 +37,9 @@ func ObjectEmitterWrapper(eventType enum.EventType,
 ) ObjectEmitter {
 	eventData := genericpayload.GenericObjectData{}
 	return NewGenericObjectEmitter(
-		enum.PlacementDecisionType,
-		eventData,
-		NewGenericObjectHandler(eventData),
+		eventType,
+		&eventData,
+		NewGenericObjectHandler(&eventData),
 		WithShouldUpdate(shouldUpdate),
 		WithTweakFunc(tweakFunc),
 	)
