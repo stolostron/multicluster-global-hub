@@ -348,6 +348,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					ProxySessionSecret:     "testing",
 					DatabaseURL:            base64.StdEncoding.EncodeToString([]byte(testPostgres.URI)),
 					PostgresCACert:         base64.StdEncoding.EncodeToString([]byte("")),
+					KafkaClusterIdentity:   transportConn.Identity,
 					KafkaCACert:            transportConn.CACert,
 					KafkaClientCert:        transportConn.ClientCert,
 					KafkaClientKey:         transportConn.ClientKey,

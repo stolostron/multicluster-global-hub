@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -46,21 +47,25 @@ func TestGetInitOffset(t *testing.T) {
 
 	databaseTransports := []models.Transport{}
 
-	databaseTransports = append(databaseTransports, generateTransport("status.hub1", 12))
-	databaseTransports = append(databaseTransports, generateTransport("status.hub2", 11))
-	databaseTransports = append(databaseTransports, generateTransport("status", 9))
-	databaseTransports = append(databaseTransports, generateTransport("spec", 9))
+	kafkaClusterIdentity := "clusterID"
+	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "status.hub1", 12))
+	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "status.hub2", 11))
+	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "status", 9))
+	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "spec", 9))
+	databaseTransports = append(databaseTransports, generateTransport("", "status.hub3", 8))
+	databaseTransports = append(databaseTransports, generateTransport("another", "status.hub4", 7))
 
 	db := database.GetGorm()
 	err = db.Clauses(clause.OnConflict{
 		UpdateAll: true,
 	}).CreateInBatches(databaseTransports, 100).Error
 	assert.Nil(t, err)
-	offsets, err := getInitOffset()
+	offsets, err := getInitOffset(kafkaClusterIdentity)
 	assert.Nil(t, err)
 
 	count := 0
 	for _, offset := range offsets {
+		fmt.Println(*offset.Topic, offset.Partition, offset.Offset)
 		if *offset.Topic == "spec" {
 			t.Fatalf("the topic %s shouldn't be selected", "spec")
 		}
@@ -69,11 +74,12 @@ func TestGetInitOffset(t *testing.T) {
 	assert.Equal(t, 3, count)
 }
 
-func generateTransport(topic string, offset int64) models.Transport {
+func generateTransport(ownerIdentity string, topic string, offset int64) models.Transport {
 	payload, _ := json.Marshal(metadata.TransportPosition{
-		Topic:     topic,
-		Partition: 0,
-		Offset:    int64(offset),
+		OwnerIdentity: ownerIdentity,
+		Topic:         topic,
+		Partition:     0,
+		Offset:        int64(offset),
 	})
 	return models.Transport{
 		Name:    topic,
