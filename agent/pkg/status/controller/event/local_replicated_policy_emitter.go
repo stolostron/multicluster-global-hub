@@ -71,7 +71,8 @@ type localReplicatedPolicyEmitter struct {
 }
 
 func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.Client,
-	topic string) generic.ObjectEmitter {
+	topic string,
+) generic.ObjectEmitter {
 	cache, _ := lru.New(20)
 	return &localReplicatedPolicyEmitter{
 		ctx:             ctx,

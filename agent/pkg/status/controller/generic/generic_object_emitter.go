@@ -1,10 +1,10 @@
 package generic
 
 import (
-	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	genericpayload "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
 var _ ObjectEmitter = &genericObjectEmitter{}
@@ -15,7 +15,8 @@ type genericObjectEmitter struct {
 }
 
 func NewGenericObjectEmitter(eventType enum.EventType, eventData interface{},
-	handler Handler, opts ...EmitterOption) ObjectEmitter {
+	handler Handler, opts ...EmitterOption,
+) ObjectEmitter {
 	return &genericObjectEmitter{
 		NewGenericEmitter(eventType, eventData, opts...),
 		handler,
@@ -32,8 +33,8 @@ func (e *genericObjectEmitter) Delete(object client.Object) bool {
 
 func ObjectEmitterWrapper(eventType enum.EventType,
 	shouldUpdate func(client.Object) bool,
-	tweakFunc func(client.Object)) ObjectEmitter {
-
+	tweakFunc func(client.Object),
+) ObjectEmitter {
 	eventData := genericpayload.GenericObjectData{}
 	return NewGenericObjectEmitter(
 		enum.PlacementDecisionType,

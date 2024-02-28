@@ -36,8 +36,8 @@ func AddPlacementDecisionsController(mgr ctrl.Manager, producer transport.Produc
 }
 
 func LaunchPlacementDecisionSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
-	producer transport.Producer) error {
-
+	producer transport.Producer,
+) error {
 	// controller config
 	instance := func() client.Object { return &clustersv1beta1.PlacementDecision{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })

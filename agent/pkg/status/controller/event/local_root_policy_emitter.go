@@ -68,7 +68,8 @@ func (h *localRootPolicyEmitter) ShouldUpdate(obj client.Object) bool {
 }
 
 func policyEventPredicate(ctx context.Context, obj client.Object, c client.Client, log logr.Logger) (
-	*policiesv1.Policy, bool) {
+	*policiesv1.Policy, bool,
+) {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
 		return nil, false

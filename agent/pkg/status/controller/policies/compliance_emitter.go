@@ -40,7 +40,6 @@ func NewComplianceHandler(eventData grc.ComplianceData) generic.Handler {
 }
 
 func (h *complianceHandler) Update(obj client.Object) bool {
-
 	policy, isPolicy := obj.(*policiesv1.Policy)
 	if !isPolicy {
 		return false // do not handle objects other than policy

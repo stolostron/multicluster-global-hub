@@ -19,8 +19,8 @@ import (
 )
 
 func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
-	producer transport.Producer) error {
-
+	producer transport.Producer,
+) error {
 	// controller config
 	instance := func() client.Object { return &policiesv1.Policy{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })

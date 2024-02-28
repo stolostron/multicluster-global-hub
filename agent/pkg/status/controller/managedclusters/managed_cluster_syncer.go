@@ -18,8 +18,8 @@ import (
 )
 
 func LaunchManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
-	producer transport.Producer) error {
-
+	producer transport.Producer,
+) error {
 	// controller config
 	instance := func() client.Object { return &clusterv1.ManagedCluster{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })

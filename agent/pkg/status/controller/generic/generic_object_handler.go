@@ -18,7 +18,6 @@ func NewGenericObjectHandler(eventData genericpayload.GenericObjectData) Handler
 }
 
 func (h *genericObjectHandler) Update(obj client.Object) bool {
-
 	index := getObjectIndexByUID(obj.GetUID(), h.eventData)
 	if index == -1 { // object not found, need to add it to the bundle
 		h.eventData = append(h.eventData, obj)
@@ -35,7 +34,6 @@ func (h *genericObjectHandler) Update(obj client.Object) bool {
 }
 
 func (h *genericObjectHandler) Delete(obj client.Object) bool {
-
 	index := getObjectIndexByObj(obj, h.eventData)
 	if index == -1 { // trying to delete object which doesn't exist
 		return false
