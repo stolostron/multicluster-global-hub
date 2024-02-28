@@ -13,7 +13,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -129,7 +129,7 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) bool {
 		return false
 	}
 
-	rootPolicy, clusterID, err := localpolicies.GetRootPolicyAndClusterID(h.ctx, policy, h.runtimeClient)
+	rootPolicy, clusterID, err := policies.GetRootPolicyAndClusterID(h.ctx, policy, h.runtimeClient)
 	if err != nil {
 		h.log.Error(err, "failed to get get rootPolicy/clusterID by replicatedPolicy")
 		return false
