@@ -106,6 +106,7 @@ var _ = BeforeSuite(func() {
 		},
 		Data: map[string]string{
 			"hubClusterHeartbeat": "5s",
+			"hubClusterInfo":      "2s",
 		},
 	}
 	Expect(kubeClient.Create(ctx, configMap)).Should(Succeed())
@@ -113,9 +114,11 @@ var _ = BeforeSuite(func() {
 	By("Add controllers to manager")
 	err = statusconfig.AddConfigController(mgr, agentConfig)
 	Expect(err).Should(Succeed())
-	err = LaunchHubClusterHeartbeatSyncer(mgr, heartbeatTrans, func() time.Duration {
-		return 3 * time.Second
-	})
+	statusconfig.SetInterval(statusconfig.HubClusterHeartBeatIntervalKey, 2*time.Second)
+	err = LaunchHubClusterHeartbeatSyncer(mgr, heartbeatTrans)
+	Expect(err).Should(Succeed())
+	statusconfig.SetInterval(statusconfig.HubClusterInfoIntervalKey, 2*time.Second)
+	err = LaunchHubClusterInfoSyncer(mgr, mockTrans)
 	Expect(err).Should(Succeed())
 
 	By("Start the manager")

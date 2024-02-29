@@ -116,15 +116,13 @@ func (s *heartbeatStatusSyncer) syncBundle(ctx context.Context) {
 	}
 }
 
-func LaunchHubClusterHeartbeatSyncer(mgr ctrl.Manager, producer transport.Producer,
-	interval func() time.Duration,
-) error {
+func LaunchHubClusterHeartbeatSyncer(mgr ctrl.Manager, producer transport.Producer) error {
 	return generic.LaunchGenericEventSyncer(
 		"status.hub_cluster_heartbeat",
 		mgr,
 		nil,
 		producer,
-		interval,
+		config.GetHeartbeatDuration,
 		NewHeartbeatEmitter(),
 	)
 }
