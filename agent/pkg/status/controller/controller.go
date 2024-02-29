@@ -73,10 +73,10 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		}
 	}
 
-	// // managed cluster
-	// if err := managedclusters.LaunchManagedClusterSyncer(ctx, mgr, agentConfig, producer); err != nil {
-	// 	return fmt.Errorf("failed to launch managedcluster syncer: %w", err)
-	// }
+	// managed cluster
+	if err := managedclusters.LaunchManagedClusterSyncer(ctx, mgr, agentConfig, producer); err != nil {
+		return fmt.Errorf("failed to launch managedcluster syncer: %w", err)
+	}
 
 	// event syncer
 	err = event.LaunchEventSyncer(ctx, mgr, agentConfig, producer)
@@ -90,32 +90,32 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		return fmt.Errorf("failed to launch policy syncer: %w", err)
 	}
 
-	// // hub cluster info
-	// err = hubcluster.LaunchHubClusterInfoSyncer(mgr, producer)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to launch hub cluster info syncer: %w", err)
-	// }
+	// hub cluster info
+	err = hubcluster.LaunchHubClusterInfoSyncer(mgr, producer)
+	if err != nil {
+		return fmt.Errorf("failed to launch hub cluster info syncer: %w", err)
+	}
 
-	// // hub cluster heartbeat
-	// err = hubcluster.LaunchHubClusterHeartbeatSyncer(mgr, producer, agentstatusconfig.GetHeartbeatDuration)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to launch hub cluster heartbeat syncer: %w", err)
-	// }
+	// hub cluster heartbeat
+	err = hubcluster.LaunchHubClusterHeartbeatSyncer(mgr, producer)
+	if err != nil {
+		return fmt.Errorf("failed to launch hub cluster heartbeat syncer: %w", err)
+	}
 
-	// // placement
-	// if err := placement.LaunchPlacementSyncer(ctx, mgr, agentConfig, producer); err != nil {
-	// 	return fmt.Errorf("failed to launch placement syncer: %w", err)
-	// }
-	// if err := placement.LaunchPlacementDecisionSyncer(ctx, mgr, agentConfig, producer); err != nil {
-	// 	return fmt.Errorf("failed to launch placementDecision syncer: %w", err)
-	// }
-	// if err := placement.LaunchPlacementRuleSyncer(ctx, mgr, agentConfig, producer); err != nil {
-	// 	return fmt.Errorf("failed to launch placementRule syncer: %w", err)
-	// }
+	// placement
+	if err := placement.LaunchPlacementSyncer(ctx, mgr, agentConfig, producer); err != nil {
+		return fmt.Errorf("failed to launch placement syncer: %w", err)
+	}
+	if err := placement.LaunchPlacementDecisionSyncer(ctx, mgr, agentConfig, producer); err != nil {
+		return fmt.Errorf("failed to launch placementDecision syncer: %w", err)
+	}
+	if err := placement.LaunchPlacementRuleSyncer(ctx, mgr, agentConfig, producer); err != nil {
+		return fmt.Errorf("failed to launch placementRule syncer: %w", err)
+	}
 
-	// // app
-	// if err := apps.LaunchSubscriptionReportSyncer(ctx, mgr, agentConfig, producer); err != nil {
-	// 	return fmt.Errorf("failed to launch subscription report syncer: %w", err)
-	// }
+	// app
+	if err := apps.LaunchSubscriptionReportSyncer(ctx, mgr, agentConfig, producer); err != nil {
+		return fmt.Errorf("failed to launch subscription report syncer: %w", err)
+	}
 	return nil
 }
