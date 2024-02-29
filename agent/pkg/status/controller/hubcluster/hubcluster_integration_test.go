@@ -6,12 +6,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
 var _ = Describe("Integration Test", Ordered, func() {
 	It("should receive the heartbeat", func() {
-
 		By("Check the local hearbeat event can be read from cloudevents consumer")
 		Eventually(func() error {
 			evt := heartbeatTrans.GetEvent()
@@ -22,5 +22,4 @@ var _ = Describe("Integration Test", Ordered, func() {
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
-
 })

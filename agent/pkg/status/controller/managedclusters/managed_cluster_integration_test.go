@@ -5,9 +5,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
 var _ = Describe("Integration Test", Ordered, func() {
@@ -38,5 +39,4 @@ var _ = Describe("Integration Test", Ordered, func() {
 		Expect(evt).ShouldNot(BeNil())
 		Expect(evt.Type()).Should(Equal(string(enum.ManagedClusterType)))
 	})
-
 })

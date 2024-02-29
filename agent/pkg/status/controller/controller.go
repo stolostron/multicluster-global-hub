@@ -97,8 +97,8 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	}
 
 	// hub cluster heartbeat
-	if err := hubcluster.LaunchHubClusterHeartbeatSyncer(mgr, producer,
-		agentstatusconfig.GetHeartbeatDuration); err != nil {
+	err = hubcluster.LaunchHubClusterHeartbeatSyncer(mgr, producer, agentstatusconfig.GetHeartbeatDuration)
+	if err != nil {
 		return fmt.Errorf("failed to launch hub cluster heartbeat syncer: %w", err)
 	}
 
