@@ -25,7 +25,6 @@ import (
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
-	specctrl "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
@@ -103,7 +102,6 @@ var _ = BeforeSuite(func() {
 	Expect(postgresSQL).NotTo(BeNil())
 
 	By("Adding the controllers to the manager")
-	Expect(specctrl.AddManagedHubController(mgr)).Should(Succeed())
 	Expect(spec2db.AddSpec2DBControllers(mgr)).Should(Succeed())
 	go func() {
 		defer GinkgoRecover()
