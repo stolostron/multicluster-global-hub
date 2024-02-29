@@ -68,13 +68,6 @@ func (h *hubManagement) Start(ctx context.Context) error {
 func (h *hubManagement) update(ctx context.Context) error {
 	thresholdTime := time.Now().Add(-h.activeTimeout)
 	db := database.GetGorm()
-	conn := database.GetConn()
-
-	err := database.Lock(conn)
-	if err != nil {
-		return err
-	}
-	defer database.Unlock(conn)
 	var expiredHubs []models.LeafHubHeartbeat
 	if err := db.Where("last_timestamp < ? AND status = ?", thresholdTime, HubActive).
 		Find(&expiredHubs).Error; err != nil {

@@ -29,10 +29,10 @@ var (
 	// It is used:
 	// - to setup/close connection because GORM V2 removed gorm.Close()
 	// - to work with pq.CopyIn because connection returned by GORM V2 gorm.DB() in "not the same"
-	sqlDB *sql.DB
-	log   = ctrl.Log.WithName("database-controller")
-
-	ctx = context.Background()
+	sqlDB    *sql.DB
+	log      = ctrl.Log.WithName("database-controller")
+	lockConn *sql.Conn
+	ctx      = context.Background()
 )
 
 type DatabaseConfig struct {
@@ -111,12 +111,15 @@ func GetConn() *sql.Conn {
 	if !IsBackupEnabled {
 		return nil
 	}
-	conn, err := sqlDB.Conn(ctx)
-	if err != nil {
-		log.Error(nil, "sql connection is not initialized")
-		return nil
+	var err error
+	if lockConn == nil {
+		lockConn, err = sqlDB.Conn(ctx)
+		if err != nil {
+			log.Error(nil, "sql connection is not initialized")
+			return nil
+		}
 	}
-	return conn
+	return lockConn
 }
 
 func Lock(lockConn *sql.Conn) error {

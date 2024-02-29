@@ -56,32 +56,38 @@ func (worker *Worker) start(ctx context.Context) {
 			return
 
 		case job := <-worker.jobsQueue: // DBWorker received a job request.
-			startTime := time.Now()
-			conn := database.GetConn()
-
-			err := database.Lock(conn)
-			if err != nil {
-				worker.log.Error(err, "failed to get db lock")
-				database.Unlock(conn)
-				continue
-			}
-			err = job.handlerFunc(ctx, job.bundle) // db connection released to pool when done
-			database.Unlock(conn)
-
-			worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
-			job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
-
-			if err != nil {
-				worker.log.Error(err, "worker fails to process the DB job", "LeafHubName", job.bundle.GetLeafHubName(),
-					"WorkerID", worker.workerID,
-					"BundleType", bundle.GetBundleType(job.bundle),
-					"Version", job.bundle.GetVersion().String())
-			} else {
-				worker.log.V(2).Info("worker processes the DB job successfully", "LeafHubName", job.bundle.GetLeafHubName(),
-					"WorkerID", worker.workerID,
-					"BundleType", bundle.GetBundleType(job.bundle),
-					"Version", job.bundle.GetVersion().String())
-			}
+			worker.handleJob(ctx, job)
 		}
+	}
+}
+
+func (worker *Worker) handleJob(ctx context.Context, job *DBJob) {
+	startTime := time.Now()
+	conn := database.GetConn()
+
+	err := database.Lock(conn)
+
+	defer database.Unlock(conn)
+
+	if err != nil {
+		worker.log.Error(err, "failed to get db lock")
+		return
+	}
+
+	err = job.handlerFunc(ctx, job.bundle) // db connection released to pool when done
+
+	worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
+	job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
+
+	if err != nil {
+		worker.log.Error(err, "worker fails to process the DB job", "LeafHubName", job.bundle.GetLeafHubName(),
+			"WorkerID", worker.workerID,
+			"BundleType", bundle.GetBundleType(job.bundle),
+			"Version", job.bundle.GetVersion().String())
+	} else {
+		worker.log.V(2).Info("worker processes the DB job successfully", "LeafHubName", job.bundle.GetLeafHubName(),
+			"WorkerID", worker.workerID,
+			"BundleType", bundle.GetBundleType(job.bundle),
+			"Version", job.bundle.GetVersion().String())
 	}
 }
