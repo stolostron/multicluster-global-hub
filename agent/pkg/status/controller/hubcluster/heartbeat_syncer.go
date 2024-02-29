@@ -16,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
+	genericdata "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -116,7 +117,8 @@ func (s *heartbeatStatusSyncer) syncBundle(ctx context.Context) {
 }
 
 func LaunchHubClusterHeartbeatSyncer(mgr ctrl.Manager, producer transport.Producer,
-	interval func() time.Duration) error {
+	interval func() time.Duration,
+) error {
 	return generic.LaunchGenericEventSyncer(
 		"status.hub_cluster_heartbeat",
 		mgr,
@@ -156,7 +158,7 @@ func (s *heartbeatEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 	e.SetSource(config.GetLeafHubName())
 	e.SetType(string(s.eventType))
 	e.SetExtension(metadata.ExtVersion, s.currentVersion.String())
-	err := e.SetData(cloudevents.ApplicationJSON, nil)
+	err := e.SetData(cloudevents.ApplicationJSON, genericdata.GenericObjectData{})
 	return &e, err
 }
 

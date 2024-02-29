@@ -89,6 +89,7 @@ func (s *genericEventSyncer) syncEvent() {
 		evt, err := s.emitter.ToCloudEvent()
 		if err != nil {
 			s.log.Error(err, "failed to get CloudEvent instance", "evt", evt)
+			return
 		}
 
 		ctx := context.TODO()
