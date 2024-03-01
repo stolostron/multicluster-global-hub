@@ -49,7 +49,8 @@ func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) 
 		return err
 	}
 
-	for _, managedHub := range clusters.Items {
+	for idx := range clusters.Items {
+		managedHub := &clusters.Items[idx]
 		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
@@ -73,10 +74,9 @@ func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) 
 		if !toUpdate {
 			continue
 		}
-
 		r.Log.Info("remove annotations/finalizer from cluster", "cluster", managedHub.GetName(),
 			"annotation", managedHub.Annotations, "finalizers", managedHub.Finalizers)
-		if err := r.Update(ctx, &managedHub, &client.UpdateOptions{}); err != nil {
+		if err := r.Update(ctx, managedHub, &client.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
