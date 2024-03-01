@@ -28,7 +28,7 @@ func AddManagedHubController(mgr ctrl.Manager) error {
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return !filterManagedHub(e.ObjectNew) &&
-				e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion()
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return !filterManagedHub(e.Object)
