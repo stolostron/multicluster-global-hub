@@ -10,7 +10,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -33,10 +32,6 @@ func AddGlobalResourceSpecSyncers(mgr ctrl.Manager,
 	}
 
 	return nil
-}
-
-func AddBasicSpecSyncers(mgr ctrl.Manager) error {
-	return controller.AddManagedHubController(mgr)
 }
 
 // SendSyncAllMsgInfo send a constants.ResyncMsgKey bundle in manager start.
