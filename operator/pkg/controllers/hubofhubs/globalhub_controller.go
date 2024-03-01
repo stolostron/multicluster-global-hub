@@ -173,6 +173,12 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	// Upgrade from release-2.10
+	if err := r.upgrade(ctx); err != nil {
+		r.Log.Error(err, "failed to upgrade from release-2.10")
+		return ctrl.Result{}, err
+	}
+
 	// Deleting the multiclusterglobalhub instance
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
 		if err := r.pruneGlobalHubResources(ctx, mgh); err != nil {

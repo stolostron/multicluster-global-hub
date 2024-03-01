@@ -6,10 +6,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -49,35 +49,24 @@ func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) 
 		return err
 	}
 
-	for idx := range clusters.Items {
-		managedHub := &clusters.Items[idx]
+	for idx, managedHub := range clusters.Items {
 		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
-
-		toUpdate := false
-		annotations := managedHub.GetAnnotations()
-		if _, ok := annotations[constants.AnnotationONMulticlusterHub]; ok {
-			delete(annotations, constants.AnnotationONMulticlusterHub)
-			toUpdate = true
-		}
-		if _, ok := annotations[constants.AnnotationPolicyONMulticlusterHub]; ok {
-			delete(annotations, constants.AnnotationPolicyONMulticlusterHub)
-			toUpdate = true
-		}
-		if utils.Contains(managedHub.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
-			managedHub.SetFinalizers(operatorutils.Remove(managedHub.GetFinalizers(),
-				commonconstants.GlobalHubCleanupFinalizer))
-			toUpdate = true
-		}
-
-		if !toUpdate {
+		orgAnnotations := managedHub.GetAnnotations()
+		if orgAnnotations == nil {
 			continue
 		}
-		r.Log.Info("remove annotations/finalizer from cluster", "cluster", managedHub.GetName(),
-			"annotation", managedHub.Annotations, "finalizers", managedHub.Finalizers)
-		if err := r.Update(ctx, managedHub, &client.UpdateOptions{}); err != nil {
-			return err
+		annotations := make(map[string]string, len(orgAnnotations))
+		utils.CopyMap(annotations, managedHub.GetAnnotations())
+
+		delete(orgAnnotations, constants.AnnotationONMulticlusterHub)
+		delete(orgAnnotations, constants.AnnotationPolicyONMulticlusterHub)
+		_ = controllerutil.RemoveFinalizer(&clusters.Items[idx], commonconstants.GlobalHubCleanupFinalizer)
+		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
+			if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
+				return err
+			}
 		}
 	}
 
