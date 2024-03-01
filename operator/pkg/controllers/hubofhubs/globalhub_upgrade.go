@@ -5,10 +5,9 @@ import (
 
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -24,11 +23,8 @@ func (r *MulticlusterGlobalHubReconciler) upgrade(ctx context.Context) error {
 			continue
 		}
 
-		if utils.Contains(managedHub.GetFinalizers(), commonconstants.GlobalHubCleanupFinalizer) {
-			managedHub.SetFinalizers(operatorutils.Remove(managedHub.GetFinalizers(),
-				commonconstants.GlobalHubCleanupFinalizer))
-			r.Log.Info("remove cleanup finalizer from cluster", "cluster", managedHub.GetName(),
-				"finalizers", managedHub.Finalizers)
+		if ok := controllerutil.RemoveFinalizer(managedHub, commonconstants.GlobalHubCleanupFinalizer); ok {
+			r.Log.Info("remove finalizer from cluster", "cluster", managedHub.GetName(), "finalizers", managedHub.Finalizers)
 			if err := r.Update(ctx, managedHub, &client.UpdateOptions{}); err != nil {
 				return err
 			}
