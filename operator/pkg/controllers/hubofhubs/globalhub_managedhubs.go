@@ -6,10 +6,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -51,7 +51,6 @@ func (r *MulticlusterGlobalHubReconciler) pruneManagedHubs(ctx context.Context) 
 
 	for idx := range clusters.Items {
 		managedHub := &clusters.Items[idx]
-
 		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
