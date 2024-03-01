@@ -77,6 +77,11 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	err = testpostgres.InitDatabase(testPostgres.URI)
+	if err != nil {
+		panic(err)
+	}
+
 	// run testings
 	code := m.Run()
 
