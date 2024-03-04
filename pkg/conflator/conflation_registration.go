@@ -14,14 +14,14 @@ type BundleHandlerFunc func(context.Context, bundle.ManagerBundle) error
 // ConflationRegistration is used to register a new conflated bundle type along with its priority and handler function.
 type ConflationRegistration struct {
 	priority        ConflationPriority
-	syncMode        metadata.BundleSyncMode
+	syncMode        metadata.EventSyncMode
 	bundleType      string
 	handlerFunction BundleHandlerFunc
 	dependency      *dependency.Dependency
 }
 
 // NewConflationRegistration creates a new instance of ConflationRegistration.
-func NewConflationRegistration(priority ConflationPriority, syncMode metadata.BundleSyncMode, bundleType string,
+func NewConflationRegistration(priority ConflationPriority, syncMode metadata.EventSyncMode, bundleType string,
 	handlerFunction BundleHandlerFunc,
 ) *ConflationRegistration {
 	return &ConflationRegistration{

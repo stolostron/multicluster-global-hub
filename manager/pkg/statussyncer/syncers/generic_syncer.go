@@ -33,7 +33,7 @@ type genericStatusSyncer struct {
 
 	createBundleFunc func() bundle.ManagerBundle
 	bundlePriority   conflator.ConflationPriority
-	bundleSyncMode   metadata.BundleSyncMode
+	bundleSyncMode   metadata.EventSyncMode
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.

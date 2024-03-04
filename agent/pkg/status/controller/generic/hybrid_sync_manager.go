@@ -17,8 +17,8 @@ var errExpectingDeltaStateBundle = errors.New("expecting a BundleCollectionEntry
 // won't get collected by the GC since callbacks are used.
 type HybridSyncManager struct {
 	log                        logr.Logger
-	activeSyncMode             metadata.BundleSyncMode
-	bundleCollectionEntryMap   map[metadata.BundleSyncMode]*BundleEntry
+	activeSyncMode             metadata.EventSyncMode
+	bundleCollectionEntryMap   map[metadata.EventSyncMode]*BundleEntry
 	deltaStateBundle           bundle.AgentDeltaBundle
 	sentDeltaCountSwitchFactor int
 	sentDeltaCount             int
@@ -39,7 +39,7 @@ func NewHybridSyncManager(log logr.Logger, completeStateBundleCollectionEntry *B
 	hybridSyncManager := &HybridSyncManager{
 		log:            log,
 		activeSyncMode: metadata.CompleteStateMode,
-		bundleCollectionEntryMap: map[metadata.BundleSyncMode]*BundleEntry{
+		bundleCollectionEntryMap: map[metadata.EventSyncMode]*BundleEntry{
 			metadata.CompleteStateMode: completeStateBundleCollectionEntry,
 			metadata.DeltaStateMode:    deltaStateBundleCollectionEntry,
 		},
@@ -53,7 +53,7 @@ func NewHybridSyncManager(log logr.Logger, completeStateBundleCollectionEntry *B
 	return hybridSyncManager, nil
 }
 
-func (manager *HybridSyncManager) GetBundleCollectionEntry(syncMode metadata.BundleSyncMode) *BundleEntry {
+func (manager *HybridSyncManager) GetBundleCollectionEntry(syncMode metadata.EventSyncMode) *BundleEntry {
 	return manager.bundleCollectionEntryMap[syncMode]
 }
 

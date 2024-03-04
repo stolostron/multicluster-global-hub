@@ -2,10 +2,11 @@ package workerpool
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
@@ -61,7 +62,7 @@ func (worker *Worker) start(ctx context.Context) {
 }
 
 func (worker *Worker) handleJob(ctx context.Context, job *DBJob) {
-	// startTime := time.Now()
+	startTime := time.Now()
 	conn := database.GetConn()
 
 	err := database.Lock(conn)
@@ -73,20 +74,36 @@ func (worker *Worker) handleJob(ctx context.Context, job *DBJob) {
 		return
 	}
 
-	err = job.handlerFunc(ctx, job.bundle) // db connection released to pool when done
+	// handle the event until it's metadata is marked as processed
+	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
+		func(ctx context.Context) (bool, error) {
+			err = job.handleFunc(ctx, job.event) // db connection released to pool when done
+			if err != nil {
+				job.eventMetadata.MarkAsUnprocessed()
+				worker.log.Error(err, "failed to handle event", "type", job.event.Type())
+			} else {
+				job.eventMetadata.MarkAsProcessed()
+			}
+			// retrying
+			if !job.eventMetadata.Processed() {
+				return false, nil
+			}
+			// success or up to retry threshold
+			return job.eventMetadata.Processed(), err
+		})
 
-	// worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
-	job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
+	worker.statistics.AddDatabaseMetrics(job.event, time.Since(startTime), err)
+	job.conflationUnitResultReporter.ReportResult(job.eventMetadata, err)
 
 	if err != nil {
-		worker.log.Error(err, "worker fails to process the DB job", "LeafHubName", job.bundle.GetLeafHubName(),
+		worker.log.Error(err, "fails to process the DB job", "LF", job.event.Source(),
 			"WorkerID", worker.workerID,
-			"BundleType", bundle.GetBundleType(job.bundle),
-			"Version", job.bundle.GetVersion().String())
+			"type", job.event.Type(),
+			"version", job.eventMetadata.Version())
 	} else {
-		worker.log.V(2).Info("worker processes the DB job successfully", "LeafHubName", job.bundle.GetLeafHubName(),
+		worker.log.V(2).Info("handle the DB job successfully", "LF", job.event.Source(),
 			"WorkerID", worker.workerID,
-			"BundleType", bundle.GetBundleType(job.bundle),
-			"Version", job.bundle.GetVersion().String())
+			"type", job.event.Type(),
+			"version", job.eventMetadata.Version())
 	}
 }

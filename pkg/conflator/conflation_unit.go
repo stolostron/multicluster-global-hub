@@ -50,7 +50,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]ConflationPriority)
 
-	createBundleInfoFuncMap := map[metadata.BundleSyncMode]createBundleInfoFunc{
+	createBundleInfoFuncMap := map[metadata.EventSyncMode]createBundleInfoFunc{
 		metadata.DeltaStateMode:    newDeltaConflationBundle,
 		metadata.CompleteStateMode: newCompleteConflationBundle,
 	}
@@ -123,7 +123,7 @@ func (cu *ConflationUnit) insert(insertBundle bundle.ManagerBundle, bundleStatus
 	}
 
 	// start conflation unit metric for specific bundle type - overwrite it each time new bundle arrives
-	cu.statistics.StartConflationUnitMetrics(insertBundle)
+	// cu.statistics.StartConflationUnitMetrics(insertBundle)
 
 	// if we got here, we got bundle with newer version
 	// update the bundle in the priority queue.
@@ -154,7 +154,7 @@ func (cu *ConflationUnit) GetNext() (bundle.ManagerBundle, *ConflationBundleMeta
 	conflationElement.isInProcess = true
 
 	// stop conflation unit metric for specific bundle type - evaluated once bundle is fetched from the priority queue
-	cu.statistics.StopConflationUnitMetrics(conflationElement.conflationBundle.getBundle(), nil)
+	// cu.statistics.StopConflationUnitMetrics(conflationElement.conflationBundle.getBundle(), nil)
 
 	bundleToProcess, bundleMetadata := conflationElement.getBundleForProcessing()
 

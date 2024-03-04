@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
@@ -18,13 +17,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
-	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
+)
+
+var (
+	transportID string
 )
 
 type GenericConsumer struct {
@@ -32,7 +33,7 @@ type GenericConsumer struct {
 	client               cloudevents.Client
 	assembler            *messageAssembler
 	messageChan          chan *transport.Message
-	eventChan            chan cloudevents.Event
+	eventChan            chan *cloudevents.Event
 	consumeTopics        []string
 	clusterIdentity      string
 	enableDatabaseOffset bool
@@ -74,10 +75,10 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 		if tranConfig.Extends == nil {
 			tranConfig.Extends = make(map[string]interface{})
 		}
-		if _, found := tranConfig.Extends[string(transport.Chan)]; !found {
-			tranConfig.Extends[string(transport.Chan)] = gochan.New()
+		if _, found := tranConfig.Extends[topics[0]]; !found {
+			tranConfig.Extends[topics[0]] = gochan.New()
 		}
-		receiver = tranConfig.Extends[string(transport.Chan)]
+		receiver = tranConfig.Extends[topics[0]]
 		clusterIdentity = "kafka-cluster-chan"
 	default:
 		return nil, fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
@@ -93,7 +94,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 		client:               client,
 		clusterIdentity:      clusterIdentity,
 		messageChan:          make(chan *transport.Message),
-		eventChan:            make(chan cloudevents.Event),
+		eventChan:            make(chan *cloudevents.Event),
 		assembler:            newMessageAssembler(),
 		enableDatabaseOffset: false,
 		enableEventChan:      true,
@@ -102,6 +103,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 	if err := c.applyOptions(opts...); err != nil {
 		return nil, err
 	}
+	transportID = clusterIdentity
 	return c, nil
 }
 
@@ -128,34 +130,18 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	}
 
 	err := c.client.StartReceiver(receiveContext, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
-		c.log.V(2).Info("received message and forward to bundle channel", "event.ID", event.ID())
-
-		if c.enableEventChan {
-			topic, ok := event.Extensions()[kafka_confluent.KafkaTopicKey]
-			if !ok || topic == transport.GenericEventTopic {
-				c.eventChan <- event
-				return ceprotocol.ResultACK
-			}
-		}
-		if strings.HasPrefix(event.Type(), enum.EventTypePrefix) {
-			c.eventChan <- event
-			return ceprotocol.ResultACK
-		}
-
-		transportMessage := &transport.Message{}
-		transportMessage.Key = event.ID()
-		transportMessage.MsgType = event.Type()
-		transportMessage.Destination = event.Source()
-		transportMessage.BundleStatus = status.NewThresholdBundleStatus(c.clusterIdentity, 3, event)
+		c.log.V(2).Info("received message", "event.Source", event.Source(), "event.Type", event.Type())
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
-			transportMessage.Payload = event.Data()
-			c.messageChan <- transportMessage
+			c.eventChan <- &event
 		}
 		if payload := c.assembler.assemble(chunk); payload != nil {
-			transportMessage.Payload = payload
-			c.messageChan <- transportMessage
+			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {
+				c.log.Error(err, "failed the set the assembled data to event")
+			} else {
+				c.eventChan <- &event
+			}
 		}
 		return ceprotocol.ResultACK
 	})
@@ -170,7 +156,7 @@ func (c *GenericConsumer) MessageChan() chan *transport.Message {
 	return c.messageChan
 }
 
-func (c *GenericConsumer) EventChan() chan cloudevents.Event {
+func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
 	return c.eventChan
 }
 
@@ -221,4 +207,8 @@ func getConfluentReceiverProtocol(transportConfig *transport.TransportConfig, to
 
 	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
 		kafka_confluent.WithReceiverTopics(topics))
+}
+
+func TransportID() string {
+	return transportID
 }

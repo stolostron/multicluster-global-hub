@@ -9,8 +9,8 @@ import (
 	"github.com/go-co-op/gocron"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )

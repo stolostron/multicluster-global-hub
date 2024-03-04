@@ -37,6 +37,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/backup"
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
@@ -260,13 +261,13 @@ func createManager(ctx context.Context,
 		}
 	}
 
-	// Send the resend message when manager start.
-	if err = specsyncer.SendSyncAllMsgInfo(producer); err != nil {
-		return nil, fmt.Errorf("failed to add resyncer: %w", err)
+	if err := statussyncer.AddStatusSyncers(mgr, managerConfig, producer); err != nil {
+		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
-	if _, err := statussyncer.AddStatusSyncers(mgr, managerConfig, producer); err != nil {
-		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
+	// add hub management
+	if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
+		return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 	}
 
 	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {

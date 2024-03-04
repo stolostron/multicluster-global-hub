@@ -179,7 +179,7 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		}, ctrl.Log.WithName("kafka-consumer"), "status")
 		Expect(err).NotTo(HaveOccurred())
 
-		stats := statistics.NewStatistics(&statistics.StatisticsConfig{}, []string{"ManagedClustersStatusBundle"})
+		stats := statistics.NewStatistics(&statistics.StatisticsConfig{})
 		conflationReadyQueue := conflator.NewConflationReadyQueue(stats)
 		conflationManager := conflator.NewConflationManager(
 			conflationReadyQueue, stats) // manage all Conflation Units
