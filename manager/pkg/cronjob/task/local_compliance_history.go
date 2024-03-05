@@ -164,7 +164,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 					ORDER BY policy_id, cluster_id 
 					LIMIT %d OFFSET %d
 				)
-			ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING
+			ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date) DO NOTHING
 		`
 			if enableSimulation {
 				selectInsertSQLTemplate = `
@@ -183,7 +183,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 							ORDER BY policy_id, cluster_id 
 							LIMIT %d OFFSET %d
 						)
-					ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING;
+					ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date) DO NOTHING;
 				end;
 				$$;
 			`
