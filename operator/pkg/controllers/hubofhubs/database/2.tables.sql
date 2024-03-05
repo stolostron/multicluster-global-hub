@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS history.local_compliance (
     compliance_date DATE DEFAULT (CURRENT_DATE - INTERVAL '1 day') NOT NULL, 
     compliance local_status.compliance_type NOT NULL,
     compliance_changed_frequency integer NOT NULL DEFAULT 0,
-    CONSTRAINT local_policies_unique_constraint UNIQUE (policy_id, cluster_id, compliance_date)
+    CONSTRAINT local_policies_unique_constraint UNIQUE (leaf_hub_name, policy_id, cluster_id, compliance_date)
 ) PARTITION BY RANGE (compliance_date);
 
 CREATE TABLE IF NOT EXISTS history.local_compliance_job_log (
