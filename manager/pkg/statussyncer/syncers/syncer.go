@@ -1,12 +1,7 @@
 package dbsyncer
 
 import (
-	"context"
-
-	cloudevents "github.com/cloudevents/sdk-go/v2"
-
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
 )
 
@@ -22,8 +17,8 @@ type Syncer interface {
 	RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager)
 }
 
+// Handler interface for registering business logic needed for handling bundles.
 type Handler interface {
-	Type() enum.EventType
-	Priority() conflator.ConflationPriority
-	Handle(ctx context.Context, evt cloudevents.Event) error
+	// RegisterHandler registers event handler functions within the conflation manager.
+	RegisterHandler(conflationManager *conflator.ConflationManager)
 }

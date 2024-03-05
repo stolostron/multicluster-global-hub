@@ -9,6 +9,7 @@ const (
 	HubClusterHeartbeatType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat"
 	ManagedClusterType      EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
 	SubscriptionReportType  EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.report"
+	SubscriptionStatusType  EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.status"
 
 	//nolint: go:S103
 	LocalComplianceType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompliance"
@@ -18,6 +19,9 @@ const (
 	ComplianceType              EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.compliance"
 	//nolint: go:S103
 	CompleteComplianceType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.completecompliance"
+
+	DeltaComplianceType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.deltacompliance"
+	MiniComplianceType  EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.minicompliance"
 
 	//nolint: go:S103
 	LocalReplicatedPolicyEventType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.event.localreplicatedpolicy.update"

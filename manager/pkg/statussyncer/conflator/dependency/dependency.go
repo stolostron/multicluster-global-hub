@@ -1,15 +1,15 @@
 package dependency
 
 // NewDependency creates a new instance of dependency.
-func NewDependency(bundleType string, dependencyType dependencyType) *Dependency {
+func NewDependency(eventType string, dependencyType DependencyType) *Dependency {
 	return &Dependency{
-		BundleType:     bundleType,
+		EventType:      eventType,
 		DependencyType: dependencyType,
 	}
 }
 
 // Dependency represents the dependency between different bundles. a bundle can depend only on one other bundle.
 type Dependency struct {
-	BundleType     string
-	DependencyType dependencyType
+	EventType      string
+	DependencyType DependencyType
 }

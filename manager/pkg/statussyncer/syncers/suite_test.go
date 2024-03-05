@@ -20,7 +20,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -122,9 +121,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kubeClient).NotTo(BeNil())
 
-	By("Add controllers to manager")
-	transportDispatcher, err = statussyncer.AddStatusSyncers(mgr, managerConfig, nil)
-	Expect(err).ToNot(HaveOccurred())
+	// By("Add controllers to manager")
+	// transportDispatcher, err = statussyncer.AddStatusSyncers(mgr, managerConfig, nil)
+	// Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")
 	go func() {

@@ -13,6 +13,6 @@ type ReplicatedPolicyEvent struct {
 	Compliance string `json:"compliance"`
 }
 
-type ReplicatedPolicyEventPayload []ReplicatedPolicyEvent
+type ReplicatedPolicyEventData []ReplicatedPolicyEvent
 
 type PolicyEventPayload []RootPolicyEvent

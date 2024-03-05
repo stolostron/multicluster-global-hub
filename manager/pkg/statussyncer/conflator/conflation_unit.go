@@ -7,6 +7,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/dependency"
 	bundlemetadata "github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
@@ -229,10 +230,10 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	dependencyElement := cu.priorityQueue[dependencyIndex]
 
 	switch conflationElement.dependency.DependencyType {
-	case ExactMatch:
+	case dependency.ExactMatch:
 		return conflationElement.metadata.DependencyVersion().EqualValue(dependencyElement.lastProcessedVersion)
 
-	case AtLeast:
+	case dependency.AtLeast:
 		fallthrough // default case is AtLeast
 
 	default:

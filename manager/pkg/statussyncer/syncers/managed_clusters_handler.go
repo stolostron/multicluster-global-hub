@@ -4,67 +4,59 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
-	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-// ManagedClustersDBSyncer implements managed clusters db sync business logic.
-type ManagedClustersDBSyncer struct {
-	log              logr.Logger
-	createBundleFunc CreateBundleFunction
+type managedClusterEventHandler struct {
+	log           logr.Logger
+	eventType     string
+	eventSyncMode metadata.EventSyncMode
+	eventPriority conflator.ConflationPriority
 }
 
-// NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
-func NewManagedClustersDBSyncer(log logr.Logger) Syncer {
-	return &ManagedClustersDBSyncer{
-		log:              log,
-		createBundleFunc: cluster.NewManagerManagedClusterBundle,
+func NewManagedClusterEventHandler() Handler {
+	eventType := string(enum.ManagedClusterType)
+	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	return &managedClusterEventHandler{
+		log:           ctrl.Log.WithName(logName),
+		eventType:     eventType,
+		eventSyncMode: metadata.CompleteStateMode,
+		eventPriority: conflator.ManagedClustersPriority,
 	}
 }
 
-// RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(dispatcher BundleRegisterable) {
-	dispatcher.BundleRegister(&registration.BundleRegistration{
-		MsgID:            constants.ManagedClustersMsgKey,
-		CreateBundleFunc: syncer.createBundleFunc,
-		Predicate:        func() bool { return true }, // always get managed clusters bundles
-	})
-}
-
-// RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
-// handler function need to do "diff" between objects received in the bundle and the objects in database.
-// leaf hub sends only the current existing objects, and status transport bridge should understand implicitly which
-// objects were deleted.
-// therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the database.
-// for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
-// and if the object was changed, update the db with the current object.
-func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
+func (h *managedClusterEventHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.ManagedClustersPriority,
-		metadata.CompleteStateMode,
-		bundle.GetBundleType(syncer.createBundleFunc()),
-		func(ctx context.Context, bundle bundle.ManagerBundle) error {
-			return syncer.handleManagedClustersBundle(ctx, bundle)
-		},
+		h.eventPriority,
+		h.eventSyncMode,
+		h.eventType,
+		h.handleEvent,
 	))
 }
 
-func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.ManagerBundle,
-) error {
-	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
-	leafHubName := bundle.GetLeafHubName()
+func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
+	version := evt.Extensions()[metadata.ExtVersion]
+	leafHubName := evt.Source()
+	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+
+	data := generic.GenericObjectData{}
+	if err := evt.DataAs(data); err != nil {
+		return err
+	}
 
 	db := database.GetGorm()
 	clusterIdToVersionMapFromDB, err := getClusterIdToVersionMap(db, leafHubName)
@@ -72,9 +64,9 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 		return fmt.Errorf("failed fetching leaf hub managed clusters from db - %w", err)
 	}
 
-	// batch upsert managed clusters
-	batchUpsertClusters := []models.ManagedCluster{}
-	for _, object := range bundle.GetObjects() {
+	// batch update/insert managed clusters
+	batchManagedClusters := []models.ManagedCluster{}
+	for _, object := range data {
 		cluster, ok := object.(*clusterv1.ManagedCluster)
 		if !ok {
 			continue
@@ -99,7 +91,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 
 		clusterVersionFromDB, exist := clusterIdToVersionMapFromDB[clusterId]
 		if !exist {
-			batchUpsertClusters = append(batchUpsertClusters, models.ManagedCluster{
+			batchManagedClusters = append(batchManagedClusters, models.ManagedCluster{
 				ClusterID:   clusterId,
 				LeafHubName: leafHubName,
 				Payload:     payload,
@@ -115,7 +107,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			continue // update cluster in db only if what we got is a different (newer) version of the resource
 		}
 
-		batchUpsertClusters = append(batchUpsertClusters, models.ManagedCluster{
+		batchManagedClusters = append(batchManagedClusters, models.ManagedCluster{
 			ClusterID:   clusterId,
 			LeafHubName: leafHubName,
 			Payload:     payload,
@@ -124,7 +116,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	}
 	err = db.Clauses(clause.OnConflict{
 		UpdateAll: true,
-	}).CreateInBatches(batchUpsertClusters, 100).Error
+	}).CreateInBatches(batchManagedClusters, 100).Error
 	if err != nil {
 		return err
 	}
@@ -148,7 +140,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 		return fmt.Errorf("failed deleting managed clusters - %w", err)
 	}
 
-	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
+	h.log.V(2).Info(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }
 

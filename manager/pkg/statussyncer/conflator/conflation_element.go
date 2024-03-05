@@ -5,6 +5,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
 
@@ -14,7 +15,7 @@ type conflationElement struct {
 	event                *cloudevents.Event
 	metadata             ConflationMetadata
 	handlerFunction      EventHandleFunc
-	dependency           *Dependency
+	dependency           *dependency.Dependency
 	isInProcess          bool
 	lastProcessedVersion *metadata.BundleVersion
 }

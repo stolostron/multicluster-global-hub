@@ -261,7 +261,7 @@ func createManager(ctx context.Context,
 		}
 	}
 
-	if err := statussyncer.AddStatusSyncers(mgr, managerConfig, producer); err != nil {
+	if err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 

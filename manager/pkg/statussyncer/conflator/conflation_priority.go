@@ -15,6 +15,7 @@ const (
 	LocalPolicySpecPriority            ConflationPriority = iota
 	LocalCompliancePriority            ConflationPriority = iota
 	LocalCompleteCompliancePriority    ConflationPriority = iota
+	LocalEventRootPolicyPriority       ConflationPriority = iota
 	LocalReplicatedPolicyEventPriority ConflationPriority = iota
 
 	// enable global resource

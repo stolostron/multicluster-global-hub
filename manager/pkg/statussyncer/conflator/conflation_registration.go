@@ -5,6 +5,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
 
@@ -17,7 +18,7 @@ type ConflationRegistration struct {
 	syncMode   metadata.EventSyncMode
 	eventType  string
 	handleFunc EventHandleFunc
-	dependency *Dependency
+	dependency *dependency.Dependency
 }
 
 // NewConflationRegistration creates a new instance of ConflationRegistration.
@@ -34,31 +35,7 @@ func NewConflationRegistration(priority ConflationPriority, syncMode metadata.Ev
 }
 
 // WithDependency declares a dependency required by the given bundle type.
-func (registration *ConflationRegistration) WithDependency(dependency *Dependency) *ConflationRegistration {
-	registration.dependency = dependency
+func (registration *ConflationRegistration) WithDependency(val *dependency.Dependency) *ConflationRegistration {
+	registration.dependency = val
 	return registration
 }
-
-// NewDependency creates a new instance of dependency.
-func NewDependency(eventType string, dependencyType dependencyType) *Dependency {
-	return &Dependency{
-		EventType:      eventType,
-		DependencyType: dependencyType,
-	}
-}
-
-// Dependency represents the dependency between different bundles. a bundle can depend only on one other bundle.
-type Dependency struct {
-	EventType      string
-	DependencyType dependencyType
-}
-
-type dependencyType string
-
-const (
-	// ExactMatch used to specify that dependant bundle requires the exact version of the dependency to be the
-	// last processed bundle.
-	ExactMatch dependencyType = "ExactMatch"
-	// AtLeast used to specify that dependant bundle requires at least some version of the dependency to be processed.
-	AtLeast dependencyType = "AtLeast"
-)
