@@ -62,7 +62,7 @@ spec:
     The Operator also deploys the strimzi kafka and crunchy postgres if you do not bring your own kafka and postgres.
 
     ## Prerequisites
-    - Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.7 or later needs to be installed.
+    - Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.8 or later needs to be installed.
 
     ## How to Install
     Install the Multicluster Global Hub Operator by following the instructions that are displayed after you select the Install button.
