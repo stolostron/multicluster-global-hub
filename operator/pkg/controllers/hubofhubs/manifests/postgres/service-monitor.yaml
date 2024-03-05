@@ -1,0 +1,17 @@
+{{- if .EnableMetrics }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-postgres-exporter
+  namespace: {{.Namespace}}
+spec:
+  endpoints:
+  - targetPort: http
+  jobLabel: prometheus-postgres-exporter
+  namespaceSelector:
+    matchNames:
+    - multicluster-global-hub
+  selector:
+    matchLabels:
+      name: multicluster-global-hub-postgres
+{{- end }}

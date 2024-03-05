@@ -116,11 +116,14 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 				ImagePullPolicy              string
 				NodeSelector                 map[string]string
 				Tolerations                  []corev1.Toleration
+				PostgresAdminUser            string
 				PostgresAdminUserPassword    string
 				PostgresReadonlyUsername     string
 				PostgresReadonlyUserPassword string
+				PostgresURI                  string
 				StorageClass                 string
 				Resources                    *corev1.ResourceRequirements
+				EnableMetrics                bool
 			}{
 				Namespace:                    mgh.GetNamespace(),
 				PostgresImage:                config.GetImage(config.PostgresImageKey),
@@ -129,12 +132,16 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 				NodeSelector:                 mgh.Spec.NodeSelector,
 				Tolerations:                  mgh.Spec.Tolerations,
 				StorageSize:                  config.GetPostgresStorageSize(mgh),
+				PostgresAdminUser:            postgresAdminUsername,
 				PostgresAdminUserPassword:    credential.postgresAdminUserPassword,
 				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
 				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
 				StorageClass:                 mgh.Spec.DataLayer.StorageClass,
+				PostgresURI: "multicluster-global-hub-postgres." +
+					utils.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=disable",
 				Resources: operatorutils.GetResources(operatorconstants.Postgres,
 					mgh.Spec.AdvancedConfig),
+				EnableMetrics: mgh.Spec.EnableMetrics,
 			}, nil
 		})
 	if err != nil {

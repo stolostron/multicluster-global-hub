@@ -21,6 +21,15 @@ data:
                 },
                 "orgId": 1,
                 "type": "file"
+            },
+            {
+                "folder": "Postgres",
+                "name": "2",
+                "options": {
+                    "path": "/grafana-dashboards/2"
+                },
+                "orgId": 1,
+                "type": "file"
             }
         ]
     }

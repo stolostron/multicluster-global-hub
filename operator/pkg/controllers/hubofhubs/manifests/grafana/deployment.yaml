@@ -99,6 +99,8 @@ spec:
           name: grafana-dashboard-acm-strimzi-operator
         - mountPath: /grafana-dashboards/1/global-hub-strimzi-zookeeper
           name: grafana-dashboard-acm-strimzi-zookeeper
+        - mountPath: /grafana-dashboards/2/acm-global-postgres-exporter
+          name: grafana-dashboard-acm-global-postgres-exporter
         {{- end }}
         - mountPath: /etc/grafana
           name: grafana-config
@@ -219,6 +221,10 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-strimzi-zookeeper
         name: grafana-dashboard-acm-strimzi-zookeeper
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-global-postgres-exporter
+        name: grafana-dashboard-acm-global-postgres-exporter
       {{- end }}
       - name: grafana-config
         secret:
