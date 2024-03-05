@@ -79,8 +79,13 @@ BEGIN
                     WHEN bool_and(compliance = ''compliant'') THEN ''compliant''
                     ELSE ''non_compliant''
                 END::local_status.compliance_type AS aggregated_compliance
-            FROM event.local_policies
-            WHERE created_at BETWEEN %1$L::date AND %2$L::date
+            FROM event.local_policies lp
+            WHERE created_at BETWEEN %1$L::date AND %2$L::date 
+              AND EXISTS (
+                SELECT 1
+                FROM status.leaf_hubs lh
+                WHERE lh.leaf_hub_name = lp.leaf_hub_name
+              )
             GROUP BY cluster_id, policy_id, leaf_hub_name
         )
         SELECT policy_id, cluster_id, leaf_hub_name, %1$L, aggregated_compliance,

@@ -253,8 +253,15 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, totalCount
 									WHEN bool_or(compliance = 'unknown') THEN 'unknown'
 									ELSE 'compliant'
 							END::local_status.compliance_type AS aggregated_compliance
-					FROM event.local_policies
-					WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
+					FROM 
+						event.local_policies lp
+					WHERE 
+						created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
+						AND EXISTS (
+							SELECT 1
+							FROM status.leaf_hubs lh
+							WHERE lh.leaf_hub_name = lp.leaf_hub_name
+						)
 					GROUP BY cluster_id, policy_id, leaf_hub_name
 			)
 			SELECT policy_id, cluster_id, leaf_hub_name, (CURRENT_DATE - INTERVAL '%d day'), aggregated_compliance,
