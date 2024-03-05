@@ -77,6 +77,11 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	err = testpostgres.InitDatabase(testPostgres.URI)
+	if err != nil {
+		panic(err)
+	}
+
 	// run testings
 	code := m.Run()
 
@@ -129,7 +134,7 @@ func TestManager(t *testing.T) {
 			"/path/to/tls.key",
 			"--transport-type",
 			string(transport.Chan),
-		}, 1},
+		}, 0},
 	}
 	for _, tc := range cases {
 		// this call is required because otherwise flags panics, if args are set between flag.Parse call
