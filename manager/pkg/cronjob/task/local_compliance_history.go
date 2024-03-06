@@ -233,7 +233,7 @@ func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, batchSize in
 func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, totalCount, batchSize, offset int64,
 ) (int64, error) {
 	insertCount := int64(0)
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Minute, true,
+	err := wait.PollUntilContextTimeout(ctx, 1*time.Minute, 30*time.Minute, true,
 		func(ctx context.Context) (done bool, err error) {
 			var insertError error
 			defer func() {
