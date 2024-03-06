@@ -8,15 +8,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/dispatcher"
-	localpolicies "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/handler/local_policies"
 	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
 // AddStatusSyncers performs the initial setup required before starting the runtime manager.
-// adds controllers and/or runnables to the manager, registers handler functions within the dispatcher
-//
-//	and create bundle functions within the bundle.
+// adds controllers and/or runnables to the manager, registers handler to conflation manager
 func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) error {
 	// create statistics
 	stats := statistics.NewStatistics(managerConfig.StatisticsConfig)
@@ -24,14 +21,16 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) err
 		return fmt.Errorf("failed to add statistics to manager - %w", err)
 	}
 
-	// manage all Conflation Units
+	// manage all Conflation Units and handlers
 	conflationManager := conflator.NewConflationManager(stats)
-	// register
+	registerHandler(conflationManager, managerConfig.EnableGlobalResource)
 
+	// start consume message from transport to conflation manager
 	if err := dispatcher.AddTransportDispatcher(mgr, conflationManager, managerConfig, stats); err != nil {
 		return err
 	}
 
+	// start persist event from conflation manager to database with registered handlers
 	if err := dispatcher.AddConflationDispatcher(mgr, conflationManager, managerConfig, stats); err != nil {
 		return err
 	}
@@ -41,39 +40,30 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) err
 	if err := mgr.Add(committer); err != nil {
 		return fmt.Errorf("failed to start the offset committer: %w", err)
 	}
-
-	// register db syncers create bundle functions within transport and handler functions within dispatcher
-	dbSyncers := []dbsyncer.Syncer{
-		dbsyncer.NewHubClusterHeartbeatSyncer(ctrl.Log.WithName("hub-heartbeat-syncer")),
-		dbsyncer.NewHubClusterInfoDBSyncer(ctrl.Log.WithName("hub-info-syncer")),
-		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-cluster-syncer")),
-		dbsyncer.NewCompliancesDBSyncer(ctrl.Log.WithName("compliances-syncer")),
-		dbsyncer.NewLocalPolicySpecSyncer(ctrl.Log.WithName("local-policy-spec-syncer")),
-		dbsyncer.NewLocalPolicyEventSyncer(ctrl.Log.WithName("local-policy-event-syncer")),
-	}
-
-	if managerConfig.EnableGlobalResource {
-		dbSyncers = append(dbSyncers,
-			dbsyncer.NewPlacementRulesDBSyncer(ctrl.Log.WithName("placement-rules-db-syncer")),
-			dbsyncer.NewPlacementsDBSyncer(ctrl.Log.WithName("placements-db-syncer")),
-			dbsyncer.NewPlacementDecisionsDBSyncer(
-				ctrl.Log.WithName("placement-decisions-db-syncer")),
-			dbsyncer.NewSubscriptionStatusesDBSyncer(
-				ctrl.Log.WithName("subscription-statuses-db-syncer")),
-			dbsyncer.NewSubscriptionReportsDBSyncer(
-				ctrl.Log.WithName("subscription-reports-db-syncer")),
-			dbsyncer.NewLocalSpecPlacementruleSyncer(ctrl.Log.WithName("local-spec-placementrule-syncer")),
-		)
-	}
-
-	for _, dbsyncerObj := range dbSyncers {
-		dbsyncerObj.RegisterCreateBundleFunctions(transportDispatcher)
-		dbsyncerObj.RegisterBundleHandlerFunctions(conflationManager)
-	}
-
-	// TODO: the handler will be process on the confaltion
-	transportDispatcher.RegisterEventHandler(localpolicies.NewLocalRootPolicyEventHandler())
-	transportDispatcher.RegisterEventHandler(localpolicies.NewLocalReplicatedPolicyEventHandler())
-
 	return nil
+}
+
+func registerHandler(cmr *conflator.ConflationManager, enableGlobalResource bool) {
+	dbsyncer.NewHubClusterHeartbeatHandler().RegisterHandler(cmr)
+	dbsyncer.NewHubClusterInfoHandler().RegisterHandler(cmr)
+	dbsyncer.NewManagedClusterHandler().RegisterHandler(cmr)
+	dbsyncer.NewLocalPolicySpecHandler().RegisterHandler(cmr)
+	dbsyncer.NewLocalPolicyComplianceHandler().RegisterHandler(cmr)
+	dbsyncer.NewLocalPolicyCompleteHandler().RegisterHandler(cmr)
+	dbsyncer.NewLocalEventPolicyHandler().RegisterHandler(cmr)
+	dbsyncer.NewLocalPolicyEventHandler().RegisterHandler(cmr)
+	dbsyncer.NewLocalPlacementRuleSpecHandler().RegisterHandler(cmr)
+	if enableGlobalResource {
+		dbsyncer.NewPolicyComplianceHandler().RegisterHandler(cmr)
+		dbsyncer.NewPolicyCompleteHandler().RegisterHandler(cmr)
+		dbsyncer.NewPolicyDeltaComplianceHandler().RegisterHandler(cmr)
+		dbsyncer.NewPolicyMiniComplianceHandler().RegisterHandler(cmr)
+
+		dbsyncer.NewPlacementRuleHandler().RegisterHandler(cmr)
+		dbsyncer.NewPlacementHandler().RegisterHandler(cmr)
+		dbsyncer.NewPlacementDecisionHandler().RegisterHandler(cmr)
+
+		dbsyncer.NewSubscriptionReportHandler().RegisterHandler(cmr)
+		dbsyncer.NewSubscriptionStatusHandler().RegisterHandler(cmr)
+	}
 }

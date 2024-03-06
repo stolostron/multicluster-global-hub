@@ -21,17 +21,17 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-type managedClusterEventHandler struct {
+type managedClusterHandler struct {
 	log           logr.Logger
 	eventType     string
 	eventSyncMode metadata.EventSyncMode
 	eventPriority conflator.ConflationPriority
 }
 
-func NewManagedClusterEventHandler() Handler {
+func NewManagedClusterHandler() Handler {
 	eventType := string(enum.ManagedClusterType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
-	return &managedClusterEventHandler{
+	return &managedClusterHandler{
 		log:           ctrl.Log.WithName(logName),
 		eventType:     eventType,
 		eventSyncMode: metadata.CompleteStateMode,
@@ -39,7 +39,7 @@ func NewManagedClusterEventHandler() Handler {
 	}
 }
 
-func (h *managedClusterEventHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
+func (h *managedClusterHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		h.eventPriority,
 		h.eventSyncMode,
@@ -48,7 +48,7 @@ func (h *managedClusterEventHandler) RegisterHandler(conflationManager *conflato
 	))
 }
 
-func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
+func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[metadata.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)

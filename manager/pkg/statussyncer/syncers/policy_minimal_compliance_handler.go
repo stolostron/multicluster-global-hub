@@ -72,7 +72,7 @@ func (h *policyMiniComplianceHandler) handleEvent(ctx context.Context, evt *clou
 	for rows.Next() {
 		var policyID string
 		if err := rows.Scan(&policyID); err != nil {
-			return fmt.Errorf("error reading from table %s - %w", schemaTable, err)
+			return fmt.Errorf("error reading from table %s - %w", table, err)
 		}
 		policyIDSetFromDB.Add(policyID)
 	}
@@ -83,13 +83,13 @@ func (h *policyMiniComplianceHandler) handleEvent(ctx context.Context, evt *clou
 			UpdateAll: true,
 		}).Create(&models.AggregatedCompliance{
 			PolicyID:             minPolicyCompliance.PolicyID,
-			LeafHubName:          leafHubName,
+			LeafHubName:          leafHub,
 			AppliedClusters:      minPolicyCompliance.AppliedClusters,
 			NonCompliantClusters: minPolicyCompliance.NonCompliantClusters,
 		}).Error
 		if err != nil {
 			return fmt.Errorf("failed to InsertUpdate minimal compliance of policy '%s', leaf hub '%s' in db - %w",
-				minPolicyCompliance.PolicyID, leafHubName, err)
+				minPolicyCompliance.PolicyID, leafHub, err)
 		}
 		// eventually we will be left with policies not in the bundle inside policyIDsFromDB and will use it to remove
 		// policies that has to be deleted from the table.
@@ -104,11 +104,11 @@ func (h *policyMiniComplianceHandler) handleEvent(ctx context.Context, evt *clou
 		}
 		ret := db.Where(&models.AggregatedCompliance{
 			PolicyID:    policyID,
-			LeafHubName: leafHubName,
+			LeafHubName: leafHub,
 		}).Delete(&models.AggregatedCompliance{})
 		if ret.Error != nil {
 			return fmt.Errorf("failed to delete minimal compliance of policy '%s', leaf hub '%s' from db - %w",
-				policyID, leafHubName, ret.Error)
+				policyID, leafHub, ret.Error)
 		}
 	}
 
