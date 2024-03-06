@@ -84,7 +84,7 @@ BEGIN
               AND EXISTS (
                 SELECT 1
                 FROM status.leaf_hubs lh
-                WHERE lh.leaf_hub_name = lp.leaf_hub_name
+                WHERE lh.leaf_hub_name = lp.leaf_hub_name AND deleted_at IS NULL
               )
             GROUP BY cluster_id, policy_id, leaf_hub_name
         )
