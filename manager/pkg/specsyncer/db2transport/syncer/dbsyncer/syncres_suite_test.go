@@ -23,7 +23,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
-	sycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -121,9 +120,6 @@ var _ = BeforeSuite(func() {
 	consumer, err = genericconsumer.NewGenericConsumer(managerConfig.TransportConfig, []string{"spec"})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(consumer)).Should(Succeed())
-
-	err = sycner.RequestResync(producer)
-	Expect(err).NotTo(HaveOccurred())
 
 	By("Start the manager")
 	go func() {

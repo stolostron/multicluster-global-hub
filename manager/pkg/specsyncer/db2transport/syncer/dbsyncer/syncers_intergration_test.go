@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -49,9 +48,6 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			Version:            0,
 		}).Error
 		Expect(err).ToNot(HaveOccurred())
-
-		By("Resend hubinfo")
-		ExpectedMessageIDs["Resync"] = constants.HubClusterInfoMsgKey
 
 		By("ManagedClusterSet")
 		ExpectedMessageIDs["ManagedClusterSets"] = managedclustersetUID

@@ -12,6 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type genericDBToTransportSyncer struct {
@@ -107,7 +108,7 @@ func syncObjectsBundle(ctx context.Context, producer transport.Producer, eventTy
 		return false, fmt.Errorf("failed to sync marshal bundle(%s)", eventType)
 	}
 
-	evt := ToCloudEvent(eventType, transport.Broadcast, payloadBytes)
+	evt := utils.ToCloudEvent(eventType, transport.Broadcast, payloadBytes)
 	if err := producer.SendEvent(ctx, evt); err != nil {
 		return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",
 			eventType, dbTableName, transport.Broadcast, err)

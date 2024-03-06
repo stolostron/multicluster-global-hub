@@ -17,6 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const managedClusterLabelsDBTableName = "managed_clusters_labels"
@@ -70,7 +71,7 @@ func syncManagedClusterLabelsBundles(ctx context.Context, producer transport.Pro
 			return false, fmt.Errorf("failed to sync marshal bundle(%s)", transportBundleKey)
 		}
 
-		evt := ToCloudEvent(transportBundleKey, leafHubName, payloadBytes)
+		evt := utils.ToCloudEvent(transportBundleKey, leafHubName, payloadBytes)
 		if err := producer.SendEvent(ctx, evt); err != nil {
 			return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",
 				transportBundleKey, dbTableName, transport.Broadcast, err)
