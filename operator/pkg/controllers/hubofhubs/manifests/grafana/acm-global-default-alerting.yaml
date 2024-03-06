@@ -83,8 +83,8 @@ data:
       folder: Policy
       interval: 5m
       rules:
-        - uid: globalhub_cluster_compliance_status_change_frequently
-          title: Cluster compliance status change frequently
+        - uid: globalhub_cluster_change_frequence
+          title: Cluster compliance status change frequence
           condition: B
           data:
             - refId: A
