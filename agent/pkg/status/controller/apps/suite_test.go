@@ -1,7 +1,4 @@
-// Copyright (c) 2020 Red Hat, Inc.
-// Copyright Contributors to the Open Cluster Management project
-
-package controller_test
+package apps
 
 import (
 	"context"
@@ -23,10 +20,10 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
-	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
 var (
@@ -35,8 +32,8 @@ var (
 	cfg         *rest.Config
 	ctx         context.Context
 	cancel      context.CancelFunc
-	consumer    transport.Consumer
 	kubeClient  client.Client
+	consumer    transport.Consumer
 )
 
 func TestControllers(t *testing.T) {
@@ -52,7 +49,7 @@ var _ = BeforeSuite(func() {
 	var err error
 	testenv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "pkg", "testdata", "crds"),
+			filepath.Join("..", "..", "..", "..", "..", "pkg", "testdata", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -60,6 +57,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
+	topic := "status"
 	agentConfig := &config.AgentConfig{
 		LeafHubName: leafHubName,
 		TransportConfig: &transport.TransportConfig{
@@ -67,18 +65,12 @@ var _ = BeforeSuite(func() {
 			TransportType:     string(transport.Chan),
 			KafkaConfig: &transport.KafkaConfig{
 				Topics: &transport.ClusterTopic{
-					SpecTopic:   "spec",
-					StatusTopic: "status",
-					EventTopic:  "event",
+					StatusTopic: topic,
 				},
 			},
 		},
 		EnableGlobalResource: true,
 	}
-
-	By("Create cloudevents consumer")
-	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig, nil)
-	Expect(err).NotTo(HaveOccurred())
 
 	By("Add to Scheme")
 	agentscheme.AddToScheme(scheme.Scheme)
@@ -112,12 +104,17 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(kubeClient.Create(ctx, configMap)).Should(Succeed())
 
-	By("Add controllers to manager")
-	err = statusController.AddControllers(ctx, mgr, agentConfig)
+	By("Create cloudevents consumer")
+	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig, []string{topic})
+	Expect(err).NotTo(HaveOccurred())
+	err = mgr.Add(consumer)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Mock the consumer receive message from global hub manager")
-	Expect(mgr.Add(consumer)).Should(Succeed())
+	By("Add controllers to manager")
+	producer, err := genericproducer.NewGenericProducer(agentConfig.TransportConfig, topic)
+	Expect(err).Should(Succeed())
+	err = LaunchSubscriptionReportSyncer(ctx, mgr, agentConfig, producer)
+	Expect(err).Should(Succeed())
 
 	By("Start the manager")
 	go func() {

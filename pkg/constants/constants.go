@@ -118,55 +118,13 @@ const (
 
 // message types
 const (
-	// SpecBundle - spec bundle message type.
-	SpecBundle = "SpecBundle"
 	// StatusBundle - status bundle message type.
 	StatusBundle = "StatusBundle"
 
-	// HubClusterInfoMsgKey - hub cluster info message key.
-	HubClusterInfoMsgKey = "HubClusterInfo"
-
-	// HubClusterInfoMsgKey - hub cluster heartbeat message key.
-	HubClusterHeartbeatMsgKey = "HubClusterHeartbeat"
-
 	ResyncMsgKey = "Resync"
 
-	// ManagedClustersMsgKey - managed clusters message key.
-	ManagedClustersMsgKey = "ManagedClusters"
 	// ManagedClustersLabelsMsgKey - managed clusters labels message key.
 	ManagedClustersLabelsMsgKey = "ManagedClustersLabels"
-
-	// ComplianceMsgKey - clusters per policy message key.
-	ComplianceMsgKey = "Compliance"
-	// CompleteComplianceMsgKey - policy complete state compliance message key.
-	CompleteComplianceMsgKey = "CompleteCompliance"
-	// DeltaComplianceMsgKey - policy delta state compliance message key.
-	DeltaComplianceMsgKey = "DeltaCompliance"
-	// MinimalComplianceMsgKey - minimal policy compliance message key.
-	MinimalComplianceMsgKey = "MinimalCompliance"
-
-	// LocalPolicySpecMsgKey - the local policy spec message key.
-	LocalPolicySpecMsgKey = "LocalPolicySpec"
-	// LocalComplianceMsgKey - local clusters per policy message key.
-	LocalComplianceMsgKey = "LocalCompliance"
-	// LocalCompleteComplianceMsgKey - local policy compliance message key.
-	LocalCompleteComplianceMsgKey = "LocalCompleteCompliance"
-	// LocalPlacementRulesMsgKey - local placement rules message key.
-	LocalPlacementRulesMsgKey = "LocalPlacementRules"
-	// LocalPolicyHistoryEventMsgKey - local cluster policy history events message key.
-	LocalPolicyHistoryEventMsgKey = "LocalPolicyHistoryEvents"
-
-	// SubscriptionStatusMsgKey - subscription-status message key.
-	SubscriptionStatusMsgKey = "SubscriptionStatus"
-	// SubscriptionReportMsgKey - subscription-report message key.
-	SubscriptionReportMsgKey = "SubscriptionReport"
-
-	// PlacementRuleMsgKey - placement-rule message key.
-	PlacementRuleMsgKey = "PlacementRule"
-	// PlacementMsgKey - placement message key.
-	PlacementMsgKey = "Placement"
-	// PlacementDecisionMsgKey - placement-decision message key.
-	PlacementDecisionMsgKey = "PlacementDecision"
 )
 
 // event exporter reference object label keys

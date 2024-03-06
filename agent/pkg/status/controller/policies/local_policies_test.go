@@ -16,10 +16,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-var _ = Describe("test the policy emitters", Ordered, func() {
-	It("should pass the replicated policy event", func() {
+var _ = Describe("Test the local policy emitters", Ordered, func() {
+	var localRootPolicy *policyv1.Policy
+
+	It("be able to sync policy spec", func() {
+
 		By("Create a root policy")
-		rootPolicy := &policyv1.Policy{
+		localRootPolicy = &policyv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "policy1",
 				Namespace:  "default",
@@ -31,19 +34,23 @@ var _ = Describe("test the policy emitters", Ordered, func() {
 			},
 			Status: policyv1.PolicyStatus{},
 		}
-		Expect(kubeClient.Create(ctx, rootPolicy)).NotTo(HaveOccurred())
+		Expect(kubeClient.Create(ctx, localRootPolicy)).NotTo(HaveOccurred())
 
 		By("Check the local policy spec can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := mockTrans.GetEvent()
+			evt := <-consumer.EventChan()
 			fmt.Println(evt)
 			if evt.Type() != string(enum.LocalPolicySpecType) {
 				return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
 			}
 			return nil
 		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
 
-		rootPolicy.Status = policyv1.PolicyStatus{
+	It("be able to sync local policy compliance", func() {
+
+		By("Create the compliance on the root policy status")
+		localRootPolicy.Status = policyv1.PolicyStatus{
 			ComplianceState: policyv1.Compliant,
 			Status: []*policyv1.CompliancePerClusterStatus{
 				{
@@ -53,17 +60,46 @@ var _ = Describe("test the policy emitters", Ordered, func() {
 				},
 			},
 		}
-		Expect(kubeClient.Status().Update(ctx, rootPolicy)).Should(Succeed())
+		Expect(kubeClient.Status().Update(ctx, localRootPolicy)).Should(Succeed())
 
-		By("Check the local compliance can be read from cloudevents consumer")
+		By("Check the compliance can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := mockTrans.GetEvent()
+			evt := <-consumer.EventChan()
 			fmt.Println(evt)
 			if evt.Type() != string(enum.LocalComplianceType) {
 				return fmt.Errorf("want %v, got %v", string(enum.LocalComplianceType), evt.Type())
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
+
+	It("be able to sync local policy complete compliance", func() {
+
+		By("Create the compliance on the root policy status")
+		localRootPolicy.Status = policyv1.PolicyStatus{
+			ComplianceState: policyv1.Compliant,
+			Status: []*policyv1.CompliancePerClusterStatus{
+				{
+					ClusterName:      "cluster1",
+					ClusterNamespace: "cluster1",
+					ComplianceState:  policyv1.NonCompliant,
+				},
+			},
+		}
+		Expect(kubeClient.Status().Update(ctx, localRootPolicy)).Should(Succeed())
+
+		By("Check the complete compliance can be read from cloudevents consumer")
+		Eventually(func() error {
+			evt := <-consumer.EventChan()
+			fmt.Println(evt)
+			if evt.Type() != string(enum.LocalCompleteComplianceType) {
+				return fmt.Errorf("want %v, got %v", string(enum.LocalCompleteComplianceType), evt.Type())
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
+
+	It("be able to sync replicated policy event", func() {
 
 		By("Create namespace and cluster for the replicated policy")
 		err := kubeClient.Create(ctx, &corev1.Namespace{
@@ -91,12 +127,13 @@ var _ = Describe("test the policy emitters", Ordered, func() {
 		Expect(kubeClient.Status().Update(ctx, cluster)).Should(Succeed())
 
 		By("Create the replicated policy")
+		replicatedPolicyName := fmt.Sprintf("%s.%s", localRootPolicy.Namespace, localRootPolicy.Name)
 		replicatedPolicy := &policyv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "default.policy1",
+				Name:      replicatedPolicyName,
 				Namespace: "cluster1",
 				Labels: map[string]string{
-					constants.PolicyEventRootPolicyNameLabelKey: fmt.Sprintf("%s.%s", "default", "policy1"),
+					constants.PolicyEventRootPolicyNameLabelKey: replicatedPolicyName,
 					constants.PolicyEventClusterNameLabelKey:    "cluster1",
 				},
 			},
@@ -119,7 +156,7 @@ var _ = Describe("test the policy emitters", Ordered, func() {
 						{
 							EventName:     "default.policy1.17b0db2427432200",
 							LastTimestamp: metav1.Now(),
-							Message: `NonCompliant; violation - limitranges [container-mem-limit-range] not found in namespace 
+							Message: `NonCompliant; violation - limitranges [container-mem-limit-range] not found in namespace
 							default`,
 						},
 					},
@@ -130,7 +167,7 @@ var _ = Describe("test the policy emitters", Ordered, func() {
 
 		By("Check the local replicated policy event can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := mockTrans.GetEvent()
+			evt := <-consumer.EventChan()
 			fmt.Println(evt)
 			if evt.Type() != string(enum.LocalReplicatedPolicyEventType) {
 				return fmt.Errorf("want %v, got %v", string(enum.LocalReplicatedPolicyEventType), evt.Type())

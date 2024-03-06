@@ -122,7 +122,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
-	err = sycner.SendSyncAllMsgInfo(producer)
+	err = sycner.RequestResync(producer)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Start the manager")

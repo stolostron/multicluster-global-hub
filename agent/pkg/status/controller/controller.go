@@ -14,12 +14,9 @@ import (
 	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/event"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/hubcluster"
-	localpolicies "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/local_policies"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/localplacement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/managedclusters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	transportproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
@@ -34,43 +31,6 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic)
 	if err != nil {
 		return fmt.Errorf("failed to init status transport producer: %w", err)
-	}
-
-	_, err = policies.AddPolicyStatusSyncer(mgr, producer)
-	if err != nil {
-		return fmt.Errorf("failed to add PoliciesStatusController controller: %w", err)
-	}
-	// // support delta bundle sync mode
-	// if isAsync {
-	// 	kafkaProducer, ok := producer.(*transportproducer.KafkaProducer)
-	// 	if !ok {
-	// 		return fmt.Errorf("failed to set the kafka message producer callback() which is to switch the sync mode")
-	// 	}
-	// 	hybirdSyncManger.SetHybridModeCallBack(agentConfig.StatusDeltaCountSwitchFactor, kafkaProducer)
-	// }
-
-	addControllerFunctions := []func(ctrl.Manager, transport.Producer) error{
-		managedclusters.AddMangedClusterSyncer,
-		// apps.AddSubscriptionStatusesController,
-		localpolicies.AddLocalRootPolicySyncer,
-		hubcluster.AddHubClusterInfoSyncer,
-		hubcluster.AddHeartbeatStatusSyncer,
-	}
-
-	if agentConfig.EnableGlobalResource {
-		addControllerFunctions = append(addControllerFunctions,
-			placement.AddPlacementRulesController,
-			placement.AddPlacementSyncer,
-			placement.AddPlacementDecisionsController,
-			apps.AddSubscriptionReportsSyncer,
-			localplacement.AddLocalPlacementRulesController,
-		)
-	}
-
-	for _, addControllerFunction := range addControllerFunctions {
-		if err := addControllerFunction(mgr, producer); err != nil {
-			return fmt.Errorf("failed to add controller: %w", err)
-		}
 	}
 
 	// managed cluster

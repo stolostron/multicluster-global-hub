@@ -1,4 +1,4 @@
-package policies
+package placement
 
 import (
 	"context"
@@ -110,10 +110,14 @@ var _ = BeforeSuite(func() {
 	err = mgr.Add(consumer)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Add controllers to manager")
 	producer, err := genericproducer.NewGenericProducer(agentConfig.TransportConfig, topic)
+
+	By("Add controllers to manager")
+	err = LaunchPlacementRuleSyncer(ctx, mgr, agentConfig, producer)
 	Expect(err).Should(Succeed())
-	err = LaunchPolicySyncer(ctx, mgr, agentConfig, producer)
+	err = LaunchPlacementSyncer(ctx, mgr, agentConfig, producer)
+	Expect(err).Should(Succeed())
+	err = LaunchPlacementDecisionSyncer(ctx, mgr, agentConfig, producer)
 	Expect(err).Should(Succeed())
 
 	By("Start the manager")

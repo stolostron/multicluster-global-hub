@@ -44,7 +44,6 @@ func AddToManager(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
 			syncers.NewManagedClusterLabelSyncer(workers))
 	}
 
-	dispatcher.RegisterSyncer(constants.ResyncMsgKey,
-		syncers.NewResyncSyncer())
+	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncSyncer())
 	return nil
 }

@@ -48,18 +48,18 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case message := <-d.consumer.MessageChan():
+		case evt := <-d.consumer.EventChan():
 			// if destination is explicitly specified and does not match, drop bundle
-			if message.Destination != transport.Broadcast && message.Destination != d.agentConfig.LeafHubName {
+			if evt.Source() != transport.Broadcast && evt.Source() != d.agentConfig.LeafHubName {
 				continue
 			}
-			syncer, found := d.syncers[message.Key]
+			syncer, found := d.syncers[evt.Type()]
 			if !found {
-				d.log.V(2).Info("dispatching to the default generic syncer", "messageKey", message.Key)
+				d.log.V(2).Info("dispatching to the default generic syncer", "eventType", evt.Type())
 				syncer = d.syncers[GenericMessageKey]
 			}
-			if err := syncer.Sync(message.Payload); err != nil {
-				d.log.Error(err, "submit to syncer error", "messageKey", message.Key)
+			if err := syncer.Sync(evt.Data()); err != nil {
+				d.log.Error(err, "submit to syncer error", "eventType", evt.Type())
 			}
 		}
 	}

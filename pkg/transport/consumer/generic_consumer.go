@@ -67,10 +67,14 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 		if tranConfig.Extends == nil {
 			tranConfig.Extends = make(map[string]interface{})
 		}
-		if _, found := tranConfig.Extends[topics[0]]; !found {
-			tranConfig.Extends[topics[0]] = gochan.New()
+		topic := "event"
+		if topics != nil && len(topics) > 0 {
+			topic = topics[0]
 		}
-		receiver = tranConfig.Extends[topics[0]]
+		if _, found := tranConfig.Extends[topic]; !found {
+			tranConfig.Extends[topic] = gochan.New()
+		}
+		receiver = tranConfig.Extends[topic]
 		clusterIdentity = "kafka-cluster-chan"
 	default:
 		return nil, fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
@@ -126,6 +130,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
 			c.eventChan <- &event
+			return ceprotocol.ResultACK
 		}
 		if payload := c.assembler.assemble(chunk); payload != nil {
 			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {

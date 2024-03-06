@@ -16,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("GenericBundle", func() {
@@ -44,20 +45,21 @@ var _ = Describe("GenericBundle", func() {
 
 		By("Send Placement Bundle by transport")
 		payloadBytes, err := json.Marshal(baseBundle)
-		fmt.Println("payload", string(payloadBytes))
 		Expect(err).NotTo(HaveOccurred())
-		err = producer.Send(ctx, &transport.Message{
-			Destination: transport.Broadcast,
-			Key:         "Placements",
-			MsgType:     constants.SpecBundle,
-			Payload:     payloadBytes,
-		})
+
+		evt := utils.ToCloudEvent("Placements", transport.Broadcast, payloadBytes)
+		err = producer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Check the placement is synced")
 		Eventually(func() error {
 			syncedPlacement := &clustersv1beta1.Placement{}
-			return client.Get(ctx, runtimeclient.ObjectKeyFromObject(placement), syncedPlacement)
+			err := client.Get(ctx, runtimeclient.ObjectKeyFromObject(placement), syncedPlacement)
+			if err == nil {
+				fmt.Println("create spec resource:")
+				utils.PrettyPrint(syncedPlacement)
+			}
+			return err
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
@@ -95,20 +97,23 @@ var _ = Describe("GenericBundle", func() {
 
 		By("Send Placementbinding Bundle by transport")
 		payloadBytes, err := json.Marshal(baseBundle)
-		fmt.Println("payload", string(payloadBytes))
 		Expect(err).NotTo(HaveOccurred())
-		err = producer.Send(ctx, &transport.Message{
-			Destination: transport.Broadcast,
-			Key:         "Placementbinding",
-			MsgType:     constants.SpecBundle,
-			Payload:     payloadBytes,
-		})
+
+		evt := utils.ToCloudEvent("Placementbinding", transport.Broadcast, payloadBytes)
+		err = producer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Check the placementbinding is synced")
 		Eventually(func() error {
 			syncedPlacementbinding := &policyv1.PlacementBinding{}
-			return client.Get(ctx, runtimeclient.ObjectKeyFromObject(placementbinding), syncedPlacementbinding)
+			err := client.Get(ctx, runtimeclient.ObjectKeyFromObject(placementbinding), syncedPlacementbinding)
+			if err == nil {
+				if err == nil {
+					fmt.Println("create spec resource:")
+					utils.PrettyPrint(syncedPlacementbinding)
+				}
+			}
+			return err
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })

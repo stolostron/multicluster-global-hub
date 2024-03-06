@@ -76,23 +76,23 @@ func (h *complianceHandler) updatePayloadIfChanged(objectIndex int, policy *poli
 	newCompliantClusters, newNonCompliantClusters, newUnknownClusters := getClusterStatus(policy)
 	allClusters := utils.Merge(newCompliantClusters, newNonCompliantClusters, newUnknownClusters)
 
-	payloadCompliance := (*h.eventData)[objectIndex]
+	cachedCompliance := (*h.eventData)[objectIndex]
 	clusterListChanged := false
 
 	// check if any cluster was added or removed
-	if len(payloadCompliance.CompliantClusters)+len(payloadCompliance.NonCompliantClusters)+
-		len(payloadCompliance.UnknownComplianceClusters) != len(allClusters) ||
-		!utils.ContainSubStrings(allClusters, payloadCompliance.CompliantClusters) ||
-		!utils.ContainSubStrings(allClusters, payloadCompliance.NonCompliantClusters) ||
-		!utils.ContainSubStrings(allClusters, payloadCompliance.UnknownComplianceClusters) {
+	if len(cachedCompliance.CompliantClusters)+len(cachedCompliance.NonCompliantClusters)+
+		len(cachedCompliance.UnknownComplianceClusters) != len(allClusters) ||
+		!utils.ContainSubStrings(allClusters, cachedCompliance.CompliantClusters) ||
+		!utils.ContainSubStrings(allClusters, cachedCompliance.NonCompliantClusters) ||
+		!utils.ContainSubStrings(allClusters, cachedCompliance.UnknownComplianceClusters) {
 		clusterListChanged = true // at least one cluster was added/removed
 	}
 
 	// in any case we want to update the internal bundle in case statuses changed
-	payloadCompliance.CompliantClusters = newCompliantClusters
-	payloadCompliance.NonCompliantClusters = newNonCompliantClusters
-	payloadCompliance.UnknownComplianceClusters = newUnknownClusters
-
+	cachedCompliance.CompliantClusters = newCompliantClusters
+	cachedCompliance.NonCompliantClusters = newNonCompliantClusters
+	cachedCompliance.UnknownComplianceClusters = newUnknownClusters
+	(*h.eventData)[objectIndex] = cachedCompliance
 	return clusterListChanged
 }
 

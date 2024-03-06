@@ -4,6 +4,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -67,6 +68,8 @@ func NewGenericEmitter(
 		lastSentVersion: *metadata.NewBundleVersion(),
 	}
 	emitter.applyOptions(opts...)
+	// support resync
+	syncers.SupportResyc(string(eventType), emitter.currentVersion)
 	return emitter
 }
 

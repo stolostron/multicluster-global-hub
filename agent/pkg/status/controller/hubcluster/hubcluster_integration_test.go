@@ -17,8 +17,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-var _ = Describe("Integration Test", Ordered, func() {
+var _ = Describe("Hub cluster integration test", Ordered, func() {
+
 	It("should receive the heartbeat", func() {
+
 		By("Check the local hearbeat event can be read from cloudevents consumer")
 		Eventually(func() error {
 			evt := heartbeatTrans.GetEvent()
@@ -31,6 +33,7 @@ var _ = Describe("Integration Test", Ordered, func() {
 	})
 
 	It("should get the cluster info", func() {
+
 		By("Create clusterclaim with name <id.k8s.io> in the managed hub cluster")
 		clusterClaim := &clustersv1alpha1.ClusterClaim{
 			ObjectMeta: metav1.ObjectMeta{

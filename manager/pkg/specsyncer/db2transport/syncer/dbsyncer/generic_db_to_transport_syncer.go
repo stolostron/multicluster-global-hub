@@ -11,7 +11,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -80,7 +79,7 @@ func (syncer *genericDBToTransportSyncer) periodicSync(ctx context.Context) {
 
 // syncObjectsBundle performs the actual sync logic and returns true if bundle was committed to transport,
 // otherwise false.
-func syncObjectsBundle(ctx context.Context, producer transport.Producer, transportBundleKey string,
+func syncObjectsBundle(ctx context.Context, producer transport.Producer, eventType string,
 	specDB db.SpecDB, dbTableName string, createObjFunc bundle.CreateObjectFunction,
 	createBundleFunc bundle.CreateBundleFunction, lastSyncTimestampPtr *time.Time,
 ) (bool, error) {
@@ -105,16 +104,13 @@ func syncObjectsBundle(ctx context.Context, producer transport.Producer, transpo
 	// send message to transport
 	payloadBytes, err := json.Marshal(bundleResult)
 	if err != nil {
-		return false, fmt.Errorf("failed to sync marshal bundle(%s)", transportBundleKey)
+		return false, fmt.Errorf("failed to sync marshal bundle(%s)", eventType)
 	}
-	if err := producer.Send(ctx, &transport.Message{
-		Destination: transport.Broadcast,
-		Key:         transportBundleKey,
-		MsgType:     constants.SpecBundle,
-		Payload:     payloadBytes,
-	}); err != nil {
+
+	evt := ToCloudEvent(eventType, transport.Broadcast, payloadBytes)
+	if err := producer.SendEvent(ctx, evt); err != nil {
 		return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",
-			transportBundleKey, dbTableName, transport.Broadcast, err)
+			eventType, dbTableName, transport.Broadcast, err)
 	}
 
 	// updating value to retain same ptr between calls

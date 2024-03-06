@@ -1,9 +1,9 @@
-package apps
+package placement
 
 import (
 	"context"
 
-	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -15,18 +15,23 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-func LaunchSubscriptionStatusSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
+func LaunchPlacementDecisionSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
 	producer transport.Producer,
 ) error {
 	// controller config
-	instance := func() client.Object { return &appsv1alpha1.SubscriptionStatus{} }
+	instance := func() client.Object { return &clustersv1beta1.PlacementDecision{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
 
 	// emitter config
-	emitter := generic.ObjectEmitterWrapper(enum.SubscriptionStatusType, nil, nil)
+	placementDecisionEmitter := generic.ObjectEmitterWrapper(enum.PlacementDecisionType,
+		func(obj client.Object) bool {
+			return true // resource
+		}, func(obj client.Object) {
+			obj.SetManagedFields(nil)
+		})
 
 	// syncer
-	name := "status.subscription_status"
+	name := "status.placement_decision"
 	syncInterval := statusconfig.GetPolicyDuration
 
 	return generic.LaunchGenericObjectSyncer(
@@ -36,6 +41,6 @@ func LaunchSubscriptionStatusSyncer(ctx context.Context, mgr ctrl.Manager, agent
 		producer,
 		syncInterval,
 		[]generic.ObjectEmitter{
-			emitter,
+			placementDecisionEmitter,
 		})
 }

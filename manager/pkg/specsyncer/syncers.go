@@ -1,8 +1,6 @@
 package specsyncer
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -10,7 +8,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -31,26 +28,5 @@ func AddGlobalResourceSpecSyncers(mgr ctrl.Manager,
 		return fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 
-	return nil
-}
-
-// SendSyncAllMsgInfo send a constants.ResyncMsgKey bundle in manager start.
-// When agent get the bundle, it will resend the "resendMsgKeys" bundles to transport
-// It is mainly used to handle data lost in upgade scenario.
-func SendSyncAllMsgInfo(producer transport.Producer) error {
-	ctx := context.Background()
-	resendMsgKeys := []string{constants.HubClusterInfoMsgKey}
-	payloadBytes, err := json.Marshal(resendMsgKeys)
-	if err != nil {
-		return err
-	}
-	if err := producer.Send(ctx, &transport.Message{
-		Key:         constants.ResyncMsgKey,
-		Destination: transport.Broadcast,
-		MsgType:     constants.SpecBundle,
-		Payload:     payloadBytes,
-	}); err != nil {
-		return fmt.Errorf("Failed to resend resendbundle")
-	}
 	return nil
 }

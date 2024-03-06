@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -17,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -47,6 +49,9 @@ func AddHubManagement(mgr ctrl.Manager, producer transport.Producer) error {
 }
 
 func (h *hubManagement) Start(ctx context.Context) error {
+	// when start the hub management, resync all the necessary resources
+	h.resync(ctx, transport.Broadcast)
+
 	go func() {
 		h.log.Info("hub management status switch frequency", "interval", h.probeDuration)
 		ticker := time.NewTicker(h.probeDuration)
@@ -170,20 +175,20 @@ func (h *hubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeart
 
 func (h *hubManagement) resync(ctx context.Context, hubName string) error {
 	resyncResources := []string{
-		constants.ManagedClustersMsgKey,
-		constants.HubClusterInfoMsgKey,
-		constants.LocalPolicySpecMsgKey,
-		constants.LocalComplianceMsgKey,
+		string(enum.HubClusterInfoType),
+		string(enum.ManagedClusterType),
+		string(enum.LocalPolicySpecType),
+		string(enum.LocalComplianceType),
 	}
 	payloadBytes, err := json.Marshal(resyncResources)
 	if err != nil {
 		return err
 	}
 
-	return h.producer.Send(ctx, &transport.Message{
-		Key:         constants.ResyncMsgKey,
-		Destination: hubName,
-		MsgType:     constants.SpecBundle,
-		Payload:     payloadBytes,
-	})
+	e := cloudevents.NewEvent()
+	e.SetType(constants.ResyncMsgKey)
+	e.SetSource(hubName)
+	_ = e.SetData(cloudevents.ApplicationJSON, payloadBytes)
+
+	return h.producer.SendEvent(ctx, e)
 }

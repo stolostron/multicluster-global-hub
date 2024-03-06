@@ -3,17 +3,23 @@ package generic
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+const REQUEUE_PERIOD = 5 * time.Second
 
 type genericEventController struct {
 	log             logr.Logger
@@ -82,7 +88,6 @@ func (c *genericEventController) updateObjectAndFinalizer(ctx context.Context, o
 		}
 	}
 
-	cleanObject(object)
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer c.lock.Unlock()
 	if c.emitter.ShouldUpdate(object) && c.eventController.Update(object) {
@@ -110,4 +115,48 @@ func (c *genericEventController) deleteObjectAndFinalizer(ctx context.Context, o
 func enableCleanUpFinalizer(obj client.Object) bool {
 	return utils.HasLabel(obj, constants.GlobalHubGlobalResourceLabel) ||
 		utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation)
+}
+
+func cleanObject(object bundle.Object) {
+	object.SetManagedFields(nil)
+	object.SetFinalizers(nil)
+	object.SetGeneration(0)
+	object.SetOwnerReferences(nil)
+	object.SetSelfLink("")
+	// object.SetClusterName("")
+}
+
+func addFinalizer(ctx context.Context, c client.Client, obj bundle.Object, finalizer string) error {
+	// if the removing finalizer label hasn't expired, then skip the adding finalizer action
+	if val, found := obj.GetLabels()[constants.GlobalHubFinalizerRemovingDeadline]; found {
+		deadline, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return err
+		}
+		if time.Now().Unix() < deadline {
+			return nil
+		} else {
+			delete(obj.GetLabels(), constants.GlobalHubFinalizerRemovingDeadline)
+		}
+	}
+
+	if controllerutil.ContainsFinalizer(obj, finalizer) {
+		return nil
+	}
+
+	controllerutil.AddFinalizer(obj, finalizer)
+
+	if err := c.Update(ctx, obj); err != nil && !strings.Contains(err.Error(), "the object has been modified") {
+		return err
+	}
+	return nil
+}
+
+func removeFinalizer(ctx context.Context, c client.Client, obj bundle.Object, finalizer string) error {
+	if !controllerutil.ContainsFinalizer(obj, finalizer) {
+		return nil // if finalizer is not there, do nothing.
+	}
+	controllerutil.RemoveFinalizer(obj, finalizer)
+
+	return c.Update(ctx, obj)
 }
