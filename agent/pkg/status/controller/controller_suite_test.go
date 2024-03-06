@@ -77,8 +77,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Create cloudevents consumer")
-	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig, nil,
-		genericconsumer.EnableEventChan(false))
+	consumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig, nil)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add to Scheme")

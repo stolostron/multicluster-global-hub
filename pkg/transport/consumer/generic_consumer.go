@@ -37,7 +37,6 @@ type GenericConsumer struct {
 	consumeTopics        []string
 	clusterIdentity      string
 	enableDatabaseOffset bool
-	enableEventChan      bool
 }
 
 type GenericConsumeOption func(*GenericConsumer) error
@@ -45,13 +44,6 @@ type GenericConsumeOption func(*GenericConsumer) error
 func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
 	return func(c *GenericConsumer) error {
 		c.enableDatabaseOffset = enableOffset
-		return nil
-	}
-}
-
-func EnableEventChan(enableEvent bool) GenericConsumeOption {
-	return func(c *GenericConsumer) error {
-		c.enableEventChan = enableEvent
 		return nil
 	}
 }
@@ -97,7 +89,6 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 		eventChan:            make(chan *cloudevents.Event),
 		assembler:            newMessageAssembler(),
 		enableDatabaseOffset: false,
-		enableEventChan:      true,
 		consumeTopics:        topics,
 	}
 	if err := c.applyOptions(opts...); err != nil {

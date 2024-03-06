@@ -83,9 +83,7 @@ var _ = BeforeSuite(func() {
 					EventTopic:  "event",
 					StatusTopic: "status",
 				},
-				ConsumerConfig: &transport.KafkaConsumerConfig{
-					EnableEventChan: false,
-				},
+				ConsumerConfig: &transport.KafkaConsumerConfig{},
 			},
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{

@@ -194,7 +194,6 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	if ok && val != "" {
 		managerConfig.LaunchJobNames = val
 	}
-	managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.EnableEventChan = true
 	return nil
 }
 

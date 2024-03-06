@@ -118,8 +118,7 @@ var _ = BeforeSuite(func() {
 	Expect(specsycner.AddManagedClusterLabelSyncer(mgr,
 		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval)).Should(Succeed())
 
-	consumer, err = genericconsumer.NewGenericConsumer(managerConfig.TransportConfig, []string{"spec"},
-		genericconsumer.EnableEventChan(false))
+	consumer, err = genericconsumer.NewGenericConsumer(managerConfig.TransportConfig, []string{"spec"})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(consumer)).Should(Succeed())
 

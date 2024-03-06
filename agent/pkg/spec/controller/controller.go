@@ -16,7 +16,6 @@ func AddToManager(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
 	// add consumer to manager
 	consumer, err := genericconsumer.NewGenericConsumer(agentConfig.TransportConfig,
 		[]string{agentConfig.TransportConfig.KafkaConfig.Topics.SpecTopic},
-		genericconsumer.EnableEventChan(agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.EnableEventChan),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to initialize transport consumer: %w", err)
