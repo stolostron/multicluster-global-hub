@@ -2,7 +2,6 @@ package conflator
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -125,8 +124,6 @@ func (cu *ConflationUnit) GetNext() (*cloudevents.Event, ConflationMetadata, Eve
 	}
 
 	conflationElement := cu.priorityQueue[nextElementPriority]
-
-	fmt.Println(">>>>>>>>>>>>>>>> get next ready element", nextElementPriority, conflationElement.eventType)
 
 	cu.isInReadyQueue = false
 	conflationElement.isInProcess = true

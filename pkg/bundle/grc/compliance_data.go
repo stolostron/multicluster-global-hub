@@ -9,3 +9,5 @@ type Compliance struct {
 }
 
 type ComplianceData []Compliance
+
+type DeltaComplianceData []Compliance

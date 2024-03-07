@@ -2,7 +2,6 @@ package conflator
 
 import (
 	"container/list"
-	"fmt"
 	"sync"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -30,27 +29,18 @@ type ConflationReadyQueue struct {
 
 // Enqueue inserts ConflationUnit to the end of the ready queue.
 func (rq *ConflationReadyQueue) Enqueue(cu *ConflationUnit) {
-	fmt.Println("=============== enqueue start")
 	rq.lock.Lock()
 	defer rq.lock.Unlock()
-	fmt.Println("=============== enqueue start1")
 	rq.queue.PushBack(cu)
 	rq.notEmptyCondition.Signal() // Signal wakes another goroutine waiting on BlockingDequeue
-	fmt.Println("=============== enqueue start2")
 	rq.statistics.SetConflationReadyQueueSize(rq.queue.Len())
-	fmt.Println("=============== enqueue end")
 }
 
 // BlockingDequeue pops ConflationUnit from the beginning of the queue. if no CU is ready, this call is blocking.
 func (rq *ConflationReadyQueue) BlockingDequeue() *ConflationUnit {
-	fmt.Println("=============== dequeue start")
 	rq.lock.Lock()
-	fmt.Println("=============== dequeue 1")
-
 	defer rq.lock.Unlock()
-	fmt.Println("=============== dequeue 2")
 	for rq.isEmpty() { // if ready rq is empty - wait
-		fmt.Println("=============== dequeue 3")
 		rq.notEmptyCondition.Wait() // wait until ready rq notEmptyCondition is true
 	}
 
@@ -58,11 +48,9 @@ func (rq *ConflationReadyQueue) BlockingDequeue() *ConflationUnit {
 	rq.statistics.SetConflationReadyQueueSize(rq.queue.Len())
 
 	if !ok {
-		fmt.Println("=============== dequeue end ~")
 		return nil
 	}
 
-	fmt.Println("=============== dequeue end")
 	return conflationUnit
 }
 
