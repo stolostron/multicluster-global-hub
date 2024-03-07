@@ -44,13 +44,6 @@ const (
 	grafanaIniKey         = "grafana.ini"
 
 	grafanaDeploymentName = "multicluster-global-hub-grafana"
-
-	// Render can not parse the "{{ XXX }}" which is a keyword of alert, so need to replace it
-	alertLeftWord  = "{{"
-	alertRightWord = "}}"
-
-	alertLeftPlaceHolder  = "<VARIABLE_LEFT_HOLDER>"
-	alertRightPlaceHolder = "<VARIABLE_RIGHT_HOLDER>"
 )
 
 var (
@@ -276,18 +269,6 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 	if err != nil {
 		return false, fmt.Errorf("failed to get default alert configmap: %w", err)
 	}
-
-	// replace the placeholder with original value word
-	defaultAlertConfigMap.Data[alertConfigMapKey] = strings.ReplaceAll(
-		defaultAlertConfigMap.Data[alertConfigMapKey],
-		alertLeftPlaceHolder,
-		alertLeftWord,
-	)
-	defaultAlertConfigMap.Data[alertConfigMapKey] = strings.ReplaceAll(
-		defaultAlertConfigMap.Data[alertConfigMapKey],
-		alertRightPlaceHolder,
-		alertRightWord,
-	)
 
 	customAlertConfigMap, err := r.KubeClient.CoreV1().
 		ConfigMaps(configNamespace).

@@ -72,10 +72,10 @@ data:
             description: |-
                 We are getting many propagation/disabled events for a policy, it may caused by suspicious changes to policy.
      
-                Details: <VARIABLE_LEFT_HOLDER> range $k, $v := $values <VARIABLE_RIGHT_HOLDER>
-                      The following policy updated/disabled <VARIABLE_LEFT_HOLDER> $v <VARIABLE_RIGHT_HOLDER> times in last 1 hour:
-                        > <VARIABLE_LEFT_HOLDER> $v.Labels <VARIABLE_RIGHT_HOLDER>
-                      <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
+                Details: {{ `{{range $k, $v := $values }}` }}
+                      The following policy updated/disabled {{ `{{ $v }}` }} times in last 1 hour:
+                        > {{ `{{ $v.Labels }}` }}
+                      {{ `{{ end }}` }}
             summary: Suspicious policy change
           isPaused: false
     - orgId: 1
@@ -147,10 +147,10 @@ data:
             description: |-
                 We are getting the cluster compliance status changes frequently.
 
-                Details: <VARIABLE_LEFT_HOLDER> range $k, $v := $values <VARIABLE_RIGHT_HOLDER>
-                      The following clusters going in and out of compliance <VARIABLE_LEFT_HOLDER> $v <VARIABLE_RIGHT_HOLDER> times in last 1 hour:
-                        > <VARIABLE_LEFT_HOLDER> $v.Labels <VARIABLE_RIGHT_HOLDER>
-                      <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
+                Details: {{ `{{ range $k, $v := $values }}` }}
+                      The following clusters going in and out of compliance {{ `{{ $v }}` }} times in last 1 hour:
+                        > {{ `{{ $v.Labels }}` }}
+                      {{ `{{ end }}` }}
             summary: Cluster is going in and out of compliance frequently
           isPaused: false
         - uid: globalhub_high_number_of_policy_events
@@ -217,10 +217,10 @@ data:
             description: |-
                 We are getting too many policy events in a cluster.
 
-                Details: <VARIABLE_LEFT_HOLDER> range $k, $v := $values <VARIABLE_RIGHT_HOLDER>
-                      There are <VARIABLE_LEFT_HOLDER> $v <VARIABLE_RIGHT_HOLDER> policy events in last 5 minutes for the following policy and cluster:
-                        > <VARIABLE_LEFT_HOLDER> $v.Labels <VARIABLE_RIGHT_HOLDER>
-                      <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
+                Details: {{ `{{ range $k, $v := $values }}` }}
+                      There are {{ `{{ $v }}` }} policy events in last 5 minutes for the following policy and cluster:
+                        > {{ `{{ $v.Labels }}` }}
+                      {{ `{{ end }}` }}
             summary: There are too many policy events in a cluster
           isPaused: false
     - orgId: 1
@@ -360,48 +360,48 @@ data:
       - orgID: 1
         name: globalhub_policy
         template: |
-          <VARIABLE_LEFT_HOLDER> define "globalhub.policy.title" <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> if .Alerts.Firing -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> range .Alerts.Firing <VARIABLE_RIGHT_HOLDER>
-          [FIRING] <VARIABLE_LEFT_HOLDER> .Labels.grafana_folder <VARIABLE_RIGHT_HOLDER> > <VARIABLE_LEFT_HOLDER> .Labels.alertname <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> if .Alerts.Resolved -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> range .Alerts.Resolved <VARIABLE_RIGHT_HOLDER>
-          [RESOLVED] <VARIABLE_LEFT_HOLDER> .Labels.grafana_folder <VARIABLE_RIGHT_HOLDER> > <VARIABLE_LEFT_HOLDER> .Labels.alertname <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
+          {{ `{{ define "globalhub.policy.title" }}` }}
+          {{ `{{ if .Alerts.Firing -}}` }}
+          {{ `{{ range .Alerts.Firing }}` }}
+          [FIRING] {{ `{{ .Labels.grafana_folder }}` }} > {{ `{{ .Labels.alertname }}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ if .Alerts.Resolved -}}` }}
+          {{ `{{ range .Alerts.Resolved }}` }}
+          [RESOLVED] {{ `{{ .Labels.grafana_folder }}` }} > {{ `{{ .Labels.alertname }}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end }}` }}
 
-          <VARIABLE_LEFT_HOLDER> define "print.message" <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> if .Annotations.Error <VARIABLE_RIGHT_HOLDER>
+          {{ `{{ define "print.message" }}` }}
+          {{ `{{ if .Annotations.Error }}` }}
           Error:
-                <VARIABLE_LEFT_HOLDER> .Annotations.Error <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER>- end <VARIABLE_RIGHT_HOLDER>
+                {{ `{{ .Annotations.Error }}` }}
+          {{ `{{- end }}` }}
 
           Summary:
-                <VARIABLE_LEFT_HOLDER> .Annotations.summary <VARIABLE_RIGHT_HOLDER>
+                {{ `{{ .Annotations.summary }}` }}
 
           Description:
-                <VARIABLE_LEFT_HOLDER> .Annotations.description <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> if gt (len .GeneratorURL) 0 -<VARIABLE_RIGHT_HOLDER>
+                {{ `{{ .Annotations.description }}` }}
+          {{ `{{ if gt (len .GeneratorURL) 0 -}}` }}
           Source: 
-                <VARIABLE_LEFT_HOLDER> .GeneratorURL <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
+                {{ `{{ .GeneratorURL }}` }}
+          {{ `{{ end }}` }}
+          {{ `{{ end -}}` }}
 
-          <VARIABLE_LEFT_HOLDER> define "globalhub.policy.message" -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> if .Alerts.Firing -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> range .Alerts.Firing <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> template "print.message" . <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> if .Alerts.Resolved -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> range .Alerts.Resolved <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> template "print.message" . <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end -<VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER> end <VARIABLE_RIGHT_HOLDER>
-          <VARIABLE_LEFT_HOLDER>- end <VARIABLE_RIGHT_HOLDER>
+          {{ `{{ define "globalhub.policy.message" -}}` }}
+          {{ `{{ if .Alerts.Firing -}}` }}
+          {{ `{{ range .Alerts.Firing }}` }}
+          {{ `{{ template "print.message" . }}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end }}` }}
+          {{ `{{ if .Alerts.Resolved -}}` }}
+          {{ `{{ range .Alerts.Resolved }}` }}
+          {{ `{{ template "print.message" . }}` }}
+          {{ `{{ end -}}` }}
+          {{ `{{ end }}` }}
+          {{ `{{- end }}` }}
 
 kind: ConfigMap
 metadata:
