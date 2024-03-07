@@ -64,7 +64,7 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 	}
 
 	data := generic.GenericObjectData{}
-	if err := evt.DataAs(data); err != nil {
+	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
 

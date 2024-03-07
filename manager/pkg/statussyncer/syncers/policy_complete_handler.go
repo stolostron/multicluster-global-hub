@@ -55,17 +55,16 @@ func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevent
 	leafHub := evt.Source()
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
-	db := database.GetGorm()
+	data := grc.CompleteComplianceData{}
+	if err := evt.DataAs(&data); err != nil {
+		return err
+	}
 
+	db := database.GetGorm()
 	// policyID: {  nonCompliance: (cluster3, cluster4), unknowns: (cluster5) }
 	allCompleteRowsFromDB, err := getComplianceClusterSets(db, "leaf_hub_name = ? AND compliance <> ?",
 		leafHub, database.Compliant)
 	if err != nil {
-		return err
-	}
-
-	data := grc.CompleteComplianceData{}
-	if err := evt.DataAs(data); err != nil {
 		return err
 	}
 

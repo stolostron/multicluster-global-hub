@@ -22,8 +22,8 @@ type TransportDispatcher struct {
 	statistic         *statistics.Statistics
 }
 
-func AddTransportDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
-	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
+func AddTransportDispatcher(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
+	conflationManager *conflator.ConflationManager, stats *statistics.Statistics,
 ) error {
 	// start a consumer
 	topics := managerConfig.TransportConfig.KafkaConfig.Topics

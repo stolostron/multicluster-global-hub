@@ -13,7 +13,7 @@ func InitDatabase(uri string) error {
 	err := database.InitGormInstance(&database.DatabaseConfig{
 		URL:      uri,
 		Dialect:  database.PostgresDialect,
-		PoolSize: 5,
+		PoolSize: 10,
 	})
 	if err != nil {
 		return err

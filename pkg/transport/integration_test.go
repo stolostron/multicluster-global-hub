@@ -18,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
 	"github.com/stolostron/multicluster-global-hub/pkg/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -61,7 +62,7 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		By("Send message to create PlacementRule")
 		kafkaProducer.SendAsync(&transport.Message{
 			Key:     "PlacementRule", // entry.transportBundleKey
-			MsgType: constants.SpecBundle,
+			MsgType: "spec",
 			Payload: []byte(`{
 				"objects": [
 				  {
@@ -109,7 +110,7 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		By("Send message to delete PlacementRule")
 		kafkaProducer.SendAsync(&transport.Message{
 			Key:     "PlacementRule", // entry.transportBundleKey
-			MsgType: constants.SpecBundle,
+			MsgType: "spec",
 			Payload: []byte(`{
 					"objects": [
 					],
@@ -210,7 +211,7 @@ var _ = Describe("Transport Integration", Ordered, func() {
 		go kafkaConsumer.Start(ctx)
 
 		kafkaConsumer.BundleRegister(&registration.BundleRegistration{
-			MsgID:            constants.ManagedClustersMsgKey,
+			MsgID:            string(enum.ManagedClusterType),
 			CreateBundleFunc: cluster.NewManagerManagedClusterBundle,
 			Predicate:        func() bool { return true }, // always get managed clusters bundles
 		})

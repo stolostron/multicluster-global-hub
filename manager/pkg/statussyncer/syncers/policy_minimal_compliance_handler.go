@@ -55,7 +55,7 @@ func (h *policyMiniComplianceHandler) handleEvent(ctx context.Context, evt *clou
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	data := make([]base.MinimalCompliance, 0)
-	if err := evt.DataAs(data); err != nil {
+	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
 

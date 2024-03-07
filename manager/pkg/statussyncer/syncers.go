@@ -18,7 +18,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) err
 	// create statistics
 	stats := statistics.NewStatistics(managerConfig.StatisticsConfig)
 	if err := mgr.Add(stats); err != nil {
-		return fmt.Errorf("failed to add statistics to manager - %w", err)
+		return err
 	}
 
 	// manage all Conflation Units and handlers
@@ -26,7 +26,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) err
 	registerHandler(conflationManager, managerConfig.EnableGlobalResource)
 
 	// start consume message from transport to conflation manager
-	if err := dispatcher.AddTransportDispatcher(mgr, conflationManager, managerConfig, stats); err != nil {
+	if err := dispatcher.AddTransportDispatcher(mgr, managerConfig, conflationManager, stats); err != nil {
 		return err
 	}
 

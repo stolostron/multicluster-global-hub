@@ -1,44 +1,32 @@
 package dbsyncer_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-var _ = Describe("HubClusterHeartbeatSyncer", Ordered, func() {
-	const (
-		leafHubName = "hub1"
-		messageKey  = constants.HubClusterHeartbeatMsgKey
-	)
+// go test ./manager/pkg/statussyncer/syncers -ginkgo.focus "HubClusterHeartbeatHandler"
+var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 
 	It("sync the hubClusterHeartbeat bundle", func() {
-		By("Create hubClusterHeartbeat bundle")
-		statusBundle := cluster.NewAgentHubClusterHeartbeatBundle(leafHubName)
-		statusBundle.GetVersion().Incr()
 
-		By("Create transport message")
-		payloadBytes, err := json.Marshal(statusBundle)
-		Expect(err).ShouldNot(HaveOccurred())
+		By("Create hubClusterHeartbeat event")
+		version := metadata.NewBundleVersion()
+		leafHubName := "hub1"
+		evt := ToCloudEvent(leafHubName, string(enum.HubClusterHeartbeatType), version, generic.GenericObjectData{})
 
-		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, messageKey)
-		transportMessage := &transport.Message{
-			Key:     transportMessageKey,
-			MsgType: constants.StatusBundle,
-			Payload: payloadBytes,
-		}
-
-		By("Sync message with transport")
-		err = producer.Send(ctx, transportMessage)
+		By("Sync event with transport")
+		err := producer.SendEvent(ctx, *evt)
 		Expect(err).Should(Succeed())
 
 		By("Check the leaf hubs table")
@@ -63,3 +51,12 @@ var _ = Describe("HubClusterHeartbeatSyncer", Ordered, func() {
 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 })
+
+func ToCloudEvent(source, eventType string, version *metadata.BundleVersion, data interface{}) *cloudevents.Event {
+	e := cloudevents.NewEvent()
+	e.SetSource(source)
+	e.SetType(eventType)
+	e.SetExtension(metadata.ExtVersion, version.String())
+	_ = e.SetData(cloudevents.ApplicationJSON, data)
+	return &e
+}

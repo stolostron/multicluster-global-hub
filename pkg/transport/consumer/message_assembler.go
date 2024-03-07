@@ -122,13 +122,11 @@ func (assembler *messageAssembler) assemble(chunk *messageChunk) []byte {
 func (assembler *messageAssembler) messageChunk(e cloudevents.Event) (*messageChunk, bool) {
 	offset, err := types.ToInteger(e.Extensions()[transport.ChunkOffsetKey])
 	if err != nil {
-		assembler.log.Error(err, "event offset parse error")
 		return nil, false
 	}
 
 	size, err := types.ToInteger(e.Extensions()[transport.ChunkSizeKey])
 	if err != nil {
-		assembler.log.Error(err, "event size parse error")
 		return nil, false
 	}
 

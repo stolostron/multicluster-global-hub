@@ -46,6 +46,7 @@ func (h *hubHeartbeatHandler) RegisterHandler(conflationManager *conflator.Confl
 }
 
 func handleHeartbeatEvent(ctx context.Context, evt *cloudevents.Event) error {
+	fmt.Println("handle heart beat ..............................")
 	db := database.GetGorm()
 	heartbeat := models.LeafHubHeartbeat{
 		Name:         evt.Source(),

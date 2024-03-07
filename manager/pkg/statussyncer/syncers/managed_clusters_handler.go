@@ -54,7 +54,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	data := generic.GenericObjectData{}
-	if err := evt.DataAs(data); err != nil {
+	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
 

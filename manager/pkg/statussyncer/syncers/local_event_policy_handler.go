@@ -52,7 +52,7 @@ func (h *localEventPolicyHandler) handleEvent(ctx context.Context, evt *cloudeve
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	data := []event.RootPolicyEvent{}
-	if err := evt.DataAs(data); err != nil {
+	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
 	if len(data) == 0 {

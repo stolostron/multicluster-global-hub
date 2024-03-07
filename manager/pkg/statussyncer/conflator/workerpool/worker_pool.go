@@ -25,7 +25,7 @@ func NewDBWorkerPool(statistics *statistics.Statistics) (*DBWorkerPool, error) {
 	return &DBWorkerPool{
 		log:        ctrl.Log.WithName("worker-pool"),
 		statistics: statistics,
-		ticker:     time.NewTicker(10 * time.Second),
+		ticker:     time.NewTicker(2 * time.Second),
 	}, nil
 }
 
@@ -71,7 +71,7 @@ func (pool *DBWorkerPool) Acquire() (*Worker, error) {
 		case res := <-pool.workers:
 			return res, nil
 		case <-pool.ticker.C:
-			pool.log.Info("the db workers are not available, retrying", "seconds", i*10+10)
+			pool.log.Info("the db workers are not available, retrying", "seconds", (i+1)*2)
 			continue
 		}
 	}

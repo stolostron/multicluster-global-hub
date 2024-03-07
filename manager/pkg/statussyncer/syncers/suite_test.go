@@ -19,8 +19,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/postgresql"
-	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -29,15 +28,13 @@ import (
 )
 
 var (
-	testenv             *envtest.Environment
-	cfg                 *rest.Config
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	testPostgres        *testpostgres.TestPostgres
-	transportPostgreSQL *postgresql.PostgreSQL
-	kubeClient          client.Client
-	producer            transport.Producer
-	transportDispatcher dbsyncer.BundleRegisterable
+	testenv      *envtest.Environment
+	cfg          *rest.Config
+	ctx          context.Context
+	cancel       context.CancelFunc
+	testPostgres *testpostgres.TestPostgres
+	kubeClient   client.Client
+	producer     transport.Producer
 )
 
 func TestDbsyncer(t *testing.T) {
@@ -69,42 +66,8 @@ var _ = BeforeSuite(func() {
 	err = testpostgres.InitDatabase(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Create test postgres")
-	managerConfig := &config.ManagerConfig{
-		DatabaseConfig: &config.DatabaseConfig{
-			ProcessDatabaseURL:         testPostgres.URI,
-			TransportBridgeDatabaseURL: testPostgres.URI,
-			CACertPath:                 "ca-test-path",
-		},
-		TransportConfig: &transport.TransportConfig{
-			TransportType: string(transport.Chan),
-			KafkaConfig: &transport.KafkaConfig{
-				Topics: &transport.ClusterTopic{
-					EventTopic:  "event",
-					StatusTopic: "status",
-				},
-				ConsumerConfig: &transport.KafkaConsumerConfig{},
-			},
-		},
-		StatisticsConfig: &statistics.StatisticsConfig{
-			LogInterval: "10s",
-		},
-		EnableGlobalResource: true,
-	}
-	Expect(err).NotTo(HaveOccurred())
-	transportPostgreSQL, err = postgresql.NewSpecPostgreSQL(ctx, managerConfig.DatabaseConfig)
-	Expect(err).NotTo(HaveOccurred())
-	err = database.InitGormInstance(&database.DatabaseConfig{
-		URL:      testPostgres.URI,
-		Dialect:  database.PostgresDialect,
-		PoolSize: 5,
-	})
-	Expect(err).NotTo(HaveOccurred())
-
-	By("Start cloudevents producer")
-	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig, "spec")
-	Expect(err).NotTo(HaveOccurred())
-
+	// start manager
+	By("Start manager")
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: "0",
 		Scheme:             scheme.Scheme,
@@ -119,9 +82,30 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kubeClient).NotTo(BeNil())
 
-	// By("Add controllers to manager")
-	// transportDispatcher, err = statussyncer.AddStatusSyncers(mgr, managerConfig, nil)
-	// Expect(err).ToNot(HaveOccurred())
+	By("Create test postgres")
+	managerConfig := &config.ManagerConfig{
+		TransportConfig: &transport.TransportConfig{
+			TransportType: string(transport.Chan),
+			KafkaConfig: &transport.KafkaConfig{
+				Topics: &transport.ClusterTopic{
+					EventTopic:  "event",
+					StatusTopic: "status",
+				},
+			},
+		},
+		StatisticsConfig: &statistics.StatisticsConfig{
+			LogInterval: "10s",
+		},
+		EnableGlobalResource: true,
+	}
+
+	By("Start cloudevents producer and consumer")
+	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig, "event")
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Add controllers to manager")
+	err = statussyncer.AddStatusSyncers(mgr, managerConfig)
+	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")
 	go func() {
@@ -135,9 +119,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	if transportPostgreSQL != nil {
-		transportPostgreSQL.Stop()
-	}
 	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
 	database.CloseGorm(database.GetSqlDb())
 

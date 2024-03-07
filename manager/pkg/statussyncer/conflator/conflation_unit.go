@@ -82,7 +82,9 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 	// 2. reset the bundleInfo version to 0 (add the resetBundleVersion() function to bundleInfo interface)
 	if eventMetadata.Version().InitGen() {
 		conflationElement.lastProcessedVersion = bundlemetadata.NewBundleVersion()
-		conflationElement.metadata.Version().Reset()
+		if conflationElement.metadata != nil {
+			conflationElement.metadata.Version().Reset()
+		}
 		cu.log.Info("resetting element processed version", "LH", event.Source(), "type", event.Type())
 	}
 

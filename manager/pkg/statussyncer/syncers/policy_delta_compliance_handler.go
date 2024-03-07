@@ -57,7 +57,7 @@ func (h *policyDeltaComplianceHandler) handleEvent(ctx context.Context, evt *clo
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	data := grc.ComplianceData{}
-	if err := evt.DataAs(data); err != nil {
+	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
 
