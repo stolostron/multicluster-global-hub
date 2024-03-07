@@ -288,3 +288,66 @@ Here we take the table with `event.local_policies` and the date with `2023-08` a
     - `event.local_policies_2023_07` is the partition name with the suffix of the **previous month**(July)
 
     - `'2000-01-01'` and `'2023-08-01'` are the minimum and maximum boundaries of the previous month partition
+
+
+## Restore the complinace history data when reimprted managed hub with differenet names
+
+The compliance cronjob is used to summarize the daily status of the policy by compliance and event table. When the managed hub reimport to the global hub with a different name, that might caused two events of the same policy with different managed hub names on one day. This will cause the daily job run with the error like this `pq: ON CONFLICT DO UPDATE command cannot affect row a second time`. 
+
+Most simply, you can choose to restart the manager to end the error, and then running the following sql to restore the compliance history data of yesterday
+
+```sql
+INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance_date, compliance, compliance_changed_frequency)
+WITH compliance_aggregate AS (
+    SELECT
+        cluster_id,
+        policy_id,
+        leaf_hub_name,
+        CASE
+            WHEN bool_or(compliance = 'non_compliant') THEN 'non_compliant'
+            WHEN bool_or(compliance = 'unknown') THEN 'unknown'
+            ELSE 'compliant'
+        END::local_status.compliance_type AS aggregated_compliance
+    FROM 
+        event.local_policies lp
+    WHERE 
+        created_at BETWEEN CURRENT_DATE - INTERVAL '1 days' AND CURRENT_DATE - INTERVAL '0 day'
+        AND EXISTS (
+            SELECT 1
+            FROM status.leaf_hubs lh
+            WHERE lh.leaf_hub_name = lp.leaf_hub_name AND deleted_at IS NULL
+        )
+    GROUP BY
+        cluster_id, policy_id, leaf_hub_name
+)
+SELECT
+    policy_id,
+    cluster_id,
+    leaf_hub_name,
+    (CURRENT_DATE - INTERVAL '1 day') AS compliance_date,
+    aggregated_compliance,
+    (
+        SELECT COUNT(1) FROM (
+            SELECT
+                created_at,
+                compliance,
+                LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC) AS prev_compliance
+            FROM
+                event.local_policies lp
+            WHERE
+                (lp.created_at BETWEEN CURRENT_DATE - INTERVAL '1 day' AND CURRENT_DATE - INTERVAL '0 day') 
+                AND lp.cluster_id = ca.cluster_id AND lp.policy_id = ca.policy_id
+            ORDER BY
+                created_at ASC
+        ) AS subquery
+        WHERE compliance <> prev_compliance
+    ) AS compliance_changed_frequency
+FROM
+    compliance_aggregate ca
+ORDER BY
+    cluster_id, policy_id;
+ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date)
+DO UPDATE SET
+    compliance = EXCLUDED.compliance,
+    compliance_changed_frequency = EXCLUDED.compliance_changed_frequency;
+```
