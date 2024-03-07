@@ -2,6 +2,7 @@ package conflator
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -125,6 +126,8 @@ func (cu *ConflationUnit) GetNext() (*cloudevents.Event, ConflationMetadata, Eve
 
 	conflationElement := cu.priorityQueue[nextElementPriority]
 
+	fmt.Println(">>>>>>>>>>>>>>>> get next ready element", nextElementPriority, conflationElement.eventType)
+
 	cu.isInReadyQueue = false
 	conflationElement.isInProcess = true
 
@@ -152,7 +155,7 @@ func (cu *ConflationUnit) ReportResult(metadata ConflationMetadata, err error) {
 		cu.addCUToReadyQueueIfNeeded()
 	}()
 
-	if err == nil {
+	if err != nil {
 		cu.log.Error(err, "report error for the event", "type", metadata.EventType(), "version", metadata.Version())
 	} else {
 		// if this is the same event that was processed then release bundle pointer, otherwise leave
@@ -177,8 +180,8 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 		return // allow CU to appear only once in RQ/processing
 	}
 	// if we reached here, CU is not in RQ nor during processing
-	nextReadyBundlePriority := cu.getNextReadyBundlePriority()
-	if nextReadyBundlePriority != invalidPriority { // there is a ready to be processed bundle
+	nextReadyElementPriority := cu.getNextReadyBundlePriority()
+	if nextReadyElementPriority != invalidPriority { // there is a ready to be processed bundle
 		cu.readyQueue.Enqueue(cu) // let the dispatcher know this CU has a ready to be processed bundle
 		cu.isInReadyQueue = true
 	}
@@ -187,13 +190,13 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 // returns next ready priority or invalidPriority (-1) in case no priority has a ready to be processed bundle.
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
-		if !cu.isProcessed(conflationElement) &&
+		if conflationElement.event != nil && conflationElement.metadata != nil &&
+			!cu.isProcessed(conflationElement) &&
 			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) &&
 			cu.checkDependency(conflationElement) {
 			return priority // bundle in this priority is ready to be processed
 		}
 	}
-
 	return invalidPriority
 }
 
@@ -228,18 +231,18 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 		return true // bundle in this conflation element has no dependency
 	}
 
-	dependencyIndex := cu.eventTypeToPriority[conflationElement.dependency.EventType]
-	dependencyElement := cu.priorityQueue[dependencyIndex]
+	dependentIndex := cu.eventTypeToPriority[conflationElement.dependency.EventType]
+	dependentElement := cu.priorityQueue[dependentIndex]
 
 	switch conflationElement.dependency.DependencyType {
 	case dependency.ExactMatch:
-		return conflationElement.metadata.DependencyVersion().EqualValue(dependencyElement.lastProcessedVersion)
+		return conflationElement.metadata.DependencyVersion().EqualValue(dependentElement.lastProcessedVersion)
 
 	case dependency.AtLeast:
 		fallthrough // default case is AtLeast
 
 	default:
-		return !conflationElement.metadata.DependencyVersion().NewerValueThan(dependencyElement.lastProcessedVersion)
+		return !conflationElement.metadata.DependencyVersion().NewerValueThan(dependentElement.lastProcessedVersion)
 	}
 }
 

@@ -1,104 +1,78 @@
 package dbsyncer_test
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"time"
+import (
+	"fmt"
+	"time"
 
-// 	. "github.com/onsi/ginkgo/v2"
-// 	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-// 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-// )
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+)
 
-// var _ = Describe("LocalStatusPoliciesSyncer", Ordered, func() {
-// 	const (
-// 		testSchema                     = database.EventSchema
-// 		testEventTable                 = database.LocalPolicyEventTableName
-// 		leafHubName                    = "hub1"
-// 		localPoliciesStatusEventMsgKey = constants.LocalPolicyHistoryEventMsgKey
-// 	)
+// go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "LocalPolicyEventHandler"
+var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
 
-// 	BeforeAll(func() {
-// 		By("Check whether the tables are created")
-// 		Eventually(func() error {
-// 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
-// 			if err != nil {
-// 				return err
-// 			}
-// 			defer rows.Close()
-// 			for rows.Next() {
-// 				columnValues, _ := rows.Values()
-// 				schema := columnValues[0]
-// 				table := columnValues[1]
-// 				if schema == testSchema && table == testEventTable {
-// 					return nil
-// 				}
-// 			}
-// 			return fmt.Errorf("failed to create table %s.%s", testSchema, testEventTable)
-// 		}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-// 	})
+	It("should handle the local policy(replicated) event", func() {
 
-// 	It("sync ClusterPolicyStatusEventBundle to database", func() {
-// 		By("Create ClusterPolicyStatusEventBundle")
-// 		version := metadata.NewBundleVersion()
-// 		version.Incr()
-// 		baseClusterPolicyStatusEventBundle := base.BaseReplicatedPolicyEventBundle{
-// 			ReplicatedPolicyEvents: make(map[string][]*base.ReplicatedPolicyEvent),
-// 			LeafHubName:            leafHubName,
-// 			BundleVersion:          version,
-// 		}
-// 		lastTimestamp := time.Now()
+		By("Create Event")
+		leafHubName := "hub1"
+		version := metadata.NewBundleVersion()
+		version.Incr()
 
-// 		basePolicyEvent := &base.ReplicatedPolicyEvent{
-// 			ClusterID:  "69369013-3e0e-4a9c-b38c-7efbe7770b61",
-// 			PolicyID:   "f99c4252-bdde-43e9-9d3f-9bf0a5583543",
-// 			Compliance: "Compliant",
-// 			EventName:  "local-placement.policy-limitrange.176ccd711606e273",
-// 			Message:    `Compliant; notification - limitranges [container-mem-limit-range] in namespace default found as specified, therefore this Object template is compliant`,
-// 			CreatedAt:  lastTimestamp,
-// 		}
+		data := event.ReplicatedPolicyEventData{}
+		eventName := "local-policy-namespace.policy-limitrange.17b0db242743213210"
+		policyID := "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d"
+		clusterID := "f302ce61-98e7-4d63-8dd2-65951e32fd95"
+		compliance := "NonCompliant"
+		data = append(data, event.ReplicatedPolicyEvent{
+			BaseEvent: event.BaseEvent{
+				EventName:      eventName,
+				EventNamespace: "kind-hub1-cluster1",
+				Message: `NonCompliant; violation - limitranges [container-mem-limit-range] not found
+				 in namespace default`,
+				Reason: "PolicyStatusSync",
+				Count:  1,
+				Source: v1.EventSource{
+					Component: "policy-status-history-sync",
+				},
+				CreatedAt: metav1.NewTime(time.Now()),
+			},
+			PolicyID:   policyID,
+			ClusterID:  clusterID,
+			Compliance: compliance,
+		})
 
-// 		events := make([]*base.ReplicatedPolicyEvent, 0)
-// 		baseClusterPolicyStatusEventBundle.ReplicatedPolicyEvents["clusterPolicyId"] = append(events, basePolicyEvent)
+		evt := ToCloudEvent(leafHubName, string(enum.LocalReplicatedPolicyEventType), version, data)
 
-// 		By("Create transport message")
-// 		payloadBytes, err := json.Marshal(baseClusterPolicyStatusEventBundle)
-// 		Expect(err).ShouldNot(HaveOccurred())
+		By("Sync event with transport")
+		err := producer.SendEvent(ctx, *evt)
+		Expect(err).Should(Succeed())
 
-// 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, localPoliciesStatusEventMsgKey)
-// 		transportMessage := &transport.Message{
-// 			Key:     transportMessageKey,
-// 			MsgType: constants.StatusBundle,
-// 			Payload: payloadBytes,
-// 		}
+		By("Check event is created and expired policy is deleted from database")
+		Eventually(func() error {
+			db := database.GetGorm()
+			var replicatedPolicyEvents []models.LocalClusterPolicyEvent
 
-// 		By("Sync message with transport")
-// 		err = producer.Send(ctx, transportMessage)
-// 		Expect(err).Should(Succeed())
+			err = db.Where("leaf_hub_name = ?", leafHubName).Find(&replicatedPolicyEvents).Error
+			if err != nil {
+				return err
+			}
 
-// 		By("Check the local policy event table")
-// 		Eventually(func() error {
-// 			querySql := fmt.Sprintf("SELECT event_name FROM %s.%s", testSchema, testEventTable)
-// 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			defer rows.Close()
-// 			for rows.Next() {
-// 				var eventName string
-// 				if err := rows.Scan(&eventName); err != nil {
-// 					return err
-// 				}
-// 				if eventName == basePolicyEvent.EventName {
-// 					return nil
-// 				}
-// 			}
-// 			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testEventTable)
-// 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-// 	})
-// })
+			for _, e := range replicatedPolicyEvents {
+				fmt.Println("LocalPolicyEvent:", e.EventName, e.ClusterID, e.Compliance)
+				if e.EventName == eventName && e.ClusterID == clusterID && e.Compliance == string(database.NonCompliant) {
+					return nil
+				}
+			}
+			return fmt.Errorf("failed to sync resource")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+})

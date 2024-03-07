@@ -68,26 +68,36 @@ func (dispatcher *ConflationDispatcher) Start(ctx context.Context) error {
 }
 
 func (dispatcher *ConflationDispatcher) dispatch(ctx context.Context) {
+	var conflationUnit *conflator.ConflationUnit
 	for {
 		select {
 		case <-ctx.Done(): // if dispatcher was stopped do not process more bundles
 			return
 
 		default: // as long as context wasn't cancelled, continue and try to read bundles to process
+			fmt.Println("get cu....................................")
+			if conflationUnit == nil {
+				fmt.Println("cu from queue....................................")
+				conflationUnit = dispatcher.conflationReadyQueue.BlockingDequeue() // blocking if no CU has ready bundle
+			}
+			fmt.Println("get db....................................")
 			dbWorker, err := dispatcher.dbWorkerPool.Acquire()
 			if err != nil {
 				dispatcher.log.Error(err, "failed to get worker")
 				continue
 			}
 
-			conflationUnit := dispatcher.conflationReadyQueue.BlockingDequeue() // blocking if no CU has ready bundle
+			fmt.Println("get element....................................")
 			event, eventMetadata, handleFunc, err := conflationUnit.GetNext()
 			if err != nil {
 				dispatcher.log.Info(err.Error()) // don't need to throw the error when bundle is not ready
+				conflationUnit = nil
 				continue
 			}
 
+			fmt.Println("sub job....................................")
 			dbWorker.RunAsync(workerpool.NewDBJob(event, eventMetadata, handleFunc, conflationUnit))
+			conflationUnit = nil
 		}
 	}
 }

@@ -1,80 +1,68 @@
 package dbsyncer_test
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"time"
+import (
+	"fmt"
+	"time"
 
-// 	. "github.com/onsi/ginkgo/v2"
-// 	. "github.com/onsi/gomega"
-// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-// 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 
-// 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-// )
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+)
 
-// var _ = Describe("LocalPlacementrulesSyncer", Label("localplacementrule"), func() {
-// 	const (
-// 		testSchema                   = database.LocalSpecSchema
-// 		testPlacementRuleTable       = database.PlacementRulesTableName
-// 		placementRuleTable           = "placementrules"
-// 		leafHubName                  = "hub1"
-// 		localPlacementRuleMessageKey = constants.LocalPlacementRulesMsgKey
-// 	)
+// go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "LocalPlacementRuleHandler"
+var _ = Describe("LocalPlacementRuleHandler", Ordered, func() {
 
-// 	It("sync LocalPlacementRuleBundle to database", func() {
-// 		By("Create LocalPlacementRuleBundle")
-// 		placementrule := &placementrulev1.PlacementRule{
-// 			ObjectMeta: metav1.ObjectMeta{
-// 				Name:      "test-placementrule-1",
-// 				Namespace: "default",
-// 				UID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-// 			},
-// 			Spec: placementrulev1.PlacementRuleSpec{
-// 				SchedulerName: constants.GlobalHubSchedulerName,
-// 			},
-// 		}
+	It("should be able to sync local placement rule event", func() {
 
-// 		By("Create transport message")
-// 		statusBundle := generic.NewGenericStatusBundle(leafHubName, nil)
-// 		statusBundle.UpdateObject(placementrule)
-// 		payloadBytes, err := json.Marshal(statusBundle)
-// 		Expect(err).ShouldNot(HaveOccurred())
+		By("Create event")
+		leafHubName := "hub1"
+		version := metadata.NewBundleVersion()
+		version.Incr()
 
-// 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, localPlacementRuleMessageKey)
-// 		transportMessage := &transport.Message{
-// 			Key:     transportMessageKey,
-// 			MsgType: constants.StatusBundle,
-// 			Payload: payloadBytes,
-// 		}
-// 		By("Sync message with transport")
-// 		err = producer.Send(ctx, transportMessage)
-// 		Expect(err).Should(Succeed())
+		data := generic.GenericObjectData{}
+		data = append(data, &placementrulev1.PlacementRule{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-placementrule-1",
+				Namespace: "default",
+				UID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+			},
+			Spec: placementrulev1.PlacementRuleSpec{
+				SchedulerName: constants.GlobalHubSchedulerName,
+			},
+		})
 
-// 		By("Check the local placementrule table")
-// 		Eventually(func() error {
-// 			querySql := fmt.Sprintf("SELECT leaf_hub_name,payload FROM %s.%s", testSchema, testPlacementRuleTable)
-// 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			defer rows.Close()
-// 			for rows.Next() {
-// 				var receivedHubName string
-// 				receivedPlacementrule := placementrulev1.PlacementRule{}
-// 				if err := rows.Scan(&receivedHubName, &receivedPlacementrule); err != nil {
-// 					return err
-// 				}
-// 				if receivedHubName == leafHubName && receivedPlacementrule.Name == placementrule.Name {
-// 					fmt.Printf("LocalSpecPlacementrule: %s - %s/%s\n", receivedHubName, receivedPlacementrule.Namespace, receivedPlacementrule.Name)
-// 					return nil
-// 				}
-// 			}
+		evt := ToCloudEvent(leafHubName, string(enum.LocalPlacementRuleSpecType), version, data)
 
-// 			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testPlacementRuleTable)
-// 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-// 	})
-// })
+		By("Sync event with transport")
+		err := producer.SendEvent(ctx, *evt)
+		Expect(err).Should(Succeed())
+
+		By("Check the leaf hubs table")
+		Eventually(func() error {
+			db := database.GetGorm()
+
+			items := []models.LocalSpecPlacementRule{}
+			if err := db.Find(&items).Error; err != nil {
+				return err
+			}
+
+			count := 0
+			for _, item := range items {
+				fmt.Println(item.LeafHubName, item.ID, item.Payload)
+				count++
+			}
+			if count > 0 {
+				return nil
+			}
+			return fmt.Errorf("not found expected resource on the table")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+})

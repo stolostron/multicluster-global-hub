@@ -15,4 +15,4 @@ type ReplicatedPolicyEvent struct {
 
 type ReplicatedPolicyEventData []ReplicatedPolicyEvent
 
-type PolicyEventPayload []RootPolicyEvent
+type RootPolicyEventData []RootPolicyEvent

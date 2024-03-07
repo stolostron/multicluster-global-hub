@@ -27,7 +27,7 @@ type policyComplianceHandler struct {
 	eventPriority conflator.ConflationPriority
 }
 
-func NewPolicyComplianceHandler() Handler {
+func NewPolicyComplianceHandler() conflator.Handler {
 	eventType := string(enum.ComplianceType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	return &policyComplianceHandler{
@@ -72,6 +72,9 @@ func (h *policyComplianceHandler) handleEvent(ctx context.Context, evt *cloudeve
 
 	// policyID: { compliance: (cluster1, cluster2), nonCompliance: (cluster3, cluster4), unknowns: (cluster5) }
 	allComplianceClustersFromDB, err := getComplianceClusterSets(db, "leaf_hub_name = ?", leafHubName)
+	if err != nil {
+		return err
+	}
 
 	for _, eventCompliance := range data { // every object is clusters list per policy with full state
 
@@ -191,4 +194,37 @@ func getComplianceClusterSets(db *gorm.DB, query interface{}, args ...interface{
 		policyComplianceRowsFromDB[compliance.PolicyID].AddCluster(compliance.ClusterName, compliance.Compliance)
 	}
 	return policyComplianceRowsFromDB, nil
+}
+
+// NewPolicyClusterSets creates a new instance of PolicyClustersSets.
+func NewPolicyClusterSets() *PolicyClustersSets {
+	return &PolicyClustersSets{
+		complianceToSetMap: map[database.ComplianceStatus]set.Set{
+			database.Compliant:    set.NewSet(),
+			database.NonCompliant: set.NewSet(),
+			database.Unknown:      set.NewSet(),
+		},
+	}
+}
+
+// PolicyClustersSets is a data structure to hold both non compliant clusters set and unknown clusters set.
+type PolicyClustersSets struct {
+	complianceToSetMap map[database.ComplianceStatus]set.Set
+}
+
+// AddCluster adds the given cluster name to the given compliance status clusters set.
+func (sets *PolicyClustersSets) AddCluster(clusterName string, complianceStatus database.ComplianceStatus) {
+	sets.complianceToSetMap[complianceStatus].Add(clusterName)
+}
+
+// GetAllClusters returns the clusters set of a policy (union of compliant/nonCompliant/unknown clusters).
+func (sets *PolicyClustersSets) GetAllClusters() set.Set {
+	return sets.complianceToSetMap[database.Compliant].
+		Union(sets.complianceToSetMap[database.NonCompliant].
+			Union(sets.complianceToSetMap[database.Unknown]))
+}
+
+// GetClusters returns the clusters set by compliance status.
+func (sets *PolicyClustersSets) GetClusters(complianceStatus database.ComplianceStatus) set.Set {
+	return sets.complianceToSetMap[complianceStatus]
 }

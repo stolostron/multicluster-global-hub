@@ -22,6 +22,7 @@ var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 
 		By("Create hubClusterHeartbeat event")
 		version := metadata.NewBundleVersion()
+		version.Incr()
 		leafHubName := "hub1"
 		evt := ToCloudEvent(leafHubName, string(enum.HubClusterHeartbeatType), version, generic.GenericObjectData{})
 
@@ -32,7 +33,6 @@ var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 		By("Check the leaf hubs table")
 		Eventually(func() error {
 			db := database.GetGorm()
-
 			heartbeats := []models.LeafHubHeartbeat{}
 			ret := db.Find(&heartbeats)
 			if ret.Error != nil {
@@ -48,7 +48,7 @@ var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 				return nil
 			}
 			return fmt.Errorf("not found heartbeat record on the table")
-		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })
 

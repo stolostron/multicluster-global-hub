@@ -32,3 +32,9 @@ type ConflationMetadata interface {
 type ResultReporter interface {
 	ReportResult(m ConflationMetadata, err error)
 }
+
+// Handler interface for registering business logic needed for handling bundles.
+type Handler interface {
+	// RegisterHandler registers event handler functions within the conflation manager.
+	RegisterHandler(conflationManager *ConflationManager)
+}

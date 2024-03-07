@@ -27,7 +27,7 @@ type localPolicyCompleteHandler struct {
 	eventPriority  conflator.ConflationPriority
 }
 
-func NewLocalPolicyCompleteHandler() Handler {
+func NewLocalPolicyCompleteHandler() conflator.Handler {
 	eventType := string(enum.LocalCompleteComplianceType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	return &localPolicyCompleteHandler{

@@ -51,12 +51,12 @@ func AddTransportDispatcher(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 
 // Start function starts bundles status syncer.
 func (d *TransportDispatcher) Start(ctx context.Context) error {
-	d.log.Info("transport dispatcher starts dispatching received bundles...")
+	d.log.Info("transport dispatcher starts dispatching received events...")
 
 	go d.dispatch(ctx)
 
 	<-ctx.Done() // blocking wait for stop event
-	d.log.Info("stopped dispatching bundles")
+	d.log.Info("stopped dispatching events")
 
 	return nil
 }

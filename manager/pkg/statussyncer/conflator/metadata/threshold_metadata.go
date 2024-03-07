@@ -32,7 +32,7 @@ type ThresholdMetadata struct {
 
 // the retry times(max) when the bundle has been failed processed
 func NewThresholdMetadata(clusterIdentity string, max int, evt *cloudevents.Event) *ThresholdMetadata {
-	log := ctrl.Log.WithName("threshold-bundle-status")
+	log := ctrl.Log.WithName("event-metadata")
 
 	topic, err := types.ToString(evt.Extensions()[kafka_confluent.KafkaTopicKey])
 	if err != nil {

@@ -27,7 +27,7 @@ type policyDeltaComplianceHandler struct {
 	eventPriority  conflator.ConflationPriority
 }
 
-func NewPolicyDeltaComplianceHandler() Handler {
+func NewPolicyDeltaComplianceHandler() conflator.Handler {
 	eventType := string(enum.DeltaComplianceType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	return &policyDeltaComplianceHandler{

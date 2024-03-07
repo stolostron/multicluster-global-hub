@@ -12,7 +12,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -27,7 +26,7 @@ const (
 
 // genericObjectHandler implements generic status resource db sync business logic.
 // only for the table with: id, leaf_hub_name and payload
-type genericObjectHandler struct {
+type genericObjectHandler[T metav1.Object] struct {
 	log           logr.Logger
 	eventType     string
 	eventSyncMode metadata.EventSyncMode
@@ -35,10 +34,10 @@ type genericObjectHandler struct {
 	table         string
 }
 
-func NewGenericHandler(eventType string, priority conflator.ConflationPriority,
-	syncMode metadata.EventSyncMode, table string) *genericObjectHandler {
+func NewGenericHandler[T metav1.Object](eventType string, priority conflator.ConflationPriority,
+	syncMode metadata.EventSyncMode, table string) *genericObjectHandler[T] {
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
-	return &genericObjectHandler{
+	return &genericObjectHandler[T]{
 		log:           ctrl.Log.WithName(logName),
 		eventType:     eventType,
 		eventSyncMode: syncMode,
@@ -54,7 +53,7 @@ func NewGenericHandler(eventType string, priority conflator.ConflationPriority,
 // therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the database.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
-func (h *genericObjectHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
+func (h *genericObjectHandler[T]) RegisterHandler(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		h.eventPriority,
 		h.eventSyncMode,
@@ -63,11 +62,16 @@ func (h *genericObjectHandler) RegisterHandler(conflationManager *conflator.Conf
 	))
 }
 
-func (h *genericObjectHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
+func (h *genericObjectHandler[T]) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[metadata.ExtVersion]
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	leafHubName := evt.Source()
+	var data []T
+	e := evt.DataAs(&data)
+	if e != nil {
+		return fmt.Errorf("failed to parse the event data: %v", e)
+	}
 
 	// get the exist objects in database
 	db := database.GetGorm()
@@ -80,16 +84,9 @@ func (h *genericObjectHandler) handleEvent(ctx context.Context, evt *cloudevents
 	// using the transaction for now. once the unique is fixed, try to upInsert with batch operations
 	err = db.Transaction(func(tx *gorm.DB) error {
 		genericDao := dao.NewGenericDao(tx, h.table)
-		genericData := generic.GenericObjectData{}
-		e := evt.DataAs(&genericData)
-		if e != nil {
-			return fmt.Errorf("failed to parse the event data: %v", e)
-		}
-		for _, object := range genericData {
-			specificObj, ok := object.(metav1.Object)
-			if !ok {
-				continue
-			}
+
+		for _, object := range data {
+			specificObj := object
 			uid := getGenericObjectUID(specificObj)
 			resourceVersionFromDB, objExistsInDB := idToVersionMapFromDB[uid]
 

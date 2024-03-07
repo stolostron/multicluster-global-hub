@@ -14,7 +14,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -28,7 +27,7 @@ type managedClusterHandler struct {
 	eventPriority conflator.ConflationPriority
 }
 
-func NewManagedClusterHandler() Handler {
+func NewManagedClusterHandler() conflator.Handler {
 	eventType := string(enum.ManagedClusterType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	return &managedClusterHandler{
@@ -53,7 +52,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	leafHubName := evt.Source()
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
-	data := generic.GenericObjectData{}
+	var data []clusterv1.ManagedCluster
 	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
@@ -67,10 +66,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	// batch update/insert managed clusters
 	batchManagedClusters := []models.ManagedCluster{}
 	for _, object := range data {
-		cluster, ok := object.(*clusterv1.ManagedCluster)
-		if !ok {
-			continue
-		}
+		cluster := object
 
 		// Initially, if the clusterID is not exist we will skip it until we get it from ClusterClaim
 		clusterId := ""

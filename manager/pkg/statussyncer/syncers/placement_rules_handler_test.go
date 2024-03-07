@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
@@ -17,8 +17,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-// go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "PlacementHandler"
-var _ = Describe("PlacementHandler", Ordered, func() {
+// go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "PlacementRuleHandler"
+var _ = Describe("PlacementRuleHandler", Ordered, func() {
 
 	It("should be able to sync placement decision event", func() {
 
@@ -28,9 +28,9 @@ var _ = Describe("PlacementHandler", Ordered, func() {
 		version.Incr()
 
 		data := generic.GenericObjectData{}
-		obj := &clustersv1beta1.Placement{
+		obj := &placementrulesv1.PlacementRule{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "testPlacements",
+				Name:      "testPlacementRule",
 				Namespace: "default",
 				Annotations: map[string]string{
 					constants.OriginOwnerReferenceAnnotation: "2aa5547c-c172-47ed-b70b-db468c84d327",
@@ -38,7 +38,7 @@ var _ = Describe("PlacementHandler", Ordered, func() {
 			},
 		}
 		data = append(data, obj)
-		evt := ToCloudEvent(leafHubName, string(enum.PlacementSpecType), version, data)
+		evt := ToCloudEvent(leafHubName, string(enum.PlacementRuleSpecType), version, data)
 
 		By("Sync event with transport")
 		err := producer.SendEvent(ctx, *evt)
@@ -47,7 +47,7 @@ var _ = Describe("PlacementHandler", Ordered, func() {
 		By("Check the table")
 		Eventually(func() error {
 			sql := fmt.Sprintf("SELECT leaf_hub_name,payload FROM %s.%s", database.StatusSchema,
-				database.PlacementsTableName)
+				database.PlacementRulesTableName)
 
 			rows, err := database.GetGorm().Raw(sql).Rows()
 			if err != nil {
@@ -57,17 +57,18 @@ var _ = Describe("PlacementHandler", Ordered, func() {
 			for rows.Next() {
 				var hubName string
 				var payload []byte
-				placement := &clustersv1beta1.Placement{}
+				placementDecision := &placementrulesv1.PlacementRule{}
 				if err := rows.Scan(&hubName, &payload); err != nil {
 					return err
 				}
-				err := json.Unmarshal(payload, placement)
+				err := json.Unmarshal(payload, placementDecision)
 				if err != nil {
 					return err
 				}
 
-				fmt.Println("Placement: ", hubName, placement.Name)
-				if hubName == leafHubName && placement.Name == obj.Name {
+				fmt.Println("PlacementRule: ", hubName, placementDecision.Name)
+				if hubName == leafHubName &&
+					placementDecision.Name == obj.Name {
 					return nil
 				}
 			}

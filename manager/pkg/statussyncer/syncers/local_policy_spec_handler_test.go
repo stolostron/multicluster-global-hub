@@ -1,95 +1,67 @@
 package dbsyncer_test
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"sync"
-// 	"time"
+import (
+	"fmt"
+	"time"
 
-// 	"github.com/google/uuid"
-// 	. "github.com/onsi/ginkgo/v2"
-// 	. "github.com/onsi/gomega"
-// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-// 	"k8s.io/apimachinery/pkg/runtime"
-// 	"k8s.io/apimachinery/pkg/types"
-// 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	"github.com/google/uuid"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-// 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-// )
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+)
 
-// var _ = Describe("LocalPolicySpecSyncer", Label("localpolicy"), func() {
-// 	const (
-// 		testSchema            = database.LocalSpecSchema
-// 		testPolicyTable       = database.LocalPolicySpecTableName
-// 		leafHubName           = "hub1"
-// 		localPolicyMessageKey = constants.LocalPolicySpecMsgKey
-// 	)
+// go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "LocalPolicySpecHandler"
+var _ = Describe("LocalPolicySpecHandler", Ordered, func() {
 
-// 	It("sync LocalPolicyBundle to database", func() {
-// 		By("Create LocalPolicyBundle")
-// 		policy := &policiesv1.Policy{
-// 			ObjectMeta: metav1.ObjectMeta{
-// 				Name:      "testLocalPolicy",
-// 				Namespace: "default",
-// 				UID:       types.UID(uuid.New().String()),
-// 			},
-// 			Spec: policiesv1.PolicySpec{},
-// 		}
-// 		statusBundle := generic.NewGenericStatusBundle(leafHubName, nil)
-// 		statusBundle.UpdateObject(policy)
+	It("should be able to sync local policy event", func() {
 
-// 		By("Create transport message")
-// 		payloadBytes, err := json.Marshal(statusBundle)
-// 		Expect(err).ShouldNot(HaveOccurred())
+		By("Create event")
+		leafHubName := "hub1"
+		version := metadata.NewBundleVersion()
+		version.Incr()
 
-// 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, localPolicyMessageKey)
-// 		transportMessage := &transport.Message{
-// 			Key:     transportMessageKey,
-// 			MsgType: constants.StatusBundle,
-// 			Payload: payloadBytes,
-// 		}
+		data := generic.GenericObjectData{}
+		policy := &policiesv1.Policy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "testLocalPolicy",
+				Namespace: "default",
+				UID:       types.UID(uuid.New().String()),
+			},
+			Spec: policiesv1.PolicySpec{},
+		}
+		data = append(data, policy)
+		evt := ToCloudEvent(leafHubName, string(enum.LocalPolicySpecType), version, data)
 
-// 		By("Sync message with transport")
-// 		err = producer.Send(ctx, transportMessage)
-// 		Expect(err).Should(Succeed())
+		By("Sync event with transport")
+		err := producer.SendEvent(ctx, *evt)
+		Expect(err).Should(Succeed())
 
-// 		By("Check the local policy table")
-// 		Eventually(func() error {
-// 			querySql := fmt.Sprintf("SELECT leaf_hub_name,payload FROM %s.%s", testSchema, testPolicyTable)
-// 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			defer rows.Close()
-// 			for rows.Next() {
-// 				var receivedHubName string
-// 				receivedPolicy := policiesv1.Policy{}
-// 				if err := rows.Scan(&receivedHubName, &receivedPolicy); err != nil {
-// 					return err
-// 				}
-// 				if receivedHubName == leafHubName && receivedPolicy.Name == policy.Name {
-// 					fmt.Printf("LocalSpecPolicy: %s - %s/%s\n", receivedHubName, receivedPolicy.Namespace, receivedPolicy.Name)
-// 					return nil
-// 				}
-// 			}
+		By("Check the leaf hubs table")
+		Eventually(func() error {
+			db := database.GetGorm()
 
-// 			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testPolicyTable)
-// 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-// 	})
-// })
+			items := []models.LocalSpecPolicy{}
+			if err := db.Find(&items).Error; err != nil {
+				return err
+			}
 
-// type GenericStatusBundle struct {
-// 	Objects           []Object                `json:"objects"`
-// 	LeafHubName       string                  `json:"leafHubName"`
-// 	BundleVersion     *metadata.BundleVersion `json:"bundleVersion"`
-// 	manipulateObjFunc func(obj Object)
-// 	lock              sync.Mutex
-// }
-// type Object interface {
-// 	metav1.Object
-// 	runtime.Object
-// }
+			count := 0
+			for _, item := range items {
+				fmt.Println("PolicySpec", item.LeafHubName, item.PolicyID, item.Payload)
+				count++
+			}
+			if count > 0 {
+				return nil
+			}
+			return fmt.Errorf("not found expected resource on the table")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+})

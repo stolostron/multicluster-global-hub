@@ -10,11 +10,10 @@ import (
 	"github.com/go-logr/logr"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -28,7 +27,7 @@ type localPolicySpecHandler struct {
 	eventPriority conflator.ConflationPriority
 }
 
-func NewLocalPolicySpecHandler() Handler {
+func NewLocalPolicySpecHandler() conflator.Handler {
 	eventType := string(enum.LocalPolicySpecType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	return &localPolicySpecHandler{
@@ -63,17 +62,14 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 		return err
 	}
 
-	data := generic.GenericObjectData{}
+	var data []policiesv1.Policy
 	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
 
 	batchLocalPolicySpec := []models.LocalSpecPolicy{}
 	for _, object := range data {
-		specificObj, ok := object.(metav1.Object)
-		if !ok {
-			continue
-		}
+		specificObj := object
 		uid := string(specificObj.GetUID())
 		resourceVersionFromDB, objInDB := policyIdToVersionMapFromDB[uid]
 

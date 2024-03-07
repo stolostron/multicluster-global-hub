@@ -25,7 +25,7 @@ type hubHeartbeatHandler struct {
 	eventPriority conflator.ConflationPriority
 }
 
-func NewHubClusterHeartbeatHandler() Handler {
+func NewHubClusterHeartbeatHandler() conflator.Handler {
 	eventType := string(enum.HubClusterHeartbeatType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	return &hubHeartbeatHandler{
@@ -46,7 +46,6 @@ func (h *hubHeartbeatHandler) RegisterHandler(conflationManager *conflator.Confl
 }
 
 func handleHeartbeatEvent(ctx context.Context, evt *cloudevents.Event) error {
-	fmt.Println("handle heart beat ..............................")
 	db := database.GetGorm()
 	heartbeat := models.LeafHubHeartbeat{
 		Name:         evt.Source(),

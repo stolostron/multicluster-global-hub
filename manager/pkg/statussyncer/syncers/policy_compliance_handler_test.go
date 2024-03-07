@@ -1,22 +1,156 @@
 package dbsyncer_test
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"time"
+import (
+	"fmt"
+	"time"
 
-// 	. "github.com/onsi/ginkgo/v2"
-// 	. "github.com/onsi/gomega"
-// 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
-// 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/transport/registration"
-// )
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+)
+
+// go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "PolicyComplianceHandler"
+var _ = Describe("PolicyComplianceHandler", Ordered, func() {
+	const (
+		leafHubName               = "hub1"
+		createdPolicyId           = "d9347b09-bb46-4e2b-91ea-513e83ab9ea6"
+		aggregatedComplianceTable = "aggregated_compliance"
+	)
+	var (
+		complianceVersion *metadata.BundleVersion
+		completeVersion   *metadata.BundleVersion
+	)
+
+	It("should handle the compliance event", func() {
+		By("Add an expired policy to the database")
+		db := database.GetGorm()
+		expiredPolicyID := "b8b3e164-377e-4be1-a870-992265f31f7c"
+		err := db.Create(&models.StatusCompliance{
+			PolicyID:    expiredPolicyID,
+			ClusterName: "cluster1",
+			LeafHubName: leafHubName,
+			Compliance:  database.Unknown,
+			Error:       "none",
+		}).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Check the expired policy is added in database")
+		Eventually(func() error {
+			var compliance models.StatusCompliance
+			err = db.Where("policy_id = ?", expiredPolicyID).First(&compliance).Error
+			if err != nil {
+				return err
+			}
+
+			if compliance.ClusterName == "cluster1" && compliance.Compliance == database.Unknown {
+				return nil
+			}
+			return fmt.Errorf("failed to persist data to compliance of table")
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		By("Build a new policy compliance on the managed hub")
+		complianceVersion = metadata.NewBundleVersion()
+		complianceVersion.Incr()
+
+		data := grc.ComplianceData{}
+		data = append(data, grc.Compliance{
+			PolicyID:                  createdPolicyId,
+			CompliantClusters:         []string{"cluster1"}, // generate record: createdPolicyId hub1-cluster1 compliant
+			NonCompliantClusters:      []string{"cluster2"}, // generate record: createdPolicyId hub1-cluster2 non_compliant
+			UnknownComplianceClusters: []string{},
+		})
+
+		evt := ToCloudEvent(leafHubName, string(enum.ComplianceType), complianceVersion, data)
+
+		By("Sync message with transport")
+		err = producer.SendEvent(ctx, *evt)
+		Expect(err).Should(Succeed())
+
+		By("Check the compliance is created and expired policy is deleted from database")
+		Eventually(func() error {
+			var compliances []models.StatusCompliance
+			err = db.Where("leaf_hub_name = ?", leafHubName).Find(&compliances).Error
+			if err != nil {
+				return err
+			}
+
+			expiredCount := 0
+			addedCount := 0
+			for _, c := range compliances {
+				if c.PolicyID == expiredPolicyID && c.ClusterName == "cluster1" {
+					expiredCount++
+				}
+				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" {
+					addedCount++
+				}
+
+				fmt.Printf("Compliance: ID(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
+			}
+			if expiredCount == 0 && addedCount == 2 && len(compliances) == 2 {
+				return nil
+			}
+			return fmt.Errorf("failed to sync compliance")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("should handle the complete compliance event", func() {
+
+		By("Create a complete compliance bundle")
+		completeVersion = metadata.NewBundleVersion()
+		completeVersion.Incr()
+
+		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
+		// hub1-cluster2 non_compliant => hub1-cluster2 compliant
+		data := grc.CompleteComplianceData{}
+		data = append(data, grc.CompleteCompliance{
+			PolicyID:                  createdPolicyId,
+			NonCompliantClusters:      []string{"cluster1"},
+			UnknownComplianceClusters: []string{"cluster3"},
+		})
+
+		evt := ToCloudEvent(leafHubName, string(enum.CompleteComplianceType), completeVersion, data)
+		evt.SetExtension(metadata.ExtDependencyVersion, complianceVersion.String())
+
+		By("Sync message with transport")
+		err := producer.SendEvent(ctx, *evt)
+		Expect(err).Should(Succeed())
+
+		By("Check the complete bundle updated all the policy status in the database")
+		Eventually(func() error {
+			var compliances []models.StatusCompliance
+			err = database.GetGorm().Where("leaf_hub_name = ?", leafHubName).Find(&compliances).Error
+			if err != nil {
+				return err
+			}
+
+			success := 0
+			for _, c := range compliances {
+				fmt.Printf("Complete: id(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
+				if c.PolicyID == createdPolicyId {
+					if c.ClusterName == "cluster1" && c.Compliance == database.NonCompliant {
+						success++
+					}
+					if c.ClusterName == "cluster2" && c.Compliance == database.Compliant {
+						success++
+					}
+					if c.ClusterName == "cluster3" {
+						return fmt.Errorf("the cluster3 shouldn't synced by the compliance bundle")
+					}
+				}
+			}
+
+			if len(compliances) == 2 && success == 2 {
+				return nil
+			}
+			return fmt.Errorf("failed to sync complete compliance")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+})
 
 // var _ = Describe("Status Compliances", Ordered, func() {
 // 	const (

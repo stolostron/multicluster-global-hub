@@ -1,118 +1,70 @@
 package dbsyncer_test
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"sync"
-// 	"time"
+import (
+	"fmt"
+	"time"
 
-// 	. "github.com/onsi/ginkgo/v2"
-// 	. "github.com/onsi/gomega"
-// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-// 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-// 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-// 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-// )
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+)
 
-// var _ = Describe("ManagedClustersDbSyncer", Ordered, func() {
-// 	const (
-// 		leafHubName = "hub1"
-// 		testSchema  = database.StatusSchema
-// 		testTable   = database.ManagedClustersTableName
-// 		messageKey  = constants.ManagedClustersMsgKey
-// 	)
+// go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "ManagedClusterHandler"
+var _ = Describe("ManagedClusterHandler", Ordered, func() {
 
-// 	BeforeAll(func() {
-// 		By("Check whether the tables are created")
-// 		Eventually(func() error {
-// 			rows, err := transportPostgreSQL.GetConn().Query(ctx, "SELECT * FROM pg_tables")
-// 			if err != nil {
-// 				return err
-// 			}
-// 			defer rows.Close()
-// 			for rows.Next() {
-// 				columnValues, _ := rows.Values()
-// 				schema := columnValues[0]
-// 				table := columnValues[1]
-// 				if schema == testSchema && table == testTable {
-// 					return nil
-// 				}
-// 			}
-// 			return fmt.Errorf("failed to create table %s.%s", testSchema, testTable)
-// 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-// 	})
+	It("should be able to sync managed cluster event", func() {
 
-// 	It("sync the ManagedCluster bundle", func() {
-// 		By("Create ManagedCluster bundle")
-// 		cluster := &clusterv1.ManagedCluster{
-// 			ObjectMeta: metav1.ObjectMeta{
-// 				Name:      "testManagedCluster",
-// 				Namespace: "default",
-// 			},
-// 			Status: clusterv1.ManagedClusterStatus{
-// 				ClusterClaims: []clusterv1.ManagedClusterClaim{
-// 					{
-// 						Name:  "id.k8s.io",
-// 						Value: "3f406177-34b2-4852-88dd-ff2809680335",
-// 					},
-// 				},
-// 			},
-// 		}
-// 		statusBundle := &GenericStatusBundle{
-// 			Objects:       make([]Object, 0),
-// 			LeafHubName:   leafHubName,
-// 			BundleVersion: metadata.NewBundleVersion(),
-// 			manipulateObjFunc: func(object Object) {
-// 				utils.MergeAnnotations(object, map[string]string{
-// 					constants.ManagedClusterManagedByAnnotation: leafHubName,
-// 				})
-// 			},
-// 			lock: sync.Mutex{},
-// 		}
-// 		statusBundle.Objects = append(statusBundle.Objects, cluster)
+		By("Create event")
+		leafHubName := "hub1"
+		version := metadata.NewBundleVersion()
+		version.Incr()
 
-// 		By("Create transport message")
-// 		// increment the version
-// 		statusBundle.BundleVersion.Incr()
-// 		payloadBytes, err := json.Marshal(statusBundle)
-// 		Expect(err).ShouldNot(HaveOccurred())
+		data := generic.GenericObjectData{}
+		clusterID := "3f406177-34b2-4852-88dd-ff2809680335"
+		cluster := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "testManagedCluster",
+				Namespace: "default",
+			},
+			Status: clusterv1.ManagedClusterStatus{
+				ClusterClaims: []clusterv1.ManagedClusterClaim{
+					{
+						Name:  "id.k8s.io",
+						Value: clusterID,
+					},
+				},
+			},
+		}
+		data = append(data, cluster)
+		evt := ToCloudEvent(leafHubName, string(enum.ManagedClusterType), version, data)
 
-// 		transportMessageKey := fmt.Sprintf("%s.%s", leafHubName, messageKey)
-// 		transportMessage := &transport.Message{
-// 			Key:     transportMessageKey,
-// 			MsgType: constants.StatusBundle,
-// 			Payload: payloadBytes,
-// 		}
+		By("Sync event with transport")
+		err := producer.SendEvent(ctx, *evt)
+		Expect(err).Should(Succeed())
 
-// 		By("Sync message with transport")
-// 		err = producer.Send(ctx, transportMessage)
-// 		Expect(err).Should(Succeed())
+		By("Check the leaf hubs table")
+		Eventually(func() error {
+			db := database.GetGorm()
 
-// 		By("Check the managed cluster table")
-// 		Eventually(func() error {
-// 			querySql := fmt.Sprintf("SELECT leaf_hub_name,payload FROM %s.%s", testSchema, testTable)
-// 			rows, err := transportPostgreSQL.GetConn().Query(ctx, querySql)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			defer rows.Close()
-// 			for rows.Next() {
-// 				var hubName string
-// 				cluster := clusterv1.ManagedCluster{}
-// 				if err := rows.Scan(&hubName, &cluster); err != nil {
-// 					return err
-// 				}
-// 				if hubName == statusBundle.LeafHubName &&
-// 					cluster.Name == statusBundle.Objects[0].GetName() {
-// 					return nil
-// 				}
-// 			}
+			items := []models.ManagedCluster{}
+			if err := db.Where("leaf_hub_name = ?", leafHubName).Find(&items).Error; err != nil {
+				return err
+			}
 
-// 			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, testTable)
-// 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-// 	})
-// })
+			for _, item := range items {
+				fmt.Println("ManagedCluster", item.LeafHubName, item.ClusterID)
+				if item.ClusterID == clusterID {
+					return nil
+				}
+			}
+			return fmt.Errorf("not found expected resource on the table")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+})

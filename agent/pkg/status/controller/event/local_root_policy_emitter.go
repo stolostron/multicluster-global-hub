@@ -34,7 +34,7 @@ type localRootPolicyEmitter struct {
 	currentVersion  *metadata.BundleVersion
 	lastSentVersion metadata.BundleVersion
 	cache           *lru.Cache
-	payload         event.PolicyEventPayload
+	payload         event.RootPolicyEventData
 }
 
 func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client, topic string) *localRootPolicyEmitter {

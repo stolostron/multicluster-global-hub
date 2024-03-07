@@ -26,7 +26,7 @@ type hubClusterInfoHandler struct {
 	eventPriority conflator.ConflationPriority
 }
 
-func NewHubClusterInfoHandler() Handler {
+func NewHubClusterInfoHandler() conflator.Handler {
 	eventType := string(enum.HubClusterInfoType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	return &hubClusterInfoHandler{

@@ -26,7 +26,7 @@ type policyMiniComplianceHandler struct {
 	eventPriority conflator.ConflationPriority
 }
 
-func NewPolicyMiniComplianceHandler() Handler {
+func NewPolicyMiniComplianceHandler() conflator.Handler {
 	eventType := string(enum.MiniComplianceType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	return &policyMiniComplianceHandler{
