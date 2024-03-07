@@ -29,6 +29,8 @@ import (
 var _ = Describe("Transport Integration", Ordered, func() {
 	ctx := context.Background()
 	It("Should get the message without conflation", func() {
+		Skip("Skip the deprecated bundle test")
+
 		By("Create a kafka producer client")
 		kafkaProducer, err := producer.NewKafkaProducer(&compressor.CompressorGZip{},
 			&transport.KafkaConfig{
@@ -157,6 +159,8 @@ var _ = Describe("Transport Integration", Ordered, func() {
 	})
 
 	It("Should get the message ith conflation", func() {
+		Skip("Skip the deprecated bundle test")
+
 		By("Create kafka producer client")
 		kafkaProducer, err := producer.NewKafkaProducer(&compressor.CompressorGZip{},
 			&transport.KafkaConfig{
