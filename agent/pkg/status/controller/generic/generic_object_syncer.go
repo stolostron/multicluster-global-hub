@@ -113,7 +113,7 @@ func (c *genericObjectSyncer) updateObject(object client.Object) {
 
 func (c *genericObjectSyncer) deleteObject(object client.Object) {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-	defer c.lock.Lock()
+	defer c.lock.Unlock()
 	for _, eventEmitter := range c.eventEmitters {
 		if eventEmitter.ShouldUpdate(object) && eventEmitter.Delete(object) {
 			eventEmitter.PostUpdate()
