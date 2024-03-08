@@ -95,12 +95,6 @@ func (s *Statistics) IncrementNumberOfConflations() {
 	s.numOfConflationUnits++
 }
 
-func (s *Statistics) CreateConflationUnit() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.numOfConflationUnits++
-}
-
 // AddDatabaseMetrics adds database metrics of the specific bundle type.
 func (s *Statistics) AddDatabaseMetrics(evt *cloudevents.Event, duration time.Duration, err error) {
 	bundleMetrics, ok := s.eventMetrics[evt.Type()]
