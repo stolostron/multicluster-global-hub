@@ -12,9 +12,10 @@ import (
 )
 
 var _ = Describe("Managed cluster integration test", Ordered, func() {
+	var testMangedCluster *clusterv1.ManagedCluster
 	It("should be able to sync managed clusters", func() {
 		By("Create managed clusters in testing managed hub")
-		testMangedCluster := &clusterv1.ManagedCluster{
+		testMangedCluster = &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-mc-1",
 				Labels: map[string]string{
@@ -38,5 +39,17 @@ var _ = Describe("Managed cluster integration test", Ordered, func() {
 		fmt.Println(evt)
 		Expect(evt).ShouldNot(BeNil())
 		Expect(evt.Type()).Should(Equal(string(enum.ManagedClusterType)))
+	})
+
+	It("should be able to delete managed clusters", func() {
+		By("Delete managed clusters in testing managed hub")
+		Expect(kubeClient.Delete(ctx, testMangedCluster)).Should(Succeed())
+
+		By("Check the managed cluster status bundle can be read from cloudevents consumer")
+		evt := mockTrans.GetEvent()
+		fmt.Println(evt, len(evt.Data()))
+		Expect(evt).ShouldNot(BeNil())
+		Expect(evt.Type()).Should(Equal(string(enum.ManagedClusterType)))
+		Expect(len(evt.Data())).Should(Equal(2))
 	})
 })
