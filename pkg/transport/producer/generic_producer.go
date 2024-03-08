@@ -97,10 +97,17 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 }
 
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	// message key
+	evtCtx := ctx
+	if kafka_confluent.MessageKeyFrom(ctx) == "" {
+		evtCtx = kafka_confluent.WithMessageKey(ctx, evt.Type())
+	}
+
+	// data
 	payloadBytes := evt.Data()
 	chunks := p.splitPayloadIntoChunks(payloadBytes)
 	if len(chunks) == 1 {
-		if ret := p.client.Send(ctx, evt); cloudevents.IsUndelivered(ret) {
+		if ret := p.client.Send(evtCtx, evt); cloudevents.IsUndelivered(ret) {
 			return fmt.Errorf("failed to send event to transport: %v", ret)
 		}
 		return nil
@@ -114,7 +121,7 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 		if err := evt.SetData(cloudevents.ApplicationJSON, chunk); err != nil {
 			return fmt.Errorf("failed to set cloudevents data: %v", evt)
 		}
-		if result := p.client.Send(ctx, evt); cloudevents.IsUndelivered(result) {
+		if result := p.client.Send(evtCtx, evt); cloudevents.IsUndelivered(result) {
 			return fmt.Errorf("failed to send events to transport: %v", result)
 		}
 	}
