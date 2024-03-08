@@ -13,7 +13,6 @@ import (
 
 var _ = Describe("Managed cluster integration test", Ordered, func() {
 	It("should be able to sync managed clusters", func() {
-
 		By("Create managed clusters in testing managed hub")
 		testMangedCluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{

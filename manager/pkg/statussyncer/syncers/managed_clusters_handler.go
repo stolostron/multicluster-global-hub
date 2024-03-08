@@ -131,7 +131,6 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 		}
 		return nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed deleting managed clusters - %w", err)
 	}

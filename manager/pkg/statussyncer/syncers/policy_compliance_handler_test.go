@@ -100,7 +100,6 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 	})
 
 	It("should handle the complete compliance event", func() {
-
 		By("Create a complete compliance bundle")
 		completeVersion = metadata.NewBundleVersion()
 		completeVersion.Incr()
@@ -287,7 +286,6 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 
 		By("Check the minimal policy is synchronized to database")
 		Eventually(func() error {
-
 			sql := fmt.Sprintf("SELECT policy_id,leaf_hub_name,applied_clusters,non_compliant_clusters FROM %s.%s",
 				database.StatusSchema, aggregatedComplianceTable)
 			rows, err := database.GetGorm().Raw(sql).Rows()
@@ -313,5 +311,4 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 			return fmt.Errorf("failed to sync minimal compliance table")
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
-
 })

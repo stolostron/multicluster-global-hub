@@ -16,11 +16,7 @@ const (
 	invalidPriority = -1
 )
 
-var (
-	errNoReadyBundle               = errors.New("no bundle is ready to be processed")
-	errDependencyCannotBeEvaluated = errors.New("bundles declares dependency in registration but doesn't " +
-		"implement DependantBundle interface")
-)
+var errNoReadyBundle = errors.New("no bundle is ready to be processed")
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {

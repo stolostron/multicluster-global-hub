@@ -18,9 +18,7 @@ import (
 
 // go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "ManagedClusterHandler"
 var _ = Describe("ManagedClusterHandler", Ordered, func() {
-
 	It("should be able to sync managed cluster event", func() {
-
 		By("Create event")
 		leafHubName := "hub1"
 		version := metadata.NewBundleVersion()

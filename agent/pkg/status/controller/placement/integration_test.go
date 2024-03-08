@@ -37,7 +37,6 @@ var _ = Describe("Placement integration test", Ordered, func() {
 	})
 
 	It("should be able to sync placement", func() {
-
 		By("Create global placement")
 		testGlobalPlacementOriginUID := "test-globalplacement-uid"
 		testGlobalPlacement := &clusterv1beta1.Placement{

@@ -20,7 +20,6 @@ var _ = Describe("Test the local policy emitters", Ordered, func() {
 	var localRootPolicy *policyv1.Policy
 
 	It("be able to sync policy spec", func() {
-
 		By("Create a root policy")
 		localRootPolicy = &policyv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -48,7 +47,6 @@ var _ = Describe("Test the local policy emitters", Ordered, func() {
 	})
 
 	It("be able to sync local policy compliance", func() {
-
 		By("Create the compliance on the root policy status")
 		localRootPolicy.Status = policyv1.PolicyStatus{
 			ComplianceState: policyv1.Compliant,
@@ -74,7 +72,6 @@ var _ = Describe("Test the local policy emitters", Ordered, func() {
 	})
 
 	It("be able to sync local policy complete compliance", func() {
-
 		By("Create the compliance on the root policy status")
 		localRootPolicy.Status = policyv1.PolicyStatus{
 			ComplianceState: policyv1.Compliant,
@@ -100,7 +97,6 @@ var _ = Describe("Test the local policy emitters", Ordered, func() {
 	})
 
 	It("be able to sync replicated policy event", func() {
-
 		By("Create namespace and cluster for the replicated policy")
 		err := kubeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{

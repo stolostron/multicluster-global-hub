@@ -19,9 +19,7 @@ import (
 
 // go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "SubscriptionStatusHandler"
 var _ = Describe("SubscriptionStatusHandler", Ordered, func() {
-
 	It("should be able to sync app status event", func() {
-
 		By("Create event")
 		leafHubName := "hub1"
 		version := metadata.NewBundleVersion()

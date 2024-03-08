@@ -19,9 +19,7 @@ import (
 
 // go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "PlacementHandler"
 var _ = Describe("PlacementHandler", Ordered, func() {
-
 	It("should be able to sync placement decision event", func() {
-
 		By("Create event")
 		leafHubName := "hub1"
 		version := metadata.NewBundleVersion()

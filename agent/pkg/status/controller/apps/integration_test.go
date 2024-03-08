@@ -51,5 +51,4 @@ var _ = Describe("App integration test", Ordered, func() {
 		Expect(evt).ShouldNot(BeNil())
 		Expect(evt.Type()).Should(Equal(string(enum.SubscriptionReportType)))
 	})
-
 })

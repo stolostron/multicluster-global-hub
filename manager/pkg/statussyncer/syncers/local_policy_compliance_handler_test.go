@@ -20,9 +20,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 		leafHubName     = "hub1"
 		createdPolicyId = "d9347b09-bb46-4e2b-91ea-513e83ab9ea8"
 	)
-	var (
-		complianceVersion *metadata.BundleVersion
-	)
+	var complianceVersion *metadata.BundleVersion
 
 	It("should handle the local compliance event", func() {
 		By("Add an expired policy to the database")

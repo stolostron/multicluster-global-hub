@@ -6,16 +6,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -24,23 +24,25 @@ const (
 	pvcName      = "postpvc"
 )
 
-var pvcNamespace = constants.GHDefaultNamespace
-var mchObj = &mchv1.MultiClusterHub{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      mchName,
-		Namespace: mchNamespace,
-	},
-	Spec: mchv1.MultiClusterHubSpec{
-		Overrides: &mchv1.Overrides{
-			Components: []mchv1.ComponentConfig{
-				{
-					Name:    "cluster-backup",
-					Enabled: true,
+var (
+	pvcNamespace = constants.GHDefaultNamespace
+	mchObj       = &mchv1.MultiClusterHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mchName,
+			Namespace: mchNamespace,
+		},
+		Spec: mchv1.MultiClusterHubSpec{
+			Overrides: &mchv1.Overrides{
+				Components: []mchv1.ComponentConfig{
+					{
+						Name:    "cluster-backup",
+						Enabled: true,
+					},
 				},
 			},
 		},
-	},
-}
+	}
+)
 
 var postgresPvc = &corev1.PersistentVolumeClaim{
 	ObjectMeta: v1.ObjectMeta{
@@ -167,7 +169,8 @@ var _ = Describe("backup pvc", Ordered, func() {
 			NamespacedName: types.NamespacedName{
 				Namespace: pvcNamespace,
 				Name:      pvcName,
-			}})
+			},
+		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -195,7 +198,8 @@ var _ = Describe("backup pvc", Ordered, func() {
 			NamespacedName: types.NamespacedName{
 				Namespace: pvcNamespace,
 				Name:      pvcName,
-			}})
+			},
+		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

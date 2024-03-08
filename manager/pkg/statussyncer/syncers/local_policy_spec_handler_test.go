@@ -20,9 +20,7 @@ import (
 
 // go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "LocalPolicySpecHandler"
 var _ = Describe("LocalPolicySpecHandler", Ordered, func() {
-
 	It("should be able to sync local policy event", func() {
-
 		By("Create event")
 		leafHubName := "hub1"
 		version := metadata.NewBundleVersion()

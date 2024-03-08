@@ -20,7 +20,6 @@ func SendWatchEvent(watchEvent *metav1.WatchEvent, writer io.Writer) error {
 	}
 
 	_, err = writer.Write(json)
-
 	if err != nil {
 		return err
 	}

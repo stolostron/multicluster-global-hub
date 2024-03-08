@@ -18,9 +18,7 @@ import (
 
 // go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "LocalPolicyEventHandler"
 var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
-
 	It("should handle the local policy(replicated) event", func() {
-
 		By("Create Event")
 		leafHubName := "hub1"
 		version := metadata.NewBundleVersion()
@@ -74,5 +72,4 @@ var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
 			return fmt.Errorf("failed to sync resource")
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
-
 })

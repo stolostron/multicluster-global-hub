@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/go-logr/logr"
 	"gorm.io/gorm"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"

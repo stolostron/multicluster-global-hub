@@ -3,8 +3,9 @@ package conflator
 import (
 	"testing"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/metadata"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/metadata"
 )
 
 func TestCommitOffset(t *testing.T) {

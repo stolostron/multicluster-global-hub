@@ -13,7 +13,6 @@ import (
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"gorm.io/gorm"
 	corev1 "k8s.io/api/core/v1"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -102,7 +101,8 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 	backupReconciler = backup.NewBackupPVCReconciler(mgr, database.GetConn())
-	backupReconciler.SetupWithManager(mgr)
+	err = backupReconciler.SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
 		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())

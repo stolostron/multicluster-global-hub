@@ -50,7 +50,10 @@ func AddHubManagement(mgr ctrl.Manager, producer transport.Producer) error {
 
 func (h *hubManagement) Start(ctx context.Context) error {
 	// when start the hub management, resync all the necessary resources
-	h.resync(ctx, transport.Broadcast)
+	err := h.resync(ctx, transport.Broadcast)
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		h.log.Info("hub management status switch frequency", "interval", h.probeDuration)

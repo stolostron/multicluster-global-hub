@@ -25,7 +25,8 @@ func NewConflationDispatcher(log logr.Logger, conflationReadyQueue *conflator.Co
 }
 
 func AddConflationDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
-	managerConfig *config.ManagerConfig, stats *statistics.Statistics) error {
+	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
+) error {
 	// add work pool: database layer initialization - worker pool + connection pool
 	dbWorkerPool, err := workerpool.NewDBWorkerPool(stats)
 	if err != nil {

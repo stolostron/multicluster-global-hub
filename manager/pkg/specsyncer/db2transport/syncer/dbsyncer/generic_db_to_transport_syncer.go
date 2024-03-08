@@ -97,7 +97,6 @@ func syncObjectsBundle(ctx context.Context, producer transport.Producer, eventTy
 	// this means something has changed in db, syncing all the objects to transport.
 	bundleResult := createBundleFunc()
 	lastUpdateTimestamp, err = specDB.GetObjectsBundle(ctx, dbTableName, createObjFunc, bundleResult)
-
 	if err != nil {
 		return false, fmt.Errorf("unable to sync bundle - %w", err)
 	}

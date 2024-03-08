@@ -17,9 +17,7 @@ import (
 
 // go test ./manager/pkg/statussyncer/syncers -ginkgo.focus "HubClusterHeartbeatHandler"
 var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
-
 	It("sync the hubClusterHeartbeat bundle", func() {
-
 		By("Create hubClusterHeartbeat event")
 		version := metadata.NewBundleVersion()
 		version.Incr()

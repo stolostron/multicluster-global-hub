@@ -21,7 +21,6 @@ var _ = Describe("Test the global policy emitters", Ordered, func() {
 	var globalPolicy *policyv1.Policy
 
 	It("be able to sync policy spec", func() {
-
 		By("Create a global policy")
 		globalPolicy = &policyv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -102,7 +101,6 @@ var _ = Describe("Test the global policy emitters", Ordered, func() {
 	})
 
 	It("be able to sync policy complete compliance", func() {
-
 		By("Create the compliance on the root policy status")
 		globalPolicyCopy := globalPolicy.DeepCopy()
 		globalPolicy.Status = policyv1.PolicyStatus{
@@ -161,7 +159,6 @@ var _ = Describe("Test the global policy emitters", Ordered, func() {
 	})
 
 	It("be able to sync policy compliance", func() {
-
 		By("Create the compliance on the root policy status")
 		globalPolicyCopy := globalPolicy.DeepCopy()
 		globalPolicy.Status = policyv1.PolicyStatus{

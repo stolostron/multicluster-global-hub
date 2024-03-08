@@ -111,6 +111,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	producer, err := genericproducer.NewGenericProducer(agentConfig.TransportConfig, topic)
+	Expect(err).Should(Succeed())
 
 	By("Add controllers to manager")
 	err = LaunchPlacementRuleSyncer(ctx, mgr, agentConfig, producer)
