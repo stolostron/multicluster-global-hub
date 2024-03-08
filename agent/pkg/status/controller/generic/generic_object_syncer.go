@@ -158,8 +158,7 @@ func (c *genericObjectSyncer) syncEvents() {
 			if emitter.Topic() != "" {
 				ctx = cecontext.WithTopic(ctx, emitter.Topic())
 			}
-			evtCtx := kafka_confluent.WithMessageKey(ctx, c.leafHubName)
-			if err := c.producer.SendEvent(evtCtx, *evt); err != nil {
+			if err := c.producer.SendEvent(ctx, *evt); err != nil {
 				c.log.Error(err, "failed to send event", "evt", evt)
 				continue
 			}
