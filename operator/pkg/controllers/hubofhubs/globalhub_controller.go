@@ -196,7 +196,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	// only reconcile once: upgrade
 	r.upgradeOnce.Do(func() {
-		err = r.upgrade(ctx)
+		err = r.Upgrade(ctx)
 	})
 	if err != nil {
 		r.Log.Error(err, "failed to upgrade from release-2.10")
