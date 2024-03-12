@@ -21,6 +21,7 @@ import (
 	"embed"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -95,6 +96,7 @@ type MulticlusterGlobalHubReconciler struct {
 	LogLevel             string
 	MiddlewareConfig     *MiddlewareConfig
 	EnableGlobalResource bool
+	upgradeOnce          sync.Once
 }
 
 // MiddlewareConfig defines the configuration for middleware and shared in opearator
@@ -173,12 +175,6 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	// Upgrade from release-2.10
-	if err := r.upgrade(ctx); err != nil {
-		r.Log.Error(err, "failed to upgrade from release-2.10")
-		return ctrl.Result{}, err
-	}
-
 	// Deleting the multiclusterglobalhub instance
 	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
 		if err := r.pruneGlobalHubResources(ctx, mgh); err != nil {
@@ -193,9 +189,20 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	// reconcile config: need to be done before the reconcilers start
 	// global image: annotation -> env -> default
-	if err := r.reconcileSystemConfig(ctx, mgh); err != nil {
+	err := r.reconcileSystemConfig(ctx, mgh)
+	if err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
+
+	// only reconcile once: upgrade
+	r.upgradeOnce.Do(func() {
+		err = r.upgrade(ctx)
+	})
+	if err != nil {
+		r.Log.Error(err, "failed to upgrade from release-2.10")
+		return ctrl.Result{}, err
+	}
+
 	result, err := r.ReconcileMiddleware(ctx, mgh)
 	if err != nil {
 		r.Log.V(2).Info("ReconcileMiddleware error", "error", err)
