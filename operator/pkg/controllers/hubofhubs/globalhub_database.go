@@ -10,8 +10,10 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v4"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
@@ -107,7 +109,15 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 
 	upgradeOnce.Do(func() {
 		upgraded = true
-		err = applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
+		err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true,
+			func(ctx context.Context) (done bool, err error) {
+				e := applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
+				if e != nil {
+					r.Log.Info("failed to upgrade database, trying again...", "err", e)
+					return false, nil
+				}
+				return true, nil
+			})
 	})
 	if err != nil {
 		log.Error(err, "failed to upgrade db schema")
