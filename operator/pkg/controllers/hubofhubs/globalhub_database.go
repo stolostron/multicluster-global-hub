@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/jackc/pgx/v4"
 
@@ -29,6 +30,9 @@ var databaseOldFS embed.FS
 
 //go:embed upgrade
 var upgradeFS embed.FS
+
+var upgradeOnce sync.Once
+var upgraded = false
 
 func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
@@ -64,7 +68,8 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 		log.Error(err, "failed to get backup status")
 		return err
 	}
-	if backupEnabled {
+
+	if backupEnabled || !upgraded {
 		lockSql := fmt.Sprintf("select pg_advisory_lock(%s)", constants.LockId)
 		unLockSql := fmt.Sprintf("select pg_advisory_unlock(%s)", constants.LockId)
 		defer func() {
@@ -99,14 +104,16 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 			return err
 		}
 	}
-	// Run upgrade
-	if err := applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername); err != nil {
-		return err
-	}
+
+	upgradeOnce.Do(func() {
+		upgraded = true
+		err = applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
+	})
 	if err != nil {
-		log.Error(err, "Failed to upgrade db schema")
+		log.Error(err, "failed to upgrade db schema")
 		return err
 	}
+
 	log.V(7).Info("database initialized")
 	DatabaseReconcileCounter++
 	err = condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE)
