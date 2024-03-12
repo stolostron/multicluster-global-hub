@@ -71,7 +71,7 @@ func (pool *DBWorkerPool) Acquire() (*Worker, error) {
 		case res := <-pool.workers:
 			return res, nil
 		case <-ticker.C:
-			pool.log.Info("the db workers are not available, retrying", "seconds", i*10+10)
+			pool.log.V(2).Info("the db workers are not available, retrying", "seconds", i*10+10)
 			continue
 		}
 	}
