@@ -265,10 +265,6 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to add resyncer: %w", err)
 	}
 
-	if err := specsyncer.AddBasicSpecSyncers(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add basic spec syncers: %w", err)
-	}
-
 	if _, err := statussyncer.AddStatusSyncers(mgr, managerConfig, producer); err != nil {
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
@@ -300,7 +296,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		CaCertPath: managerConfig.DatabaseConfig.CACertPath,
 		PoolSize:   managerConfig.DatabaseConfig.MaxOpenConns,
 	}
-	//Init the default gorm instance, it's used to sync data to db
+	// Init the default gorm instance, it's used to sync data to db
 	err := database.InitGormInstance(databaseConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize GORM instance")
@@ -308,7 +304,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	}
 	defer database.CloseGorm(database.GetSqlDb())
 
-	//Init the backup gorm instance, it's used to add lock when backup database
+	// Init the backup gorm instance, it's used to add lock when backup database
 	_, sqlBackupConn, err := database.NewGormConn(databaseConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize GORM instance")
