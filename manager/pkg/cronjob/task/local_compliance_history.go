@@ -164,7 +164,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 					ORDER BY policy_id, cluster_id 
 					LIMIT %d OFFSET %d
 				)
-			ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING
+			ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date) DO NOTHING
 		`
 			if enableSimulation {
 				selectInsertSQLTemplate = `
@@ -183,7 +183,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 							ORDER BY policy_id, cluster_id 
 							LIMIT %d OFFSET %d
 						)
-					ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING;
+					ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date) DO NOTHING;
 				end;
 				$$;
 			`
@@ -270,7 +270,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, totalCount
 			FROM compliance_aggregate ca
 			ORDER BY cluster_id, policy_id
 			LIMIT $1 OFFSET $2
-			ON CONFLICT (policy_id, cluster_id, compliance_date)
+			ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date)
 			DO UPDATE SET
 				compliance = EXCLUDED.compliance,
 				compliance_changed_frequency = EXCLUDED.compliance_changed_frequency;
