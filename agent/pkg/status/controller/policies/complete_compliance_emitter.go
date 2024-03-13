@@ -43,6 +43,9 @@ func (h *completeComplianceHandler) Update(obj client.Object) bool {
 	if !isPolicy {
 		return false // do not handle objects other than policy
 	}
+	if policy.Status.Status == nil {
+		return false
+	}
 
 	originPolicyID := extractPolicyIdentity(obj)
 	newComplete := newCompleteCompliance(originPolicyID, policy)

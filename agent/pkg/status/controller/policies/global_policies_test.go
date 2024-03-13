@@ -16,7 +16,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ = Describe("Test the global policy emitters", Ordered, func() {
+// go test ./agent/pkg/status/controller/policies -v -ginkgo.focus "GlobalPolicyEmitters"
+var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 	const testGlobalPolicyOriginUID = "test-globalpolicy-uid"
 	var globalPolicy *policyv1.Policy
 
@@ -95,7 +96,7 @@ var _ = Describe("Test the global policy emitters", Ordered, func() {
 			if !utils.Equal(compliance.NonCompliantClusters, expectedNonCompliant) {
 				return fmt.Errorf("nonCompliant: want %v, got %v", expectedNonCompliant, compliance.NonCompliantClusters)
 			}
-			fmt.Println("=========================================================================")
+			fmt.Println("======================================================================= compliance: m1,m2,m3")
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
@@ -153,7 +154,7 @@ var _ = Describe("Test the global policy emitters", Ordered, func() {
 			if !utils.Equal(complete.NonCompliantClusters, expectedNonCompliant) {
 				return fmt.Errorf("noCompliant: want %v, got %v", expectedNonCompliant, complete.NonCompliantClusters)
 			}
-			fmt.Println("=======================================================================")
+			fmt.Println("============================================================= complete: m1 m2 -> 0, m3 -> 1")
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
@@ -210,7 +211,60 @@ var _ = Describe("Test the global policy emitters", Ordered, func() {
 			if !utils.Equal(compliance.NonCompliantClusters, expectedNonCompliant) {
 				return fmt.Errorf("nonCompliant: want %v, got %v", expectedNonCompliant, compliance.NonCompliantClusters)
 			}
-			fmt.Println("=========================================================================")
+
+			if len(compliance.UnknownComplianceClusters) > 0 {
+				return fmt.Errorf("expect unknown compliance should be emtpy")
+			}
+			fmt.Println("======================================================================= compliance: m1, m3")
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
+
+	It("be able to delete policy compliance when status is empty", func() {
+		By("Create the compliance on the root policy status")
+		globalPolicyCopy := globalPolicy.DeepCopy()
+		globalPolicy.Status = policyv1.PolicyStatus{
+			ComplianceState: policyv1.NonCompliant,
+			Placement: []*policyv1.Placement{
+				{
+					PlacementBinding: "test-policy-placement",
+					PlacementRule:    "test-policy-placement",
+				},
+			},
+		}
+		Expect(kubeClient.Status().Patch(ctx, globalPolicy, client.MergeFrom(globalPolicyCopy))).ToNot(HaveOccurred())
+
+		// policy := &policyv1.Policy{}
+		// err := kubeClient.Get(ctx, client.ObjectKeyFromObject(globalPolicy), policy)
+		// Expect(err).Should(Succeed())
+		// utils.PrettyPrint(policy.Status)
+
+		By("Check the compliance can be read from cloudevents consumer")
+		Eventually(func() error {
+			evt := <-consumer.EventChan()
+			fmt.Println(evt)
+			if evt.Type() != string(enum.ComplianceType) {
+				return fmt.Errorf("want %v, got %v", string(enum.ComplianceType), evt.Type())
+			}
+			data := grc.ComplianceData{}
+			if err := evt.DataAs(&data); err != nil {
+				return err
+			}
+
+			compliance := data[0]
+			if len(compliance.UnknownComplianceClusters) > 0 {
+				return fmt.Errorf("expect unknown compliance should be emtpy")
+			}
+
+			if len(compliance.CompliantClusters) > 0 {
+				return fmt.Errorf("expect compliant compliance should be emtpy")
+			}
+
+			if len(compliance.NonCompliantClusters) > 0 {
+				return fmt.Errorf("expect non-compliant compliance should be emtpy")
+			}
+
+			fmt.Println("==================================================================== compliance: {  }")
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})

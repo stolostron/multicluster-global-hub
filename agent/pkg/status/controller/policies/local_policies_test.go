@@ -16,7 +16,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-var _ = Describe("Test the local policy emitters", Ordered, func() {
+// go test ./agent/pkg/status/controller/policies -v -ginkgo.focus "LocalPolicyEmitters"
+var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 	var localRootPolicy *policyv1.Policy
 
 	It("be able to sync policy spec", func() {
