@@ -69,9 +69,7 @@ var _ = BeforeSuite(func() {
 				Topics: &transport.ClusterTopic{
 					SpecTopic: "spec",
 				},
-				ConsumerConfig: &transport.KafkaConsumerConfig{
-					EnableEventChan: false,
-				},
+				ConsumerConfig: &transport.KafkaConsumerConfig{},
 			},
 		},
 		SpecWorkPoolSize:     2,

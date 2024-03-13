@@ -1,34 +1,41 @@
 package apps
 
 import (
-	"fmt"
+	"context"
 
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
+	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	statusgeneric "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-// AddSubscriptionStatusesController adds subscription-status controller to the manager.
-func AddSubscriptionStatusesController(mgr ctrl.Manager, producer transport.Producer) error {
-	createObjFunction := func() bundle.Object { return &appsv1alpha1.SubscriptionStatus{} }
-	leafHubName := agentconfig.GetLeafHubName()
+func LaunchSubscriptionStatusSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
+	producer transport.Producer,
+) error {
+	// controller config
+	instance := func() client.Object { return &appsv1alpha1.SubscriptionStatus{} }
+	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
 
-	bundleCollection := []*generic.BundleEntry{
-		generic.NewBundleEntry(fmt.Sprintf("%s.%s", leafHubName, constants.SubscriptionStatusMsgKey),
-			statusgeneric.NewGenericStatusBundle(leafHubName, nil),
-			func() bool { return true }),
-	} // bundle predicate - always send subscription status.
+	// emitter config
+	emitter := generic.ObjectEmitterWrapper(enum.SubscriptionStatusType, nil, nil)
 
-	if err := generic.NewGenericStatusSyncer(mgr, "subscriptions-status-sync", producer, bundleCollection,
-		createObjFunction, nil, agentconfig.GetPolicyDuration); err != nil {
-		return fmt.Errorf("failed to add subscription statuses controller to the manager - %w", err)
-	}
+	// syncer
+	name := "status.subscription_status"
+	syncInterval := statusconfig.GetPolicyDuration
 
-	return nil
+	return generic.LaunchGenericObjectSyncer(
+		name,
+		mgr,
+		generic.NewGenericController(instance, predicate),
+		producer,
+		syncInterval,
+		[]generic.ObjectEmitter{
+			emitter,
+		})
 }

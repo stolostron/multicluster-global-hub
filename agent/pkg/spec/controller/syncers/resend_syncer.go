@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 
 	"github.com/go-logr/logr"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/cache"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
+
+var supportedResyncTypes map[string]*metadata.BundleVersion
 
 // resyncSyncer resync the bundle info.
 type resyncSyncer struct {
@@ -21,25 +24,33 @@ func NewResyncSyncer() *resyncSyncer {
 }
 
 func (syncer *resyncSyncer) Sync(payload []byte) error {
-	syncer.log.Info("Resync bundle info")
-	bundleKeys := []string{}
-	if err := json.Unmarshal(payload, &bundleKeys); err != nil {
-		syncer.log.Error(err, "Failed to unmarshal bundle keys")
+	syncer.log.Info("resync resource")
+	eventTypes := []string{}
+	if err := json.Unmarshal(payload, &eventTypes); err != nil {
+		syncer.log.Error(err, "failed to unmarshal bundle keys")
 		return err
 	}
 
-	for _, bundleKey := range bundleKeys {
-		syncer.log.Info("Resync bundle", "key", bundleKey)
-		if cache.Cache == nil {
-			syncer.log.Info("Cache is nil, do not need to resync info")
+	for _, eventType := range eventTypes {
+		syncer.log.Info("Resync event", "key", eventType)
+		if supportedResyncTypes == nil {
+			syncer.log.Info("not support to resync any type of resources")
 			return nil
 		}
-		_, ok := cache.Cache[bundleKey]
+		resyncVersion, ok := supportedResyncTypes[eventType]
 		if !ok {
-			syncer.log.Info("Cache is nil, do not need to resync info", "bundle key", bundleKey)
+			syncer.log.Info("not support to resync the current resource type", "event key", eventType)
 			return nil
 		}
-		cache.Cache[bundleKey].GetVersion().Incr()
+		resyncVersion.Incr()
 	}
 	return nil
+}
+
+func SupportResyc(evtType string, syncVersion *metadata.BundleVersion) {
+	if supportedResyncTypes == nil {
+		supportedResyncTypes = make(map[string]*metadata.BundleVersion)
+	}
+	supportedResyncTypes[evtType] = syncVersion
+	klog.Info("support to resync type: ", evtType)
 }

@@ -1,52 +1,38 @@
 package event
 
 import (
+	"context"
 	"regexp"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
+	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
 	UnknownComplianceState = "Unknown"
 )
 
-var (
-	_                     generic.ObjectSyncer = &eventSyncer{}
-	PolicyMessageStatusRe                      = regexp.
-				MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
-)
+var PolicyMessageStatusRe = regexp.
+	MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 
-type eventSyncer struct {
-	name      string
-	interval  func() time.Duration
-	finalizer bool
-}
+func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
+	agentConfig *config.AgentConfig, producer transport.Producer,
+) error {
+	eventTopic := agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic
 
-func NewEventSyncer() *eventSyncer {
-	return &eventSyncer{
-		name:      "policy-event-syncer",
-		interval:  config.GetEventDuration,
-		finalizer: false,
+	instance := func() client.Object {
+		return &corev1.Event{}
 	}
-}
 
-func (s *eventSyncer) Name() string {
-	return s.name
-}
-
-func (s *eventSyncer) Instance() client.Object {
-	return &corev1.Event{}
-}
-
-func (s *eventSyncer) Predicate() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+	predicate := predicate.NewPredicateFuncs(func(obj client.Object) bool {
 		event, ok := obj.(*corev1.Event)
 		if !ok {
 			return false
@@ -54,12 +40,14 @@ func (s *eventSyncer) Predicate() predicate.Predicate {
 		// only sync the policy event || extend other InvolvedObject kind
 		return event.InvolvedObject.Kind == policiesv1.Kind
 	})
-}
 
-func (s *eventSyncer) Interval() func() time.Duration {
-	return s.interval
-}
-
-func (s *eventSyncer) EnableFinalizer() bool {
-	return s.finalizer
+	return generic.LaunchGenericObjectSyncer(
+		"status.event",
+		mgr,
+		generic.NewGenericController(instance, predicate),
+		producer,
+		statusconfig.GetEventDuration,
+		[]generic.ObjectEmitter{
+			NewLocalRootPolicyEmitter(ctx, mgr.GetClient(), eventTopic),
+		})
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("ManagerClusterLabel Bundle", func() {
@@ -61,12 +62,9 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 		By("Send ManagedClusterLabelBundle by transport")
 		payloadBytes, err := json.Marshal(managedClusterLabelsSpecBundle)
 		Expect(err).NotTo(HaveOccurred())
-		err = producer.Send(ctx, &transport.Message{
-			Destination: agentConfig.LeafHubName,
-			Key:         constants.ManagedClustersLabelsMsgKey,
-			MsgType:     constants.SpecBundle,
-			Payload:     payloadBytes,
-		})
+
+		evt := utils.ToCloudEvent(constants.ManagedClustersLabelsMsgKey, agentConfig.LeafHubName, payloadBytes)
+		err = producer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Check the managed cluster label")
@@ -106,12 +104,8 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 		By("Send Config Bundle by transport")
 		payloadBytes, err := json.Marshal(baseBundle)
 		Expect(err).NotTo(HaveOccurred())
-		err = producer.Send(ctx, &transport.Message{
-			Destination: transport.Broadcast,
-			Key:         "Config",
-			MsgType:     constants.SpecBundle,
-			Payload:     payloadBytes,
-		})
+		evt := utils.ToCloudEvent("Config", transport.Broadcast, payloadBytes)
+		err = producer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Check the configmap is synced")

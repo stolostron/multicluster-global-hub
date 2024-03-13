@@ -6,38 +6,33 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/cache"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("Test resync Bundle", func() {
 	It("sync resync bundle with no cache", func() {
-		resyncMsgKeys := []string{constants.HubClusterInfoMsgKey}
+		resyncMsgKeys := []string{string(enum.HubClusterInfoType)}
 		payloadBytes, err := json.Marshal(resyncMsgKeys)
 		Expect(err).NotTo(HaveOccurred())
-		err = producer.Send(ctx, &transport.Message{
-			Key:         constants.ResyncMsgKey,
-			Destination: transport.Broadcast,
-			MsgType:     constants.SpecBundle,
-			Payload:     payloadBytes,
-		})
+
+		evt := utils.ToCloudEvent(constants.ResyncMsgKey, transport.Broadcast, payloadBytes)
+		err = producer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	clusterInfoBundle := cluster.NewAgentHubClusterInfoBundle("leafhub0")
-	cache.RegistToCache(constants.HubClusterInfoMsgKey, clusterInfoBundle)
+	syncers.SupportResyc(string(enum.HubClusterInfoType), metadata.NewBundleVersion())
 	It("sync resync bundle with cache", func() {
-		resyncMsgKeys := []string{constants.HubClusterInfoMsgKey}
+		resyncMsgKeys := []string{string(enum.HubClusterInfoType)}
 		payloadBytes, err := json.Marshal(resyncMsgKeys)
 		Expect(err).NotTo(HaveOccurred())
-		err = producer.Send(ctx, &transport.Message{
-			Key:         constants.ResyncMsgKey,
-			Destination: transport.Broadcast,
-			MsgType:     constants.SpecBundle,
-			Payload:     payloadBytes,
-		})
+
+		evt := utils.ToCloudEvent(constants.ResyncMsgKey, transport.Broadcast, payloadBytes)
+		err = producer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -45,12 +40,9 @@ var _ = Describe("Test resync Bundle", func() {
 		resyncMsgKeys := "unknownMsg"
 		payloadBytes, err := json.Marshal(resyncMsgKeys)
 		Expect(err).NotTo(HaveOccurred())
-		err = producer.Send(ctx, &transport.Message{
-			Key:         constants.ResyncMsgKey,
-			Destination: transport.Broadcast,
-			MsgType:     constants.SpecBundle,
-			Payload:     payloadBytes,
-		})
+
+		evt := utils.ToCloudEvent(constants.ResyncMsgKey, transport.Broadcast, payloadBytes)
+		err = producer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

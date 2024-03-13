@@ -31,7 +31,7 @@ type GenericProducer struct {
 	messageSizeLimit int
 }
 
-func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic string) (transport.Producer, error) {
+func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic string) (*GenericProducer, error) {
 	var sender interface{}
 	var err error
 	messageSize := DefaultMessageKBSize * 1000
@@ -49,10 +49,10 @@ func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
 		}
-		if _, found := transportConfig.Extends[string(transport.Chan)]; !found {
-			transportConfig.Extends[string(transport.Chan)] = gochan.New()
+		if _, found := transportConfig.Extends[defaultTopic]; !found {
+			transportConfig.Extends[defaultTopic] = gochan.New()
 		}
-		sender = transportConfig.Extends[string(transport.Chan)]
+		sender = transportConfig.Extends[defaultTopic]
 	default:
 		return nil, fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}
@@ -97,22 +97,31 @@ func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) erro
 }
 
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	// message key
+	evtCtx := ctx
+	if kafka_confluent.MessageKeyFrom(ctx) == "" {
+		evtCtx = kafka_confluent.WithMessageKey(ctx, evt.Type())
+	}
+
+	// data
 	payloadBytes := evt.Data()
 	chunks := p.splitPayloadIntoChunks(payloadBytes)
 	if len(chunks) == 1 {
-		if ret := p.client.Send(ctx, evt); cloudevents.IsUndelivered(ret) {
+		if ret := p.client.Send(evtCtx, evt); cloudevents.IsUndelivered(ret) {
 			return fmt.Errorf("failed to send event to transport: %v", ret)
 		}
 		return nil
 	}
 
-	for index, chunk := range chunks {
+	chunkOffset := 0
+	for _, chunk := range chunks {
 		evt.SetExtension(transport.ChunkSizeKey, len(payloadBytes))
-		evt.SetExtension(transport.ChunkOffsetKey, index*p.messageSizeLimit)
+		chunkOffset += len(chunk)
+		evt.SetExtension(transport.ChunkOffsetKey, chunkOffset)
 		if err := evt.SetData(cloudevents.ApplicationJSON, chunk); err != nil {
 			return fmt.Errorf("failed to set cloudevents data: %v", evt)
 		}
-		if result := p.client.Send(ctx, evt); cloudevents.IsUndelivered(result) {
+		if result := p.client.Send(evtCtx, evt); cloudevents.IsUndelivered(result) {
 			return fmt.Errorf("failed to send events to transport: %v", result)
 		}
 	}
@@ -130,6 +139,10 @@ func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 		chunks = append(chunks, payload)
 	}
 	return chunks
+}
+
+func (p *GenericProducer) SetDataLimit(size int) {
+	p.messageSizeLimit = size
 }
 
 func getSaramaSenderProtocol(transportConfig *transport.TransportConfig, defaultTopic string) (interface{}, error) {

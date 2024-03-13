@@ -9,14 +9,13 @@ import (
 	"strings"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var _ = Describe("Database to Transport Syncer", Ordered, func() {
@@ -49,9 +48,6 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 			Version:            0,
 		}).Error
 		Expect(err).ToNot(HaveOccurred())
-
-		By("Resend hubinfo")
-		ExpectedMessageIDs["Resync"] = constants.HubClusterInfoMsgKey
 
 		By("ManagedClusterSet")
 		ExpectedMessageIDs["ManagedClusterSets"] = managedclustersetUID
@@ -107,15 +103,15 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 		By("verify the result from transport")
 		Eventually(func() error {
-			message := waitForChannel(consumer.MessageChan())
-			if message == nil {
+			evt := waitForChannel(consumer.EventChan())
+			if evt == nil {
 				return fmt.Errorf("the message shouldn't be nil")
 			}
-			if val, ok := ExpectedMessageIDs[message.Key]; ok && strings.Contains(string(message.Payload), val) {
-				fmt.Println("receive the expected message", message.Key)
-				delete(ExpectedMessageIDs, message.Key)
+			if val, ok := ExpectedMessageIDs[evt.Type()]; ok && strings.Contains(string(evt.Data()), val) {
+				fmt.Println("receive the expected message", evt.Type())
+				delete(ExpectedMessageIDs, evt.Type())
 			} else if !ok {
-				fmt.Printf("get an unexpected message %s: %v \n", message.Key, message)
+				fmt.Printf("get an unexpected message %s: %v \n", evt.Type(), evt)
 			}
 			if len(ExpectedMessageIDs) > 0 {
 				return fmt.Errorf("missing the message: %s", ExpectedMessageIDs)
@@ -147,7 +143,7 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 })
 
 // waitForChannel genericConsumer.MessageChan() with timeout
-func waitForChannel(ch chan *transport.Message) *transport.Message {
+func waitForChannel(ch chan *cloudevents.Event) *cloudevents.Event {
 	timer := time.NewTimer(10 * time.Second)
 	defer timer.Stop()
 	select {

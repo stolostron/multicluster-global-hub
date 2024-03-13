@@ -6,30 +6,31 @@ import (
 	"testing"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestVersion(t *testing.T) {
 	emitter := NewLocalRootPolicyEmitter(context.TODO(), nil, transport.GenericEventTopic)
 	assert.Equal(t, "0.0", emitter.currentVersion.String())
 	assert.Equal(t, "0.0", emitter.lastSentVersion.String())
-	assert.False(t, emitter.Emit())
+	assert.False(t, emitter.ShouldSend())
 
 	emitter.currentVersion.Incr()
 	assert.Equal(t, "0.1", emitter.currentVersion.String())
 	assert.Equal(t, "0.0", emitter.lastSentVersion.String())
-	assert.True(t, emitter.Emit())
+	assert.True(t, emitter.ShouldSend())
 
 	emitter.PostSend()
 	assert.Equal(t, "1.1", emitter.currentVersion.String())
 	assert.Equal(t, "1.1", emitter.lastSentVersion.String())
-	assert.False(t, emitter.Emit())
+	assert.False(t, emitter.ShouldSend())
 
 	emitter.currentVersion.Incr()
 	assert.Equal(t, "1.2", emitter.currentVersion.String())
 	assert.Equal(t, "1.1", emitter.lastSentVersion.String())
-	assert.True(t, emitter.Emit())
+	assert.True(t, emitter.ShouldSend())
 }
 
 func TestLRU(t *testing.T) {

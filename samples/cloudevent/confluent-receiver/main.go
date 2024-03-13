@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -58,6 +59,6 @@ func main() {
 }
 
 func receive(ctx context.Context, event cloudevents.Event) {
-	fmt.Printf("%s[%s] - %s \n", event.Extensions()[kafka_confluent.KafkaTopicKey],
-		event.Extensions()[kafka_confluent.KafkaOffsetKey], event.Data())
+	payload, _ := json.MarshalIndent(event, "", "  ")
+	fmt.Println(string(payload))
 }

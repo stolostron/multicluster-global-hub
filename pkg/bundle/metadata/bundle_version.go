@@ -7,6 +7,7 @@ import (
 )
 
 const ExtVersion = "extversion"
+const ExtDependencyVersion = "extdependencyversion"
 
 // NewBundleVersion returns a new instance of BundleVersion.
 func NewBundleVersion() *BundleVersion {
@@ -50,6 +51,9 @@ func (this *BundleVersion) NewerThan(other *BundleVersion) bool {
 	if other == nil {
 		return true
 	}
+	if this.Equals(other) {
+		return false
+	}
 	if this.Generation > other.Generation {
 		return true
 	} else if this.Generation < other.Generation {
@@ -66,6 +70,9 @@ func (this *BundleVersion) Equals(other *BundleVersion) bool {
 
 // Equals returns whether the bundles are updated with the same value.
 func (this *BundleVersion) EqualValue(other *BundleVersion) bool {
+	if other == nil {
+		return false
+	}
 	return this.Value == other.Value
 }
 

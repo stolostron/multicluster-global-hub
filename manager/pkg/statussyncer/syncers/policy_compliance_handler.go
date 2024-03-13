@@ -3,16 +3,49 @@ package dbsyncer
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	set "github.com/deckarep/golang-set"
+	"github.com/go-logr/logr"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
+
+type policyComplianceHandler struct {
+	log           logr.Logger
+	eventType     string
+	eventSyncMode metadata.EventSyncMode
+	eventPriority conflator.ConflationPriority
+}
+
+func NewPolicyComplianceHandler() conflator.Handler {
+	eventType := string(enum.ComplianceType)
+	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	return &policyComplianceHandler{
+		log:           ctrl.Log.WithName(logName),
+		eventType:     eventType,
+		eventSyncMode: metadata.CompleteStateMode,
+		eventPriority: conflator.CompliancePriority,
+	}
+}
+
+func (h *policyComplianceHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
+	conflationManager.Register(conflator.NewConflationRegistration(
+		h.eventPriority,
+		h.eventSyncMode,
+		h.eventType,
+		h.handleEvent,
+	))
+}
 
 // if we got inside the handler function, then the bundle version is newer than what was already handled.
 // handling clusters per policy bundle inserts or deletes rows from/to the compliance table.
@@ -20,62 +53,68 @@ import (
 // this bundle is triggered only when policy was added/removed or when placement rule has changed which caused list of
 // clusters (of at least one policy) to change.
 // in other cases where only compliance status change, only compliance bundle is received.
-func (syncer *CompliancesDBSyncer) handleComplianceBundle(ctx context.Context,
-	bundle bundle.ManagerBundle,
-) error {
-	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
-	leafHubName := bundle.GetLeafHubName()
-	db := database.GetGorm()
+func (h *policyComplianceHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
+	version := evt.Extensions()[metadata.ExtVersion]
+	leafHubName := evt.Source()
+	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+
+	data := grc.ComplianceData{}
+	if err := evt.DataAs(&data); err != nil {
+		return err
+	}
 
 	var compliancesFromDB []models.StatusCompliance
-	err := db.Where(&models.StatusCompliance{
-		LeafHubName: leafHubName,
-	}).Find(&compliancesFromDB).Error
+	db := database.GetGorm()
+	err := db.Where(&models.StatusCompliance{LeafHubName: leafHubName}).Find(&compliancesFromDB).Error
 	if err != nil {
 		return err
 	}
+
 	// policyID: { compliance: (cluster1, cluster2), nonCompliance: (cluster3, cluster4), unknowns: (cluster5) }
-	allPolicyClusterSetsFromDB := convertStatusComplianceToClusterSets(compliancesFromDB)
+	allComplianceClustersFromDB, err := getComplianceClusterSets(db, "leaf_hub_name = ?", leafHubName)
+	if err != nil {
+		return err
+	}
 
-	err = db.Transaction(func(tx *gorm.DB) error {
-		for _, object := range bundle.GetObjects() { // every object is clusters list per policy with full state
-			clustersPerPolicyFromBundle, ok := object.(*base.GenericCompliance)
-			if !ok {
-				continue // do not handle objects other than PolicyGenericComplianceStatus
-			}
+	for _, eventCompliance := range data { // every object is clusters list per policy with full state
 
-			policyClusterSetFromDB, policyExistsInDB := allPolicyClusterSetsFromDB[clustersPerPolicyFromBundle.PolicyID]
-			if !policyExistsInDB {
-				policyClusterSetFromDB = NewPolicyClusterSets()
-			}
-			allClustersOnDB := policyClusterSetFromDB.GetAllClusters()
+		policyID := eventCompliance.PolicyID
+		complianceClustersFromDB, policyExistsInDB := allComplianceClustersFromDB[policyID]
+		if !policyExistsInDB {
+			complianceClustersFromDB = NewPolicyClusterSets()
+		}
 
-			var err error
-			// handle compliant clusters of the policy
-			allClustersOnDB, err = handleClustersPerPolicyWithTx(tx, leafHubName, clustersPerPolicyFromBundle.PolicyID,
-				clustersPerPolicyFromBundle.CompliantClusters, allClustersOnDB, database.Compliant,
-				policyClusterSetFromDB.GetClusters(database.Compliant))
-			if err != nil {
-				return fmt.Errorf(failedBatchFormat, err)
-			}
+		// handle compliant clusters of the policy
+		compliantCompliances := newCompliances(leafHubName, policyID, database.Compliant,
+			eventCompliance.CompliantClusters, complianceClustersFromDB.GetClusters(database.Compliant))
 
-			// handle non compliant clusters of the policy
-			allClustersOnDB, err = handleClustersPerPolicyWithTx(tx, leafHubName, clustersPerPolicyFromBundle.PolicyID,
-				clustersPerPolicyFromBundle.NonCompliantClusters, allClustersOnDB, database.NonCompliant,
-				policyClusterSetFromDB.GetClusters(database.NonCompliant))
-			if err != nil {
-				return fmt.Errorf(failedBatchFormat, err)
-			}
+		// handle non compliant clusters of the policy
+		nonCompliantCompliances := newCompliances(leafHubName, policyID, database.NonCompliant,
+			eventCompliance.NonCompliantClusters, complianceClustersFromDB.GetClusters(database.NonCompliant))
 
-			// handle unknown compliance clusters of the policy
-			allClustersOnDB, err = handleClustersPerPolicyWithTx(tx, leafHubName, clustersPerPolicyFromBundle.PolicyID,
-				clustersPerPolicyFromBundle.UnknownComplianceClusters, allClustersOnDB, database.Unknown,
-				policyClusterSetFromDB.GetClusters(database.Unknown))
-			if err != nil {
-				return fmt.Errorf(failedBatchFormat, err)
-			}
+		// handle unknown compliance clusters of the policy
+		unknownCompliances := newCompliances(leafHubName, policyID, database.Unknown,
+			eventCompliance.UnknownComplianceClusters, complianceClustersFromDB.GetClusters(database.Unknown))
 
-			// delete compliance status rows in the db that were not sent in the bundle (leaf hub sends only living resources)
+		batchCompliances := []models.StatusCompliance{}
+		batchCompliances = append(batchCompliances, compliantCompliances...)
+		batchCompliances = append(batchCompliances, nonCompliantCompliances...)
+		batchCompliances = append(batchCompliances, unknownCompliances...)
+
+		// batch upsert
+		err = db.Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).CreateInBatches(batchCompliances, 100).Error
+		if err != nil {
+			return err
+		}
+
+		// delete compliance status rows in the db that were not sent in the bundle (leaf hub sends only living resources)
+		allClustersOnDB := complianceClustersFromDB.GetAllClusters()
+		for _, compliance := range batchCompliances {
+			allClustersOnDB.Remove(compliance.ClusterName)
+		}
+		err = db.Transaction(func(tx *gorm.DB) error {
 			for _, name := range allClustersOnDB.ToSlice() {
 				clusterName, ok := name.(string)
 				if !ok {
@@ -83,307 +122,109 @@ func (syncer *CompliancesDBSyncer) handleComplianceBundle(ctx context.Context,
 				}
 				err := tx.Where(&models.StatusCompliance{
 					LeafHubName: leafHubName,
-					PolicyID:    clustersPerPolicyFromBundle.PolicyID,
+					PolicyID:    policyID,
 					ClusterName: clusterName,
 				}).Delete(&models.StatusCompliance{}).Error
 				if err != nil {
-					return fmt.Errorf(failedBatchFormat, err)
+					return err
 				}
 			}
-			// keep this policy in db, should remove from db only policies that were not sent in the bundle
-			delete(allPolicyClusterSetsFromDB, clustersPerPolicyFromBundle.PolicyID)
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to handle clusters per policy bundle - %w", err)
 		}
+		// keep this policy in db, should remove from db only policies that were not sent in the bundle
+		delete(allComplianceClustersFromDB, policyID)
+	}
 
-		// remove policies that were not sent in the bundle
-		for policyID := range allPolicyClusterSetsFromDB {
+	// delete the policy isn't contained on the bundle
+	err = db.Transaction(func(tx *gorm.DB) error {
+		for policyID := range allComplianceClustersFromDB {
 			err := tx.Where(&models.StatusCompliance{
 				PolicyID: policyID,
 			}).Delete(&models.StatusCompliance{}).Error
 			if err != nil {
-				return fmt.Errorf(failedBatchFormat, err)
+				return err
 			}
 		}
-		// return nil will commit the whole transaction
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to handle clusters per policy bundle - %w", err)
+		return fmt.Errorf("failed to handle compliance event - %w", err)
 	}
-	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
+
+	h.log.V(2).Info(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }
 
-// policyID: { compliance: (cluster1, cluster2), nonCompliance: (cluster3, cluster4), unknowns: (cluster5) }
-func convertStatusComplianceToClusterSets(compliancesFromDB []models.StatusCompliance) map[string]*PolicyClustersSets {
-	complianceClusterSetsFromDB := make(map[string]*PolicyClustersSets)
-	for _, compliance := range compliancesFromDB {
-		if _, ok := complianceClusterSetsFromDB[compliance.PolicyID]; !ok {
-			complianceClusterSetsFromDB[compliance.PolicyID] = NewPolicyClusterSets()
-		}
-		complianceClusterSetsFromDB[compliance.PolicyID].AddCluster(compliance.ClusterName, compliance.Compliance)
-	}
-	return complianceClusterSetsFromDB
-}
+func newCompliances(leafHub, policyID string, compliance database.ComplianceStatus,
+	eventComplianceClusters []string, complianceClustersOnDB set.Set,
+) []models.StatusCompliance {
+	clusters := newComplianceClusters(eventComplianceClusters, complianceClustersOnDB)
 
-func handleClustersPerPolicyWithTx(tx *gorm.DB, leafHub, policyID string, bundleClusters []string,
-	allClusterFromDB set.Set, complianceStatus database.ComplianceStatus, typedClusters set.Set,
-) (set.Set, error) {
-	for _, clusterName := range bundleClusters {
-		if !allClusterFromDB.Contains(clusterName) {
-			err := tx.Create(models.StatusCompliance{
-				LeafHubName: leafHub,
-				PolicyID:    policyID,
-				ClusterName: clusterName,
-				Error:       database.ErrorNone,
-				Compliance:  complianceStatus,
-			}).Error
-			if err != nil {
-				return nil, err
-			}
-			continue
-		}
-		if !typedClusters.Contains(clusterName) {
-			err := tx.Model(&models.StatusCompliance{}).Where(&models.StatusCompliance{
-				PolicyID:    policyID,
-				ClusterName: clusterName,
-				LeafHubName: leafHub,
-			}).Updates(&models.StatusCompliance{
-				Compliance: complianceStatus,
-			}).Error
-			if err != nil {
-				return nil, err
-			}
-		}
-		// either way if status was updated or not, remove from allClustersFromDB to mark this cluster as handled
-		allClusterFromDB.Remove(clusterName)
-	}
-	return allClusterFromDB, nil
-}
-
-// if we got to the handler function, then the bundle pre-conditions were satisfied (the version is newer than what
-// was already handled and base bundle was already handled successfully)
-// we assume that 'ClustersPerPolicy' handler function handles the addition or removal of clusters rows.
-// in this handler function, we handle only the existing clusters rows.
-func (syncer *CompliancesDBSyncer) handleCompleteComplianceBundle(ctx context.Context,
-	bundle bundle.ManagerBundle,
-) error {
-	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
-	leafHubName := bundle.GetLeafHubName()
-	db := database.GetGorm()
-
-	var nonCompliancesFromDB []models.StatusCompliance
-	err := db.Where("leaf_hub_name = ? AND compliance <> ?", leafHubName, database.Compliant).
-		Find(&nonCompliancesFromDB).Error
-	if err != nil {
-		return err
-	}
-
-	allPolicyComplianceRowsFromDB := convertStatusComplianceToClusterSets(nonCompliancesFromDB)
-
-	err = db.Transaction(func(tx *gorm.DB) error {
-		for _, object := range bundle.GetObjects() { // every object in bundle is policy compliance status
-			policyComplianceStatus, ok := object.(*base.GenericCompleteCompliance)
-			if !ok {
-				continue // do not handle objects other than PolicyComplianceStatus
-			}
-			// nonCompliantClusters includes both non Compliant and Unknown clusters
-			nonComplianceClusterSetsFromDB, policyExistsInDB := allPolicyComplianceRowsFromDB[policyComplianceStatus.PolicyID]
-			if !policyExistsInDB {
-				nonComplianceClusterSetsFromDB = NewPolicyClusterSets()
-			}
-			allNonComplianceClusters := nonComplianceClusterSetsFromDB.GetAllClusters()
-
-			// update in db batch the non Compliant clusters as it was reported by leaf hub
-			for _, clusterName := range policyComplianceStatus.NonCompliantClusters { // go over bundle non compliant clusters
-				if !nonComplianceClusterSetsFromDB.GetClusters(
-					database.NonCompliant).Contains(clusterName) {
-					err := updateStatusCompliance(tx, policyComplianceStatus.PolicyID, leafHubName, clusterName,
-						database.NonCompliant)
-					if err != nil {
-						return err
-					}
-				} // if different need to update, otherwise no need to do anything.
-				allNonComplianceClusters.Remove(clusterName) // mark cluster as handled
-			}
-
-			// update in db batch the unknown clusters as it was reported by leaf hub
-			for _, clusterName := range policyComplianceStatus.UnknownComplianceClusters { // go over bundle unknown clusters
-				if !nonComplianceClusterSetsFromDB.GetClusters(database.Unknown).Contains(clusterName) {
-					err := updateStatusCompliance(tx, policyComplianceStatus.PolicyID, leafHubName,
-						clusterName, database.Unknown)
-					if err != nil {
-						return err
-					}
-				} // if different need to update, otherwise no need to do anything.
-				allNonComplianceClusters.Remove(clusterName) // mark cluster as handled
-			}
-
-			for _, name := range allNonComplianceClusters.ToSlice() {
-				clusterName, ok := name.(string)
-				if !ok {
-					continue
-				}
-				err := updateStatusCompliance(tx, policyComplianceStatus.PolicyID, leafHubName, clusterName,
-					database.Compliant)
-				if err != nil {
-					return err
-				}
-			}
-
-			// for policies that are found in the db but not in the bundle - all clusters are Compliant (implicitly)
-			delete(allPolicyComplianceRowsFromDB, policyComplianceStatus.PolicyID)
-		}
-
-		// update policies not in the bundle - all is Compliant
-		for policyID := range allPolicyComplianceRowsFromDB {
-			ret := tx.Model(&models.StatusCompliance{}).Where(
-				"policy_id = ? AND leaf_hub_name = ?", policyID, leafHubName).
-				Updates(&models.StatusCompliance{Compliance: database.Compliant})
-			if ret.Error != nil {
-				return ret.Error
-			}
-		}
-		// return nil will commit the whole transaction
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to handle complete compliance bundle - %w", err)
-	}
-
-	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
-	return nil
-}
-
-func updateStatusCompliance(tx *gorm.DB, policyID string, leafHubName string, clusterName string,
-	compliance database.ComplianceStatus,
-) error {
-	return tx.Model(&models.StatusCompliance{}).Where(&models.StatusCompliance{
-		PolicyID:    policyID,
-		ClusterName: clusterName,
-		LeafHubName: leafHubName,
-	}).Updates(&models.StatusCompliance{
-		Compliance: compliance,
-	}).Error
-}
-
-// if we got to the handler function, then the bundle pre-conditions were satisfied.
-func (syncer *CompliancesDBSyncer) handleDeltaComplianceBundle(ctx context.Context, bundle bundle.ManagerBundle) error {
-	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
-	leafHubName := bundle.GetLeafHubName()
-	db := database.GetGorm()
-
-	err := db.Transaction(func(tx *gorm.DB) error {
-		for _, object := range bundle.GetObjects() { // every object in bundle is policy generic compliance status
-			policyGenericComplianceStatus, ok := object.(*base.GenericCompliance)
-			if !ok {
-				continue // do not handle objects other than PolicyComplianceStatus
-			}
-			for _, cluster := range policyGenericComplianceStatus.CompliantClusters {
-				err := updateStatusCompliance(tx, policyGenericComplianceStatus.PolicyID, leafHubName,
-					cluster, database.Compliant)
-				if err != nil {
-					return err
-				}
-			}
-
-			for _, cluster := range policyGenericComplianceStatus.NonCompliantClusters {
-				err := updateStatusCompliance(tx, policyGenericComplianceStatus.PolicyID, leafHubName,
-					cluster, database.NonCompliant)
-				if err != nil {
-					return err
-				}
-			}
-
-			for _, cluster := range policyGenericComplianceStatus.UnknownComplianceClusters {
-				err := updateStatusCompliance(tx, policyGenericComplianceStatus.PolicyID, leafHubName,
-					cluster, database.Unknown)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		// return nil will commit the whole transaction
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to handle delta compliance bundle - %w", err)
-	}
-
-	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
-
-	return nil
-}
-
-// if we got to the handler function, then the bundle pre-conditions are satisfied.
-func (syncer *CompliancesDBSyncer) handleMinimalComplianceBundle(ctx context.Context,
-	bundle bundle.ManagerBundle,
-) error {
-	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
-	leafHubName := bundle.GetLeafHubName()
-	schemaTable := database.StatusSchema + "." + database.MinimalComplianceTable
-	db := database.GetGorm()
-
-	policyIDSetFromDB := set.NewSet()
-
-	// Raw SQL
-	rows, err := db.Raw(fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM %s WHERE leaf_hub_name = ?`, schemaTable),
-		leafHubName).Rows()
-	if err != nil {
-		return fmt.Errorf("error reading from table %s - %w", schemaTable, err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var policyID string
-		if err := rows.Scan(&policyID); err != nil {
-			return fmt.Errorf("error reading from table %s - %w", schemaTable, err)
-		}
-		policyIDSetFromDB.Add(policyID)
-	}
-
-	for _, object := range bundle.GetObjects() { // every object in bundle is minimal policy compliance status.
-		minPolicyCompliance, ok := object.(*base.MinimalCompliance)
-		if !ok {
-			continue // do not handle objects other than MinimalPolicyComplianceStatus.
-		}
-
-		ret := db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "policy_id"}, {Name: "leaf_hub_name"}},
-			UpdateAll: true,
-		}).Create(&models.AggregatedCompliance{
-			PolicyID:             minPolicyCompliance.PolicyID,
-			LeafHubName:          leafHubName,
-			AppliedClusters:      minPolicyCompliance.AppliedClusters,
-			NonCompliantClusters: minPolicyCompliance.NonCompliantClusters,
-		})
-		if ret.Error != nil {
-			return fmt.Errorf("failed to InsertUpdate minimal compliance of policy '%s', leaf hub '%s' in db - %w",
-				minPolicyCompliance.PolicyID, leafHubName, ret.Error)
-		}
-		// eventually we will be left with policies not in the bundle inside policyIDsFromDB and will use it to remove
-		// policies that has to be deleted from the table.
-		policyIDSetFromDB.Remove(minPolicyCompliance.PolicyID)
-	}
-
-	// remove policies that in the db but were not sent in the bundle (leaf hub sends only living resources).
-	for _, object := range policyIDSetFromDB.ToSlice() {
-		policyID, ok := object.(string)
-		if !ok {
-			continue
-		}
-
-		ret := db.Where(&models.AggregatedCompliance{
+	compliances := make([]models.StatusCompliance, 0)
+	for _, cluster := range clusters {
+		compliances = append(compliances, models.StatusCompliance{
+			LeafHubName: leafHub,
 			PolicyID:    policyID,
-			LeafHubName: leafHubName,
-		}).Delete(&models.AggregatedCompliance{})
-		if ret.Error != nil {
-			return fmt.Errorf("failed to delete minimal compliance of policy '%s', leaf hub '%s' from db - %w",
-				policyID, leafHubName, ret.Error)
-		}
+			ClusterName: cluster,
+			Error:       database.ErrorNone,
+			Compliance:  compliance,
+		})
+	}
+	return compliances
+}
+
+func getComplianceClusterSets(db *gorm.DB, query interface{}, args ...interface{}) (
+	map[string]*PolicyClustersSets, error,
+) {
+	var compliancesFromDB []models.StatusCompliance
+	err := db.Where(query, args...).Find(&compliancesFromDB).Error
+	if err != nil {
+		return nil, err
 	}
 
-	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
-	return nil
+	// policyID: { compliance: (cluster1, cluster2), nonCompliance: (cluster3, cluster4), unknowns: (cluster5) }
+	policyComplianceRowsFromDB := make(map[string]*PolicyClustersSets)
+	for _, compliance := range compliancesFromDB {
+		if _, ok := policyComplianceRowsFromDB[compliance.PolicyID]; !ok {
+			policyComplianceRowsFromDB[compliance.PolicyID] = NewPolicyClusterSets()
+		}
+		policyComplianceRowsFromDB[compliance.PolicyID].AddCluster(compliance.ClusterName, compliance.Compliance)
+	}
+	return policyComplianceRowsFromDB, nil
+}
+
+// NewPolicyClusterSets creates a new instance of PolicyClustersSets.
+func NewPolicyClusterSets() *PolicyClustersSets {
+	return &PolicyClustersSets{
+		complianceToSetMap: map[database.ComplianceStatus]set.Set{
+			database.Compliant:    set.NewSet(),
+			database.NonCompliant: set.NewSet(),
+			database.Unknown:      set.NewSet(),
+		},
+	}
+}
+
+// PolicyClustersSets is a data structure to hold both non compliant clusters set and unknown clusters set.
+type PolicyClustersSets struct {
+	complianceToSetMap map[database.ComplianceStatus]set.Set
+}
+
+// AddCluster adds the given cluster name to the given compliance status clusters set.
+func (sets *PolicyClustersSets) AddCluster(clusterName string, complianceStatus database.ComplianceStatus) {
+	sets.complianceToSetMap[complianceStatus].Add(clusterName)
+}
+
+// GetAllClusters returns the clusters set of a policy (union of compliant/nonCompliant/unknown clusters).
+func (sets *PolicyClustersSets) GetAllClusters() set.Set {
+	return sets.complianceToSetMap[database.Compliant].
+		Union(sets.complianceToSetMap[database.NonCompliant].
+			Union(sets.complianceToSetMap[database.Unknown]))
+}
+
+// GetClusters returns the clusters set by compliance status.
+func (sets *PolicyClustersSets) GetClusters(complianceStatus database.ComplianceStatus) set.Set {
+	return sets.complianceToSetMap[complianceStatus]
 }

@@ -4,8 +4,9 @@
 package consumer
 
 import (
+	"bytes"
+	"sort"
 	"sync"
-	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
@@ -17,11 +18,10 @@ import (
 
 // messageChunk represents a chunk of a transport message.
 type messageChunk struct {
-	id        string
-	timestamp time.Time
-	offset    int
-	size      int
-	bytes     []byte
+	id     string
+	offset int
+	size   int
+	bytes  []byte
 }
 
 // messageChunksCollection holds a collection of chunks and maintains it until completion.
@@ -29,18 +29,18 @@ type messageChunksCollection struct {
 	id              string
 	totalSize       int
 	accumulatedSize int
-	timestamp       time.Time
 	chunks          map[int]*messageChunk
+	orderedOffsets  []int
 	lock            sync.Mutex
 }
 
-func newMessageChunksCollection(id string, size int, timestamp time.Time) *messageChunksCollection {
+func newMessageChunksCollection(id string, size int) *messageChunksCollection {
 	return &messageChunksCollection{
 		id:              id,
 		totalSize:       size,
 		accumulatedSize: 0,
-		timestamp:       timestamp,
 		chunks:          make(map[int]*messageChunk),
+		orderedOffsets:  make([]int, 0),
 		lock:            sync.Mutex{},
 	}
 }
@@ -49,26 +49,30 @@ func (collection *messageChunksCollection) add(chunk *messageChunk) {
 	collection.lock.Lock()
 	defer collection.lock.Unlock()
 
-	if chunk.offset+len(chunk.bytes) > collection.totalSize {
-		return // chunk reaches out of message bounds
-	}
 	// don't add chunk to collection, if already exists.
 	if _, found := collection.chunks[chunk.offset]; found {
 		return
 	}
+
 	collection.chunks[chunk.offset] = chunk
+	collection.orderedOffsets = append(collection.orderedOffsets, chunk.offset)
 	collection.accumulatedSize += len(chunk.bytes)
 }
 
-func (collection *messageChunksCollection) collect() []byte {
+func (collection *messageChunksCollection) collect() ([]byte, error) {
 	collection.lock.Lock()
 	defer collection.lock.Unlock()
-	buffer := make([]byte, collection.totalSize)
-	for offset, chunk := range collection.chunks {
-		copy(buffer[offset:], chunk.bytes)
-		chunk.bytes = nil // faster GC
+
+	sort.Ints(collection.orderedOffsets)
+	var buffer bytes.Buffer
+	for _, offset := range collection.orderedOffsets {
+		_, err := buffer.Write(collection.chunks[offset].bytes)
+		if err != nil {
+			return nil, err
+		}
+		collection.chunks[offset].bytes = nil // faster GC
 	}
-	return buffer
+	return buffer.Bytes(), nil
 }
 
 type messageAssembler struct {
@@ -91,26 +95,24 @@ func (assembler *messageAssembler) assemble(chunk *messageChunk) []byte {
 	defer assembler.lock.Unlock()
 
 	chunkCollection, found := assembler.chunkCollectionMap[chunk.id] // chunk.id: PlacementRule
-	if found && chunkCollection.timestamp.After(chunk.timestamp) {
-		// chunk timestamp < collection got an outdated chunk
-		return nil
-	}
-
-	if !found || chunkCollection.timestamp.Before(chunk.timestamp) {
-		// chunkCollection is not found or is hosting outdated chunks
-		chunkCollection = newMessageChunksCollection(chunk.id, chunk.size, chunk.timestamp)
+	if !found {
+		chunkCollection = newMessageChunksCollection(chunk.id, chunk.size)
 		assembler.chunkCollectionMap[chunk.id] = chunkCollection
 	}
 
 	chunkCollection.add(chunk)
 
-	if chunkCollection.totalSize == chunkCollection.accumulatedSize {
-		transportPayloadBytes := chunkCollection.collect()
-		assembler.log.V(2).Info("assemble collection successfully", "id", chunkCollection.id,
-			"collection.size", chunkCollection.totalSize)
-
+	if chunkCollection.totalSize <= chunkCollection.accumulatedSize {
 		// delete collection from map
-		delete(assembler.chunkCollectionMap, chunkCollection.id)
+		defer delete(assembler.chunkCollectionMap, chunkCollection.id)
+
+		transportPayloadBytes, err := chunkCollection.collect()
+		if err != nil {
+			assembler.log.Error(err, "assemble event data failed")
+			return nil
+		}
+		assembler.log.V(2).Info("assemble event data success!", "id", chunkCollection.id,
+			"size", chunkCollection.totalSize)
 		return transportPayloadBytes
 	}
 
@@ -120,21 +122,18 @@ func (assembler *messageAssembler) assemble(chunk *messageChunk) []byte {
 func (assembler *messageAssembler) messageChunk(e cloudevents.Event) (*messageChunk, bool) {
 	offset, err := types.ToInteger(e.Extensions()[transport.ChunkOffsetKey])
 	if err != nil {
-		assembler.log.Error(err, "event offset parse error")
 		return nil, false
 	}
 
 	size, err := types.ToInteger(e.Extensions()[transport.ChunkSizeKey])
 	if err != nil {
-		assembler.log.Error(err, "event size parse error")
 		return nil, false
 	}
 
 	return &messageChunk{
-		id:        e.ID(),
-		timestamp: e.Time(),
-		offset:    int(offset),
-		size:      int(size),
-		bytes:     e.Data(),
+		id:     e.ID(),
+		offset: int(offset),
+		size:   int(size),
+		bytes:  e.Data(),
 	}, true
 }

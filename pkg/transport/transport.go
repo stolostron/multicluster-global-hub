@@ -30,14 +30,11 @@ type Transporter interface {
 }
 
 type Producer interface {
-	Send(ctx context.Context, msg *Message) error
 	SendEvent(ctx context.Context, evt cloudevents.Event) error
 }
 
 type Consumer interface {
 	// start the transport to consume message
 	Start(ctx context.Context) error
-	// provide a blocking message to get the message
-	MessageChan() chan *Message
-	EventChan() chan cloudevents.Event
+	EventChan() chan *cloudevents.Event
 }

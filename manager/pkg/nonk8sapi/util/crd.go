@@ -46,7 +46,6 @@ func GetCustomResourceColumnDefinitions(name, version string) []apiextensionsv1.
 
 	var crd apiextensions.CustomResourceDefinition
 	err = apiextensionsv1.Convert_v1_CustomResourceDefinition_To_apiextensions_CustomResourceDefinition(crdv1, &crd, nil)
-
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, "failed to convert crd v1 to crd for %s: %v", name, err)
 		return defaultColumns

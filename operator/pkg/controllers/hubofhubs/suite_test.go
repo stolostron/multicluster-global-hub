@@ -62,6 +62,7 @@ import (
 var (
 	cfg           *rest.Config
 	k8sClient     client.Client // You'll be using this client in your tests.
+	k8sManager    ctrl.Manager
 	kubeClient    *kubernetes.Clientset
 	testEnv       *envtest.Environment
 	testPostgres  *testpostgres.TestPostgres
@@ -134,7 +135,7 @@ var _ = BeforeSuite(func() {
 	leaseDuration := 137 * time.Second
 	renewDeadline := 126 * time.Second
 	retryPeriod := 16 * time.Second
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      "0", // disable the metrics serving
 		Scheme:                  scheme.Scheme,
 		LeaderElection:          true,

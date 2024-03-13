@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
 const (
@@ -24,27 +23,29 @@ const (
 )
 
 type genericObjectSyncer struct {
-	log           logr.Logger
-	client        client.Client
-	producer      transport.Producer
-	objectSyncer  ObjectSyncer
-	eventEmitters []EventEmitter
-	leafHubName   string
-	startOnce     sync.Once
-	lock          sync.Mutex
+	log              logr.Logger
+	client           client.Client
+	producer         transport.Producer
+	controller       Controller
+	eventEmitters    []ObjectEmitter
+	leafHubName      string
+	syncIntervalFunc func() time.Duration
+	startOnce        sync.Once
+	lock             sync.Mutex
 }
 
-// AddPolicyStatusSyncer adds policies status controller to the manager.
-func LaunchGenericObjectSyncer(mgr ctrl.Manager, objectSyncer ObjectSyncer, producer transport.Producer,
-	eventEmitters []EventEmitter,
+// LaunchGenericObjectSyncer is used to send multi event(by the eventEmitter) by a specific client.Object
+func LaunchGenericObjectSyncer(name string, mgr ctrl.Manager, controller Controller,
+	producer transport.Producer, intervalFunc func() time.Duration, eventEmitters []ObjectEmitter,
 ) error {
 	syncer := &genericObjectSyncer{
-		log:           ctrl.Log.WithName(objectSyncer.Name()),
-		client:        mgr.GetClient(),
-		producer:      producer,
-		objectSyncer:  objectSyncer,
-		eventEmitters: eventEmitters,
-		leafHubName:   config.GetLeafHubName(),
+		log:              ctrl.Log.WithName(name),
+		client:           mgr.GetClient(),
+		producer:         producer,
+		syncIntervalFunc: intervalFunc,
+		controller:       controller,
+		eventEmitters:    eventEmitters,
+		leafHubName:      config.GetLeafHubName(),
 	}
 
 	// start the periodic syncer
@@ -52,12 +53,12 @@ func LaunchGenericObjectSyncer(mgr ctrl.Manager, objectSyncer ObjectSyncer, prod
 		go syncer.periodicSync()
 	})
 
-	return ctrl.NewControllerManagedBy(mgr).For(objectSyncer.Instance()).
-		WithEventFilter(objectSyncer.Predicate()).Complete(syncer)
+	return ctrl.NewControllerManagedBy(mgr).For(controller.Instance()).
+		WithEventFilter(controller.Predicate()).Complete(syncer)
 }
 
 func (c *genericObjectSyncer) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	object := c.objectSyncer.Instance()
+	object := c.controller.Instance()
 	if err := c.client.Get(ctx, request.NamespacedName, object); errors.IsNotFound(err) {
 		// the instance was deleted and it had no finalizer on it.
 		// for the local resources, there is no finalizer so we need to delete the object from the entry handler
@@ -73,51 +74,62 @@ func (c *genericObjectSyncer) Reconcile(ctx context.Context, request ctrl.Reques
 	// delete
 	if !object.GetDeletionTimestamp().IsZero() {
 		c.deleteObject(object)
-		if err := removeFinalizer(ctx, c.client, object, FinalizerName); err != nil {
-			c.log.Error(err, "failed to remove finalizer from object", "namespace", request.Namespace, "name", request.Name)
+		if !enableCleanUpFinalizer(object) {
+			return ctrl.Result{}, nil
+		}
+		err := removeFinalizer(ctx, c.client, object, FinalizerName)
+		if err != nil {
+			c.log.Error(err, "failed to remove cleanup fianlizer", "namespace", request.Namespace, "name", request.Name)
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
 		}
 		return ctrl.Result{}, nil
 	}
 
 	// update/insert
-	if c.objectSyncer.EnableFinalizer() {
-		if err := addFinalizer(ctx, c.client, object, FinalizerName); err != nil {
-			c.log.Error(err, "failed to add finalizer to object", "namespace", request.Namespace, "name", request.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
-		}
-	}
 	cleanObject(object)
 	c.updateObject(object)
-
+	if !enableCleanUpFinalizer(object) {
+		return ctrl.Result{}, nil
+	}
+	err := addFinalizer(ctx, c.client, object, FinalizerName)
+	if err != nil {
+		c.log.Error(err, "failed to add finalizer", "namespace", request.Namespace, "name", request.Name)
+		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
+	}
 	return ctrl.Result{}, nil
 }
 
 func (c *genericObjectSyncer) updateObject(object client.Object) {
 	c.lock.Lock() // make sure handler are not updated if we're during bundles sync
 	defer c.lock.Unlock()
-	for _, emitter := range c.eventEmitters {
-		emitter.Update(object)
+	for _, eventEmitter := range c.eventEmitters {
+		// update in each handler from the collection according to their order.
+		if eventEmitter.ShouldUpdate(object) && eventEmitter.Update(object) {
+			eventEmitter.PostUpdate()
+		}
 	}
 }
 
 func (c *genericObjectSyncer) deleteObject(object client.Object) {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
-	for _, emitter := range c.eventEmitters {
-		emitter.Delete(object)
+	defer c.lock.Unlock()
+
+	for _, eventEmitter := range c.eventEmitters {
+		if eventEmitter.ShouldUpdate(object) && eventEmitter.Delete(object) {
+			eventEmitter.PostUpdate()
+		}
 	}
-	c.lock.Unlock() // not using defer since remove finalizer may get delayed. release lock as soon as possible.
 }
 
 func (c *genericObjectSyncer) periodicSync() {
-	currentSyncInterval := c.objectSyncer.Interval()()
+	currentSyncInterval := c.syncIntervalFunc()
 	ticker := time.NewTicker(currentSyncInterval)
 
 	for {
 		<-ticker.C // wait for next time interval
 		c.syncEvents()
 
-		resolvedInterval := c.objectSyncer.Interval()()
+		resolvedInterval := c.syncIntervalFunc()
 
 		// reset ticker if sync interval has changed
 		if resolvedInterval != currentSyncInterval {
@@ -135,13 +147,18 @@ func (c *genericObjectSyncer) syncEvents() {
 	for i := range c.eventEmitters {
 		emitter := c.eventEmitters[i]
 
-		if emitter.Emit() {
-			evt := emitter.ToCloudEvent()
+		if emitter.ShouldSend() {
+			evt, err := emitter.ToCloudEvent()
+			if err != nil {
+				c.log.Error(err, "failed to get CloudEvent instance", "evt", evt)
+			}
 			evt.SetSource(c.leafHubName)
 
-			topicCtx := cecontext.WithTopic(context.TODO(), emitter.Topic())
-			evtCtx := kafka_confluent.WithMessageKey(topicCtx, c.leafHubName)
-			if err := c.producer.SendEvent(evtCtx, *evt); err != nil {
+			ctx := context.TODO()
+			if emitter.Topic() != "" {
+				ctx = cecontext.WithTopic(ctx, emitter.Topic())
+			}
+			if err := c.producer.SendEvent(ctx, *evt); err != nil {
 				c.log.Error(err, "failed to send event", "evt", evt)
 				continue
 			}

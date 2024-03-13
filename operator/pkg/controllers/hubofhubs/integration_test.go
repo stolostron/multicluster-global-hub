@@ -931,6 +931,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 		It("Should get the postgres/kafka connection", func() {
 			Eventually(func() error {
+				if mghReconciler.MiddlewareConfig == nil {
+					mghReconciler.MiddlewareConfig = &hubofhubs.MiddlewareConfig{}
+				}
 				mghReconciler.MiddlewareConfig.StorageConn = nil
 				mghReconciler.MiddlewareConfig.TransportConn = nil
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
@@ -1016,6 +1019,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 		It("Should get the postgres connection", func() {
 			Eventually(func() error {
+				if mghReconciler.Manager == nil {
+					mghReconciler.Manager = k8sManager
+				}
 				var err error
 				mghReconciler.MiddlewareConfig.StorageConn, err = mghReconciler.InitPostgresByStatefulset(ctx, mcgh)
 				if err != nil {

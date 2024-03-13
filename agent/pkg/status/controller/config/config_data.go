@@ -78,3 +78,7 @@ func GetAggregationLevel() AgentConfigValue {
 func GetEnableLocalPolicy() AgentConfigValue {
 	return agentConfigs[EnableLocalPolicyKey]
 }
+
+func SetInterval(key AgentConfigKey, val time.Duration) {
+	syncIntervals[key] = val
+}

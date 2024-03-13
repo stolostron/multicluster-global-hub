@@ -23,7 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ generic.EventEmitter = &localRootPolicyEmitter{}
+var _ generic.ObjectEmitter = &localRootPolicyEmitter{}
 
 type localRootPolicyEmitter struct {
 	ctx             context.Context
@@ -34,7 +34,7 @@ type localRootPolicyEmitter struct {
 	currentVersion  *metadata.BundleVersion
 	lastSentVersion metadata.BundleVersion
 	cache           *lru.Cache
-	events          []event.RootPolicyEvent
+	payload         event.RootPolicyEventData
 }
 
 func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client, topic string) *localRootPolicyEmitter {
@@ -48,19 +48,55 @@ func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client, topic strin
 		currentVersion:  metadata.NewBundleVersion(),
 		lastSentVersion: *metadata.NewBundleVersion(),
 		cache:           cache,
-		events:          make([]event.RootPolicyEvent, 0),
+		payload:         make([]event.RootPolicyEvent, 0),
 	}
 }
 
-func (h *localRootPolicyEmitter) Update(obj client.Object) {
+func (h *localRootPolicyEmitter) PostUpdate() {
+	h.currentVersion.Incr()
+}
+
+func (h *localRootPolicyEmitter) ShouldUpdate(obj client.Object) bool {
+	if config.GetEnableLocalPolicy() != config.EnableLocalPolicyTrue {
+		return false
+	}
+
+	policy, ok := policyEventPredicate(h.ctx, obj, h.runtimeClient, h.log)
+
+	return ok && !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
+		!utils.HasLabel(policy, constants.PolicyEventRootPolicyNameLabelKey)
+}
+
+func policyEventPredicate(ctx context.Context, obj client.Object, c client.Client, log logr.Logger) (
+	*policiesv1.Policy, bool,
+) {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
-		return
+		return nil, false
+	}
+
+	if evt.InvolvedObject.Kind != policiesv1.Kind {
+		return nil, false
+	}
+
+	// get policy
+	policy, err := getInvolvePolicy(ctx, c, evt)
+	if err != nil {
+		log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name)
+		return nil, false
+	}
+	return policy, true
+}
+
+func (h *localRootPolicyEmitter) Update(obj client.Object) bool {
+	evt, ok := obj.(*corev1.Event)
+	if !ok {
+		return false
 	}
 	// if exist, then return
 	evtKey := getEventKey(evt)
 	if ok = h.cache.Contains(evtKey); ok {
-		return
+		return false
 	}
 
 	// get policy
@@ -68,13 +104,7 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) {
 	if err != nil {
 		h.log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name,
 			"policy", evt.InvolvedObject.Namespace+"/"+evt.InvolvedObject.Name)
-		return
-	}
-
-	// global resource || replicated policy
-	if utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) ||
-		utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey) {
-		return
+		return false
 	}
 
 	// update
@@ -92,32 +122,31 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) {
 		Compliance: policyCompliance(policy, evt),
 	}
 	// cache to events and update version
-	h.events = append(h.events, rootPolicyEvent)
+	h.payload = append(h.payload, rootPolicyEvent)
 	h.cache.Add(evtKey, nil)
-	h.currentVersion.Incr()
+	return true
 }
 
-func (*localRootPolicyEmitter) Delete(client.Object) {
+func (*localRootPolicyEmitter) Delete(client.Object) bool {
 	// do nothing
+	return false
 }
 
-func (h *localRootPolicyEmitter) ToCloudEvent() *cloudevents.Event {
-	if len(h.events) < 1 {
-		return nil
+func (h *localRootPolicyEmitter) ToCloudEvent() (*cloudevents.Event, error) {
+	if len(h.payload) < 1 {
+		return nil, fmt.Errorf("the cloudevent instance shouldn't be nil")
 	}
 	e := cloudevents.NewEvent()
 	e.SetType(h.eventType)
+	e.SetSource(config.GetLeafHubName())
 	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
-	err := e.SetData(cloudevents.ApplicationJSON, h.events)
-	if err != nil {
-		h.log.Error(err, "failed to set the payload to cloudvents.Data")
-	}
-	return &e
+	err := e.SetData(cloudevents.ApplicationJSON, h.payload)
+	return &e, err
 }
 
 // to assert whether emit the current cloudevent
-func (h *localRootPolicyEmitter) Emit() bool {
-	return config.GetEnableLocalPolicy() == config.EnableLocalPolicyTrue && h.currentVersion.NewerThan(&h.lastSentVersion)
+func (h *localRootPolicyEmitter) ShouldSend() bool {
+	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
 func (h *localRootPolicyEmitter) Topic() string {
@@ -126,7 +155,7 @@ func (h *localRootPolicyEmitter) Topic() string {
 
 func (h *localRootPolicyEmitter) PostSend() {
 	// update version and clean the cache
-	h.events = make([]event.RootPolicyEvent, 0)
+	h.payload = make([]event.RootPolicyEvent, 0)
 	// 1. the version get into the next generation
 	// 2. set the lastSenteVersion to current version
 	h.currentVersion.Next()

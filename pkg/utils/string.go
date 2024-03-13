@@ -13,6 +13,15 @@ func ContainsString(slice []string, s string) bool {
 	return false
 }
 
+func ContainSubStrings(allStrings []string, subStrings []string) bool {
+	for _, item := range subStrings {
+		if !ContainsString(allStrings, item) {
+			return false
+		}
+	}
+	return true
+}
+
 // CreateSetFromSlice returns a set contains all items in the given slice. if slice is nil, returns empty set.
 func CreateSetFromSlice(slice []string) set.Set {
 	if slice == nil {
@@ -25,4 +34,25 @@ func CreateSetFromSlice(slice []string) set.Set {
 	}
 
 	return result
+}
+
+func Merge(slices ...[]string) []string {
+	mergedSlice := make([]string, 0)
+	for _, slice := range slices {
+		mergedSlice = append(mergedSlice, slice...)
+	}
+	return mergedSlice
+}
+
+func Equal(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for _, i := range b {
+		if !ContainsString(a, i) {
+			return false
+		}
+	}
+	return true
 }

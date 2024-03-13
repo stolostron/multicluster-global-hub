@@ -2,16 +2,19 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 )
 
 const (
@@ -87,4 +90,21 @@ func GetClusterId(ctx context.Context, runtimeClient client.Client, clusterName 
 
 func GetObjectKey(obj bundle.Object) string {
 	return obj.GetObjectKind().GroupVersionKind().String()
+}
+
+func ToCloudEvent(evtType string, source string, data interface{}) cloudevents.Event {
+	e := cloudevents.NewEvent()
+	e.SetType(evtType)
+	e.SetSource(source)
+	_ = e.SetData(cloudevents.ApplicationJSON, data)
+	return e
+}
+
+func PrettyPrint(obj interface{}) {
+	payload, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		fmt.Println("marshal object error", err)
+	} else {
+		fmt.Println(string(payload))
+	}
 }
