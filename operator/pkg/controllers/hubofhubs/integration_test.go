@@ -1019,6 +1019,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 		It("Should get the postgres connection", func() {
 			Eventually(func() error {
+				if mghReconciler.Manager == nil {
+					mghReconciler.Manager = k8sManager
+				}
 				var err error
 				mghReconciler.MiddlewareConfig.StorageConn, err = mghReconciler.InitPostgresByStatefulset(ctx, mcgh)
 				if err != nil {
