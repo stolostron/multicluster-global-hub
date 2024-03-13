@@ -189,7 +189,6 @@ func deployGlobalHub() {
 			Namespace: "multicluster-global-hub",
 			Annotations: map[string]string{
 				constants.AnnotationMGHSkipAuth: "true",
-				"mgh-scheduler-interval":        "minute",
 			},
 		},
 		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
