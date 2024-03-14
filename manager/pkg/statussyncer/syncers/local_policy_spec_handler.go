@@ -14,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -23,7 +23,7 @@ import (
 type localPolicySpecHandler struct {
 	log           logr.Logger
 	eventType     string
-	eventSyncMode metadata.EventSyncMode
+	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
 }
 
@@ -33,7 +33,7 @@ func NewLocalPolicySpecHandler() conflator.Handler {
 	return &localPolicySpecHandler{
 		log:           ctrl.Log.WithName(logName),
 		eventType:     eventType,
-		eventSyncMode: metadata.CompleteStateMode,
+		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.LocalPolicySpecPriority,
 	}
 }
@@ -52,7 +52,7 @@ func (h *localPolicySpecHandler) RegisterHandler(conflationManager *conflator.Co
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
 func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
-	version := evt.Extensions()[metadata.ExtVersion]
+	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 

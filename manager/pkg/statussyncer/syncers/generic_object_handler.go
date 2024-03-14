@@ -12,7 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/dao"
@@ -29,13 +29,13 @@ const (
 type genericObjectHandler[T metav1.Object] struct {
 	log           logr.Logger
 	eventType     string
-	eventSyncMode metadata.EventSyncMode
+	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
 	table         string
 }
 
 func NewGenericHandler[T metav1.Object](eventType string, priority conflator.ConflationPriority,
-	syncMode metadata.EventSyncMode, table string,
+	syncMode enum.EventSyncMode, table string,
 ) *genericObjectHandler[T] {
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	return &genericObjectHandler[T]{
@@ -64,7 +64,7 @@ func (h *genericObjectHandler[T]) RegisterHandler(conflationManager *conflator.C
 }
 
 func (h *genericObjectHandler[T]) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
-	version := evt.Extensions()[metadata.ExtVersion]
+	version := evt.Extensions()[version.ExtVersion]
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	leafHubName := evt.Source()

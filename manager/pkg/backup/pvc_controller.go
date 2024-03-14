@@ -132,7 +132,7 @@ func (r *BackupPVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	backupLog.V(2).Info("Start wait pvc backup finish", "time", time.Now())
-	if err := wait.PollImmediate(5*time.Second, 2*time.Minute, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pvc := &corev1.PersistentVolumeClaim{}
 		err := r.Client.Get(ctx, req.NamespacedName, pvc)
 		if err != nil {
@@ -145,7 +145,8 @@ func (r *BackupPVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return false, nil
 		}
 		return true, nil
-	}); err != nil {
+	})
+	if err != nil {
 		backupLog.Error(err, "Time out to wait backup pvc finished")
 		return ctrl.Result{}, err
 	}

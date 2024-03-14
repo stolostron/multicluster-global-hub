@@ -8,7 +8,8 @@ import (
 	"github.com/cloudevents/sdk-go/v2/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
@@ -22,12 +23,12 @@ type ThresholdMetadata struct {
 	count    int
 
 	// transport position
-	kafkaPosition *TransportPosition
+	kafkaPosition *transport.EventPosition
 
 	// event
 	eventType              string
-	eventVersion           *metadata.BundleVersion
-	eventDependencyVersion *metadata.BundleVersion
+	eventVersion           *eventversion.Version
+	eventDependencyVersion *eventversion.Version
 }
 
 // the retry times(max) when the bundle has been failed processed
@@ -53,12 +54,12 @@ func NewThresholdMetadata(clusterIdentity string, max int, evt *cloudevents.Even
 		log.Info("failed to parse offset into int64 from event", "offset", offsetStr, "error", err)
 	}
 
-	eventVersion, err := getVersionFromEvent(evt, metadata.ExtVersion)
+	eventVersion, err := getVersionFromEvent(evt, eventversion.ExtVersion)
 	if err != nil || eventVersion == nil {
 		log.Error(err, "failed to parse event version")
 		return nil
 	}
-	dependencyVersion, err := getVersionFromEvent(evt, metadata.ExtDependencyVersion)
+	dependencyVersion, err := getVersionFromEvent(evt, eventversion.ExtDependencyVersion)
 	if err != nil {
 		log.Error(err, "failed to parse dependencyVersion")
 		return nil
@@ -68,7 +69,7 @@ func NewThresholdMetadata(clusterIdentity string, max int, evt *cloudevents.Even
 		maxRetry: max,
 		count:    0,
 
-		kafkaPosition: &TransportPosition{
+		kafkaPosition: &transport.EventPosition{
 			OwnerIdentity: clusterIdentity,
 			Topic:         topic,
 			Partition:     partition,
@@ -81,7 +82,7 @@ func NewThresholdMetadata(clusterIdentity string, max int, evt *cloudevents.Even
 	}
 }
 
-func NewThresholdMetadataFromPosition(max int, pos *TransportPosition) *ThresholdMetadata {
+func NewThresholdMetadataFromPosition(max int, pos *transport.EventPosition) *ThresholdMetadata {
 	return &ThresholdMetadata{
 		maxRetry:      max,
 		count:         0,
@@ -104,15 +105,15 @@ func (s *ThresholdMetadata) MarkAsUnprocessed() {
 	s.count++
 }
 
-func (s *ThresholdMetadata) TransportPosition() *TransportPosition {
+func (s *ThresholdMetadata) TransportPosition() *transport.EventPosition {
 	return s.kafkaPosition
 }
 
-func (s *ThresholdMetadata) Version() *metadata.BundleVersion {
+func (s *ThresholdMetadata) Version() *eventversion.Version {
 	return s.eventVersion
 }
 
-func (s *ThresholdMetadata) DependencyVersion() *metadata.BundleVersion {
+func (s *ThresholdMetadata) DependencyVersion() *eventversion.Version {
 	return s.eventDependencyVersion
 }
 
@@ -120,7 +121,7 @@ func (s *ThresholdMetadata) EventType() string {
 	return s.eventType
 }
 
-func getVersionFromEvent(evt *cloudevents.Event, key string) (*metadata.BundleVersion, error) {
+func getVersionFromEvent(evt *cloudevents.Event, key string) (*eventversion.Version, error) {
 	val, ok := evt.Extensions()[key]
 	if !ok {
 		return nil, nil
@@ -129,7 +130,7 @@ func getVersionFromEvent(evt *cloudevents.Event, key string) (*metadata.BundleVe
 	if !ok {
 		return nil, fmt.Errorf("the val: %s can't be convert to of string", val)
 	}
-	eventVersion, err := metadata.BundleVersionFrom(version)
+	eventVersion, err := eventversion.VersionFrom(version)
 	if err != nil {
 		return nil, err
 	}

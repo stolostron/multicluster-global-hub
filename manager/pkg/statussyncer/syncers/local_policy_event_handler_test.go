@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -21,7 +21,7 @@ var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
 	It("should handle the local policy(replicated) event", func() {
 		By("Create Event")
 		leafHubName := "hub1"
-		version := metadata.NewBundleVersion()
+		version := eventversion.NewVersion()
 		version.Incr()
 
 		data := event.ReplicatedPolicyEventData{}

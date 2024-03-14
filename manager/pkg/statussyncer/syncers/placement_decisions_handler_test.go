@@ -11,7 +11,7 @@ import (
 	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -22,7 +22,7 @@ var _ = Describe("PlacementDecisionHandler", Ordered, func() {
 	It("should be able to sync placement decision event", func() {
 		By("Create event")
 		leafHubName := "hub1"
-		version := metadata.NewBundleVersion()
+		version := eventversion.NewVersion()
 		version.Incr()
 
 		data := generic.GenericObjectData{}

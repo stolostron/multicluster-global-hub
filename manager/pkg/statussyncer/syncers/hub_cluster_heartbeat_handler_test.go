@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -19,7 +19,7 @@ import (
 var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 	It("sync the hubClusterHeartbeat bundle", func() {
 		By("Create hubClusterHeartbeat event")
-		version := metadata.NewBundleVersion()
+		version := eventversion.NewVersion()
 		version.Incr()
 		leafHubName := "hub1"
 		evt := ToCloudEvent(leafHubName, string(enum.HubClusterHeartbeatType), version, generic.GenericObjectData{})
@@ -50,11 +50,11 @@ var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 	})
 })
 
-func ToCloudEvent(source, eventType string, version *metadata.BundleVersion, data interface{}) *cloudevents.Event {
+func ToCloudEvent(source, eventType string, version *eventversion.Version, data interface{}) *cloudevents.Event {
 	e := cloudevents.NewEvent()
 	e.SetSource(source)
 	e.SetType(eventType)
-	e.SetExtension(metadata.ExtVersion, version.String())
+	e.SetExtension(eventversion.ExtVersion, version.String())
 	_ = e.SetData(cloudevents.ApplicationJSON, data)
 	return &e
 }

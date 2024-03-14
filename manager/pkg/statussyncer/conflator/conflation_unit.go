@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/dependency"
-	bundlemetadata "github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -43,7 +43,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 			handlerFunction:      registration.handleFunc,
 			dependency:           registration.dependency, // nil if there is no dependency
 			isInProcess:          false,
-			lastProcessedVersion: bundlemetadata.NewBundleVersion(),
+			lastProcessedVersion: version.NewVersion(),
 		}
 
 		eventTypeToPriority[registration.eventType] = registration.priority
@@ -77,7 +77,7 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 	// 1. reset lastProcessedBundleVersion to 0
 	// 2. reset the bundleInfo version to 0 (add the resetBundleVersion() function to bundleInfo interface)
 	if eventMetadata.Version().InitGen() {
-		conflationElement.lastProcessedVersion = bundlemetadata.NewBundleVersion()
+		conflationElement.lastProcessedVersion = version.NewVersion()
 		if conflationElement.metadata != nil {
 			conflationElement.metadata.Version().Reset()
 		}

@@ -161,7 +161,7 @@ func (p *PostgreSQL) GetObjectsBundle(ctx context.Context, tableName string, cre
 // belonging to a leaf-hub that had at least once update since the given timestamp, from a specific table.
 func (p *PostgreSQL) GetUpdatedManagedClusterLabelsBundles(ctx context.Context, tableName string,
 	timestamp *time.Time,
-) (map[string]*spec.ManagedClusterLabelsSpecBundle, error) {
+) (map[string]*spec.ManagedClusterLabelsSpecData, error) {
 	// select ManagedClusterLabelsSpec entries information from DB
 	rows, err := p.conn.Query(ctx, fmt.Sprintf(`SELECT leaf_hub_name,managed_cluster_name,labels,
 		deleted_label_keys,updated_at,version FROM spec.%[1]s WHERE leaf_hub_name IN (SELECT DISTINCT(leaf_hub_name) 
@@ -173,7 +173,7 @@ func (p *PostgreSQL) GetUpdatedManagedClusterLabelsBundles(ctx context.Context, 
 
 	defer rows.Close()
 
-	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
+	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecData)
 
 	for rows.Next() {
 		var (
@@ -191,7 +191,7 @@ func (p *PostgreSQL) GetUpdatedManagedClusterLabelsBundles(ctx context.Context, 
 		// create ManagedClusterLabelsSpecBundle if not mapped for leafHub
 		managedClusterLabelsSpecBundle, found := leafHubToLabelsSpecBundleMap[leafHubName]
 		if !found {
-			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecBundle{
+			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecData{
 				Objects:     []*spec.ManagedClusterLabelsSpec{},
 				LeafHubName: leafHubName,
 			}
@@ -211,7 +211,7 @@ func (p *PostgreSQL) GetUpdatedManagedClusterLabelsBundles(ctx context.Context, 
 // none-empty deleted-label-keys column.
 func (p *PostgreSQL) GetEntriesWithDeletedLabels(ctx context.Context,
 	tableName string,
-) (map[string]*spec.ManagedClusterLabelsSpecBundle, error) {
+) (map[string]*spec.ManagedClusterLabelsSpecData, error) {
 	rows, err := p.conn.Query(ctx, fmt.Sprintf(`SELECT leaf_hub_name,managed_cluster_name,deleted_label_keys,version 
 		FROM spec.%s WHERE deleted_label_keys != '[]' AND leaf_hub_name <> ''`, tableName))
 	if err != nil {
@@ -220,7 +220,7 @@ func (p *PostgreSQL) GetEntriesWithDeletedLabels(ctx context.Context,
 
 	defer rows.Close()
 
-	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
+	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecData)
 
 	for rows.Next() {
 		var (
@@ -236,7 +236,7 @@ func (p *PostgreSQL) GetEntriesWithDeletedLabels(ctx context.Context,
 		// create ManagedClusterLabelsSpecBundle if not mapped for leafHub
 		managedClusterLabelsSpecBundle, found := leafHubToLabelsSpecBundleMap[leafHubName]
 		if !found {
-			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecBundle{
+			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecData{
 				Objects:     []*spec.ManagedClusterLabelsSpec{},
 				LeafHubName: leafHubName,
 			}

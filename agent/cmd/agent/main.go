@@ -190,9 +190,9 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
 	}
 
-	if agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
+	if agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageKBLimit {
 		return fmt.Errorf("flag kafka-message-size-limit %d must not exceed %d",
-			agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, producer.MaxMessageSizeLimit)
+			agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, producer.MaxMessageKBLimit)
 	}
 	agentConfig.TransportConfig.KafkaConfig.EnableTLS = true
 	if agentConfig.MetricsAddress == "" {

@@ -16,7 +16,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
 
@@ -117,10 +116,6 @@ func TestHubManagement(t *testing.T) {
 }
 
 type tmpProducer struct{}
-
-func (*tmpProducer) Send(ctx context.Context, msg *transport.Message) error {
-	return nil
-}
 
 func (p *tmpProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
 	return nil

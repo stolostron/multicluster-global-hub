@@ -1,4 +1,4 @@
-package metadata
+package version
 
 import (
 	"fmt"
@@ -9,15 +9,15 @@ import (
 const ExtVersion = "extversion"
 const ExtDependencyVersion = "extdependencyversion"
 
-// NewBundleVersion returns a new instance of BundleVersion.
-func NewBundleVersion() *BundleVersion {
-	return &BundleVersion{
+// NewVersion returns a new instance of BundleVersion.
+func NewVersion() *Version {
+	return &Version{
 		Generation: 0,
 		Value:      0,
 	}
 }
 
-func BundleVersionFrom(strVersion string) (*BundleVersion, error) {
+func VersionFrom(strVersion string) (*Version, error) {
 	vals := strings.Split(strVersion, ".")
 	if len(vals) != 2 {
 		return nil, fmt.Errorf("malformed version string: %s", strVersion)
@@ -30,15 +30,15 @@ func BundleVersionFrom(strVersion string) (*BundleVersion, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &BundleVersion{
+	return &Version{
 		Generation: generation,
 		Value:      val,
 	}, nil
 
 }
 
-// BundleVersion holds the information necessary for the consumers of status bundles to compare versions correctly.
-type BundleVersion struct {
+// Version holds the information necessary for the consumers of status bundles to compare versions correctly.
+type Version struct {
 	// this Value is incremented every time the bundle is sended to the hub
 	Generation uint64 `json:"Generation"`
 	// this Value is incremented every time the bundle is updated
@@ -47,7 +47,7 @@ type BundleVersion struct {
 
 // NewerThan returns whether the caller's version is newer than that received as argument.
 // If other = nil the result is true.
-func (this *BundleVersion) NewerThan(other *BundleVersion) bool {
+func (this *Version) NewerThan(other *Version) bool {
 	if other == nil {
 		return true
 	}
@@ -64,12 +64,12 @@ func (this *BundleVersion) NewerThan(other *BundleVersion) bool {
 }
 
 // Equals returns whether the caller's version is equal to that received as argument.
-func (this *BundleVersion) Equals(other *BundleVersion) bool {
+func (this *Version) Equals(other *Version) bool {
 	return this.Generation == other.Generation && this.Value == other.Value
 }
 
 // Equals returns whether the bundles are updated with the same value.
-func (this *BundleVersion) EqualValue(other *BundleVersion) bool {
+func (this *Version) EqualValue(other *Version) bool {
 	if other == nil {
 		return false
 	}
@@ -78,7 +78,7 @@ func (this *BundleVersion) EqualValue(other *BundleVersion) bool {
 
 // NewerValueThan returns whether the caller's value is newer than that received as argument.
 // If other = nil the result is true.
-func (this *BundleVersion) NewerValueThan(other *BundleVersion) bool {
+func (this *Version) NewerValueThan(other *Version) bool {
 	if other == nil {
 		return true
 	}
@@ -86,27 +86,27 @@ func (this *BundleVersion) NewerValueThan(other *BundleVersion) bool {
 }
 
 // String returns string representation of the bundle version.
-func (this *BundleVersion) String() string {
+func (this *Version) String() string {
 	return fmt.Sprintf("%d.%d", this.Generation, this.Value)
 }
 
 // Incr increments the Value when bundle is updated.
-func (this *BundleVersion) Incr() {
+func (this *Version) Incr() {
 	this.Value++
 }
 
 // Next increments the Generation and resets the Value when bundle is sended to the hub.
-func (this *BundleVersion) Next() {
+func (this *Version) Next() {
 	this.Generation++
 }
 
 // Reset resets the bundle version with minimal Generation and Value.
-func (this *BundleVersion) Reset() {
+func (this *Version) Reset() {
 	this.Generation = 0
 	this.Value = 0
 }
 
 // InitGen returns whether the bundle version is first Generation.
-func (this *BundleVersion) InitGen() bool {
+func (this *Version) InitGen() bool {
 	return this.Generation == 0
 }

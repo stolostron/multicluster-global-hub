@@ -13,7 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -23,7 +23,7 @@ type localPolicyCompleteHandler struct {
 	log            logr.Logger
 	eventType      string
 	dependencyType string
-	eventSyncMode  metadata.EventSyncMode
+	eventSyncMode  enum.EventSyncMode
 	eventPriority  conflator.ConflationPriority
 }
 
@@ -34,7 +34,7 @@ func NewLocalPolicyCompleteHandler() conflator.Handler {
 		log:            ctrl.Log.WithName(logName),
 		eventType:      eventType,
 		dependencyType: string(enum.LocalComplianceType),
-		eventSyncMode:  metadata.CompleteStateMode,
+		eventSyncMode:  enum.CompleteStateMode,
 		eventPriority:  conflator.LocalCompleteCompliancePriority,
 	}
 }
@@ -55,7 +55,7 @@ func (h *localPolicyCompleteHandler) handleEventWrapper(ctx context.Context, evt
 }
 
 func handleCompleteCompliance(log logr.Logger, ctx context.Context, evt *cloudevents.Event) error {
-	version := evt.Extensions()[metadata.ExtVersion]
+	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
 	log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 

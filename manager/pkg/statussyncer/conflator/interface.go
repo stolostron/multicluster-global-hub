@@ -1,8 +1,8 @@
 package conflator
 
 import (
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/metadata"
-	bundlemetadata "github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // may include metadata that relates to transport - e.g. commit offset.
@@ -14,13 +14,13 @@ type ConflationMetadata interface {
 	// MarkAsUnprocessed function that marks the metadata as unprocessed.
 	MarkAsUnprocessed()
 	// the event version
-	Version() *bundlemetadata.BundleVersion
+	Version() *version.Version
 	// the event dependencyVersion
-	DependencyVersion() *bundlemetadata.BundleVersion
+	DependencyVersion() *version.Version
 	// the event type
 	EventType() string
 	// the transport offset...
-	TransportPosition() *metadata.TransportPosition
+	TransportPosition() *transport.EventPosition
 }
 
 // ResultReporter is an interface used to report the result of the handler function after its invocation.

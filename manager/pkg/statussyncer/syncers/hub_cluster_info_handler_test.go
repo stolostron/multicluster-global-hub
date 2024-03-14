@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -28,7 +28,7 @@ var _ = Describe("HubClusterInfoHandler", Ordered, func() {
 			ClusterId:  "00000000-0000-0000-0000-000000000001",
 		}
 
-		version := metadata.NewBundleVersion()
+		version := eventversion.NewVersion()
 		version.Incr()
 		evt := ToCloudEvent(leafHubName, string(enum.HubClusterInfoType), version, data)
 

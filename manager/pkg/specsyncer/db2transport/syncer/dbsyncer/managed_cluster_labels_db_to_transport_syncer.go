@@ -87,7 +87,7 @@ func syncManagedClusterLabelsBundles(ctx context.Context, producer transport.Pro
 // getUpdatedManagedClusterLabelsBundles returns a map of leaf-hub -> ManagedClusterLabelsSpecBundle of objects
 // belonging to a leaf-hub that had at least once update since the given timestamp, from a specific table.
 func getUpdatedManagedClusterLabelsBundles(timestamp *time.Time,
-) (map[string]*spec.ManagedClusterLabelsSpecBundle, error) {
+) (map[string]*spec.ManagedClusterLabelsSpecData, error) {
 	db := database.GetGorm()
 	// select ManagedClusterLabelsSpec entries information from DB
 	rows, err := db.Raw(fmt.Sprintf(`SELECT * FROM spec.%[1]s WHERE leaf_hub_name IN (SELECT DISTINCT(leaf_hub_name) 
@@ -102,9 +102,9 @@ func getUpdatedManagedClusterLabelsBundles(timestamp *time.Time,
 }
 
 func getManagedClusterLabelBundleByRows(db *gorm.DB, rows *sql.Rows) (
-	map[string]*spec.ManagedClusterLabelsSpecBundle, error,
+	map[string]*spec.ManagedClusterLabelsSpecData, error,
 ) {
-	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecBundle)
+	leafHubToLabelsSpecBundleMap := make(map[string]*spec.ManagedClusterLabelsSpecData)
 	for rows.Next() {
 		managedClusterLabel := models.ManagedClusterLabel{}
 		if err := db.ScanRows(rows, &managedClusterLabel); err != nil {
@@ -114,7 +114,7 @@ func getManagedClusterLabelBundleByRows(db *gorm.DB, rows *sql.Rows) (
 		// create ManagedClusterLabelsSpecBundle if not mapped for leafHub
 		managedClusterLabelsSpecBundle, found := leafHubToLabelsSpecBundleMap[managedClusterLabel.LeafHubName]
 		if !found {
-			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecBundle{
+			managedClusterLabelsSpecBundle = &spec.ManagedClusterLabelsSpecData{
 				Objects:     []*spec.ManagedClusterLabelsSpec{},
 				LeafHubName: managedClusterLabel.LeafHubName,
 			}

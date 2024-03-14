@@ -12,7 +12,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -21,7 +20,7 @@ import (
 type hubHeartbeatHandler struct {
 	log           logr.Logger
 	eventType     string
-	eventSyncMode metadata.EventSyncMode
+	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
 }
 
@@ -31,7 +30,7 @@ func NewHubClusterHeartbeatHandler() conflator.Handler {
 	return &hubHeartbeatHandler{
 		log:           ctrl.Log.WithName(logName),
 		eventType:     eventType,
-		eventSyncMode: metadata.CompleteStateMode,
+		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.HubClusterHeartbeatPriority,
 	}
 }

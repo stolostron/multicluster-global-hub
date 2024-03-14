@@ -14,7 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -96,7 +95,7 @@ func (c *genericEventController) updateObjectAndFinalizer(ctx context.Context, o
 	return nil
 }
 
-func (c *genericEventController) deleteObjectAndFinalizer(ctx context.Context, object bundle.Object) error {
+func (c *genericEventController) deleteObjectAndFinalizer(ctx context.Context, object client.Object) error {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	if c.emitter.ShouldUpdate(object) && c.eventController.Delete(object) {
 		c.emitter.PostUpdate()
@@ -117,7 +116,7 @@ func enableCleanUpFinalizer(obj client.Object) bool {
 		utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation)
 }
 
-func cleanObject(object bundle.Object) {
+func cleanObject(object client.Object) {
 	object.SetManagedFields(nil)
 	object.SetFinalizers(nil)
 	object.SetGeneration(0)
@@ -126,7 +125,7 @@ func cleanObject(object bundle.Object) {
 	// object.SetClusterName("")
 }
 
-func addFinalizer(ctx context.Context, c client.Client, obj bundle.Object, finalizer string) error {
+func addFinalizer(ctx context.Context, c client.Client, obj client.Object, finalizer string) error {
 	// if the removing finalizer label hasn't expired, then skip the adding finalizer action
 	if val, found := obj.GetLabels()[constants.GlobalHubFinalizerRemovingDeadline]; found {
 		deadline, err := strconv.ParseInt(val, 10, 64)
@@ -152,7 +151,7 @@ func addFinalizer(ctx context.Context, c client.Client, obj bundle.Object, final
 	return nil
 }
 
-func removeFinalizer(ctx context.Context, c client.Client, obj bundle.Object, finalizer string) error {
+func removeFinalizer(ctx context.Context, c client.Client, obj client.Object, finalizer string) error {
 	if !controllerutil.ContainsFinalizer(obj, finalizer) {
 		return nil // if finalizer is not there, do nothing.
 	}

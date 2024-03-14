@@ -13,8 +13,6 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 )
 
 const (
@@ -88,7 +86,7 @@ func GetClusterId(ctx context.Context, runtimeClient client.Client, clusterName 
 	return clusterId, nil
 }
 
-func GetObjectKey(obj bundle.Object) string {
+func GetObjectKey(obj client.Object) string {
 	return obj.GetObjectKind().GroupVersionKind().String()
 }
 

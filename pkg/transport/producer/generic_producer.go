@@ -6,7 +6,6 @@ package producer
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -22,7 +21,6 @@ import (
 const (
 	MaxMessageKBLimit    = 1024
 	DefaultMessageKBSize = 960
-	BundleVersionKey     = "bundleVersion"
 )
 
 type GenericProducer struct {
@@ -67,33 +65,6 @@ func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic
 		client:           client,
 		messageSizeLimit: messageSize,
 	}, nil
-}
-
-func (p *GenericProducer) Send(ctx context.Context, msg *transport.Message) error {
-	event := cloudevents.NewEvent()
-	event.SetID(msg.Key)
-	event.SetType(msg.MsgType)
-	event.SetTime(time.Now())
-	event.SetSource(msg.Destination)
-	if msg.Destination == "" {
-		event.SetSource(transport.Broadcast)
-	}
-
-	messageBytes := msg.Payload
-	chunks := p.splitPayloadIntoChunks(messageBytes)
-	for index, chunk := range chunks {
-		event.SetExtension(transport.ChunkSizeKey, len(messageBytes))
-		event.SetExtension(transport.ChunkOffsetKey, index*p.messageSizeLimit)
-		if err := event.SetData(cloudevents.ApplicationJSON, chunk); err != nil {
-			return fmt.Errorf("failed to set cloudevents data: %v", msg)
-		}
-		if result := p.client.Send(kafka_confluent.WithMessageKey(ctx, msg.Key), event); cloudevents.IsUndelivered(result) {
-			return fmt.Errorf("failed to send generic message to transport: %s", result.Error())
-		}
-
-		p.log.Info("sent message", "Key", msg.Key)
-	}
-	return nil
 }
 
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {

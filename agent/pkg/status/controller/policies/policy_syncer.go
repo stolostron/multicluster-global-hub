@@ -11,7 +11,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -28,7 +28,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 
 	// emitters
 	// 1. local compliance
-	localComplianceVersion := metadata.NewBundleVersion()
+	localComplianceVersion := eventversion.NewVersion()
 	localComplianceShouldUpdate := func(obj client.Object) bool {
 		return statusconfig.GetAggregationLevel() == statusconfig.AggregationFull && // full level
 			statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue && // enable local policy
@@ -71,7 +71,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 
 	// global policy emitters
 	// 5. global compliance
-	complianceVersion := metadata.NewBundleVersion()
+	complianceVersion := eventversion.NewVersion()
 	compliancePredicate := func(obj client.Object) bool {
 		return statusconfig.GetAggregationLevel() == statusconfig.AggregationFull && // full level
 			utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // global resource

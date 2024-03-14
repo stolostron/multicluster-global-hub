@@ -8,14 +8,14 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func CompleteComplianceEmitterWrapper(
 	eventType enum.EventType,
-	dependencyVersion *metadata.BundleVersion,
+	dependencyVersion *version.Version,
 	predicate func(client.Object) bool,
 ) generic.ObjectEmitter {
 	eventData := grc.CompleteComplianceData{}

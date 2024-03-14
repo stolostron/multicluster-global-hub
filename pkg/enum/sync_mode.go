@@ -1,4 +1,4 @@
-package metadata
+package enum
 
 // EventSyncMode used to identify hybrid sync mode - complete/delta bundles.
 type EventSyncMode int8
