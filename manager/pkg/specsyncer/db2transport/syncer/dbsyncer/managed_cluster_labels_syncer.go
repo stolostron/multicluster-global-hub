@@ -191,7 +191,7 @@ func (watcher *managedClusterLabelsStatusWatcher) fillMissingLeafHubNames(ctx co
 // returns a map of leaf-hub -> ManagedClusterLabelsSpecBundle of objects that have a
 // none-empty deleted-label-keys column.
 func getLabelBundleWithDeletedKey(ctx context.Context) (
-	map[string]*spec.ManagedClusterLabelsSpecData, error,
+	map[string]*spec.ManagedClusterLabelsSpecBundle, error,
 ) {
 	db := database.GetGorm()
 	rows, err := db.Raw(`SELECT * FROM spec.managed_clusters_labels WHERE deleted_label_keys <> ? AND leaf_hub_name <> ?`,

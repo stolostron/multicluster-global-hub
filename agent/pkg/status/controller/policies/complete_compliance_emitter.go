@@ -18,7 +18,7 @@ func CompleteComplianceEmitterWrapper(
 	dependencyVersion *version.Version,
 	predicate func(client.Object) bool,
 ) generic.ObjectEmitter {
-	eventData := grc.CompleteComplianceData{}
+	eventData := grc.CompleteComplianceBundle{}
 	return generic.NewGenericObjectEmitter(
 		eventType,
 		&eventData,
@@ -29,10 +29,10 @@ func CompleteComplianceEmitterWrapper(
 }
 
 type completeComplianceHandler struct {
-	eventData *grc.CompleteComplianceData
+	eventData *grc.CompleteComplianceBundle
 }
 
-func NewCompleteComplianceHandler(evtData *grc.CompleteComplianceData) generic.Handler {
+func NewCompleteComplianceHandler(evtData *grc.CompleteComplianceBundle) generic.Handler {
 	return &completeComplianceHandler{
 		eventData: evtData,
 	}

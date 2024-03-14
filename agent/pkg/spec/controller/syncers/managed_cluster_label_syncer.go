@@ -28,7 +28,7 @@ const (
 // managedClusterLabelsBundleSyncer syncs managed clusters metadata from received bundles.
 type managedClusterLabelsBundleSyncer struct {
 	log                          logr.Logger
-	latestBundle                 *specbundle.ManagedClusterLabelsSpecData
+	latestBundle                 *specbundle.ManagedClusterLabelsSpecBundle
 	managedClusterToTimestampMap map[string]*time.Time
 	workerPool                   *workers.WorkerPool
 	bundleProcessingWaitingGroup sync.WaitGroup
@@ -47,7 +47,7 @@ func NewManagedClusterLabelSyncer(workers *workers.WorkerPool) *managedClusterLa
 }
 
 func (syncer *managedClusterLabelsBundleSyncer) Sync(payload []byte) error {
-	bundle := &specbundle.ManagedClusterLabelsSpecData{}
+	bundle := &specbundle.ManagedClusterLabelsSpecBundle{}
 	if err := json.Unmarshal(payload, bundle); err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (syncer *managedClusterLabelsBundleSyncer) Sync(payload []byte) error {
 	return nil
 }
 
-func (syncer *managedClusterLabelsBundleSyncer) setLatestBundle(newBundle *specbundle.ManagedClusterLabelsSpecData) {
+func (syncer *managedClusterLabelsBundleSyncer) setLatestBundle(newBundle *specbundle.ManagedClusterLabelsSpecBundle) {
 	syncer.latestBundleLock.Lock()
 	defer syncer.latestBundleLock.Unlock()
 

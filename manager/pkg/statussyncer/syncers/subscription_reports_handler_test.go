@@ -25,7 +25,7 @@ var _ = Describe("SubscriptionReportHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := generic.GenericObjectData{}
+		data := generic.GenericObjectBundle{}
 		obj := &appsv1alpha1.SubscriptionReport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testAppReport",

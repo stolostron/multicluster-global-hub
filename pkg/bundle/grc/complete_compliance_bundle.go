@@ -7,4 +7,4 @@ type CompleteCompliance struct {
 	UnknownComplianceClusters []string `json:"unknownComplianceClusters"`
 }
 
-type CompleteComplianceData []CompleteCompliance
+type CompleteComplianceBundle []CompleteCompliance

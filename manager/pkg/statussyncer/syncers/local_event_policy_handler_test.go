@@ -25,7 +25,7 @@ var _ = Describe("LocalEventPolicyHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := event.RootPolicyEventData{}
+		data := event.RootPolicyEventBundle{}
 		data = append(data, event.RootPolicyEvent{
 			BaseEvent: event.BaseEvent{
 				EventName:      "policy-limitrange.17b8363660d39188",

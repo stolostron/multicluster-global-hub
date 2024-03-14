@@ -68,7 +68,7 @@ func handleCompleteCompliance(log logr.Logger, ctx context.Context, evt *cloudev
 		return err
 	}
 
-	data := grc.CompleteComplianceData{}
+	data := grc.CompleteComplianceBundle{}
 	if err := evt.DataAs(&data); err != nil {
 		return err
 	}

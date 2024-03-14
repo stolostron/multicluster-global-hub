@@ -19,7 +19,7 @@ func ComplianceEmitterWrapper(
 	version *eventversion.Version,
 	predicate func(client.Object) bool,
 ) generic.ObjectEmitter {
-	eventData := grc.ComplianceData{}
+	eventData := grc.ComplianceBundle{}
 	return generic.NewGenericObjectEmitter(
 		eventType,
 		&eventData,
@@ -30,10 +30,10 @@ func ComplianceEmitterWrapper(
 }
 
 type complianceHandler struct {
-	eventData *grc.ComplianceData
+	eventData *grc.ComplianceBundle
 }
 
-func NewComplianceHandler(eventData *grc.ComplianceData) generic.Handler {
+func NewComplianceHandler(eventData *grc.ComplianceBundle) generic.Handler {
 	return &complianceHandler{
 		eventData: eventData,
 	}

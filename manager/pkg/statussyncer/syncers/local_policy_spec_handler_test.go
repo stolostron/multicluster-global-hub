@@ -26,7 +26,7 @@ var _ = Describe("LocalPolicySpecHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := generic.GenericObjectData{}
+		data := generic.GenericObjectBundle{}
 		policy := &policiesv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testLocalPolicy",

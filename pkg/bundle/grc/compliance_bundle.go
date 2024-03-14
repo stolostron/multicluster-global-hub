@@ -8,6 +8,6 @@ type Compliance struct {
 	UnknownComplianceClusters []string `json:"unknownComplianceClusters"`
 }
 
-type ComplianceData []Compliance
+type ComplianceBundle []Compliance
 
-type DeltaComplianceData []Compliance
+type DeltaComplianceBundle []Compliance

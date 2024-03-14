@@ -25,7 +25,7 @@ var _ = Describe("PlacementRuleHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := generic.GenericObjectData{}
+		data := generic.GenericObjectBundle{}
 		obj := &placementrulesv1.PlacementRule{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testPlacementRule",

@@ -22,7 +22,7 @@ var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 		leafHubName := "hub1"
-		evt := ToCloudEvent(leafHubName, string(enum.HubClusterHeartbeatType), version, generic.GenericObjectData{})
+		evt := ToCloudEvent(leafHubName, string(enum.HubClusterHeartbeatType), version, generic.GenericObjectBundle{})
 
 		By("Sync event with transport")
 		err := producer.SendEvent(ctx, *evt)

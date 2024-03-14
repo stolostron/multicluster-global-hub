@@ -24,7 +24,7 @@ var _ = Describe("ManagedClusterHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := generic.GenericObjectData{}
+		data := generic.GenericObjectBundle{}
 		clusterID := "3f406177-34b2-4852-88dd-ff2809680335"
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{

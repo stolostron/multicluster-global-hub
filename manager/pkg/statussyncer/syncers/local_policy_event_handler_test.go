@@ -24,7 +24,7 @@ var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := event.ReplicatedPolicyEventData{}
+		data := event.ReplicatedPolicyEventBundle{}
 		eventName := "local-policy-namespace.policy-limitrange.17b0db242743213210"
 		policyID := "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d"
 		clusterID := "f302ce61-98e7-4d63-8dd2-65951e32fd95"

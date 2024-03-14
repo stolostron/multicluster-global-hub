@@ -65,7 +65,7 @@ type localReplicatedPolicyEmitter struct {
 	runtimeClient   client.Client
 	currentVersion  *version.Version
 	lastSentVersion version.Version
-	payload         event.ReplicatedPolicyEventData
+	payload         event.ReplicatedPolicyEventBundle
 	cache           *lru.Cache
 	topic           string
 }

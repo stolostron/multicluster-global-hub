@@ -58,7 +58,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		complianceVersion = eventversion.NewVersion()
 		complianceVersion.Incr()
 
-		data := grc.ComplianceData{}
+		data := grc.ComplianceBundle{}
 		data = append(data, grc.Compliance{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"}, // generate record: createdPolicyId hub1-cluster1 compliant
@@ -106,7 +106,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 
 		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
 		// hub1-cluster2 non_compliant => hub1-cluster2 compliant
-		data := grc.CompleteComplianceData{}
+		data := grc.CompleteComplianceBundle{}
 		data = append(data, grc.CompleteCompliance{
 			PolicyID:                  createdPolicyId,
 			NonCompliantClusters:      []string{"cluster1"},
@@ -161,7 +161,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		// before send the delta event:
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 non_compliant
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
-		data := grc.DeltaComplianceData{}
+		data := grc.DeltaComplianceBundle{}
 		data = append(data, grc.Compliance{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"},
@@ -211,7 +211,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		// update the hub1-cluster1 compliant to noncompliant with DeltaComplianceBundle
 
 		By("Create another updated delta policy event")
-		data = grc.DeltaComplianceData{}
+		data = grc.DeltaComplianceBundle{}
 		// before send the delta bundle:
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 compliant
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
@@ -271,7 +271,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := grc.MinimalComplianceData{}
+		data := grc.MinimalComplianceBundle{}
 		data = append(data, grc.MinimalCompliance{
 			PolicyID:             createdPolicyId,
 			RemediationAction:    policiesv1.Inform,

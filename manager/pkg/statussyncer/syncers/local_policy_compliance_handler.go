@@ -56,7 +56,7 @@ func handleCompliance(log logr.Logger, ctx context.Context, evt *cloudevents.Eve
 	leafHub := evt.Source()
 	log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
-	data := grc.ComplianceData{}
+	data := grc.ComplianceBundle{}
 	if err := evt.DataAs(&data); err != nil {
 		return err
 	}

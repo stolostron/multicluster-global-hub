@@ -14,10 +14,10 @@ var _ generic.EventController = &infoRouteController{}
 
 type infoRouteController struct {
 	generic.Controller
-	evtData cluster.HubClusterInfoData
+	evtData cluster.HubClusterInfoBundle
 }
 
-func NewInfoRouteController(eventData cluster.HubClusterInfoData) generic.EventController {
+func NewInfoRouteController(eventData cluster.HubClusterInfoBundle) generic.EventController {
 	instance := func() client.Object { return &routev1.Route{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		if object.GetNamespace() == constants.OpenShiftConsoleNamespace &&

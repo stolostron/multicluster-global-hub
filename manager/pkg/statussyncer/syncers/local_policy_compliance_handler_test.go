@@ -55,7 +55,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 		complianceVersion.Incr()
 		complianceVersion.Incr()
 
-		data := grc.ComplianceData{}
+		data := grc.ComplianceBundle{}
 		data = append(data, grc.Compliance{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"},
@@ -104,7 +104,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 
 		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
 		// hub1-cluster2 non_compliant => hub1-cluster2 compliant
-		data := grc.CompleteComplianceData{}
+		data := grc.CompleteComplianceBundle{}
 		data = append(data, grc.CompleteCompliance{
 			PolicyID:                  createdPolicyId,
 			NonCompliantClusters:      []string{"cluster1"},

@@ -25,7 +25,7 @@ var _ = Describe("PlacementDecisionHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := generic.GenericObjectData{}
+		data := generic.GenericObjectBundle{}
 		obj := &clustersv1beta1.PlacementDecision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testPlacementDecision",

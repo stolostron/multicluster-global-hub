@@ -53,7 +53,7 @@ func (s *heartbeatEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 	e.SetSource(config.GetLeafHubName())
 	e.SetType(string(s.eventType))
 	e.SetExtension(eventversion.ExtVersion, s.currentVersion.String())
-	err := e.SetData(cloudevents.ApplicationJSON, genericdata.GenericObjectData{})
+	err := e.SetData(cloudevents.ApplicationJSON, genericdata.GenericObjectBundle{})
 	return &e, err
 }
 

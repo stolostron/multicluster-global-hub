@@ -44,7 +44,7 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 		}, 5*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		By("Create ManagedClusterLabelBundle with labels")
-		managedClusterLabelsSpecBundle := &spec.ManagedClusterLabelsSpecData{
+		managedClusterLabelsSpecBundle := &spec.ManagedClusterLabelsSpecBundle{
 			Objects:     []*spec.ManagedClusterLabelsSpec{},
 			LeafHubName: agentConfig.LeafHubName,
 		}

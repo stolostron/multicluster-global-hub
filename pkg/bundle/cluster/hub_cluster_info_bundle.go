@@ -6,4 +6,4 @@ type HubClusterInfo struct {
 	ClusterId  string `json:"clusterId"`
 }
 
-type HubClusterInfoData *HubClusterInfo
+type HubClusterInfoBundle *HubClusterInfo

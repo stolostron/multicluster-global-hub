@@ -58,7 +58,7 @@ func (h *policyComplianceHandler) handleEvent(ctx context.Context, evt *cloudeve
 	leafHubName := evt.Source()
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
-	data := grc.ComplianceData{}
+	data := grc.ComplianceBundle{}
 	if err := evt.DataAs(&data); err != nil {
 		return err
 	}

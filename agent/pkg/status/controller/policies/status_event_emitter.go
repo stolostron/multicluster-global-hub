@@ -35,7 +35,7 @@ type statusEventEmitter struct {
 	runtimeClient   client.Client
 	currentVersion  *eventversion.Version
 	lastSentVersion eventversion.Version
-	payload         event.ReplicatedPolicyEventData
+	payload         event.ReplicatedPolicyEventBundle
 	cache           *lru.Cache
 	topic           string
 	predicate       func(client.Object) bool

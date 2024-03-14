@@ -11,8 +11,8 @@ type ManagedClusterLabelsSpec struct {
 	Version          int64             `json:"version"`
 }
 
-// ManagedClusterLabelsSpecData struct bundles ManagedClusterLabelsSpec objects.
-type ManagedClusterLabelsSpecData struct {
+// ManagedClusterLabelsSpecBundle struct bundles ManagedClusterLabelsSpec objects.
+type ManagedClusterLabelsSpecBundle struct {
 	Objects     []*ManagedClusterLabelsSpec `json:"objects"`
 	LeafHubName string                      `json:"leafHubName"`
 }
