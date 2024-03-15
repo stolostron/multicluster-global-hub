@@ -6,23 +6,24 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/dependency"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
 type conflationElement struct {
 	eventType            string
-	syncMode             metadata.EventSyncMode
+	syncMode             enum.EventSyncMode
 	event                *cloudevents.Event
 	metadata             ConflationMetadata
 	handlerFunction      EventHandleFunc
 	dependency           *dependency.Dependency
 	isInProcess          bool
-	lastProcessedVersion *metadata.BundleVersion
+	lastProcessedVersion *version.Version
 }
 
 // update function that updates bundle and metadata and returns whether any error occurred.
 func (element *conflationElement) update(event *cloudevents.Event, eventMetadata ConflationMetadata) error {
-	if element.syncMode == metadata.DeltaStateMode {
+	if element.syncMode == enum.DeltaStateMode {
 		return fmt.Errorf("unsupported to handle DeltaStateMode for event: %s", event.Type())
 	}
 

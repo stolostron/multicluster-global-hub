@@ -10,9 +10,9 @@ import (
 	"gorm.io/gorm/clause"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 type MetadataFunc func() []ConflationMetadata
@@ -75,7 +75,7 @@ func (k *ConflationCommitter) commit() error {
 		}
 
 		k.log.V(2).Info("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
-		payload, err := json.Marshal(metadata.TransportPosition{
+		payload, err := json.Marshal(transport.EventPosition{
 			OwnerIdentity: transPosition.OwnerIdentity,
 			Topic:         transPosition.Topic,
 			Partition:     transPosition.Partition,
@@ -110,10 +110,10 @@ func (k *ConflationCommitter) commit() error {
 	return nil
 }
 
-func metadataToCommit(metadataArray []ConflationMetadata) map[string]*metadata.TransportPosition {
+func metadataToCommit(metadataArray []ConflationMetadata) map[string]*transport.EventPosition {
 	// extract the lowest per partition in the pending bundles, the highest per partition in the processed bundles
-	pendingLowestMetadataMap := make(map[string]*metadata.TransportPosition)
-	processedHighestMetadataMap := make(map[string]*metadata.TransportPosition)
+	pendingLowestMetadataMap := make(map[string]*transport.EventPosition)
+	processedHighestMetadataMap := make(map[string]*transport.EventPosition)
 
 	for _, metadata := range metadataArray {
 		if metadata == nil {
@@ -145,7 +145,7 @@ func metadataToCommit(metadataArray []ConflationMetadata) map[string]*metadata.T
 
 	// increment processed offsets so they are not re-read on kafka consumer restart
 	for key := range processedHighestMetadataMap {
-		processedHighestMetadataMap[key] = &metadata.TransportPosition{
+		processedHighestMetadataMap[key] = &transport.EventPosition{
 			OwnerIdentity: processedHighestMetadataMap[key].OwnerIdentity,
 			Topic:         processedHighestMetadataMap[key].Topic,
 			Partition:     processedHighestMetadataMap[key].Partition,

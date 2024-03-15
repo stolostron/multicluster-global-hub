@@ -12,7 +12,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -22,7 +22,7 @@ import (
 type localPolicyEventHandler struct {
 	log           logr.Logger
 	eventType     string
-	eventSyncMode metadata.EventSyncMode
+	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
 }
 
@@ -32,7 +32,7 @@ func NewLocalPolicyEventHandler() conflator.Handler {
 	return &localPolicyEventHandler{
 		log:           ctrl.Log.WithName(logName),
 		eventType:     eventType,
-		eventSyncMode: metadata.CompleteStateMode,
+		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.LocalReplicatedPolicyEventPriority,
 	}
 }
@@ -47,11 +47,11 @@ func (h *localPolicyEventHandler) RegisterHandler(conflationManager *conflator.C
 }
 
 func (h *localPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
-	version := evt.Extensions()[metadata.ExtVersion]
+	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
-	data := event.ReplicatedPolicyEventData{}
+	data := event.ReplicatedPolicyEventBundle{}
 	if err := evt.DataAs(&data); err != nil {
 		return err
 	}

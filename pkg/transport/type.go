@@ -2,8 +2,6 @@ package transport
 
 import (
 	"time"
-
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
 
 const (
@@ -80,15 +78,6 @@ type ClusterTopic struct {
 	EventTopic  string
 }
 
-// Message abstracts a message object to be used by different transport components.
-type Message struct {
-	Key          string                `json:"key"`
-	Destination  string                `json:"destination"`
-	MsgType      string                `json:"msgType"`
-	Payload      []byte                `json:"payload"`
-	BundleStatus metadata.BundleStatus // the manager to mark the processing status of the bundle
-}
-
 // ConnCredential is used to connect the transporter instance
 type ConnCredential struct {
 	Identity        string
@@ -96,4 +85,14 @@ type ConnCredential struct {
 	CACert          string
 	ClientCert      string
 	ClientKey       string
+}
+
+type EventPosition struct {
+	Topic     string `json:"-"`
+	Partition int32  `json:"partition"`
+	Offset    int64  `json:"offset"`
+	// define the kafka cluster identiy:
+	// 1. built in kafka, use the kafka cluster id
+	// 2. byo kafka, use the kafka bootstrapserver as the identity
+	OwnerIdentity string `json:"ownerIdentity"`
 }

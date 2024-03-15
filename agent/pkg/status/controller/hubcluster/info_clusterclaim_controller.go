@@ -13,10 +13,10 @@ var _ generic.EventController = &infoClusterClaimController{}
 
 type infoClusterClaimController struct {
 	generic.Controller
-	evtData cluster.HubClusterInfoData
+	evtData cluster.HubClusterInfoBundle
 }
 
-func NewInfoClusterClaimController(eventData cluster.HubClusterInfoData) generic.EventController {
+func NewInfoClusterClaimController(eventData cluster.HubClusterInfoBundle) generic.EventController {
 	instance := func() client.Object { return &clustersv1alpha1.ClusterClaim{} }
 	clusterClaimPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return object.GetName() == "id.k8s.io"

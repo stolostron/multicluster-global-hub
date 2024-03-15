@@ -35,7 +35,7 @@ func ObjectEmitterWrapper(eventType enum.EventType,
 	shouldUpdate func(client.Object) bool,
 	tweakFunc func(client.Object),
 ) ObjectEmitter {
-	eventData := genericpayload.GenericObjectData{}
+	eventData := genericpayload.GenericObjectBundle{}
 	return NewGenericObjectEmitter(
 		eventType,
 		&eventData,

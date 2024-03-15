@@ -267,8 +267,8 @@ func WaitGlobalHubReady(ctx context.Context,
 ) (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
 	mghNamespacedName := types.NamespacedName{}
 	klog.Info("Wait MulticlusterGlobalHub created")
-	//If there is no mgh created, we should always wait instead of return err after 10 mins
-	//If we return err after 10 mins, the operator pod will restart every 10 mins.
+	// If there is no mgh created, we should always wait instead of return err after 10 mins
+	// If we return err after 10 mins, the operator pod will restart every 10 mins.
 	if err := wait.PollImmediateInfinite(interval, func() (bool, error) {
 		mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
 		err := client.List(ctx, mghList)

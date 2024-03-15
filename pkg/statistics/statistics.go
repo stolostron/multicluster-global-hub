@@ -10,8 +10,6 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
-
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle"
 )
 
 type StatisticsConfig struct {
@@ -42,16 +40,6 @@ func (s *Statistics) Register(eventType string) {
 	s.eventMetrics[eventType] = newEventMetrics()
 }
 
-// IncrementNumberOfReceivedBundles increments total number of received bundles of the specific type via transport.
-// if bundle type is not registered, do nothing
-func (s *Statistics) IncrementNumberOfReceivedBundles(b bundle.ManagerBundle) {
-	bundleMetrics, ok := s.eventMetrics[bundle.GetBundleType(b)]
-	if !ok {
-		return
-	}
-	bundleMetrics.totalReceived++
-}
-
 func (s *Statistics) ReceivedEvent(evt *cloudevents.Event) {
 	metrics, ok := s.eventMetrics[evt.Type()]
 	if !ok {
@@ -70,16 +58,16 @@ func (s *Statistics) SetConflationReadyQueueSize(size int) {
 	s.conflationReadyQueueSize = size
 }
 
-// StartConflationUnitMetrics starts conflation unit metrics of the specific bundle type.
+// StartConflationUnitMetrics starts conflation unit metrics of the specific event type.
 func (s *Statistics) StartConflationUnitMetrics(evt *cloudevents.Event) {
-	bundleMetrics, ok := s.eventMetrics[evt.Type()]
+	eventMetrics, ok := s.eventMetrics[evt.Type()]
 	if !ok {
 		return
 	}
-	bundleMetrics.conflationUnit.start(evt.Source())
+	eventMetrics.conflationUnit.start(evt.Source())
 }
 
-// StopConflationUnitMetrics stops conflation unit metrics of the specific bundle type.
+// StopConflationUnitMetrics stops conflation unit metrics of the specific event type.
 func (s *Statistics) StopConflationUnitMetrics(evt *cloudevents.Event, err error) {
 	eventMetrics, ok := s.eventMetrics[evt.Type()]
 	if !ok {
@@ -95,13 +83,13 @@ func (s *Statistics) IncrementNumberOfConflations() {
 	s.numOfConflationUnits++
 }
 
-// AddDatabaseMetrics adds database metrics of the specific bundle type.
+// AddDatabaseMetrics adds database metrics of the specific event type.
 func (s *Statistics) AddDatabaseMetrics(evt *cloudevents.Event, duration time.Duration, err error) {
-	bundleMetrics, ok := s.eventMetrics[evt.Type()]
+	eventMetrics, ok := s.eventMetrics[evt.Type()]
 	if !ok {
 		return
 	}
-	bundleMetrics.database.add(duration, err)
+	eventMetrics.database.add(duration, err)
 }
 
 // Start starts the statistics.
@@ -141,18 +129,18 @@ func (s *Statistics) run(ctx context.Context, duration time.Duration) {
 			storageAvg := float64(0)
 			conflationAvg := float64(0)
 
-			for bundleType, bundleMetrics := range s.eventMetrics {
+			for eventType, metrics := range s.eventMetrics {
 				stringBuilder.WriteString(fmt.Sprintf("[%-42s(%d) | conflation(%-42s) | storage(%-42s)] \n",
-					bundleType, bundleMetrics.totalReceived,
-					bundleMetrics.conflationUnit.toString(),
-					bundleMetrics.database.toString()))
-				success += bundleMetrics.totalReceived
-				fail += (bundleMetrics.conflationUnit.failures + bundleMetrics.database.failures)
-				if bundleMetrics.conflationUnit.successes > 0 {
-					conflationAvg = float64(bundleMetrics.conflationUnit.totalDuration / bundleMetrics.conflationUnit.successes)
+					eventType, metrics.totalReceived,
+					metrics.conflationUnit.toString(),
+					metrics.database.toString()))
+				success += metrics.totalReceived
+				fail += (metrics.conflationUnit.failures + metrics.database.failures)
+				if metrics.conflationUnit.successes > 0 {
+					conflationAvg = float64(metrics.conflationUnit.totalDuration / metrics.conflationUnit.successes)
 				}
-				if bundleMetrics.database.successes > 0 {
-					storageAvg = float64(bundleMetrics.database.totalDuration / bundleMetrics.database.successes)
+				if metrics.database.successes > 0 {
+					storageAvg = float64(metrics.database.totalDuration / metrics.database.successes)
 				}
 			}
 			metrics := fmt.Sprintf("{CU=%d, CUQueue=%d, idleDBW=%d, success=%d, fail=%d, CU Avg=%.0f ms, DB Avg=%.0f ms}",

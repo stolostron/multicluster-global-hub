@@ -8,17 +8,17 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func CompleteComplianceEmitterWrapper(
 	eventType enum.EventType,
-	dependencyVersion *metadata.BundleVersion,
+	dependencyVersion *version.Version,
 	predicate func(client.Object) bool,
 ) generic.ObjectEmitter {
-	eventData := grc.CompleteComplianceData{}
+	eventData := grc.CompleteComplianceBundle{}
 	return generic.NewGenericObjectEmitter(
 		eventType,
 		&eventData,
@@ -29,10 +29,10 @@ func CompleteComplianceEmitterWrapper(
 }
 
 type completeComplianceHandler struct {
-	eventData *grc.CompleteComplianceData
+	eventData *grc.CompleteComplianceBundle
 }
 
-func NewCompleteComplianceHandler(evtData *grc.CompleteComplianceData) generic.Handler {
+func NewCompleteComplianceHandler(evtData *grc.CompleteComplianceBundle) generic.Handler {
 	return &completeComplianceHandler{
 		eventData: evtData,
 	}

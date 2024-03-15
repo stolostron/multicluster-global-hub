@@ -8,10 +8,10 @@ import (
 )
 
 type genericObjectHandler struct {
-	eventData *genericpayload.GenericObjectData
+	eventData *genericpayload.GenericObjectBundle
 }
 
-func NewGenericObjectHandler(eventData *genericpayload.GenericObjectData) Handler {
+func NewGenericObjectHandler(eventData *genericpayload.GenericObjectBundle) Handler {
 	return &genericObjectHandler{
 		eventData: eventData,
 	}

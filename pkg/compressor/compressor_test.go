@@ -3,14 +3,11 @@ package compressor_test
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/stretchr/testify/assert"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/base"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/compressor"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestTransportCompressor(t *testing.T) {
@@ -19,77 +16,28 @@ func TestTransportCompressor(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// compress the kafka message with bundle
-	clusterPerPolicyBundle := &base.BaseComplianceBundle{
-		Objects: []*base.GenericCompliance{
-			{
-				PolicyID:                  "d9347b09-bb46-4e2b-91ea-513e83ab9ea7",
-				CompliantClusters:         []string{"cluster1"},
-				NonCompliantClusters:      make([]string, 0),
-				UnknownComplianceClusters: make([]string, 0),
-			},
-		},
-		LeafHubName:   "hub1",
-		BundleVersion: metadata.NewBundleVersion(),
+	in := event.BaseEvent{
+		EventName: "kube-system.provision.17ad7b80d4e6f6a4",
+		Message:   "The cluster (cluster1) is being provisioned now",
+		Reason:    "Provisioning",
 	}
-	transportPayload, err := json.Marshal(clusterPerPolicyBundle)
-	if err != nil {
-		t.Fatal(err)
-	}
-	transportMessage := &transport.Message{
-		Key:     "hub1.ClustersPerPolicy",
-		MsgType: "StatusBundle",
-		Payload: transportPayload,
-	}
-	transportBytes, err := json.Marshal(transportMessage)
-	if err != nil {
-		t.Fatal(err)
-	}
-	kafkaValue, err := compressor.Compress(transportBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	topic := "status"
-	kafkaMessage := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &topic,
-			Partition: 0,
-			Offset:    6,
-			Metadata:  nil,
-			Error:     nil,
-		},
-		Key:           []byte("hub1.ClustersPerPolicy"),
-		Value:         kafkaValue,
-		Timestamp:     time.Now(),
-		TimestampType: 1,
-		Opaque:        nil,
-		Headers: []kafka.Header{
-			{
-				Key:   "content-encoding",
-				Value: []byte("gzip"),
-			},
-		},
-	}
+	t.Log(prettyMessage(in))
 
-	t.Log(prettyMessage(kafkaMessage))
+	transportBytes, err := json.Marshal(in)
+	assert.Nil(t, err)
+	kafkaValue, err := compressor.Compress(transportBytes)
+	assert.Nil(t, err)
 
 	// decompress the kafka message
-	decompressMessageValueBytes, err := compressor.Decompress(kafkaMessage.Value)
+	outPayload, err := compressor.Decompress(kafkaValue)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decompressTransportMsg := &transport.Message{}
-	json.Unmarshal(decompressMessageValueBytes, decompressTransportMsg)
+	out := event.BaseEvent{}
+	json.Unmarshal(outPayload, &out)
 
-	decompressBundle := &base.BaseComplianceBundle{}
-	json.Unmarshal(decompressTransportMsg.Payload, decompressBundle)
-
-	if decompressBundle.LeafHubName != clusterPerPolicyBundle.LeafHubName {
-		t.Fatalf("Expect Bundle leafHubName %s = %s", decompressBundle.LeafHubName, clusterPerPolicyBundle.LeafHubName)
-	}
-
-	t.Log(prettyMessage(decompressBundle))
+	t.Log(prettyMessage(out))
 }
 
 func prettyMessage(i interface{}) string {

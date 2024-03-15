@@ -17,7 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -33,9 +33,9 @@ type statusEventEmitter struct {
 	log             logr.Logger
 	eventType       string
 	runtimeClient   client.Client
-	currentVersion  *metadata.BundleVersion
-	lastSentVersion metadata.BundleVersion
-	payload         event.ReplicatedPolicyEventData
+	currentVersion  *eventversion.Version
+	lastSentVersion eventversion.Version
+	payload         event.ReplicatedPolicyEventBundle
 	cache           *lru.Cache
 	topic           string
 	predicate       func(client.Object) bool
@@ -55,8 +55,8 @@ func StatusEventEmitter(
 		eventType:       string(eventType),
 		topic:           topic,
 		runtimeClient:   c,
-		currentVersion:  metadata.NewBundleVersion(),
-		lastSentVersion: *metadata.NewBundleVersion(),
+		currentVersion:  eventversion.NewVersion(),
+		lastSentVersion: *eventversion.NewVersion(),
 		cache:           cache,
 		payload:         make([]event.ReplicatedPolicyEvent, 0),
 		predicate:       predicate,
@@ -140,7 +140,7 @@ func (h *statusEventEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 	e := cloudevents.NewEvent()
 	e.SetSource(config.GetLeafHubName())
 	e.SetType(h.eventType)
-	e.SetExtension(metadata.ExtVersion, h.currentVersion.String())
+	e.SetExtension(eventversion.ExtVersion, h.currentVersion.String())
 	err := e.SetData(cloudevents.ApplicationJSON, h.payload)
 	return &e, err
 }

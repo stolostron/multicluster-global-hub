@@ -13,4 +13,4 @@ type MinimalCompliance struct {
 	AppliedClusters      int                        `json:"appliedClusters"`
 }
 
-type MinimalComplianceData []MinimalCompliance
+type MinimalComplianceBundle []MinimalCompliance

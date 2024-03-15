@@ -10,7 +10,7 @@ import (
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -22,10 +22,10 @@ var _ = Describe("LocalPlacementRuleHandler", Ordered, func() {
 	It("should be able to sync local placement rule event", func() {
 		By("Create event")
 		leafHubName := "hub1"
-		version := metadata.NewBundleVersion()
+		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := generic.GenericObjectData{}
+		data := generic.GenericObjectBundle{}
 		data = append(data, &placementrulev1.PlacementRule{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-placementrule-1",

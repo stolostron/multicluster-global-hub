@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestCommitOffset(t *testing.T) {
@@ -33,7 +34,7 @@ func getTransportMetadatas(topic string, processedOffsets []int64, unprocessedOf
 	for _, offset := range unprocessedOffsets {
 		transportMetadatas = append(transportMetadatas,
 			metadata.NewThresholdMetadataFromPosition(3,
-				&metadata.TransportPosition{
+				&transport.EventPosition{
 					Topic:     topic,
 					Partition: 0,
 					Offset:    offset,
@@ -42,7 +43,7 @@ func getTransportMetadatas(topic string, processedOffsets []int64, unprocessedOf
 	for _, offset := range processedOffsets {
 		transportMetadatas = append(transportMetadatas,
 			metadata.NewThresholdMetadataFromPosition(0,
-				&metadata.TransportPosition{
+				&transport.EventPosition{
 					Topic:     topic,
 					Partition: 0,
 					Offset:    offset,

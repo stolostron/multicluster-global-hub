@@ -6,7 +6,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
@@ -32,13 +32,13 @@ func WithShouldUpdate(shouldUpdate func(client.Object) bool) EmitterOption {
 	}
 }
 
-func WithDependencyVersion(version *metadata.BundleVersion) EmitterOption {
+func WithDependencyVersion(version *eventversion.Version) EmitterOption {
 	return func(g *genericEmitter) {
 		g.dependencyVersion = version
 	}
 }
 
-func WithVersion(version *metadata.BundleVersion) EmitterOption {
+func WithVersion(version *eventversion.Version) EmitterOption {
 	return func(g *genericEmitter) {
 		g.currentVersion = version
 	}
@@ -47,11 +47,11 @@ func WithVersion(version *metadata.BundleVersion) EmitterOption {
 type genericEmitter struct {
 	eventType       enum.EventType
 	payload         interface{}
-	currentVersion  *metadata.BundleVersion
-	lastSentVersion metadata.BundleVersion
+	currentVersion  *eventversion.Version
+	lastSentVersion eventversion.Version
 
 	topic             string
-	dependencyVersion *metadata.BundleVersion
+	dependencyVersion *eventversion.Version
 	tweakFunc         func(client.Object)
 	shouldUpdate      func(client.Object) bool
 }
@@ -64,8 +64,8 @@ func NewGenericEmitter(
 	emitter := &genericEmitter{
 		eventType:       eventType,
 		payload:         payload,
-		currentVersion:  metadata.NewBundleVersion(),
-		lastSentVersion: *metadata.NewBundleVersion(),
+		currentVersion:  eventversion.NewVersion(),
+		lastSentVersion: *eventversion.NewVersion(),
 	}
 	emitter.applyOptions(opts...)
 	// support resync
@@ -127,9 +127,9 @@ func (g *genericEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 	e := cloudevents.NewEvent()
 	e.SetSource(config.GetLeafHubName())
 	e.SetType(string(g.eventType))
-	e.SetExtension(metadata.ExtVersion, g.currentVersion.String())
+	e.SetExtension(eventversion.ExtVersion, g.currentVersion.String())
 	if g.dependencyVersion != nil {
-		e.SetExtension(metadata.ExtDependencyVersion, g.dependencyVersion.String())
+		e.SetExtension(eventversion.ExtDependencyVersion, g.dependencyVersion.String())
 	}
 	err := e.SetData(cloudevents.ApplicationJSON, g.payload)
 	return &e, err

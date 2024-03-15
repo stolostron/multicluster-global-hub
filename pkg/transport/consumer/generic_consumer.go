@@ -16,7 +16,6 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -32,7 +31,6 @@ type GenericConsumer struct {
 	log                  logr.Logger
 	client               cloudevents.Client
 	assembler            *messageAssembler
-	messageChan          chan *transport.Message
 	eventChan            chan *cloudevents.Event
 	consumeTopics        []string
 	clusterIdentity      string
@@ -89,7 +87,6 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 		log:                  log,
 		client:               client,
 		clusterIdentity:      clusterIdentity,
-		messageChan:          make(chan *transport.Message),
 		eventChan:            make(chan *cloudevents.Event),
 		assembler:            newMessageAssembler(),
 		enableDatabaseOffset: false,
@@ -148,10 +145,6 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *GenericConsumer) MessageChan() chan *transport.Message {
-	return c.messageChan
-}
-
 func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
 	return c.eventChan
 }
@@ -167,7 +160,7 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 	}
 	offsetToStart := []kafka.TopicPartition{}
 	for i, pos := range positions {
-		var kafkaPosition metadata.TransportPosition
+		var kafkaPosition transport.EventPosition
 		err := json.Unmarshal(pos.Payload, &kafkaPosition)
 		if err != nil {
 			return nil, err

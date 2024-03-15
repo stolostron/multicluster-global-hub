@@ -22,21 +22,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // go test ./operator/pkg/controllers/hubofhubs -v -ginkgo.focus "MulticlusterGlobalHub upgrade"
 var _ = Describe("MulticlusterGlobalHub upgrade", Ordered, func() {
-
 	It("should be able to remove the finalizer from managed hubs", func() {
-
 		By("Create managed hub cluster with cleanup finalizer")
 		testMangedCluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -70,7 +69,6 @@ var _ = Describe("MulticlusterGlobalHub upgrade", Ordered, func() {
 
 		By("Check the finalizer should be removed from the managed hub cluster")
 		Eventually(func() error {
-
 			clusters := &clusterv1.ManagedClusterList{}
 			if err := k8sClient.List(ctx, clusters, &client.ListOptions{}); err != nil {
 				return err

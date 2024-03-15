@@ -83,7 +83,7 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 				return fmt.Errorf("want %v, got %v", string(enum.ComplianceType), evt.Type())
 			}
 
-			data := grc.ComplianceData{}
+			data := grc.ComplianceBundle{}
 			if err := evt.DataAs(&data); err != nil {
 				return err
 			}
@@ -144,7 +144,7 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 			if evt.Type() != string(enum.CompleteComplianceType) {
 				return fmt.Errorf("want %v, got %v", string(enum.CompleteComplianceType), evt.Type())
 			}
-			data := grc.CompleteComplianceData{}
+			data := grc.CompleteComplianceBundle{}
 			if err := evt.DataAs(&data); err != nil {
 				return err
 			}
@@ -197,7 +197,7 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 			if evt.Type() != string(enum.ComplianceType) {
 				return fmt.Errorf("want %v, got %v", string(enum.ComplianceType), evt.Type())
 			}
-			data := grc.ComplianceData{}
+			data := grc.ComplianceBundle{}
 			if err := evt.DataAs(&data); err != nil {
 				return err
 			}
@@ -246,7 +246,7 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 			if evt.Type() != string(enum.ComplianceType) {
 				return fmt.Errorf("want %v, got %v", string(enum.ComplianceType), evt.Type())
 			}
-			data := grc.ComplianceData{}
+			data := grc.ComplianceBundle{}
 			if err := evt.DataAs(&data); err != nil {
 				return err
 			}

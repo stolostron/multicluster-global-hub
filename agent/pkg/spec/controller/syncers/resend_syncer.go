@@ -7,10 +7,10 @@ import (
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 )
 
-var supportedResyncTypes map[string]*metadata.BundleVersion
+var supportedResyncTypes map[string]*version.Version
 
 // resyncSyncer resync the bundle info.
 type resyncSyncer struct {
@@ -47,9 +47,9 @@ func (syncer *resyncSyncer) Sync(payload []byte) error {
 	return nil
 }
 
-func SupportResyc(evtType string, syncVersion *metadata.BundleVersion) {
+func SupportResyc(evtType string, syncVersion *version.Version) {
 	if supportedResyncTypes == nil {
-		supportedResyncTypes = make(map[string]*metadata.BundleVersion)
+		supportedResyncTypes = make(map[string]*version.Version)
 	}
 	supportedResyncTypes[evtType] = syncVersion
 	klog.Info("support to resync type: ", evtType)

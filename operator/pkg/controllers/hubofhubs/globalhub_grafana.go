@@ -464,7 +464,6 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		Name:      dsSecret.Name,
 		Namespace: dsSecret.Namespace,
 	}, grafanaDSFound)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = r.Client.Create(ctx, dsSecret)

@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -20,7 +20,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 		leafHubName     = "hub1"
 		createdPolicyId = "d9347b09-bb46-4e2b-91ea-513e83ab9ea8"
 	)
-	var complianceVersion *metadata.BundleVersion
+	var complianceVersion *eventversion.Version
 
 	It("should handle the local compliance event", func() {
 		By("Add an expired policy to the database")
@@ -51,11 +51,11 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		By("Build a new policy bundle in the managed hub")
-		complianceVersion = metadata.NewBundleVersion()
+		complianceVersion = eventversion.NewVersion()
 		complianceVersion.Incr()
 		complianceVersion.Incr()
 
-		data := grc.ComplianceData{}
+		data := grc.ComplianceBundle{}
 		data = append(data, grc.Compliance{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"},
@@ -99,12 +99,12 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 	It("should handle the local complete compliance event", func() {
 		db := database.GetGorm()
 		By("Create a complete compliance bundle")
-		version := metadata.NewBundleVersion()
+		version := eventversion.NewVersion()
 		version.Incr()
 
 		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
 		// hub1-cluster2 non_compliant => hub1-cluster2 compliant
-		data := grc.CompleteComplianceData{}
+		data := grc.CompleteComplianceBundle{}
 		data = append(data, grc.CompleteCompliance{
 			PolicyID:                  createdPolicyId,
 			NonCompliantClusters:      []string{"cluster1"},
@@ -112,7 +112,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 		})
 
 		evt := ToCloudEvent(leafHubName, string(enum.LocalCompleteComplianceType), version, data)
-		evt.SetExtension(metadata.ExtDependencyVersion, complianceVersion.String())
+		evt.SetExtension(eventversion.ExtDependencyVersion, complianceVersion.String())
 
 		By("Sync message with transport")
 		err := producer.SendEvent(ctx, *evt)

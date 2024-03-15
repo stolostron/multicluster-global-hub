@@ -185,7 +185,7 @@ func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	if managerConfig.DatabaseConfig.ProcessDatabaseURL == "" {
 		return fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
 	}
-	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageSizeLimit {
+	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageKBLimit {
 		return fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
 			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
 	}

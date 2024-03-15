@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -25,7 +25,7 @@ var _ = Describe("Test resync Bundle", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	syncers.SupportResyc(string(enum.HubClusterInfoType), metadata.NewBundleVersion())
+	syncers.SupportResyc(string(enum.HubClusterInfoType), version.NewVersion())
 	It("sync resync bundle with cache", func() {
 		resyncMsgKeys := []string{string(enum.HubClusterInfoType)}
 		payloadBytes, err := json.Marshal(resyncMsgKeys)

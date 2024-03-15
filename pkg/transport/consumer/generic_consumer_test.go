@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm/clause"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -74,7 +73,7 @@ func TestGetInitOffset(t *testing.T) {
 }
 
 func generateTransport(ownerIdentity string, topic string, offset int64) models.Transport {
-	payload, _ := json.Marshal(metadata.TransportPosition{
+	payload, _ := json.Marshal(transport.EventPosition{
 		OwnerIdentity: ownerIdentity,
 		Topic:         topic,
 		Partition:     0,

@@ -9,7 +9,7 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -23,8 +23,8 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		aggregatedComplianceTable = "aggregated_compliance"
 	)
 	var (
-		complianceVersion *metadata.BundleVersion
-		completeVersion   *metadata.BundleVersion
+		complianceVersion *eventversion.Version
+		completeVersion   *eventversion.Version
 	)
 
 	It("should handle the compliance event", func() {
@@ -55,10 +55,10 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		By("Build a new policy compliance on the managed hub")
-		complianceVersion = metadata.NewBundleVersion()
+		complianceVersion = eventversion.NewVersion()
 		complianceVersion.Incr()
 
-		data := grc.ComplianceData{}
+		data := grc.ComplianceBundle{}
 		data = append(data, grc.Compliance{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"}, // generate record: createdPolicyId hub1-cluster1 compliant
@@ -101,12 +101,12 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 
 	It("should handle the complete compliance event", func() {
 		By("Create a complete compliance bundle")
-		completeVersion = metadata.NewBundleVersion()
+		completeVersion = eventversion.NewVersion()
 		completeVersion.Incr()
 
 		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
 		// hub1-cluster2 non_compliant => hub1-cluster2 compliant
-		data := grc.CompleteComplianceData{}
+		data := grc.CompleteComplianceBundle{}
 		data = append(data, grc.CompleteCompliance{
 			PolicyID:                  createdPolicyId,
 			NonCompliantClusters:      []string{"cluster1"},
@@ -114,7 +114,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		})
 
 		evt := ToCloudEvent(leafHubName, string(enum.CompleteComplianceType), completeVersion, data)
-		evt.SetExtension(metadata.ExtDependencyVersion, complianceVersion.String())
+		evt.SetExtension(eventversion.ExtDependencyVersion, complianceVersion.String())
 
 		By("Sync message with transport")
 		err := producer.SendEvent(ctx, *evt)
@@ -155,13 +155,13 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		Skip("Special the delta event test for now")
 
 		By("Create the delta policy event")
-		version := metadata.NewBundleVersion()
+		version := eventversion.NewVersion()
 		version.Incr()
 
 		// before send the delta event:
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 non_compliant
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
-		data := grc.DeltaComplianceData{}
+		data := grc.DeltaComplianceBundle{}
 		data = append(data, grc.Compliance{
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"},
@@ -173,7 +173,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
 
 		evt := ToCloudEvent(leafHubName, string(enum.DeltaComplianceType), version, data)
-		evt.SetExtension(metadata.ExtDependencyVersion, completeVersion.String())
+		evt.SetExtension(eventversion.ExtDependencyVersion, completeVersion.String())
 
 		err := producer.SendEvent(ctx, *evt)
 		Expect(err).Should(Succeed())
@@ -211,7 +211,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		// update the hub1-cluster1 compliant to noncompliant with DeltaComplianceBundle
 
 		By("Create another updated delta policy event")
-		data = grc.DeltaComplianceData{}
+		data = grc.DeltaComplianceBundle{}
 		// before send the delta bundle:
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster1 compliant
 		// id(d9347b09-bb46-4e2b-91ea-513e83ab9ea7) hub1-cluster2 compliant
@@ -228,7 +228,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 
 		By("Synchronize the updated delta policy bundle with transport")
 		evt = ToCloudEvent(leafHubName, string(enum.DeltaComplianceType), version, data)
-		evt.SetExtension(metadata.ExtDependencyVersion, completeVersion.String())
+		evt.SetExtension(eventversion.ExtDependencyVersion, completeVersion.String())
 
 		err = producer.SendEvent(ctx, *evt)
 		Expect(err).Should(Succeed())
@@ -268,10 +268,10 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		// By("Overwrite the agent aggregationLevel with minimal")
 
 		By("Create Event")
-		version := metadata.NewBundleVersion()
+		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := grc.MinimalComplianceData{}
+		data := grc.MinimalComplianceBundle{}
 		data = append(data, grc.MinimalCompliance{
 			PolicyID:             createdPolicyId,
 			RemediationAction:    policiesv1.Inform,
