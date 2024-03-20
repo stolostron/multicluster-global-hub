@@ -22,6 +22,8 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*
 		"ssl.endpoint.identification.algorithm": "none",
 	}
 	if producer {
+		_ = kafkaConfigMap.SetKey("go.events.channel.size", 1000)
+		_ = kafkaConfigMap.SetKey("go.produce.channel.size", 1000)
 		_ = kafkaConfigMap.SetKey("acks", "1")
 		_ = kafkaConfigMap.SetKey("retries", "0")
 	} else {
