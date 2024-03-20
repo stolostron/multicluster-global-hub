@@ -10,6 +10,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strings"
 	"time"
@@ -341,6 +343,12 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 }
 
 func main() {
+	// Start the pprof server
+	go func() {
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+			setupLog.Error(err, "failed to start the pprof server")
+		}
+	}()
 	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
 }
 

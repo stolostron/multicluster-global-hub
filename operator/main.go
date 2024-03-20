@@ -19,6 +19,8 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"time"
@@ -30,6 +32,7 @@ import (
 	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -135,6 +138,12 @@ type operatorConfig struct {
 }
 
 func main() {
+	// Start the pprof server
+	go func() {
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+			setupLog.Error(err, "failed to start the pprof server")
+		}
+	}()
 	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
 }
 

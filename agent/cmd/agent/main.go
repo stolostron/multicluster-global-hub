@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
 
@@ -65,6 +67,13 @@ func main() {
 	if agentConfig.Terminating {
 		os.Exit(doTermination(ctrl.SetupSignalHandler(), restConfig))
 	}
+
+	// Start the pprof server
+	go func() {
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+			setupLog.Error(err, "failed to start the pprof server")
+		}
+	}()
 
 	os.Exit(doMain(ctrl.SetupSignalHandler(), restConfig, agentConfig))
 }
