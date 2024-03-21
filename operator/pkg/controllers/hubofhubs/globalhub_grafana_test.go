@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	openshiftV1 "github.com/openshift/api/route/v1"
-	routefake "github.com/openshift/client-go/route/clientset/versioned/fake"
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -565,13 +564,12 @@ email = example@redhat.com
 			if err != nil {
 				t.Error("Failed to add scheme")
 			}
-			fakeRouteV1Client := routefake.NewSimpleClientset(tt.initRoute...)
+			// fakeRouteV1Client := routefake.NewSimpleClientset(tt.initRoute...)
 
 			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
 			r := &MulticlusterGlobalHubReconciler{
-				KubeClient:    kubeClient,
-				Scheme:        scheme.Scheme,
-				RouteV1Client: fakeRouteV1Client,
+				KubeClient: kubeClient,
+				Scheme:     scheme.Scheme,
 			}
 
 			ctx := context.Background()

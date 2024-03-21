@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	routev1 "github.com/openshift/api/route/v1"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -163,12 +165,14 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
 	configNamespace := utils.GetDefaultNamespace()
-	defaultGrafanaIniSecret, err := r.KubeClient.CoreV1().
-		Secrets(configNamespace).
-		Get(ctx,
-			defaultGrafanaIniName,
-			metav1.GetOptions{},
-		)
+
+	defaultGrafanaIniSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      defaultGrafanaIniName,
+			Namespace: configNamespace,
+		},
+	}
+	err := r.Get(ctx, client.ObjectKeyFromObject(defaultGrafanaIniSecret), defaultGrafanaIniSecret)
 	if err != nil {
 		return false, fmt.Errorf(
 			"failed to get default grafana.ini secret. Namespace:%v, Name:%v, Error: %w",
@@ -178,12 +182,14 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 		)
 	}
 
-	customGrafanaIniSecret, err := r.KubeClient.CoreV1().
-		Secrets(configNamespace).
-		Get(ctx,
-			constants.CustomGrafanaIniName,
-			metav1.GetOptions{},
-		)
+	foundCustomGrafanaSecret := true
+	customGrafanaIniSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.CustomGrafanaIniName,
+			Namespace: configNamespace,
+		},
+	}
+	err = r.Get(ctx, client.ObjectKeyFromObject(customGrafanaIniSecret), customGrafanaIniSecret)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, fmt.Errorf(
 			"failed to get custom grafana.ini secret. Namespace:%v, Name:%v, Error: %w",
@@ -191,6 +197,9 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 			constants.CustomGrafanaIniName,
 			err,
 		)
+	}
+	if errors.IsNotFound(err) {
+		foundCustomGrafanaSecret = false
 	}
 
 	mergedGrafanaIniSecret := &corev1.Secret{
@@ -205,29 +214,28 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 	}
 
 	// Replace the grafana domain to grafana route url
-	if r.RouteV1Client != nil {
-		grafanaRoute, err := r.RouteV1Client.RouteV1().
-			Routes(configNamespace).
-			Get(ctx,
-				grafanaDeploymentName,
-				metav1.GetOptions{},
+	grafanaRoute := &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      grafanaDeploymentName,
+			Namespace: configNamespace,
+		},
+	}
+	err = r.Client.Get(ctx, client.ObjectKeyFromObject(grafanaRoute), grafanaRoute)
+	if err != nil {
+		klog.Errorf("Failed to get grafana route: %v", err)
+	} else {
+		if len(grafanaRoute.Spec.Host) != 0 {
+			defaultGrafanaIniSecret.Data[grafanaIniKey] = []byte(
+				strings.ReplaceAll(
+					string(defaultGrafanaIniSecret.Data[grafanaIniKey]),
+					"localhost",
+					grafanaRoute.Spec.Host,
+				),
 			)
-		if err != nil {
-			klog.Errorf("Failed to get grafana route: %v", err)
-		} else {
-			if grafanaRoute != nil && len(grafanaRoute.Spec.Host) != 0 {
-				defaultGrafanaIniSecret.Data[grafanaIniKey] = []byte(
-					strings.ReplaceAll(
-						string(defaultGrafanaIniSecret.Data[grafanaIniKey]),
-						"localhost",
-						grafanaRoute.Spec.Host,
-					),
-				)
-			}
 		}
 	}
 
-	if customGrafanaIniSecret == nil {
+	if !foundCustomGrafanaSecret {
 		mergedGrafanaIniSecret.Data = map[string][]byte{
 			grafanaIniKey: defaultGrafanaIniSecret.Data[grafanaIniKey],
 		}
@@ -249,7 +257,7 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 	if err = controllerutil.SetControllerReference(mgh, mergedGrafanaIniSecret, r.Scheme); err != nil {
 		return false, err
 	}
-	return operatorutils.ApplySecret(ctx, r.KubeClient, mergedGrafanaIniSecret)
+	return operatorutils.ApplySecret(ctx, r.Client, mergedGrafanaIniSecret)
 }
 
 // generateAlertConfigMap generate the alert configmap which grafana direclly use
@@ -260,24 +268,29 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
 	configNamespace := utils.GetDefaultNamespace()
-	defaultAlertConfigMap, err := r.KubeClient.CoreV1().
-		ConfigMaps(configNamespace).
-		Get(ctx,
-			defaultAlertName,
-			metav1.GetOptions{},
-		)
+	defaultAlertConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: configNamespace,
+			Name:      defaultAlertName,
+		},
+	}
+	err := r.Get(ctx, client.ObjectKeyFromObject(defaultAlertConfigMap), defaultAlertConfigMap)
 	if err != nil {
 		return false, fmt.Errorf("failed to get default alert configmap: %w", err)
 	}
 
-	customAlertConfigMap, err := r.KubeClient.CoreV1().
-		ConfigMaps(configNamespace).
-		Get(ctx,
-			constants.CustomAlertName,
-			metav1.GetOptions{},
-		)
+	customAlertConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: configNamespace,
+			Name:      constants.CustomAlertName,
+		},
+	}
+	err = r.Get(ctx, client.ObjectKeyFromObject(customAlertConfigMap), customAlertConfigMap)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, err
+	}
+	if errors.IsNotFound(err) {
+		customAlertConfigMap = nil
 	}
 
 	var mergedAlertConfigMap *corev1.ConfigMap
@@ -300,7 +313,7 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 	if err = controllerutil.SetControllerReference(mgh, mergedAlertConfigMap, r.Scheme); err != nil {
 		return false, err
 	}
-	return operatorutils.ApplyConfigMap(ctx, r.KubeClient, mergedAlertConfigMap)
+	return operatorutils.ApplyConfigMap(ctx, r.Client, mergedAlertConfigMap)
 }
 
 // mergeGrafanaIni merge the default grafana.ini and custom grafana.ini
