@@ -62,7 +62,7 @@ var kafkaPred = predicate.Funcs{
 		return false
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetResourceVersion() != e.ObjectOld.GetResourceVersion()
+		return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetNamespace() == utils.GetDefaultNamespace()

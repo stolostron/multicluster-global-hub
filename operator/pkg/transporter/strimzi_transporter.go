@@ -175,14 +175,13 @@ func WithWaitReady(wait bool) KafkaOption {
 
 // initialize the kafka cluster, return nil if the instance is launched successfully!
 func (k *strimziTransporter) initialize(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
-	k.log.Info("reconcile global hub kafka subscription")
+	k.log.Info("reconcile global hub kafka transport...")
 	k.namespace = mgh.Namespace
 	err := k.ensureSubscription(mgh)
 	if err != nil {
 		return err
 	}
 
-	k.log.Info("reconcile global hub kafka instance")
 	err = wait.PollUntilContextTimeout(k.ctx, 2*time.Second, 30*time.Second, true,
 		func(ctx context.Context) (bool, error) {
 			err, _ = k.createUpdateKafkaCluster(mgh)
@@ -200,7 +199,6 @@ func (k *strimziTransporter) initialize(mgh *operatorv1alpha4.MulticlusterGlobal
 		return nil
 	}
 
-	k.log.Info("waiting the kafka cluster instance to be ready...")
 	return k.kafkaClusterReady()
 }
 
