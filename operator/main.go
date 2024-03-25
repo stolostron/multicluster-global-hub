@@ -19,6 +19,8 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"time"
@@ -29,7 +31,6 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -129,6 +130,12 @@ type operatorConfig struct {
 }
 
 func main() {
+	// Start the pprof server
+	go func() {
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+			setupLog.Error(err, "failed to start the pprof server")
+		}
+	}()
 	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
 }
 
@@ -220,12 +227,6 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 
 	if err = mgr.Add(backupController); err != nil {
 		setupLog.Error(err, "unable to bakcup controller to manager")
-		return 1
-	}
-
-	// start crd controller
-	if err = hubofhubscontrollers.StartCRDController(mgr, r); err != nil {
-		setupLog.Error(err, "unable to start crd controller")
 		return 1
 	}
 
@@ -408,6 +409,9 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
 		&mchv1.MultiClusterHub{}: {},
+		&apiextensionsv1.CustomResourceDefinition{}: {
+			Field: fields.SelectorFromSet(fields.Set{"metadata.name": "kafkas.kafka.strimzi.io"}),
+		},
 	}
 	return cache.New(config, cacheOpts)
 }

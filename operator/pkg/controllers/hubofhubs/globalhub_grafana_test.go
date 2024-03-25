@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	openshiftV1 "github.com/openshift/api/route/v1"
+	routev1 "github.com/openshift/api/route/v1"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,6 +13,8 @@ import (
 	fakekube "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -363,12 +366,12 @@ func Test_generateGranafaIni(t *testing.T) {
 		{
 			name: "only has default grafana.ini",
 			initRoute: []runtime.Object{
-				&openshiftV1.Route{
+				&routev1.Route{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: configNamespace,
 						Name:      "multicluster-global-hub-grafana",
 					},
-					Spec: openshiftV1.RouteSpec{
+					Spec: routev1.RouteSpec{
 						Host: "grafana.com",
 					},
 				},
@@ -560,14 +563,15 @@ email = example@redhat.com
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := globalhubv1alpha4.AddToScheme(scheme.Scheme)
-			if err != nil {
-				t.Error("Failed to add scheme")
-			}
-			// fakeRouteV1Client := routefake.NewSimpleClientset(tt.initRoute...)
+			assert.Nil(t, globalhubv1alpha4.AddToScheme(scheme.Scheme))
+			assert.Nil(t, routev1.AddToScheme(scheme.Scheme))
+
+			objs := append(tt.initRoute, tt.initObjects...)
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(objs...).Build()
 
 			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
 			r := &MulticlusterGlobalHubReconciler{
+				Client:     fakeClient,
 				KubeClient: kubeClient,
 				Scheme:     scheme.Scheme,
 			}
@@ -589,11 +593,10 @@ email = example@redhat.com
 			if tt.wantSecret == nil {
 				return
 			}
-			mergedGrafanaIniSecret, err := r.KubeClient.CoreV1().Secrets(configNamespace).Get(ctx, mergedGrafanaIniName, metav1.GetOptions{})
-			if err != nil {
-				t.Errorf("failed to get merged grafana.ini secret. Namespace:%v, Name:%v, Error: %v", configNamespace, defaultGrafanaIniName, err)
-				return
-			}
+			mergedGrafanaIniSecret := &corev1.Secret{}
+			err = r.Client.Get(ctx, client.ObjectKeyFromObject(tt.wantSecret), mergedGrafanaIniSecret)
+			assert.Nil(t, err)
+
 			if sectionCount(tt.wantSecret.Data[grafanaIniKey]) == -1 || (sectionCount(mergedGrafanaIniSecret.Data[grafanaIniKey]) != sectionCount(tt.wantSecret.Data[grafanaIniKey])) {
 				t.Errorf("mergeGrafanaIni() = %v, want %v", sectionCount(mergedGrafanaIniSecret.Data[grafanaIniKey]), sectionCount(tt.wantSecret.Data[grafanaIniKey]))
 			}
