@@ -35,7 +35,6 @@ type HoHAddonInstaller struct {
 }
 
 func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Info("reconcile the addon installer", "namespace", req.Namespace, "name", req.Name)
 	mgh, err := utils.WaitGlobalHubReady(ctx, r, 5*time.Second)
 	if err != nil {
 		return ctrl.Result{}, err

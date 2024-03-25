@@ -163,7 +163,6 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	addon *addonapiv1alpha1.ManagedClusterAddOn,
 ) (addonfactory.Values, error) {
 	log := a.log.WithValues("cluster", cluster.Name)
-	log.Info("render the addon addon manifest")
 	installNamespace := addon.Spec.InstallNamespace
 	if len(installNamespace) == 0 {
 		installNamespace = operatorconstants.GHAgentInstallNamespace

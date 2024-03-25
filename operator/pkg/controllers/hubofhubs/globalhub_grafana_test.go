@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	fakekube "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/pointer"
@@ -313,8 +314,11 @@ policies:
 			if err != nil {
 				t.Error("Failed to add scheme")
 			}
+
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
 			r := &MulticlusterGlobalHubReconciler{
+				Client:     fakeClient,
 				KubeClient: kubeClient,
 				Scheme:     scheme.Scheme,
 			}
@@ -326,7 +330,12 @@ policies:
 			if changed != tt.wantChange {
 				t.Errorf("Changed:%v, wantChanged:%v", changed, tt.wantChange)
 			}
-			existConfigMap, err := kubeClient.CoreV1().ConfigMaps(configNamespace).Get(ctx, mergedAlertName, metav1.GetOptions{})
+
+			existConfigMap := &corev1.ConfigMap{}
+			err = fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: configNamespace,
+				Name:      mergedAlertName,
+			}, existConfigMap)
 			if err != nil {
 				t.Errorf("Failed to get merged configmap. Err:%v", err)
 			}

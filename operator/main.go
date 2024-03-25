@@ -19,8 +19,6 @@ package main
 import (
 	"context"
 	"flag"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"time"
@@ -130,12 +128,6 @@ type operatorConfig struct {
 }
 
 func main() {
-	// Start the pprof server
-	go func() {
-		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-			setupLog.Error(err, "failed to start the pprof server")
-		}
-	}()
 	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
 }
 

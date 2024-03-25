@@ -151,10 +151,7 @@ func addKafkaCRDController(mgr ctrl.Manager, reconciler *MulticlusterGlobalHubRe
 		For(&apiextensionsv1.CustomResourceDefinition{}, builder.WithPredicates(predicate.Funcs{
 			// trigger the reconciler only if the crd is created
 			CreateFunc: func(e event.CreateEvent) bool {
-				if e.Object.GetName() == "kafkas.kafka.strimzi.io" {
-					return true
-				}
-				return false
+				return e.Object.GetName() == "kafkas.kafka.strimzi.io"
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				return false
