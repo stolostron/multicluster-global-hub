@@ -84,6 +84,7 @@ func startKafkaController(ctx context.Context, mgr ctrl.Manager,
 	}
 
 	err = ctrl.NewControllerManagedBy(mgr).
+		Named("middleware_kafka_controller").
 		Watches(&kafkav1beta2.Kafka{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.KafkaUser{},
