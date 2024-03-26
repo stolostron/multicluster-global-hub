@@ -76,9 +76,10 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 				"--health-probe-bind-address",
 				":18081",
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			Expect(doMain(ctx, cfg)).Should(Equal(0))
+
+			operatorConfig := parseFlags()
+			Expect(operatorConfig.LeaderElection).To(BeFalse())
+
 		})
 	})
 
@@ -89,15 +90,22 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 			pflag.CommandLine = pflag.NewFlagSet("", pflag.ExitOnError)
 
 			os.Args = []string{
-				"--leader-election",
 				"--metrics-bind-address",
 				":18080",
 				"--health-probe-bind-address",
 				":18081",
+				"--leader-election",
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			Expect(doMain(ctx, cfg)).Should(Equal(0))
+
+			operatorConfig := parseFlags()
+			Expect(operatorConfig.LeaderElection).To(BeTrue())
+
+			electionConfig, err := getElectionConfig(nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(electionConfig.LeaseDuration).To(Equal(137))
+			Expect(electionConfig.RenewDeadline).To(Equal(107))
+			Expect(electionConfig.RetryPeriod).To(Equal(26))
 		})
 	})
 
@@ -108,15 +116,20 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 			pflag.CommandLine = pflag.NewFlagSet("", pflag.ExitOnError)
 
 			os.Args = []string{
-				"--leader-election",
 				"--metrics-bind-address",
 				":18080",
 				"--health-probe-bind-address",
 				":18081",
+				"--leader-election",
 			}
 
+			operatorConfig := parseFlags()
+			// utils.PrettyPrint(operatorConfig)
+			Expect(operatorConfig.LeaderElection).To(BeTrue())
+
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			_, err := kubeClient.CoreV1().ConfigMaps(
+			defer cancel()
+			configMap, err := kubeClient.CoreV1().ConfigMaps(
 				utils.GetDefaultNamespace()).Create(ctx,
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
@@ -126,9 +139,12 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 					Data: map[string]string{"leaseDuration": "10", "renewDeadline": "8", "retryPeriod": "2"},
 				}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
+			electionConfig, err := getElectionConfig(configMap)
+			Expect(err).NotTo(HaveOccurred())
 
-			defer cancel()
-			Expect(doMain(ctx, cfg)).Should(Equal(0))
+			Expect(electionConfig.LeaseDuration).To(Equal(10))
+			Expect(electionConfig.RenewDeadline).To(Equal(8))
+			Expect(electionConfig.RetryPeriod).To(Equal(2))
 		})
 	})
 })

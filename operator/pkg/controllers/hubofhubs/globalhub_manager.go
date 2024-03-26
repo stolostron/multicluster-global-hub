@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
@@ -143,7 +143,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to render manager objects: %v", err)
 	}
-	if err = r.manipulateObj(ctx, hohDeployer, mapper, managerObjects, mgh, log); err != nil {
+	if err = manipulateObj(managerObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update manager objects: %v", err)
 	}
 
@@ -187,24 +187,20 @@ func setMiddlewareCache(curMiddlewareConfig *MiddlewareConfig) {
 	}
 }
 
-func (r *MulticlusterGlobalHubReconciler) manipulateObj(ctx context.Context, hohDeployer deployer.Deployer,
-	mapper *restmapper.DeferredDiscoveryRESTMapper, objs []*unstructured.Unstructured,
-	mgh *v1alpha4.MulticlusterGlobalHub, log logr.Logger,
+func manipulateObj(objs []*unstructured.Unstructured,
+	mgh *v1alpha4.MulticlusterGlobalHub, hohDeployer deployer.Deployer,
+	mapper *restmapper.DeferredDiscoveryRESTMapper, scheme *runtime.Scheme,
 ) error {
 	// manipulate the object
 	for _, obj := range objs {
 		mapping, err := mapper.RESTMapping(obj.GroupVersionKind().GroupKind(), obj.GroupVersionKind().Version)
 		if err != nil {
-			log.Error(err, "failed to find mapping for resource", "kind", obj.GetKind(),
-				"namespace", obj.GetNamespace(), "name", obj.GetName())
 			return err
 		}
 
 		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 			// for namespaced resource, set ownerreference of controller
-			if err := controllerutil.SetControllerReference(mgh, obj, r.Scheme); err != nil {
-				log.Error(err, "failed to set controller reference", "kind", obj.GetKind(),
-					"namespace", obj.GetNamespace(), "name", obj.GetName())
+			if err := controllerutil.SetControllerReference(mgh, obj, scheme); err != nil {
 				return err
 			}
 		}

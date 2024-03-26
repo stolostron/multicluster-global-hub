@@ -26,7 +26,6 @@ import (
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
-	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -87,7 +86,6 @@ var watchedConfigmap = sets.NewString(
 type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
-	RouteV1Client        routeV1Client.Interface
 	AddonManager         addonmanager.AddonManager
 	KubeClient           kubernetes.Interface
 	Scheme               *runtime.Scheme

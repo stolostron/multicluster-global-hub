@@ -27,7 +27,6 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	routev1 "github.com/openshift/api/route/v1"
-	routeV1Client "github.com/openshift/client-go/route/clientset/versioned"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -38,7 +37,6 @@ import (
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -86,11 +84,6 @@ var (
 	labelSelector = labels.SelectorFromSet(
 		labels.Set{
 			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-		},
-	)
-	kafkaLabelSelector = labels.SelectorFromSet(
-		labels.Set{
-			"app": "strimzi",
 		},
 	)
 	namespacePath = "metadata.namespace"
@@ -148,13 +141,8 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
-	routeV1Client, err := routeV1Client.NewForConfig(cfg)
-	if err != nil {
-		setupLog.Error(err, "New route client config error:")
-	}
-
 	controllerConfigMap, err := kubeClient.CoreV1().ConfigMaps(utils.GetDefaultNamespace()).Get(
-		context.TODO(), operatorconstants.ControllerConfig, metav1.GetOptions{})
+		ctx, operatorconstants.ControllerConfig, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			setupLog.Error(err, "failed to get controller config")
@@ -209,7 +197,6 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	r := &hubofhubscontrollers.MulticlusterGlobalHubReconciler{
 		Manager:              mgr,
 		Client:               mgr.GetClient(),
-		RouteV1Client:        routeV1Client,
 		AddonManager:         addonController.AddonManager(),
 		KubeClient:           kubeClient,
 		Scheme:               mgr.GetScheme(),
@@ -232,12 +219,6 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 
 	if err = mgr.Add(backupController); err != nil {
 		setupLog.Error(err, "unable to bakcup controller to manager")
-		return 1
-	}
-
-	// start crd controller
-	if err = hubofhubscontrollers.StartCRDController(mgr, r); err != nil {
-		setupLog.Error(err, "unable to start crd controller")
 		return 1
 	}
 
@@ -322,27 +303,27 @@ func getElectionConfig(configMap *corev1.ConfigMap) (*commonobjects.LeaderElecti
 	if configMap == nil {
 		return config, nil
 	}
-	_, leaseDurationExist := configMap.Data["leaseDuration"]
+	val, leaseDurationExist := configMap.Data["leaseDuration"]
 	if leaseDurationExist {
-		leaseDurationSec, err := strconv.Atoi(configMap.Data["leaseDuration"])
+		leaseDurationSec, err := strconv.Atoi(val)
 		if err != nil {
 			return nil, err
 		}
 		config.LeaseDuration = leaseDurationSec
 	}
 
-	_, renewDeadlineExist := configMap.Data["renewDeadline"]
+	val, renewDeadlineExist := configMap.Data["renewDeadline"]
 	if renewDeadlineExist {
-		renewDeadlineSec, err := strconv.Atoi(configMap.Data["renewDeadline"])
+		renewDeadlineSec, err := strconv.Atoi(val)
 		if err != nil {
 			return nil, err
 		}
 		config.RenewDeadline = renewDeadlineSec
 	}
 
-	_, retryPeriodExist := configMap.Data["retryPeriod"]
+	val, retryPeriodExist := configMap.Data["retryPeriod"]
 	if retryPeriodExist {
-		retryPeriodSec, err := strconv.Atoi(configMap.Data["retryPeriod"])
+		retryPeriodSec, err := strconv.Atoi(val)
 		if err != nil {
 			return nil, err
 		}
@@ -371,9 +352,6 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Label: labelSelector,
 		},
 		&appsv1.StatefulSet{}: {
-			Label: labelSelector,
-		},
-		&batchv1.Job{}: {
 			Label: labelSelector,
 		},
 		&rbacv1.Role{}: {
@@ -423,6 +401,9 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
 		&mchv1.MultiClusterHub{}: {},
+		&apiextensionsv1.CustomResourceDefinition{}: {
+			Field: fields.SelectorFromSet(fields.Set{"metadata.name": "kafkas.kafka.strimzi.io"}),
+		},
 	}
 	return cache.New(config, cacheOpts)
 }

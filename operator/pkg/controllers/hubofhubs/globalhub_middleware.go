@@ -18,25 +18,21 @@ package hubofhubs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -62,14 +58,30 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		if err != nil {
 			errorChan <- err
 		}
-		if err := r.renderKafkaMetricsResources(ctx, mgh, transProtocol); err != nil {
-			errorChan <- err
+
+		if transProtocol == transport.SecretTransporter {
+			conn, e := r.ReconcileTransport(ctx, mgh, transProtocol)
+			if e != nil {
+				errorChan <- e
+			}
+			r.MiddlewareConfig.TransportConn = conn
+			return
 		}
-		conn, e := r.ReconcileTransport(ctx, mgh, transProtocol)
-		if e != nil {
-			errorChan <- e
+
+		// strimzi transporter -> use the kafka reconiler to get the connection
+		// wait until the kafka crd is ready, then start the kafka reconciler
+		if kafkaController == nil {
+			err = addKafkaCRDController(r.Manager, r)
+			if err != nil {
+				errorChan <- err
+				return
+			}
+			if kafkaController == nil || kafkaController.conn == nil {
+				errorChan <- errors.New("the kafka controller is not ready")
+				return
+			}
 		}
-		r.MiddlewareConfig.TransportConn = conn
+		r.MiddlewareConfig.TransportConn = kafkaController.conn
 	}()
 
 	// initialize storage
@@ -96,39 +108,6 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// renderKafkaMetricsResources renders the kafka podmonitor and metrics
-func (r *MulticlusterGlobalHubReconciler) renderKafkaMetricsResources(ctx context.Context,
-	mgh *v1alpha4.MulticlusterGlobalHub, transProtocol transport.TransportProtocol,
-) error {
-	log := r.Log.WithName("middleware")
-	if mgh.Spec.EnableMetrics && transProtocol == transport.StrimziTransporter {
-		// render the kafka objects
-		kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
-		kafkaObjects, err := kafkaRenderer.Render("manifests/kafka", "",
-			func(profile string) (interface{}, error) {
-				return struct {
-					Namespace string
-				}{
-					Namespace: utils.GetDefaultNamespace(),
-				}, nil
-			})
-		if err != nil {
-			return fmt.Errorf("failed to render kafka manifests: %w", err)
-		}
-		// create restmapper for deployer to find GVR
-		dc, err := discovery.NewDiscoveryClientForConfig(r.GetConfig())
-		if err != nil {
-			return err
-		}
-		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-
-		if err = r.manipulateObj(ctx, kafkaDeployer, mapper, kafkaObjects, mgh, log); err != nil {
-			return fmt.Errorf("failed to create/update kafka objects: %w", err)
-		}
-	}
-	return nil
 }
 
 func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
@@ -203,7 +182,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileStorage(ctx context.Context, 
 	pgConnection, err := config.GetPGConnectionFromGHStorageSecret(ctx, r.Client)
 	if err == nil {
 		return pgConnection, nil
-	} else if err != nil && !errors.IsNotFound(err) {
+	} else if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
 
@@ -257,7 +236,7 @@ func detectTransportProtocol(ctx context.Context, runtimeClient client.Client) (
 	if err == nil {
 		return transport.SecretTransporter, nil
 	}
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return transport.SecretTransporter, err
 	}
 

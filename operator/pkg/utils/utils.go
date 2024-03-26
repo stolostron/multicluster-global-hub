@@ -30,10 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -126,22 +124,13 @@ func IsCommunityMode() bool {
 	}
 }
 
-func ApplyConfigMap(ctx context.Context, kubeClient kubernetes.Interface, required *corev1.ConfigMap) (bool, error) {
-	curAlertConfigMap, err := kubeClient.CoreV1().
-		ConfigMaps(required.Namespace).
-		Get(ctx,
-			required.Name,
-			metav1.GetOptions{},
-		)
+func ApplyConfigMap(ctx context.Context, runtimeClient client.Client, required *corev1.ConfigMap) (bool, error) {
+	curAlertConfigMap := &corev1.ConfigMap{}
+	err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(required), curAlertConfigMap)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Infof("creating configmap, namespace: %v, name: %v", required.Namespace, required.Name)
-			_, err := kubeClient.CoreV1().
-				ConfigMaps(required.Namespace).
-				Create(ctx,
-					required,
-					metav1.CreateOptions{},
-				)
+			err = runtimeClient.Create(ctx, required)
 			if err != nil {
 				return false, fmt.Errorf("failed to create alert configmap, namespace: %v, name: %v, error:%v",
 					required.Namespace, required.Name, err)
@@ -156,12 +145,8 @@ func ApplyConfigMap(ctx context.Context, kubeClient kubernetes.Interface, requir
 	}
 
 	klog.Infof("Update alert configmap, namespace: %v, name: %v", required.Namespace, required.Name)
-	_, err = kubeClient.CoreV1().
-		ConfigMaps(required.Namespace).
-		Update(ctx,
-			required,
-			metav1.UpdateOptions{},
-		)
+	curAlertConfigMap.Data = required.Data
+	err = runtimeClient.Update(ctx, curAlertConfigMap)
 	if err != nil {
 		return false, fmt.Errorf("failed to update alert configmap, namespace: %v, name: %v, error:%v",
 			required.Namespace, required.Name, err)
@@ -169,22 +154,13 @@ func ApplyConfigMap(ctx context.Context, kubeClient kubernetes.Interface, requir
 	return true, nil
 }
 
-func ApplySecret(ctx context.Context, kubeClient kubernetes.Interface, requiredSecret *corev1.Secret) (bool, error) {
-	curSecret, err := kubeClient.CoreV1().
-		Secrets(requiredSecret.Namespace).
-		Get(ctx,
-			requiredSecret.Name,
-			metav1.GetOptions{},
-		)
+func ApplySecret(ctx context.Context, runtimeClient client.Client, requiredSecret *corev1.Secret) (bool, error) {
+	currentSecret := &corev1.Secret{}
+	err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(requiredSecret), currentSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Infof("creating secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
-			_, err := kubeClient.CoreV1().
-				Secrets(requiredSecret.Namespace).
-				Create(ctx,
-					requiredSecret,
-					metav1.CreateOptions{},
-				)
+			err = runtimeClient.Create(ctx, requiredSecret)
 			if err != nil {
 				return false, fmt.Errorf("failed to create secret, namespace: %v, name: %v, error:%v",
 					requiredSecret.Namespace, requiredSecret.Name, err)
@@ -194,17 +170,13 @@ func ApplySecret(ctx context.Context, kubeClient kubernetes.Interface, requiredS
 		return false, nil
 	}
 
-	if reflect.DeepEqual(curSecret.Data, requiredSecret.Data) {
+	if reflect.DeepEqual(currentSecret.Data, requiredSecret.Data) {
 		return false, nil
 	}
 
 	klog.Infof("Update secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
-	_, err = kubeClient.CoreV1().
-		Secrets(requiredSecret.Namespace).
-		Update(ctx,
-			requiredSecret,
-			metav1.UpdateOptions{},
-		)
+	currentSecret.Data = requiredSecret.Data
+	err = runtimeClient.Update(ctx, currentSecret)
 	if err != nil {
 		return false, fmt.Errorf("failed to update secret, namespace: %v, name: %v, error:%v",
 			requiredSecret.Namespace, requiredSecret.Name, err)
