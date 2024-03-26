@@ -52,6 +52,7 @@ def kubeapi_cpu_usage(pc, start_time, end_time, step):
         kubeapi_cpu_trend_df["value"]=kubeapi_cpu_trend_df["value"].astype(float)
 
         kubeapi_cpu_trend_df.index= pandas.to_datetime(kubeapi_cpu_trend_df.index, unit="s")
+        kubeapi_cpu_trend_df = kubeapi_cpu_trend_df.sort_index(ascending=True)
         kubeapi_cpu_trend_df.rename(columns={"value": "KubeAPICPUCoreUsage"}, inplace = True)
         print(kubeapi_cpu_trend_df.head(3))
         kubeapi_cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
@@ -93,6 +94,7 @@ def global_hub_operator(pc, start_time, end_time, step):
         operator_cpu_trend_df = MetricRangeDataFrame(operator_cpu_trend)
         operator_cpu_trend_df["value"]=operator_cpu_trend_df["value"].astype(float)
         operator_cpu_trend_df.index= pandas.to_datetime(operator_cpu_trend_df.index, unit="s")
+        operator_cpu_trend_df = operator_cpu_trend_df.sort_index(ascending=True)
         
         #node_cpu_trend_df =  node_cpu_trend_df.pivot( columns='node',values='value')
         operator_cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
@@ -128,6 +130,7 @@ def global_hub_manager(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        cpu_trend_df = cpu_trend_df.sort_index(ascending=True)
         cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
         
         print(cpu_trend_df.head(3))
@@ -164,6 +167,7 @@ def global_hub_grafana(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        cpu_trend_df = cpu_trend_df.sort_index(ascending=True)
         cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
         
         print(cpu_trend_df.head(3))
@@ -199,6 +203,7 @@ def global_hub_total(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        cpu_trend_df = cpu_trend_df.sort_index(ascending=True)
         cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(cpu_trend_df.head(3))
@@ -232,6 +237,7 @@ def global_hub_postgres(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        cpu_trend_df = cpu_trend_df.sort_index(ascending=True)
         cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
         
         print(cpu_trend_df.head(3))
@@ -268,6 +274,7 @@ def global_hub_kafka(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        cpu_trend_df = cpu_trend_df.sort_index(ascending=True)
         cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
         
         print(cpu_trend_df.head(3))
@@ -304,6 +311,7 @@ def global_hub_zookeeper_kafka(pc, start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        cpu_trend_df = cpu_trend_df.sort_index(ascending=True)
         cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
         
         print(cpu_trend_df.head(3))
@@ -345,6 +353,7 @@ def check_global_hub_agent_cpu(start_time, end_time, step):
         cpu_trend_df = MetricRangeDataFrame(cpu_trend)
         cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
         cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        cpu_trend_df = cpu_trend_df.sort_index(ascending=True)
         
         #node_cpu_trend_df =  node_cpu_trend_df.pivot( columns='node',values='value')
         cpu_trend_df.rename(columns={"value": "Usage"}, inplace = True)

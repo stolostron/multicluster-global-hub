@@ -41,7 +41,7 @@ def kubeapi_memory_usage(pc, start_time, end_time, step):
         kubeapi_trend_df = MetricRangeDataFrame(kubeapi_trend)
         kubeapi_trend_df["value"]=kubeapi_trend_df["value"].astype(float)
         kubeapi_trend_df.index= pandas.to_datetime(kubeapi_trend_df.index, unit="s")
-        
+        kubeapi_trend_df = kubeapi_trend_df.sort_index(ascending=True)
         kubeapi_trend_df.rename(columns={"value": "KubeAPIMemUsageRSSGB"}, inplace = True)
         
         print(kubeapi_trend_df.head(3))
@@ -72,6 +72,7 @@ def global_hub_total_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
         global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
         global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
+        global_hub_trend_df = global_hub_trend_df.sort_index(ascending=True)
         global_hub_trend_df.rename(columns={"value": "GlobalHubMemUsageRSSGB"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
@@ -105,6 +106,7 @@ def global_hub_operator_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
         global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
         global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
+        global_hub_trend_df = global_hub_trend_df.sort_index(ascending=True)
         global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
@@ -140,6 +142,7 @@ def global_hub_manager_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
         global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
         global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
+        global_hub_trend_df = global_hub_trend_df.sort_index(ascending=True)
         global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
@@ -176,6 +179,7 @@ def global_hub_grafana_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
         global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
         global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
+        global_hub_trend_df = global_hub_trend_df.sort_index(ascending=True)
         global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
@@ -216,6 +220,7 @@ def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
         global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
         global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
+        global_hub_trend_df = global_hub_trend_df.sort_index(ascending=True)
         global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
@@ -252,6 +257,7 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
         global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
         global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
+        global_hub_trend_df = global_hub_trend_df.sort_index(ascending=True)
         global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
@@ -288,6 +294,7 @@ def global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step):
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
         global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
         global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
+        global_hub_trend_df = global_hub_trend_df.sort_index(ascending=True)
         global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
         
         print(global_hub_trend_df.head(3))
@@ -329,6 +336,7 @@ def check_global_hub_agent_memory(start_time, end_time, step):
         memory_trend_df = MetricRangeDataFrame(memory_trend)
         memory_trend_df["value"]=memory_trend_df["value"].astype(float)
         memory_trend_df.index= pandas.to_datetime(memory_trend_df.index, unit="s")
+        memory_trend_df = memory_trend_df.sort_index(ascending=True)
         memory_trend_df.rename(columns={"value": "Usage"}, inplace = True)
         
         print(memory_trend_df.head(3))
