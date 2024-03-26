@@ -122,7 +122,7 @@ func (r *KafkaController) renderKafkaMetricsResources(mgh *v1alpha4.Multicluster
 		}
 		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-		if err = attachObjectsWithGlobalHub(kafkaObjects, mgh, kafkaDeployer, mapper, r.mgr.GetScheme()); err != nil {
+		if err = manipulateObj(kafkaObjects, mgh, kafkaDeployer, mapper, r.mgr.GetScheme()); err != nil {
 			return fmt.Errorf("failed to create/update kafka objects: %w", err)
 		}
 	}

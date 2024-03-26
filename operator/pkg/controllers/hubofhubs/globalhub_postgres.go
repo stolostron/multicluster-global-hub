@@ -148,7 +148,7 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	if err = attachObjectsWithGlobalHub(postgresObjects, mgh, postgresDeployer, mapper, r.GetScheme()); err != nil {
+	if err = manipulateObj(postgresObjects, mgh, postgresDeployer, mapper, r.GetScheme()); err != nil {
 		return nil, fmt.Errorf("failed to create/update postgres objects: %w", err)
 	}
 

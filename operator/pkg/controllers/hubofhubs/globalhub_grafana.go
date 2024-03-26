@@ -128,7 +128,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	if err = attachObjectsWithGlobalHub(grafanaObjects, mgh, grafanaDeployer, mapper, r.GetScheme()); err != nil {
+	if err = manipulateObj(grafanaObjects, mgh, grafanaDeployer, mapper, r.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update grafana objects: %w", err)
 	}
 

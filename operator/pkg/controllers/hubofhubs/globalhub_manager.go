@@ -143,7 +143,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to render manager objects: %v", err)
 	}
-	if err = attachObjectsWithGlobalHub(managerObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
+	if err = manipulateObj(managerObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update manager objects: %v", err)
 	}
 
@@ -187,8 +187,7 @@ func setMiddlewareCache(curMiddlewareConfig *MiddlewareConfig) {
 	}
 }
 
-// set the owerreferrence and label
-func attachObjectsWithGlobalHub(objs []*unstructured.Unstructured,
+func manipulateObj(objs []*unstructured.Unstructured,
 	mgh *v1alpha4.MulticlusterGlobalHub, hohDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, scheme *runtime.Scheme,
 ) error {
