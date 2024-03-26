@@ -6,3 +6,6 @@ ALTER TABLE status.leaf_hubs ADD CONSTRAINT leaf_hubs_pkey PRIMARY KEY (cluster_
 
 ALTER TABLE status.leaf_hub_heartbeats ADD COLUMN IF NOT EXISTS status VARCHAR(10) DEFAULT 'active';
 CREATE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_status_idx ON status.leaf_hub_heartbeats(status);
+
+ALTER TABLE history.local_compliance DROP CONSTRAINT IF EXISTS local_policies_unique_constraint;
+ALTER TABLE history.local_compliance ADD CONSTRAINT local_policies_unique_constraint UNIQUE (leaf_hub_name, policy_id, cluster_id, compliance_date);

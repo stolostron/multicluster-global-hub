@@ -936,7 +936,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
 
 				err := kafka.UpdateKafkaClusterReady(k8sClient, mcgh.Namespace)
-				Expect(err).NotTo(HaveOccurred())
+				if err != nil {
+					return err
+				}
 
 				// postgres should be ready in envtest
 				// kafka should be ready in envtest

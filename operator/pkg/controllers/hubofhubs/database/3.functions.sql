@@ -34,7 +34,7 @@ BEGIN
             FROM history.local_compliance_view_%1$s
             ORDER BY policy_id, cluster_id
         )
-        ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING',
+        ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date) DO NOTHING',
         view_date, view_date);
 END;
 $$ LANGUAGE plpgsql;
@@ -61,7 +61,7 @@ BEGIN
             history.local_compliance
         WHERE
             compliance_date = %2$L
-        ON CONFLICT (policy_id, cluster_id, compliance_date) DO NOTHING
+        ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date) DO NOTHING
     ', curr_date, prev_date);
 END;
 $$;
@@ -94,7 +94,7 @@ BEGIN
             ) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
         FROM compliance_aggregate ca
         ORDER BY cluster_id, policy_id
-        ON CONFLICT (policy_id, cluster_id, compliance_date)
+        ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date)
         DO UPDATE SET
             compliance = EXCLUDED.compliance,
             compliance_changed_frequency = EXCLUDED.compliance_changed_frequency',
