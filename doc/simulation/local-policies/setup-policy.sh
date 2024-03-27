@@ -60,11 +60,10 @@ function generate_replicas_policy() {
   kubectl patch policy $rootpolicy_name -n default --type=merge --subresource status --patch "status: {compliant: NonCompliant, placement: [{placement: placement-$rootpolicy_name, placementBinding: binding-$rootpolicy_name}], status: [${status}]}" &
 
   # generate placement and placementdecision, each rootpolicy with a placement and placementdescision
-  generate_placement default placement-$rootpolicy_name &
+  generate_placement default placement-$rootpolicy_name "$decision" &
 
   # patch placementdecision status
-  kubectl patch placementdecision placement-${rootpolicy_name}-1 -n default --type=merge --subresource status --patch "status: {decisions: [${decision}]}" &
-
+  
   wait
 
   echo ">> Policy ${rootpolicy_name} is propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
