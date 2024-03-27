@@ -16,7 +16,7 @@ fi
 IFS=':' read -r hub_start hub_end <<< "$1"
 IFS=':' read -r policy_start policy_end <<< "$2"
 
-echo ">> Generate policy ${policy_start}~${policy_start} on hub ${hub_start}~${hub_end}"
+echo ">> Generate policy ${policy_start}~${policy_end} on hub ${hub_start}~${hub_end}"
 
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 export KUBECONFIG=${KUBECONFIG}

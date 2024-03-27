@@ -15,7 +15,7 @@ fi
 IFS=':' read -r policy_start policy_end <<< "$1"
 KUBECONFIG=$2
 
-echo ">> Generate policy ${policy_start}~${policy_start} on $KUBECONFIG"
+echo ">> Generate policy ${policy_start}~${policy_end} on $KUBECONFIG"
 
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
@@ -70,7 +70,7 @@ function generate_replicas_policy() {
   echo ">> Policy ${rootpolicy_name} is propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
 }
 
-for i in $(seq ${policy_start} ${policy_start}); do
+for i in $(seq ${policy_start} ${policy_end}); do
   sorted_clusters=$(kubectl get mcl | grep -oE 'managedcluster-[0-9]+' | awk -F"-" '{print $2}' | sort -n)
   # Extract the minimum and maximum cluster numbers
   cluster_start=$(echo "$sorted_clusters" | head -n 1)
