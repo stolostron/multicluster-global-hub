@@ -2,7 +2,7 @@
 # Copyright (c) 2023 Red Hat, Inc.
 # Copyright Contributors to the Open Cluster Management project
 
-set -eo pipefail
+set -o pipefail
 
 ### This script is used to setup policy and placement for testing
 ### Usage: ./setup-policy.sh <root-policy-number> [kubeconfig]
@@ -81,7 +81,7 @@ policy_last=$(echo "$sorted_policies" | tail -n 1)
 
 if [ -n "$policy_last" ] && [ "$policy_last" -gt 0 ]; then 
   policy_start=$((policy_last + 1))
-  echo ">> policy_start reset to $((policy_last + 1))"
+  echo ">> policy_start reset to $((policy_last + 1)) for KUBECONFIG=$KUBECONFIG"
 fi
 
 for i in $(seq ${policy_start} ${policy_end}); do
