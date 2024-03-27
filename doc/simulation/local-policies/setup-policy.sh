@@ -8,9 +8,14 @@ set -eo pipefail
 ### This script is used to setup policy and placement for testing
 ### Usage: ./setup-policy.sh <root-policy-number> <replicas-number/cluster-number> [kubeconfig]
 
+REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 KUBECONFIG=$3
-FROM_POLICY_IDX=${FROM_POLICY_IDX:-1}
+START_POLICY_IDX=${START_POLICY_IDX:-1}
+
+kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_policy.open-cluster-management.io_policies.crd.yaml
+kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_cluster.open-cluster-management.io_placements.crd.yaml
+kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_03_clusters.open-cluster-management.io_placementdecisions.crd.yaml
 
 source ${CURRENT_DIR}/policy.sh
 
@@ -48,7 +53,7 @@ function generate_replicas_policy() {
   echo "Rootpolicy ${rootpolicy_name} propagate to $cluster_num clusters on $KUBECONFIG"
 }
 
-for i in $(seq $FROM_POLICY_IDX $1); do
+for i in $(seq $START_POLICY_IDX $1); do
   # create replicas policy: name and managed cluster
   generate_replicas_policy rootpolicy-${i} $2
 done

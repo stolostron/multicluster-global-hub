@@ -7,6 +7,8 @@
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
+START_POLICY_IDX=${START_POLICY_IDX:-1}
+
 source ${REPO_DIR}/doc/simulation/local-policies/policy.sh
 
 cluster_dir=${REPO_DIR}/doc/simulation/kubeconfig
