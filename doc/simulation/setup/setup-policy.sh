@@ -18,7 +18,6 @@ IFS=':' read -r policy_start policy_end <<< "$2"
 
 echo ">> Generate policy ${policy_start}~${policy_start} on hub ${hub_start}~${hub_end}"
 
-
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 export KUBECONFIG=${KUBECONFIG}
 source ${REPO_DIR}/doc/simulation/local-policies/policy.sh

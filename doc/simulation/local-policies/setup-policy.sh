@@ -34,7 +34,7 @@ function generate_replicas_policy() {
   compliant_status=$(kubectl get policy "$rootpolicy_name" -n default -o jsonpath="{.status.compliant}" 2>/dev/null)
   if [ "$compliant_status" = "NonCompliant" ]; then 
     echo ">> Policy ${rootpolicy_name} has been propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
-    continue
+    return 0
   fi
   echo ">> Policy ${rootpolicy_name} is propagating to clusters $cluster_start~$cluster_end on $KUBECONFIG"
 
