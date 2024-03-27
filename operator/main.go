@@ -66,6 +66,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -278,9 +279,10 @@ func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderEle
 	retryPeriod := time.Duration(electionConfig.RetryPeriod) * time.Second
 
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
-		Scheme:                  scheme,
-		MetricsBindAddress:      operatorConfig.MetricsAddress,
-		Port:                    9443,
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: operatorConfig.MetricsAddress,
+		},
 		HealthProbeBindAddress:  operatorConfig.ProbeAddress,
 		LeaderElection:          operatorConfig.LeaderElection,
 		LeaderElectionID:        "multicluster-global-hub-operator-lock",

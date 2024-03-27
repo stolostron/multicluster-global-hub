@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -269,7 +270,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 				config.SetMGHNamespacedName(types.NamespacedName{Namespace: "", Name: ""})
 			}
 			mgr, err := ctrl.NewManager(kubeCfg, ctrl.Options{
-				MetricsBindAddress: "0", // disable the metrics serving
+				Metrics: metricsserver.Options{
+					BindAddress: "0", // disable the metrics serving
+				},
 			})
 			if err != nil {
 				t.Errorf("failed to create manager: %v", err)

@@ -48,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
@@ -85,9 +86,9 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		KubeAPIServerFlags: []string{
-			"--disable-admission-plugins=ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook",
-		},
+		// KubeAPIServerFlags: []string{
+		// 	"--disable-admission-plugins=ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook",
+		// },
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
 			filepath.Join("..", "..", "..", "..", "pkg", "testdata", "crds"),
@@ -136,8 +137,9 @@ var _ = BeforeSuite(func() {
 	renewDeadline := 126 * time.Second
 	retryPeriod := 16 * time.Second
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress:      "0", // disable the metrics serving
-		Scheme:                  scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0", // disable the metrics serving
+		}, Scheme: scheme.Scheme,
 		LeaderElection:          true,
 		LeaderElectionNamespace: testNamespace,
 		LeaderElectionID:        "549a8919.open-cluster-management.io",

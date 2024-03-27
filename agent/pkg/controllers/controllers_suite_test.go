@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -71,8 +72,10 @@ var _ = BeforeSuite(func() {
 
 	By("Creating the Manager")
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress: "0", // disable the metrics serving
-		Scheme:             scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0", // disable the metrics serving
+		},
+		Scheme: scheme.Scheme,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
