@@ -77,13 +77,13 @@ cluster_start=$(echo "$sorted_clusters" | head -n 1)
 cluster_end=$(echo "$sorted_clusters" | tail -n 1)
 
 for i in $(seq ${policy_start} ${policy_end}); do
+  policy_name="rootpolicy-${i}"
   # Check if the root policy is finished
-  compliant_status=$(kubectl get policy "rootpolicy-${i}" -n default -o jsonpath="{.status.compliant}" 2>/dev/null)
-  if [[ "$compliant_status" = "NonCompliant" ]]; then 
-    echo ">> Policy "rootpolicy-${i}" has been propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
-    continue
+  compliant_status=$(kubectl get policy "$policy_name" -n default -o jsonpath="{.status.compliant}" 2>/dev/null)
+  if [ "$compliant_status" = "NonCompliant" ]; then 
+    echo ">> Policy "$policy_name" has been propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
+  else
+    # create replicas policy: name and managed cluster
+    generate_replicas_policy $policy_name $cluster_start $cluster_end
   fi
-
-  # create replicas policy: name and managed cluster
-  generate_replicas_policy rootpolicy-${i} $cluster_start $cluster_end
 done
