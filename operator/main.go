@@ -179,7 +179,8 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	}
 
 	addonController, err := hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(),
-		electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled, controllerConfigMap, operatorConfig.LogLevel)
+		electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled, controllerConfigMap, operatorConfig.LogLevel,
+		operatorConfig.PprofBindAddress)
 	if err != nil {
 		setupLog.Error(err, "unable to create addon controller")
 		return 1
