@@ -5,12 +5,11 @@
 You can execute the following script to create the hub clusters and join them into the global hub. To join these clusters to it, You must set the `KUBECONFIG` environment variable to enable these hubs can connect to the global hub. Besides, you also need to provide several parameters:
 
 ```bash
-# export START_HUB_IDX=1
-./doc/simulation/setup/setup-cluster.sh 5 300 
+./doc/simulation/setup/setup-cluster.sh 1:5 1:300 
 ```
 
-- `$1` - How many managed hub clusters will be created
-- `$2` - How many managed cluster will be created on per managed hub
+- `$1` <hub_start:hub_end> - Managed hubs, from `hub1` to `hub5`
+- `$2` <cluster_start:cluster_end> - Managed clusters on each hub, from `managedcluter-1` to `managedcluster-300`
 
 That means create `5` managed hubs and each has `300` managed clusters. You can also run `./doc/simulation/managed-clusters/cleanup-cluster.sh 300` on each hub cluster to cleanup the generated managed clusters.
 
@@ -19,13 +18,11 @@ That means create `5` managed hubs and each has `300` managed clusters. You can 
 Running the following script to create the policies on all the managed hubs.
 
 ```bash
-# export START_HUB_IDX=1
-./doc/simulation/setup/setup-policy.sh 5 50 300
+./doc/simulation/setup/setup-policy.sh 1:5 1:50 
 ```
 
-- `$1` - How many managed hub clusters to mock the polices
-- `$2` - How many root policy will be created per managed hub cluster
-- `$3` - How many managed cluster the root policy will be propagated to on each hub cluster
+- `$1` <hub_start:hub_end> - Managed hubs, from `hub1` to `hub5`
+- `$2` <policy_start:policy_end> - Policies on each hub, from `rootpoicy-1` to `rootpolicy-50`
 
 That means the operation will run on the `5` managed hub concurrently. Each of them will create `50` root policies and propagate to the `300` managed clusters. So there will be `15000` replicas polices on the managed hub cluster. Likewise, you can execute `./doc/simulation/local-policies/cleanup-policy.sh 50 300` on each managed hub to delete the created polices.
 
