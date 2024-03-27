@@ -21,7 +21,6 @@ CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_policy.open-cluster-management.io_policies.crd.yaml
 kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_cluster.open-cluster-management.io_placements.crd.yaml
 kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_03_clusters.open-cluster-management.io_placementdecisions.crd.yaml
-max_concurrency=5
 
 source ${CURRENT_DIR}/policy.sh
 
@@ -36,13 +35,11 @@ function generate_replicas_policy() {
   limit_range_policy $rootpolicy_name &
 
   # create replicas policy: rootpolicy namespace, name and managed cluster
-  concurrency=0
   for j in $(seq $cluster_start $cluster_end); do
     cluster_name=managedcluster-${j}
     echo ">> Generating policy ${cluster_name}/${rootpolicy_name} on $KUBECONFIG"
 
-    limit_range_replicas_policy default $rootpolicy_name ${cluster_name} &
-    ((concurrency++))
+    limit_range_replicas_policy default $rootpolicy_name ${cluster_name}
 
     if [ $j == 1 ]; then
       status="{clustername: $cluster_name, clusternamespace: $cluster_name, compliant: NonCompliant}"
@@ -51,11 +48,7 @@ function generate_replicas_policy() {
       status="${status}, {clustername: $cluster_name, clusternamespace: $cluster_name, compliant: NonCompliant}"
       decision="${decision}, {clusterName: $cluster_name, reason: ''}"
     fi
-    
-    if ((concurrency > max_concurrency)); then
-        wait
-        concurrency=0
-    fi
+
   done
 
   wait
