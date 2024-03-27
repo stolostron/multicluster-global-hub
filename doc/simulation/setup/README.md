@@ -20,7 +20,6 @@ Running the following script to create the policies on all the managed hubs.
 
 ```bash
 # export START_HUB_IDX=1
-# export START_POLICY_IDX=1
 ./doc/simulation/setup/setup-policy.sh 5 50 300
 ```
 
