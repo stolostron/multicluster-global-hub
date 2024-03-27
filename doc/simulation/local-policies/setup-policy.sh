@@ -31,12 +31,6 @@ function generate_replicas_policy() {
   cluster_start=$2
   cluster_end=$3
 
-  # Check if the root policy is finished
-  compliant_status=$(kubectl get policy "$rootpolicy_name" -n default -o jsonpath="{.status.compliant}" 2>/dev/null)
-  if [ "$compliant_status" = "NonCompliant" ]; then 
-    echo ">> Policy ${rootpolicy_name} has been propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
-    return 0
-  fi
   echo ">> Policy ${rootpolicy_name} is propagating to clusters $cluster_start~$cluster_end on $KUBECONFIG"
 
   # create root policy
@@ -83,6 +77,13 @@ for i in $(seq ${policy_start} ${policy_end}); do
   # Extract the minimum and maximum cluster numbers
   cluster_start=$(echo "$sorted_clusters" | head -n 1)
   cluster_end=$(echo "$sorted_clusters" | tail -n 1)
+
+  # Check if the root policy is finished
+  compliant_status=$(kubectl get policy "rootpolicy-${i}" -n default -o jsonpath="{.status.compliant}" 2>/dev/null)
+  if [ "$compliant_status" = "NonCompliant" ]; then 
+    echo ">> Policy ${rootpolicy_name} has been propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
+    continue
+  fi
 
   # create replicas policy: name and managed cluster
   generate_replicas_policy rootpolicy-${i} $cluster_start $cluster_end
