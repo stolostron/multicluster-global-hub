@@ -81,7 +81,7 @@ for i in $(seq ${policy_start} ${policy_end}); do
   # Check if the root policy is finished
   compliant_status=$(kubectl get policy "rootpolicy-${i}" -n default -o jsonpath="{.status.compliant}" 2>/dev/null)
   if [ "$compliant_status" = "NonCompliant" ]; then 
-    echo ">> Policy ${rootpolicy_name} has been propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
+    echo ">> Policy "rootpolicy-${i}" has been propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
     continue
   fi
 
