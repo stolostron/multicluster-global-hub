@@ -86,15 +86,15 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		// KubeAPIServerFlags: []string{
-		// 	"--disable-admission-plugins=ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook",
-		// },
+		ControlPlane: envtest.ControlPlane{},
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
 			filepath.Join("..", "..", "..", "..", "pkg", "testdata", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
+	testEnv.ControlPlane.GetAPIServer().Configure().Set("disable-admission-plugins",
+		"ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook")
 
 	var err error
 	// cfg is defined in this file globally.
