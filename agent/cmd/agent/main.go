@@ -171,6 +171,8 @@ func parseFlags() *config.AgentConfig {
 		"QPS for the multicluster global hub agent")
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
 		"Burst for the multicluster global hub agent")
+	pflag.StringVar(&agentConfig.PprofBindAddress, "pprof-bind-address", "",
+		"The address the Pprof endpoint binds to. It can be set to '' or '0' to disable the pprof serving.")
 	pflag.Parse()
 
 	// set zap logger
@@ -224,6 +226,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 		Metrics: metricsserver.Options{
 			BindAddress: agentConfig.MetricsAddress,
 		},
+		PprofBindAddress:        agentConfig.PprofBindAddress,
 		LeaderElection:          true,
 		Scheme:                  scheme.Scheme,
 		LeaderElectionConfig:    leaderElectionConfig,

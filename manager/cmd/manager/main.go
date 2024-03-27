@@ -167,6 +167,8 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
 		"enable the global resource feature.")
+	pflag.StringVar(&managerConfig.PprofBindAddress, "pprof-bind-address", "",
+		"The address the Pprof endpoint binds to. It can be set to '' or '0' to disable the pprof serving.")
 
 	pflag.Parse()
 	// set zap logger
@@ -211,6 +213,8 @@ func createManager(ctx context.Context,
 		Metrics: metricsserver.Options{
 			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		},
+		Namespace:               managerConfig.WatchNamespace,
+		PprofBindAddress:        managerConfig.PprofBindAddress,
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
 		LeaderElectionID:        leaderElectionLockID,

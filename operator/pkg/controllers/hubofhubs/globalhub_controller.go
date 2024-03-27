@@ -94,6 +94,7 @@ type MulticlusterGlobalHubReconciler struct {
 	LogLevel             string
 	MiddlewareConfig     *MiddlewareConfig
 	EnableGlobalResource bool
+	PprofBindAddress     string
 	upgradeOnce          sync.Once
 }
 

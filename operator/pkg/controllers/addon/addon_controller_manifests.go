@@ -71,7 +71,8 @@ type ManifestsConfig struct {
 	AgentBurst             int
 	LogLevel               string
 	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
-	Resources *Resources
+	Resources        *Resources
+	PprofBindAddress string
 }
 
 type Resources struct {
@@ -93,6 +94,7 @@ type HohAgentAddon struct {
 	EnableGlobalResource bool
 	ControllerConfig     *corev1.ConfigMap
 	LogLevel             string
+	PprofBindAddress     string
 }
 
 func (a *HohAgentAddon) getMulticlusterGlobalHub() (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
@@ -232,6 +234,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		AgentBurst:             agentBurst,
 		LogLevel:               a.LogLevel,
 		Resources:              agentRes,
+		PprofBindAddress:       a.PprofBindAddress,
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {

@@ -29,6 +29,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -121,6 +122,7 @@ func init() {
 
 type operatorConfig struct {
 	MetricsAddress        string
+	PprofBindAddress      string
 	ProbeAddress          string
 	PodNamespace          string
 	LeaderElection        bool
@@ -205,6 +207,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		Log:                  ctrl.Log.WithName("global-hub-reconciler"),
 		MiddlewareConfig:     middlewareCfg,
 		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
+		PprofBindAddress:     operatorConfig.PprofBindAddress,
 		LogLevel:             operatorConfig.LogLevel,
 	}
 
@@ -255,6 +258,8 @@ func parseFlags() *operatorConfig {
 		"The address the metric endpoint binds to.")
 	pflag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081",
 		"The address the probe endpoint binds to.")
+	pflag.StringVar(&config.PprofBindAddress, "pprof-bind-address", "",
+		"The address the Pprof endpoint binds to. It can be set to '' or '0' to disable the pprof serving.")
 	pflag.BoolVar(&config.LeaderElection, "leader-election", false,
 		"Enable leader election for controller manager. ")
 	pflag.BoolVar(&config.GlobalResourceEnabled, "global-resource-enabled", false,
@@ -283,6 +288,7 @@ func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderEle
 		Metrics: metricsserver.Options{
 			BindAddress: operatorConfig.MetricsAddress,
 		},
+		PprofBindAddress:        operatorConfig.PprofBindAddress,
 		HealthProbeBindAddress:  operatorConfig.ProbeAddress,
 		LeaderElection:          operatorConfig.LeaderElection,
 		LeaderElectionID:        "multicluster-global-hub-operator-lock",

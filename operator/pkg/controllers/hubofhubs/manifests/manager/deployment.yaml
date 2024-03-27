@@ -35,6 +35,7 @@ spec:
           imagePullPolicy: {{.ImagePullPolicy}}
           args:
             - --zap-log-level={{.LogLevel}}
+            - --pprof-bind-address={{.PprofBindAddress}}
             - --manager-namespace=$(POD_NAMESPACE)
             - --watch-namespace=$(WATCH_NAMESPACE)
             - --transport-type={{.TransportType}}

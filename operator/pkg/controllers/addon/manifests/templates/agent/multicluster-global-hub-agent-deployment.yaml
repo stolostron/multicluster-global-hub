@@ -35,6 +35,7 @@ spec:
           {{- end }}
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
+            - --pprof-bind-address={{.PprofBindAddress}}
             - --zap-log-level={{.LogLevel}}
             - --pod-namespace=$(POD_NAMESPACE)
             - --leaf-hub-name={{ .LeafHubID }}

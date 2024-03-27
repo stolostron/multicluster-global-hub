@@ -52,12 +52,14 @@ type HoHAddonController struct {
 	EnableGlobalResource bool
 	ControllerConfig     *corev1.ConfigMap
 	LogLevel             string
+	PprofBindAddress     string
 }
 
 // used to create addon manager
 func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 	leaderElection *commonobjects.LeaderElectionConfig, middlewareCfg *hubofhubs.MiddlewareConfig,
 	enableGlobalResource bool, controllerConfig *corev1.ConfigMap, logLevel string,
+	pprofBindAddress string,
 ) (*HoHAddonController, error) {
 	log := ctrl.Log.WithName("addon-controller")
 	addonMgr, err := addonmanager.New(kubeConfig)
@@ -75,6 +77,7 @@ func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
 		EnableGlobalResource: enableGlobalResource,
 		ControllerConfig:     controllerConfig,
 		LogLevel:             logLevel,
+		PprofBindAddress:     pprofBindAddress,
 	}, nil
 }
 
@@ -113,6 +116,7 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		EnableGlobalResource: a.EnableGlobalResource,
 		ControllerConfig:     a.ControllerConfig,
 		LogLevel:             a.LogLevel,
+		PprofBindAddress:     a.PprofBindAddress,
 	}
 	_, err = utils.WaitGlobalHubReady(ctx, a.client, 5*time.Second)
 	if err != nil {
