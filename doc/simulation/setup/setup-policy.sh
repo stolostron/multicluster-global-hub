@@ -8,13 +8,14 @@ set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 START_POLICY_IDX=${START_POLICY_IDX:-1}
+START_HUB_IDX=${START_HUB_IDX:-1}
 
 source ${REPO_DIR}/doc/simulation/local-policies/policy.sh
 
 cluster_dir=${REPO_DIR}/doc/simulation/kubeconfig
 mkdir -p ${cluster_dir}
 
-for i in $(seq 1 $1); do
+for i in $(seq $START_HUB_IDX $1); do
     hub_cluster=hub$i
     root_policy_num=$2
     cluster_num=$3
@@ -27,7 +28,7 @@ wait
 
 # printing the clusters
 echo "Access the clusters:"
-for i in $(seq 1 $1); do
+for i in $(seq $START_HUB_IDX $1); do
     cluster=hub${i}
     kubeconfig="${cluster_dir}/${cluster}"
     echo "export KUBECONFIG=${kubeconfig}"
