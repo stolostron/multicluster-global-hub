@@ -9,12 +9,15 @@ set -eo pipefail
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 export KUBECONFIG=${KUBECONFIG}
 START_HUB_IDX=${START_HUB_IDX:-1}
+END_HUB_IDX=$((START_HUB_IDX + $1))
+
+echo "Generate hub${START_HUB_IDX} to hub${END_HUB_IDX}"
 
 cluster_dir="${REPO_DIR}/doc/simulation/kubeconfig"
 mkdir -p ${cluster_dir}
 
 # creating the simulated hub clusters
-for i in $(seq $START_HUB_IDX $1); do
+for i in $(seq $START_HUB_IDX $END_HUB_IDX); do
     cluster=hub${i}
     if ! kind get clusters | grep -q "$cluster"; then
         echo "Creating: $cluster..."
@@ -29,7 +32,7 @@ wait
 
 # join the kind cluster to global hub
 # 1. create cluster on global hub
-for i in $(seq $START_HUB_IDX $1); do
+for i in $(seq $START_HUB_IDX $END_HUB_IDX); do
     cluster="hub${i}"
 
     # on global hub: create cluster namespace, cluster, and KlusterletAddonConfig
@@ -123,7 +126,7 @@ done
 
 # printing the clusters
 echo "Access the clusters:"
-for i in $(seq 1 $1); do
+for i in $(seq $START_HUB_IDX $END_HUB_IDX); do
     hub_cluster=hub${i}
     kubeconfig="${cluster_dir}/${hub_cluster}"
     echo "export KUBECONFIG=${kubeconfig}"
