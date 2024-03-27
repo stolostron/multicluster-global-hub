@@ -6,33 +6,36 @@
 
 set -eo pipefail
 
+# Check if the script is provided with the correct number of positional parameters
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <hub_start:hub_end> <policy_start:policy_end>"
+    exit 1
+fi
+
+# Parse the parameter using the delimiter ":"
+IFS=':' read -r hub_start hub_end <<< "$1"
+IFS=':' read -r policy_start policy_end <<< "$2"
+
+echo ">> Generate policy ${policy_start}~${policy_start} on hub ${hub_start}~${hub_end}"
+
+
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
-START_HUB_IDX=${START_HUB_IDX:-1}
-END_HUB_IDX=$1
-
-START_POLICY_IDX=${START_POLICY_IDX:-1}
-
-echo "Generate policies($START_POLICY_IDX - $2) on hub${START_HUB_IDX} to hub${END_HUB_IDX}"
-
+export KUBECONFIG=${KUBECONFIG}
 source ${REPO_DIR}/doc/simulation/local-policies/policy.sh
-
 cluster_dir=${REPO_DIR}/doc/simulation/kubeconfig
 mkdir -p ${cluster_dir}
 
-for i in $(seq $START_HUB_IDX $END_HUB_IDX); do
+for i in $(seq $hub_start $hub_end); do
     hub_cluster=hub$i
-    root_policy_num=$2
-    cluster_num=$3
     kubeconfig="${cluster_dir}/${hub_cluster}"
-    
-    bash ${REPO_DIR}/doc/simulation/local-policies/setup-policy.sh $root_policy_num $cluster_num $kubeconfig &
+    bash ${REPO_DIR}/doc/simulation/local-policies/setup-policy.sh $2 $kubeconfig &
 done
 
 wait
 
 # printing the clusters
 echo "Access the clusters:"
-for i in $(seq $START_HUB_IDX $END_HUB_IDX); do
+for i in $(seq $hub_start $hub_end); do
     cluster=hub${i}
     kubeconfig="${cluster_dir}/${cluster}"
     echo "export KUBECONFIG=${kubeconfig}"

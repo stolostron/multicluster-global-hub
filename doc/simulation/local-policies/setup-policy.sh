@@ -6,13 +6,19 @@ set -eo pipefail
 
 
 ### This script is used to setup policy and placement for testing
-### Usage: ./setup-policy.sh <root-policy-number> <replicas-number/cluster-number> [kubeconfig]
+### Usage: ./setup-policy.sh <root-policy-number> [kubeconfig]
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <policy_start:policy_end> <KUBECONFIG>"
+    exit 1
+fi
+
+IFS=':' read -r policy_start policy_end <<< "$1"
+KUBECONFIG=$2
+
+echo ">> Generate policy ${policy_start}~${policy_start} on $KUBECONFIG"
 
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
-KUBECONFIG=$3
-START_POLICY_IDX=${START_POLICY_IDX:-1}
-
 kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_policy.open-cluster-management.io_policies.crd.yaml
 kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_cluster.open-cluster-management.io_placements.crd.yaml
 kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_03_clusters.open-cluster-management.io_placementdecisions.crd.yaml
@@ -21,39 +27,55 @@ source ${CURRENT_DIR}/policy.sh
 
 function generate_replicas_policy() {
   rootpolicy_name=$1
-  cluster_num=$2
+  cluster_start=$2
+  cluster_end=$3
+
+  # Check if the root policy is finished
+  compliant_status=$(kubectl get policy "$rootpolicy_name" -n default -o jsonpath="{.status.compliant}" 2>/dev/null)
+  if [ "$compliant_status" = "NonCompliant" ]; then 
+    echo ">> Policy ${rootpolicy_name} has been propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
+    continue
+  fi
+  echo ">> Policy ${rootpolicy_name} is propagating to clusters $cluster_start~$cluster_end on $KUBECONFIG"
 
   # create root policy
   limit_range_policy $rootpolicy_name &
 
   # create replicas policy: rootpolicy namespace, name and managed cluster
-  for j in $(seq 1 $cluster_num); do
-    echo "Generating managedcluster-${j}/${rootpolicy_name} on $KUBECONFIG"
+  for j in $(seq $cluster_start $cluster_end); do
+    cluster_name=managedcluster-${j}
+    echo ">> Generating policy ${cluster_name}/${rootpolicy_name} on $KUBECONFIG"
 
-    limit_range_replicas_policy default $rootpolicy_name managedcluster-${j} 
+    limit_range_replicas_policy default $rootpolicy_name ${cluster_name}
     if [ $j == 1 ]; then
-      status="{clustername: managedcluster-${j}, clusternamespace: managedcluster-${j}, compliant: NonCompliant}"
-      decision="{clusterName: managedcluster-${j}, reason: ''}"
+      status="{clustername: $cluster_name, clusternamespace: $cluster_name, compliant: NonCompliant}"
+      decision="{clusterName: $cluster_name, reason: ''}"
     else
-      status="${status}, {clustername: managedcluster-${j}, clusternamespace: managedcluster-${j}, compliant: NonCompliant}"
-      decision="${decision}, {clusterName: managedcluster-${j}, reason: ''}"
+      status="${status}, {clustername: $cluster_name, clusternamespace: $cluster_name, compliant: NonCompliant}"
+      decision="${decision}, {clusterName: $cluster_name, reason: ''}"
     fi
   done
 
   # patch root policy status
-  kubectl patch policy $rootpolicy_name -n default --type=merge --subresource status --patch "status: {compliant: NonCompliant, placement: [{placement: placement-roopolicy-${i}, placementBinding: binding-roopolicy-${i}}], status: [${status}]}" &
+  kubectl patch policy $rootpolicy_name -n default --type=merge --subresource status --patch "status: {compliant: NonCompliant, placement: [{placement: placement-$rootpolicy_name, placementBinding: binding-$rootpolicy_name}], status: [${status}]}" &
 
   # generate placement and placementdecision, each rootpolicy with a placement and placementdescision
   generate_placement default placement-$rootpolicy_name &
+
   # patch placementdecision status
   kubectl patch placementdecision placement-${rootpolicy_name}-1 -n default --type=merge --subresource status --patch "status: {decisions: [${decision}]}" &
 
   wait
 
-  echo "Rootpolicy ${rootpolicy_name} propagate to $cluster_num clusters on $KUBECONFIG"
+  echo ">> Policy ${rootpolicy_name} is propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
 }
 
-for i in $(seq $START_POLICY_IDX $1); do
+for i in $(seq ${policy_start} ${policy_start}); do
+  sorted_clusters=$(kubectl get mcl | grep -oE 'managedcluster-[0-9]+' | awk -F"-" '{print $2}' | sort -n)
+  # Extract the minimum and maximum cluster numbers
+  cluster_start=$(echo "$sorted_clusters" | head -n 1)
+  cluster_end=$(echo "$sorted_clusters" | tail -n 1)
+
   # create replicas policy: name and managed cluster
-  generate_replicas_policy rootpolicy-${i} $2
+  generate_replicas_policy rootpolicy-${i} $cluster_start $cluster_end
 done
