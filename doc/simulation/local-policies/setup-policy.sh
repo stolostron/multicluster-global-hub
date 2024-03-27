@@ -49,7 +49,7 @@ function generate_replicas_policy() {
     echo ">> Generating policy ${cluster_name}/${rootpolicy_name} on $KUBECONFIG"
 
     limit_range_replicas_policy default $rootpolicy_name ${cluster_name} &
-    ((counter++))
+    ((concurrency++))
 
     if [ $j == 1 ]; then
       status="{clustername: $cluster_name, clusternamespace: $cluster_name, compliant: NonCompliant}"
