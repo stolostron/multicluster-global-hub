@@ -7,9 +7,12 @@
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
-START_POLICY_IDX=${START_POLICY_IDX:-1}
 START_HUB_IDX=${START_HUB_IDX:-1}
-END_HUB_IDX=$((START_HUB_IDX + $1))
+END_HUB_IDX=$1
+
+START_POLICY_IDX=${START_POLICY_IDX:-1}
+
+echo "Generate policies($START_POLICY_IDX - $2) on hub${START_HUB_IDX} to hub${END_HUB_IDX}"
 
 source ${REPO_DIR}/doc/simulation/local-policies/policy.sh
 

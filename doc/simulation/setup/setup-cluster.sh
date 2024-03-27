@@ -9,7 +9,10 @@ set -eo pipefail
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 export KUBECONFIG=${KUBECONFIG}
 START_HUB_IDX=${START_HUB_IDX:-1}
-END_HUB_IDX=$((START_HUB_IDX + $1))
+END_HUB_IDX=$1
+
+START_CLUSTER_IDX=${START_CLUSTER_IDX:-1}
+END_CLUSTER_IDX=$2
 
 echo "Generate hub${START_HUB_IDX} to hub${END_HUB_IDX}"
 
@@ -111,9 +114,8 @@ EOF
 }
 
 
-start_index=${3:=1}
-for j in $(seq $start_index $2); do # for each managed cluster on the hub
-  for i in $(seq 1 $1); do # for each hub cluster
+for j in $(seq $START_CLUSTER_IDX $END_CLUSTER_IDX); do # for each managed cluster on the hub
+  for i in $(seq $START_HUB_IDX $END_HUB_IDX); do # for each hub cluster
       hub_cluster=hub${i}
       name=managedcluster-${j}
       id=$(printf "%08d-0000-0000-0000-%012d" "${i}" "${j}") # "00000000-0000-0000-0000-000000000000"
