@@ -4,7 +4,6 @@
 
 set -eo pipefail
 
-
 ### This script is used to setup policy and placement for testing
 ### Usage: ./setup-policy.sh <root-policy-number> [kubeconfig]
 if [ $# -ne 2 ]; then
@@ -76,14 +75,17 @@ sorted_clusters=$(kubectl get mcl | grep -oE 'managedcluster-[0-9]+' | awk -F"-"
 cluster_start=$(echo "$sorted_clusters" | head -n 1)
 cluster_end=$(echo "$sorted_clusters" | tail -n 1)
 
+
+sorted_policies=$(kubectl get policy -n default | grep 'NonCompliant' | grep -oE 'rootpolicy-[0-9]+' | awk -F"-" '{print $2}' | sort -n)
+policy_last=$(echo "$sorted_policies" | tail -n 1)
+
+if [ -n "$policy_last" ] && [ "$policy_last" -gt 0 ]; then 
+  policy_start=$((policy_last + 1))
+  echo ">> policy_start reset to $((policy_last + 1))"
+fi
+
 for i in $(seq ${policy_start} ${policy_end}); do
   policy_name="rootpolicy-${i}"
-  # Check if the root policy is finished
-  compliant_status=$(kubectl get policy "$policy_name" -n default -o jsonpath="{.status.compliant}" 2>/dev/null)
-  if [ "$compliant_status" = "NonCompliant" ]; then 
-    echo ">> Policy "$policy_name" has been propagated to clusters $cluster_start~$cluster_end on $KUBECONFIG"
-  else
-    # create replicas policy: name and managed cluster
-    generate_replicas_policy $policy_name $cluster_start $cluster_end
-  fi
+  # create replicas policy: name and managed cluster
+  generate_replicas_policy $policy_name $cluster_start $cluster_end
 done
