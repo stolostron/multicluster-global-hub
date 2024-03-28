@@ -213,7 +213,6 @@ func createManager(ctx context.Context,
 		Metrics: metricsserver.Options{
 			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		},
-		Namespace:               managerConfig.WatchNamespace,
 		PprofBindAddress:        managerConfig.PprofBindAddress,
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
