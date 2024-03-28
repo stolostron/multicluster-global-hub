@@ -47,15 +47,16 @@ kubectl label mcl hub4 vendor=OpenShift --overwrite
 kubectl label mcl hub5 vendor=OpenShift --overwrite
 ```
 
-## Rotate the Status of Polcies
+## Rotate the Status of policy
 
 You can run the following script to update the replicas policies status on each hub cluster.
 
 ```bash
-# update the 50 root policy on the 300 cluster, and update the status to Compliant(default NonCompliant)
-$ ./doc/simulation/setup/rotate-policy.sh 50 300 "Compliant"
-# $ ./doc/simulation/setup/rotate-policy.sh 50 300 "NonCompliant"
+# update the 1 ~ 50 root policy on all the clusters, and update the status to Compliant(default NonCompliant)
+$ ./doc/simulation/setup/rotate-policy.sh 1:50 "Compliant"
+# ./doc/simulation/setup/rotate-policy.sh 1:50 "NonCompliant"
 ```
+
 - `$1` - How many root policy status will route on per managed hub cluster
 - `$2` - How many managed clusters will this `$1` poclies will rotate
 - `$3` - The target compliance status
