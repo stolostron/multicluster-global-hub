@@ -37,8 +37,9 @@ func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfi
 
 	localPlacementRuleEmitter := generic.ObjectEmitterWrapper(enum.LocalPlacementRuleSpecType,
 		func(obj client.Object) bool {
-			return statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue &&
-				!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // local resource
+			// return statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue &&
+			// 	!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // local resource
+			return false // disable the placementrule now
 		}, tweakFunc)
 
 	// syncer
