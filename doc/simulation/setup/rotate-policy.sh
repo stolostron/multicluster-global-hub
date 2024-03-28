@@ -4,24 +4,38 @@
 
 set -eo pipefail
 
-### This script is used to setup policy and placement for testing
-### Usage: ./rotate-policy.sh <root-policy-number> <replicas-number/cluster-number> Compliant/NonCompliant
+# Check if the script is provided with the correct number of positional parameters
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <policy_start:policy_end> <Compliant/NonCompliant>"
+    exit 1
+fi
+
+# Parse the parameter using the delimiter ":"
+IFS=':' read -r policy_start policy_end <<< "$1"
+compliance_state=$2
+
+sorted_clusters=$(kubectl get mcl | grep -oE 'managedcluster-[0-9]+' | awk -F"-" '{print $2}' | sort -n)
+cluster_start=$(echo "$sorted_clusters" | head -n 1)
+cluster_end=$(echo "$sorted_clusters" | tail -n 1)
+
+echo ">> Rotating Policy $policy_start~$policy_end to $compliance_state on cluster $cluster_start~$cluster_end"
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
-
 concurrent="${4:-1}"
 
 function update_cluster_policies() {
   root_policy_namespace=default
   root_policy_name=$1
-  cluster_num=$2
+  root_policy_status=$2
+
+  echo ">> Rotating $root_policy_name to $root_policy_status on cluster $cluster_start~$cluster_end"
+
   count=0
-
   # path replicas policy: rootpolicy namespace, name and managed cluster
-  for j in $(seq 1 ${cluster_num}); do
-    cluster_name=managedcluster-${j}
+  for j in $(seq $cluster_start $cluster_end); do
 
-    if [[ $3 == "Compliant" ]]; then 
+    cluster_name=managedcluster-${j}
+    if [[ $root_policy_status == "Compliant" ]]; then 
       # patch replicas policy status to compliant
       kubectl patch policy $root_policy_namespace.$root_policy_name -n $cluster_name --type=merge --subresource status --patch "status: {compliant: Compliant, details: [{compliant: Compliant, history: [{eventName: $root_policy_namespace.$root_policy_name.$cluster_name, message: Compliant; notification - limitranges container-mem-limit-range found as specified in namespace $root_policy_namespace}], templateMeta: {creationTimestamp: null, name: policy-limitrange-container-mem-limit-range}}]}" &
     else 
@@ -47,8 +61,8 @@ function update_cluster_policies() {
   kubectl patch policy $root_policy_name -n $root_policy_namespace --type=merge --subresource status --patch "status: {compliant: $3, placement: [{placement: placement-$root_policy_name, placementBinding: binding-${root_policy_name}}], status: [${status}]}"
 } 
 
-for i in $(seq 1 $1)
+for i in $(seq $policy_start $policy_end)
 do
   # path replicas policy: rootpolicy namespace, name and managed cluster
-  update_cluster_policies "rootpolicy-${i}" $2 $3
+  update_cluster_policies "rootpolicy-${i}" $compliance_state
 done

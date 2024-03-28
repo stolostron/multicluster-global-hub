@@ -61,10 +61,11 @@ def record_initial(override):
     while True:
       try:
         cur.execute(initial_sql)
-      except ValueError:
-        print("Invalid operation.", ValueError)
+      except Exception as e:
+        print("Error executing SQL query:", e)
         connection = get_conn()
         cur = connection.cursor()
+        continue
       
       df = pd.DataFrame([
         {'time': datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S"), 'compliance': 0, 'event': 0, 'cluster': 0},
@@ -94,10 +95,11 @@ def record_compliance(override):
     while True:
       try:
         cur.execute(compliance_sql)
-      except ValueError:
-        print("Invalid operation.", ValueError)
+      except Exception as e:
+        print("Error executing SQL query:", e)
         connection = get_conn()
         cur = connection.cursor()
+        continue
       # cur.execute(compliance_sql)
       df = pd.DataFrame([
         {'time': datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S"), 'compliant': 0, 'non_compliant': 0},
