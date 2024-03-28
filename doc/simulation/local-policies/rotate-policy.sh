@@ -15,13 +15,14 @@ fi
 # Parse the parameter using the delimiter ":"
 IFS=':' read -r policy_start policy_end <<< "$1"
 compliance_state=$2
-KUBECONFIG=$3
+export KUBECONFIG=$3
 concurrent="${4:-1}"
 
 sorted_clusters=$(kubectl get mcl | grep -oE 'managedcluster-[0-9]+' | awk -F"-" '{print $2}' | sort -n)
 cluster_start=$(echo "$sorted_clusters" | head -n 1)
 cluster_end=$(echo "$sorted_clusters" | tail -n 1)
 
+echo ">> KUBECONFIG=$KUBECONFIG"
 echo ">> Rotating Policy $policy_start~$policy_end to $compliance_state on cluster $cluster_start~$cluster_end"
 
 function update_cluster_policies() {
