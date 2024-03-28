@@ -5,7 +5,7 @@
 set -eo pipefail
 
 # Check if the script is provided with the correct number of positional parameters
-if [ $# -ne 2 ]; then
+if [ $# -lt 2 ]; then
     echo "Usage: $0 <policy_start:policy_end> <Compliant/NonCompliant>"
     exit 1
 fi
@@ -21,7 +21,7 @@ cluster_end=$(echo "$sorted_clusters" | tail -n 1)
 echo ">> Rotating Policy $policy_start~$policy_end to $compliance_state on cluster $cluster_start~$cluster_end"
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
-concurrent="${4:-1}"
+concurrent="${3:-1}"
 
 function update_cluster_policies() {
   root_policy_namespace=default
