@@ -14,5 +14,11 @@ spec:
     targetPort: 5432
     name: postgres
     protocol: TCP
+  {{- if .EnableMetrics }}
+  - port: 80
+    targetPort: 9187
+    protocol: TCP
+    name: http
+  {{- end }}
   selector:
     name: multicluster-global-hub-postgres

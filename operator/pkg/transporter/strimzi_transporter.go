@@ -540,6 +540,8 @@ func (k *strimziTransporter) newKafkaUser(username string) *kafkav1beta2.KafkaUs
 
 // waits for kafka cluster to be ready and returns nil if kafka cluster ready
 func (k *strimziTransporter) kafkaClusterReady() error {
+	k.log.Info("waiting the kafka cluster instance to be ready...")
+
 	err := wait.PollUntilContextTimeout(k.ctx, 5*time.Second, 10*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
 			kafkaCluster := &kafkav1beta2.Kafka{}
@@ -577,7 +579,7 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 			k.log.Info("kafka cluster status condition is not ready")
 			return false, nil
 		})
-
+	k.log.Info("kafka cluster is ready")
 	return err
 }
 

@@ -73,6 +73,47 @@ spec:
           name: postgresql-cfg
         - mountPath: /opt/app-root/src/postgresql-start
           name: postgresql-start
+      {{- if .EnableMetrics }}
+      - name: prometheus-postgres-exporter
+        args:
+        - "--config.file=/etc/postgres_exporter.yml"
+        - "--web.listen-address=:9187"
+        - "--collector.stat_statements"
+        env:
+        - name: DATA_SOURCE_URI
+          valueFrom:
+            secretKeyRef:
+              name: multicluster-global-hub-postgres
+              key: database-uri
+        - name: DATA_SOURCE_USER
+          valueFrom:
+            secretKeyRef:
+              name: multicluster-global-hub-postgres
+              key: database-admin_user
+        - name: DATA_SOURCE_PASS
+          valueFrom:
+            secretKeyRef:
+              name: multicluster-global-hub-postgres
+              key: database-admin-password
+        image: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0"
+        imagePullPolicy: IfNotPresent
+        ports:
+          - name: http
+            containerPort: 9187
+            protocol: TCP
+        livenessProbe:
+          initialDelaySeconds: 0
+          timeoutSeconds: 3
+          httpGet:
+            path: /
+            port: http
+        readinessProbe:
+          initialDelaySeconds: 0
+          timeoutSeconds: 1
+          httpGet:
+            path: /
+            port: http
+      {{- end }}
       serviceAccount: multicluster-global-hub-postgres
       serviceAccountName: multicluster-global-hub-postgres
       {{- if .ImagePullSecret }}
