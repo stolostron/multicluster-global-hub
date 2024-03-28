@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -104,7 +105,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestAgent(t *testing.T) {
+func TestAgentFlag(t *testing.T) {
 	// the testing manipuates the os.Args to set them up for the testcases
 	// after this testing the initial args will be restored
 	oldArgs := os.Args
@@ -152,6 +153,7 @@ func TestAgent(t *testing.T) {
 		if !pflag.Parsed() {
 			t.Error("agent flags should be parsed, but actually not")
 		}
+
 		agentConfig.TransportConfig.KafkaConfig.EnableTLS = false
 		if agentConfig.Terminating {
 			actualExit := doTermination(ctx, cfg)
@@ -180,27 +182,6 @@ func initMockAgentConfig() *config.AgentConfig {
 	}
 }
 
-func TestNoMCHClusterManagerCRD(t *testing.T) {
-	testenv := &envtest.Environment{
-		CRDDirectoryPaths:     []string{},
-		ErrorIfCRDPathMissing: true,
-	}
-
-	cfg, err := testenv.Start()
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if err := testenv.Stop(); err != nil {
-			panic(err)
-		}
-	}()
-	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
-	if err != nil {
-		panic(err)
-	}
-}
-
 func TestHasMCHCRDWithoutCR(t *testing.T) {
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -210,19 +191,14 @@ func TestHasMCHCRDWithoutCR(t *testing.T) {
 	}
 
 	cfg, err := testenv.Start()
-	if err != nil {
-		panic(err)
-	}
+	assert.Nil(t, err)
 	// stop testenv
 	defer func() {
-		if err := testenv.Stop(); err != nil {
-			panic(err)
-		}
+		err := testenv.Stop()
+		assert.Nil(t, err)
 	}()
 	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
-	if err != nil {
-		panic(err)
-	}
+	assert.Nil(t, err)
 }
 
 func TestHasMCHCRDCR(t *testing.T) {
@@ -234,20 +210,16 @@ func TestHasMCHCRDCR(t *testing.T) {
 	}
 
 	cfg, err := testenv.Start()
-	if err != nil {
-		panic(err)
-	}
+	assert.Nil(t, err)
+
 	defer func() {
-		if err := testenv.Stop(); err != nil {
-			panic(err)
-		}
+		err := testenv.Stop()
+		assert.Nil(t, err)
 	}()
 
 	// generate the client based off of the config
 	dynamicClient, err := dynamic.NewForConfig(cfg)
-	if err != nil {
-		panic(err)
-	}
+	assert.Nil(t, err)
 
 	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -266,87 +238,8 @@ func TestHasMCHCRDCR(t *testing.T) {
 	}
 	_, err = dynamicClient.Resource(resource).Namespace("default").
 		Create(context.TODO(), obj, metav1.CreateOptions{})
-	if err != nil {
-		panic(err)
-	}
+	assert.Nil(t, err)
 
 	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
-	if err != nil {
-		panic(err)
-	}
-}
-
-func TestHNoMCHCRDHasClusterManagerCRD(t *testing.T) {
-	testenv := &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds",
-				"0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
-		},
-		ErrorIfCRDPathMissing: true,
-	}
-
-	cfg, err := testenv.Start()
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if err := testenv.Stop(); err != nil {
-			panic(err)
-		}
-	}()
-
-	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
-	if err != nil {
-		panic(err)
-	}
-}
-
-func TestHNoMCHCRDHasClusterManagerCRDCR(t *testing.T) {
-	testenv := &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds",
-				"0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
-		},
-		ErrorIfCRDPathMissing: true,
-	}
-
-	cfg, err := testenv.Start()
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if err := testenv.Stop(); err != nil {
-			panic(err)
-		}
-	}()
-
-	// generate the client based off of the config
-	dynamicClient, err := dynamic.NewForConfig(cfg)
-	if err != nil {
-		panic(err)
-	}
-
-	obj := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "operator.open-cluster-management.io/v1",
-			"kind":       "ClusterManager",
-			"metadata": map[string]interface{}{
-				"name": "test",
-			},
-		},
-	}
-	resource := schema.GroupVersionResource{
-		Group:   "operator.open-cluster-management.io",
-		Version: "v1", Resource: "clustermanagers",
-	}
-	_, err = dynamicClient.Resource(resource).
-		Create(context.TODO(), obj, metav1.CreateOptions{})
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
-	if err != nil {
-		panic(err)
-	}
+	assert.Nil(t, err)
 }

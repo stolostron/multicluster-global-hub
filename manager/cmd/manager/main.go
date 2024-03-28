@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/backup"
@@ -206,9 +207,10 @@ func createManager(ctx context.Context,
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(managerConfig.ElectionConfig.RetryPeriod) * time.Second
 	options := ctrl.Options{
-		Namespace:               managerConfig.WatchNamespace,
-		Scheme:                  scheme,
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		},
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
 		LeaderElectionID:        leaderElectionLockID,
@@ -236,8 +238,16 @@ func createManager(ctx context.Context,
 	// Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
 	// Also note that you may face performance issues when using this with a high number of namespaces.
 	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
-	if strings.Contains(managerConfig.WatchNamespace, ",") {
-		options.Cache.Namespaces = strings.Split(managerConfig.WatchNamespace, ",")
+	if managerConfig.WatchNamespace != "" {
+		namespaces := map[string]cache.Config{}
+		if strings.Contains(managerConfig.WatchNamespace, ",") {
+			for _, ns := range strings.Split(managerConfig.WatchNamespace, ",") {
+				namespaces[ns] = cache.Config{}
+			}
+		} else {
+			namespaces[managerConfig.WatchNamespace] = cache.Config{}
+		}
+		options.Cache.DefaultNamespaces = namespaces
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)

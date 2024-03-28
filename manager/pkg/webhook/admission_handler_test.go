@@ -15,6 +15,7 @@ import (
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
@@ -35,11 +36,15 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			m, err := manager.New(testEnv.Config, manager.Options{
-				Port:               testEnv.WebhookInstallOptions.LocalServingPort,
-				Host:               testEnv.WebhookInstallOptions.LocalServingHost,
-				CertDir:            testEnv.WebhookInstallOptions.LocalServingCertDir,
-				Scheme:             scheme.Scheme,
-				MetricsBindAddress: "0",
+				WebhookServer: webhook.NewServer(webhook.Options{
+					Host:    testEnv.WebhookInstallOptions.LocalServingHost,
+					Port:    testEnv.WebhookInstallOptions.LocalServingPort,
+					CertDir: testEnv.WebhookInstallOptions.LocalServingCertDir,
+				}),
+				Scheme: scheme.Scheme,
+				Metrics: metricsserver.Options{
+					BindAddress: "0", // disable the metrics serving
+				},
 			}) // we need manager here just to leverage manager.SetFields
 			Expect(err).NotTo(HaveOccurred())
 

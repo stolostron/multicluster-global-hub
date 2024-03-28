@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
@@ -39,8 +40,9 @@ func TestScheduler(t *testing.T) {
 	assert.NotNil(t, cfg)
 
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress: "0",
-		Scheme:             scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0", // disable the metrics serving
+		}, Scheme: scheme.Scheme,
 	})
 	assert.Nil(t, err)
 	managerConfig := &config.ManagerConfig{

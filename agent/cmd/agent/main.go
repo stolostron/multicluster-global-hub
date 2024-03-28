@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
@@ -220,7 +221,9 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	}
 
 	options := ctrl.Options{
-		MetricsBindAddress:      agentConfig.MetricsAddress,
+		Metrics: metricsserver.Options{
+			BindAddress: agentConfig.MetricsAddress,
+		},
 		LeaderElection:          true,
 		Scheme:                  scheme.Scheme,
 		LeaderElectionConfig:    leaderElectionConfig,
